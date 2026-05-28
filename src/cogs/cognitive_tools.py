@@ -463,14 +463,14 @@ def _generate_with_groq(system_prompt: str, user_prompt: str) -> str:
 
 def _try_remote_fallbacks(system_prompt: str, user_prompt: str) -> str:
     try:
-        return _generate_with_groq(system_prompt, user_prompt)
-    except Exception as groq_error:
-        logger.warning("Groq fallback failed: %s", groq_error)
-
-    try:
         return _generate_with_openrouter(system_prompt, user_prompt)
     except Exception as openrouter_error:
         logger.warning("OpenRouter fallback failed: %s", openrouter_error)
+
+    try:
+        return _generate_with_groq(system_prompt, user_prompt)
+    except Exception as groq_error:
+        logger.warning("Groq fallback failed: %s", groq_error)
 
     try:
         return _generate_with_hugging_face(system_prompt, user_prompt)
