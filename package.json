@@ -1,0 +1,34 @@
+{
+  "name": "mindpal",
+  "version": "1.0.0",
+  "description": "MindPal is a Discord bot designed to provide resources, support, and coping strategies for individuals dealing with mental health challenges. The bot offers a confidential and non-judgmental space for users to discuss their feelings, ask for advice, and connect with others who may be going through similar experiences.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/M1rw/MindPal.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/M1rw/MindPal/issues"
+  },
+  "homepage": "https://github.com/M1rw/MindPal#readme",
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  },
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "dependencies": {
+    "esbuild": "^0.28.0",
+    "undici-types": "^7.24.6"
+  }
+}
