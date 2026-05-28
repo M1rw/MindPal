@@ -202,6 +202,60 @@ def _generate_with_hugging_face(system_prompt: str, user_prompt: str) -> str:
     raise RuntimeError("Unexpected response from the Hugging Face inference endpoint.")
 
 
+def _generate_with_openrouter(system_prompt: str, user_prompt: str) -> str:
+    api_token = os.getenv("OPENROUTER_API_KEY")
+    if not api_token:
+        raise RuntimeError("OPENROUTER_API_KEY is missing from the environment.")
+
+    model_id = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+    app_name = os.getenv("OPENROUTER_APP_NAME", "MindPal")
+    referer = os.getenv("OPENROUTER_HTTP_REFERER", "https://github.com/")
+
+    payload = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.4,
+        "top_p": 0.9,
+        "max_tokens": 350,
+    }
+
+    request = urllib.request.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_token}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": referer,
+            "X-Title": app_name,
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=45) as response:
+            raw_response = response.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        error_payload = error.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"OpenRouter request failed: {error_payload or error.reason}") from error
+
+    data = json.loads(raw_response)
+    choices = data.get("choices") if isinstance(data, dict) else None
+    if isinstance(choices, list) and choices:
+        message = choices[0].get("message", {}) if isinstance(choices[0], dict) else {}
+        content = message.get("content") if isinstance(message, dict) else None
+        if content:
+            return str(content).strip()
+
+    error_message = data.get("error", {}).get("message") if isinstance(data, dict) else None
+    if error_message:
+        raise RuntimeError(str(error_message))
+
+    raise RuntimeError("Unexpected response from the OpenRouter API.")
+
+
 def _model_candidates() -> list[str]:
     configured_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
     fallback_models = ["gemini-2.5-flash", "gemini-2.0-flash"]
@@ -246,8 +300,12 @@ def _generate_text(system_prompt: str, user_prompt: str) -> str:
                 try:
                     return _generate_with_hugging_face(system_prompt, user_prompt)
                 except Exception as fallback_error:
-                    logger.exception("Hugging Face fallback also failed after Gemini access denial. Using offline fallback.")
-                    return _offline_response(system_prompt, user_prompt)
+                    logger.exception("Hugging Face fallback also failed after Gemini access denial; trying OpenRouter.")
+                    try:
+                        return _generate_with_openrouter(system_prompt, user_prompt)
+                    except Exception as openrouter_error:
+                        logger.exception("OpenRouter fallback also failed after Gemini access denial.")
+                        return _offline_response(system_prompt, user_prompt)
 
             logger.warning("Gemini model %s failed: %s", model_name, error)
             last_error = error
@@ -265,11 +323,23 @@ def _generate_text(system_prompt: str, user_prompt: str) -> str:
         return str(text).strip()
 
     if last_error is not None:
-        logger.warning("No remote model could generate a response; using offline fallback.")
-        return _offline_response(system_prompt, user_prompt)
+        logger.warning("No Gemini model could generate a response; trying Hugging Face, then OpenRouter, then offline fallback.")
+        try:
+            return _generate_with_hugging_face(system_prompt, user_prompt)
+        except Exception:
+            try:
+                return _generate_with_openrouter(system_prompt, user_prompt)
+            except Exception:
+                return _offline_response(system_prompt, user_prompt)
 
     logger.warning("No Gemini models are configured; using offline fallback.")
-    return _offline_response(system_prompt, user_prompt)
+    try:
+        return _generate_with_hugging_face(system_prompt, user_prompt)
+    except Exception:
+        try:
+            return _generate_with_openrouter(system_prompt, user_prompt)
+        except Exception:
+            return _offline_response(system_prompt, user_prompt)
 
 
 def _trim_response(text: str, limit: int = 3500) -> str:
