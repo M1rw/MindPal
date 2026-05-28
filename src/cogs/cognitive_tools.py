@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
+import urllib.error
+import urllib.request
 from typing import Final
 
 import discord
 from discord import app_commands
 from discord.ext import commands
-from google.api_core import exceptions as google_exceptions
+from google.genai import errors as genai_errors
 
 try:
     from google import genai
@@ -53,6 +56,64 @@ def _build_client() -> object:
     return genai.Client(api_key=api_key)
 
 
+def _build_hf_prompt(system_prompt: str, user_prompt: str) -> str:
+    return (
+        f"System: {system_prompt}\n\n"
+        f"User: {user_prompt}\n\n"
+        "Assistant:"
+    )
+
+
+def _generate_with_hugging_face(system_prompt: str, user_prompt: str) -> str:
+    api_token = os.getenv("HF_API_TOKEN")
+    if not api_token:
+        raise RuntimeError("HF_API_TOKEN is missing from the environment.")
+
+    model_id = os.getenv("HF_MODEL_ID", "mistralai/Mistral-7B-Instruct-v0.3")
+    url = f"https://api-inference.huggingface.co/models/{model_id}"
+    payload = {
+        "inputs": _build_hf_prompt(system_prompt, user_prompt),
+        "parameters": {
+            "max_new_tokens": 220,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "return_full_text": False,
+        },
+        "options": {
+            "wait_for_model": True,
+        },
+    }
+
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=45) as response:
+            raw_response = response.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        error_payload = error.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Hugging Face request failed: {error_payload or error.reason}") from error
+
+    data = json.loads(raw_response)
+    if isinstance(data, list) and data and isinstance(data[0], dict) and "generated_text" in data[0]:
+        return str(data[0]["generated_text"]).strip()
+
+    if isinstance(data, dict) and "generated_text" in data:
+        return str(data["generated_text"]).strip()
+
+    if isinstance(data, dict) and "error" in data:
+        raise RuntimeError(str(data["error"]))
+
+    raise RuntimeError("Unexpected response from the Hugging Face inference endpoint.")
+
+
 def _model_candidates() -> list[str]:
     configured_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
     fallback_models = ["gemini-2.5-flash", "gemini-2.0-flash"]
@@ -63,6 +124,14 @@ def _model_candidates() -> list[str]:
             candidates.append(model_name)
 
     return candidates
+
+
+def _is_access_denied(error: Exception) -> bool:
+    if isinstance(error, genai_errors.ClientError):
+        return error.status_code in {401, 403}
+
+    message = str(error).casefold()
+    return "permission_denied" in message or "denied access" in message or "403" in message
 
 
 def _generate_text(system_prompt: str, user_prompt: str) -> str:
@@ -80,7 +149,20 @@ def _generate_text(system_prompt: str, user_prompt: str) -> str:
                     max_output_tokens=350,
                 ),
             )
-        except (google_exceptions.NotFound, google_exceptions.InvalidArgument) as error:
+        except (genai_errors.ClientError,) as error:
+            if _is_access_denied(error):
+                logger.warning("Gemini access denied for model %s; falling back to Hugging Face.", model_name)
+                try:
+                    return _generate_with_hugging_face(system_prompt, user_prompt)
+                except Exception as fallback_error:
+                    logger.exception("Hugging Face fallback also failed after Gemini access denial.")
+                    raise RuntimeError("Gemini access was denied and the fallback model also failed.") from fallback_error
+
+            logger.warning("Gemini model %s failed: %s", model_name, error)
+            last_error = error
+            continue
+
+        except Exception as error:
             logger.warning("Gemini model %s is unavailable: %s", model_name, error)
             last_error = error
             continue
