@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from pathlib import Path
 
 import discord
@@ -10,6 +11,9 @@ from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
 load_dotenv(BASE_DIR / ".env")
 
 
@@ -21,7 +25,14 @@ logger = logging.getLogger("mindpal")
 
 
 intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="!", intents=intents)
+
+
+class MindPalBot(commands.Bot):
+    async def setup_hook(self) -> None:
+        await self.load_extension("src.cogs.support")
+
+
+bot = MindPalBot(command_prefix="!", intents=intents)
 
 
 @bot.tree.command(name="ping", description="Check whether the bot is responsive.")
