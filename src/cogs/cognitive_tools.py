@@ -256,6 +256,60 @@ def _generate_with_openrouter(system_prompt: str, user_prompt: str) -> str:
     raise RuntimeError("Unexpected response from the OpenRouter API.")
 
 
+def _generate_with_groq(system_prompt: str, user_prompt: str) -> str:
+    api_token = os.getenv("GROQ_API_KEY")
+    if not api_token:
+        raise RuntimeError("GROQ_API_KEY is missing from the environment.")
+
+    model_id = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    app_name = os.getenv("GROQ_APP_NAME", "MindPal")
+    referer = os.getenv("GROQ_HTTP_REFERER", "https://github.com/")
+
+    payload = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.4,
+        "top_p": 0.9,
+        "max_tokens": 350,
+    }
+
+    request = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_token}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": referer,
+            "X-Title": app_name,
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=45) as response:
+            raw_response = response.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        error_payload = error.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Groq request failed: {error_payload or error.reason}") from error
+
+    data = json.loads(raw_response)
+    choices = data.get("choices") if isinstance(data, dict) else None
+    if isinstance(choices, list) and choices:
+        message = choices[0].get("message", {}) if isinstance(choices[0], dict) else {}
+        content = message.get("content") if isinstance(message, dict) else None
+        if content:
+            return str(content).strip()
+
+    error_message = data.get("error", {}).get("message") if isinstance(data, dict) else None
+    if error_message:
+        raise RuntimeError(str(error_message))
+
+    raise RuntimeError("Unexpected response from the Groq API.")
+
+
 def _try_remote_fallbacks(system_prompt: str, user_prompt: str) -> str:
     try:
         return _generate_with_hugging_face(system_prompt, user_prompt)
@@ -266,6 +320,11 @@ def _try_remote_fallbacks(system_prompt: str, user_prompt: str) -> str:
         return _generate_with_openrouter(system_prompt, user_prompt)
     except Exception as openrouter_error:
         logger.warning("OpenRouter fallback failed: %s", openrouter_error)
+
+    try:
+        return _generate_with_groq(system_prompt, user_prompt)
+    except Exception as groq_error:
+        logger.warning("Groq fallback failed: %s", groq_error)
 
     return _offline_response(system_prompt, user_prompt)
 
