@@ -256,6 +256,20 @@ def _generate_with_openrouter(system_prompt: str, user_prompt: str) -> str:
     raise RuntimeError("Unexpected response from the OpenRouter API.")
 
 
+def _try_remote_fallbacks(system_prompt: str, user_prompt: str) -> str:
+    try:
+        return _generate_with_hugging_face(system_prompt, user_prompt)
+    except Exception as hugging_face_error:
+        logger.warning("Hugging Face fallback failed: %s", hugging_face_error)
+
+    try:
+        return _generate_with_openrouter(system_prompt, user_prompt)
+    except Exception as openrouter_error:
+        logger.warning("OpenRouter fallback failed: %s", openrouter_error)
+
+    return _offline_response(system_prompt, user_prompt)
+
+
 def _model_candidates() -> list[str]:
     configured_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
     fallback_models = ["gemini-2.5-flash", "gemini-2.0-flash"]
@@ -297,15 +311,7 @@ def _generate_text(system_prompt: str, user_prompt: str) -> str:
         except (genai_errors.ClientError,) as error:
             if _is_access_denied(error):
                 logger.warning("Gemini access denied for model %s; falling back to Hugging Face.", model_name)
-                try:
-                    return _generate_with_hugging_face(system_prompt, user_prompt)
-                except Exception as fallback_error:
-                    logger.exception("Hugging Face fallback also failed after Gemini access denial; trying OpenRouter.")
-                    try:
-                        return _generate_with_openrouter(system_prompt, user_prompt)
-                    except Exception as openrouter_error:
-                        logger.exception("OpenRouter fallback also failed after Gemini access denial.")
-                        return _offline_response(system_prompt, user_prompt)
+                return _try_remote_fallbacks(system_prompt, user_prompt)
 
             logger.warning("Gemini model %s failed: %s", model_name, error)
             last_error = error
@@ -324,22 +330,10 @@ def _generate_text(system_prompt: str, user_prompt: str) -> str:
 
     if last_error is not None:
         logger.warning("No Gemini model could generate a response; trying Hugging Face, then OpenRouter, then offline fallback.")
-        try:
-            return _generate_with_hugging_face(system_prompt, user_prompt)
-        except Exception:
-            try:
-                return _generate_with_openrouter(system_prompt, user_prompt)
-            except Exception:
-                return _offline_response(system_prompt, user_prompt)
+        return _try_remote_fallbacks(system_prompt, user_prompt)
 
     logger.warning("No Gemini models are configured; using offline fallback.")
-    try:
-        return _generate_with_hugging_face(system_prompt, user_prompt)
-    except Exception:
-        try:
-            return _generate_with_openrouter(system_prompt, user_prompt)
-        except Exception:
-            return _offline_response(system_prompt, user_prompt)
+    return _try_remote_fallbacks(system_prompt, user_prompt)
 
 
 def _trim_response(text: str, limit: int = 3500) -> str:
