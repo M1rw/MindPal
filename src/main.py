@@ -25,7 +25,13 @@ logger = logging.getLogger("mindpal")
 
 
 intents = discord.Intents.default()
-intents.message_content = True
+message_content_enabled = os.getenv("ENABLE_MESSAGE_CONTENT_INTENT", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+intents.message_content = message_content_enabled
 
 
 class MindPalBot(commands.Bot):
@@ -61,6 +67,12 @@ async def on_ready() -> None:
         logger.info("Logged in as %s (%s)", bot.user, bot.user.id)
     else:
         logger.info("Logged in, but bot user is not available yet.")
+
+    if not bot.intents.message_content:
+        logger.warning(
+            "Message Content Intent is disabled. Background distress scanning in AICompanion will only work in DMs or when content is available. "
+            "Set ENABLE_MESSAGE_CONTENT_INTENT=true and enable Message Content Intent in Discord Developer Portal to turn it on for guild messages."
+        )
 
 
 @bot.event
