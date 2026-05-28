@@ -5,7 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.utils.config import RESOURCE_OPTIONS
-from src.utils.embeds import create_premium_embed
+from src.utils.ui import generate_resource_ui
 
 
 class ResourceSelect(discord.ui.Select):
@@ -22,7 +22,8 @@ class ResourceSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction) -> None:
         category = self.values[0]
-        await interaction.response.edit_message(embed=create_premium_embed(category), view=self.view)
+        content, view = generate_resource_ui(category)
+        await interaction.response.edit_message(content=content, view=view)
 
 
 class ResourceView(discord.ui.View):
@@ -37,19 +38,14 @@ class Support(commands.Cog):
 
     @app_commands.command(name="resources", description="Show mental health support resources.")
     async def resources(self, interaction: discord.Interaction) -> None:
-        starter_embed = discord.Embed(
-            title="MindPal Support Hub",
-            description="Use the dropdown below to view a support category tailored to what you need right now.",
-            color=discord.Color.blurple(),
+        starter_content = (
+            "### MindPal Support Hub\n\n"
+            "Use the dropdown below to view a support category tailored to what you need right now.\n\n"
+            "**Available Categories:** Anxiety, Depression, Burnout, Crisis\n\n"
+            "MindPal Support Tool • Confident & Ephemeral"
         )
-        starter_embed.add_field(
-            name="Available Categories",
-            value="Anxiety, Depression, Burnout, Crisis",
-            inline=False,
-        )
-        starter_embed.set_footer(text="MindPal Support Tool • Confident & Ephemeral")
 
-        await interaction.response.send_message(embed=starter_embed, view=ResourceView(), ephemeral=True)
+        await interaction.response.send_message(content=starter_content, view=ResourceView(), ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:

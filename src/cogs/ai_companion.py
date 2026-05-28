@@ -11,31 +11,15 @@ from discord.ext import commands
 from src.utils.ai_companion_config import AI_COMPANION_RESOURCE_SETS, DISTRESS_PATTERNS
 from src.utils.ai_prompts import AI_COMPANION_SYSTEM_PROMPT
 from src.utils.ai_providers import generate_with_hugging_face
+from src.utils.ui import generate_resource_ui
 
 
 logger = logging.getLogger("mindpal.ai_companion")
 
 
-def build_resource_embed(category: str) -> discord.Embed:
-    resource_set = AI_COMPANION_RESOURCE_SETS[category]
-    embed = discord.Embed(
-        title=resource_set["title"],
-        description="Here are a few immediate supports you can use right now.",
-        color=discord.Color(resource_set["color"]),
-    )
-    embed.add_field(name="Hotline", value=resource_set["hotline"], inline=False)
-    embed.add_field(
-        name="Helpful Links",
-        value="\n".join(f"• [{label}]({url})" for label, url in resource_set["links"]),
-        inline=False,
-    )
-    embed.add_field(
-        name="Grounding Steps",
-        value="\n".join(f"• {step}" for step in resource_set["steps"]),
-        inline=False,
-    )
-    embed.set_footer(text="MindPal is not a substitute for professional care.")
-    return embed
+def build_resource_message(category: str) -> tuple[str, discord.ui.View]:
+    # Reuse the shared UI helper to produce markdown content and a view of link buttons
+    return generate_resource_ui(category)
 
 
 def detect_distress_category(content: str) -> str | None:
@@ -80,13 +64,13 @@ class AICompanion(commands.Cog):
         if category is None:
             return
 
-        embed = build_resource_embed(category)
+        content, view = build_resource_message(category)
 
         try:
             if message.guild is None:
-                await message.channel.send(embed=embed)
+                await message.channel.send(content=content, view=view)
             else:
-                await message.author.send(embed=embed)
+                await message.author.send(content=content, view=view)
         except discord.Forbidden:
             logger.info("Could not DM %s with grounding resources.", message.author)
         except Exception:
@@ -96,7 +80,8 @@ class AICompanion(commands.Cog):
     @app_commands.describe(message="What would you like to talk about?")
     async def chat(self, interaction: discord.Interaction, message: str) -> None:
         if detect_distress_category(message) == "crisis":
-            await interaction.response.send_message(embed=build_resource_embed("crisis"), ephemeral=True)
+            content, view = build_resource_message("crisis")
+            await interaction.response.send_message(content=content, view=view, ephemeral=True)
             return
 
         await interaction.response.defer(thinking=True, ephemeral=True)
@@ -119,9 +104,9 @@ class AICompanion(commands.Cog):
             )
             return
 
-        embed = discord.Embed(title="MindPal Coping Companion", description=reply[:3500], color=discord.Color.blurple())
-        embed.set_footer(text="MindPal is a supportive listener, not a medical professional.")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        # Send plain markdown reply (ephemeral) with a short footer line appended.
+        reply_md = f"**MindPal Coping Companion**\n\n{reply[:3500]}\n\n_MindPal is a supportive listener, not a medical professional._"
+        await interaction.followup.send(reply_md, ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:

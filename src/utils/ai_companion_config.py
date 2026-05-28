@@ -75,3 +75,36 @@ AI_COMPANION_RESOURCE_SETS: Final[dict[str, AICompanionResourceSet]] = {
         ),
     },
 }
+
+
+# Simple distress detection patterns keyed by category. These are intentionally
+# conservative and use word boundaries to reduce false positives. They are
+# applied case-insensitively by the consumer.
+DISTRESS_PATTERNS: Final[dict[str, tuple[str, ...]]] = {
+    "crisis": (
+        r"\bkill(?:ing)?\s+myself\b",
+        r"\bsuicid(e|al)\b",
+        r"\bwant(?:ing)?\s+to\s+die\b",
+        r"\bi\s+can(?:'t|not)\s+go\s+on\b",
+        r"\bhurt\s+myself\b",
+    ),
+    "anxiety": (
+        r"\bpanic\b",
+        r"\bpanic\s+attack\b",
+        r"\banxiety\b",
+        r"\bworried\b",
+        r"\boverwhelm(?:ed|ing)\b",
+    ),
+    "depression": (
+        r"\bdepress(?:ed|ion)\b",
+        r"\bhopeless\b",
+        r"\bworthless\b",
+        r"\bneed\s+help\s+please\b",
+    ),
+    "burnout": (
+        r"\bburnout\b",
+        r"\bexhaust(?:ed|ion)\b",
+        r"\boverwork(?:ed|ing)?\b",
+        r"\bcan't\s+keep\s+up\b",
+    ),
+}
