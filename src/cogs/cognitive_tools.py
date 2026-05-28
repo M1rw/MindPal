@@ -128,7 +128,10 @@ def _model_candidates() -> list[str]:
 
 def _is_access_denied(error: Exception) -> bool:
     if isinstance(error, genai_errors.ClientError):
-        return error.status_code in {401, 403}
+        code = getattr(error, "code", None)
+        status = getattr(error, "status", None)
+        message = str(error).casefold()
+        return code in {401, 403} or status in {"PERMISSION_DENIED", "UNAUTHENTICATED"} or "permission_denied" in message
 
     message = str(error).casefold()
     return "permission_denied" in message or "denied access" in message or "403" in message
