@@ -120,6 +120,10 @@ def _trim_response(text: str, limit: int = 3500) -> str:
     return text.strip()[:limit]
 
 
+def _format_markdown_reply(title: str, body: str, footer: str) -> str:
+    return f"**{title}**\n\n{body}\n\n_{footer}_"
+
+
 class CognitiveTools(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -139,13 +143,12 @@ class CognitiveTools(commands.Cog):
             )
             return
 
-        embed = discord.Embed(
-            title="MindPal Unscramble",
-            description=_trim_response(result),
-            color=discord.Color.blurple(),
+        message = _format_markdown_reply(
+            "MindPal Unscramble",
+            _trim_response(result),
+            "MindPal is designed to help organize thoughts, not replace professional care.",
         )
-        embed.set_footer(text="MindPal is designed to help organize thoughts, not replace professional care.")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(message, ephemeral=True)
 
     @app_commands.command(name="realitycheck", description="Gently challenge an anxious thought.")
     @app_commands.describe(anxious_thought="Paste the anxious thought you want to examine.")
@@ -162,13 +165,12 @@ class CognitiveTools(commands.Cog):
             )
             return
 
-        embed = discord.Embed(
-            title="MindPal Reality Check",
-            description=_trim_response(result),
-            color=discord.Color.teal(),
+        message = _format_markdown_reply(
+            "MindPal Reality Check",
+            _trim_response(result),
+            "MindPal is supportive, not a substitute for a licensed professional.",
         )
-        embed.set_footer(text="MindPal is supportive, not a substitute for a licensed professional.")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(message, ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:

@@ -8,7 +8,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from src.utils.ai_companion_config import AI_COMPANION_RESOURCE_SETS, DISTRESS_PATTERNS
+from src.utils.ai_companion_config import DISTRESS_PATTERNS
 from src.utils.ai_prompts import AI_COMPANION_SYSTEM_PROMPT
 from src.utils.ai_providers import generate_with_hugging_face
 from src.utils.ui import generate_resource_ui
@@ -42,7 +42,8 @@ class ResourceSelect(discord.ui.Select):
         super().__init__(placeholder="Choose a support category...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.edit_message(embed=build_resource_embed(self.values[0]), view=self.view)
+        content, view = build_resource_message(self.values[0])
+        await interaction.response.edit_message(content=content, view=view)
 
 
 class ResourceView(discord.ui.View):
