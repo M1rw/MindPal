@@ -38,6 +38,20 @@ REALITYCHECK_PROMPT: Final[str] = (
     "Gently and respectfully challenge their cognitive distortion. Ask one thought-provoking question to help them reframe their anxiety."
 )
 
+CRISIS_TERMS: Final[tuple[str, ...]] = (
+    "suicide",
+    "suicidal",
+    "kill myself",
+    "end my life",
+    "hurt myself",
+    "self-harm",
+    "self harm",
+    "overdose",
+    "don't want to live",
+    "do not want to live",
+    "want to die",
+)
+
 
 def _ensure_genai_available() -> None:
     if genai is None:
@@ -62,6 +76,80 @@ def _build_hf_prompt(system_prompt: str, user_prompt: str) -> str:
         f"User: {user_prompt}\n\n"
         "Assistant:"
     )
+
+
+def _mentions_crisis(text: str) -> bool:
+    lowered = text.casefold()
+    return any(term in lowered for term in CRISIS_TERMS)
+
+
+def _offline_unscramble_response(user_prompt: str) -> str:
+    if _mentions_crisis(user_prompt):
+        return (
+            "Things in your control:\n"
+            "- Move away from anything you could use to hurt yourself.\n"
+            "- Contact one trusted person now and tell them you need support.\n\n"
+            "Things out of your control:\n"
+            "- How quickly the feeling passes.\n"
+            "- Everything you have already been through.\n\n"
+            "One microscopic next step:\n"
+            "- Call or text 988 now, or go to the nearest emergency department."
+        )
+
+    lowered = user_prompt.casefold()
+    control_items = [
+        "What you do next.",
+        "Who you contact for support.",
+        "Whether you take one tiny step instead of solving everything at once.",
+    ]
+
+    if any(word in lowered for word in ("work", "job", "boss", "deadline")):
+        control_items[0] = "How you break the next task into something small."
+    elif any(word in lowered for word in ("school", "class", "exam", "study")):
+        control_items[0] = "Which assignment or topic you focus on first."
+    elif any(word in lowered for word in ("relationship", "partner", "friend", "family")):
+        control_items[0] = "How you phrase one honest message or boundary."
+
+    return (
+        "Things in your control:\n"
+        + "\n".join(f"- {item}" for item in control_items)
+        + "\n\nThings out of your control:\n"
+        + "- Other people's reactions.\n"
+        + "- The entire problem all at once.\n"
+        + "- The fact that your brain is overwhelmed right now.\n\n"
+        "One microscopic next step:\n"
+        "- Put one sentence from the brain dump into a note titled \"next\"."
+    )
+
+
+def _offline_realitycheck_response(user_prompt: str) -> str:
+    if _mentions_crisis(user_prompt):
+        return (
+            "I’m not going to mirror this as a thought exercise because it sounds like you may be in immediate danger.\n\n"
+            "What matters right now is getting live support: call or text 988 if you’re in the U.S. or Canada, or contact local emergency services immediately. If you can, tell one trusted person and stay with them until support is connected."
+        )
+
+    lowered = user_prompt.casefold()
+    if any(word in lowered for word in ("always", "never", "ruining", "everyone", "nobody", "disaster", "fail")):
+        challenge = "That thought sounds absolute, but is it really 100% true, or is your mind filling in the worst-case version?"
+    else:
+        challenge = "What evidence would you have to see before you’d treat this thought as a fact instead of a fear?"
+
+    return (
+        f"{challenge}\n\n"
+        "One question:\n"
+        "- If your best friend had the same thought, what would you tell them to check first?"
+    )
+
+
+def _offline_response(system_prompt: str, user_prompt: str) -> str:
+    if "brain-fog translator" in system_prompt.casefold():
+        return _offline_unscramble_response(user_prompt)
+
+    if "cognitive mirror" in system_prompt.casefold():
+        return _offline_realitycheck_response(user_prompt)
+
+    return "I couldn’t reach the AI service, but I’m still here. Try again in a moment."
 
 
 def _generate_with_hugging_face(system_prompt: str, user_prompt: str) -> str:
@@ -158,8 +246,8 @@ def _generate_text(system_prompt: str, user_prompt: str) -> str:
                 try:
                     return _generate_with_hugging_face(system_prompt, user_prompt)
                 except Exception as fallback_error:
-                    logger.exception("Hugging Face fallback also failed after Gemini access denial.")
-                    raise RuntimeError("Gemini access was denied and the fallback model also failed.") from fallback_error
+                    logger.exception("Hugging Face fallback also failed after Gemini access denial. Using offline fallback.")
+                    return _offline_response(system_prompt, user_prompt)
 
             logger.warning("Gemini model %s failed: %s", model_name, error)
             last_error = error
@@ -177,9 +265,11 @@ def _generate_text(system_prompt: str, user_prompt: str) -> str:
         return str(text).strip()
 
     if last_error is not None:
-        raise RuntimeError("No available Gemini model could generate a response.") from last_error
+        logger.warning("No remote model could generate a response; using offline fallback.")
+        return _offline_response(system_prompt, user_prompt)
 
-    raise RuntimeError("No Gemini models are configured.")
+    logger.warning("No Gemini models are configured; using offline fallback.")
+    return _offline_response(system_prompt, user_prompt)
 
 
 def _trim_response(text: str, limit: int = 3500) -> str:
