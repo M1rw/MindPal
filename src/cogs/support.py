@@ -40,6 +40,22 @@ RESOURCE_SETS: Final[dict[str, dict[str, object]]] = {
             "Contact a professional if symptoms are worsening or lasting.",
         ],
     },
+    "burnout": {
+        "title": "Burnout Support Resources",
+        "description": "Practical steps for recovery, boundaries, and reducing overload.",
+        "color": discord.Color.gold(),
+        "hotline": "SAMHSA National Helpline: 1-800-662-HELP (4357)",
+        "links": [
+            ("NHS - Stress, Anxiety and Burnout", "https://www.nhs.uk/mental-health/conditions/stress-anxiety-depression/understanding-stress/"),
+            ("Mind - Burnout and Work Stress", "https://www.mind.org.uk/workplace/mental-health-at-work/taking-care-of-yourself-at-work/stress-burnout/"),
+            ("APA - Coping with Burnout", "https://www.apa.org/topics/healthy-workplaces/burnout"),
+        ],
+        "tips": [
+            "Reduce commitments that are not essential for today.",
+            "Take a real break from screens, tasks, and notifications.",
+            "Set one boundary you can keep for the next 24 hours.",
+        ],
+    },
     "crisis": {
         "title": "Immediate Crisis Support",
         "description": "If you may be in danger, use these emergency resources now.",
@@ -59,47 +75,76 @@ RESOURCE_SETS: Final[dict[str, dict[str, object]]] = {
 }
 
 
+RESOURCE_OPTIONS: Final[list[discord.SelectOption]] = [
+    discord.SelectOption(label="Anxiety", value="anxiety", description="Grounding and calming resources"),
+    discord.SelectOption(label="Depression", value="depression", description="Support and daily coping tools"),
+    discord.SelectOption(label="Burnout", value="burnout", description="Recovery, rest, and boundaries"),
+    discord.SelectOption(label="Crisis", value="crisis", description="Immediate safety and crisis support"),
+]
+
+
+def build_resource_embed(category: str) -> discord.Embed:
+    resource_set = RESOURCE_SETS[category]
+
+    embed = discord.Embed(
+        title=resource_set["title"],
+        description=resource_set["description"],
+        color=resource_set["color"],
+    )
+
+    embed.add_field(name="Immediate Hotline", value=resource_set["hotline"], inline=False)
+
+    links = "\n".join(f"• [{label}]({url})" for label, url in resource_set["links"])
+    embed.add_field(name="Helpful Links", value=links, inline=False)
+
+    tips = "\n".join(f"• {tip}" for tip in resource_set["tips"])
+    embed.add_field(name="Quick Coping Steps", value=tips, inline=False)
+
+    embed.set_footer(
+        text="MindPal support resources are informational and not a substitute for professional care."
+    )
+    return embed
+
+
+class ResourceSelect(discord.ui.Select):
+    def __init__(self) -> None:
+        super().__init__(
+            placeholder="Choose a support category...",
+            min_values=1,
+            max_values=1,
+            options=RESOURCE_OPTIONS,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        category = self.values[0]
+        await interaction.response.edit_message(embed=build_resource_embed(category), view=self.view)
+
+
+class ResourceView(discord.ui.View):
+    def __init__(self) -> None:
+        super().__init__(timeout=180)
+        self.add_item(ResourceSelect())
+
+
 class Support(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
     @app_commands.command(name="resources", description="Show mental health support resources.")
-    @app_commands.describe(category="Optional category: anxiety, depression, or crisis.")
-    async def resources(
-        self,
-        interaction: discord.Interaction,
-        category: str | None = None,
-    ) -> None:
-        selected_category = (category or "crisis").strip().lower()
-        resource_set = RESOURCE_SETS.get(selected_category)
-
-        if resource_set is None:
-            valid_categories = ", ".join(sorted(RESOURCE_SETS))
-            await interaction.response.send_message(
-                f"Unknown category `{category}`. Try one of: {valid_categories}.",
-                ephemeral=True,
-            )
-            return
-
-        embed = discord.Embed(
-            title=resource_set["title"],
-            description=resource_set["description"],
-            color=resource_set["color"],
+    async def resources(self, interaction: discord.Interaction) -> None:
+        starter_embed = discord.Embed(
+            title="MindPal Resources",
+            description="Use the dropdown below to view a support category tailored to what you need right now.",
+            color=discord.Color.blurple(),
         )
-
-        embed.add_field(name="Immediate Hotline", value=resource_set["hotline"], inline=False)
-
-        links = "\n".join(
-            f"• [{label}]({url})" for label, url in resource_set["links"]
+        starter_embed.add_field(
+            name="Available Categories",
+            value="Anxiety, Depression, Burnout, Crisis",
+            inline=False,
         )
-        embed.add_field(name="Helpful Links", value=links, inline=False)
+        starter_embed.set_footer(text="Select one option to update this message with the matching resource set.")
 
-        tips = "\n".join(f"• {tip}" for tip in resource_set["tips"])
-        embed.add_field(name="Quick Coping Steps", value=tips, inline=False)
-
-        embed.set_footer(text="MindPal support resources are informational and not a substitute for professional care.")
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=starter_embed, view=ResourceView(), ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:
