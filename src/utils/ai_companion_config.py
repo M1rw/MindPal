@@ -103,6 +103,7 @@ DISTRESS_PATTERNS: Final[dict[str, tuple[str, ...]]] = {
     ),
     "burnout": (
         r"\bburnout\b",
+        r"\bburnt\s*out\b",
         r"\bexhaust(?:ed|ion)\b",
         r"\boverwork(?:ed|ing)?\b",
         r"\bcan't\s+keep\s+up\b",
