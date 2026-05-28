@@ -25,11 +25,13 @@ logger = logging.getLogger("mindpal")
 
 
 intents = discord.Intents.default()
+intents.message_content = True
 
 
 class MindPalBot(commands.Bot):
     async def setup_hook(self) -> None:
-        await self.load_extension("src.cogs.support")
+        for extension in ("src.cogs.support", "src.cogs.ai_companion"):
+            await self.load_extension(extension)
 
 
 bot = MindPalBot(command_prefix="!", intents=intents)
