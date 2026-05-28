@@ -8,6 +8,7 @@ from typing import Final
 import discord
 from discord import app_commands
 from discord.ext import commands
+from google.api_core import exceptions as google_exceptions
 
 try:
     from google import genai
@@ -52,24 +53,48 @@ def _build_client() -> object:
     return genai.Client(api_key=api_key)
 
 
+def _model_candidates() -> list[str]:
+    configured_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+    fallback_models = ["gemini-2.5-flash", "gemini-2.0-flash"]
+
+    candidates: list[str] = []
+    for model_name in [configured_model, *fallback_models]:
+        if model_name and model_name not in candidates:
+            candidates.append(model_name)
+
+    return candidates
+
+
 def _generate_text(system_prompt: str, user_prompt: str) -> str:
     client = _build_client()
-    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-    response = client.models.generate_content(
-        model=model_name,
-        contents=f"System prompt:\n{system_prompt}\n\nUser input:\n{user_prompt}",
-        config=types.GenerateContentConfig(
-            temperature=0.4,
-            top_p=0.9,
-            max_output_tokens=350,
-        ),
-    )
+    last_error: Exception | None = None
 
-    text = getattr(response, "text", None)
-    if not text:
-        raise RuntimeError("The Gemini API returned an empty response.")
+    for model_name in _model_candidates():
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=f"System prompt:\n{system_prompt}\n\nUser input:\n{user_prompt}",
+                config=types.GenerateContentConfig(
+                    temperature=0.4,
+                    top_p=0.9,
+                    max_output_tokens=350,
+                ),
+            )
+        except (google_exceptions.NotFound, google_exceptions.InvalidArgument) as error:
+            logger.warning("Gemini model %s is unavailable: %s", model_name, error)
+            last_error = error
+            continue
 
-    return str(text).strip()
+        text = getattr(response, "text", None)
+        if not text:
+            raise RuntimeError("The Gemini API returned an empty response.")
+
+        return str(text).strip()
+
+    if last_error is not None:
+        raise RuntimeError("No available Gemini model could generate a response.") from last_error
+
+    raise RuntimeError("No Gemini models are configured.")
 
 
 def _trim_response(text: str, limit: int = 3500) -> str:
