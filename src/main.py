@@ -30,7 +30,7 @@ intents.message_content = True
 
 class MindPalBot(commands.Bot):
     async def setup_hook(self) -> None:
-        for extension in ("src.cogs.support", "src.cogs.ai_companion"):
+        for extension in ("src.cogs.support", "src.cogs.ai_companion", "src.cogs.cognitive_tools"):
             await self.load_extension(extension)
 
 
