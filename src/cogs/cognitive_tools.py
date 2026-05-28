@@ -10,9 +10,11 @@ from discord import app_commands
 from discord.ext import commands
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 except ImportError as exc:  # pragma: no cover - import-time dependency guard
     genai = None
+    types = None
     _IMPORT_ERROR = exc
 else:
     _IMPORT_ERROR = None
@@ -36,33 +38,31 @@ REALITYCHECK_PROMPT: Final[str] = (
 def _ensure_genai_available() -> None:
     if genai is None:
         raise RuntimeError(
-            "google-generativeai is not installed. Install it with: python -m pip install google-generativeai"
+            "google-genai is not installed. Install it with: python -m pip install google-genai"
         ) from _IMPORT_ERROR
 
 
-def _build_model() -> object:
+def _build_client() -> object:
     _ensure_genai_available()
 
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise RuntimeError("GOOGLE_API_KEY is missing from the environment.")
 
-    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(model_name)
+    return genai.Client(api_key=api_key)
 
 
 def _generate_text(system_prompt: str, user_prompt: str) -> str:
-    model = _build_model()
-    response = model.generate_content(
-        [
-            {"role": "user", "parts": [f"System prompt:\n{system_prompt}\n\nUser input:\n{user_prompt}"]},
-        ],
-        generation_config={
-            "temperature": 0.4,
-            "top_p": 0.9,
-            "max_output_tokens": 350,
-        },
+    client = _build_client()
+    model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    response = client.models.generate_content(
+        model=model_name,
+        contents=f"System prompt:\n{system_prompt}\n\nUser input:\n{user_prompt}",
+        config=types.GenerateContentConfig(
+            temperature=0.4,
+            top_p=0.9,
+            max_output_tokens=350,
+        ),
     )
 
     text = getattr(response, "text", None)
