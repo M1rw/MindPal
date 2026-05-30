@@ -136,6 +136,36 @@ def _offline_response(system_prompt: str, user_prompt: str) -> str:
     return "I couldn't reach the AI service, but I'm still here. Try again in a moment."
 
 
+def _clean_companion_response(text: str) -> str:
+    value = text.strip()
+
+    generic_prefixes = (
+        "i'm really sorry to hear that",
+        "i am really sorry to hear that",
+        "i'm sorry to hear that",
+        "i am sorry to hear that",
+        "i'm really sorry",
+        "i am really sorry",
+        "i'm sorry",
+        "i am sorry",
+        "i hear you",
+        "i understand how that feels",
+        "i'm here to listen",
+        "it sounds like",
+    )
+
+    lowered = value.casefold()
+    for prefix in generic_prefixes:
+        if lowered.startswith(prefix):
+            value = value[len(prefix):].lstrip(" .,-:;\n\t")
+            break
+
+    if not value:
+        value = "That sounds heavy. Tell me what part hurts the most right now."
+
+    return value
+
+
 def _try_remote_fallbacks(system_prompt: str, user_prompt: str) -> str:
     for provider in (generate_with_openrouter, generate_with_groq, generate_with_hugging_face):
         try:
@@ -148,9 +178,14 @@ def _try_remote_fallbacks(system_prompt: str, user_prompt: str) -> str:
 def generate_text(system_prompt: str, user_prompt: str, history: list[ChatTurn] | None = None) -> str:
     user_payload = _build_history_context(history) + user_prompt
     try:
-        return generate_with_google(system_prompt, user_payload)
+        response = generate_with_google(system_prompt, user_payload)
     except Exception:
-        return _try_remote_fallbacks(system_prompt, user_payload)
+        response = _try_remote_fallbacks(system_prompt, user_payload)
+
+    if system_prompt == AI_COMPANION_SYSTEM_PROMPT:
+        return _clean_companion_response(response)
+
+    return response
 
 
 def run_unscramble(text: str, history: list[ChatTurn] | None = None) -> str:
