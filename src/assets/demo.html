@@ -384,11 +384,12 @@
         const currentModeIconSlot = document.getElementById('current-mode-icon-slot');
         const modeOptions = document.querySelectorAll('.mode-option');
         const featureToggleBtn = document.getElementById('feature-toggle-btn');
+        const featureToggleIcon = document.getElementById('feature-toggle-icon');
         
         const welcomeScreen = document.getElementById('welcome-screen');
         const chatHistory = document.getElementById('chat-history');
         const chatContainer = document.getElementById('chat-container');
-        let isFocusRepliesOn = false;
+        let isConciseModeOn = false;
         let activeMode = 'Companion';
         const conversationMemory = [];
 
@@ -445,7 +446,23 @@
             </div>`;
         }
 
+        function updateConciseModeToggle() {
+            featureToggleBtn.className = 'p-2 rounded-full transition-all relative group/tooltip';
+            featureToggleIcon.setAttribute('data-lucide', isConciseModeOn ? 'sparkles' : 'sliders-horizontal');
+
+            if (isConciseModeOn) {
+                featureToggleBtn.classList.add('bg-amber-100', 'text-amber-600', 'dark:bg-amber-900/30', 'dark:text-amber-300', 'shadow-sm');
+                featureToggleBtn.title = 'Concise Mode: ON';
+            } else {
+                featureToggleBtn.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:bg-black/5', 'dark:hover:bg-white/10');
+                featureToggleBtn.title = 'Concise Mode: OFF';
+            }
+
+            lucide.createIcons();
+        }
+
         setCurrentModeIcon('Companion');
+        updateConciseModeToggle();
 
         function isNearBottom() {
             const threshold = 160;
@@ -623,12 +640,8 @@
 
         // Feature toggle: short/focused bot replies.
         featureToggleBtn.addEventListener('click', () => {
-            isFocusRepliesOn = !isFocusRepliesOn;
-            featureToggleBtn.classList.toggle('bg-black/10', isFocusRepliesOn);
-            featureToggleBtn.classList.toggle('dark:bg-white/15', isFocusRepliesOn);
-            featureToggleBtn.classList.toggle('text-blue-500', isFocusRepliesOn);
-            featureToggleBtn.classList.toggle('dark:text-blue-300', isFocusRepliesOn);
-            featureToggleBtn.title = isFocusRepliesOn ? 'Concise Mode: ON' : 'Concise Mode: OFF';
+            isConciseModeOn = !isConciseModeOn;
+            updateConciseModeToggle();
         });
 
         // Auto-resize textarea
@@ -763,7 +776,7 @@
                 }
 
                 let answer = String(result.result || 'No response available.');
-                if (isFocusRepliesOn) {
+                if (isConciseModeOn) {
                     answer = answer.slice(0, 320);
                 }
 
