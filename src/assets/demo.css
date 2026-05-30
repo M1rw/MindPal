@@ -170,7 +170,7 @@ textarea:focus::-webkit-scrollbar {
 .hero-centered .input-hero {
     position: absolute;
     /* vertically center while preserving horizontal centering (translateX only changes to include Y) */
-    top: 64%;
+    top: 61%;
     bottom: auto;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -181,8 +181,27 @@ textarea:focus::-webkit-scrollbar {
 
 /* Ensure welcome copy has space at the bottom so text doesn't fall under the input */
 .hero-centered #welcome-screen {
-    transform: translateY(-8%);
-    padding-bottom: 5.5rem; /* reserve space for centered input */
+    transform: translateY(-6%);
+    padding-bottom: 4.25rem; /* reserve space while keeping hero tighter */
+}
+
+/* Compact hero spacing so the initial screen feels less oversized */
+.hero-centered .welcome-title {
+    margin-bottom: 0.5rem;
+}
+
+.hero-centered .welcome-subtitle {
+    margin-bottom: 1.25rem;
+    max-width: 38rem;
+}
+
+.hero-centered .input-hero .suggestion-chips {
+    margin-top: 0.65rem;
+    gap: 0.55rem;
+}
+
+.hero-centered .input-hero .text-center.mt-3 {
+    margin-top: 0.45rem;
 }
 
 /* Chat reveal animation: slide down with soft shadow */
