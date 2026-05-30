@@ -26,3 +26,4 @@ dist/
 # Editor settings
 .vscode/
 .idea/
+.vercel
