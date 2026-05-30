@@ -181,6 +181,7 @@ textarea:focus::-webkit-scrollbar {
 
 /* Ensure welcome copy has space at the bottom so text doesn't fall under the input */
 .hero-centered #welcome-screen {
+    margin-top: -8vh;
     transform: translateY(-2%);
     padding-bottom: 3rem; /* reserve space while reducing oversized gap */
 }
