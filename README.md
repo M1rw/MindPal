@@ -102,3 +102,45 @@ python tools/import_check.py
 ```
 
 ---
+
+**Web Demo (Vercel + Browser UI)**
+
+This repo now includes a deployable web demo so you can showcase MindPal outside Discord.
+
+- API entrypoint: `api/index.py` (FastAPI)
+- Web logic (reuses your safety + fallback approach): `src/web/demo_logic.py`
+- UI page: `src/assets/demo.html`
+- Vercel routing: `vercel.json`
+
+**What works in the web demo**
+- Distress classification endpoint and crisis resource rendering
+- `/unscramble` and `/realitycheck` powered by your provider fallback chain
+- Chat endpoint with crisis short-circuit to immediate resources
+- Clean markdown-style UI and link buttons/cards (no embeds)
+
+**Run locally (web demo)**
+
+```powershell
+python -m pip install -r requirements.txt
+python -m uvicorn api.index:app --reload --port 8000
+```
+
+Open: `http://127.0.0.1:8000`
+
+**Deploy to Vercel**
+
+```powershell
+npm i -g vercel
+vercel login
+vercel
+```
+
+Then set your environment variables in Vercel Project Settings (same keys as `.env.example`), for example:
+- `GOOGLE_API_KEY`
+- `OPENROUTER_API_KEY`
+- `GROQ_API_KEY`
+- `HF_API_TOKEN`
+
+If no provider key is available at runtime, the app still falls back to local deterministic responses for supported flows.
+
+---

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindPal Web Demo</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --bg-2: #141a33;
+        --card: #161d3a;
+        --text: #eef2ff;
+        --muted: #b8c0ff;
+        --accent: #42d8c7;
+        --accent-2: #ffd166;
+        --danger: #ff6b6b;
+        --ok: #80ed99;
+        --border: #2c3563;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 15% 20%, rgba(66, 216, 199, 0.15), transparent 35%),
+          radial-gradient(circle at 85% 10%, rgba(255, 209, 102, 0.2), transparent 30%),
+          linear-gradient(145deg, var(--bg), var(--bg-2));
+        min-height: 100vh;
+      }
+
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 28px 16px 42px;
+      }
+
+      .hero {
+        background: linear-gradient(130deg, rgba(66, 216, 199, 0.18), rgba(255, 209, 102, 0.18));
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 22px;
+        backdrop-filter: blur(6px);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 2rem;
+      }
+
+      .sub {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+      }
+
+      h2 {
+        margin-top: 0;
+        font-size: 1.1rem;
+      }
+
+      label {
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
+      textarea,
+      select,
+      button {
+        width: 100%;
+        margin-top: 8px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0f1530;
+        color: var(--text);
+        padding: 10px;
+        font-size: 0.95rem;
+      }
+
+      textarea {
+        min-height: 110px;
+        resize: vertical;
+      }
+
+      button {
+        cursor: pointer;
+        background: linear-gradient(120deg, #2cb5a7, #3491ff);
+        border: none;
+        font-weight: 700;
+      }
+
+      button:hover {
+        filter: brightness(1.08);
+      }
+
+      .result {
+        margin-top: 12px;
+        white-space: pre-wrap;
+        line-height: 1.45;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        padding: 10px;
+      }
+
+      .status {
+        display: inline-block;
+        margin-top: 8px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+      }
+
+      .status.ok { background: rgba(128, 237, 153, 0.17); color: var(--ok); }
+      .status.warn { background: rgba(255, 209, 102, 0.18); color: var(--accent-2); }
+      .status.danger { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
+
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .links a {
+        text-decoration: none;
+        color: var(--text);
+        padding: 7px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #10193a;
+        font-size: 0.86rem;
+      }
+
+      .footer {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <h1>MindPal Web Demo</h1>
+        <p class="sub">
+          A clean browser demo of your Discord logic: local distress detection, crisis resource routing,
+          and multi-provider A-I fallback responses.
+        </p>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <h2>Safety Classifier + Resources</h2>
+          <label for="classifyInput">Write a message</label>
+          <textarea id="classifyInput" placeholder="Example: I want to kill myself"></textarea>
+          <button id="classifyBtn">Classify Message</button>
+          <div id="classifyStatus" class="status warn">Waiting</div>
+          <div id="classifyOut" class="result">No result yet.</div>
+          <div id="resourceLinks" class="links"></div>
+        </article>
+
+        <article class="card">
+          <h2>Unscramble / Reality Check</h2>
+          <label for="toolMode">Mode</label>
+          <select id="toolMode">
+            <option value="unscramble">Unscramble</option>
+            <option value="realitycheck">Reality Check</option>
+          </select>
+          <label for="toolInput">Input</label>
+          <textarea id="toolInput" placeholder="Type your thought spiral..."></textarea>
+          <button id="toolBtn">Run Tool</button>
+          <div id="toolOut" class="result">No result yet.</div>
+        </article>
+
+        <article class="card" style="grid-column: 1 / -1;">
+          <h2>Chat Demo</h2>
+          <label for="chatInput">Message</label>
+          <textarea id="chatInput" placeholder="Talk to MindPal..."></textarea>
+          <button id="chatBtn">Send</button>
+          <div id="chatOut" class="result">No result yet.</div>
+          <div id="chatLinks" class="links"></div>
+        </article>
+      </section>
+
+      <p class="footer">
+        Demo only. MindPal is supportive and does not replace professional care.
+      </p>
+    </main>
+
+    <script>
+      const classifyInput = document.getElementById("classifyInput");
+      const classifyBtn = document.getElementById("classifyBtn");
+      const classifyOut = document.getElementById("classifyOut");
+      const classifyStatus = document.getElementById("classifyStatus");
+      const resourceLinks = document.getElementById("resourceLinks");
+
+      const toolMode = document.getElementById("toolMode");
+      const toolInput = document.getElementById("toolInput");
+      const toolBtn = document.getElementById("toolBtn");
+      const toolOut = document.getElementById("toolOut");
+
+      const chatInput = document.getElementById("chatInput");
+      const chatBtn = document.getElementById("chatBtn");
+      const chatOut = document.getElementById("chatOut");
+      const chatLinks = document.getElementById("chatLinks");
+
+      function renderLinks(root, links) {
+        root.innerHTML = "";
+        for (const item of links || []) {
+          const a = document.createElement("a");
+          a.href = item.url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.textContent = item.label;
+          root.appendChild(a);
+        }
+      }
+
+      async function postJSON(path, payload) {
+        const res = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt || `HTTP ${res.status}`);
+        }
+        return res.json();
+      }
+
+      classifyBtn.addEventListener("click", async () => {
+        const text = classifyInput.value.trim();
+        if (!text) return;
+
+        classifyStatus.textContent = "Checking...";
+        classifyStatus.className = "status warn";
+        classifyOut.textContent = "Running classifier...";
+        resourceLinks.innerHTML = "";
+
+        try {
+          const data = await postJSON("/api/classify", { text });
+          const category = data.category;
+          if (!category) {
+            classifyStatus.textContent = "No risk keyword match";
+            classifyStatus.className = "status ok";
+            classifyOut.textContent = "No distress category detected by local safety patterns.";
+            return;
+          }
+
+          const resData = await fetch(`/api/resources/${encodeURIComponent(category)}`).then(r => r.json());
+          classifyStatus.textContent = `Detected: ${category}`;
+          classifyStatus.className = category === "crisis" ? "status danger" : "status warn";
+          classifyOut.textContent = resData.markdown;
+          renderLinks(resourceLinks, resData.links);
+        } catch (err) {
+          classifyStatus.textContent = "Error";
+          classifyStatus.className = "status danger";
+          classifyOut.textContent = `Error: ${String(err)}`;
+        }
+      });
+
+      toolBtn.addEventListener("click", async () => {
+        const text = toolInput.value.trim();
+        if (!text) return;
+
+        const mode = toolMode.value;
+        toolOut.textContent = `Running ${mode}...`;
+
+        try {
+          const data = await postJSON(`/api/${mode}`, { text });
+          toolOut.textContent = data.result || "No response.";
+        } catch (err) {
+          toolOut.textContent = `Error: ${String(err)}`;
+        }
+      });
+
+      chatBtn.addEventListener("click", async () => {
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        chatOut.textContent = "Sending...";
+        chatLinks.innerHTML = "";
+
+        try {
+          const data = await postJSON("/api/chat", { text });
+          if (data.mode === "crisis") {
+            chatOut.textContent = data.resource.markdown;
+            renderLinks(chatLinks, data.resource.links);
+            return;
+          }
+          chatOut.textContent = data.result || "No response.";
+        } catch (err) {
+          chatOut.textContent = `Error: ${String(err)}`;
+        }
+      });
+    </script>
+  </body>
+</html>

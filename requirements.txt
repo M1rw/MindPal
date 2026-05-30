@@ -12,6 +12,7 @@ colorama==0.4.6
 cryptography==48.0.0
 discord.py==2.7.1
 distro==1.9.0
+fastapi==0.136.3
 frozenlist==1.8.0
 google-ai-generativelanguage==0.6.15
 google-api-core==2.30.3
@@ -46,5 +47,6 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 uritemplate==4.2.0
 urllib3==2.7.0
+uvicorn==0.48.0
 websockets==16.0
 yarl==1.24.2
