@@ -399,6 +399,50 @@ function pushMemory(role, text) {
     }
 }
 
+// Adjust hero layout on small screens to avoid subtitle/input overlap
+function adjustHeroForSmallScreens() {
+    try {
+        const mq = window.matchMedia('(max-width: 480px)');
+        if (!mq.matches) {
+            document.body.classList.remove('hero-input-anchored');
+            return;
+        }
+        const sub = document.querySelector('.welcome-subtitle');
+        const input = document.querySelector('.input-hero');
+        if (!sub || !input) return;
+        const sRect = sub.getBoundingClientRect();
+        const iRect = input.getBoundingClientRect();
+        // If subtitle bottom would overlap input top, anchor input to bottom
+            if (sRect.bottom > iRect.top) {
+                // apply inline styles to force bottom anchoring when overlap detected
+                input.style.top = 'auto';
+                input.style.bottom = '12px';
+                input.style.transform = 'translateX(-50%)';
+                input.style.transition = 'none';
+            } else {
+                // clear inline overrides so the default centered layout can apply
+                input.style.top = '';
+                input.style.bottom = '';
+                input.style.transform = '';
+                input.style.transition = '';
+            }
+    } catch (e) {
+        // silently ignore in older browsers
+        console.error(e);
+    }
+}
+
+// Run adjust on load and on resize/orientation changes (debounced)
+let __resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(__resizeTimer);
+    __resizeTimer = setTimeout(adjustHeroForSmallScreens, 140);
+});
+window.addEventListener('orientationchange', () => setTimeout(adjustHeroForSmallScreens, 180));
+document.addEventListener('DOMContentLoaded', () => setTimeout(adjustHeroForSmallScreens, 100));
+// initial call in case script loaded after DOM
+setTimeout(adjustHeroForSmallScreens, 200);
+
 
 function showChatHistory() {
     // Hide welcome hero
@@ -411,6 +455,9 @@ function showChatHistory() {
 
     // Remove hero centering so input moves to bottom
     document.body.classList.remove('hero-centered');
+    // also clear any inline anchoring we applied for hero view
+    const el = document.querySelector('.input-hero');
+    if (el) { el.style.top = ''; el.style.bottom = ''; el.style.transform = ''; el.style.transition = ''; }
 
     // Activate the enter animation on next frame
     requestAnimationFrame(() => {

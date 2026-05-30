@@ -257,7 +257,7 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
 
     .hero-centered #welcome-screen {
         margin-top: -5vh;
-        padding-bottom: 2.5rem;
+        padding-bottom: 3.75rem;
     }
 }
 
@@ -278,7 +278,7 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
     .hero-centered #welcome-screen {
         margin-top: -2.5vh;
         transform: translateY(0);
-        padding-bottom: 2rem;
+        padding-bottom: 8rem !important;
     }
 
     .hero-centered .welcome-title {
@@ -351,7 +351,11 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
 /* Small phones */
 @media (max-width: 480px) {
     .hero-centered .input-hero {
-        top: 63%;
+        /* On very small phones, avoid vertical centering which can overlap content.
+           Anchor the input near the bottom instead so the welcome copy remains readable. */
+        top: auto !important;
+        bottom: 12px !important;
+        transform: translateX(-50%) !important;
     }
 
     .hero-centered .welcome-title {
@@ -362,10 +366,26 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
     .hero-centered .welcome-subtitle {
         font-size: clamp(0.93rem, 4.2vw, 1.04rem);
         line-height: 1.36;
+        margin-bottom: 1.2rem; /* increase gap below subtitle on very small phones */
     }
 
     .input-hero .input-disclaimer {
         font-size: 0.7rem;
+    }
+    /* Small-phone reserve so subtitle remains visible above input */
+    .hero-centered #welcome-screen {
+        padding-bottom: 8rem !important; /* larger reserve for narrow viewports */
+    }
+
+    /* Helper class toggled by JS when overlap is detected */
+    .hero-input-anchored .input-hero {
+        top: auto !important;
+        bottom: 12px !important;
+        transform: translateX(-50%) !important;
+    }
+
+    .hero-input-anchored #welcome-screen {
+        padding-bottom: 6.5rem !important;
     }
 }
 
