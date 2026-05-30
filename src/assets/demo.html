@@ -33,7 +33,7 @@
 
     <link rel="stylesheet" href="./demo.css">
 </head>
-<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">
+<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300 hero-centered">
 
     <!-- Header / Navbar -->
     <header class="flex items-center justify-between px-6 py-4 border-b border-transparent transition-all duration-300" id="header">
@@ -59,27 +59,11 @@
         
         <!-- Welcome Screen (Visible initially) -->
         <div id="welcome-screen" class="flex-1 flex flex-col items-center justify-center p-6 max-w-3xl mx-auto w-full animate-fade-in text-center mt-[-10vh]">
-            <div class="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center mb-6 shadow-sm">
-                <i data-lucide="leaf" class="w-8 h-8"></i>
-            </div>
+            <!-- decorative icon removed to match new hero design -->
             <h1 class="welcome-title typewriter text-3xl sm:text-4xl font-semibold text-gray-800 dark:text-gray-100 mb-3"><span>How are you feeling today?</span></h1>
             <p class="welcome-subtitle text-gray-500 dark:text-gray-400 text-lg mb-8 max-w-lg">I'm a private, safe space to talk, reframe your thoughts, or find mental health resources.</p>
             
-            <!-- Suggestion Chips -->
-            <div class="flex flex-wrap justify-center gap-3">
-                <button class="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors shadow-sm flex items-center gap-2 suggestion-btn">
-                    <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i>
-                    Reality Check
-                </button>
-                <button class="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors shadow-sm flex items-center gap-2 suggestion-btn">
-                    <i data-lucide="puzzle" class="w-4 h-4 text-blue-500 dark:text-blue-400"></i>
-                    Unscramble thoughts
-                </button>
-                <button class="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors shadow-sm flex items-center gap-2 suggestion-btn">
-                    <i data-lucide="book-heart" class="w-4 h-4 text-rose-500 dark:text-rose-400"></i>
-                    Find resources
-                </button>
-            </div>
+            <!-- Suggestion Chips moved to input area for a cleaner layout -->
         </div>
 
         <!-- Chat History (Hidden initially) -->
@@ -90,7 +74,7 @@
     </main>
 
     <!-- Input Area Container (Fixed at bottom) -->
-    <div class="w-full bg-gradient-to-t from-white via-white dark:from-gray-900 dark:via-gray-900 to-transparent pt-6 pb-6 px-4 absolute bottom-0 left-0 right-0">
+    <div class="input-hero w-full bg-gradient-to-t from-white via-white dark:from-gray-900 dark:via-gray-900 to-transparent pt-6 pb-6 px-4 absolute bottom-0 left-0 right-0">
         <div class="max-w-4xl mx-auto relative">
             
             <!-- The Input Box -->
@@ -162,6 +146,22 @@
                         <i data-lucide="arrow-right" class="w-5 h-5"></i>
                     </button>
                 </div>
+            </div>
+
+            <!-- Suggestion Chips (moved here from the hero) -->
+            <div class="flex flex-wrap justify-center gap-3 mt-4 suggestion-chips">
+                <button class="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors shadow-sm flex items-center gap-2 suggestion-btn">
+                    <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i>
+                    Reality Check
+                </button>
+                <button class="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors shadow-sm flex items-center gap-2 suggestion-btn">
+                    <i data-lucide="puzzle" class="w-4 h-4 text-blue-500 dark:text-blue-400"></i>
+                    Unscramble thoughts
+                </button>
+                <button class="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors shadow-sm flex items-center gap-2 suggestion-btn">
+                    <i data-lucide="book-heart" class="w-4 h-4 text-rose-500 dark:text-rose-400"></i>
+                    Find resources
+                </button>
             </div>
 
             <!-- Disclaimer -->
