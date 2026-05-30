@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
 from src.web.demo_logic import (  # noqa: E402
     build_resource_payload,
     detect_distress_category,
+    detect_resource_intent,
     run_chat,
     run_realitycheck,
     run_unscramble,
@@ -138,11 +139,25 @@ def ask(payload: AskRequest) -> dict[str, object]:
         return {"mode": "unscramble", "result": run_unscramble(text, history=history)}
 
     if mode in {"resources", "resource"}:
-        category = detect_distress_category(text) or "anxiety"
-        return {
-            "mode": "resources",
-            "category": category,
-            "resource": build_resource_payload(category),
-        }
+        category = detect_distress_category(text)
+        if category == "crisis":
+            return {
+                "mode": "crisis",
+                "category": category,
+                "resource": build_resource_payload("crisis"),
+            }
+
+        # Use AI to decide whether the user actually wants resources (language-aware)
+        wants_resources = detect_resource_intent(text, history=payload.history)
+        if wants_resources:
+            category = category or "anxiety"
+            return {
+                "mode": "resources",
+                "category": category,
+                "resource": build_resource_payload(category),
+            }
+
+        # Otherwise treat it as a companion/chat message
+        return {"mode": "chat", "result": run_chat(text, history=payload.history)}
 
     raise HTTPException(status_code=400, detail="Unsupported mode. Use Companion, Cognitive Tools, or Resources.")

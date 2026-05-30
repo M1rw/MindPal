@@ -5,6 +5,7 @@ from typing import TypedDict
 
 from src.utils.ai_companion_config import DISTRESS_PATTERNS
 from src.utils.ai_prompts import AI_COMPANION_SYSTEM_PROMPT, MEMORY_COMPACTION_PROMPT, REALITYCHECK_PROMPT, UNSCRAMBLE_PROMPT
+from src.utils.ai_prompts import RESOURCE_INTENT_PROMPT
 from src.utils.ai_providers import (
     generate_with_google,
     generate_with_groq,
@@ -297,3 +298,28 @@ def run_chat(text: str, history: list[ChatTurn] | None = None) -> str:
         return payload["markdown"]
 
     return generate_text(AI_COMPANION_SYSTEM_PROMPT, text, history=history).strip()[:3500]
+
+
+def detect_resource_intent(text: str, history: list[ChatTurn] | None = None) -> bool:
+    """Ask the model (with language lock) whether the user is requesting resources.
+
+    Returns True when the AI's first line begins with 'Yes' (case-insensitive) or clearly affirms resource intent.
+    Falls back to a simple heuristic if remote providers fail.
+    """
+    try:
+        resp = generate_text(RESOURCE_INTENT_PROMPT, text, history=history)
+    except Exception:
+        resp = _try_remote_fallbacks(RESOURCE_INTENT_PROMPT, text)
+
+    first_line = (resp or "").strip().splitlines()[0] if resp else ""
+    lowered = first_line.casefold()
+    if lowered.startswith("yes") or "sí" in lowered or lowered.startswith("oui") or "si " in lowered:
+        return True
+
+    # Safe heuristics: common request tokens
+    lowered_text = (text or "").casefold()
+    tokens = ("resource", "resources", "hotline", "help line", "helpline", "coping", "tips", "support", "links", "crisis")
+    if any(tok in lowered_text for tok in tokens):
+        return True
+
+    return False
