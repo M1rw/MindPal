@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 # Ensure imports work in Vercel/runtime
@@ -46,13 +47,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/assets", StaticFiles(directory=ROOT / "src" / "assets"), name="assets")
+
 
 @app.get("/", response_class=HTMLResponse)
 def home() -> str:
     html_path = ROOT / "src" / "assets" / "demo.html"
     if not html_path.exists():
         raise HTTPException(status_code=500, detail="demo.html is missing")
-    return html_path.read_text(encoding="utf-8")
+    html = html_path.read_text(encoding="utf-8")
+    return (
+        html.replace('href="./demo.css"', 'href="/assets/demo.css"')
+        .replace('src="./demo.js"', 'src="/assets/demo.js"')
+    )
 
 
 @app.get("/api/health")

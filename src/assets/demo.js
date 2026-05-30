@@ -1,6 +1,8 @@
 // Initialize Lucide Icons
 lucide.createIcons();
 
+const assetBase = location.protocol === 'file:' ? './' : '/assets/';
+
 // Theme Setup
 const themeToggleBtn = document.getElementById('theme-toggle-btn');
 const themeIcon = document.getElementById('theme-icon');
@@ -94,7 +96,7 @@ function getModeAccentClasses(modeName) {
 function getBotAvatarHtml(modeName) {
     const accent = getModeAccentClasses(modeName);
     return `<div class="w-8 h-8 rounded-full ${accent.avatar} flex items-center justify-center flex-shrink-0 overflow-hidden">
-        <img src="./img/logo.jpg" alt="MindPal" class="h-full w-full object-contain p-1" />
+        <img src="${assetBase}img/logo.jpg" alt="MindPal" class="h-full w-full object-contain p-1" />
     </div>`;
 }
 
@@ -452,7 +454,7 @@ function appendThinkingMessage(mode = activeMode) {
     msgDiv.className = 'flex items-center gap-4 w-full bot-fade-in';
     msgDiv.innerHTML = `
         <div class="w-8 h-8 rounded-full ${accent.avatar} flex items-center justify-center flex-shrink-0 overflow-hidden">
-            <img src="./img/logo.jpg" alt="MindPal" class="h-full w-full object-contain p-1" />
+            <img src="${assetBase}img/logo.jpg" alt="MindPal" class="h-full w-full object-contain p-1" />
         </div>
         <div class="text-gray-800 dark:text-gray-200 max-w-3xl min-h-8 flex items-center">
             <div class="flex items-center gap-2" data-role="bot-body">
@@ -499,7 +501,7 @@ function appendMessage(text, sender, links = [], isHtml = false, mode = activeMo
         const accent = getModeAccentClasses(mode);
         msgDiv.innerHTML = `
                     <div class="w-8 h-8 rounded-full ${accent.avatar} flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        <img src="./img/logo.jpg" alt="MindPal" class="h-full w-full object-contain p-1" />
+                        <img src="${assetBase}img/logo.jpg" alt="MindPal" class="h-full w-full object-contain p-1" />
             </div>
             <div class="max-w-3xl space-y-4 text-gray-800 dark:text-gray-200">
                 <div class="bot-reply-content whitespace-pre-wrap text-[15px] leading-7 tracking-[-0.01em] text-gray-700 dark:text-gray-200">${isHtml ? text : escapeHtml(text)}</div>
