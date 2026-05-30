@@ -25,12 +25,8 @@ class ChatTurn(TypedDict):
     text: str
 
 
-def detect_language(text: str, history: list[ChatTurn] | None = None) -> str:
-    sample = " ".join(
-        part.strip()
-        for part in ([text] + [item.get("text", "") for item in (history or [])])
-        if part.strip()
-    ).casefold()
+def _detect_language_from_sample(sample: str) -> str:
+    sample = sample.casefold()
 
     if not sample:
         return "English"
@@ -66,6 +62,21 @@ def detect_language(text: str, history: list[ChatTurn] | None = None) -> str:
             return language
 
     return "English"
+
+
+def detect_language(text: str, history: list[ChatTurn] | None = None) -> str:
+    current_sample = text.strip()
+    if current_sample:
+        current_language = _detect_language_from_sample(current_sample)
+        if any(char.isalpha() for char in current_sample):
+            return current_language
+
+    history_sample = " ".join(
+        item.get("text", "").strip()
+        for item in (history or [])
+        if item.get("text", "").strip()
+    )
+    return _detect_language_from_sample(history_sample)
 
 
 def detect_distress_category(content: str) -> str | None:
@@ -171,12 +182,10 @@ def _build_memory_context(text: str, history: list[ChatTurn] | None) -> str:
 
 
 def _build_language_context(language: str) -> str:
-    if language == "English":
-        return ""
     return (
-        f"Detected language: {language}. "
+        f"Language lock: {language}. "
         f"Reply in {language} only unless the user explicitly asks for another language. "
-        f"Keep the tone natural and simple in that language.\n\n"
+        f"Do not switch languages mid-reply. Keep the tone natural and simple in that language.\n\n"
     )
 
 
