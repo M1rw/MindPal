@@ -353,6 +353,10 @@ document.querySelectorAll('.suggestion-btn').forEach(btn => {
         // Trigger input event to resize and enable button
         inputEl.dispatchEvent(new Event('input'));
         inputEl.focus();
+        // If hero is visible, switch to chat layout so the input anchors to bottom
+        if (!welcomeScreen.classList.contains('hidden')) {
+            showChatHistory();
+        }
     });
 });
 
@@ -371,9 +375,7 @@ function handleSend() {
 
     // Hide welcome screen, show chat history
     if (!welcomeScreen.classList.contains('hidden')) {
-        welcomeScreen.classList.add('hidden');
-        chatHistory.classList.remove('hidden');
-        chatHistory.classList.add('flex');
+        showChatHistory();
     }
 
     // Append User Message
@@ -395,6 +397,29 @@ function pushMemory(role, text) {
     if (conversationMemory.length > 24) {
         conversationMemory.shift();
     }
+}
+
+
+function showChatHistory() {
+    // Hide welcome hero
+    welcomeScreen.classList.add('hidden');
+
+    // Reveal chat history container with a downward slide and soft shadow
+    chatHistory.classList.remove('hidden');
+    chatHistory.classList.add('flex');
+    chatHistory.classList.add('chat-enter');
+
+    // Remove hero centering so input moves to bottom
+    document.body.classList.remove('hero-centered');
+
+    // Activate the enter animation on next frame
+    requestAnimationFrame(() => {
+        chatHistory.classList.add('chat-enter-active');
+        chatHistory.classList.remove('chat-enter');
+        setTimeout(() => {
+            chatHistory.classList.remove('chat-enter-active');
+        }, 380);
+    });
 }
 
 async function requestBotResponse(text, mode) {

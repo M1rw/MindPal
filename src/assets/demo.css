@@ -154,6 +154,45 @@ textarea:focus::-webkit-scrollbar {
     animation: botFadeIn 260ms ease-out both;
 }
 
+/* Hero-centered layout: place input box center of viewport on initial load */
+.input-hero {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transition: transform 320ms ease, top 320ms ease, bottom 320ms ease, box-shadow 220ms ease;
+}
+
+.hero-centered .input-hero {
+    position: absolute;
+    top: 52%;
+    bottom: auto;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(960px, 92%);
+    z-index: 60;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Slightly lift the hero title when centered to create breathing room */
+.hero-centered #welcome-screen {
+    transform: translateY(-8%);
+}
+
+/* Chat reveal animation: slide down with soft shadow */
+.chat-enter {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.995);
+    box-shadow: none;
+}
+.chat-enter-active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition: transform 300ms cubic-bezier(.2,.9,.2,1), opacity 260ms ease-out, box-shadow 260ms ease-out;
+    box-shadow: 0 6px 30px rgba(2,6,23,0.06);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .welcome-title,
     .welcome-subtitle,
