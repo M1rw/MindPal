@@ -511,6 +511,10 @@
             if (!lines.some(Boolean)) return '';
 
             const sections = [];
+            const tips = [];
+            let title = '';
+            let description = '';
+            let hotline = '';
             let index = 0;
 
             while (index < lines.length && !lines[index]) {
@@ -518,7 +522,7 @@
             }
 
             if (lines[index]?.startsWith('### ')) {
-                sections.push(`<h3 class="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">${renderInlineMarkdown(lines[index].replace(/^###\s+/, ''))}</h3>`);
+                title = lines[index].replace(/^###\s+/, '');
                 index += 1;
             }
 
@@ -532,11 +536,7 @@
                 index += 1;
             }
             if (quoteLines.length) {
-                sections.push(`
-                    <div class="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/50 px-4 py-3">
-                        <p class="text-sm leading-6 text-gray-600 dark:text-gray-300">${renderInlineMarkdown(quoteLines.join(' '))}</p>
-                    </div>
-                `);
+                description = quoteLines.join(' ');
             }
 
             while (index < lines.length && !lines[index]) {
@@ -544,13 +544,7 @@
             }
 
             if (lines[index]?.startsWith('**Hotline:**')) {
-                const hotlineText = lines[index].replace(/^\*\*Hotline:\*\*\s*/, '');
-                sections.push(`
-                    <div class="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/40 px-4 py-3">
-                        <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500 mb-1">Hotline</div>
-                        <p class="text-base leading-7 text-gray-700 dark:text-gray-200">${renderInlineMarkdown(hotlineText)}</p>
-                    </div>
-                `);
+                hotline = lines[index].replace(/^\*\*Hotline:\*\*\s*/, '');
                 index += 1;
             }
 
@@ -560,7 +554,6 @@
 
             if (lines[index]?.startsWith('**Coping Tips:**')) {
                 index += 1;
-                const tips = [];
                 while (index < lines.length) {
                     const line = lines[index];
                     index += 1;
@@ -571,25 +564,28 @@
                         tips.push(line);
                     }
                 }
-
-                if (tips.length) {
-                    sections.push(`
-                        <div class="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/40 px-4 py-3">
-                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500 mb-3">Coping Tips</div>
-                            <ul class="space-y-2">
-                                ${tips.map(tip => `
-                                    <li class="flex gap-2 text-sm leading-6 text-gray-700 dark:text-gray-200">
-                                        <span class="mt-2 h-1.5 w-1.5 rounded-full bg-blue-400 dark:bg-blue-300 flex-shrink-0"></span>
-                                        <span>${renderInlineMarkdown(tip)}</span>
-                                    </li>
-                                `).join('')}
-                            </ul>
-                        </div>
-                    `);
-                }
             }
 
-            return `<div class="space-y-4">${sections.join('')}</div>`;
+            const tipsHtml = tips.length
+                ? `<div class="space-y-2"><div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">Coping tips</div><ul class="space-y-2">${tips.map(tip => `
+                    <li class="flex gap-2 text-sm leading-6 text-gray-700 dark:text-gray-200">
+                        <span class="mt-2 h-1.5 w-1.5 rounded-full bg-blue-400 dark:bg-blue-300 flex-shrink-0"></span>
+                        <span>${renderInlineMarkdown(tip)}</span>
+                    </li>
+                `).join('')}</ul></div>`
+                : '';
+
+            const displayTitle = title.replace(/^[^\w]+\s*/, '');
+            const titleHtml = title
+                ? `<div class="flex items-start gap-2"><span class="mt-1 text-lg">🧠</span><div><h3 class="text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-50">${renderInlineMarkdown(displayTitle)}</h3>${description ? `<p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">${renderInlineMarkdown(description)}</p>` : ''}</div></div>`
+                : '';
+
+            const hotlineHtml = hotline
+                ? `<div class="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/40 px-4 py-3"><div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500 mb-1">Hotline</div><p class="text-sm leading-6 text-gray-700 dark:text-gray-200">${renderInlineMarkdown(hotline)}</p></div>`
+                : '';
+
+            const cardBody = [titleHtml, hotlineHtml, tipsHtml].filter(Boolean).join('');
+            return `<div class="rounded-3xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/40 px-4 py-4 sm:px-5 sm:py-5 space-y-4">${cardBody}</div>`;
         }
 
         async function postJSON(path, payload) {
@@ -821,7 +817,7 @@
 
         function appendMessage(text, sender, links = [], isHtml = false) {
             const msgDiv = document.createElement('div');
-            msgDiv.className = `flex items-center gap-4 w-full ${sender === 'bot' ? 'bot-fade-in' : 'animate-fade-in'} ${sender === 'user' ? 'justify-end' : ''}`;
+            msgDiv.className = `flex items-start gap-4 w-full ${sender === 'bot' ? 'bot-fade-in' : 'animate-fade-in'} ${sender === 'user' ? 'justify-end' : ''}`;
             
             if (sender === 'bot') {
                 const linksHtml = buildLinksHtml(links);
