@@ -323,8 +323,8 @@
                         <div class="w-[1px] h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
 
                         <!-- Feature Toggle Button -->
-                        <button id="feature-toggle-btn" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors relative group/tooltip" title="Toggle Concise Mode">
-                            <i data-lucide="sliders-horizontal" class="w-5 h-5"></i>
+                        <button id="feature-toggle-btn" class="p-2 rounded-full hover:bg-amber-50 dark:hover:bg-amber-500/10 text-gray-500 dark:text-gray-400 transition-all duration-200 relative group/tooltip" title="Toggle Concise Mode">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
                         </button>
 
                     </div>
@@ -384,12 +384,11 @@
         const currentModeIconSlot = document.getElementById('current-mode-icon-slot');
         const modeOptions = document.querySelectorAll('.mode-option');
         const featureToggleBtn = document.getElementById('feature-toggle-btn');
-        const featureToggleIcon = document.getElementById('feature-toggle-icon');
         
         const welcomeScreen = document.getElementById('welcome-screen');
         const chatHistory = document.getElementById('chat-history');
         const chatContainer = document.getElementById('chat-container');
-        let isConciseModeOn = false;
+        let isFocusRepliesOn = false;
         let activeMode = 'Companion';
         const conversationMemory = [];
 
@@ -446,23 +445,7 @@
             </div>`;
         }
 
-        function updateConciseModeToggle() {
-            featureToggleBtn.className = 'p-2 rounded-full transition-all relative group/tooltip';
-            featureToggleIcon.setAttribute('data-lucide', isConciseModeOn ? 'sparkles' : 'sliders-horizontal');
-
-            if (isConciseModeOn) {
-                featureToggleBtn.classList.add('bg-amber-100', 'text-amber-600', 'dark:bg-amber-900/30', 'dark:text-amber-300', 'shadow-sm');
-                featureToggleBtn.title = 'Concise Mode: ON';
-            } else {
-                featureToggleBtn.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:bg-black/5', 'dark:hover:bg-white/10');
-                featureToggleBtn.title = 'Concise Mode: OFF';
-            }
-
-            lucide.createIcons();
-        }
-
         setCurrentModeIcon('Companion');
-        updateConciseModeToggle();
 
         function isNearBottom() {
             const threshold = 160;
@@ -640,8 +623,16 @@
 
         // Feature toggle: short/focused bot replies.
         featureToggleBtn.addEventListener('click', () => {
-            isConciseModeOn = !isConciseModeOn;
-            updateConciseModeToggle();
+            isFocusRepliesOn = !isFocusRepliesOn;
+            featureToggleBtn.classList.toggle('bg-amber-100', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('dark:bg-amber-500/15', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('text-amber-600', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('dark:text-amber-300', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('ring-1', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('ring-amber-300/60', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('dark:ring-amber-400/40', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('shadow-sm', isFocusRepliesOn);
+            featureToggleBtn.title = isFocusRepliesOn ? 'Concise Mode: ON' : 'Concise Mode: OFF';
         });
 
         // Auto-resize textarea
@@ -776,7 +767,7 @@
                 }
 
                 let answer = String(result.result || 'No response available.');
-                if (isConciseModeOn) {
+                if (isFocusRepliesOn) {
                     answer = answer.slice(0, 320);
                 }
 
