@@ -3,207 +3,556 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MindPal Web Demo</title>
+    <title>MindPal - Prompt Testing Suite</title>
     <style>
       :root {
-        --bg: #0b1020;
-        --bg-2: #141a33;
-        --card: #161d3a;
-        --text: #eef2ff;
-        --muted: #b8c0ff;
-        --accent: #42d8c7;
-        --accent-2: #ffd166;
+        --primary: #42d8c7;
+        --primary-dark: #2ab5a3;
+        --accent: #ffd166;
         --danger: #ff6b6b;
-        --ok: #80ed99;
-        --border: #2c3563;
+        --success: #80ed99;
+        --bg-base: #0b1020;
+        --bg-elevated: #141a33;
+        --bg-card: #161d3a;
+        --text-primary: #eef2ff;
+        --text-secondary: #b8c0ff;
+        --border-color: #2c3563;
+        --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
+        --shadow-md: 0 8px 24px rgba(66, 216, 199, 0.12);
+        --shadow-lg: 0 16px 48px rgba(66, 216, 199, 0.15);
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html {
+        scroll-behavior: smooth;
+      }
+
       body {
         margin: 0;
-        font-family: "Segoe UI", "Trebuchet MS", sans-serif;
-        color: var(--text);
-        background:
-          radial-gradient(circle at 15% 20%, rgba(66, 216, 199, 0.15), transparent 35%),
-          radial-gradient(circle at 85% 10%, rgba(255, 209, 102, 0.2), transparent 30%),
-          linear-gradient(145deg, var(--bg), var(--bg-2));
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        color: var(--text-primary);
+        background: linear-gradient(135deg, var(--bg-base) 0%, #0f1426 50%, var(--bg-elevated) 100%);
+        background-attachment: fixed;
         min-height: 100vh;
+        overflow-x: hidden;
       }
 
-      .wrap {
-        max-width: 980px;
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+          radial-gradient(circle at 20% 30%, rgba(66, 216, 199, 0.08), transparent 40%),
+          radial-gradient(circle at 80% 70%, rgba(255, 209, 102, 0.06), transparent 40%);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .container {
+        position: relative;
+        z-index: 1;
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 28px 16px 42px;
+        padding: 32px 20px;
       }
 
-      .hero {
-        background: linear-gradient(130deg, rgba(66, 216, 199, 0.18), rgba(255, 209, 102, 0.18));
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 22px;
-        backdrop-filter: blur(6px);
+      .header {
+        text-align: center;
+        margin-bottom: 56px;
+        animation: slideInDown 0.8s ease-out;
+      }
+
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .logo-icon {
+        width: 24px;
+        height: 24px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--bg-base);
+        font-weight: bold;
+        font-size: 12px;
       }
 
       h1 {
-        margin: 0 0 8px;
-        font-size: 2rem;
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 8vw, 3.5rem);
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--primary), #6ee7ff, var(--accent));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -0.5px;
       }
 
-      .sub {
+      .subtitle {
         margin: 0;
-        color: var(--muted);
-        line-height: 1.5;
+        font-size: clamp(1rem, 2.5vw, 1.2rem);
+        color: var(--text-secondary);
+        line-height: 1.6;
+        max-width: 600px;
+        margin: 16px auto 0;
       }
 
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-        gap: 16px;
-        margin-top: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 24px;
+        margin-bottom: 40px;
+      }
+
+      @media (max-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
       }
 
       .card {
-        background: var(--card);
-        border: 1px solid var(--border);
+        background: linear-gradient(135deg, rgba(22, 29, 58, 0.8), rgba(20, 26, 51, 0.6));
+        border: 1px solid var(--border-color);
         border-radius: 16px;
-        padding: 16px;
+        padding: 28px;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fadeInUp 0.8s ease-out;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(66, 216, 199, 0), rgba(66, 216, 199, 0.03));
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+
+      .card:hover::before {
+        opacity: 1;
+      }
+
+      .card:hover {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-4px);
+      }
+
+      .card:nth-child(3) {
+        grid-column: 1 / -1;
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+
+      .card-icon {
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, var(--primary), #6ee7ff);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
       }
 
       h2 {
-        margin-top: 0;
-        font-size: 1.1rem;
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .form-group {
+        margin-bottom: 16px;
       }
 
       label {
-        font-size: 0.92rem;
-        color: var(--muted);
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
       }
 
       textarea,
-      select,
-      button {
+      select {
         width: 100%;
-        margin-top: 8px;
+        padding: 12px 16px;
         border-radius: 10px;
-        border: 1px solid var(--border);
-        background: #0f1530;
-        color: var(--text);
-        padding: 10px;
+        border: 1px solid var(--border-color);
+        background: rgba(15, 21, 48, 0.6);
+        color: var(--text-primary);
         font-size: 0.95rem;
-      }
-
-      textarea {
-        min-height: 110px;
+        font-family: inherit;
+        transition: all 0.3s ease;
         resize: vertical;
       }
 
+      textarea {
+        min-height: 120px;
+        font-family: 'Monaco', 'Courier New', monospace;
+      }
+
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--primary);
+        background: rgba(15, 21, 48, 0.9);
+        box-shadow: inset 0 0 0 2px rgba(66, 216, 199, 0.1), 0 0 20px rgba(66, 216, 199, 0.2);
+      }
+
       button {
-        cursor: pointer;
-        background: linear-gradient(120deg, #2cb5a7, #3491ff);
+        width: 100%;
+        padding: 12px 24px;
+        margin-top: 16px;
+        border-radius: 10px;
         border: none;
-        font-weight: 700;
+        background: linear-gradient(135deg, var(--primary), #2ab5a3);
+        color: var(--bg-base);
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      button::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+        pointer-events: none;
       }
 
       button:hover {
-        filter: brightness(1.08);
+        background: linear-gradient(135deg, #3bc5b4, #1fa695);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(66, 216, 199, 0.3);
       }
 
-      .result {
-        margin-top: 12px;
-        white-space: pre-wrap;
-        line-height: 1.45;
-        background: rgba(0, 0, 0, 0.2);
-        border: 1px dashed var(--border);
-        border-radius: 10px;
-        padding: 10px;
+      button:active::before {
+        width: 300px;
+        height: 300px;
       }
 
-      .status {
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .output-section {
+        margin-top: 20px;
+      }
+
+      .status-badge {
         display: inline-block;
-        margin-top: 8px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 0.85rem;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        animation: slideInLeft 0.5s ease-out;
       }
 
-      .status.ok { background: rgba(128, 237, 153, 0.17); color: var(--ok); }
-      .status.warn { background: rgba(255, 209, 102, 0.18); color: var(--accent-2); }
-      .status.danger { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
+      .status-badge.loading {
+        background: rgba(255, 209, 102, 0.15);
+        color: var(--accent);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
 
-      .links {
+      .status-badge.success {
+        background: rgba(128, 237, 153, 0.15);
+        color: var(--success);
+      }
+
+      .status-badge.danger {
+        background: rgba(255, 107, 107, 0.15);
+        color: var(--danger);
+      }
+
+      .result-box {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 16px;
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+        animation: fadeIn 0.5s ease-out;
+        transition: all 0.3s ease;
+      }
+
+      .result-box.has-content {
+        color: var(--text-primary);
+        background: linear-gradient(135deg, rgba(66, 216, 199, 0.05), rgba(255, 209, 102, 0.03));
+        border-color: var(--border-color);
+      }
+
+      .links-container {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        margin-top: 10px;
+        margin-top: 12px;
       }
 
-      .links a {
+      .link-badge {
         text-decoration: none;
-        color: var(--text);
-        padding: 7px 10px;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        background: #10193a;
-        font-size: 0.86rem;
+        color: var(--text-primary);
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        background: rgba(66, 216, 199, 0.08);
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .link-badge:hover {
+        background: rgba(66, 216, 199, 0.15);
+        border-color: var(--primary);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(66, 216, 199, 0.2);
+      }
+
+      .link-badge::after {
+        content: '↗';
+        font-size: 0.9em;
+        opacity: 0.6;
       }
 
       .footer {
-        margin-top: 20px;
-        color: var(--muted);
-        font-size: 0.85rem;
+        text-align: center;
+        margin-top: 60px;
+        padding-top: 32px;
+        border-top: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        animation: fadeIn 1s ease-out;
+      }
+
+      .loading-dots {
+        display: inline-block;
+      }
+
+      .loading-dots span {
+        animation: blink 1.4s infinite;
+      }
+
+      .loading-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .loading-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      @keyframes slideInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes slideInLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
+      }
+
+      @keyframes blink {
+        0%, 20%, 50%, 80%, 100% {
+          opacity: 1;
+        }
+        40% {
+          opacity: 0.4;
+        }
+        60% {
+          opacity: 0.7;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .container {
+          padding: 20px 16px;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+
+        .card {
+          padding: 20px;
+        }
+
+        .card:nth-child(3) {
+          grid-column: 1;
+        }
       }
     </style>
   </head>
   <body>
-    <main class="wrap">
-      <section class="hero">
-        <h1>MindPal Web Demo</h1>
-        <p class="sub">
-          A clean browser demo of your Discord logic: local distress detection, crisis resource routing,
-          and multi-provider A-I fallback responses.
+    <main class="container">
+      <section class="header">
+        <div class="logo">
+          <span class="logo-icon">MP</span>
+          <span>MindPal Testing Suite</span>
+        </div>
+        <h1>Prompt Testing Interface</h1>
+        <p class="subtitle">
+          Test your AI safety classifier, cognitive tools, and chat responses with real-time feedback and crisis resource routing.
         </p>
       </section>
 
       <section class="grid">
         <article class="card">
-          <h2>Safety Classifier + Resources</h2>
-          <label for="classifyInput">Write a message</label>
-          <textarea id="classifyInput" placeholder="Example: I want to kill myself"></textarea>
-          <button id="classifyBtn">Classify Message</button>
-          <div id="classifyStatus" class="status warn">Waiting</div>
-          <div id="classifyOut" class="result">No result yet.</div>
-          <div id="resourceLinks" class="links"></div>
+          <div class="card-header">
+            <div class="card-icon">🛡️</div>
+            <h2>Safety Classifier</h2>
+          </div>
+          <div class="form-group">
+            <label for="classifyInput">Test Message</label>
+            <textarea id="classifyInput" placeholder="Enter a message to classify for safety concerns..."></textarea>
+          </div>
+          <button id="classifyBtn">Analyze Message</button>
+          <div class="output-section">
+            <div id="classifyStatus" class="status-badge loading">
+              <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span> Waiting
+            </div>
+            <div id="classifyOut" class="result-box">No result yet.</div>
+            <div id="resourceLinks" class="links-container"></div>
+          </div>
         </article>
 
         <article class="card">
-          <h2>Unscramble / Reality Check</h2>
-          <label for="toolMode">Mode</label>
-          <select id="toolMode">
-            <option value="unscramble">Unscramble</option>
-            <option value="realitycheck">Reality Check</option>
-          </select>
-          <label for="toolInput">Input</label>
-          <textarea id="toolInput" placeholder="Type your thought spiral..."></textarea>
+          <div class="card-header">
+            <div class="card-icon">✨</div>
+            <h2>Cognitive Tools</h2>
+          </div>
+          <div class="form-group">
+            <label for="toolMode">Select Tool</label>
+            <select id="toolMode">
+              <option value="unscramble">Unscramble Thoughts</option>
+              <option value="realitycheck">Reality Check</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="toolInput">Your Input</label>
+            <textarea id="toolInput" placeholder="Share your thoughts or concerns..."></textarea>
+          </div>
           <button id="toolBtn">Run Tool</button>
-          <div id="toolOut" class="result">No result yet.</div>
+          <div class="output-section">
+            <div id="toolOut" class="result-box">No result yet.</div>
+          </div>
         </article>
 
-        <article class="card" style="grid-column: 1 / -1;">
-          <h2>Chat Demo</h2>
-          <label for="chatInput">Message</label>
-          <textarea id="chatInput" placeholder="Talk to MindPal..."></textarea>
-          <button id="chatBtn">Send</button>
-          <div id="chatOut" class="result">No result yet.</div>
-          <div id="chatLinks" class="links"></div>
+        <article class="card">
+          <div class="card-header">
+            <div class="card-icon">💬</div>
+            <h2>Chat Demo</h2>
+          </div>
+          <div class="form-group">
+            <label for="chatInput">Message</label>
+            <textarea id="chatInput" placeholder="Start a conversation with MindPal..."></textarea>
+          </div>
+          <button id="chatBtn">Send Message</button>
+          <div class="output-section">
+            <div id="chatOut" class="result-box">No result yet.</div>
+            <div id="chatLinks" class="links-container"></div>
+          </div>
         </article>
       </section>
 
-      <p class="footer">
-        Demo only. MindPal is supportive and does not replace professional care.
-      </p>
+      <footer class="footer">
+        <p>
+          <strong>Demo Only:</strong> MindPal is supportive and does not replace professional mental health care.
+          Always reach out to qualified professionals if you're in crisis.
+        </p>
+      </footer>
     </main>
 
     <script>
@@ -223,15 +572,37 @@
       const chatOut = document.getElementById("chatOut");
       const chatLinks = document.getElementById("chatLinks");
 
+      function setLoading(btn, isLoading) {
+        btn.disabled = isLoading;
+        btn.textContent = isLoading ? "Processing..." : btn.dataset.originalText;
+      }
+
       function renderLinks(root, links) {
         root.innerHTML = "";
-        for (const item of links || []) {
+        if (!links || links.length === 0) return;
+        for (const item of links) {
           const a = document.createElement("a");
           a.href = item.url;
           a.target = "_blank";
           a.rel = "noopener noreferrer";
+          a.className = "link-badge";
           a.textContent = item.label;
           root.appendChild(a);
+        }
+      }
+
+      function updateStatus(statusEl, text, className) {
+        statusEl.textContent = text;
+        statusEl.className = `status-badge ${className}`;
+      }
+
+      function displayResult(resultEl, content) {
+        if (content && content.trim()) {
+          resultEl.textContent = content;
+          resultEl.classList.add("has-content");
+        } else {
+          resultEl.textContent = "No result yet.";
+          resultEl.classList.remove("has-content");
         }
       }
 
@@ -248,70 +619,92 @@
         return res.json();
       }
 
+      classifyBtn.dataset.originalText = "Analyze Message";
       classifyBtn.addEventListener("click", async () => {
         const text = classifyInput.value.trim();
         if (!text) return;
 
-        classifyStatus.textContent = "Checking...";
-        classifyStatus.className = "status warn";
-        classifyOut.textContent = "Running classifier...";
+        setLoading(classifyBtn, true);
+        updateStatus(classifyStatus, "Analyzing...", "loading");
+        displayResult(classifyOut, "Processing...");
         resourceLinks.innerHTML = "";
 
         try {
           const data = await postJSON("/api/classify", { text });
           const category = data.category;
+          
           if (!category) {
-            classifyStatus.textContent = "No risk keyword match";
-            classifyStatus.className = "status ok";
-            classifyOut.textContent = "No distress category detected by local safety patterns.";
+            updateStatus(classifyStatus, "✓ Safe", "success");
+            displayResult(classifyOut, "No safety concerns detected. This message appears safe.");
             return;
           }
 
           const resData = await fetch(`/api/resources/${encodeURIComponent(category)}`).then(r => r.json());
-          classifyStatus.textContent = `Detected: ${category}`;
-          classifyStatus.className = category === "crisis" ? "status danger" : "status warn";
-          classifyOut.textContent = resData.markdown;
+          const statusClass = category === "crisis" ? "danger" : "loading";
+          updateStatus(classifyStatus, `⚠ Detected: ${category}`, statusClass);
+          displayResult(classifyOut, resData.markdown);
           renderLinks(resourceLinks, resData.links);
         } catch (err) {
-          classifyStatus.textContent = "Error";
-          classifyStatus.className = "status danger";
-          classifyOut.textContent = `Error: ${String(err)}`;
+          updateStatus(classifyStatus, "✗ Error", "danger");
+          displayResult(classifyOut, `Error: ${String(err)}`);
+        } finally {
+          setLoading(classifyBtn, false);
         }
       });
 
+      toolBtn.dataset.originalText = "Run Tool";
       toolBtn.addEventListener("click", async () => {
         const text = toolInput.value.trim();
         if (!text) return;
 
         const mode = toolMode.value;
-        toolOut.textContent = `Running ${mode}...`;
+        setLoading(toolBtn, true);
+        displayResult(toolOut, `Running ${mode}...`);
 
         try {
           const data = await postJSON(`/api/${mode}`, { text });
-          toolOut.textContent = data.result || "No response.";
+          displayResult(toolOut, data.result || "No response.");
         } catch (err) {
-          toolOut.textContent = `Error: ${String(err)}`;
+          displayResult(toolOut, `Error: ${String(err)}`);
+        } finally {
+          setLoading(toolBtn, false);
         }
       });
 
+      chatBtn.dataset.originalText = "Send Message";
       chatBtn.addEventListener("click", async () => {
         const text = chatInput.value.trim();
         if (!text) return;
 
-        chatOut.textContent = "Sending...";
+        setLoading(chatBtn, true);
+        displayResult(chatOut, "Sending...");
         chatLinks.innerHTML = "";
 
         try {
           const data = await postJSON("/api/chat", { text });
           if (data.mode === "crisis") {
-            chatOut.textContent = data.resource.markdown;
+            displayResult(chatOut, data.resource.markdown);
             renderLinks(chatLinks, data.resource.links);
             return;
           }
-          chatOut.textContent = data.result || "No response.";
+          displayResult(chatOut, data.result || "No response.");
         } catch (err) {
-          chatOut.textContent = `Error: ${String(err)}`;
+          displayResult(chatOut, `Error: ${String(err)}`);
+        } finally {
+          setLoading(chatBtn, false);
         }
+      });
+
+      // Allow Enter key in textareas to also send
+      [classifyInput, toolInput, chatInput].forEach(el => {
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" && e.ctrlKey) {
+            e.preventDefault();
+            if (el === classifyInput) classifyBtn.click();
+            else if (el === toolInput) toolBtn.click();
+            else if (el === chatInput) chatBtn.click();
+          }
+        });
       });
     </script>
   </body>
