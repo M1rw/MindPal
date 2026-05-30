@@ -11,8 +11,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.utils.ai_companion_config import DISTRESS_PATTERNS
-from src.utils.ai_prompts import AI_COMPANION_SYSTEM_PROMPT
-from src.utils.ai_providers import generate_with_hugging_face
+from src.web.demo_logic import run_chat
 from src.utils.ui import generate_resource_ui
 
 
@@ -113,7 +112,7 @@ class AICompanion(commands.Cog):
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         try:
-            reply_text = await asyncio.to_thread(generate_with_hugging_face, AI_COMPANION_SYSTEM_PROMPT, message)
+            reply_text = await asyncio.to_thread(run_chat, message)
         except Exception:
             logger.exception("AI chat generation failed.")
             await interaction.followup.send(
