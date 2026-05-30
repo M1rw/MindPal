@@ -34,6 +34,7 @@ class CategoryRequest(BaseModel):
 class AskRequest(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
     mode: str = Field(min_length=1, max_length=64)
+    history: list[dict[str, str]] = Field(default_factory=list)
 
 
 app = FastAPI(title="MindPal Web Demo", version="1.0.0")
@@ -110,6 +111,7 @@ def chat(payload: TextRequest) -> dict[str, str | dict[str, object]]:
 def ask(payload: AskRequest) -> dict[str, object]:
     mode = payload.mode.strip().casefold()
     text = payload.text
+    history = payload.history
 
     if mode in {"companion", "chat"}:
         category = detect_distress_category(text)
@@ -119,13 +121,13 @@ def ask(payload: AskRequest) -> dict[str, object]:
                 "category": category,
                 "resource": build_resource_payload("crisis"),
             }
-        return {"mode": "chat", "result": run_chat(text)}
+        return {"mode": "chat", "result": run_chat(text, history=history)}
 
     if mode in {"cognitive tools", "cognitive_tools", "cognitive", "tool"}:
         lowered = text.casefold()
         if any(token in lowered for token in ("reality", "reframe", "distortion", "anxious thought")):
-            return {"mode": "realitycheck", "result": run_realitycheck(text)}
-        return {"mode": "unscramble", "result": run_unscramble(text)}
+            return {"mode": "realitycheck", "result": run_realitycheck(text, history=history)}
+        return {"mode": "unscramble", "result": run_unscramble(text, history=history)}
 
     if mode in {"resources", "resource"}:
         category = detect_distress_category(text) or "anxiety"
