@@ -243,6 +243,132 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
     animation: botFadeIn 260ms ease-out both;
 }
 
+/* Tablet and below */
+@media (max-width: 1024px) {
+    .input-hero {
+        width: min(920px, calc(100% - 1.5rem));
+        bottom: 14px;
+    }
+
+    .hero-centered .input-hero {
+        width: min(920px, calc(100% - 1.75rem));
+        top: 59.5%;
+    }
+
+    .hero-centered #welcome-screen {
+        margin-top: -5vh;
+        padding-bottom: 2.5rem;
+    }
+}
+
+/* Phones */
+@media (max-width: 768px) {
+    #header {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+
+    #welcome-screen {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .hero-centered #welcome-screen {
+        margin-top: -2.5vh;
+        transform: translateY(0);
+        padding-bottom: 2rem;
+    }
+
+    .hero-centered .welcome-title {
+        font-size: clamp(1.78rem, 7.1vw, 2.2rem);
+        line-height: 1.12;
+        letter-spacing: -0.01em;
+        margin-bottom: 0.45rem;
+    }
+
+    .hero-centered .welcome-subtitle {
+        font-size: clamp(0.98rem, 4.15vw, 1.16rem);
+        line-height: 1.4;
+        margin-bottom: 0.7rem;
+        max-width: 30rem;
+    }
+
+    .input-hero {
+        width: calc(100% - 1rem);
+        bottom: 10px;
+        padding-left: 0.35rem;
+        padding-right: 0.35rem;
+        padding-top: 0.35rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .hero-centered .input-hero {
+        top: 62%;
+        width: calc(100% - 1rem);
+    }
+
+    .input-hero .max-w-4xl {
+        max-width: none;
+    }
+
+    .hero-centered .input-hero .suggestion-chips,
+    .input-hero .suggestion-chips {
+        margin-top: 0.75rem;
+        gap: 0.55rem;
+    }
+
+    .input-hero .input-disclaimer {
+        margin-top: 0.75rem;
+        font-size: 0.72rem;
+        line-height: 1.3;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    #mode-selector-btn,
+    #feature-toggle-btn,
+    #send-btn {
+        min-height: 40px;
+    }
+
+    #mode-selector-btn {
+        padding-left: 0.65rem;
+        padding-right: 0.6rem;
+    }
+
+    /* Avoid title overflow on narrow phones by disabling typewriter clipping behavior */
+    .welcome-title.typewriter span {
+        width: auto;
+        max-width: 100%;
+        white-space: normal;
+        border-right: none;
+        animation: softGlow 2.6s ease-in-out 1.2s 1;
+    }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+    .hero-centered .input-hero {
+        top: 63%;
+    }
+
+    .hero-centered .welcome-title {
+        font-size: clamp(1.62rem, 8.2vw, 1.95rem);
+        line-height: 1.1;
+    }
+
+    .hero-centered .welcome-subtitle {
+        font-size: clamp(0.93rem, 4.2vw, 1.04rem);
+        line-height: 1.36;
+    }
+
+    .input-hero .input-disclaimer {
+        font-size: 0.7rem;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .welcome-title,
     .welcome-subtitle,
