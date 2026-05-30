@@ -389,6 +389,7 @@
         const chatHistory = document.getElementById('chat-history');
         const chatContainer = document.getElementById('chat-container');
         let isFocusRepliesOn = false;
+        let activeMode = 'Companion';
         const conversationMemory = [];
 
         function scrollChatToBottom(smooth = true) {
@@ -416,6 +417,32 @@
             const iconName = modeIconNameByMode[modeName] || modeIconNameByMode.Companion;
             currentModeIconSlot.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i>`;
             lucide.createIcons();
+        }
+
+        function getModeAccentClasses(modeName) {
+            if (modeName === 'Cognitive Tools') {
+                return {
+                    avatar: 'bg-purple-50 dark:bg-purple-900/30 text-purple-500 dark:text-purple-400',
+                    icon: 'brain-circuit',
+                };
+            }
+            if (modeName === 'Resources') {
+                return {
+                    avatar: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 dark:text-emerald-400',
+                    icon: 'library',
+                };
+            }
+            return {
+                avatar: 'bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400',
+                icon: 'message-circle-heart',
+            };
+        }
+
+        function getBotAvatarHtml(modeName) {
+            const accent = getModeAccentClasses(modeName);
+            return `<div class="w-8 h-8 rounded-full ${accent.avatar} flex items-center justify-center flex-shrink-0">
+                <i data-lucide="brain" class="w-5 h-5"></i>
+            </div>`;
         }
 
         setCurrentModeIcon('Companion');
@@ -693,13 +720,15 @@
             // Append User Message
             appendMessage(text, 'user');
             pushMemory('user', text);
+
+            activeMode = currentModeText.textContent.trim() || 'Companion';
             
             // Clear input
             inputEl.value = '';
             inputEl.style.height = 'auto';
             inputEl.dispatchEvent(new Event('input'));
 
-            requestBotResponse(text, currentModeText.textContent);
+            requestBotResponse(text, activeMode);
         }
 
         function pushMemory(role, text) {
@@ -710,7 +739,7 @@
         }
 
         async function requestBotResponse(text, mode) {
-            const pendingBubble = appendThinkingMessage();
+            const pendingBubble = appendThinkingMessage(mode);
 
             try {
                 const result = await postJSON('/api/ask', { text, mode, history: conversationMemory });
@@ -760,11 +789,12 @@
                 .join('')}</div>`;
         }
 
-        function appendThinkingMessage() {
+        function appendThinkingMessage(mode = activeMode) {
+            const accent = getModeAccentClasses(mode);
             const msgDiv = document.createElement('div');
             msgDiv.className = 'flex items-center gap-4 w-full bot-fade-in';
             msgDiv.innerHTML = `
-                <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                <div class="w-8 h-8 rounded-full ${accent.avatar} flex items-center justify-center flex-shrink-0">
                     <i data-lucide="brain" class="w-5 h-5"></i>
                 </div>
                 <div class="text-gray-800 dark:text-gray-200 max-w-3xl min-h-8 flex items-center">
@@ -803,14 +833,15 @@
             element.textContent = text;
         }
 
-        function appendMessage(text, sender, links = [], isHtml = false) {
+        function appendMessage(text, sender, links = [], isHtml = false, mode = activeMode) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex items-start gap-4 w-full ${sender === 'bot' ? 'bot-fade-in' : 'animate-fade-in'} ${sender === 'user' ? 'justify-end' : ''}`;
             
             if (sender === 'bot') {
                 const linksHtml = buildLinksHtml(links);
+                const accent = getModeAccentClasses(mode);
                 msgDiv.innerHTML = `
-                    <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                    <div class="w-8 h-8 rounded-full ${accent.avatar} flex items-center justify-center flex-shrink-0">
                         <i data-lucide="brain" class="w-5 h-5"></i>
                     </div>
                     <div class="max-w-3xl space-y-4 text-gray-800 dark:text-gray-200">
