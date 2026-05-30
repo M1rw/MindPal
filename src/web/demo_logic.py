@@ -25,6 +25,49 @@ class ChatTurn(TypedDict):
     text: str
 
 
+def detect_language(text: str, history: list[ChatTurn] | None = None) -> str:
+    sample = " ".join(
+        part.strip()
+        for part in ([text] + [item.get("text", "") for item in (history or [])])
+        if part.strip()
+    ).casefold()
+
+    if not sample:
+        return "English"
+
+    # Script-based detection for the most common non-Latin scripts.
+    for char in sample:
+        codepoint = ord(char)
+        if 0x0600 <= codepoint <= 0x06FF or 0x0750 <= codepoint <= 0x077F or 0x08A0 <= codepoint <= 0x08FF:
+            return "Arabic"
+        if 0x0400 <= codepoint <= 0x04FF:
+            return "Russian"
+        if 0x0590 <= codepoint <= 0x05FF:
+            return "Hebrew"
+        if 0xAC00 <= codepoint <= 0xD7AF:
+            return "Korean"
+        if 0x3040 <= codepoint <= 0x309F or 0x30A0 <= codepoint <= 0x30FF:
+            return "Japanese"
+        if 0x4E00 <= codepoint <= 0x9FFF:
+            return "Chinese"
+
+    # Lightweight keyword / accent heuristics for Latin-script languages.
+    heuristics: tuple[tuple[str, tuple[str, ...]], ...] = (
+        ("Spanish", ("¿", "¡", " que ", " estoy ", " porque ", " no ", " quiero ", " me siento ", " ansiedad ", " depresi")),
+        ("French", (" je ", " ne ", " pas ", " suis ", " parce que ", " envie ", " anxi", " déprim", " épuis")),
+        ("Portuguese", (" não ", " estou ", " porque ", " quero ", " ansiedade", " depress", " exaust")),
+        ("German", (" ich ", " nicht ", " weil ", " füh", " depression", " angst ")),
+        ("Italian", (" non ", " sono ", " perché ", " voglio ", " ansia", " depresso")),
+        ("Arabic", (" أنا ", " لا ", " أريد ", " أشعر ", " حزين", " قلق")),
+    )
+
+    for language, tokens in heuristics:
+        if any(token in sample for token in tokens):
+            return language
+
+    return "English"
+
+
 def detect_distress_category(content: str) -> str | None:
     normalized = content.casefold()
     for category, patterns in DISTRESS_PATTERNS.items():
@@ -85,6 +128,16 @@ def _build_history_context(history: list[ChatTurn] | None) -> str:
         return ""
 
     return "Conversation so far:\n" + "\n".join(turns) + "\n\n"
+
+
+def _build_language_context(language: str) -> str:
+    if language == "English":
+        return ""
+    return (
+        f"Detected language: {language}. "
+        f"Reply in {language} only unless the user explicitly asks for another language. "
+        f"Keep the tone natural and simple in that language.\n\n"
+    )
 
 
 def _offline_unscramble_response(user_prompt: str) -> str:
@@ -176,7 +229,8 @@ def _try_remote_fallbacks(system_prompt: str, user_prompt: str) -> str:
 
 
 def generate_text(system_prompt: str, user_prompt: str, history: list[ChatTurn] | None = None) -> str:
-    user_payload = _build_history_context(history) + user_prompt
+    language = detect_language(user_prompt, history=history)
+    user_payload = _build_language_context(language) + _build_history_context(history) + user_prompt
     try:
         response = generate_with_google(system_prompt, user_payload)
     except Exception:
