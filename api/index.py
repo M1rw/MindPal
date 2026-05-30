@@ -57,7 +57,8 @@ def home() -> str:
         raise HTTPException(status_code=500, detail="demo.html is missing")
     html = html_path.read_text(encoding="utf-8")
     return (
-        html.replace('href="./demo.css"', 'href="/assets/demo.css"')
+        html.replace('src="./img/logo.jpg"', 'src="/assets/img/logo.jpg"')
+        .replace('href="./demo.css"', 'href="/assets/demo.css"')
         .replace('src="./demo.js"', 'src="/assets/demo.js"')
     )
 
