@@ -285,7 +285,7 @@
                         
                         <!-- Mode Selector Button -->
                         <button id="mode-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors">
-                            <i data-lucide="message-circle-heart" class="w-4 h-4" id="current-mode-icon"></i>
+                            <span id="current-mode-icon-slot" class="w-4 h-4 flex items-center justify-center" data-lucide="message-circle-heart"></span>
                             <span id="current-mode-text">Companion</span>
                             <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 dark:text-gray-500"></i>
                         </button>
@@ -381,7 +381,7 @@
         const modeBtn = document.getElementById('mode-selector-btn');
         const modeDropdown = document.getElementById('mode-dropdown');
         const currentModeText = document.getElementById('current-mode-text');
-        const currentModeIcon = document.getElementById('current-mode-icon');
+        const currentModeIconSlot = document.getElementById('current-mode-icon-slot');
         const modeOptions = document.querySelectorAll('.mode-option');
         const featureToggleBtn = document.getElementById('feature-toggle-btn');
         
@@ -506,8 +506,9 @@
                 
                 // Update button text and icon
                 currentModeText.textContent = modeName;
-                currentModeIcon.setAttribute('data-lucide', iconName);
-                
+                currentModeIconSlot.innerHTML = '';
+                currentModeIconSlot.setAttribute('data-lucide', iconName);
+
                 // Re-render icons to apply the new icon
                 lucide.createIcons();
                 
