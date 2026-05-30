@@ -154,35 +154,17 @@ textarea:focus::-webkit-scrollbar {
     animation: botFadeIn 260ms ease-out both;
 }
 
-/* Hero-centered layout: place input box center of viewport on initial load */
+/* Gemini-style interaction area: centered initially, then naturally pushed down by chat history */
 .input-hero {
-    position: fixed;
-    /* keep horizontally centered at all times to avoid horizontal movement during transitions */
-    left: 50%;
-    transform: translateX(-50%);
-    right: auto;
-    bottom: 18px;
     width: min(980px, calc(100% - 2rem));
-    transition: transform 320ms ease, top 320ms ease, bottom 320ms ease, opacity 200ms ease;
-    z-index: 60;
-}
-
-.hero-centered .input-hero {
-    position: fixed;
-    /* vertically center while preserving horizontal centering (translateX only changes to include Y) */
-    top: 61%;
-    bottom: auto;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: min(980px, calc(100% - 2.5rem));
-    padding-top: 0;
-    padding-bottom: 0;
+    margin: 0 auto;
+    transition: all 500ms ease;
 }
 
 /* Ensure welcome copy has space at the bottom so text doesn't fall under the input */
 .hero-centered #welcome-screen {
-    transform: translateY(-6%);
-    padding-bottom: 4.25rem; /* reserve space while keeping hero tighter */
+    transform: translateY(-2%);
+    padding-bottom: 3rem; /* reserve space while reducing oversized gap */
 }
 
 /* Compact hero spacing so the initial screen feels less oversized */
@@ -191,17 +173,27 @@ textarea:focus::-webkit-scrollbar {
 }
 
 .hero-centered .welcome-subtitle {
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.85rem;
     max-width: 38rem;
 }
 
 .hero-centered .input-hero .suggestion-chips {
-    margin-top: 0.65rem;
+    margin-top: 0.4rem;
     gap: 0.55rem;
 }
 
 .hero-centered .input-hero .text-center.mt-3 {
     margin-top: 0.45rem;
+}
+
+/* After first message, interaction area becomes a normal bottom section */
+body:not(.hero-centered) #interaction-area {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+}
+
+body:not(.hero-centered) .input-hero {
+    width: min(980px, calc(100% - 2rem));
 }
 
 /* In chat mode keep the input compact: hide chips only (disclaimer remains visible) */
