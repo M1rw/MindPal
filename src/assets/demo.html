@@ -285,7 +285,7 @@
                         
                         <!-- Mode Selector Button -->
                         <button id="mode-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors">
-                            <span id="current-mode-icon-slot" class="w-4 h-4 flex items-center justify-center" data-lucide="message-circle-heart"></span>
+                            <span id="current-mode-icon-slot" class="w-4 h-4 flex items-center justify-center text-blue-500 dark:text-blue-400" aria-hidden="true"></span>
                             <span id="current-mode-text">Companion</span>
                             <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 dark:text-gray-500"></i>
                         </button>
@@ -398,6 +398,28 @@
             });
         }
 
+        const modeIconNameByMode = {
+            Companion: 'message-circle-heart',
+            'Cognitive Tools': 'brain-circuit',
+            Resources: 'library',
+        };
+
+        function setCurrentModeIcon(modeName) {
+            currentModeIconSlot.className = 'w-4 h-4 flex items-center justify-center';
+            if (modeName === 'Cognitive Tools') {
+                currentModeIconSlot.classList.add('text-purple-500', 'dark:text-purple-400');
+            } else if (modeName === 'Resources') {
+                currentModeIconSlot.classList.add('text-emerald-500', 'dark:text-emerald-400');
+            } else {
+                currentModeIconSlot.classList.add('text-blue-500', 'dark:text-blue-400');
+            }
+            const iconName = modeIconNameByMode[modeName] || modeIconNameByMode.Companion;
+            currentModeIconSlot.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i>`;
+            lucide.createIcons();
+        }
+
+        setCurrentModeIcon('Companion');
+
         function isNearBottom() {
             const threshold = 160;
             return (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < threshold;
@@ -412,20 +434,152 @@
                 .replace(/'/g, '&#39;');
         }
 
-        function formatMarkdownToHtml(md) {
-            let safe = escapeHtml(md || '');
+        function prepareBotBodyForFinalContent(element) {
+            element.className = 'whitespace-pre-wrap text-gray-800 dark:text-gray-200 max-w-3xl';
+        }
+
+        function renderInlineMarkdown(value) {
+            let safe = escapeHtml(value || '');
             safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             safe = safe.replace(/__(.+?)__/g, '<strong>$1</strong>');
             safe = safe.replace(/(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)/g, '<em>$1</em>');
             safe = safe.replace(/(?<!_)_(?!\s)(.+?)(?<!\s)_(?!_)/g, '<em>$1</em>');
-            safe = safe.replace(/^###\s+(.*)$/gm, '<h3 class="text-lg font-semibold mb-2 mt-2">$1</h3>');
-            safe = safe.replace(/^>\s+(.*)$/gm, '<blockquote class="border-l-2 border-gray-300 dark:border-gray-600 pl-3 text-gray-600 dark:text-gray-300 my-2">$1</blockquote>');
-            safe = safe.replace(/^\*\*(.+?)\*\*:\s*(.+)$/gm, '<p><strong>$1:</strong> $2</p>');
-            safe = safe.replace(/^\*\*(.+?)\*\*$/gm, '<p><strong>$1</strong></p>');
-            safe = safe.replace(/^-\s+(.*)$/gm, '<li>$1</li>');
-            safe = safe.replace(/(<li>.*<\/li>)/gs, '<ul class="list-disc pl-6 my-2">$1</ul>');
-            safe = safe.replace(/\n/g, '<br>');
             return safe;
+        }
+
+        function formatMarkdownToHtml(md) {
+            const source = String(md || '').trim();
+            if (!source) return '';
+
+            const blocks = source.split(/\n\s*\n/).map(block => block.trim()).filter(Boolean);
+            const rendered = blocks.map((block) => {
+                if (/^###\s+/.test(block)) {
+                    return `<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-50 mb-1">${renderInlineMarkdown(block.replace(/^###\s+/, ''))}</h3>`;
+                }
+
+                if (/^>\s*/.test(block)) {
+                    const quoteText = block
+                        .replace(/^>\s*/gm, '')
+                        .replace(/\n+/g, ' ')
+                        .trim();
+                    return `<div class="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/50 px-4 py-3"><p class="text-sm leading-6 text-gray-600 dark:text-gray-300">${renderInlineMarkdown(quoteText)}</p></div>`;
+                }
+
+                if (/^-\s+/.test(block)) {
+                    const items = block
+                        .split('\n')
+                        .map(line => line.replace(/^-\s+/, '').trim())
+                        .filter(Boolean)
+                        .map(line => `<li class="flex gap-2 leading-6"><span class="mt-2 h-1.5 w-1.5 rounded-full bg-blue-400 dark:bg-blue-300 flex-shrink-0"></span><span>${renderInlineMarkdown(line)}</span></li>`)
+                        .join('');
+
+                    return `<ul class="space-y-2 my-1">${items}</ul>`;
+                }
+
+                if (/^\*\*(.+?)\*\*:\s*(.+)$/s.test(block)) {
+                    const match = block.match(/^\*\*(.+?)\*\*:\s*(.+)$/s);
+                    if (match) {
+                        return `<div class="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-gray-800/40 px-4 py-3"><p class="text-sm leading-6 text-gray-700 dark:text-gray-200"><strong>${renderInlineMarkdown(match[1])}:</strong> ${renderInlineMarkdown(match[2].replace(/\n+/g, ' '))}</p></div>`;
+                    }
+                }
+
+                if (/^\*\*(.+?)\*\*$/.test(block)) {
+                    const match = block.match(/^\*\*(.+?)\*\*$/);
+                    if (match) {
+                        return `<h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">${renderInlineMarkdown(match[1])}</h4>`;
+                    }
+                }
+
+                return `<p class="text-base leading-7 text-gray-700 dark:text-gray-200">${renderInlineMarkdown(block.replace(/\n+/g, ' '))}</p>`;
+            }).join('');
+
+            return `<div class="space-y-4">${rendered}</div>`;
+        }
+
+        function formatResourceMarkdownToHtml(md) {
+            const lines = String(md || '').split(/\r?\n/).map(line => line.trim());
+            if (!lines.some(Boolean)) return '';
+
+            const sections = [];
+            let index = 0;
+
+            while (index < lines.length && !lines[index]) {
+                index += 1;
+            }
+
+            if (lines[index]?.startsWith('### ')) {
+                sections.push(`<h3 class="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">${renderInlineMarkdown(lines[index].replace(/^###\s+/, ''))}</h3>`);
+                index += 1;
+            }
+
+            while (index < lines.length && !lines[index]) {
+                index += 1;
+            }
+
+            const quoteLines = [];
+            while (index < lines.length && lines[index].startsWith('>')) {
+                quoteLines.push(lines[index].replace(/^>\s?/, ''));
+                index += 1;
+            }
+            if (quoteLines.length) {
+                sections.push(`
+                    <div class="rounded-2xl border border-gray-200/80 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/50 px-4 py-3">
+                        <p class="text-sm leading-6 text-gray-600 dark:text-gray-300">${renderInlineMarkdown(quoteLines.join(' '))}</p>
+                    </div>
+                `);
+            }
+
+            while (index < lines.length && !lines[index]) {
+                index += 1;
+            }
+
+            if (lines[index]?.startsWith('**Hotline:**')) {
+                const hotlineText = lines[index].replace(/^\*\*Hotline:\*\*\s*/, '');
+                sections.push(`
+                    <div class="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/40 px-4 py-3">
+                        <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500 mb-1">Hotline</div>
+                        <p class="text-base leading-7 text-gray-700 dark:text-gray-200">${renderInlineMarkdown(hotlineText)}</p>
+                    </div>
+                `);
+                index += 1;
+            }
+
+            while (index < lines.length && !lines[index]) {
+                index += 1;
+            }
+
+            if (lines[index]?.startsWith('**Coping Tips:**')) {
+                index += 1;
+                const tips = [];
+                while (index < lines.length) {
+                    const line = lines[index];
+                    index += 1;
+                    if (!line) continue;
+                    if (line.startsWith('- ')) {
+                        tips.push(line.replace(/^-\s+/, ''));
+                    } else {
+                        tips.push(line);
+                    }
+                }
+
+                if (tips.length) {
+                    sections.push(`
+                        <div class="rounded-2xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-800/40 px-4 py-3">
+                            <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500 mb-3">Coping Tips</div>
+                            <ul class="space-y-2">
+                                ${tips.map(tip => `
+                                    <li class="flex gap-2 text-sm leading-6 text-gray-700 dark:text-gray-200">
+                                        <span class="mt-2 h-1.5 w-1.5 rounded-full bg-blue-400 dark:bg-blue-300 flex-shrink-0"></span>
+                                        <span>${renderInlineMarkdown(tip)}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `);
+                }
+            }
+
+            return `<div class="space-y-4">${sections.join('')}</div>`;
         }
 
         async function postJSON(path, payload) {
@@ -502,15 +656,10 @@
         modeOptions.forEach(option => {
             option.addEventListener('click', (e) => {
                 const modeName = option.getAttribute('data-mode');
-                const iconName = option.getAttribute('data-icon');
                 
                 // Update button text and icon
                 currentModeText.textContent = modeName;
-                currentModeIconSlot.innerHTML = '';
-                currentModeIconSlot.setAttribute('data-lucide', iconName);
-
-                // Re-render icons to apply the new icon
-                lucide.createIcons();
+                setCurrentModeIcon(modeName);
                 
                 closeDropdown();
                 inputEl.focus();
@@ -580,7 +729,8 @@
                     const markdown = resource.markdown || 'No resources available.';
                     await typewriterIntoElement(bubbleBody, markdown);
                     bubbleBody.classList.remove('typing-caret');
-                    bubbleBody.innerHTML = formatMarkdownToHtml(markdown);
+                    prepareBotBodyForFinalContent(bubbleBody);
+                    bubbleBody.innerHTML = formatResourceMarkdownToHtml(markdown);
                     const links = buildLinksHtml(resource.links || []);
                     if (links) {
                         bubbleBody.insertAdjacentHTML('beforeend', links);
@@ -596,6 +746,7 @@
 
                 await typewriterIntoElement(bubbleBody, answer);
                 bubbleBody.classList.remove('typing-caret');
+                prepareBotBodyForFinalContent(bubbleBody);
                 bubbleBody.innerHTML = formatMarkdownToHtml(answer);
                 pushMemory('assistant', answer);
             } catch (error) {
@@ -610,8 +761,8 @@
 
         function buildLinksHtml(links = []) {
             if (!Array.isArray(links) || !links.length) return '';
-            return `<div class="flex flex-wrap gap-2 mt-3">${links
-                .map(item => `<a class="px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)}</a>`)
+            return `<div class="flex flex-wrap gap-2 mt-4 pt-2">${links
+                .map(item => `<a class="inline-flex items-center px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-200 bg-white/70 dark:bg-gray-800/60 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)}</a>`)
                 .join('')}</div>`;
         }
 
