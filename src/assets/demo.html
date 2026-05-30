@@ -1,711 +1,419 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MindPal - Prompt Testing Suite</title>
-    <style>
-      :root {
-        --primary: #42d8c7;
-        --primary-dark: #2ab5a3;
-        --accent: #ffd166;
-        --danger: #ff6b6b;
-        --success: #80ed99;
-        --bg-base: #0b1020;
-        --bg-elevated: #141a33;
-        --bg-card: #161d3a;
-        --text-primary: #eef2ff;
-        --text-secondary: #b8c0ff;
-        --border-color: #2c3563;
-        --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
-        --shadow-md: 0 8px 24px rgba(66, 216, 199, 0.12);
-        --shadow-lg: 0 16px 48px rgba(66, 216, 199, 0.15);
-      }
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindPal — Mental Health Companion</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-      * {
-        box-sizing: border-box;
-      }
-
-      html {
-        scroll-behavior: smooth;
-      }
-
-      body {
-        margin: 0;
-        padding: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-        color: var(--text-primary);
-        background: linear-gradient(135deg, var(--bg-base) 0%, #0f1426 50%, var(--bg-elevated) 100%);
-        background-attachment: fixed;
-        min-height: 100vh;
-        overflow-x: hidden;
-      }
-
-      body::before {
-        content: '';
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: 
-          radial-gradient(circle at 20% 30%, rgba(66, 216, 199, 0.08), transparent 40%),
-          radial-gradient(circle at 80% 70%, rgba(255, 209, 102, 0.06), transparent 40%);
-        pointer-events: none;
-        z-index: 0;
-      }
-
-      .container {
-        position: relative;
-        z-index: 1;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 32px 20px;
-      }
-
-      .header {
-        text-align: center;
-        margin-bottom: 56px;
-        animation: slideInDown 0.8s ease-out;
-      }
-
-      .logo {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.9rem;
-        color: var(--text-secondary);
-        margin-bottom: 16px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-      }
-
-      .logo-icon {
-        width: 24px;
-        height: 24px;
-        background: linear-gradient(135deg, var(--primary), var(--accent));
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--bg-base);
-        font-weight: bold;
-        font-size: 12px;
-      }
-
-      h1 {
-        margin: 0 0 12px;
-        font-size: clamp(2rem, 8vw, 3.5rem);
-        font-weight: 700;
-        background: linear-gradient(135deg, var(--primary), #6ee7ff, var(--accent));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        letter-spacing: -0.5px;
-      }
-
-      .subtitle {
-        margin: 0;
-        font-size: clamp(1rem, 2.5vw, 1.2rem);
-        color: var(--text-secondary);
-        line-height: 1.6;
-        max-width: 600px;
-        margin: 16px auto 0;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-        gap: 24px;
-        margin-bottom: 40px;
-      }
-
-      @media (max-width: 768px) {
-        .grid {
-          grid-template-columns: 1fr;
-          gap: 20px;
-        }
-      }
-
-      .card {
-        background: linear-gradient(135deg, rgba(22, 29, 58, 0.8), rgba(20, 26, 51, 0.6));
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 28px;
-        backdrop-filter: blur(10px);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        animation: fadeInUp 0.8s ease-out;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, rgba(66, 216, 199, 0), rgba(66, 216, 199, 0.03));
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        pointer-events: none;
-      }
-
-      .card:hover::before {
-        opacity: 1;
-      }
-
-      .card:hover {
-        border-color: var(--primary);
-        box-shadow: var(--shadow-lg);
-        transform: translateY(-4px);
-      }
-
-      .card:nth-child(3) {
-        grid-column: 1 / -1;
-      }
-
-      .card-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 20px;
-      }
-
-      .card-icon {
-        width: 32px;
-        height: 32px;
-        background: linear-gradient(135deg, var(--primary), #6ee7ff);
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-      }
-
-      h2 {
-        margin: 0;
-        font-size: 1.3rem;
-        font-weight: 600;
-        color: var(--text-primary);
-      }
-
-      .form-group {
-        margin-bottom: 16px;
-      }
-
-      label {
-        display: block;
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: var(--text-secondary);
-        margin-bottom: 8px;
-      }
-
-      textarea,
-      select {
-        width: 100%;
-        padding: 12px 16px;
-        border-radius: 10px;
-        border: 1px solid var(--border-color);
-        background: rgba(15, 21, 48, 0.6);
-        color: var(--text-primary);
-        font-size: 0.95rem;
-        font-family: inherit;
-        transition: all 0.3s ease;
-        resize: vertical;
-      }
-
-      textarea {
-        min-height: 120px;
-        font-family: 'Monaco', 'Courier New', monospace;
-      }
-
-      textarea:focus,
-      select:focus {
-        outline: none;
-        border-color: var(--primary);
-        background: rgba(15, 21, 48, 0.9);
-        box-shadow: inset 0 0 0 2px rgba(66, 216, 199, 0.1), 0 0 20px rgba(66, 216, 199, 0.2);
-      }
-
-      button {
-        width: 100%;
-        padding: 12px 24px;
-        margin-top: 16px;
-        border-radius: 10px;
-        border: none;
-        background: linear-gradient(135deg, var(--primary), #2ab5a3);
-        color: var(--bg-base);
-        font-weight: 600;
-        font-size: 0.95rem;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-      }
-
-      button::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: width 0.6s, height 0.6s;
-        pointer-events: none;
-      }
-
-      button:hover {
-        background: linear-gradient(135deg, #3bc5b4, #1fa695);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(66, 216, 199, 0.3);
-      }
-
-      button:active::before {
-        width: 300px;
-        height: 300px;
-      }
-
-      button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        transform: none;
-      }
-
-      .output-section {
-        margin-top: 20px;
-      }
-
-      .status-badge {
-        display: inline-block;
-        padding: 6px 14px;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        margin-bottom: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        animation: slideInLeft 0.5s ease-out;
-      }
-
-      .status-badge.loading {
-        background: rgba(255, 209, 102, 0.15);
-        color: var(--accent);
-        animation: pulse 1.5s ease-in-out infinite;
-      }
-
-      .status-badge.success {
-        background: rgba(128, 237, 153, 0.15);
-        color: var(--success);
-      }
-
-      .status-badge.danger {
-        background: rgba(255, 107, 107, 0.15);
-        color: var(--danger);
-      }
-
-      .result-box {
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        padding: 16px;
-        min-height: 80px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--text-secondary);
-        line-height: 1.6;
-        white-space: pre-wrap;
-        word-break: break-word;
-        animation: fadeIn 0.5s ease-out;
-        transition: all 0.3s ease;
-      }
-
-      .result-box.has-content {
-        color: var(--text-primary);
-        background: linear-gradient(135deg, rgba(66, 216, 199, 0.05), rgba(255, 209, 102, 0.03));
-        border-color: var(--border-color);
-      }
-
-      .links-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 12px;
-      }
-
-      .link-badge {
-        text-decoration: none;
-        color: var(--text-primary);
-        padding: 8px 14px;
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
-        background: rgba(66, 216, 199, 0.08);
-        font-size: 0.85rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .link-badge:hover {
-        background: rgba(66, 216, 199, 0.15);
-        border-color: var(--primary);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(66, 216, 199, 0.2);
-      }
-
-      .link-badge::after {
-        content: '↗';
-        font-size: 0.9em;
-        opacity: 0.6;
-      }
-
-      .footer {
-        text-align: center;
-        margin-top: 60px;
-        padding-top: 32px;
-        border-top: 1px solid var(--border-color);
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-        animation: fadeIn 1s ease-out;
-      }
-
-      .loading-dots {
-        display: inline-block;
-      }
-
-      .loading-dots span {
-        animation: blink 1.4s infinite;
-      }
-
-      .loading-dots span:nth-child(2) {
-        animation-delay: 0.2s;
-      }
-
-      .loading-dots span:nth-child(3) {
-        animation-delay: 0.4s;
-      }
-
-      @keyframes slideInDown {
-        from {
-          opacity: 0;
-          transform: translateY(-20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      @keyframes slideInLeft {
-        from {
-          opacity: 0;
-          transform: translateX(-20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
-      }
-
-      @keyframes fadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-
-      @keyframes pulse {
-        0%, 100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.6;
-        }
-      }
-
-      @keyframes blink {
-        0%, 20%, 50%, 80%, 100% {
-          opacity: 1;
-        }
-        40% {
-          opacity: 0.4;
-        }
-        60% {
-          opacity: 0.7;
-        }
-      }
-
-      @media (max-width: 640px) {
-        .container {
-          padding: 20px 16px;
-        }
-
-        h1 {
-          font-size: 2rem;
-        }
-
-        .card {
-          padding: 20px;
-        }
-
-        .card:nth-child(3) {
-          grid-column: 1;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <main class="container">
-      <section class="header">
-        <div class="logo">
-          <span class="logo-icon">MP</span>
-          <span>MindPal Testing Suite</span>
-        </div>
-        <h1>Prompt Testing Interface</h1>
-        <p class="subtitle">
-          Test your AI safety classifier, cognitive tools, and chat responses with real-time feedback and crisis resource routing.
-        </p>
-      </section>
-
-      <section class="grid">
-        <article class="card">
-          <div class="card-header">
-            <div class="card-icon">🛡️</div>
-            <h2>Safety Classifier</h2>
-          </div>
-          <div class="form-group">
-            <label for="classifyInput">Test Message</label>
-            <textarea id="classifyInput" placeholder="Enter a message to classify for safety concerns..."></textarea>
-          </div>
-          <button id="classifyBtn">Analyze Message</button>
-          <div class="output-section">
-            <div id="classifyStatus" class="status-badge loading">
-              <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span> Waiting
-            </div>
-            <div id="classifyOut" class="result-box">No result yet.</div>
-            <div id="resourceLinks" class="links-container"></div>
-          </div>
-        </article>
-
-        <article class="card">
-          <div class="card-header">
-            <div class="card-icon">✨</div>
-            <h2>Cognitive Tools</h2>
-          </div>
-          <div class="form-group">
-            <label for="toolMode">Select Tool</label>
-            <select id="toolMode">
-              <option value="unscramble">Unscramble Thoughts</option>
-              <option value="realitycheck">Reality Check</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="toolInput">Your Input</label>
-            <textarea id="toolInput" placeholder="Share your thoughts or concerns..."></textarea>
-          </div>
-          <button id="toolBtn">Run Tool</button>
-          <div class="output-section">
-            <div id="toolOut" class="result-box">No result yet.</div>
-          </div>
-        </article>
-
-        <article class="card">
-          <div class="card-header">
-            <div class="card-icon">💬</div>
-            <h2>Chat Demo</h2>
-          </div>
-          <div class="form-group">
-            <label for="chatInput">Message</label>
-            <textarea id="chatInput" placeholder="Start a conversation with MindPal..."></textarea>
-          </div>
-          <button id="chatBtn">Send Message</button>
-          <div class="output-section">
-            <div id="chatOut" class="result-box">No result yet.</div>
-            <div id="chatLinks" class="links-container"></div>
-          </div>
-        </article>
-      </section>
-
-      <footer class="footer">
-        <p>
-          <strong>Demo Only:</strong> MindPal is supportive and does not replace professional mental health care.
-          Always reach out to qualified professionals if you're in crisis.
-        </p>
-      </footer>
-    </main>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <script>
-      const classifyInput = document.getElementById("classifyInput");
-      const classifyBtn = document.getElementById("classifyBtn");
-      const classifyOut = document.getElementById("classifyOut");
-      const classifyStatus = document.getElementById("classifyStatus");
-      const resourceLinks = document.getElementById("resourceLinks");
-
-      const toolMode = document.getElementById("toolMode");
-      const toolInput = document.getElementById("toolInput");
-      const toolBtn = document.getElementById("toolBtn");
-      const toolOut = document.getElementById("toolOut");
-
-      const chatInput = document.getElementById("chatInput");
-      const chatBtn = document.getElementById("chatBtn");
-      const chatOut = document.getElementById("chatOut");
-      const chatLinks = document.getElementById("chatLinks");
-
-      function setLoading(btn, isLoading) {
-        btn.disabled = isLoading;
-        btn.textContent = isLoading ? "Processing..." : btn.dataset.originalText;
-      }
-
-      function renderLinks(root, links) {
-        root.innerHTML = "";
-        if (!links || links.length === 0) return;
-        for (const item of links) {
-          const a = document.createElement("a");
-          a.href = item.url;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          a.className = "link-badge";
-          a.textContent = item.label;
-          root.appendChild(a);
+        tailwind.config = {
+            darkMode: 'class', // Enables dark mode based on a CSS class
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        surface: '#f0f4f9', // Smooth light gray
+                        surfaceHover: '#e5e9ee',
+                    }
+                }
+            }
         }
-      }
-
-      function updateStatus(statusEl, text, className) {
-        statusEl.textContent = text;
-        statusEl.className = `status-badge ${className}`;
-      }
-
-      function displayResult(resultEl, content) {
-        if (content && content.trim()) {
-          resultEl.textContent = content;
-          resultEl.classList.add("has-content");
-        } else {
-          resultEl.textContent = "No result yet.";
-          resultEl.classList.remove("has-content");
-        }
-      }
-
-      async function postJSON(path, payload) {
-        const res = await fetch(path, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const txt = await res.text();
-          throw new Error(txt || `HTTP ${res.status}`);
-        }
-        return res.json();
-      }
-
-      classifyBtn.dataset.originalText = "Analyze Message";
-      classifyBtn.addEventListener("click", async () => {
-        const text = classifyInput.value.trim();
-        if (!text) return;
-
-        setLoading(classifyBtn, true);
-        updateStatus(classifyStatus, "Analyzing...", "loading");
-        displayResult(classifyOut, "Processing...");
-        resourceLinks.innerHTML = "";
-
-        try {
-          const data = await postJSON("/api/classify", { text });
-          const category = data.category;
-          
-          if (!category) {
-            updateStatus(classifyStatus, "✓ Safe", "success");
-            displayResult(classifyOut, "No safety concerns detected. This message appears safe.");
-            return;
-          }
-
-          const resData = await fetch(`/api/resources/${encodeURIComponent(category)}`).then(r => r.json());
-          const statusClass = category === "crisis" ? "danger" : "loading";
-          updateStatus(classifyStatus, `⚠ Detected: ${category}`, statusClass);
-          displayResult(classifyOut, resData.markdown);
-          renderLinks(resourceLinks, resData.links);
-        } catch (err) {
-          updateStatus(classifyStatus, "✗ Error", "danger");
-          displayResult(classifyOut, `Error: ${String(err)}`);
-        } finally {
-          setLoading(classifyBtn, false);
-        }
-      });
-
-      toolBtn.dataset.originalText = "Run Tool";
-      toolBtn.addEventListener("click", async () => {
-        const text = toolInput.value.trim();
-        if (!text) return;
-
-        const mode = toolMode.value;
-        setLoading(toolBtn, true);
-        displayResult(toolOut, `Running ${mode}...`);
-
-        try {
-          const data = await postJSON(`/api/${mode}`, { text });
-          displayResult(toolOut, data.result || "No response.");
-        } catch (err) {
-          displayResult(toolOut, `Error: ${String(err)}`);
-        } finally {
-          setLoading(toolBtn, false);
-        }
-      });
-
-      chatBtn.dataset.originalText = "Send Message";
-      chatBtn.addEventListener("click", async () => {
-        const text = chatInput.value.trim();
-        if (!text) return;
-
-        setLoading(chatBtn, true);
-        displayResult(chatOut, "Sending...");
-        chatLinks.innerHTML = "";
-
-        try {
-          const data = await postJSON("/api/chat", { text });
-          if (data.mode === "crisis") {
-            displayResult(chatOut, data.resource.markdown);
-            renderLinks(chatLinks, data.resource.links);
-            return;
-          }
-          displayResult(chatOut, data.result || "No response.");
-        } catch (err) {
-          displayResult(chatOut, `Error: ${String(err)}`);
-        } finally {
-          setLoading(chatBtn, false);
-        }
-      });
-
-      // Allow Enter key in textareas to also send
-      [classifyInput, toolInput, chatInput].forEach(el => {
-        el.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" && e.ctrlKey) {
-            e.preventDefault();
-            if (el === classifyInput) classifyBtn.click();
-            else if (el === toolInput) toolBtn.click();
-            else if (el === chatInput) chatBtn.click();
-          }
-        });
-      });
     </script>
-  </body>
+
+    <style>
+        /* Custom scrollbar for the textarea and chat area */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        
+        /* Hide scrollbar for clean look unless scrolling */
+        textarea::-webkit-scrollbar {
+            width: 0px;
+        }
+        textarea:focus::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .dropdown-enter {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+        }
+        .dropdown-enter-active {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            transition: opacity 200ms ease-out, transform 200ms ease-out;
+        }
+        .dropdown-exit {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+        .dropdown-exit-active {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+            transition: opacity 150ms ease-in, transform 150ms ease-in;
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">
+
+    <!-- Header / Navbar -->
+    <header class="flex items-center justify-between px-6 py-4 border-b border-transparent transition-all duration-300" id="header">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500 dark:text-blue-400">
+                <i data-lucide="brain" class="w-5 h-5"></i>
+            </div>
+            <span class="text-xl font-medium tracking-tight text-gray-700 dark:text-gray-200">MindPal</span>
+        </div>
+        <div class="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+            <!-- Theme Toggle Button -->
+            <button id="theme-toggle-btn" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Toggle Dark Mode">
+                <i data-lucide="moon" class="w-5 h-5" id="theme-icon"></i>
+            </button>
+            <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Settings">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto flex flex-col relative" id="chat-container">
+        
+        <!-- Welcome Screen (Visible initially) -->
+        <div id="welcome-screen" class="flex-1 flex flex-col items-center justify-center p-6 max-w-3xl mx-auto w-full animate-fade-in text-center mt-[-10vh]">
+            <div class="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center mb-6 shadow-sm">
+                <i data-lucide="leaf" class="w-8 h-8"></i>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-semibold text-gray-800 dark:text-gray-100 mb-3">How are you feeling today?</h1>
+            <p class="text-gray-500 dark:text-gray-400 text-lg mb-8 max-w-lg">I'm a private, safe space to talk, reframe your thoughts, or find mental health resources.</p>
+            
+            <!-- Suggestion Chips -->
+            <div class="flex flex-wrap justify-center gap-3">
+                <button class="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors shadow-sm flex items-center gap-2 suggestion-btn">
+                    <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i>
+                    Reality Check
+                </button>
+                <button class="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors shadow-sm flex items-center gap-2 suggestion-btn">
+                    <i data-lucide="puzzle" class="w-4 h-4 text-blue-500 dark:text-blue-400"></i>
+                    Unscramble thoughts
+                </button>
+                <button class="px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors shadow-sm flex items-center gap-2 suggestion-btn">
+                    <i data-lucide="book-heart" class="w-4 h-4 text-rose-500 dark:text-rose-400"></i>
+                    Find resources
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat History (Hidden initially) -->
+        <div id="chat-history" class="hidden flex-col gap-6 p-4 max-w-4xl mx-auto w-full pb-32 pt-8">
+            <!-- Messages will be injected here -->
+        </div>
+
+    </main>
+
+    <!-- Input Area Container (Fixed at bottom) -->
+    <div class="w-full bg-gradient-to-t from-white via-white dark:from-gray-900 dark:via-gray-900 to-transparent pt-6 pb-6 px-4 absolute bottom-0 left-0 right-0">
+        <div class="max-w-4xl mx-auto relative">
+            
+            <!-- The Input Box -->
+            <div class="bg-surface dark:bg-gray-800 rounded-[28px] p-3 flex flex-col relative focus-within:ring-1 ring-gray-300 dark:ring-gray-600 focus-within:bg-white dark:focus-within:bg-gray-800 transition-all shadow-sm group">
+                
+                <!-- Textarea -->
+                <textarea 
+                    id="chat-input"
+                    rows="1"
+                    class="bg-transparent resize-none outline-none w-full max-h-[200px] px-3 py-3 text-gray-800 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 leading-relaxed"
+                    placeholder="What can I do for you?"
+                    style="min-height: 52px;"
+                ></textarea>
+
+                <!-- Bottom Controls Row -->
+                <div class="flex items-center justify-between px-1 mt-1">
+                    
+                    <!-- Left: Mode Selector & Attachment -->
+                    <div class="flex items-center gap-1 relative">
+                        
+                        <!-- Mode Selector Button -->
+                        <button id="mode-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors">
+                            <i data-lucide="message-circle-heart" class="w-4 h-4" id="current-mode-icon"></i>
+                            <span id="current-mode-text">Companion</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 dark:text-gray-500"></i>
+                        </button>
+
+                        <!-- Dropdown Menu (Hidden by default) -->
+                        <div id="mode-dropdown" class="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-lg p-2 hidden z-50">
+                            <div class="text-xs font-semibold text-gray-400 dark:text-gray-500 px-3 mb-1 mt-1 uppercase tracking-wider">Select Mode</div>
+                            
+                            <button class="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left mode-option" data-mode="Companion" data-icon="message-circle-heart">
+                                <i data-lucide="message-circle-heart" class="w-5 h-5 text-blue-500 dark:text-blue-400 mt-0.5"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Companion</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">General emotional support</div>
+                                </div>
+                            </button>
+                            
+                            <button class="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left mode-option" data-mode="Cognitive Tools" data-icon="brain-circuit">
+                                <i data-lucide="brain-circuit" class="w-5 h-5 text-purple-500 dark:text-purple-400 mt-0.5"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Cognitive Tools</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">Unscramble & reality check</div>
+                                </div>
+                            </button>
+
+                            <button class="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left mode-option" data-mode="Resources" data-icon="library">
+                                <i data-lucide="library" class="w-5 h-5 text-emerald-500 dark:text-emerald-400 mt-0.5"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Resources</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">Look up crisis & safety info</div>
+                                </div>
+                            </button>
+                        </div>
+
+                        <!-- Divider -->
+                        <div class="w-[1px] h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+                        <!-- Attachment Button -->
+                        <button class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors relative group/tooltip" title="Attach context (Optional)">
+                            <i data-lucide="paperclip" class="w-5 h-5"></i>
+                        </button>
+
+                    </div>
+
+                    <!-- Right: Send Button -->
+                    <button id="send-btn" disabled class="p-2.5 rounded-full bg-surfaceHover dark:bg-gray-700 text-gray-400 dark:text-gray-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center">
+                        <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Disclaimer -->
+            <div class="text-center mt-3 text-xs text-gray-400 dark:text-gray-500 font-medium">
+                MindPal provides safe, privacy-minded support. It is not a replacement for professional medical help.
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Theme Setup
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        const themeIcon = document.getElementById('theme-icon');
+
+        // Check for saved theme preference or use system preference
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            themeIcon.setAttribute('data-lucide', 'sun');
+        } else {
+            document.documentElement.classList.remove('dark');
+            themeIcon.setAttribute('data-lucide', 'moon');
+        }
+        lucide.createIcons();
+
+        // Handle Theme Toggle
+        themeToggleBtn.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+                themeIcon.setAttribute('data-lucide', 'sun');
+            } else {
+                localStorage.setItem('theme', 'light');
+                themeIcon.setAttribute('data-lucide', 'moon');
+            }
+            lucide.createIcons(); // re-render the specific icon
+        });
+
+        // Elements
+        const inputEl = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const modeBtn = document.getElementById('mode-selector-btn');
+        const modeDropdown = document.getElementById('mode-dropdown');
+        const currentModeText = document.getElementById('current-mode-text');
+        const currentModeIcon = document.getElementById('current-mode-icon');
+        const modeOptions = document.querySelectorAll('.mode-option');
+        
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const chatHistory = document.getElementById('chat-history');
+        const chatContainer = document.getElementById('chat-container');
+
+        // Send Button State Management
+        const disabledClasses = ['bg-surfaceHover', 'text-gray-400', 'dark:bg-gray-700', 'dark:text-gray-500'];
+        const enabledClasses = ['bg-gray-800', 'text-white', 'hover:bg-gray-900', 'hover:scale-105', 'dark:bg-gray-200', 'dark:text-gray-900', 'dark:hover:bg-white'];
+
+        // Auto-resize textarea
+        inputEl.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            
+            // Toggle Send button state
+            if (this.value.trim().length > 0) {
+                sendBtn.disabled = false;
+                sendBtn.classList.remove(...disabledClasses);
+                sendBtn.classList.add(...enabledClasses);
+            } else {
+                sendBtn.disabled = true;
+                sendBtn.classList.add(...disabledClasses);
+                sendBtn.classList.remove(...enabledClasses);
+            }
+        });
+
+        // Handle Mode Dropdown Toggle
+        modeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (modeDropdown.classList.contains('hidden')) {
+                modeDropdown.classList.remove('hidden');
+                modeDropdown.classList.add('dropdown-enter-active');
+            } else {
+                closeDropdown();
+            }
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!modeDropdown.contains(e.target) && !modeBtn.contains(e.target)) {
+                closeDropdown();
+            }
+        });
+
+        function closeDropdown() {
+            if (!modeDropdown.classList.contains('hidden')) {
+                modeDropdown.classList.add('hidden');
+            }
+        }
+
+        // Handle Mode Selection
+        modeOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                const modeName = option.getAttribute('data-mode');
+                const iconName = option.getAttribute('data-icon');
+                
+                // Update button text and icon
+                currentModeText.textContent = modeName;
+                currentModeIcon.setAttribute('data-lucide', iconName);
+                
+                // Re-render icons to apply the new icon
+                lucide.createIcons();
+                
+                closeDropdown();
+                inputEl.focus();
+            });
+        });
+
+        // Handle Suggestion Chips
+        document.querySelectorAll('.suggestion-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const text = e.target.closest('button').textContent.trim();
+                inputEl.value = text;
+                // Trigger input event to resize and enable button
+                inputEl.dispatchEvent(new Event('input'));
+                inputEl.focus();
+            });
+        });
+
+        // Simulate Sending Message
+        sendBtn.addEventListener('click', handleSend);
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!sendBtn.disabled) handleSend();
+            }
+        });
+
+        function handleSend() {
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            // Hide welcome screen, show chat history
+            if (!welcomeScreen.classList.contains('hidden')) {
+                welcomeScreen.classList.add('hidden');
+                chatHistory.classList.remove('hidden');
+                chatHistory.classList.add('flex');
+            }
+
+            // Append User Message
+            appendMessage(text, 'user');
+            
+            // Clear input
+            inputEl.value = '';
+            inputEl.style.height = 'auto';
+            inputEl.dispatchEvent(new Event('input'));
+
+            // Simulate Bot Typing/Response
+            setTimeout(() => {
+                const botResponse = generateSimulatedResponse(text, currentModeText.textContent);
+                appendMessage(botResponse, 'bot');
+            }, 1000);
+        }
+
+        function appendMessage(text, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex gap-4 w-full animate-fade-in ${sender === 'user' ? 'justify-end' : ''}`;
+            
+            if (sender === 'bot') {
+                msgDiv.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0 mt-1">
+                        <i data-lucide="brain" class="w-5 h-5"></i>
+                    </div>
+                    <div class="prose prose-sm md:prose-base text-gray-800 dark:text-gray-200 leading-relaxed max-w-3xl">
+                        <p>${text}</p>
+                    </div>
+                `;
+            } else {
+                msgDiv.innerHTML = `
+                    <div class="bg-gray-100 dark:bg-gray-800 rounded-3xl px-5 py-3 text-gray-800 dark:text-gray-200 max-w-2xl leading-relaxed">
+                        ${text}
+                    </div>
+                `;
+            }
+            
+            chatHistory.appendChild(msgDiv);
+            lucide.createIcons();
+            
+            // Smooth scroll to bottom
+            chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Simple mock response generator based on the README context
+        function generateSimulatedResponse(input, mode) {
+            if (mode === 'Resources') {
+                return "Here are some resources that might help. If you are in immediate distress, please consider reaching out to a local crisis line.<br><br><span class='text-blue-500 dark:text-blue-400 underline cursor-pointer hover:text-blue-600 dark:hover:text-blue-300'>View Support Directory</span>";
+            } else if (mode === 'Cognitive Tools') {
+                return "Let's break that down. Sometimes our thoughts can spiral into 'all-or-nothing' thinking. What is one piece of evidence that contradicts this thought?";
+            }
+            return "I hear you. It sounds like you're carrying a lot right now. I'm here to listen—would you like to explore those feelings more, or would you prefer a distraction right now?";
+        }
+
+    </script>
+</body>
 </html>

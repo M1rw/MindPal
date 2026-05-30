@@ -31,6 +31,11 @@ class CategoryRequest(BaseModel):
     category: str = Field(min_length=1, max_length=32)
 
 
+class AskRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+    mode: str = Field(min_length=1, max_length=64)
+
+
 app = FastAPI(title="MindPal Web Demo", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
@@ -99,3 +104,35 @@ def chat(payload: TextRequest) -> dict[str, str | dict[str, object]]:
         "mode": "chat",
         "result": run_chat(payload.text),
     }
+
+
+@app.post("/api/ask")
+def ask(payload: AskRequest) -> dict[str, object]:
+    mode = payload.mode.strip().casefold()
+    text = payload.text
+
+    if mode in {"companion", "chat"}:
+        category = detect_distress_category(text)
+        if category == "crisis":
+            return {
+                "mode": "crisis",
+                "category": category,
+                "resource": build_resource_payload("crisis"),
+            }
+        return {"mode": "chat", "result": run_chat(text)}
+
+    if mode in {"cognitive tools", "cognitive_tools", "cognitive", "tool"}:
+        lowered = text.casefold()
+        if any(token in lowered for token in ("reality", "reframe", "distortion", "anxious thought")):
+            return {"mode": "realitycheck", "result": run_realitycheck(text)}
+        return {"mode": "unscramble", "result": run_unscramble(text)}
+
+    if mode in {"resources", "resource"}:
+        category = detect_distress_category(text) or "anxiety"
+        return {
+            "mode": "resources",
+            "category": category,
+            "resource": build_resource_payload(category),
+        }
+
+    raise HTTPException(status_code=400, detail="Unsupported mode. Use Companion, Cognitive Tools, or Resources.")
