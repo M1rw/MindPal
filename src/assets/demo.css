@@ -204,9 +204,8 @@ textarea:focus::-webkit-scrollbar {
     margin-top: 0.45rem;
 }
 
-/* In chat mode keep the input compact: hide hero-only extras */
-body:not(.hero-centered) .input-hero .suggestion-chips,
-body:not(.hero-centered) .input-hero .input-disclaimer {
+/* In chat mode keep the input compact: hide chips only (disclaimer remains visible) */
+body:not(.hero-centered) .input-hero .suggestion-chips {
     display: none;
 }
 
