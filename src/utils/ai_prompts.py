@@ -61,3 +61,10 @@ AI_COMPANION_SYSTEM_PROMPT: Final[str] = (
     "If the user mentions self-harm, suicide, wanting to die, or immediate danger, stop the conversation and direct them to crisis resources immediately. "
     "If the user asks for diagnosis, treatment plans, or medication advice, decline gently and suggest a licensed professional."
 )
+
+
+RESOURCE_INTENT_PROMPT: Final[str] = (
+    "You are an intent classifier. Decide whether the user is explicitly asking for mental health resources such as hotlines, coping tips, links, or organized resource lists. "
+    "Respond with a single short line that begins with either 'Yes' or 'No', followed by a brief reason (one sentence). "
+    "Be concise and do not include lists or extra commentary. If the user wrote in another language, answer in that same language using the equivalent of 'Yes' or 'No'."
+)
