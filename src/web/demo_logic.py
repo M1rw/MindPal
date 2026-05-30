@@ -20,6 +20,11 @@ class ResourcePayload(TypedDict):
     links: list[dict[str, str]]
 
 
+class ChatTurn(TypedDict):
+    role: str
+    text: str
+
+
 def detect_distress_category(content: str) -> str | None:
     normalized = content.casefold()
     for category, patterns in DISTRESS_PATTERNS.items():
@@ -61,6 +66,25 @@ def build_resource_payload(category_key: str) -> ResourcePayload:
     )
     links = [{"label": label, "url": url} for label, url in rs.get("links", ())]
     return {"category": category_key, "markdown": markdown, "links": links}
+
+
+def _build_history_context(history: list[ChatTurn] | None) -> str:
+    if not history:
+        return ""
+
+    turns: list[str] = []
+    for item in history[-8:]:
+        role = item.get("role", "user").strip().casefold()
+        text = item.get("text", "").strip()
+        if not text:
+            continue
+        label = "User" if role == "user" else "MindPal"
+        turns.append(f"{label}: {text}")
+
+    if not turns:
+        return ""
+
+    return "Conversation so far:\n" + "\n".join(turns) + "\n\n"
 
 
 def _offline_unscramble_response(user_prompt: str) -> str:
@@ -121,25 +145,26 @@ def _try_remote_fallbacks(system_prompt: str, user_prompt: str) -> str:
     return _offline_response(system_prompt, user_prompt)
 
 
-def generate_text(system_prompt: str, user_prompt: str) -> str:
+def generate_text(system_prompt: str, user_prompt: str, history: list[ChatTurn] | None = None) -> str:
+    user_payload = _build_history_context(history) + user_prompt
     try:
-        return generate_with_google(system_prompt, user_prompt)
+        return generate_with_google(system_prompt, user_payload)
     except Exception:
-        return _try_remote_fallbacks(system_prompt, user_prompt)
+        return _try_remote_fallbacks(system_prompt, user_payload)
 
 
-def run_unscramble(text: str) -> str:
-    return generate_text(UNSCRAMBLE_PROMPT, text).strip()[:3500]
+def run_unscramble(text: str, history: list[ChatTurn] | None = None) -> str:
+    return generate_text(UNSCRAMBLE_PROMPT, text, history=history).strip()[:3500]
 
 
-def run_realitycheck(text: str) -> str:
-    return generate_text(REALITYCHECK_PROMPT, text).strip()[:3500]
+def run_realitycheck(text: str, history: list[ChatTurn] | None = None) -> str:
+    return generate_text(REALITYCHECK_PROMPT, text, history=history).strip()[:3500]
 
 
-def run_chat(text: str) -> str:
+def run_chat(text: str, history: list[ChatTurn] | None = None) -> str:
     category = detect_distress_category(text)
     if category == "crisis":
         payload = build_resource_payload("crisis")
         return payload["markdown"]
 
-    return generate_text(AI_COMPANION_SYSTEM_PROMPT, text).strip()[:3500]
+    return generate_text(AI_COMPANION_SYSTEM_PROMPT, text, history=history).strip()[:3500]

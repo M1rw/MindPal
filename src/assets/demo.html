@@ -149,6 +149,19 @@
             40% { transform: scale(1); opacity: 1; }
         }
 
+        @keyframes botFadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(8px);
+                filter: blur(2px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+                filter: blur(0);
+            }
+        }
+
         .thinking-dot {
             width: 6px;
             height: 6px;
@@ -169,6 +182,10 @@
             margin-left: 2px;
             background: rgba(59, 130, 246, 0.6);
             animation: caretBlink 0.8s step-end infinite;
+        }
+
+        .bot-fade-in {
+            animation: botFadeIn 260ms ease-out both;
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -372,16 +389,18 @@
         const chatHistory = document.getElementById('chat-history');
         const chatContainer = document.getElementById('chat-container');
         let isFocusRepliesOn = false;
+        const conversationMemory = [];
 
         function scrollChatToBottom(smooth = true) {
             const behavior = smooth ? 'smooth' : 'auto';
             requestAnimationFrame(() => {
                 chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior });
-                const last = chatHistory.lastElementChild;
-                if (last) {
-                    last.scrollIntoView({ behavior, block: 'end' });
-                }
             });
+        }
+
+        function isNearBottom() {
+            const threshold = 160;
+            return (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < threshold;
         }
 
         function escapeHtml(value) {
@@ -395,6 +414,10 @@
 
         function formatMarkdownToHtml(md) {
             let safe = escapeHtml(md || '');
+            safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            safe = safe.replace(/__(.+?)__/g, '<strong>$1</strong>');
+            safe = safe.replace(/(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)/g, '<em>$1</em>');
+            safe = safe.replace(/(?<!_)_(?!\s)(.+?)(?<!\s)_(?!_)/g, '<em>$1</em>');
             safe = safe.replace(/^###\s+(.*)$/gm, '<h3 class="text-lg font-semibold mb-2 mt-2">$1</h3>');
             safe = safe.replace(/^>\s+(.*)$/gm, '<blockquote class="border-l-2 border-gray-300 dark:border-gray-600 pl-3 text-gray-600 dark:text-gray-300 my-2">$1</blockquote>');
             safe = safe.replace(/^\*\*(.+?)\*\*:\s*(.+)$/gm, '<p><strong>$1:</strong> $2</p>');
@@ -526,6 +549,7 @@
 
             // Append User Message
             appendMessage(text, 'user');
+            pushMemory('user', text);
             
             // Clear input
             inputEl.value = '';
@@ -535,11 +559,18 @@
             requestBotResponse(text, currentModeText.textContent);
         }
 
+        function pushMemory(role, text) {
+            conversationMemory.push({ role, text });
+            if (conversationMemory.length > 10) {
+                conversationMemory.shift();
+            }
+        }
+
         async function requestBotResponse(text, mode) {
             const pendingBubble = appendThinkingMessage();
 
             try {
-                const result = await postJSON('/api/ask', { text, mode });
+                const result = await postJSON('/api/ask', { text, mode, history: conversationMemory });
                 const bubbleBody = pendingBubble.querySelector('[data-role="bot-body"]');
                 if (!bubbleBody) return;
 
@@ -553,6 +584,7 @@
                     if (links) {
                         bubbleBody.insertAdjacentHTML('beforeend', links);
                     }
+                    pushMemory('assistant', markdown);
                     return;
                 }
 
@@ -564,6 +596,7 @@
                 await typewriterIntoElement(bubbleBody, answer);
                 bubbleBody.classList.remove('typing-caret');
                 bubbleBody.innerHTML = formatMarkdownToHtml(answer);
+                pushMemory('assistant', answer);
             } catch (error) {
                 const bubbleBody = pendingBubble.querySelector('[data-role="bot-body"]');
                 if (bubbleBody) {
@@ -583,14 +616,14 @@
 
         function appendThinkingMessage() {
             const msgDiv = document.createElement('div');
-            msgDiv.className = 'flex items-center gap-4 w-full animate-fade-in';
+            msgDiv.className = 'flex items-center gap-4 w-full bot-fade-in';
             msgDiv.innerHTML = `
                 <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                     <i data-lucide="brain" class="w-5 h-5"></i>
                 </div>
                 <div class="text-gray-800 dark:text-gray-200 max-w-3xl min-h-8 flex items-center">
                     <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400" data-role="bot-body">
-                        <span>MindPal is thinking</span>
+                        <span>Thinking...</span>
                         <span class="thinking-dot"></span>
                         <span class="thinking-dot"></span>
                         <span class="thinking-dot"></span>
@@ -613,7 +646,9 @@
 
             for (let i = 0; i < text.length; i += step) {
                 element.textContent = text.slice(0, i + step);
-                scrollChatToBottom(false);
+                if (isNearBottom()) {
+                    scrollChatToBottom(false);
+                }
                 await new Promise(resolve => setTimeout(resolve, 10));
             }
 
@@ -622,7 +657,7 @@
 
         function appendMessage(text, sender, links = [], isHtml = false) {
             const msgDiv = document.createElement('div');
-            msgDiv.className = `flex items-center gap-4 w-full animate-fade-in ${sender === 'user' ? 'justify-end' : ''}`;
+            msgDiv.className = `flex items-center gap-4 w-full ${sender === 'bot' ? 'bot-fade-in' : 'animate-fade-in'} ${sender === 'user' ? 'justify-end' : ''}`;
             
             if (sender === 'bot') {
                 const linksHtml = buildLinksHtml(links);
