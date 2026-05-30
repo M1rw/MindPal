@@ -43,16 +43,14 @@ const featureToggleBtn = document.getElementById('feature-toggle-btn');
 const welcomeScreen = document.getElementById('welcome-screen');
 const chatHistory = document.getElementById('chat-history');
 const chatContainer = document.getElementById('chat-container');
-const interactionArea = document.getElementById('interaction-area');
 let isFocusRepliesOn = false;
 let activeMode = 'Companion';
 const conversationMemory = [];
 
 function scrollChatToBottom(smooth = true) {
-    if (chatHistory.classList.contains('hidden')) return;
     const behavior = smooth ? 'smooth' : 'auto';
     requestAnimationFrame(() => {
-        chatHistory.scrollTo({ top: chatHistory.scrollHeight, behavior });
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior });
     });
 }
 
@@ -106,8 +104,7 @@ setCurrentModeIcon('Companion');
 
 function isNearBottom() {
     const threshold = 160;
-    if (chatHistory.classList.contains('hidden')) return true;
-    return (chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight) < threshold;
+    return (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) < threshold;
 }
 
 function escapeHtml(value) {
@@ -404,21 +401,15 @@ function pushMemory(role, text) {
 
 
 function showChatHistory() {
-    if (!chatHistory.classList.contains('hidden')) return;
-
     // Hide welcome hero
     welcomeScreen.classList.add('hidden');
 
-    // Stop centering interaction area so it can sit at bottom naturally
-    interactionArea.classList.remove('flex-1', 'justify-center');
-    interactionArea.classList.add('justify-end');
-
-    // Reveal chat history and make it the space-filling scroll region
+    // Reveal chat history container with a downward slide and soft shadow
     chatHistory.classList.remove('hidden');
-    chatHistory.classList.add('flex', 'flex-1');
+    chatHistory.classList.add('flex');
     chatHistory.classList.add('chat-enter');
 
-    // Remove hero mode styles
+    // Remove hero centering so input moves to bottom
     document.body.classList.remove('hero-centered');
 
     // Activate the enter animation on next frame

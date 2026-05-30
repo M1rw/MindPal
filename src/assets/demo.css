@@ -154,11 +154,29 @@ textarea:focus::-webkit-scrollbar {
     animation: botFadeIn 260ms ease-out both;
 }
 
-/* Gemini-style interaction area: centered initially, then naturally pushed down by chat history */
+/* Hero-centered layout: place input box center of viewport on initial load */
 .input-hero {
+    position: fixed;
+    /* keep horizontally centered at all times to avoid horizontal movement during transitions */
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    bottom: 18px;
     width: min(980px, calc(100% - 2rem));
-    margin: 0 auto;
-    transition: all 500ms ease;
+    transition: transform 320ms ease, top 320ms ease, bottom 320ms ease, opacity 200ms ease;
+    z-index: 60;
+}
+
+.hero-centered .input-hero {
+    position: fixed;
+    /* vertically center while preserving horizontal centering (translateX only changes to include Y) */
+    top: 58.5%;
+    bottom: auto;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(980px, calc(100% - 2.5rem));
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 /* Ensure welcome copy has space at the bottom so text doesn't fall under the input */
@@ -184,16 +202,6 @@ textarea:focus::-webkit-scrollbar {
 
 .hero-centered .input-hero .text-center.mt-3 {
     margin-top: 0.45rem;
-}
-
-/* After first message, interaction area becomes a normal bottom section */
-body:not(.hero-centered) #interaction-area {
-    flex: 0 0 auto;
-    justify-content: flex-end;
-}
-
-body:not(.hero-centered) .input-hero {
-    width: min(980px, calc(100% - 2rem));
 }
 
 /* In chat mode keep the input compact: hide chips only (disclaimer remains visible) */
