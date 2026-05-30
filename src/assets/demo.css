@@ -1,0 +1,171 @@
+/* Custom scrollbar for the textarea and chat area */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+/* Hide scrollbar for clean look unless scrolling */
+textarea::-webkit-scrollbar {
+    width: 0px;
+}
+textarea:focus::-webkit-scrollbar {
+    width: 8px;
+}
+
+.dropdown-enter {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+}
+.dropdown-enter-active {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+.dropdown-exit {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+}
+.dropdown-exit-active {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+    transition: opacity 150ms ease-in, transform 150ms ease-in;
+}
+
+/* Welcome copy intro animation */
+@keyframes revealUp {
+    0% {
+        opacity: 0;
+        transform: translateY(18px) scale(0.985);
+        filter: blur(4px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
+@keyframes softGlow {
+    0%, 100% { text-shadow: 0 0 0 rgba(59, 130, 246, 0); }
+    50% { text-shadow: 0 0 20px rgba(59, 130, 246, 0.14); }
+}
+
+.welcome-title,
+.welcome-subtitle {
+    opacity: 0;
+    animation: revealUp 760ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+    will-change: transform, opacity, filter;
+}
+
+.welcome-title {
+    animation-delay: 120ms;
+    animation-duration: 860ms;
+}
+
+.welcome-subtitle {
+    animation-delay: 380ms;
+    animation-duration: 920ms;
+}
+
+.welcome-title span {
+    display: inline-block;
+    animation: softGlow 2.6s ease-in-out 1.2s 1;
+}
+
+/* Optional one-time typewriter effect for the main title */
+.welcome-title.typewriter span {
+    width: 0;
+    max-width: max-content;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 2px solid rgba(59, 130, 246, 0.6);
+    animation:
+        typing 1.25s steps(28, end) 0.42s forwards,
+        caretBlink 680ms step-end 0.42s 4,
+        softGlow 2.6s ease-in-out 1.2s 1;
+}
+
+@keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+}
+
+@keyframes caretBlink {
+    0%, 100% { border-right-color: rgba(59, 130, 246, 0.65); }
+    50% { border-right-color: transparent; }
+}
+
+@keyframes pulseDots {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.35; }
+    40% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes botFadeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(8px);
+        filter: blur(2px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+.thinking-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+    animation: pulseDots 1s infinite ease-in-out;
+}
+
+.thinking-dot:nth-child(2) { animation-delay: 0.12s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.24s; }
+
+.typing-caret::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    background: rgba(59, 130, 246, 0.6);
+    animation: caretBlink 0.8s step-end infinite;
+}
+
+.bot-fade-in {
+    animation: botFadeIn 260ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .welcome-title,
+    .welcome-subtitle,
+    .welcome-title span {
+        animation: none !important;
+        opacity: 1;
+        transform: none;
+        filter: none;
+    }
+
+    .welcome-title.typewriter span {
+        width: auto;
+        border-right: none;
+    }
+}

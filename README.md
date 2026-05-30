@@ -23,6 +23,13 @@ This README covers quick setup, configuration, running locally, and development 
 - Safe AI usage: strict system prompts, multi-provider fallbacks, and deterministic offline fallbacks for resilience.
 - Rate-limited outbound sends: bounded queue, token-bucket global limiter, per-user cooldowns to prevent overload.
 
+**Current demo behavior**
+- The web demo mirrors the Discord experience through shared chat logic in `src/web/demo_logic.py`.
+- Mode selector supports `Companion`, `Cognitive Tools`, and `Resources`.
+- The mode badge and bot avatar color change with the active mode so it is obvious which mode handled the reply.
+- The toggle in the demo is now labeled `Concise Mode` and shortens replies when enabled.
+- The assistant tries to reply in the same language as the latest user message.
+
 ---
 
 **Quickstart (Windows PowerShell)**
@@ -117,6 +124,8 @@ This repo now includes a deployable web demo so you can showcase MindPal outside
 - `/unscramble` and `/realitycheck` powered by your provider fallback chain
 - Chat endpoint with crisis short-circuit to immediate resources
 - Clean markdown-style UI and link buttons/cards (no embeds)
+- Mode-aware bot avatar colors for `Companion`, `Cognitive Tools`, and `Resources`
+- `Concise Mode` toggle for shorter replies in the browser demo
 
 **Run locally (web demo)**
 
