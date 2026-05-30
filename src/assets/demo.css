@@ -196,12 +196,26 @@ textarea:focus::-webkit-scrollbar {
 }
 
 .hero-centered .input-hero .suggestion-chips {
-    margin-top: 0.4rem;
+    margin-top: 0.65rem;
     gap: 0.55rem;
 }
 
 .hero-centered .input-hero .text-center.mt-3 {
-    margin-top: 0.45rem;
+    margin-top: 0.7rem;
+}
+
+/* Base spacing for lower helper items under the input */
+.input-hero .suggestion-chips {
+    margin-top: 0.75rem;
+}
+
+.input-hero .input-disclaimer {
+    margin-top: 0.8rem;
+}
+
+/* Keep a little breathing room above disclaimer in chat mode (chips hidden) */
+body:not(.hero-centered) .input-hero .input-disclaimer {
+    margin-top: 0.95rem;
 }
 
 /* In chat mode keep the input compact: hide chips only (disclaimer remains visible) */
