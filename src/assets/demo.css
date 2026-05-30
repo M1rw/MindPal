@@ -165,7 +165,8 @@ textarea:focus::-webkit-scrollbar {
 
 .hero-centered .input-hero {
     position: absolute;
-    top: 52%;
+    /* lower the input so it no longer overlaps the subtitle when centered */
+    top: 64%;
     bottom: auto;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -175,9 +176,10 @@ textarea:focus::-webkit-scrollbar {
     padding-bottom: 0;
 }
 
-/* Slightly lift the hero title when centered to create breathing room */
+/* Ensure welcome copy has space at the bottom so text doesn't fall under the input */
 .hero-centered #welcome-screen {
     transform: translateY(-8%);
+    padding-bottom: 5.5rem; /* reserve space for centered input */
 }
 
 /* Chat reveal animation: slide down with soft shadow */
