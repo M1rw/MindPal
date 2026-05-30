@@ -435,7 +435,17 @@
         }
 
         function prepareBotBodyForFinalContent(element) {
-            element.className = 'whitespace-pre-wrap text-gray-800 dark:text-gray-200 max-w-3xl';
+            applyBotTypography(element);
+            element.classList.add('whitespace-pre-wrap');
+        }
+
+        function applyBotTypography(element, variant = 'reply') {
+            if (variant === 'thinking') {
+                element.className = 'text-sm leading-6 tracking-tight text-gray-500 dark:text-gray-400 max-w-3xl';
+                return;
+            }
+
+            element.className = 'text-[15px] leading-7 tracking-[-0.01em] text-gray-700 dark:text-gray-200 max-w-3xl';
         }
 
         function renderInlineMarkdown(value) {
@@ -774,7 +784,7 @@
                     <i data-lucide="brain" class="w-5 h-5"></i>
                 </div>
                 <div class="text-gray-800 dark:text-gray-200 max-w-3xl min-h-8 flex items-center">
-                    <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400" data-role="bot-body">
+                    <div class="flex items-center gap-2" data-role="bot-body">
                         <span>Thinking...</span>
                         <span class="thinking-dot"></span>
                         <span class="thinking-dot"></span>
@@ -782,6 +792,8 @@
                     </div>
                 </div>
             `;
+            const body = msgDiv.querySelector('[data-role="bot-body"]');
+            if (body) applyBotTypography(body, 'thinking');
             chatHistory.appendChild(msgDiv);
             lucide.createIcons();
             scrollChatToBottom(true);
@@ -817,8 +829,8 @@
                     <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                         <i data-lucide="brain" class="w-5 h-5"></i>
                     </div>
-                    <div class="text-gray-800 dark:text-gray-200 max-w-3xl">
-                        <div class="min-h-8 flex items-center">${isHtml ? text : escapeHtml(text)}</div>
+                    <div class="max-w-3xl space-y-4 text-gray-800 dark:text-gray-200">
+                        <div class="bot-reply-content whitespace-pre-wrap text-[15px] leading-7 tracking-[-0.01em] text-gray-700 dark:text-gray-200">${isHtml ? text : escapeHtml(text)}</div>
                         ${linksHtml}
                     </div>
                 `;
