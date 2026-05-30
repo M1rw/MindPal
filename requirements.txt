@@ -1,10 +1,9 @@
-﻿aiohappyeyeballs==2.6.2
+aiohappyeyeballs==2.6.2
 aiohttp==3.13.5
 aiosignal==1.4.0
 annotated-types==0.7.0
 anyio==4.13.0
 attrs==26.1.0
-audioop-lts==0.2.2
 certifi==2026.5.20
 cffi==2.0.0
 charset-normalizer==3.4.7
