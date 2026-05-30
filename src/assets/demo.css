@@ -157,21 +157,24 @@ textarea:focus::-webkit-scrollbar {
 /* Hero-centered layout: place input box center of viewport on initial load */
 .input-hero {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    transition: transform 320ms ease, top 320ms ease, bottom 320ms ease, box-shadow 220ms ease;
+    /* keep horizontally centered at all times to avoid horizontal movement during transitions */
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    bottom: 18px;
+    width: min(960px, 96%);
+    transition: transform 320ms ease, top 320ms ease, bottom 320ms ease, opacity 200ms ease;
+    z-index: 60;
 }
 
 .hero-centered .input-hero {
     position: absolute;
-    /* lower the input so it no longer overlaps the subtitle when centered */
+    /* vertically center while preserving horizontal centering (translateX only changes to include Y) */
     top: 64%;
     bottom: auto;
     left: 50%;
     transform: translate(-50%, -50%);
     width: min(960px, 92%);
-    z-index: 60;
     padding-top: 0;
     padding-bottom: 0;
 }
