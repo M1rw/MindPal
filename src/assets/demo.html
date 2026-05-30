@@ -55,27 +55,27 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 overflow-y-auto flex flex-col relative pb-44" id="chat-container">
-        
-        <!-- Welcome Screen (Visible initially) -->
-        <div id="welcome-screen" class="flex-1 flex flex-col items-center justify-center p-6 max-w-3xl mx-auto w-full animate-fade-in text-center mt-[-10vh]">
-            <!-- decorative icon removed to match new hero design -->
-            <h1 class="welcome-title typewriter text-3xl sm:text-4xl font-semibold text-gray-800 dark:text-gray-100 mb-3"><span>How are you feeling today?</span></h1>
-            <p class="welcome-subtitle text-gray-500 dark:text-gray-400 text-lg mb-8 max-w-lg">I'm a private, safe space to talk, reframe your thoughts, or find mental health resources.</p>
-            
-            <!-- Suggestion Chips moved to input area for a cleaner layout -->
-        </div>
+    <main class="flex-1 flex flex-col overflow-hidden relative" id="chat-container">
 
         <!-- Chat History (Hidden initially) -->
-        <div id="chat-history" class="hidden flex-col gap-6 p-4 max-w-4xl mx-auto w-full pb-44 pt-8">
+        <div id="chat-history" class="hidden flex-col gap-6 p-4 max-w-4xl mx-auto w-full pt-8 pb-8 overflow-y-auto">
             <!-- Messages will be injected here -->
         </div>
 
-    </main>
+        <!-- Interaction Area: centered initially, then collapses to bottom after first send -->
+        <div id="interaction-area" class="flex-1 flex flex-col justify-center transition-all duration-500">
+            <!-- Welcome Screen (Visible initially) -->
+            <div id="welcome-screen" class="flex flex-col items-center justify-center p-6 max-w-3xl mx-auto w-full animate-fade-in text-center mt-[-10vh]">
+                <!-- decorative icon removed to match new hero design -->
+                <h1 class="welcome-title typewriter text-3xl sm:text-4xl font-semibold text-gray-800 dark:text-gray-100 mb-3"><span>How are you feeling today?</span></h1>
+                <p class="welcome-subtitle text-gray-500 dark:text-gray-400 text-lg mb-8 max-w-lg">I'm a private, safe space to talk, reframe your thoughts, or find mental health resources.</p>
 
-    <!-- Input Area Container (Fixed at bottom) -->
-    <div class="input-hero bg-gradient-to-t from-white via-white dark:from-gray-900 dark:via-gray-900 to-transparent pt-6 pb-6 px-4">
-        <div class="max-w-4xl mx-auto relative">
+                <!-- Suggestion Chips moved to input area for a cleaner layout -->
+            </div>
+
+            <!-- Input Area Container -->
+            <div class="input-hero bg-gradient-to-t from-white via-white dark:from-gray-900 dark:via-gray-900 to-transparent pt-6 pb-6 px-4">
+                <div class="max-w-4xl mx-auto relative">
             
             <!-- The Input Box -->
             <div class="bg-surface dark:bg-gray-800 rounded-[28px] p-3 flex flex-col relative focus-within:ring-1 ring-gray-300 dark:ring-gray-600 focus-within:bg-white dark:focus-within:bg-gray-800 transition-all shadow-sm group">
@@ -164,12 +164,14 @@
                 </button>
             </div>
 
-            <!-- Disclaimer -->
-            <div class="input-disclaimer text-center mt-3 text-xs text-gray-400 dark:text-gray-500 font-medium">
-                MindPal provides safe, privacy-minded support. It is not a replacement for professional medical help.
+                    <!-- Disclaimer -->
+                    <div class="input-disclaimer text-center mt-3 text-xs text-gray-400 dark:text-gray-500 font-medium">
+                        MindPal provides safe, privacy-minded support. It is not a replacement for professional medical help.
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+    </main>
 
     <!-- Scripts -->
     <script src="./demo.js"></script>
