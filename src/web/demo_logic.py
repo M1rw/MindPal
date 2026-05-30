@@ -4,7 +4,7 @@ import re
 from typing import TypedDict
 
 from src.utils.ai_companion_config import DISTRESS_PATTERNS
-from src.utils.ai_prompts import AI_COMPANION_SYSTEM_PROMPT, REALITYCHECK_PROMPT, UNSCRAMBLE_PROMPT
+from src.utils.ai_prompts import AI_COMPANION_SYSTEM_PROMPT, MEMORY_COMPACTION_PROMPT, REALITYCHECK_PROMPT, UNSCRAMBLE_PROMPT
 from src.utils.ai_providers import (
     generate_with_google,
     generate_with_groq,
@@ -130,6 +130,46 @@ def _build_history_context(history: list[ChatTurn] | None) -> str:
     return "Conversation so far:\n" + "\n".join(turns) + "\n\n"
 
 
+def _build_memory_transcript(text: str, history: list[ChatTurn] | None) -> str:
+    turns: list[str] = []
+    for item in (history or [])[-16:]:
+        role = item.get("role", "user").strip().casefold()
+        content = item.get("text", "").strip()
+        if not content:
+            continue
+        label = "User" if role == "user" else "MindPal"
+        turns.append(f"{label}: {content}")
+
+    if text.strip():
+        turns.append(f"User: {text.strip()}")
+
+    return "\n".join(turns)
+
+
+def _summarize_memory(text: str, history: list[ChatTurn] | None) -> str:
+    transcript = _build_memory_transcript(text, history)
+    if not transcript.strip():
+        return ""
+
+    try:
+        summary = generate_with_google(MEMORY_COMPACTION_PROMPT, transcript)
+    except Exception:
+        summary = _try_remote_fallbacks(MEMORY_COMPACTION_PROMPT, transcript)
+
+    cleaned = summary.strip()
+    if not cleaned:
+        return ""
+
+    if not cleaned.casefold().startswith("relevant memory:"):
+        cleaned = "Relevant memory:\n" + cleaned
+
+    return cleaned.rstrip() + "\n\n"
+
+
+def _build_memory_context(text: str, history: list[ChatTurn] | None) -> str:
+    return _summarize_memory(text, history)
+
+
 def _build_language_context(language: str) -> str:
     if language == "English":
         return ""
@@ -142,42 +182,32 @@ def _build_language_context(language: str) -> str:
 
 def _offline_unscramble_response(user_prompt: str) -> str:
     lowered = user_prompt.casefold()
-    control_items = [
-        "What you do next.",
-        "Who you contact for support.",
-        "Whether you take one tiny step instead of solving everything at once.",
-    ]
-
     if any(word in lowered for word in ("work", "job", "boss", "deadline")):
-        control_items[0] = "How you break the next task into something small."
+        focus = "It sounds like the pressure is getting bigger than the task itself."
     elif any(word in lowered for word in ("school", "class", "exam", "study")):
-        control_items[0] = "Which assignment or topic you focus on first."
+        focus = "It sounds like the whole school load is collapsing into one heavy feeling."
     elif any(word in lowered for word in ("relationship", "partner", "friend", "family")):
-        control_items[0] = "How you phrase one honest message or boundary."
+        focus = "It sounds like the relationship part is carrying most of the emotional weight."
+    else:
+        focus = "It sounds like your mind is trying to hold too many things at once."
 
     return (
-        "Things in your control:\n"
-        + "\n".join(f"- {item}" for item in control_items)
-        + "\n\nThings out of your control:\n"
-        + "- Other people's reactions.\n"
-        + "- The entire problem all at once.\n"
-        + "- The fact that your brain is overwhelmed right now.\n\n"
-        "One microscopic next step:\n"
-        "- Put one sentence from the brain dump into a note titled \"next\"."
+        f"{focus} \n\n"
+        "What seems most worth separating out is not the whole problem, but the one thought that is shouting the loudest. "
+        "If you want, I can help you untangle that one thought with you."
     )
 
 
 def _offline_realitycheck_response(user_prompt: str) -> str:
     lowered = user_prompt.casefold()
     if any(word in lowered for word in ("always", "never", "ruining", "everyone", "nobody", "disaster", "fail")):
-        challenge = "That thought sounds absolute, but is it really 100% true, or is your mind filling in the worst-case version?"
+        challenge = "That thought sounds absolute, but it may be the fear talking in all-or-nothing language."
     else:
-        challenge = "What evidence would you have to see before you'd treat this thought as a fact instead of a fear?"
+        challenge = "What do you notice in the thought that feels like fear more than fact?"
 
     return (
-        f"{challenge}\n\n"
-        "One question:\n"
-        "- If your best friend had the same thought, what would you tell them to check first?"
+        f"{challenge} \n\n"
+        "A kinder question might be: if you stepped back for a second, what would this situation look like without the fear making it louder?"
     )
 
 
@@ -230,7 +260,8 @@ def _try_remote_fallbacks(system_prompt: str, user_prompt: str) -> str:
 
 def generate_text(system_prompt: str, user_prompt: str, history: list[ChatTurn] | None = None) -> str:
     language = detect_language(user_prompt, history=history)
-    user_payload = _build_language_context(language) + _build_history_context(history) + user_prompt
+    memory_context = _build_memory_context(user_prompt, history)
+    user_payload = _build_language_context(language) + memory_context + _build_history_context(history) + user_prompt
     try:
         response = generate_with_google(system_prompt, user_payload)
     except Exception:

@@ -721,7 +721,7 @@
 
         function pushMemory(role, text) {
             conversationMemory.push({ role, text });
-            if (conversationMemory.length > 10) {
+            if (conversationMemory.length > 24) {
                 conversationMemory.shift();
             }
         }
