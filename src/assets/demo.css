@@ -183,14 +183,19 @@ textarea:focus::-webkit-scrollbar {
 /* Chat reveal animation: slide down with soft shadow */
 .chat-enter {
     opacity: 0;
-    transform: translateY(-12px) scale(0.995);
-    box-shadow: none;
+    transform: translateY(-10px);
 }
 .chat-enter-active {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    transition: transform 300ms cubic-bezier(.2,.9,.2,1), opacity 260ms ease-out, box-shadow 260ms ease-out;
-    box-shadow: 0 6px 30px rgba(2,6,23,0.06);
+    transform: translateY(0);
+    transition: transform 280ms cubic-bezier(.2,.9,.2,1), opacity 240ms ease-out;
+}
+
+/* Generic fade-in used by message rows — ensure vertical-only movement (no left slide) */
+.animate-fade-in {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: botFadeIn 260ms ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
