@@ -210,7 +210,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 overflow-y-auto flex flex-col relative" id="chat-container">
+    <main class="flex-1 overflow-y-auto flex flex-col relative pb-44" id="chat-container">
         
         <!-- Welcome Screen (Visible initially) -->
         <div id="welcome-screen" class="flex-1 flex flex-col items-center justify-center p-6 max-w-3xl mx-auto w-full animate-fade-in text-center mt-[-10vh]">
@@ -238,7 +238,7 @@
         </div>
 
         <!-- Chat History (Hidden initially) -->
-        <div id="chat-history" class="hidden flex-col gap-6 p-4 max-w-4xl mx-auto w-full pb-32 pt-8">
+        <div id="chat-history" class="hidden flex-col gap-6 p-4 max-w-4xl mx-auto w-full pb-44 pt-8">
             <!-- Messages will be injected here -->
         </div>
 
@@ -372,6 +372,17 @@
         const chatHistory = document.getElementById('chat-history');
         const chatContainer = document.getElementById('chat-container');
         let isFocusRepliesOn = false;
+
+        function scrollChatToBottom(smooth = true) {
+            const behavior = smooth ? 'smooth' : 'auto';
+            requestAnimationFrame(() => {
+                chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior });
+                const last = chatHistory.lastElementChild;
+                if (last) {
+                    last.scrollIntoView({ behavior, block: 'end' });
+                }
+            });
+        }
 
         function escapeHtml(value) {
             return String(value)
@@ -588,7 +599,7 @@
             `;
             chatHistory.appendChild(msgDiv);
             lucide.createIcons();
-            chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+            scrollChatToBottom(true);
             return msgDiv;
         }
 
@@ -602,7 +613,7 @@
 
             for (let i = 0; i < text.length; i += step) {
                 element.textContent = text.slice(0, i + step);
-                chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+                scrollChatToBottom(false);
                 await new Promise(resolve => setTimeout(resolve, 10));
             }
 
@@ -611,12 +622,12 @@
 
         function appendMessage(text, sender, links = [], isHtml = false) {
             const msgDiv = document.createElement('div');
-            msgDiv.className = `flex gap-4 w-full animate-fade-in ${sender === 'user' ? 'justify-end' : ''}`;
+            msgDiv.className = `flex items-center gap-4 w-full animate-fade-in ${sender === 'user' ? 'justify-end' : ''}`;
             
             if (sender === 'bot') {
                 const linksHtml = buildLinksHtml(links);
                 msgDiv.innerHTML = `
-                    <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0 mt-1">
+                    <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                         <i data-lucide="brain" class="w-5 h-5"></i>
                     </div>
                     <div class="prose prose-sm md:prose-base text-gray-800 dark:text-gray-200 leading-relaxed max-w-3xl">
@@ -635,11 +646,7 @@
             chatHistory.appendChild(msgDiv);
             lucide.createIcons();
             
-            // Smooth scroll to bottom
-            chatContainer.scrollTo({
-                top: chatContainer.scrollHeight,
-                behavior: 'smooth'
-            });
+            scrollChatToBottom(true);
         }
 
         // Quick health check in browser console
