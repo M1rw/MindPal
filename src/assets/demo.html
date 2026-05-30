@@ -583,12 +583,12 @@
 
         function appendThinkingMessage() {
             const msgDiv = document.createElement('div');
-            msgDiv.className = 'flex gap-4 w-full animate-fade-in';
+            msgDiv.className = 'flex items-center gap-4 w-full animate-fade-in';
             msgDiv.innerHTML = `
-                <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0 mt-1">
+                <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                     <i data-lucide="brain" class="w-5 h-5"></i>
                 </div>
-                <div class="prose prose-sm md:prose-base text-gray-800 dark:text-gray-200 leading-relaxed max-w-3xl">
+                <div class="text-gray-800 dark:text-gray-200 max-w-3xl min-h-8 flex items-center">
                     <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400" data-role="bot-body">
                         <span>MindPal is thinking</span>
                         <span class="thinking-dot"></span>
@@ -630,8 +630,8 @@
                     <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                         <i data-lucide="brain" class="w-5 h-5"></i>
                     </div>
-                    <div class="prose prose-sm md:prose-base text-gray-800 dark:text-gray-200 leading-relaxed max-w-3xl">
-                        <div>${isHtml ? text : escapeHtml(text)}</div>
+                    <div class="text-gray-800 dark:text-gray-200 max-w-3xl">
+                        <div class="min-h-8 flex items-center">${isHtml ? text : escapeHtml(text)}</div>
                         ${linksHtml}
                     </div>
                 `;
