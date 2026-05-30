@@ -144,6 +144,33 @@
             50% { border-right-color: transparent; }
         }
 
+        @keyframes pulseDots {
+            0%, 80%, 100% { transform: scale(0.7); opacity: 0.35; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .thinking-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: currentColor;
+            animation: pulseDots 1s infinite ease-in-out;
+        }
+
+        .thinking-dot:nth-child(2) { animation-delay: 0.12s; }
+        .thinking-dot:nth-child(3) { animation-delay: 0.24s; }
+
+        .typing-caret::after {
+            content: "";
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+            background: rgba(59, 130, 246, 0.6);
+            animation: caretBlink 0.8s step-end infinite;
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .welcome-title,
             .welcome-subtitle,
@@ -278,9 +305,9 @@
                         <!-- Divider -->
                         <div class="w-[1px] h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
 
-                        <!-- Attachment Button -->
-                        <button class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors relative group/tooltip" title="Attach context (Optional)">
-                            <i data-lucide="paperclip" class="w-5 h-5"></i>
+                        <!-- Feature Toggle Button -->
+                        <button id="feature-toggle-btn" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors relative group/tooltip" title="Toggle Focus Replies">
+                            <i data-lucide="sliders-horizontal" class="w-5 h-5"></i>
                         </button>
 
                     </div>
@@ -339,14 +366,62 @@
         const currentModeText = document.getElementById('current-mode-text');
         const currentModeIcon = document.getElementById('current-mode-icon');
         const modeOptions = document.querySelectorAll('.mode-option');
+        const featureToggleBtn = document.getElementById('feature-toggle-btn');
         
         const welcomeScreen = document.getElementById('welcome-screen');
         const chatHistory = document.getElementById('chat-history');
         const chatContainer = document.getElementById('chat-container');
+        let isFocusRepliesOn = false;
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatMarkdownToHtml(md) {
+            let safe = escapeHtml(md || '');
+            safe = safe.replace(/^###\s+(.*)$/gm, '<h3 class="text-lg font-semibold mb-2 mt-2">$1</h3>');
+            safe = safe.replace(/^>\s+(.*)$/gm, '<blockquote class="border-l-2 border-gray-300 dark:border-gray-600 pl-3 text-gray-600 dark:text-gray-300 my-2">$1</blockquote>');
+            safe = safe.replace(/^\*\*(.+?)\*\*:\s*(.+)$/gm, '<p><strong>$1:</strong> $2</p>');
+            safe = safe.replace(/^\*\*(.+?)\*\*$/gm, '<p><strong>$1</strong></p>');
+            safe = safe.replace(/^-\s+(.*)$/gm, '<li>$1</li>');
+            safe = safe.replace(/(<li>.*<\/li>)/gs, '<ul class="list-disc pl-6 my-2">$1</ul>');
+            safe = safe.replace(/\n/g, '<br>');
+            return safe;
+        }
+
+        async function postJSON(path, payload) {
+            const response = await fetch(path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const message = await response.text();
+                throw new Error(message || `Request failed with status ${response.status}`);
+            }
+
+            return response.json();
+        }
 
         // Send Button State Management
         const disabledClasses = ['bg-surfaceHover', 'text-gray-400', 'dark:bg-gray-700', 'dark:text-gray-500'];
         const enabledClasses = ['bg-gray-800', 'text-white', 'hover:bg-gray-900', 'hover:scale-105', 'dark:bg-gray-200', 'dark:text-gray-900', 'dark:hover:bg-white'];
+
+        // Feature toggle: short/focused bot replies.
+        featureToggleBtn.addEventListener('click', () => {
+            isFocusRepliesOn = !isFocusRepliesOn;
+            featureToggleBtn.classList.toggle('bg-black/10', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('dark:bg-white/15', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('text-blue-500', isFocusRepliesOn);
+            featureToggleBtn.classList.toggle('dark:text-blue-300', isFocusRepliesOn);
+            featureToggleBtn.title = isFocusRepliesOn ? 'Focus Replies: ON' : 'Focus Replies: OFF';
+        });
 
         // Auto-resize textarea
         inputEl.addEventListener('input', function() {
@@ -446,30 +521,113 @@
             inputEl.style.height = 'auto';
             inputEl.dispatchEvent(new Event('input'));
 
-            // Simulate Bot Typing/Response
-            setTimeout(() => {
-                const botResponse = generateSimulatedResponse(text, currentModeText.textContent);
-                appendMessage(botResponse, 'bot');
-            }, 1000);
+            requestBotResponse(text, currentModeText.textContent);
         }
 
-        function appendMessage(text, sender) {
+        async function requestBotResponse(text, mode) {
+            const pendingBubble = appendThinkingMessage();
+
+            try {
+                const result = await postJSON('/api/ask', { text, mode });
+                const bubbleBody = pendingBubble.querySelector('[data-role="bot-body"]');
+                if (!bubbleBody) return;
+
+                if (result.mode === 'crisis' || result.mode === 'resources') {
+                    const resource = result.resource || {};
+                    const markdown = resource.markdown || 'No resources available.';
+                    await typewriterIntoElement(bubbleBody, markdown);
+                    bubbleBody.classList.remove('typing-caret');
+                    bubbleBody.innerHTML = formatMarkdownToHtml(markdown);
+                    const links = buildLinksHtml(resource.links || []);
+                    if (links) {
+                        bubbleBody.insertAdjacentHTML('beforeend', links);
+                    }
+                    return;
+                }
+
+                let answer = String(result.result || 'No response available.');
+                if (isFocusRepliesOn) {
+                    answer = answer.slice(0, 320);
+                }
+
+                await typewriterIntoElement(bubbleBody, answer);
+                bubbleBody.classList.remove('typing-caret');
+                bubbleBody.innerHTML = formatMarkdownToHtml(answer);
+            } catch (error) {
+                const bubbleBody = pendingBubble.querySelector('[data-role="bot-body"]');
+                if (bubbleBody) {
+                    bubbleBody.classList.remove('typing-caret');
+                    bubbleBody.innerHTML = "<p>I couldn't complete that request right now. Please try again in a moment.</p>";
+                }
+                console.error(error);
+            }
+        }
+
+        function buildLinksHtml(links = []) {
+            if (!Array.isArray(links) || !links.length) return '';
+            return `<div class="flex flex-wrap gap-2 mt-3">${links
+                .map(item => `<a class="px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.label)}</a>`)
+                .join('')}</div>`;
+        }
+
+        function appendThinkingMessage() {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'flex gap-4 w-full animate-fade-in';
+            msgDiv.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0 mt-1">
+                    <i data-lucide="brain" class="w-5 h-5"></i>
+                </div>
+                <div class="prose prose-sm md:prose-base text-gray-800 dark:text-gray-200 leading-relaxed max-w-3xl">
+                    <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400" data-role="bot-body">
+                        <span>MindPal is thinking</span>
+                        <span class="thinking-dot"></span>
+                        <span class="thinking-dot"></span>
+                        <span class="thinking-dot"></span>
+                    </div>
+                </div>
+            `;
+            chatHistory.appendChild(msgDiv);
+            lucide.createIcons();
+            chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+            return msgDiv;
+        }
+
+        async function typewriterIntoElement(element, fullText) {
+            element.classList.add('typing-caret');
+            element.classList.add('whitespace-pre-wrap');
+            element.textContent = '';
+
+            const text = String(fullText || '');
+            const step = Math.max(1, Math.floor(text.length / 140));
+
+            for (let i = 0; i < text.length; i += step) {
+                element.textContent = text.slice(0, i + step);
+                chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+
+            element.textContent = text;
+        }
+
+        function appendMessage(text, sender, links = [], isHtml = false) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex gap-4 w-full animate-fade-in ${sender === 'user' ? 'justify-end' : ''}`;
             
             if (sender === 'bot') {
+                const linksHtml = buildLinksHtml(links);
                 msgDiv.innerHTML = `
                     <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center flex-shrink-0 mt-1">
                         <i data-lucide="brain" class="w-5 h-5"></i>
                     </div>
                     <div class="prose prose-sm md:prose-base text-gray-800 dark:text-gray-200 leading-relaxed max-w-3xl">
-                        <p>${text}</p>
+                        <div>${isHtml ? text : escapeHtml(text)}</div>
+                        ${linksHtml}
                     </div>
                 `;
             } else {
                 msgDiv.innerHTML = `
                     <div class="bg-gray-100 dark:bg-gray-800 rounded-3xl px-5 py-3 text-gray-800 dark:text-gray-200 max-w-2xl leading-relaxed">
-                        ${text}
+                        ${escapeHtml(text)}
                     </div>
                 `;
             }
@@ -484,15 +642,8 @@
             });
         }
 
-        // Simple mock response generator based on the README context
-        function generateSimulatedResponse(input, mode) {
-            if (mode === 'Resources') {
-                return "Here are some resources that might help. If you are in immediate distress, please consider reaching out to a local crisis line.<br><br><span class='text-blue-500 dark:text-blue-400 underline cursor-pointer hover:text-blue-600 dark:hover:text-blue-300'>View Support Directory</span>";
-            } else if (mode === 'Cognitive Tools') {
-                return "Let's break that down. Sometimes our thoughts can spiral into 'all-or-nothing' thinking. What is one piece of evidence that contradicts this thought?";
-            }
-            return "I hear you. It sounds like you're carrying a lot right now. I'm here to listen—would you like to explore those feelings more, or would you prefer a distraction right now?";
-        }
+        // Quick health check in browser console
+        fetch('/api/health').then(r => r.json()).then(data => console.log('MindPal API:', data)).catch(console.error);
 
     </script>
 </body>
