@@ -23,6 +23,7 @@ from src.web.demo_logic import (  # noqa: E402
     run_realitycheck,
     run_unscramble,
 )
+from src.web.session_memory import SessionMemoryStore  # noqa: E402
 from src.utils.config import RESOURCE_OPTIONS  # noqa: E402
 
 
@@ -39,6 +40,50 @@ class AskRequest(BaseModel):
     mode: str = Field(min_length=1, max_length=64)
     history: list[dict[str, str]] = Field(default_factory=list)
     region: str | None = Field(default=None, max_length=32)
+    sessionId: str | None = Field(default=None, max_length=128)
+
+
+class SessionRequest(BaseModel):
+    session_id: str = Field(min_length=8, max_length=128)
+
+
+session_store = SessionMemoryStore()
+
+
+def _normalize_history(history: list[dict[str, str]]) -> list[dict[str, str]]:
+    cleaned: list[dict[str, str]] = []
+    for item in history:
+        role = str(item.get("role", "")).strip().lower()
+        text = str(item.get("text", "")).strip()
+        if role not in {"user", "assistant"}:
+            continue
+        if not text:
+            continue
+        cleaned.append({"role": role, "text": text[:4000]})
+
+    return cleaned[-64:]
+
+
+def _resolve_history_for_request(session_id: str | None, incoming_history: list[dict[str, str]]) -> list[dict[str, str]]:
+    normalized_incoming = _normalize_history(incoming_history)
+    if not session_id:
+        return normalized_incoming
+
+    stored_history = session_store.get_history(session_id)
+    if len(normalized_incoming) >= len(stored_history):
+        return normalized_incoming
+    return stored_history
+
+
+def _ensure_latest_user_turn(history: list[dict[str, str]], text: str) -> list[dict[str, str]]:
+    cleaned_text = text.strip()
+    if not cleaned_text:
+        return history
+
+    if history and history[-1].get("role") == "user" and history[-1].get("text", "").strip() == cleaned_text:
+        return history
+
+    return [*history, {"role": "user", "text": cleaned_text}]
 
 
 app = FastAPI(title="MindPal Web Demo", version="1.0.0")
@@ -102,6 +147,21 @@ def realitycheck(payload: TextRequest) -> dict[str, str]:
     return {"result": run_realitycheck(payload.text)}
 
 
+@app.post("/api/session/clear")
+def clear_session(payload: SessionRequest) -> dict[str, object]:
+    session_id = payload.session_id.strip()
+    was_present = session_store.clear(session_id)
+    return {"session_id": session_id, "cleared": was_present}
+
+
+@app.get("/api/session/export")
+def export_session(session_id: str) -> dict[str, object]:
+    sid = session_id.strip()
+    if not sid:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    return session_store.export(sid)
+
+
 @app.post("/api/chat")
 def chat(payload: TextRequest) -> dict[str, str | dict[str, object]]:
     category = detect_distress_category(payload.text)
@@ -122,48 +182,76 @@ def chat(payload: TextRequest) -> dict[str, str | dict[str, object]]:
 def ask(payload: AskRequest) -> dict[str, object]:
     mode = payload.mode.strip().casefold()
     text = payload.text
-    history = payload.history
+    session_id = (payload.sessionId or "").strip() or None
+    history = _resolve_history_for_request(session_id, payload.history)
+    history_for_model = _ensure_latest_user_turn(history, text)
+
+    if session_id:
+        session_store.replace_history(session_id, history_for_model)
 
     if mode in {"companion", "chat"}:
         category = detect_distress_category(text)
         if category == "crisis":
-            region = resolve_crisis_region(text, history=history, region_hint=payload.region)
-            return {
+            region = resolve_crisis_region(text, history=history_for_model, region_hint=payload.region)
+            response = {
                 "mode": "crisis",
                 "category": category,
                 "region": region,
                 "resource": build_resource_payload("crisis", region=region),
             }
-        return {"mode": "chat", "result": run_chat(text, history=history)}
+            if session_id:
+                session_store.append_turn(session_id, "assistant", response["resource"]["markdown"])
+            return response
+
+        response = {"mode": "chat", "result": run_chat(text, history=history_for_model)}
+        if session_id:
+            session_store.append_turn(session_id, "assistant", str(response["result"]))
+        return response
 
     if mode in {"cognitive tools", "cognitive_tools", "cognitive", "tool"}:
         lowered = text.casefold()
         if any(token in lowered for token in ("reality", "reframe", "distortion", "anxious thought")):
-            return {"mode": "realitycheck", "result": run_realitycheck(text, history=history)}
-        return {"mode": "unscramble", "result": run_unscramble(text, history=history)}
+            response = {"mode": "realitycheck", "result": run_realitycheck(text, history=history_for_model)}
+            if session_id:
+                session_store.append_turn(session_id, "assistant", str(response["result"]))
+            return response
+
+        response = {"mode": "unscramble", "result": run_unscramble(text, history=history_for_model)}
+        if session_id:
+            session_store.append_turn(session_id, "assistant", str(response["result"]))
+        return response
 
     if mode in {"resources", "resource"}:
         category = detect_distress_category(text)
         if category == "crisis":
-            region = resolve_crisis_region(text, history=history, region_hint=payload.region)
-            return {
+            region = resolve_crisis_region(text, history=history_for_model, region_hint=payload.region)
+            response = {
                 "mode": "crisis",
                 "category": category,
                 "region": region,
                 "resource": build_resource_payload("crisis", region=region),
             }
+            if session_id:
+                session_store.append_turn(session_id, "assistant", response["resource"]["markdown"])
+            return response
 
         # Use AI to decide whether the user actually wants resources (language-aware)
-        wants_resources = detect_resource_intent(text, history=payload.history)
+        wants_resources = detect_resource_intent(text, history=history_for_model)
         if wants_resources:
             category = category or "anxiety"
-            return {
+            response = {
                 "mode": "resources",
                 "category": category,
                 "resource": build_resource_payload(category),
             }
+            if session_id:
+                session_store.append_turn(session_id, "assistant", response["resource"]["markdown"])
+            return response
 
         # Otherwise treat it as a companion/chat message
-        return {"mode": "chat", "result": run_chat(text, history=payload.history)}
+        response = {"mode": "chat", "result": run_chat(text, history=history_for_model)}
+        if session_id:
+            session_store.append_turn(session_id, "assistant", str(response["result"]))
+        return response
 
     raise HTTPException(status_code=400, detail="Unsupported mode. Use Companion, Cognitive Tools, or Resources.")
