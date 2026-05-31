@@ -3,7 +3,7 @@ import sys
 root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 
-from src.utils.ai_companion_config import DISTRESS_PATTERNS
+from archive.src.utils.ai_companion_config import DISTRESS_PATTERNS
 import re
 
 samples = [
