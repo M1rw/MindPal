@@ -100,9 +100,9 @@ app.mount("/assets", StaticFiles(directory=ROOT / "src" / "assets"), name="asset
 
 @app.get("/", response_class=HTMLResponse)
 def home() -> str:
-    html_path = ROOT / "src" / "assets" / "demo.html"
+    html_path = ROOT / "src" / "assets" / "mindpal.html"
     if not html_path.exists():
-        raise HTTPException(status_code=500, detail="demo.html is missing")
+        raise HTTPException(status_code=500, detail="mindpal.html is missing")
     html = html_path.read_text(encoding="utf-8")
     return (
         html.replace('src="./img/logo.jpg"', 'src="/assets/img/logo.jpg"')
