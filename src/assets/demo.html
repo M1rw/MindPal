@@ -48,11 +48,26 @@
             <button id="theme-toggle-btn" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Toggle Dark Mode">
                 <i data-lucide="moon" class="w-5 h-5" id="theme-icon"></i>
             </button>
-            <button class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Settings">
+            <button id="settings-btn" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Settings">
                 <i data-lucide="settings" class="w-5 h-5"></i>
             </button>
         </div>
     </header>
+
+    <!-- Settings Panel -->
+    <div id="settings-panel" class="hidden fixed top-16 right-4 z-[140] w-72 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-xl p-4">
+        <div class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Crisis Region</div>
+        <p id="region-hint" class="text-xs text-gray-500 dark:text-gray-400 mb-3">Auto-detected region is used by default.</p>
+        <label for="region-select" class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Region source</label>
+        <select id="region-select" class="mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700">
+            <option value="auto">Auto-detect</option>
+            <option value="us_ca">U.S./Canada</option>
+            <option value="uk_ie">UK/Ireland</option>
+            <option value="au">Australia</option>
+            <option value="in">India</option>
+            <option value="global">Global</option>
+        </select>
+    </div>
 
     <!-- Main Content Area -->
     <main class="flex-1 overflow-y-auto flex flex-col relative pb-44" id="chat-container">
