@@ -42,6 +42,9 @@ const regionPickerValue = document.getElementById('region-picker-value');
 const regionPickerMenu = document.getElementById('region-picker-menu');
 const regionOptionButtons = document.querySelectorAll('.region-option');
 const regionHint = document.getElementById('region-hint');
+const clearMemoryBtn = document.getElementById('clear-memory-btn');
+const exportChatBtn = document.getElementById('export-chat-btn');
+const toastRoot = document.getElementById('toast-root');
 const currentModeText = document.getElementById('current-mode-text');
 const currentModeIconSlot = document.getElementById('current-mode-icon-slot');
 const modeOptions = document.querySelectorAll('.mode-option');
@@ -157,6 +160,38 @@ function closeSettingsPanel() {
 function toggleSettingsPanel() {
     if (!settingsPanel) return;
     settingsPanel.classList.toggle('hidden');
+}
+
+function showToast(message, kind = 'info') {
+    if (!toastRoot) return;
+
+    const palette = {
+        info: 'border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 text-gray-700 dark:text-gray-200',
+        success: 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/95 dark:bg-emerald-900/25 text-emerald-700 dark:text-emerald-300',
+        error: 'border-rose-200 dark:border-rose-900/60 bg-rose-50/95 dark:bg-rose-900/25 text-rose-700 dark:text-rose-300',
+    };
+
+    const el = document.createElement('div');
+    el.className = `toast-message rounded-xl border px-3 py-2 text-sm font-medium shadow-lg backdrop-blur ${palette[kind] || palette.info}`;
+    el.textContent = message;
+    toastRoot.appendChild(el);
+
+    requestAnimationFrame(() => el.classList.add('is-visible'));
+    setTimeout(() => {
+        el.classList.remove('is-visible');
+        setTimeout(() => el.remove(), 200);
+    }, 2200);
+}
+
+function setButtonBusy(button, busy, busyLabel) {
+    if (!button) return;
+    if (!button.dataset.idleLabel) {
+        button.dataset.idleLabel = button.textContent || '';
+    }
+    button.disabled = busy;
+    button.classList.toggle('opacity-70', busy);
+    button.classList.toggle('cursor-not-allowed', busy);
+    button.textContent = busy ? busyLabel : button.dataset.idleLabel;
 }
 
 function syncChatActiveClass() {
@@ -489,6 +524,53 @@ regionOptionButtons.forEach((btn) => {
         }
     });
 });
+
+if (clearMemoryBtn) {
+    clearMemoryBtn.addEventListener('click', async () => {
+        setButtonBusy(clearMemoryBtn, true, 'Clearing...');
+        try {
+            await postJSON('/api/session/clear', { session_id: SESSION_ID });
+            conversationMemory.length = 0;
+            chatHistory.innerHTML = '';
+            showToast('Session memory cleared.', 'success');
+        } catch (error) {
+            showToast('Could not clear memory right now.', 'error');
+            console.error(error);
+        } finally {
+            setButtonBusy(clearMemoryBtn, false, 'Clearing...');
+        }
+    });
+}
+
+if (exportChatBtn) {
+    exportChatBtn.addEventListener('click', async () => {
+        setButtonBusy(exportChatBtn, true, 'Exporting...');
+        try {
+            const response = await fetch(`/api/session/export?session_id=${encodeURIComponent(SESSION_ID)}`);
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || `Export failed with status ${response.status}`);
+            }
+
+            const data = await response.json();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mindpal-session-${SESSION_ID.slice(0, 8)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            showToast('Chat exported.', 'success');
+        } catch (error) {
+            showToast('Could not export chat right now.', 'error');
+            console.error(error);
+        } finally {
+            setButtonBusy(exportChatBtn, false, 'Exporting...');
+        }
+    });
+}
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
