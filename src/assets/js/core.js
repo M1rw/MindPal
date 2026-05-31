@@ -194,22 +194,7 @@ function refreshSessionLabels(savedTurns = null) {
 }
 
 async function refreshSessionStats() {
-    if (location.protocol === 'file:') {
-        refreshSessionLabels(conversationMemory.length);
-        return;
-    }
-
-    try {
-        const response = await fetch(`/api/session/export?session_id=${encodeURIComponent(SESSION_ID)}`);
-        if (!response.ok) {
-            throw new Error(`status ${response.status}`);
-        }
-        const data = await response.json();
-        const turns = Array.isArray(data.history) ? data.history.length : 0;
-        refreshSessionLabels(turns);
-    } catch {
-        refreshSessionLabels(conversationMemory.length);
-    }
+    refreshSessionLabels(conversationMemory.length);
 }
 
 function refreshRegionSettingsUI() {
