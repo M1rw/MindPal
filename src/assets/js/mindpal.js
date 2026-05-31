@@ -1,7 +1,3 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
 lucide.createIcons();
 
 // --- APP STATE & CACHE ---
@@ -24,12 +20,12 @@ let currentUser = null;
 try {
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
     if (firebaseConfig) {
-        const app = initializeApp(firebaseConfig);
-        auth = getAuth(app);
-        db = getFirestore(app);
+        const app = firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth(app);
+        db = firebase.firestore(app);
         appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         
-        onAuthStateChanged(auth, (user) => {
+        auth.onAuthStateChanged((user) => {
             currentUser = user;
         });
     }
@@ -39,9 +35,9 @@ async function initAuth() {
     if (!auth) return false;
     try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(auth, __initial_auth_token);
+            await auth.signInWithCustomToken(__initial_auth_token);
         } else {
-            await signInAnonymously(auth);
+            await auth.signInAnonymously();
         }
         return true;
     } catch (e) {
@@ -52,8 +48,8 @@ async function initAuth() {
 
 async function syncToCloud() {
     if (!currentUser || !appState.cloudSyncEnabled || !db) return;
-    const userRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'mindpal_data', 'state');
-    try { await setDoc(userRef, appState); } catch(e) { console.error("Cloud save failed", e); }
+    const userRef = db.doc(`artifacts/${appId}/users/${currentUser.uid}/mindpal_data/state`);
+    try { await userRef.set(appState); } catch(e) { console.error("Cloud save failed", e); }
 }
 
 function saveState() {
@@ -84,9 +80,9 @@ async function loadState() {
     if (appState.cloudSyncEnabled) {
         const authed = await initAuth();
         if (authed && currentUser) {
-            const userRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'mindpal_data', 'state');
+                    const userRef = db.doc(`artifacts/${appId}/users/${currentUser.uid}/mindpal_data/state`);
             try {
-                const docSnap = await getDoc(userRef);
+                        const docSnap = await userRef.get();
                 if (docSnap.exists()) {
                     appState = { ...appState, ...docSnap.data() };
                     localStorage.setItem('mindpal_gemini_state', JSON.stringify(appState));
@@ -212,8 +208,8 @@ if (btnCloudConnect) {
             return showToast("Could not connect to cloud services.");
         }
 
-        const userRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'mindpal_data', 'state');
-        const docSnap = await getDoc(userRef);
+        const userRef = db.doc(`artifacts/${appId}/users/${currentUser.uid}/mindpal_data/state`);
+        const docSnap = await userRef.get();
 
         if (docSnap.exists()) {
             appState = { ...appState, ...docSnap.data() };
