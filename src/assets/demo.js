@@ -439,9 +439,9 @@ window.addEventListener('resize', () => {
     __resizeTimer = setTimeout(adjustHeroForSmallScreens, 140);
 });
 window.addEventListener('orientationchange', () => setTimeout(adjustHeroForSmallScreens, 180));
-document.addEventListener('DOMContentLoaded', () => setTimeout(adjustHeroForSmallScreens, 100));
-// initial call in case script loaded after DOM
-setTimeout(adjustHeroForSmallScreens, 200);
+document.addEventListener('DOMContentLoaded', () => setTimeout(adjustHeroForSmallScreens, 300));
+// initial call in case script loaded after DOM; give extra time for fonts/layout
+setTimeout(adjustHeroForSmallScreens, 600);
 
 
 function showChatHistory() {
