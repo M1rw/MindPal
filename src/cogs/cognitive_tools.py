@@ -8,7 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.utils.ai_prompts import CRISIS_TERMS
-from src.web.demo_logic import run_realitycheck, run_unscramble
+from src.web.archive.demo_logic import run_realitycheck, run_unscramble
 
 
 logger = logging.getLogger("mindpal.cognitive_tools")
