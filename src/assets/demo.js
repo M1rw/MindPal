@@ -47,6 +47,53 @@ let isFocusRepliesOn = false;
 let activeMode = 'Companion';
 const conversationMemory = [];
 
+function detectClientRegion() {
+    try {
+        const langs = Array.isArray(navigator.languages) && navigator.languages.length
+            ? navigator.languages
+            : [navigator.language || ''];
+        const langBlob = langs.join(' ').toLowerCase();
+        const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '').toLowerCase();
+
+        const isUSorCanada =
+            /-us\b|\bus\b|-ca\b|\bcanada\b/.test(langBlob) ||
+            /(america\/|canada\/|toronto|vancouver|montreal)/.test(tz);
+        if (isUSorCanada) return 'us_ca';
+
+        const isUKorIreland =
+            /-gb\b|\buk\b|-ie\b|\bireland\b|\benglish\b/.test(langBlob) ||
+            /(europe\/london|europe\/dublin)/.test(tz);
+        if (isUKorIreland) return 'uk_ie';
+
+        const isAustralia =
+            /-au\b|\baustralia\b/.test(langBlob) ||
+            /australia\//.test(tz);
+        if (isAustralia) return 'au';
+
+        const isIndia =
+            /-in\b|\bindia\b|\bhindi\b/.test(langBlob) ||
+            /asia\/kolkata/.test(tz);
+        if (isIndia) return 'in';
+    } catch (e) {
+        console.warn('Region auto-detect failed; falling back to global.', e);
+    }
+
+    return 'global';
+}
+
+const CLIENT_REGION = detectClientRegion();
+
+function getRegionLabel(regionCode) {
+    const labels = {
+        us_ca: 'U.S./Canada',
+        uk_ie: 'UK/Ireland',
+        au: 'Australia',
+        in: 'India',
+        global: 'Global',
+    };
+    return labels[regionCode] || 'Global';
+}
+
 function syncChatActiveClass() {
     // Single source of truth: fade/shadow visuals are enabled only when welcome is hidden.
     const isChatActive = welcomeScreen.classList.contains('hidden');
@@ -479,7 +526,12 @@ async function requestBotResponse(text, mode) {
     const pendingBubble = appendThinkingMessage(mode);
 
     try {
-        const result = await postJSON('/api/ask', { text, mode, history: conversationMemory });
+        const result = await postJSON('/api/ask', {
+            text,
+            mode,
+            history: conversationMemory,
+            region: CLIENT_REGION,
+        });
         const bubbleBody = pendingBubble.querySelector('[data-role="bot-body"]');
         if (!bubbleBody) return;
 
@@ -491,6 +543,13 @@ async function requestBotResponse(text, mode) {
             prepareBotBodyForFinalContent(bubbleBody);
             bubbleBody.classList.remove('whitespace-pre-wrap');
             bubbleBody.innerHTML = formatResourceMarkdownToHtml(markdown);
+            if (result.mode === 'crisis') {
+                const regionLabel = getRegionLabel(result.region || CLIENT_REGION);
+                bubbleBody.insertAdjacentHTML(
+                    'afterbegin',
+                    `<div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">Regional support: ${escapeHtml(regionLabel)}</div>`
+                );
+            }
             const links = buildLinksHtml(resource.links || []);
             if (links) {
                 bubbleBody.insertAdjacentHTML('beforeend', links);
