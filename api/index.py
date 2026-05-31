@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.web.demo_logic import (  # noqa: E402
+from src.web.archive.demo_logic import (  # noqa: E402
     build_resource_payload,
     detect_distress_category,
     detect_resource_intent,
@@ -23,7 +23,7 @@ from src.web.demo_logic import (  # noqa: E402
     run_realitycheck,
     run_unscramble,
 )
-from src.web.session_memory import SessionMemoryStore  # noqa: E402
+from src.web.archive.session_memory import SessionMemoryStore  # noqa: E402
 from src.utils.config import RESOURCE_OPTIONS  # noqa: E402
 
 

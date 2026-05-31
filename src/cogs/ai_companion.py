@@ -11,7 +11,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.utils.ai_companion_config import DISTRESS_PATTERNS
-from src.web.demo_logic import run_chat
+from src.web.archive.demo_logic import run_chat
 from src.utils.ui import generate_resource_ui
 
 
