@@ -107,7 +107,8 @@ def home() -> str:
     return (
         html.replace('src="./img/logo.jpg"', 'src="/assets/img/logo.jpg"')
         .replace('href="./demo.css"', 'href="/assets/demo.css"')
-        .replace('src="./demo.js"', 'src="/assets/demo.js"')
+        .replace('src="./js/core.js"', 'src="/assets/js/core.js"')
+        .replace('src="./js/chat.js"', 'src="/assets/js/chat.js"')
     )
 
 
