@@ -44,6 +44,10 @@ const regionOptionButtons = document.querySelectorAll('.region-option');
 const regionHint = document.getElementById('region-hint');
 const clearMemoryBtn = document.getElementById('clear-memory-btn');
 const exportChatBtn = document.getElementById('export-chat-btn');
+const newSessionBtn = document.getElementById('new-session-btn');
+const sessionIdLabel = document.getElementById('session-id-label');
+const savedTurnsLabel = document.getElementById('saved-turns-label');
+const lastExportedLabel = document.getElementById('last-exported-label');
 const toastRoot = document.getElementById('toast-root');
 const confirmOverlay = document.getElementById('confirm-overlay');
 const confirmTitle = document.getElementById('confirm-title');
@@ -98,15 +102,22 @@ function detectClientRegion() {
 
 const REGION_OVERRIDE_KEY = 'mindpal.regionOverride';
 const SESSION_ID_KEY = 'mindpal.sessionId';
+const LAST_EXPORT_AT_KEY = 'mindpal.lastExportAt';
 const AUTO_DETECTED_REGION = detectClientRegion();
+
+function generateSessionId() {
+    const generated = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID()
+        : `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+    return generated;
+}
 
 function getOrCreateSessionId() {
     const existing = (localStorage.getItem(SESSION_ID_KEY) || '').trim();
     if (existing) return existing;
 
-    const generated = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-        ? crypto.randomUUID()
-        : `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    const generated = generateSessionId();
 
     localStorage.setItem(SESSION_ID_KEY, generated);
     return generated;
@@ -124,7 +135,7 @@ function getEffectiveRegion() {
 }
 
 let CLIENT_REGION = getEffectiveRegion();
-const SESSION_ID = getOrCreateSessionId();
+let SESSION_ID = getOrCreateSessionId();
 
 function getRegionLabel(regionCode) {
     const labels = {
@@ -135,6 +146,52 @@ function getRegionLabel(regionCode) {
         global: 'Global',
     };
     return labels[regionCode] || 'Global';
+}
+
+function formatDateTimeForUi(timestampMs) {
+    const date = new Date(timestampMs);
+    if (Number.isNaN(date.getTime())) return 'Never';
+    return date.toLocaleString();
+}
+
+function refreshLastExportLabel() {
+    if (!lastExportedLabel) return;
+    const raw = localStorage.getItem(LAST_EXPORT_AT_KEY);
+    if (!raw) {
+        lastExportedLabel.textContent = 'Last export: Never';
+        return;
+    }
+    const asNumber = Number(raw);
+    lastExportedLabel.textContent = `Last export: ${formatDateTimeForUi(asNumber)}`;
+}
+
+function refreshSessionLabels(savedTurns = null) {
+    if (sessionIdLabel) {
+        sessionIdLabel.textContent = `Session ID: ${SESSION_ID.slice(0, 8)}...`;
+    }
+    if (savedTurnsLabel) {
+        if (typeof savedTurns === 'number') {
+            savedTurnsLabel.textContent = `Saved turns: ${savedTurns}`;
+        } else {
+            savedTurnsLabel.textContent = `Saved turns: ${conversationMemory.length}`;
+        }
+    }
+    refreshLastExportLabel();
+}
+
+async function refreshSessionStats() {
+    try {
+        const response = await fetch(`/api/session/export?session_id=${encodeURIComponent(SESSION_ID)}`);
+        if (!response.ok) {
+            throw new Error(`status ${response.status}`);
+        }
+        const data = await response.json();
+        const turns = Array.isArray(data.history) ? data.history.length : 0;
+        refreshSessionLabels(turns);
+    } catch {
+        // file:// demo fallback
+        refreshSessionLabels(conversationMemory.length);
+    }
 }
 
 function refreshRegionSettingsUI() {
@@ -152,6 +209,8 @@ function refreshRegionSettingsUI() {
         btn.classList.toggle('text-blue-700', isActive);
         btn.classList.toggle('dark:text-blue-300', isActive);
     });
+
+    refreshSessionLabels();
 }
 
 function closeSettingsPanel() {
@@ -566,6 +625,7 @@ if (settingsBtn && settingsPanel) {
         e.stopPropagation();
         refreshRegionSettingsUI();
         toggleSettingsPanel();
+        refreshSessionStats();
     });
 }
 
@@ -604,6 +664,7 @@ if (clearMemoryBtn) {
             await postJSON('/api/session/clear', { session_id: SESSION_ID });
             conversationMemory.length = 0;
             chatHistory.innerHTML = '';
+            refreshSessionLabels(0);
             showToast('Session memory cleared.', 'success');
         } catch (error) {
             showToast('Could not clear memory right now.', 'error');
@@ -634,12 +695,49 @@ if (exportChatBtn) {
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
+            localStorage.setItem(LAST_EXPORT_AT_KEY, String(Date.now()));
+            refreshLastExportLabel();
             showToast('Chat exported.', 'success');
         } catch (error) {
             showToast('Could not export chat right now.', 'error');
             console.error(error);
         } finally {
             setButtonBusy(exportChatBtn, false, 'Exporting...');
+        }
+    });
+}
+
+if (newSessionBtn) {
+    newSessionBtn.addEventListener('click', async () => {
+        const approved = await requestConfirmation({
+            title: 'Start a new session?',
+            message: 'This will switch to a new session ID and start with a clean conversation view.',
+            confirmLabel: 'Start new session',
+        });
+        if (!approved) {
+            return;
+        }
+
+        setButtonBusy(newSessionBtn, true, 'Starting...');
+        try {
+            const oldSessionId = SESSION_ID;
+            try {
+                await postJSON('/api/session/clear', { session_id: oldSessionId });
+            } catch {
+                // non-blocking: session may already be gone or running in file:// mode
+            }
+
+            SESSION_ID = generateSessionId();
+            localStorage.setItem(SESSION_ID_KEY, SESSION_ID);
+            conversationMemory.length = 0;
+            chatHistory.innerHTML = '';
+            refreshSessionLabels(0);
+            showToast('New session started.', 'success');
+        } catch (error) {
+            showToast('Could not start a new session right now.', 'error');
+            console.error(error);
+        } finally {
+            setButtonBusy(newSessionBtn, false, 'Starting...');
         }
     });
 }
@@ -944,3 +1042,4 @@ if (location.protocol !== 'file:') {
 // Initialize visual mode state on load
 syncChatActiveClass();
 refreshRegionSettingsUI();
+refreshLastExportLabel();
