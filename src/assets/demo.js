@@ -37,7 +37,10 @@ const modeBtn = document.getElementById('mode-selector-btn');
 const modeDropdown = document.getElementById('mode-dropdown');
 const settingsBtn = document.getElementById('settings-btn');
 const settingsPanel = document.getElementById('settings-panel');
-const regionSelect = document.getElementById('region-select');
+const regionPickerBtn = document.getElementById('region-picker-btn');
+const regionPickerValue = document.getElementById('region-picker-value');
+const regionPickerMenu = document.getElementById('region-picker-menu');
+const regionOptionButtons = document.querySelectorAll('.region-option');
 const regionHint = document.getElementById('region-hint');
 const currentModeText = document.getElementById('current-mode-text');
 const currentModeIconSlot = document.getElementById('current-mode-icon-slot');
@@ -113,15 +116,28 @@ function getRegionLabel(regionCode) {
 }
 
 function refreshRegionSettingsUI() {
-    if (!regionSelect || !regionHint) return;
+    if (!regionHint) return;
     const override = getStoredRegionOverride();
-    regionSelect.value = override;
     regionHint.textContent = `Auto detected: ${getRegionLabel(AUTO_DETECTED_REGION)}.`;
+    if (regionPickerValue) {
+        regionPickerValue.textContent = override === 'auto' ? 'Auto-detect' : getRegionLabel(override);
+    }
+
+    regionOptionButtons.forEach((btn) => {
+        const isActive = btn.getAttribute('data-region') === override;
+        btn.classList.toggle('bg-blue-50', isActive);
+        btn.classList.toggle('dark:bg-blue-900/30', isActive);
+        btn.classList.toggle('text-blue-700', isActive);
+        btn.classList.toggle('dark:text-blue-300', isActive);
+    });
 }
 
 function closeSettingsPanel() {
     if (!settingsPanel) return;
     settingsPanel.classList.add('hidden');
+    if (regionPickerMenu) {
+        regionPickerMenu.classList.add('hidden');
+    }
 }
 
 function toggleSettingsPanel() {
@@ -421,6 +437,16 @@ document.addEventListener('click', (e) => {
     ) {
         closeSettingsPanel();
     }
+
+    if (
+        regionPickerMenu &&
+        regionPickerBtn &&
+        !regionPickerMenu.classList.contains('hidden') &&
+        !regionPickerMenu.contains(e.target) &&
+        !regionPickerBtn.contains(e.target)
+    ) {
+        regionPickerMenu.classList.add('hidden');
+    }
 });
 
 if (settingsBtn && settingsPanel) {
@@ -431,14 +457,34 @@ if (settingsBtn && settingsPanel) {
     });
 }
 
-if (regionSelect) {
-    regionSelect.addEventListener('change', () => {
-        const value = (regionSelect.value || 'auto').toLowerCase();
+if (regionPickerBtn && regionPickerMenu) {
+    regionPickerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        regionPickerMenu.classList.toggle('hidden');
+    });
+}
+
+regionOptionButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+        const value = (btn.getAttribute('data-region') || 'auto').toLowerCase();
         localStorage.setItem(REGION_OVERRIDE_KEY, value);
         CLIENT_REGION = getEffectiveRegion();
         refreshRegionSettingsUI();
+        if (regionPickerMenu) {
+            regionPickerMenu.classList.add('hidden');
+        }
     });
-}
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (regionPickerMenu && !regionPickerMenu.classList.contains('hidden')) {
+            regionPickerMenu.classList.add('hidden');
+        } else if (settingsPanel && !settingsPanel.classList.contains('hidden')) {
+            closeSettingsPanel();
+        }
+    }
+});
 
 function closeDropdown() {
     if (!modeDropdown.classList.contains('hidden')) {
