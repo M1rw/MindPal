@@ -54,52 +54,116 @@
         </div>
     </header>
 
-    <!-- Settings Panel -->
-    <div id="settings-panel" class="hidden fixed top-16 right-4 z-[140] w-72 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur shadow-xl p-4">
-        <div class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Crisis Region</div>
-        <p id="region-hint" class="text-xs text-gray-500 dark:text-gray-400 mb-3">Auto-detected region is used by default.</p>
-        <div class="relative">
-            <label for="region-picker-btn" class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Region source</label>
-            <button id="region-picker-btn" type="button" class="mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 px-3 py-2 text-left flex items-center justify-between">
-                <span id="region-picker-value">Auto-detect</span>
-                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 dark:text-gray-500"></i>
-            </button>
-            <div id="region-picker-menu" class="hidden absolute left-0 right-0 mt-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-1 z-[150]">
-                <button type="button" class="region-option w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="auto">Auto-detect</button>
-                <button type="button" class="region-option w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="us_ca">U.S./Canada</button>
-                <button type="button" class="region-option w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="uk_ie">UK/Ireland</button>
-                <button type="button" class="region-option w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="au">Australia</button>
-                <button type="button" class="region-option w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="in">India</button>
-                <button type="button" class="region-option w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="global">Global</button>
+    <!-- Settings Modal -->
+    <div id="settings-panel" class="hidden fixed inset-0 z-[140] flex items-center justify-center bg-gray-900/20 dark:bg-black/50 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="settings-content" class="w-full max-w-md max-h-[85vh] flex flex-col rounded-[28px] border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex-none">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Settings</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Session, safety, and routing controls.</p>
+                </div>
+                <button id="close-settings-btn" type="button" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-500 dark:text-gray-400 transition-colors" title="Close settings">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
             </div>
-        </div>
 
-        <div class="mt-4 pt-3 border-t border-gray-200/80 dark:border-gray-700/80">
-            <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Session Data</div>
-            <div class="space-y-1 mb-3 text-xs text-gray-500 dark:text-gray-400">
-                <p id="session-id-label">Session ID: -</p>
-                <p id="saved-turns-label">Saved turns: -</p>
-                <p id="last-exported-label">Last export: Never</p>
+            <div class="custom-scrollbar flex-1 overflow-y-auto p-6 flex flex-col gap-8">
+                <section>
+                    <h3 class="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">Preferences</h3>
+                    <div class="rounded-[22px] border border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/40 px-4 py-3">
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Region source</div>
+                                <p id="region-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">Auto-detected region is used by default.</p>
+                            </div>
+                        </div>
+                        <div class="relative mt-3">
+                            <button id="region-picker-btn" type="button" class="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-200 px-4 py-3 text-left flex items-center justify-between shadow-sm transition-colors">
+                                <span id="region-picker-value">Auto-detect</span>
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 dark:text-gray-500"></i>
+                            </button>
+                            <div id="region-picker-menu" class="hidden absolute left-0 right-0 mt-2 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xl p-1 z-[150]">
+                                <button type="button" class="region-option w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="auto">Auto-detect</button>
+                                <button type="button" class="region-option w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="us_ca">U.S./Canada</button>
+                                <button type="button" class="region-option w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="uk_ie">UK/Ireland</button>
+                                <button type="button" class="region-option w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="au">Australia</button>
+                                <button type="button" class="region-option w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="in">India</button>
+                                <button type="button" class="region-option w-full text-left px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" data-region="global">Global</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">Safety &amp; Crisis</h3>
+                    <div class="rounded-[22px] border border-rose-100 dark:border-rose-900/30 bg-rose-50/60 dark:bg-rose-900/10 px-4 py-3">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/90 dark:bg-gray-800/80 text-rose-500 dark:text-rose-400 shadow-sm">
+                                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Crisis Flow Foundation</div>
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Always available for urgent support.</p>
+                                </div>
+                            </div>
+                            <button id="crisis-toggle" type="button" class="relative h-6 w-11 rounded-full bg-rose-500 transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/60" aria-pressed="true" title="Crisis flow is enabled">
+                                <span class="pointer-events-none absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-300 translate-x-5"></span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">Session Details</h3>
+                    <div class="rounded-[22px] border border-gray-100 dark:border-gray-800 bg-[#eef4fb] dark:bg-gray-800/45 px-4 py-4 flex flex-col gap-4">
+                        <div class="flex items-center justify-between gap-4 text-sm">
+                            <span class="text-gray-500 dark:text-gray-400">Session ID</span>
+                            <span id="session-id-label" class="font-mono text-xs bg-white dark:bg-gray-900 px-2 py-0.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-right break-all">-</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-4 text-sm">
+                            <span class="text-gray-500 dark:text-gray-400">Saved turns</span>
+                            <span id="saved-turns-label" class="font-mono text-xs text-gray-700 dark:text-gray-300 text-right">-</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-4 text-sm">
+                            <span class="text-gray-500 dark:text-gray-400">Last export</span>
+                            <span id="last-exported-label" class="font-mono text-xs text-gray-700 dark:text-gray-300 text-right">Never</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="mb-2">
+                    <h3 class="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">Session UX Controls</h3>
+                    <div class="flex flex-col gap-2">
+                        <button id="export-chat-btn" type="button" class="w-full flex items-center justify-between rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-blue-50/80 dark:bg-blue-900/20 px-4 py-3 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/35 transition-colors">
+                            <span class="btn-text text-sm font-medium">Export Chat</span>
+                            <i data-lucide="download" class="btn-icon w-4 h-4"></i>
+                        </button>
+                        <button id="new-session-btn" type="button" class="w-full flex items-center justify-between rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/70 px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <span class="btn-text text-sm font-medium">New Session</span>
+                            <i data-lucide="refresh-cw" class="btn-icon w-4 h-4"></i>
+                        </button>
+                        <button id="clear-memory-btn" type="button" class="w-full flex items-center justify-between rounded-2xl border border-rose-100 dark:border-rose-900/50 bg-rose-50/80 dark:bg-rose-900/20 px-4 py-3 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/35 transition-colors">
+                            <span class="btn-text text-sm font-medium">Clear Memory</span>
+                            <i data-lucide="trash-2" class="btn-icon w-4 h-4"></i>
+                        </button>
+                    </div>
+                </section>
             </div>
-            <div class="flex gap-2">
-                <button id="clear-memory-btn" type="button" class="flex-1 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 text-sm font-medium px-3 py-2 hover:bg-rose-100 dark:hover:bg-rose-900/35 transition-colors">Clear memory</button>
-                <button id="export-chat-btn" type="button" class="flex-1 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70 text-gray-700 dark:text-gray-200 text-sm font-medium px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Export chat</button>
-            </div>
-            <button id="new-session-btn" type="button" class="mt-2 w-full rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm font-medium px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900/35 transition-colors">New session</button>
         </div>
     </div>
 
     <div id="toast-root" class="fixed bottom-4 right-4 z-[180] flex flex-col gap-2 pointer-events-none"></div>
 
     <!-- Confirmation Dialog -->
-    <div id="confirm-overlay" class="hidden fixed inset-0 z-[190] bg-gray-900/45 backdrop-blur-[1px]">
+    <div id="confirm-overlay" class="hidden fixed inset-0 z-[190] bg-gray-900/30 dark:bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-200">
         <div class="h-full w-full flex items-center justify-center p-4">
-            <div class="w-full max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl p-4">
-                <h3 id="confirm-title" class="text-base font-semibold text-gray-800 dark:text-gray-100">Confirm action</h3>
-                <p id="confirm-message" class="mt-2 text-sm text-gray-600 dark:text-gray-300">Are you sure?</p>
-                <div class="mt-4 flex justify-end gap-2">
-                    <button id="confirm-cancel-btn" type="button" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Cancel</button>
-                    <button id="confirm-ok-btn" type="button" class="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 text-sm font-medium px-3 py-2 hover:bg-rose-100 dark:hover:bg-rose-900/35 transition-colors">Confirm</button>
+            <div class="w-full max-w-sm rounded-[24px] border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xl p-6 transform scale-95 transition-transform duration-200">
+                <h3 id="confirm-title" class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">Are you sure?</h3>
+                <p id="confirm-message" class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-6">This action cannot be undone.</p>
+                <div class="flex items-center justify-end gap-3">
+                    <button id="confirm-cancel-btn" type="button" class="px-4 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors">Cancel</button>
+                    <button id="confirm-ok-btn" type="button" class="px-4 py-2 rounded-full bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium transition-colors">Confirm</button>
                 </div>
             </div>
         </div>

@@ -37,6 +37,8 @@ const modeBtn = document.getElementById('mode-selector-btn');
 const modeDropdown = document.getElementById('mode-dropdown');
 const settingsBtn = document.getElementById('settings-btn');
 const settingsPanel = document.getElementById('settings-panel');
+const settingsContent = document.getElementById('settings-content');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
 const regionPickerBtn = document.getElementById('region-picker-btn');
 const regionPickerValue = document.getElementById('region-picker-value');
 const regionPickerMenu = document.getElementById('region-picker-menu');
@@ -50,10 +52,12 @@ const savedTurnsLabel = document.getElementById('saved-turns-label');
 const lastExportedLabel = document.getElementById('last-exported-label');
 const toastRoot = document.getElementById('toast-root');
 const confirmOverlay = document.getElementById('confirm-overlay');
+const confirmContent = document.getElementById('confirm-content');
 const confirmTitle = document.getElementById('confirm-title');
 const confirmMessage = document.getElementById('confirm-message');
 const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
 const confirmOkBtn = document.getElementById('confirm-ok-btn');
+const crisisToggle = document.getElementById('crisis-toggle');
 const currentModeText = document.getElementById('current-mode-text');
 const currentModeIconSlot = document.getElementById('current-mode-icon-slot');
 const modeOptions = document.querySelectorAll('.mode-option');
@@ -65,6 +69,7 @@ const chatContainer = document.getElementById('chat-container');
 let isFocusRepliesOn = false;
 let activeMode = 'Companion';
 const conversationMemory = [];
+let settingsCloseTimer = null;
 
 function detectClientRegion() {
     try {
@@ -158,28 +163,33 @@ function refreshLastExportLabel() {
     if (!lastExportedLabel) return;
     const raw = localStorage.getItem(LAST_EXPORT_AT_KEY);
     if (!raw) {
-        lastExportedLabel.textContent = 'Last export: Never';
+        lastExportedLabel.textContent = 'Never';
         return;
     }
     const asNumber = Number(raw);
-    lastExportedLabel.textContent = `Last export: ${formatDateTimeForUi(asNumber)}`;
+    lastExportedLabel.textContent = formatDateTimeForUi(asNumber);
 }
 
 function refreshSessionLabels(savedTurns = null) {
     if (sessionIdLabel) {
-        sessionIdLabel.textContent = `Session ID: ${SESSION_ID.slice(0, 8)}...`;
+        sessionIdLabel.textContent = SESSION_ID.slice(0, 8);
     }
     if (savedTurnsLabel) {
         if (typeof savedTurns === 'number') {
-            savedTurnsLabel.textContent = `Saved turns: ${savedTurns}`;
+            savedTurnsLabel.textContent = String(savedTurns);
         } else {
-            savedTurnsLabel.textContent = `Saved turns: ${conversationMemory.length}`;
+            savedTurnsLabel.textContent = String(conversationMemory.length);
         }
     }
     refreshLastExportLabel();
 }
 
 async function refreshSessionStats() {
+    if (location.protocol === 'file:') {
+        refreshSessionLabels(conversationMemory.length);
+        return;
+    }
+
     try {
         const response = await fetch(`/api/session/export?session_id=${encodeURIComponent(SESSION_ID)}`);
         if (!response.ok) {
@@ -215,30 +225,58 @@ function refreshRegionSettingsUI() {
 
 function closeSettingsPanel() {
     if (!settingsPanel) return;
-    settingsPanel.classList.add('hidden');
+    settingsPanel.classList.add('opacity-0', 'pointer-events-none');
+    settingsContent?.classList.add('scale-95');
+    settingsContent?.classList.remove('scale-100');
     if (regionPickerMenu) {
         regionPickerMenu.classList.add('hidden');
     }
+
+    if (settingsCloseTimer) {
+        clearTimeout(settingsCloseTimer);
+    }
+    settingsCloseTimer = window.setTimeout(() => {
+        settingsPanel.classList.add('hidden');
+    }, 220);
 }
 
 function toggleSettingsPanel() {
     if (!settingsPanel) return;
-    settingsPanel.classList.toggle('hidden');
+    if (settingsPanel.classList.contains('hidden')) {
+        settingsPanel.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            settingsPanel.classList.remove('opacity-0', 'pointer-events-none');
+            settingsContent?.classList.remove('scale-95');
+            settingsContent?.classList.add('scale-100');
+        });
+        return;
+    }
+
+    closeSettingsPanel();
 }
 
 function showToast(message, kind = 'info') {
     if (!toastRoot) return;
 
     const palette = {
-        info: 'border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 text-gray-700 dark:text-gray-200',
-        success: 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/95 dark:bg-emerald-900/25 text-emerald-700 dark:text-emerald-300',
-        error: 'border-rose-200 dark:border-rose-900/60 bg-rose-50/95 dark:bg-rose-900/25 text-rose-700 dark:text-rose-300',
+        info: 'border-gray-200 dark:border-gray-700 bg-white/96 dark:bg-gray-900/96 text-gray-700 dark:text-gray-200',
+        success: 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/96 dark:bg-emerald-900/25 text-emerald-700 dark:text-emerald-300',
+        error: 'border-rose-200 dark:border-rose-900/60 bg-rose-50/96 dark:bg-rose-900/25 text-rose-700 dark:text-rose-300',
+        warning: 'border-amber-200 dark:border-amber-900/60 bg-amber-50/96 dark:bg-amber-900/25 text-amber-700 dark:text-amber-300',
+    };
+
+    const icons = {
+        info: 'info',
+        success: 'check-circle-2',
+        error: 'x-circle',
+        warning: 'alert-circle',
     };
 
     const el = document.createElement('div');
-    el.className = `toast-message rounded-xl border px-3 py-2 text-sm font-medium shadow-lg backdrop-blur ${palette[kind] || palette.info}`;
-    el.textContent = message;
+    el.className = `toast-message animate-toast flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur ${palette[kind] || palette.info}`;
+    el.innerHTML = `<i data-lucide="${icons[kind] || icons.info}" class="w-4 h-4 shrink-0"></i><span>${message}</span>`;
     toastRoot.appendChild(el);
+    lucide.createIcons();
 
     requestAnimationFrame(() => el.classList.add('is-visible'));
     setTimeout(() => {
@@ -250,12 +288,34 @@ function showToast(message, kind = 'info') {
 function setButtonBusy(button, busy, busyLabel) {
     if (!button) return;
     if (!button.dataset.idleLabel) {
-        button.dataset.idleLabel = button.textContent || '';
+        const textNode = button.querySelector('.btn-text');
+        button.dataset.idleLabel = textNode ? textNode.textContent : (button.textContent || '');
     }
     button.disabled = busy;
     button.classList.toggle('opacity-70', busy);
     button.classList.toggle('cursor-not-allowed', busy);
-    button.textContent = busy ? busyLabel : button.dataset.idleLabel;
+
+    const textNode = button.querySelector('.btn-text');
+    const iconNode = button.querySelector('.btn-icon');
+
+    if (textNode) {
+        textNode.textContent = busy ? busyLabel : button.dataset.idleLabel;
+    } else {
+        button.textContent = busy ? busyLabel : button.dataset.idleLabel;
+    }
+
+    if (iconNode) {
+        if (busy) {
+            iconNode.setAttribute('data-lucide', 'loader-2');
+            iconNode.classList.add('animate-spin');
+        } else {
+            iconNode.classList.remove('animate-spin');
+            const iconName = button.id === 'export-chat-btn' ? 'download' : button.id === 'new-session-btn' ? 'refresh-cw' : 'trash-2';
+            iconNode.setAttribute('data-lucide', iconName);
+        }
+    }
+
+    lucide.createIcons();
 }
 
 function formatTimestampForFilename(date = new Date()) {
@@ -278,25 +338,38 @@ function requestConfirmation({ title, message, confirmLabel = 'Confirm' }) {
     confirmMessage.textContent = message || 'Are you sure?';
     confirmOkBtn.textContent = confirmLabel;
     confirmOverlay.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        confirmOverlay.classList.remove('opacity-0');
+        confirmContent?.classList.remove('scale-95');
+        confirmContent?.classList.add('scale-100');
+    });
 
     return new Promise((resolve) => {
         const cleanup = () => {
-            confirmOverlay.classList.add('hidden');
+            confirmOverlay.classList.add('opacity-0');
+            confirmContent?.classList.add('scale-95');
+            confirmContent?.classList.remove('scale-100');
             confirmCancelBtn.removeEventListener('click', onCancel);
             confirmOkBtn.removeEventListener('click', onConfirm);
             confirmOverlay.removeEventListener('click', onBackdrop);
             document.removeEventListener('keydown', onEsc);
+            window.setTimeout(() => {
+                confirmOverlay.classList.add('hidden');
+            }, 180);
         };
 
-        const onCancel = () => {
+        const onCancel = (event) => {
+            event.stopPropagation();
             cleanup();
             resolve(false);
         };
-        const onConfirm = () => {
+        const onConfirm = (event) => {
+            event.stopPropagation();
             cleanup();
             resolve(true);
         };
         const onBackdrop = (e) => {
+            e.stopPropagation();
             if (e.target === confirmOverlay) {
                 cleanup();
                 resolve(false);
@@ -600,16 +673,6 @@ document.addEventListener('click', (e) => {
     }
 
     if (
-        settingsPanel &&
-        settingsBtn &&
-        !settingsPanel.classList.contains('hidden') &&
-        !settingsPanel.contains(e.target) &&
-        !settingsBtn.contains(e.target)
-    ) {
-        closeSettingsPanel();
-    }
-
-    if (
         regionPickerMenu &&
         regionPickerBtn &&
         !regionPickerMenu.classList.contains('hidden') &&
@@ -626,6 +689,27 @@ if (settingsBtn && settingsPanel) {
         refreshRegionSettingsUI();
         toggleSettingsPanel();
         refreshSessionStats();
+    });
+}
+
+if (closeSettingsBtn) {
+    closeSettingsBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        closeSettingsPanel();
+    });
+}
+
+if (settingsPanel) {
+    settingsPanel.addEventListener('click', (event) => {
+        if (event.target === settingsPanel) {
+            closeSettingsPanel();
+        }
+    });
+}
+
+if (crisisToggle) {
+    crisisToggle.addEventListener('click', () => {
+        showToast('Crisis support stays enabled for safety.', 'info');
     });
 }
 
@@ -991,14 +1075,14 @@ async function typewriterIntoElement(element, fullText) {
     element.textContent = '';
 
     const text = String(fullText || '');
-    const step = Math.max(1, Math.floor(text.length / 140));
+    const step = Math.max(2, Math.floor(text.length / 220));
 
     for (let i = 0; i < text.length; i += step) {
         element.textContent = text.slice(0, i + step);
         if (isNearBottom()) {
             scrollChatToBottom(false);
         }
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, 4));
     }
 
     element.textContent = text;

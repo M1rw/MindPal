@@ -471,21 +471,26 @@ body.chat-active #bottom-fade {
     z-index: 0;
 }
 
-/* Settings panel styling for region options */
+/* Settings modal + menu polish */
 #settings-panel {
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    background: rgba(255, 255, 255, 0.96);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+    will-change: opacity;
 }
 
-.dark #settings-panel {
-    border-color: rgba(100, 116, 139, 0.28);
-    background: rgba(17, 24, 39, 0.94);
-    box-shadow: 0 20px 44px rgba(0, 0, 0, 0.45);
+#settings-content {
+    will-change: transform;
+}
+
+#settings-panel:not(.hidden) {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#settings-panel:not(.hidden) #settings-content {
+    transform: scale(1);
 }
 
 #region-picker-btn {
-    transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+    transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease, transform 160ms ease;
 }
 
 #region-picker-btn:focus-visible {
@@ -499,7 +504,7 @@ body.chat-active #bottom-fade {
 }
 
 .region-option {
-    transition: background-color 140ms ease, color 140ms ease;
+    transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
 .region-option:focus-visible {
@@ -507,12 +512,64 @@ body.chat-active #bottom-fade {
     box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.45);
 }
 
+/* Custom scrollbars used inside the settings modal */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+.dark .custom-scrollbar {
+    scrollbar-color: #475569 transparent;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(1rem);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-toast {
+    animation: slideUpFade 0.3s ease-out forwards;
+}
+
 @media (max-width: 768px) {
     #settings-panel {
-        top: 4.25rem;
-        right: 0.75rem;
-        left: 0.75rem;
-        width: auto;
+        padding: 0.75rem;
+    }
+
+    #settings-content {
+        max-height: calc(100vh - 1.5rem);
+        border-radius: 24px;
     }
 
     #toast-root {
