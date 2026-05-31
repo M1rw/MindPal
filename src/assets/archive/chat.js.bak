@@ -1,3 +1,6 @@
+// Archived backup of chat.js — moved on 2026-05-31
+// Original contents preserved below
+
 function closeDropdown() {
     if (!modeDropdown.classList.contains('hidden')) {
         modeDropdown.classList.add('hidden');

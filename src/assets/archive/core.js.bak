@@ -1,3 +1,6 @@
+// Archived backup of core.js — moved on 2026-05-31
+// Original contents preserved below
+
 // Initialize Lucide Icons
 lucide.createIcons();
 
