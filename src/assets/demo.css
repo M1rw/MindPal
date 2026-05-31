@@ -164,7 +164,7 @@ textarea:focus::-webkit-scrollbar {
     bottom: 18px;
     width: min(980px, calc(100% - 2rem));
     transition: transform 320ms ease, top 320ms ease, bottom 320ms ease, opacity 200ms ease;
-    z-index: 110; /* raised so input always sits above the fade overlay */
+    z-index: 130; /* keep input above the stronger global fade overlay */
 }
 
 /* Ensure the inner rounded input panel stacks above outer overlays (e.g. #bottom-fade). */
@@ -432,15 +432,15 @@ body.chat-active .input-hero .suggestion-chips {
     left: 0;
     right: 0;
     bottom: 0;
-    height: clamp(10rem, 24vh, 14rem);
+    height: clamp(16rem, 40vh, 24rem);
     pointer-events: none;
-    z-index: 105; /* below input (110) but above messages */
+    z-index: 120; /* above all chat content, below input (130) */
     background: linear-gradient(
         to top,
-        rgba(255,255,255,0.98) 0%,
-        rgba(255,255,255,0.9) 22%,
-        rgba(255,255,255,0.58) 50%,
-        rgba(255,255,255,0.22) 74%,
+        rgba(255,255,255,1) 0%,
+        rgba(255,255,255,0.98) 30%,
+        rgba(255,255,255,0.86) 52%,
+        rgba(255,255,255,0.52) 74%,
         rgba(255,255,255,0) 100%
     );
     transition: background 200ms ease;
@@ -451,10 +451,10 @@ body.chat-active .input-hero .suggestion-chips {
 .dark #bottom-fade {
     background: linear-gradient(
         to top,
-        rgba(17,24,39,0.98) 0%,
-        rgba(17,24,39,0.9) 22%,
-        rgba(17,24,39,0.6) 50%,
-        rgba(17,24,39,0.24) 74%,
+        rgba(17,24,39,1) 0%,
+        rgba(17,24,39,0.98) 30%,
+        rgba(17,24,39,0.9) 52%,
+        rgba(17,24,39,0.56) 74%,
         rgba(17,24,39,0) 100%
     );
 }
