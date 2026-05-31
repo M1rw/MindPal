@@ -302,6 +302,17 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
         padding-right: 0.35rem;
         padding-top: 0.35rem;
         padding-bottom: 0.5rem;
+        /* ensure gradient & subtle shadow are visible on phones */
+        background-image: linear-gradient(to top, rgba(0,0,0,0.06), rgba(255,255,255,0));
+        background-color: rgba(255,255,255,0.96);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 -10px 30px rgba(15,23,42,0.06);
+    }
+    .dark .input-hero {
+        background-image: linear-gradient(to top, rgba(255,255,255,0.03), rgba(17,24,39,0));
+        background-color: rgba(17,24,39,0.9);
+        box-shadow: 0 -10px 30px rgba(0,0,0,0.45);
     }
 
     .hero-centered .input-hero {
