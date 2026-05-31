@@ -514,4 +514,22 @@ body.chat-active #bottom-fade {
         left: 0.75rem;
         width: auto;
     }
+
+    #toast-root {
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: 0.75rem;
+    }
+}
+
+.toast-message {
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.toast-message.is-visible {
+    opacity: 1;
+    transform: translateY(0);
 }
