@@ -533,3 +533,16 @@ body.chat-active #bottom-fade {
     opacity: 1;
     transform: translateY(0);
 }
+
+#confirm-overlay {
+    animation: confirmFadeIn 160ms ease-out;
+}
+
+@keyframes confirmFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
