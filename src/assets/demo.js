@@ -89,7 +89,20 @@ function detectClientRegion() {
 }
 
 const REGION_OVERRIDE_KEY = 'mindpal.regionOverride';
+const SESSION_ID_KEY = 'mindpal.sessionId';
 const AUTO_DETECTED_REGION = detectClientRegion();
+
+function getOrCreateSessionId() {
+    const existing = (localStorage.getItem(SESSION_ID_KEY) || '').trim();
+    if (existing) return existing;
+
+    const generated = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID()
+        : `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+    localStorage.setItem(SESSION_ID_KEY, generated);
+    return generated;
+}
 
 function getStoredRegionOverride() {
     const raw = (localStorage.getItem(REGION_OVERRIDE_KEY) || 'auto').trim().toLowerCase();
@@ -103,6 +116,7 @@ function getEffectiveRegion() {
 }
 
 let CLIENT_REGION = getEffectiveRegion();
+const SESSION_ID = getOrCreateSessionId();
 
 function getRegionLabel(regionCode) {
     const labels = {
@@ -639,6 +653,7 @@ async function requestBotResponse(text, mode) {
             mode,
             history: conversationMemory,
             region: CLIENT_REGION,
+            sessionId: SESSION_ID,
         });
         const bubbleBody = pendingBubble.querySelector('[data-role="bot-body"]');
         if (!bubbleBody) return;
