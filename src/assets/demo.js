@@ -35,6 +35,10 @@ const inputEl = document.getElementById('chat-input');
 const sendBtn = document.getElementById('send-btn');
 const modeBtn = document.getElementById('mode-selector-btn');
 const modeDropdown = document.getElementById('mode-dropdown');
+const settingsBtn = document.getElementById('settings-btn');
+const settingsPanel = document.getElementById('settings-panel');
+const regionSelect = document.getElementById('region-select');
+const regionHint = document.getElementById('region-hint');
 const currentModeText = document.getElementById('current-mode-text');
 const currentModeIconSlot = document.getElementById('current-mode-icon-slot');
 const modeOptions = document.querySelectorAll('.mode-option');
@@ -81,7 +85,21 @@ function detectClientRegion() {
     return 'global';
 }
 
-const CLIENT_REGION = detectClientRegion();
+const REGION_OVERRIDE_KEY = 'mindpal.regionOverride';
+const AUTO_DETECTED_REGION = detectClientRegion();
+
+function getStoredRegionOverride() {
+    const raw = (localStorage.getItem(REGION_OVERRIDE_KEY) || 'auto').trim().toLowerCase();
+    const allowed = new Set(['auto', 'us_ca', 'uk_ie', 'au', 'in', 'global']);
+    return allowed.has(raw) ? raw : 'auto';
+}
+
+function getEffectiveRegion() {
+    const override = getStoredRegionOverride();
+    return override === 'auto' ? AUTO_DETECTED_REGION : override;
+}
+
+let CLIENT_REGION = getEffectiveRegion();
 
 function getRegionLabel(regionCode) {
     const labels = {
@@ -92,6 +110,23 @@ function getRegionLabel(regionCode) {
         global: 'Global',
     };
     return labels[regionCode] || 'Global';
+}
+
+function refreshRegionSettingsUI() {
+    if (!regionSelect || !regionHint) return;
+    const override = getStoredRegionOverride();
+    regionSelect.value = override;
+    regionHint.textContent = `Auto detected: ${getRegionLabel(AUTO_DETECTED_REGION)}.`;
+}
+
+function closeSettingsPanel() {
+    if (!settingsPanel) return;
+    settingsPanel.classList.add('hidden');
+}
+
+function toggleSettingsPanel() {
+    if (!settingsPanel) return;
+    settingsPanel.classList.toggle('hidden');
 }
 
 function syncChatActiveClass() {
@@ -376,7 +411,34 @@ document.addEventListener('click', (e) => {
     if (!modeDropdown.contains(e.target) && !modeBtn.contains(e.target)) {
         closeDropdown();
     }
+
+    if (
+        settingsPanel &&
+        settingsBtn &&
+        !settingsPanel.classList.contains('hidden') &&
+        !settingsPanel.contains(e.target) &&
+        !settingsBtn.contains(e.target)
+    ) {
+        closeSettingsPanel();
+    }
 });
+
+if (settingsBtn && settingsPanel) {
+    settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        refreshRegionSettingsUI();
+        toggleSettingsPanel();
+    });
+}
+
+if (regionSelect) {
+    regionSelect.addEventListener('change', () => {
+        const value = (regionSelect.value || 'auto').toLowerCase();
+        localStorage.setItem(REGION_OVERRIDE_KEY, value);
+        CLIENT_REGION = getEffectiveRegion();
+        refreshRegionSettingsUI();
+    });
+}
 
 function closeDropdown() {
     if (!modeDropdown.classList.contains('hidden')) {
@@ -666,3 +728,4 @@ if (location.protocol !== 'file:') {
 
 // Initialize visual mode state on load
 syncChatActiveClass();
+refreshRegionSettingsUI();
