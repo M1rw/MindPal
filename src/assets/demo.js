@@ -47,6 +47,12 @@ let isFocusRepliesOn = false;
 let activeMode = 'Companion';
 const conversationMemory = [];
 
+function syncChatActiveClass() {
+    // Single source of truth: fade/shadow visuals are enabled only when welcome is hidden.
+    const isChatActive = welcomeScreen.classList.contains('hidden');
+    document.body.classList.toggle('chat-active', isChatActive);
+}
+
 function scrollChatToBottom(smooth = true) {
     const behavior = smooth ? 'smooth' : 'auto';
     requestAnimationFrame(() => {
@@ -455,6 +461,7 @@ function showChatHistory() {
 
     // Remove hero centering so input moves to bottom
     document.body.classList.remove('hero-centered');
+    syncChatActiveClass();
     // also clear any inline anchoring we applied for hero view
     const el = document.querySelector('.input-hero');
     if (el) { el.style.top = ''; el.style.bottom = ''; el.style.transform = ''; el.style.transition = ''; }
@@ -598,3 +605,6 @@ function appendMessage(text, sender, links = [], isHtml = false, mode = activeMo
 if (location.protocol !== 'file:') {
     fetch('/api/health').then(r => r.json()).then(data => console.log('MindPal API:', data)).catch(console.error);
 }
+
+// Initialize visual mode state on load
+syncChatActiveClass();
