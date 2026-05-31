@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import TypedDict
+from typing import Final, TypedDict
 
 from src.utils.ai_companion_config import DISTRESS_PATTERNS
 from src.utils.ai_prompts import AI_COMPANION_SYSTEM_PROMPT, MEMORY_COMPACTION_PROMPT, REALITYCHECK_PROMPT, UNSCRAMBLE_PROMPT
@@ -24,6 +24,113 @@ class ResourcePayload(TypedDict):
 class ChatTurn(TypedDict):
     role: str
     text: str
+
+
+class CrisisRegionProfile(TypedDict):
+    label: str
+    emergency: str
+    hotline: str
+    links: tuple[tuple[str, str], ...]
+
+
+CRISIS_REGION_PROFILES: Final[dict[str, CrisisRegionProfile]] = {
+    "us_ca": {
+        "label": "U.S./Canada",
+        "emergency": "If you may act on suicidal thoughts right now, call 911 immediately.",
+        "hotline": "988 Suicide & Crisis Lifeline: Call or text 988",
+        "links": (
+            ("988 Suicide & Crisis Lifeline", "https://988lifeline.org/"),
+            ("Crisis Text Line", "https://www.crisistextline.org/"),
+        ),
+    },
+    "uk_ie": {
+        "label": "UK/Ireland",
+        "emergency": "If you are in immediate danger, call 999 or 112 now.",
+        "hotline": "Samaritans: Call 116 123 (24/7)",
+        "links": (
+            ("Samaritans", "https://www.samaritans.org/"),
+            ("NHS Urgent Mental Health Help", "https://www.nhs.uk/nhs-services/mental-health-services/where-to-get-urgent-help-for-mental-health/"),
+        ),
+    },
+    "au": {
+        "label": "Australia",
+        "emergency": "If there is immediate risk, call 000 now.",
+        "hotline": "Lifeline Australia: Call 13 11 14",
+        "links": (
+            ("Lifeline Australia", "https://www.lifeline.org.au/"),
+            ("Beyond Blue", "https://www.beyondblue.org.au/"),
+        ),
+    },
+    "in": {
+        "label": "India",
+        "emergency": "If you are in immediate danger, call local emergency services now.",
+        "hotline": "Kiran Mental Health Helpline: 1800-599-0019",
+        "links": (
+            ("Kiran Helpline", "https://www.mohfw.gov.in/"),
+            ("AASRA", "http://www.aasra.info/"),
+        ),
+    },
+    "global": {
+        "label": "Global",
+        "emergency": "If you may be in immediate danger, call your local emergency number now.",
+        "hotline": "Find local crisis lines via Befrienders Worldwide",
+        "links": (
+            ("Befrienders Worldwide", "https://www.befrienders.org/"),
+            ("Crisis Text Line", "https://www.crisistextline.org/"),
+        ),
+    },
+}
+
+
+def _normalize_region_hint(region_hint: str | None) -> str | None:
+    if not region_hint:
+        return None
+    value = region_hint.strip().casefold().replace("-", "_")
+    alias_map: dict[str, str] = {
+        "us": "us_ca",
+        "usa": "us_ca",
+        "united_states": "us_ca",
+        "united states": "us_ca",
+        "ca": "us_ca",
+        "canada": "us_ca",
+        "uk": "uk_ie",
+        "gb": "uk_ie",
+        "great_britain": "uk_ie",
+        "great britain": "uk_ie",
+        "united_kingdom": "uk_ie",
+        "united kingdom": "uk_ie",
+        "ie": "uk_ie",
+        "ireland": "uk_ie",
+        "au": "au",
+        "australia": "au",
+        "in": "in",
+        "india": "in",
+        "global": "global",
+    }
+    return alias_map.get(value, value if value in CRISIS_REGION_PROFILES else None)
+
+
+def resolve_crisis_region(text: str, history: list[ChatTurn] | None = None, region_hint: str | None = None) -> str:
+    normalized_hint = _normalize_region_hint(region_hint)
+    if normalized_hint:
+        return normalized_hint
+
+    sample = " ".join(
+        part for part in [text.strip(), " ".join(item.get("text", "").strip() for item in (history or [])[-8:])] if part
+    ).casefold()
+
+    keyword_map: tuple[tuple[str, tuple[str, ...]], ...] = (
+        ("us_ca", ("united states", "usa", "u.s.", "us", "canada", "toronto", "vancouver", "new york")),
+        ("uk_ie", ("united kingdom", "uk", "england", "scotland", "wales", "ireland", "dublin", "london")),
+        ("au", ("australia", "sydney", "melbourne", "brisbane", "perth")),
+        ("in", ("india", "mumbai", "delhi", "bengaluru", "bangalore")),
+    )
+
+    for region_code, tokens in keyword_map:
+        if any(token in sample for token in tokens):
+            return region_code
+
+    return "global"
 
 
 def _detect_language_from_sample(sample: str) -> str:
@@ -90,14 +197,15 @@ def detect_distress_category(content: str) -> str | None:
 
 
 def _bold_hotline(hotline: str) -> str:
-    m = re.search(r"(\+?\d[\d\-\s\(\)]+\d)", hotline)
+    searchable = hotline.replace("(24/7)", " ").replace("24/7", " ")
+    m = re.search(r"(\+?\d[\d\-\s\(\)]*\d)", searchable)
     if m:
         num = m.group(1)
         return hotline.replace(num, f"**{num}**")
     return f"**{hotline}**"
 
 
-def build_resource_payload(category_key: str) -> ResourcePayload:
+def build_resource_payload(category_key: str, region: str | None = None) -> ResourcePayload:
     if category_key not in RESOURCE_SETS:
         category_key = "crisis"
 
@@ -105,7 +213,15 @@ def build_resource_payload(category_key: str) -> ResourcePayload:
     emoji = RESOURCE_EMOJIS.get(category_key, "")
     title = f"### {emoji} {rs['title']}"
     description = f"> {rs['description']}"
-    hotline = _bold_hotline(rs["hotline"])
+    if category_key == "crisis":
+        region_code = _normalize_region_hint(region) or "global"
+        region_profile = CRISIS_REGION_PROFILES.get(region_code, CRISIS_REGION_PROFILES["global"])
+        description = f"> {rs['description']} {region_profile['emergency']}"
+        hotline = _bold_hotline(region_profile["hotline"])
+        links_source = region_profile["links"]
+    else:
+        hotline = _bold_hotline(rs["hotline"])
+        links_source = rs.get("links", ())
     tips_lines = "\n".join(f"- {tip}" for tip in rs.get("tips", ()))
     markdown = "\n".join(
         [
@@ -119,7 +235,7 @@ def build_resource_payload(category_key: str) -> ResourcePayload:
             tips_lines,
         ]
     )
-    links = [{"label": label, "url": url} for label, url in rs.get("links", ())]
+    links = [{"label": label, "url": url} for label, url in links_source]
     return {"category": category_key, "markdown": markdown, "links": links}
 
 
