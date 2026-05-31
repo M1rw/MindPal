@@ -317,10 +317,15 @@ def _offline_unscramble_response(user_prompt: str) -> str:
     else:
         focus = "It sounds like your mind is trying to hold too many things at once."
 
-    return (
-        f"{focus} \n\n"
-        "What seems most worth separating out is not the whole problem, but the one thought that is shouting the loudest. "
-        "If you want, I can help you untangle that one thought with you."
+    return "\n".join(
+        [
+            "**Thought:** " + focus,
+            "**Distortion:** The pressure is getting amplified into a total-threat story.",
+            "**Evidence For:** There is real stress and uncertainty right now.",
+            "**Evidence Against:** This feeling has shifted before, and not every fear outcome actually happened.",
+            "**Balanced Reframe:** This is difficult, but it is one heavy moment, not the whole future.",
+            "**Next Tiny Action:** Name one concrete task that can be done in the next 10 minutes and do only that.",
+        ]
     )
 
 
@@ -331,9 +336,45 @@ def _offline_realitycheck_response(user_prompt: str) -> str:
     else:
         challenge = "What do you notice in the thought that feels like fear more than fact?"
 
-    return (
-        f"{challenge} \n\n"
-        "A kinder question might be: if you stepped back for a second, what would this situation look like without the fear making it louder?"
+    return "\n".join(
+        [
+            "**Thought:** " + challenge,
+            "**Distortion:** The mind may be using all-or-nothing language to predict the worst.",
+            "**Evidence For:** Something important is at stake and emotions are high.",
+            "**Evidence Against:** There are likely neutral or positive facts that the fear lens is skipping.",
+            "**Balanced Reframe:** Fear can be loud without being fully accurate.",
+            "**Next Tiny Action:** Write one fact that supports the fear and one fact that softens it.",
+        ]
+    )
+
+
+def _ensure_cbt_structure(response: str, user_prompt: str) -> str:
+    labels = (
+        "**Thought:**",
+        "**Distortion:**",
+        "**Evidence For:**",
+        "**Evidence Against:**",
+        "**Balanced Reframe:**",
+        "**Next Tiny Action:**",
+    )
+    value = (response or "").strip()
+    if not value:
+        value = _offline_unscramble_response(user_prompt)
+
+    if all(label.casefold() in value.casefold() for label in labels):
+        return value
+
+    # Fallback: keep user-facing consistency even if provider drifts from requested format.
+    single_line = " ".join(value.splitlines()).strip()
+    return "\n".join(
+        [
+            f"**Thought:** {user_prompt.strip()[:240] or 'I feel overwhelmed right now.'}",
+            "**Distortion:** The mind may be overgeneralizing or predicting the worst-case outcome.",
+            "**Evidence For:** There are valid stress signals and emotional pain present.",
+            "**Evidence Against:** Not every feared outcome is certain, and there are still options available.",
+            f"**Balanced Reframe:** {single_line[:280] if single_line else 'This is hard, but it is workable one step at a time.'}",
+            "**Next Tiny Action:** Take one small grounded step (water, 3 breaths, or one 10-minute task).",
+        ]
     )
 
 
@@ -400,11 +441,13 @@ def generate_text(system_prompt: str, user_prompt: str, history: list[ChatTurn] 
 
 
 def run_unscramble(text: str, history: list[ChatTurn] | None = None) -> str:
-    return generate_text(UNSCRAMBLE_PROMPT, text, history=history).strip()[:3500]
+    raw = generate_text(UNSCRAMBLE_PROMPT, text, history=history).strip()
+    return _ensure_cbt_structure(raw, text)[:3500]
 
 
 def run_realitycheck(text: str, history: list[ChatTurn] | None = None) -> str:
-    return generate_text(REALITYCHECK_PROMPT, text, history=history).strip()[:3500]
+    raw = generate_text(REALITYCHECK_PROMPT, text, history=history).strip()
+    return _ensure_cbt_structure(raw, text)[:3500]
 
 
 def run_chat(text: str, history: list[ChatTurn] | None = None) -> str:

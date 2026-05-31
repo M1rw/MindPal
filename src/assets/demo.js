@@ -45,6 +45,11 @@ const regionHint = document.getElementById('region-hint');
 const clearMemoryBtn = document.getElementById('clear-memory-btn');
 const exportChatBtn = document.getElementById('export-chat-btn');
 const toastRoot = document.getElementById('toast-root');
+const confirmOverlay = document.getElementById('confirm-overlay');
+const confirmTitle = document.getElementById('confirm-title');
+const confirmMessage = document.getElementById('confirm-message');
+const confirmCancelBtn = document.getElementById('confirm-cancel-btn');
+const confirmOkBtn = document.getElementById('confirm-ok-btn');
 const currentModeText = document.getElementById('current-mode-text');
 const currentModeIconSlot = document.getElementById('current-mode-icon-slot');
 const modeOptions = document.querySelectorAll('.mode-option');
@@ -192,6 +197,64 @@ function setButtonBusy(button, busy, busyLabel) {
     button.classList.toggle('opacity-70', busy);
     button.classList.toggle('cursor-not-allowed', busy);
     button.textContent = busy ? busyLabel : button.dataset.idleLabel;
+}
+
+function formatTimestampForFilename(date = new Date()) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    const mm = pad(date.getMonth() + 1);
+    const dd = pad(date.getDate());
+    const hh = pad(date.getHours());
+    const min = pad(date.getMinutes());
+    const ss = pad(date.getSeconds());
+    return `${yyyy}${mm}${dd}-${hh}${min}${ss}`;
+}
+
+function requestConfirmation({ title, message, confirmLabel = 'Confirm' }) {
+    if (!confirmOverlay || !confirmTitle || !confirmMessage || !confirmCancelBtn || !confirmOkBtn) {
+        return Promise.resolve(window.confirm(message || 'Are you sure?'));
+    }
+
+    confirmTitle.textContent = title || 'Confirm action';
+    confirmMessage.textContent = message || 'Are you sure?';
+    confirmOkBtn.textContent = confirmLabel;
+    confirmOverlay.classList.remove('hidden');
+
+    return new Promise((resolve) => {
+        const cleanup = () => {
+            confirmOverlay.classList.add('hidden');
+            confirmCancelBtn.removeEventListener('click', onCancel);
+            confirmOkBtn.removeEventListener('click', onConfirm);
+            confirmOverlay.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onEsc);
+        };
+
+        const onCancel = () => {
+            cleanup();
+            resolve(false);
+        };
+        const onConfirm = () => {
+            cleanup();
+            resolve(true);
+        };
+        const onBackdrop = (e) => {
+            if (e.target === confirmOverlay) {
+                cleanup();
+                resolve(false);
+            }
+        };
+        const onEsc = (e) => {
+            if (e.key === 'Escape') {
+                cleanup();
+                resolve(false);
+            }
+        };
+
+        confirmCancelBtn.addEventListener('click', onCancel);
+        confirmOkBtn.addEventListener('click', onConfirm);
+        confirmOverlay.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onEsc);
+    });
 }
 
 function syncChatActiveClass() {
@@ -527,6 +590,15 @@ regionOptionButtons.forEach((btn) => {
 
 if (clearMemoryBtn) {
     clearMemoryBtn.addEventListener('click', async () => {
+        const approved = await requestConfirmation({
+            title: 'Clear session memory?',
+            message: 'This will remove the saved conversation for this session and cannot be undone.',
+            confirmLabel: 'Clear memory',
+        });
+        if (!approved) {
+            return;
+        }
+
         setButtonBusy(clearMemoryBtn, true, 'Clearing...');
         try {
             await postJSON('/api/session/clear', { session_id: SESSION_ID });
@@ -557,7 +629,7 @@ if (exportChatBtn) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `mindpal-session-${SESSION_ID.slice(0, 8)}.json`;
+            a.download = `mindpal-session-${SESSION_ID.slice(0, 8)}-${formatTimestampForFilename()}.json`;
             document.body.appendChild(a);
             a.click();
             a.remove();
