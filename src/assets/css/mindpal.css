@@ -45,6 +45,7 @@ details > summary::-webkit-details-marker { display: none; }
 .dark .shimmer-text {
     background: linear-gradient(90deg, #a8c7fa 0%, #d3bcfa 50%, #a8c7fa 100%);
     background-size: 200% auto;
+    background-clip: text;
     -webkit-background-clip: text;
 }
 
