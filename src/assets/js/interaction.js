@@ -137,7 +137,7 @@
         const historyToPass = [...window.appState.chatMemory];
         window.appState.chatMemory.push({ role: 'User', text: text });
 
-        const responseText = await window.callGemini ? window.callGemini(text, systemPrompt, historyToPass) : "";
+        const responseText = await (window.callServerAsk ? window.callServerAsk(text, systemPrompt, historyToPass) : (window.callGemini ? window.callGemini(text, systemPrompt, historyToPass) : ""));
 
         const typingEl = document.getElementById(typingId);
         if (typingEl) typingEl.remove();
