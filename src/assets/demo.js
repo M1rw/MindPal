@@ -410,7 +410,6 @@ function adjustHeroForSmallScreens() {
     try {
         const mq = window.matchMedia('(max-width: 480px)');
         if (!mq.matches) {
-            document.body.classList.remove('hero-input-anchored');
             return;
         }
         const sub = document.querySelector('.welcome-subtitle');

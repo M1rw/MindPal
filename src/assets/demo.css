@@ -167,11 +167,9 @@ textarea:focus::-webkit-scrollbar {
     z-index: 110; /* raised so input always sits above the fade overlay */
 }
 
-/* Gradient fade that sits between chat content and the input panel.
-   Implemented as a pseudo-element so messages are softly masked when scrolling up. */
-/* Ensure the inner rounded panel stacks above any outer visual overlays */
+/* Ensure the inner rounded input panel stacks above outer overlays (e.g. #bottom-fade). */
 .input-hero .bg-surface,
-.input-hero .rounded-[28px] {
+.input-hero .rounded-\[28px\] {
     position: relative;
     z-index: 2;
 }
@@ -225,12 +223,12 @@ textarea:focus::-webkit-scrollbar {
 }
 
 /* Keep a little breathing room above disclaimer in chat mode (chips hidden) */
-body:not(.hero-centered) .input-hero .input-disclaimer {
+body.chat-active .input-hero .input-disclaimer {
     margin-top: 1.15rem;
 }
 
 /* In chat mode keep the input compact: hide chips only (disclaimer remains visible) */
-body:not(.hero-centered) .input-hero .suggestion-chips {
+body.chat-active .input-hero .suggestion-chips {
     display: none;
 }
 
@@ -311,17 +309,17 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
         padding-right: 0.35rem;
         padding-top: 0.35rem;
         padding-bottom: 0.5rem;
-        /* ensure gradient & subtle shadow are visible on phones */
-        background-image: linear-gradient(to top, rgba(0,0,0,0.06), rgba(255,255,255,0));
-        background-color: rgba(255,255,255,0.96);
-        -webkit-backdrop-filter: blur(8px);
-        backdrop-filter: blur(8px);
-        box-shadow: 0 -10px 30px rgba(15,23,42,0.06);
+        /* Keep outer wrapper clean in chat mode; the dedicated #bottom-fade handles masking. */
+        background-image: none;
+        background-color: transparent;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        box-shadow: none;
     }
     .dark body.chat-active .input-hero {
-        background-image: linear-gradient(to top, rgba(255,255,255,0.03), rgba(17,24,39,0));
-        background-color: rgba(17,24,39,0.9);
-        box-shadow: 0 -10px 30px rgba(0,0,0,0.45);
+        background-image: none;
+        background-color: transparent;
+        box-shadow: none;
     }
 
     /* Keep hero mode clean: no mobile fade/shadow while welcome is visible */
@@ -406,16 +404,6 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
         padding-bottom: 8rem !important; /* larger reserve for narrow viewports */
     }
 
-    /* Helper class toggled by JS when overlap is detected */
-    .hero-input-anchored .input-hero {
-        top: auto !important;
-        bottom: 12px !important;
-        transform: translateX(-50%) !important;
-    }
-
-    .hero-input-anchored #welcome-screen {
-        padding-bottom: 6.5rem !important;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -444,14 +432,15 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
     left: 0;
     right: 0;
     bottom: 0;
-    height: 6.5rem;
+    height: clamp(10rem, 24vh, 14rem);
     pointer-events: none;
     z-index: 105; /* below input (110) but above messages */
     background: linear-gradient(
         to top,
         rgba(255,255,255,0.98) 0%,
-        rgba(255,255,255,0.82) 34%,
-        rgba(255,255,255,0.32) 72%,
+        rgba(255,255,255,0.9) 22%,
+        rgba(255,255,255,0.58) 50%,
+        rgba(255,255,255,0.22) 74%,
         rgba(255,255,255,0) 100%
     );
     transition: background 200ms ease;
@@ -463,8 +452,9 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
     background: linear-gradient(
         to top,
         rgba(17,24,39,0.98) 0%,
-        rgba(17,24,39,0.84) 34%,
-        rgba(17,24,39,0.34) 72%,
+        rgba(17,24,39,0.9) 22%,
+        rgba(17,24,39,0.6) 50%,
+        rgba(17,24,39,0.24) 74%,
         rgba(17,24,39,0) 100%
     );
 }
