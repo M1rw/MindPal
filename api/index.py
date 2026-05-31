@@ -18,6 +18,7 @@ from src.web.demo_logic import (  # noqa: E402
     build_resource_payload,
     detect_distress_category,
     detect_resource_intent,
+    resolve_crisis_region,
     run_chat,
     run_realitycheck,
     run_unscramble,
@@ -37,6 +38,7 @@ class AskRequest(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
     mode: str = Field(min_length=1, max_length=64)
     history: list[dict[str, str]] = Field(default_factory=list)
+    region: str | None = Field(default=None, max_length=32)
 
 
 app = FastAPI(title="MindPal Web Demo", version="1.0.0")
@@ -125,10 +127,12 @@ def ask(payload: AskRequest) -> dict[str, object]:
     if mode in {"companion", "chat"}:
         category = detect_distress_category(text)
         if category == "crisis":
+            region = resolve_crisis_region(text, history=history, region_hint=payload.region)
             return {
                 "mode": "crisis",
                 "category": category,
-                "resource": build_resource_payload("crisis"),
+                "region": region,
+                "resource": build_resource_payload("crisis", region=region),
             }
         return {"mode": "chat", "result": run_chat(text, history=history)}
 
@@ -141,10 +145,12 @@ def ask(payload: AskRequest) -> dict[str, object]:
     if mode in {"resources", "resource"}:
         category = detect_distress_category(text)
         if category == "crisis":
+            region = resolve_crisis_region(text, history=history, region_hint=payload.region)
             return {
                 "mode": "crisis",
                 "category": category,
-                "resource": build_resource_payload("crisis"),
+                "region": region,
+                "resource": build_resource_payload("crisis", region=region),
             }
 
         # Use AI to decide whether the user actually wants resources (language-aware)
