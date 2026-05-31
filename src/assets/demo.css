@@ -164,7 +164,16 @@ textarea:focus::-webkit-scrollbar {
     bottom: 18px;
     width: min(980px, calc(100% - 2rem));
     transition: transform 320ms ease, top 320ms ease, bottom 320ms ease, opacity 200ms ease;
-    z-index: 60;
+    z-index: 110; /* raised so input always sits above the fade overlay */
+}
+
+/* Gradient fade that sits between chat content and the input panel.
+   Implemented as a pseudo-element so messages are softly masked when scrolling up. */
+/* Ensure the inner rounded panel stacks above any outer visual overlays */
+.input-hero .bg-surface,
+.input-hero .rounded-[28px] {
+    position: relative;
+    z-index: 2;
 }
 
 .hero-centered .input-hero {
@@ -295,7 +304,7 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
         max-width: 30rem;
     }
 
-    .input-hero {
+    body.chat-active .input-hero {
         width: calc(100% - 1rem);
         bottom: 10px;
         padding-left: 0.35rem;
@@ -309,10 +318,19 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
         backdrop-filter: blur(8px);
         box-shadow: 0 -10px 30px rgba(15,23,42,0.06);
     }
-    .dark .input-hero {
+    .dark body.chat-active .input-hero {
         background-image: linear-gradient(to top, rgba(255,255,255,0.03), rgba(17,24,39,0));
         background-color: rgba(17,24,39,0.9);
         box-shadow: 0 -10px 30px rgba(0,0,0,0.45);
+    }
+
+    /* Keep hero mode clean: no mobile fade/shadow while welcome is visible */
+    .hero-centered .input-hero {
+        background-image: none;
+        background-color: transparent;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        box-shadow: none;
     }
 
     .hero-centered .input-hero {
@@ -414,4 +432,51 @@ body:not(.hero-centered) .input-hero .suggestion-chips {
         width: auto;
         border-right: none;
     }
+}
+
+/* Bottom fade overlay: sits above chat content and below the input panel
+   so messages scroll under a soft gradient. Uses fixed positioning so
+   it masks messages even when the chat container scrolls. */
+
+/* Dedicated bottom fade element (explicit DOM node) */
+#bottom-fade {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 6.5rem;
+    pointer-events: none;
+    z-index: 105; /* below input (110) but above messages */
+    background: linear-gradient(
+        to top,
+        rgba(255,255,255,0.98) 0%,
+        rgba(255,255,255,0.82) 34%,
+        rgba(255,255,255,0.32) 72%,
+        rgba(255,255,255,0) 100%
+    );
+    transition: background 200ms ease;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.dark #bottom-fade {
+    background: linear-gradient(
+        to top,
+        rgba(17,24,39,0.98) 0%,
+        rgba(17,24,39,0.84) 34%,
+        rgba(17,24,39,0.34) 72%,
+        rgba(17,24,39,0) 100%
+    );
+}
+
+/* Fade should only be active after the welcome hero is hidden (chat mode). */
+body.chat-active #bottom-fade {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Make sure chat history doesn't draw above the overlay */
+#chat-history {
+    position: relative;
+    z-index: 0;
 }
