@@ -24,7 +24,7 @@ from src.web.archive.demo_logic import (  # noqa: E402
     run_unscramble,
 )
 from src.web.archive.session_memory import SessionMemoryStore  # noqa: E402
-from src.utils.config import RESOURCE_OPTIONS  # noqa: E402
+from archive.src.utils.config import RESOURCE_OPTIONS  # noqa: E402
 
 
 class TextRequest(BaseModel):
