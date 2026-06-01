@@ -1,15 +1,26 @@
-# api/index.py
-"""
-Vercel serverless function entrypoint for MindPal backend.
+﻿"""
+Vercel Functions entry point for MindPal API.
 
-This module is required by Vercel's Python runtime. It imports and exposes
-the FastAPI application created in backend/main.py for serverless execution.
-
-Vercel looks for functions in the /api directory by convention.
+This module serves as the serverless function handler that Vercel will invoke.
+It exports the FastAPI application configured for the Vercel environment.
 """
 
 from __future__ import annotations
 
+try:
+    # Import and configure for Vercel environment
+    from vercel_config import configure_vercel_environment
+    
+    configure_vercel_environment()
+    
+except ImportError:
+    # Fallback: configure directly if vercel_config unavailable
+    import os
+    os.environ.setdefault("ENVIRONMENT", "production")
+    os.environ.setdefault("DEBUG", "false")
+    os.environ.setdefault("PYTHONUNBUFFERED", "1")
+
+# Import the FastAPI application
 from backend.main import app
 
 __all__ = ["app"]
