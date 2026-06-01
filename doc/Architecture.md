@@ -37,3 +37,23 @@ mindpal_project/
 ├── requirements.txt              # Python dependencies
 ├── Dockerfile                    # Instructions to package the app for a server
 └── README.md                     # Setup instructions for your team
+
+# LIST
+
+[x] Frontend UX: Clean, minimalist, accessible design (Done).
+
+[x] LLM Integration: Core AI logic and persona constraints (Done).
+
+[x] Memory Management: Sliding window and long-term summarization (Designed).
+
+[ ] Safety Layer: Real-time toxicity/self-harm classification and crisis routing.
+
+[ ] Analytics: Sentiment tracking and LLM observability.
+
+[ ] Async Queues: Background processing for summaries and reports.
+
+[ ] RAG: Grounding responses in verified psychological literature.
+
+[ ] Multi-Modal: Voice integration (STT/TTS).
+
+[ ] Compliance: PII scrubbing and strict data privacy protocols.
