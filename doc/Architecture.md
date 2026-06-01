@@ -1,69 +1,124 @@
 mindpal_project/
 │
-├── frontend/                     # The Web Interface
+├── frontend/
 │   ├── index.html
-│   ├── js/
-│   │   ├── app.js                
-│   │   └── auth.js               
-│   └── css/
-│       └── style.css
+│   ├── css/
+│   │   └── style.css
+│   └── js/
+│       ├── app.js
+│       ├── auth.js
+│       ├── api.js
+│       ├── voice.js
+│       └── ui_state.js
 │
-├── backend/                      # The API & Brain (FastAPI)
-│   ├── main.py                   
+├── backend/
+│   ├── main.py
 │   ├── core/
-│   │   ├── config.py             
-│   │   ├── security.py           
-│   │   └── prompts.py            
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   ├── prompts.py
+│   │   ├── logging.py
+│   │   └── errors.py
+│   │
 │   ├── api/
-│   │   ├── chat_router.py        
-│   │   ├── user_router.py        
-│   │   └── memory_router.py      # [NEW] POST /api/memory/summarize endpoint
+│   │   ├── chat_router.py
+│   │   ├── user_router.py
+│   │   ├── memory_router.py
+│   │   ├── safety_router.py
+│   │   └── health_router.py
+│   │
+│   ├── models/
+│   │   ├── schemas.py
+│   │   ├── user.py
+│   │   ├── chat.py
+│   │   ├── safety.py
+│   │   └── memory.py
+│   │
 │   ├── services/
-│   │   ├── llm_service.py        
-│   │   ├── db_service.py         
-│   │   ├── safety_service.py     # [NEW] The "Crisis Funnel" & Perspective API checks
-│   │   ├── memory_service.py     # [NEW] Context window & LLM summarization logic
-│   │   └── rag_service.py        # [NEW] Vector DB (Pinecone/Qdrant) clinical retrieval
+│   │   ├── safety_service.py
+│   │   ├── llm_service.py
+│   │   ├── rag_service.py
+│   │   ├── memory_service.py
+│   │   ├── db_service.py
+│   │   ├── auth_service.py
+│   │   └── tts_service.py
+│   │
+│   ├── providers/
+│   │   ├── gemini_provider.py
+│   │   ├── openrouter_provider.py
+│   │   ├── groq_provider.py
+│   │   ├── perspective_provider.py
+│   │   ├── firebase_provider.py
+│   │   └── camb_provider.py
+│   │
+│   ├── safety/
+│   │   ├── crisis_patterns_en.yaml
+│   │   ├── crisis_patterns_ar.yaml
+│   │   ├── crisis_responses.yaml
+│   │   ├── prohibited_outputs.yaml
+│   │   └── safety_policy.md
+│   │
+│   ├── rag/
+│   │   ├── corpus/
+│   │   │   ├── cbt_grounding.yaml
+│   │   │   ├── dbt_grounding.yaml
+│   │   │   ├── anxiety_grounding.yaml
+│   │   │   └── emotion_regulation.yaml
+│   │   ├── ingest.py
+│   │   ├── retriever.py
+│   │   └── citations.py
+│   │
+│   ├── memory/
+│   │   ├── summarizer.py
+│   │   ├── compactor.py
+│   │   ├── redactor.py
+│   │   └── memory_policy.md
+│   │
 │   ├── tasks/
-│   │   └── background_jobs.py    # [NEW] Async queue for heavy lifting (summaries, emails)
-│   └── models/
-│       └── schemas.py            
+│   │   ├── background_jobs.py
+│   │   └── queue.py
+│   │
+│   └── tests/
+│       ├── test_api_chat.py
+│       ├── test_safety.py
+│       ├── test_memory.py
+│       ├── test_rag.py
+│       ├── test_llm_fallback.py
+│       └── test_auth.py
 │
-├── bot/                          # The Discord Interface
-│   ├── bot_main.py               
-│   └── cogs/                     
-│       └── chat_cog.py           
+├── bot/
+│   ├── bot_main.py
+│   ├── client.py
+│   └── cogs/
+│       └── chat_cog.py
 │
-├── data/                         # [NEW] Clinical Knowledge Base
-│   └── clinical_frameworks/      # [NEW] Raw CBT/DBT texts and PDFs to feed your RAG
+├── data/
+│   ├── seed/
+│   │   └── demo_users.json
+│   └── evals/
+│       ├── crisis_cases.jsonl
+│       ├── safe_cases.jsonl
+│       ├── arabic_cases.jsonl
+│       └── jailbreak_cases.jsonl
 │
-├── tests/                        # Production Testing
-│   ├── test_api.py               
-│   ├── test_llm.py               
-│   └── test_safety.py            # [NEW] Tests to ensure the Crisis Funnel triggers correctly
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── SAFETY.md
+│   ├── MEMORY.md
+│   ├── PRIVACY.md
+│   ├── RAG.md
+│   ├── API.md
+│   └── DEPLOYMENT.md
 │
-├── .env                          
-├── .gitignore                    
-├── requirements.txt              
-├── Dockerfile                    
+├── scripts/
+│   ├── run_backend.sh
+│   ├── run_frontend.sh
+│   ├── run_tests.sh
+│   └── ingest_rag.sh
+│
+├── .env.example
+├── .gitignore
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
 └── README.md
-
-# LIST
-
-[x] Frontend UX: Clean, minimalist, accessible design (Done).
-
-[x] LLM Integration: Core AI logic and persona constraints (Done).
-
-[x] Memory Management: Sliding window and long-term summarization (Designed).
-
-[ ] Safety Layer: Real-time toxicity/self-harm classification and crisis routing.
-
-[ ] Analytics: Sentiment tracking and LLM observability.
-
-[ ] Async Queues: Background processing for summaries and reports.
-
-[ ] RAG: Grounding responses in verified psychological literature.
-
-[ ] Multi-Modal: Voice integration (STT/TTS).
-
-[ ] Compliance: PII scrubbing and strict data privacy protocols.
