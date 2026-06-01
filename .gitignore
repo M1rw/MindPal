@@ -1,31 +1,64 @@
-# Python bytecode and cache
+# .gitignore
+
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
-
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Environment variables and secrets
-.secrets/
-secrets/
-.env
-
-# Test and tooling caches
+*.pyd
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
 htmlcov/
-
-# Build artifacts
-build/
 dist/
+build/
 *.egg-info/
 
-# Editor settings
-.vscode/
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.crt
+*service-account*.json
+firebase-service-account.json
+
+# Firebase / Google credentials
+google-application-credentials.json
+application_default_credentials.json
+
+# Node / frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
 .idea/
-.vercel
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+tmp/
+temp/
+.cache/
+
+# MindPal generated/local state
+var/
+local_data/
