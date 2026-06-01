@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MindPal - Mental Wellness Companion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,650&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+    <div class="page">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true"></div>
+                <div>
+                    <div class="brand-title">MindPal</div>
+                    <div class="brand-subtitle">Calm, grounded, and here for you.</div>
+                </div>
+            </div>
+            <div class="topbar-actions">
+                <span class="env-chip" id="env-chip">Local</span>
+                <button class="icon-button" id="theme-toggle" aria-label="Toggle theme">
+                    <span class="icon">\u263c</span>
+                </button>
+                <button class="button secondary" id="sign-in-btn">Sign in</button>
+            </div>
+        </header>
+
+        <main class="main">
+            <section class="intro">
+                <div class="intro-card">
+                    <p class="eyebrow">Start here</p>
+                    <h1>Build steadier days with tiny, kind steps.</h1>
+                    <p class="lead">MindPal listens, reflects, and offers one gentle next step. Nothing more, nothing less.</p>
+                    <div class="chip-row">
+                        <button class="chip" data-fill="I feel overwhelmed and need to slow down.">Overwhelmed</button>
+                        <button class="chip" data-fill="I am feeling anxious and need a grounding reset.">Anxious</button>
+                        <button class="chip" data-fill="I am stuck and want a small starting point.">Stuck</button>
+                        <button class="chip" data-fill="I need help making a tough decision calmly.">Decision</button>
+                    </div>
+                    <div class="mood-grid">
+                        <div class="mood-card">
+                            <h3>Active Listen</h3>
+                            <p>Short reflection, no advice. Just clarity.</p>
+                        </div>
+                        <div class="mood-card">
+                            <h3>Guided Coach</h3>
+                            <p>One tiny action that feels doable.</p>
+                        </div>
+                        <div class="mood-card">
+                            <h3>Cognitive Tools</h3>
+                            <p>Reframe the thought, keep the truth.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="chat">
+                <div class="chat-shell">
+                    <div class="chat-header">
+                        <div>
+                            <p class="eyebrow">Session</p>
+                            <h2>Today&#39;s conversation</h2>
+                        </div>
+                        <div class="mode-select">
+                            <label for="mode" class="sr-only">Mode</label>
+                            <select id="mode">
+                                <option>Active Listen</option>
+                                <option>Guided Coach</option>
+                                <option>Cognitive Tools</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="chat-history" id="chat-history" aria-live="polite">
+                        <div class="message assistant">
+                            <div class="avatar">M</div>
+                            <div>
+                                <div class="bubble">Hey, I&#39;m here. What&#39;s on your mind?</div>
+                                <div class="meta">MindPal</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="composer">
+                        <textarea id="chat-input" placeholder="Share what&#39;s going on, in your own words." rows="1"></textarea>
+                        <div class="composer-actions">
+                            <button class="button ghost" id="clear-btn" type="button">Clear</button>
+                            <button class="button primary" id="send-btn" type="button">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="./js/auth.js"></script>
+    <script src="./js/app.js"></script>
+</body>
+</html>
