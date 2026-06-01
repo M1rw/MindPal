@@ -1,3 +1,19 @@
+# Safety & Moderation — Crisis Funnel and Implementation Guide
+
+This document defines the multi-layered safety architecture required for MindPal.
+
+What's inside
+------------
+- The 4-tier moderation funnel: client triage, server pre-LLM moderation, deterministic crisis bypass, post-LLM validation.
+- Pydantic models, example safety service code, and crisis-hotline mapping guidance.
+- Human-in-the-loop auditing requirements and data to log for review.
+
+Implementation notes
+--------------------
+- Use a lightweight client-side keyword check for instant interception.
+- On the backend, call a semantic moderation API before the LLM and bypass the LLM if self-harm is detected.
+- Localize crisis hotlines by `locale` and avoid making the AI generate emergency instructions.
+- Log flagged events to a secure collection for HITL review.
 # MindPal — Advanced Safety & Moderation Architecture
 
 To achieve a "Top 1" status in the mental health AI space, safety cannot be an afterthought. Relying solely on the LLM to "behave" is a massive liability. The system must act defensively, detecting and mitigating crisis situations *before* they reach the core generation engine.

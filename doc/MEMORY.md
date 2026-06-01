@@ -1,3 +1,27 @@
+# Memory — Context & Long-Term Memory Strategy
+
+This doc describes the two-tier memory system used by MindPal and the endpoints that implement it.
+
+What's inside
+------------
+- Short-term sliding window rules and size recommendations.
+- Long-term summarization flow and storage location.
+- API endpoints relating to memory and how the backend should inject summaries into prompts.
+
+Key points
+----------
+- Short-term memory: Pass the last 10–15 turns in the `history` field on `/api/chat`.
+- Long-term memory: Store compressed summaries in Firestore under the user's profile and inject into the system prompt.
+- Summarization: Run as a background job when local unsummarized logs exceed a threshold (20 messages).
+
+Endpoints
+---------
+- POST `/api/memory/summarize` (async): Accepts old chat logs and returns an updated compressed summary.
+- GET `/api/user/{user_id}/memory`: Return current long-term summary.
+
+Injection pattern
+-----------------
+Build the system prompt by concatenating the base persona prompt with an optional `[LONG-TERM USER CONTEXT]` block. See `backend/core/prompts.py` for the canonical string and safety redaction rules.
 # MindPal — Context & Memory Management Architecture
 
 To prevent "token explosion" (which costs money and causes latency) and "context dilution" (where the AI forgets its system instructions), MindPal uses a **Two-Tiered Memory System**. 
