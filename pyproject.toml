@@ -1,0 +1,21 @@
+[project]
+name = "mindpal"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.136,<0.137",
+  "uvicorn[standard]>=0.35,<0.36",
+  "pydantic>=2.12,<3",
+  "pydantic-settings>=2.14,<3",
+  "python-dotenv>=1.1,<2",
+  "httpx>=0.28,<1",
+  "PyYAML>=6.0,<7",
+  "firebase-admin>=7.4,<8",
+  "email-validator>=2.2,<3"
+]
+
+[project.scripts]
+app = "backend.main:app"
+
+[tool.vercel]
+entrypoint = "backend.main:app"
