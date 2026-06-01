@@ -217,7 +217,10 @@ def _install_routes(app: FastAPI) -> None:
             "health": "/api/health",
         }
 
-    if FRONTEND_DIR.exists():
+    import os
+    is_serverless = os.getenv("VERCEL") is not None or os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
+
+    if not is_serverless and FRONTEND_DIR.exists():
         assets_dir = FRONTEND_DIR
 
         app.mount(
