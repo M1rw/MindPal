@@ -1,0 +1,246 @@
+# backend/rag/corpus/anxiety.yaml
+
+schema_version: 1
+domain: anxiety
+description: >
+  Curated non-clinical grounding and anxiety-support techniques for MindPal.
+  These units are wellness support only. They are not diagnosis, treatment,
+  therapy, or medical advice.
+
+units:
+  - id: grounding_54321
+    category: anxiety
+    technique: 5-4-3-2-1 grounding
+    trigger_terms:
+      - panic
+      - panic attack
+      - anxiety attack
+      - spiraling
+      - overwhelmed
+      - derealization
+      - can't breathe
+      - cannot breathe
+      - heart racing
+      - مش قادر اتنفس
+      - مش قادرة اتنفس
+      - قلبي بيدق بسرعة
+      - نوبة هلع
+      - نوبة فزع
+      - مش مستوعب
+      - تايه
+    instructions:
+      - Ask the user to name 5 things they can see.
+      - Ask the user to name 4 things they can physically feel.
+      - Ask the user to name 3 sounds they can hear.
+      - Ask the user to notice 2 smells if available.
+      - Ask the user to name 1 taste or one thing they are grateful for if taste is unavailable.
+      - Keep the pace slow, concrete, and low-pressure.
+      - If the user cannot complete all steps, stop at the first useful step.
+    contraindications:
+      - Do not claim this treats or cures panic disorder.
+      - Do not say the symptoms are harmless with certainty.
+      - Do not force the user to continue if grounding increases distress.
+      - If the user reports chest pain, fainting, injury, severe shortness of breath, or immediate danger, prioritize urgent real-world help.
+    response_style:
+      - calm
+      - short
+      - concrete
+      - step-by-step
+      - non-diagnostic
+    tags:
+      - panic_grounding
+      - 54321_grounding
+      - anxiety
+      - grounding
+      - sensory_grounding
+      - arabic_supported
+
+  - id: box_breathing_basic
+    category: anxiety
+    technique: box breathing
+    trigger_terms:
+      - anxious
+      - anxiety
+      - overwhelmed
+      - heart racing
+      - breathing fast
+      - nervous
+      - shaky
+      - adrenaline
+      - قلبي بيدق بسرعة
+      - قلقان
+      - قلقانة
+      - متوتر
+      - متوترة
+      - نفسي سريع
+      - بتوتر
+    instructions:
+      - Invite one gentle 4-second inhale.
+      - Invite a 4-second hold only if comfortable.
+      - Invite a 4-second exhale.
+      - Invite a 4-second pause only if comfortable.
+      - Start with one or two cycles, then reassess.
+      - Tell the user they can skip holds and simply slow the exhale if breath-holding feels uncomfortable.
+    contraindications:
+      - Do not force breath holds.
+      - Do not use breath control as the only response when the user reports immediate danger.
+      - Do not present breathing as medical treatment.
+      - If breathing exercises make the user feel worse, switch to sensory grounding.
+    response_style:
+      - gentle
+      - brief
+      - non-forceful
+      - practical
+    tags:
+      - box_breathing
+      - anxiety
+      - breathing
+      - panic_grounding
+      - calm_down
+
+  - id: physiological_sigh
+    category: anxiety
+    technique: physiological sigh
+    trigger_terms:
+      - tense
+      - stress spike
+      - sudden stress
+      - adrenaline rush
+      - can't calm down
+      - shaky breathing
+      - متوتر
+      - مش عارف اهدا
+      - رعشة
+      - نفسي عالي
+      - توتر مفاجئ
+    instructions:
+      - Ask the user to take a normal inhale through the nose if possible.
+      - Before exhaling, ask them to take a small second inhale to top up the breath.
+      - Ask them to exhale slowly and fully.
+      - Repeat once or twice only.
+      - Keep instructions simple and avoid long explanations during acute distress.
+    contraindications:
+      - Do not use if the user says breath work feels unsafe or uncomfortable.
+      - Do not force nose breathing.
+      - Do not claim this fixes panic, trauma, or medical symptoms.
+    response_style:
+      - minimal
+      - calm
+      - body-based
+      - non-clinical
+    tags:
+      - breathing
+      - anxiety
+      - panic_grounding
+      - acute_stress
+      - physiological_sigh
+
+  - id: orienting_to_room
+    category: anxiety
+    technique: orienting to the room
+    trigger_terms:
+      - dissociated
+      - unreal
+      - numb
+      - disconnected
+      - frozen
+      - I feel outside my body
+      - مش حاسس بنفسي
+      - مش حاسس بالواقع
+      - مش مستوعب
+      - منفصل
+      - تايه
+    instructions:
+      - Ask the user to slowly turn their head and look around the room.
+      - Ask them to name where they are.
+      - Ask them to notice one stable object nearby.
+      - Ask them to press their feet into the floor or touch a safe surface.
+      - Use the phrase: you are noticing the present moment, not proving anything.
+    contraindications:
+      - Do not interpret dissociation as a diagnosis.
+      - Do not ask for traumatic details.
+      - Do not push deep introspection during acute overwhelm.
+    response_style:
+      - grounding
+      - present-focused
+      - simple
+      - reassuring without certainty claims
+    tags:
+      - grounding
+      - sensory_grounding
+      - anxiety
+      - dissociation_support
+      - present_moment
+
+  - id: worry_window
+    category: anxiety
+    technique: worry window
+    trigger_terms:
+      - overthinking
+      - can't stop thinking
+      - rumination
+      - worrying all day
+      - spiraling thoughts
+      - دماغي مش بتسكت
+      - تفكير كتير
+      - سرحان
+      - قلق طول اليوم
+      - دماغي داخلة في بعضها
+    instructions:
+      - Suggest postponing the worry to a specific 10-minute window later today.
+      - Ask the user to write one short line naming the worry.
+      - Ask them to choose one tiny action they can do now.
+      - Remind them that postponing worry is not ignoring it; it is containing it.
+    contraindications:
+      - Do not use this if the user is in immediate danger or needs urgent support.
+      - Do not frame worry as irrational or stupid.
+      - Do not promise the worry will disappear.
+    response_style:
+      - practical
+      - structured
+      - non-judgmental
+      - concise
+    tags:
+      - anxiety
+      - rumination
+      - overthinking
+      - containment
+      - study_stress
+
+  - id: exam_anxiety_next_step
+    category: anxiety
+    technique: exam anxiety next-step reset
+    trigger_terms:
+      - exam anxiety
+      - quiz tomorrow
+      - final exam
+      - study panic
+      - I will fail
+      - امتحان
+      - كويز
+      - فاينل
+      - مش هلحق
+      - هسقط
+      - مش مذاكر
+    instructions:
+      - Reflect that the user is overwhelmed, not incapable.
+      - Ask them to choose the nearest testable topic, not the whole syllabus.
+      - Create a 25-minute study block with one output target.
+      - Use one fast recall check after the block.
+      - Keep emotional support short and move to action.
+    contraindications:
+      - Do not over-therapize academic stress.
+      - Do not promise full marks.
+      - Do not create unrealistic all-night plans without recovery breaks.
+      - If the user expresses self-harm risk, follow safety routing first.
+    response_style:
+      - direct
+      - practical
+      - study-focused
+      - confidence-building without false certainty
+    tags:
+      - anxiety
+      - study_stress
+      - exams
+      - planning
+      - next_step

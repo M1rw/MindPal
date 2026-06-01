@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 
-from backend.api.dependencies import RequestContextDep, ServicesDep
+from backend.api.dependencies import RequestContextDep, ServiceContainer, ServicesDep
 from backend.core.errors import AppError
 from backend.core.prompts import build_system_prompt, infer_response_mode
 from backend.core.security import sanitize_text
@@ -20,8 +20,14 @@ from backend.models.chat import (
 from backend.models.memory import MemoryCompactionRequest
 from backend.models.safety import SafetyDecision
 from backend.models.user import UserProfile
-from backend.services.memory_service import build_memory_interactions
 from backend.services.llm_service import build_llm_request
+from backend.services.memory_service import build_memory_interactions
+from backend.tasks.background_jobs import (
+    BackgroundJobStatus,
+    enqueue_memory_compaction,
+    enqueue_safety_event,
+    get_background_job_runner,
+)
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -46,7 +52,7 @@ async def chat(
     4. retrieve RAG grounding
     5. generate LLM answer
     6. output-guard generated answer before returning
-    7. compact memory asynchronously inside the current request boundary
+    7. queue non-critical memory/log persistence after guarded response
     """
     locale = _resolve_locale(payload, context.locale)
 
@@ -60,7 +66,6 @@ async def chat(
 
         if safety_decision.bypass_llm:
             return await _handle_deterministic_safety_response(
-                payload=payload,
                 services=services,
                 context=context,
                 locale=locale,
@@ -93,8 +98,6 @@ async def chat(
             max_results=4,
         )
 
-        user_preferences = _build_user_preferences_prompt(profile)
-
         system_prompt = build_system_prompt(
             memory_prompt,
             list(rag_result.prompt_grounding),
@@ -102,7 +105,7 @@ async def chat(
             response_mode=response_mode,
             safety_level=safety_decision.level.value,
             channel=context.channel.value,
-            user_preferences=user_preferences,
+            user_preferences=_build_user_preferences_prompt(profile),
         )
 
         llm_request = build_llm_request(
@@ -130,10 +133,10 @@ async def chat(
 
         reply = guarded.final_text
 
-        memory_updated = False
+        memory_job_accepted = False
 
         if profile.preferences.safety.allow_memory:
-            memory_updated = await _compact_and_save_memory(
+            memory_job_accepted = await _queue_memory_compaction(
                 payload=payload,
                 reply=reply,
                 services=services,
@@ -143,7 +146,7 @@ async def chat(
             )
 
         if safety_decision.should_log:
-            await _append_safety_event(
+            await _queue_safety_event(
                 services=services,
                 context=context,
                 decision=safety_decision,
@@ -159,7 +162,7 @@ async def chat(
             ),
             fallback_count=llm_result.response.fallback_count,
             rag_used=list(rag_result.references),
-            memory_updated=memory_updated,
+            memory_updated=memory_job_accepted,
             request_id=context.request_id,
         )
 
@@ -180,9 +183,8 @@ async def chat(
 
 async def _handle_deterministic_safety_response(
     *,
-    payload: ChatRequest,
-    services: ServicesDep,
-    context: RequestContextDep,
+    services: ServiceContainer,
+    context: Any,
     locale: str,
     safety_decision: SafetyDecision,
 ) -> ChatResponse:
@@ -194,11 +196,14 @@ async def _handle_deterministic_safety_response(
     - output guard rewrite
     - RAG planner
     - memory compaction
+
+    Safety event persistence is queued best-effort after deterministic response
+    is rendered.
     """
     reply = services.safety.render_deterministic_response(safety_decision, locale)
 
     if safety_decision.should_log:
-        await _append_safety_event(
+        await _queue_safety_event(
             services=services,
             context=context,
             decision=safety_decision,
@@ -216,52 +221,78 @@ async def _handle_deterministic_safety_response(
     )
 
 
-async def _append_safety_event(
+async def _queue_safety_event(
     *,
-    services: ServicesDep,
-    context: RequestContextDep,
+    services: ServiceContainer,
+    context: Any,
     decision: SafetyDecision,
     locale: str,
-) -> None:
-    event = services.safety.build_safety_event(
-        request_id=context.request_id,
-        user_id_hash=context.session.user_id_hash,
-        decision=decision,
-        locale=locale,
-    )
-    await services.db.append_safety_event(event)
+) -> bool:
+    """
+    Queue safety event persistence best-effort.
+
+    Failure to queue/persist a safety event must not block the user response.
+    """
+    try:
+        event = services.safety.build_safety_event(
+            request_id=context.request_id,
+            user_id_hash=context.session.user_id_hash,
+            decision=decision,
+            locale=locale,
+        )
+
+        result = await enqueue_safety_event(
+            get_background_job_runner(),
+            services=services,
+            event=event,
+        )
+
+        return result.status != BackgroundJobStatus.DROPPED
+
+    except Exception:
+        return False
 
 
-async def _compact_and_save_memory(
+async def _queue_memory_compaction(
     *,
     payload: ChatRequest,
     reply: str,
-    services: ServicesDep,
-    context: RequestContextDep,
+    services: ServiceContainer,
+    context: Any,
     existing_summary: Any,
     locale: str,
 ) -> bool:
-    interactions = build_memory_interactions(
-        user_messages=[payload.message],
-        assistant_messages=[reply],
-    )
+    """
+    Queue memory compaction best-effort.
 
-    compaction = await services.memory.compact(
-        MemoryCompactionRequest(
-            request_id=context.request_id,
-            user_id_hash=context.session.user_id_hash,
-            existing_summary=existing_summary,
-            interactions=interactions,
-            locale=locale,
-            force=False,
+    ChatResponse.memory_updated means the memory job was accepted or completed
+    inline; it does not guarantee durable persistence if the process exits before
+    the in-process queue drains.
+    """
+    try:
+        interactions = build_memory_interactions(
+            user_messages=[payload.message],
+            assistant_messages=[reply],
         )
-    )
 
-    if not compaction.changed:
+        result = await enqueue_memory_compaction(
+            get_background_job_runner(),
+            services=services,
+            request=MemoryCompactionRequest(
+                request_id=context.request_id,
+                user_id_hash=context.session.user_id_hash,
+                existing_summary=existing_summary,
+                interactions=interactions,
+                locale=locale,
+                force=False,
+            ),
+            save=True,
+        )
+
+        return result.status != BackgroundJobStatus.DROPPED
+
+    except Exception:
         return False
-
-    await services.db.save_memory(compaction.summary)
-    return True
 
 
 def _convert_history(payload: ChatRequest) -> list[LLMMessage]:

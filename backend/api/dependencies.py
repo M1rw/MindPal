@@ -11,6 +11,11 @@ from fastapi import Depends, Header, Request
 from backend.core.config import Settings, get_settings
 from backend.core.security import generate_request_id, normalize_locale, sanitize_text
 from backend.models.user import UserChannel, UserSession
+from backend.providers import (
+    build_firebase_provider,
+    build_llm_providers,
+    build_tts_providers,
+)
 from backend.services import (
     AuthService,
     DBService,
@@ -35,8 +40,14 @@ class ServiceContainer:
     """
     API composition root.
 
-    Provider SDK adapters can be injected here later without changing routers.
-    This module must not import Gemini/Firebase/Camb.ai SDKs directly.
+    Provider SDK adapters are wired here through provider factories.
+
+    Importing this module must not:
+    - call external LLM APIs
+    - initialize Firebase apps
+    - verify auth tokens
+    - read/write databases
+    - synthesize audio
     """
 
     settings: Settings
@@ -78,27 +89,66 @@ def get_service_container() -> ServiceContainer:
     """
     Return singleton service container for the FastAPI process.
 
-    Default mode:
-    - no external provider SDKs
-    - LLMService includes deterministic offline provider
-    - DBService uses in-memory mock provider
-    - TTSService supports browser fallback
-    - safety/output/memory/RAG can still run locally
+    Provider wiring:
+    - LLM providers: Gemini -> OpenRouter -> Groq by default when configured
+    - LLM fallback: deterministic OfflineLLMProvider inside LLMService
+    - Auth/DB provider: Firebase when configured
+    - DB fallback: InMemoryDBProvider inside DBService
+    - TTS provider: Camb when configured
+    - TTS fallback: BrowserFallbackTTSProvider inside TTSService
 
-    Production provider adapters should be wired here later.
+    This keeps production provider usage enabled without making local/dev mode
+    brittle when credentials are missing.
     """
     settings = get_settings()
 
-    llm = LLMService(settings=settings)
+    llm_providers = build_llm_providers(settings)
+    llm = LLMService(
+        providers=llm_providers,
+        settings=settings,
+        include_offline_provider=True,
+    )
 
-    auth = AuthService(settings=settings)
-    db = DBService(settings=settings)
+    firebase_provider = build_firebase_provider(settings)
 
-    memory = MemoryService(settings=settings, llm_service=llm)
-    output_guard = OutputGuardService(llm_service=llm)
-    rag = RAGService(llm_service=llm)
-    safety = SafetyService(llm_service=llm)
-    tts = TTSService(settings=settings)
+    auth = AuthService(
+        provider=firebase_provider,
+        settings=settings,
+        allow_anonymous=True,
+    )
+
+    db = DBService(
+        provider=firebase_provider,
+        settings=settings,
+    )
+
+    tts_providers = build_tts_providers(settings)
+    tts = TTSService(
+        providers=tts_providers,
+        settings=settings,
+        include_browser_fallback=True,
+    )
+
+    memory = MemoryService(
+        settings=settings,
+        llm_service=llm,
+        enable_llm_summarization=True,
+    )
+
+    output_guard = OutputGuardService(
+        llm_service=llm,
+        enable_llm_rewrite=True,
+    )
+
+    rag = RAGService(
+        llm_service=llm,
+        enable_llm_planning=True,
+    )
+
+    safety = SafetyService(
+        llm_service=llm,
+        enable_llm_ambiguity_classifier=True,
+    )
 
     return ServiceContainer(
         settings=settings,
@@ -154,7 +204,6 @@ def get_locale(
     if not accepted:
         return "auto"
 
-    # Accept-Language may look like "ar-EG,ar;q=0.9,en;q=0.8".
     first_locale = accepted.split(",", 1)[0].split(";", 1)[0].strip()
     return normalize_locale(first_locale)
 
@@ -173,7 +222,10 @@ def get_channel(
 def get_anonymous_user_id(
     x_mindpal_user_id: Annotated[str | None, Header(alias="X-MindPal-User-ID")] = None,
 ) -> str:
-    cleaned = sanitize_text(str(x_mindpal_user_id or "anonymous"), MAX_ANONYMOUS_USER_HEADER_CHARS)
+    cleaned = sanitize_text(
+        str(x_mindpal_user_id or "anonymous"),
+        MAX_ANONYMOUS_USER_HEADER_CHARS,
+    )
     return cleaned or "anonymous"
 
 
