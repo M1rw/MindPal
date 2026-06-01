@@ -62,3 +62,4 @@ temp/
 # MindPal generated/local state
 var/
 local_data/
+secrets/firebase-service-account.json
