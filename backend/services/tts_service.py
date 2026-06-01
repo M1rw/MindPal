@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
 from backend.core.config import Settings, get_settings
-from backend.core.errors import ProviderError, ProviderTimeoutError, ValidationError
+from backend.core.errors import ProviderError, ProviderTimeoutError, ValidationAppError
 from backend.core.security import normalize_locale, safe_truncate, sanitize_text
 from backend.models.schemas import TTSFormat, TTSRequest, TTSResponse
 
@@ -143,7 +143,7 @@ class TTSService:
         clean_text = sanitize_text(text, MAX_TTS_TEXT_CHARS)
 
         if not clean_text:
-            raise ValidationError(
+            raise ValidationAppError(
                 "TTS text cannot be empty",
                 code="tts_empty_text",
             )

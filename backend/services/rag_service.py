@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from backend.core.errors import RagError
+from backend.core.errors import RAGError
 from backend.core.security import normalize_locale, safe_truncate, sanitize_text
 from backend.models.chat import RagReference
 from backend.services.llm_service import LLMService, build_llm_request
@@ -428,7 +428,7 @@ class RAGService:
         memory_summary: str | None,
     ) -> tuple[RAGQueryPlan, str]:
         if self.llm_service is None:
-            raise RagError("LLM planner requested without LLM service", code="rag_llm_missing")
+            raise RAGError("LLM planner requested without LLM service", code="rag_llm_missing")
 
         payload = {
             "locale": locale,
@@ -571,10 +571,10 @@ class RAGService:
         try:
             payload = json.loads(json_text)
         except json.JSONDecodeError as exc:
-            raise RagError("LLM RAG plan JSON failed to parse", code="rag_llm_invalid_json") from exc
+            raise RAGError("LLM RAG plan JSON failed to parse", code="rag_llm_invalid_json") from exc
 
         if not isinstance(payload, dict):
-            raise RagError("LLM RAG plan must be a JSON object", code="rag_llm_invalid_shape")
+            raise RAGError("LLM RAG plan must be a JSON object", code="rag_llm_invalid_shape")
 
         return payload
 
