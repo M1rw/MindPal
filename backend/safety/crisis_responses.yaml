@@ -1,0 +1,109 @@
+# backend/safety/crisis_responses.yaml
+
+schema_version: 1
+description: >-
+  Deterministic crisis and high-risk safety response templates for MindPal.
+  These templates are returned without calling an LLM when safety rules require
+  bypass_llm=true. Keep them short, practical, non-diagnostic, and country-neutral.
+
+templates:
+  - template_id: imminent_self_harm_en
+    title: Immediate safety support
+    locale: en
+    priority: 1000
+    body: |-
+      I’m really concerned about your safety right now.
+
+      If you might act on this now, contact local emergency services now or go to the nearest emergency department.
+
+      Do these three things immediately:
+      1. Move away from anything you could use to hurt yourself.
+      2. Go near another person or a public/shared space.
+      3. Message or call someone nearby and say: “I’m not safe alone right now. Please stay with me.”
+
+      Stay with me for one step: where are you right now — alone, with someone, or outside?
+
+  - template_id: imminent_self_harm_ar
+    title: دعم أمان فوري
+    locale: ar
+    priority: 1000
+    body: |-
+      أنا قلقان على أمانك دلوقتي.
+
+      لو ممكن تأذي نفسك حالًا، اتصل بخدمات الطوارئ المحلية الآن أو روح لأقرب طوارئ.
+
+      اعمل ٣ حاجات فورًا:
+      1. ابعد عن أي حاجة ممكن تستخدمها لإيذاء نفسك.
+      2. روح جنب شخص تاني أو مكان فيه ناس.
+      3. ابعت أو اتصل بحد قريب منك وقوله: "أنا مش آمن لوحدي دلوقتي. خليك معايا."
+
+      خليك معايا خطوة واحدة: أنت دلوقتي لوحدك، مع حد، ولا بره البيت؟
+
+  - template_id: immediate_personal_safety_en
+    title: Immediate personal safety support
+    locale: en
+    priority: 850
+    body: |-
+      Your immediate safety matters first.
+
+      If someone may hurt you now, contact local emergency services or move toward a safer public/shared place if you can do that without increasing danger.
+
+      If possible:
+      1. Keep your phone with you.
+      2. Move closer to another trusted person.
+      3. Avoid arguing with the person threatening you.
+      4. Send someone nearby: “I need help now. I’m not safe.”
+
+      What is the safest next move available to you in the next 2 minutes?
+
+  - template_id: immediate_personal_safety_ar
+    title: دعم أمان شخصي فوري
+    locale: ar
+    priority: 850
+    body: |-
+      أمانك الفوري أهم حاجة الآن.
+
+      لو في شخص ممكن يأذيك دلوقتي، اتصل بخدمات الطوارئ المحلية أو اتحرك لمكان أأمن فيه ناس لو تقدر تعمل ده من غير ما تزود الخطر.
+
+      لو تقدر:
+      1. خلي موبايلك معاك.
+      2. قرب من شخص موثوق أو مكان فيه ناس.
+      3. تجنب الجدال مع الشخص اللي بيهددك.
+      4. ابعت لحد قريب: "محتاج مساعدة دلوقتي. أنا مش آمن."
+
+      إيه أأمن حركة تقدر تعملها خلال الدقيقتين الجايين؟
+
+  - template_id: violence_risk_deescalation_en
+    title: De-escalation support
+    locale: en
+    priority: 800
+    body: |-
+      Pause before doing anything physical.
+
+      Right now, create distance:
+      1. Put down anything that could hurt someone.
+      2. Step into another room or outside if safe.
+      3. Do not continue the argument by text or in person.
+      4. Call someone calm and say: “I need help cooling down before this gets worse.”
+
+      What can you do in the next 30 seconds to create distance?
+
+  - template_id: violence_risk_deescalation_ar
+    title: دعم تهدئة فوري
+    locale: ar
+    priority: 800
+    body: |-
+      وقف لحظة قبل أي تصرف جسدي.
+
+      دلوقتي اعمل مسافة:
+      1. سيب أي حاجة ممكن تأذي حد.
+      2. ادخل أوضة تانية أو اطلع لمكان أأمن لو ينفع.
+      3. متكملش الخناق لا كلام ولا رسائل.
+      4. كلم شخص هادي وقوله: "محتاج مساعدة أهدى قبل الموضوع ما يكبر."
+
+      إيه تقدر تعمله خلال ٣٠ ثانية عشان تعمل مسافة؟
+
+fallback_templates:
+  en: imminent_self_harm_en
+  ar: imminent_self_harm_ar
+  auto: imminent_self_harm_en
