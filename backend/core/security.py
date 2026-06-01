@@ -20,8 +20,14 @@ REDACTED_SECRET = "[redacted_secret]"
 _CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _WHITESPACE_RE = re.compile(r"[ \t\f\v]+")
 
+# Matches normal emails even when followed by punctuation:
+# test@example.com.
+# test@example.com,
+# (test@example.com)
 _EMAIL_RE = re.compile(
-    r"(?<![\w.+-])([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})(?![\w.+-])",
+    r"(?<![\w.+-])"
+    r"(?:[A-Z0-9._%+-]{1,64}@(?:[A-Z0-9-]{1,63}\.)+[A-Z]{2,63})"
+    r"(?![A-Z0-9-])",
     re.IGNORECASE,
 )
 
@@ -37,6 +43,14 @@ _KEY_VALUE_SECRET_RE = re.compile(
     r"(?i)\b(api[_-]?key|token|access[_-]?token|refresh[_-]?token|secret|password)"
     r"\s*[:=]\s*"
     r"(['\"]?)[A-Za-z0-9._~+/=-]{8,}\2"
+)
+
+# Conservative token-looking value. Requires both letters and digits to avoid
+# redacting ordinary long words.
+_LONG_TOKEN_RE = re.compile(
+    r"\b(?=[A-Za-z0-9._~+/=-]*[A-Za-z])"
+    r"(?=[A-Za-z0-9._~+/=-]*\d)"
+    r"[A-Za-z0-9._~+/=-]{24,}\b"
 )
 
 
@@ -113,8 +127,11 @@ def redact_basic_pii(text: str) -> str:
     Redact common PII and obvious secrets using conservative local patterns.
 
     This is a basic redaction layer, not a full DLP engine.
+    It is designed for logs, memory payloads, prompt payloads, and persistence
+    safety. It preserves Arabic text and normal sentence structure.
     """
     value = str(text or "")
+
     value = _EMAIL_RE.sub(REDACTED_EMAIL, value)
     value = _BEARER_RE.sub(REDACTED_SECRET, value)
     value = _KEY_VALUE_SECRET_RE.sub(
@@ -122,6 +139,8 @@ def redact_basic_pii(text: str) -> str:
         value,
     )
     value = _PHONE_LIKE_RE.sub(_redact_phone_match, value)
+    value = _LONG_TOKEN_RE.sub(REDACTED_SECRET, value)
+
     return value
 
 
