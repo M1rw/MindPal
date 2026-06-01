@@ -35,9 +35,22 @@ class ConfigError(AppError):
     code = "config_error"
 
 
+class SettingsError(ConfigError):
+    code = "settings_error"
+
+
+class SecurityError(AppError):
+    status_code = 400
+    code = "security_error"
+
+
 class AuthError(AppError):
     status_code = 401
     code = "auth_error"
+
+
+class AuthServiceError(AuthError):
+    code = "auth_service_error"
 
 
 class PermissionDeniedError(AppError):
@@ -60,9 +73,17 @@ class ProviderTimeoutError(ProviderError):
     code = "provider_timeout"
 
 
+class LLMServiceError(ProviderError):
+    code = "llm_service_error"
+
+
 class DatabaseError(AppError):
     status_code = 500
     code = "database_error"
+
+
+class DatabaseServiceError(DatabaseError):
+    code = "database_service_error"
 
 
 class SafetyError(AppError):
@@ -70,9 +91,17 @@ class SafetyError(AppError):
     code = "safety_error"
 
 
+class SafetyServiceError(SafetyError):
+    code = "safety_service_error"
+
+
 class MemoryError(AppError):
     status_code = 500
     code = "memory_error"
+
+
+class MemoryServiceError(MemoryError):
+    code = "memory_service_error"
 
 
 class RAGError(AppError):
@@ -80,22 +109,50 @@ class RAGError(AppError):
     code = "rag_error"
 
 
+class RAGServiceError(RAGError):
+    code = "rag_service_error"
+
+
+class OutputGuardError(AppError):
+    status_code = 500
+    code = "output_guard_error"
+
+
+class OutputGuardServiceError(OutputGuardError):
+    code = "output_guard_service_error"
+
+
 class TTSError(AppError):
     status_code = 500
     code = "tts_error"
 
 
+class TTSServiceError(TTSError):
+    code = "tts_service_error"
+
+
 __all__ = [
     "AppError",
     "AuthError",
+    "AuthServiceError",
     "ConfigError",
     "DatabaseError",
+    "DatabaseServiceError",
+    "LLMServiceError",
     "MemoryError",
+    "MemoryServiceError",
+    "OutputGuardError",
+    "OutputGuardServiceError",
     "PermissionDeniedError",
     "ProviderError",
     "ProviderTimeoutError",
     "RAGError",
+    "RAGServiceError",
     "SafetyError",
+    "SafetyServiceError",
+    "SecurityError",
+    "SettingsError",
     "TTSError",
+    "TTSServiceError",
     "ValidationAppError",
 ]
