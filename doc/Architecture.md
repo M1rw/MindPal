@@ -3,40 +3,50 @@ mindpal_project/
 ├── frontend/                     # The Web Interface
 │   ├── index.html
 │   ├── js/
-│   │   ├── app.js                # UI logic and API calls
-│   │   └── auth.js               # Firebase client login logic
+│   │   ├── app.js                
+│   │   └── auth.js               
 │   └── css/
 │       └── style.css
 │
 ├── backend/                      # The API & Brain (FastAPI)
-│   ├── main.py                   # FastAPI application entry point
+│   ├── main.py                   
 │   ├── core/
-│   │   ├── config.py             # Loads API keys and environment variables securely
-│   │   ├── security.py           # Handles CORS and token validation
-│   │   └── prompts.py            # Stores system instructions (CBT, Active Listen)
+│   │   ├── config.py             
+│   │   ├── security.py           
+│   │   └── prompts.py            
 │   ├── api/
-│   │   ├── chat_router.py        # POST /api/chat endpoint
-│   │   └── user_router.py        # GET /api/user/profile endpoint
+│   │   ├── chat_router.py        
+│   │   ├── user_router.py        
+│   │   └── memory_router.py      # [NEW] POST /api/memory/summarize endpoint
 │   ├── services/
-│   │   ├── llm_service.py        # The Fallback Chain (Gemini -> OpenRouter -> Groq)
-│   │   └── db_service.py         # Firebase Admin setup and Firestore read/writes
+│   │   ├── llm_service.py        
+│   │   ├── db_service.py         
+│   │   ├── safety_service.py     # [NEW] The "Crisis Funnel" & Perspective API checks
+│   │   ├── memory_service.py     # [NEW] Context window & LLM summarization logic
+│   │   └── rag_service.py        # [NEW] Vector DB (Pinecone/Qdrant) clinical retrieval
+│   ├── tasks/
+│   │   └── background_jobs.py    # [NEW] Async queue for heavy lifting (summaries, emails)
 │   └── models/
-│       └── schemas.py            # Pydantic data models (Validates incoming/outgoing JSON)
+│       └── schemas.py            
 │
 ├── bot/                          # The Discord Interface
-│   ├── bot_main.py               # Initializes the Discord bot
-│   └── cogs/                     # Discord commands and event listeners
-│       └── chat_cog.py           # Listens to messages and forwards them to services/llm_service.py
+│   ├── bot_main.py               
+│   └── cogs/                     
+│       └── chat_cog.py           
+│
+├── data/                         # [NEW] Clinical Knowledge Base
+│   └── clinical_frameworks/      # [NEW] Raw CBT/DBT texts and PDFs to feed your RAG
 │
 ├── tests/                        # Production Testing
-│   ├── test_api.py               # Tests to make sure endpoints work
-│   └── test_llm.py               # Tests to make sure the AI fallbacks trigger correctly
+│   ├── test_api.py               
+│   ├── test_llm.py               
+│   └── test_safety.py            # [NEW] Tests to ensure the Crisis Funnel triggers correctly
 │
-├── .env                          # ALL SECRETS (Do not upload to GitHub!)
-├── .gitignore                    # Tells Git to ignore .env and __pycache__
-├── requirements.txt              # Python dependencies
-├── Dockerfile                    # Instructions to package the app for a server
-└── README.md                     # Setup instructions for your team
+├── .env                          
+├── .gitignore                    
+├── requirements.txt              
+├── Dockerfile                    
+└── README.md
 
 # LIST
 
