@@ -1,9 +1,20 @@
-fastapi>=0.111.0
-uvicorn[standard]>=0.30.0
-pydantic>=2.7.0
-pydantic-settings>=2.2.0
-httpx>=0.27.0
-pytest>=8.2.0
-pytest-asyncio>=0.23.0
-pyyaml>=6.0
-python-dotenv>=1.0.0
+# requirements.txt
+
+# Runtime
+fastapi>=0.136,<0.137
+uvicorn[standard]>=0.35,<0.36
+pydantic>=2.12,<3
+pydantic-settings>=2.14,<3
+python-dotenv>=1.1,<2
+
+# HTTP providers: Gemini, OpenRouter, Groq, Camb.ai
+httpx>=0.28,<1
+
+# YAML config/corpus files
+PyYAML>=6.0,<7
+
+# Firebase Auth + Firestore provider
+firebase-admin>=7.4,<8
+
+# Optional validation helpers
+email-validator>=2.2,<3
