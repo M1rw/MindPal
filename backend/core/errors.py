@@ -5,19 +5,20 @@ from __future__ import annotations
 from typing import Any
 
 
-class AppError(Exception):
+class MindPalError(Exception):
     """
-    Base application error.
+    Base MindPal exception.
 
-    Routers convert this into structured HTTP responses.
+    Keep this name stable because backend/core/__init__.py and older modules
+    may import it directly.
     """
 
     status_code: int = 500
-    code: str = "app_error"
+    code: str = "mindpal_error"
 
     def __init__(
         self,
-        message: str = "Application error",
+        message: str = "MindPal application error",
         *,
         code: str | None = None,
         status_code: int | None = None,
@@ -28,6 +29,16 @@ class AppError(Exception):
         self.code = code or self.code
         self.status_code = status_code or self.status_code
         self.details = details or {}
+
+
+class AppError(MindPalError):
+    """
+    Preferred current base application error.
+
+    AppError intentionally inherits MindPalError for backward compatibility.
+    """
+
+    code = "app_error"
 
 
 class ConfigError(AppError):
@@ -95,12 +106,16 @@ class SafetyServiceError(SafetyError):
     code = "safety_service_error"
 
 
-class MemoryError(AppError):
+class MemoryAppError(AppError):
     status_code = 500
     code = "memory_error"
 
 
-class MemoryServiceError(MemoryError):
+# Backward-compatible name. This shadows built-in MemoryError only inside this module.
+MemoryError = MemoryAppError
+
+
+class MemoryServiceError(MemoryAppError):
     code = "memory_service_error"
 
 
@@ -139,8 +154,10 @@ __all__ = [
     "DatabaseError",
     "DatabaseServiceError",
     "LLMServiceError",
+    "MemoryAppError",
     "MemoryError",
     "MemoryServiceError",
+    "MindPalError",
     "OutputGuardError",
     "OutputGuardServiceError",
     "PermissionDeniedError",
