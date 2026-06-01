@@ -19,17 +19,31 @@ from __future__ import annotations
 
 from .config import Settings, get_settings
 from .errors import (
+    AppError,
     AuthError,
+    AuthServiceError,
     ConfigError,
     DatabaseError,
+    DatabaseServiceError,
+    LLMServiceError,
+    MemoryAppError,
     MemoryError,
     MemoryServiceError,
     MindPalError,
+    OutputGuardError,
+    OutputGuardServiceError,
+    PermissionDeniedError,
     ProviderError,
     ProviderTimeoutError,
-    RagError,
+    RAGError,
+    RAGServiceError,
     SafetyError,
-    ValidationError,
+    SafetyServiceError,
+    SecurityError,
+    SettingsError,
+    TTSError,
+    TTSServiceError,
+    ValidationAppError,
 )
 from .logging import configure_logging, get_logger, log_event
 from .prompts import (
@@ -56,7 +70,6 @@ __all__ = [
     "DatabaseError",
     "DatabaseServiceError",
     "LLMServiceError",
-    "LlmServiceError",
     "MemoryAppError",
     "MemoryError",
     "MemoryServiceError",
@@ -68,15 +81,27 @@ __all__ = [
     "ProviderTimeoutError",
     "RAGError",
     "RAGServiceError",
-    "RagError",
-    "RagServiceError",
     "SafetyError",
     "SafetyServiceError",
     "SecurityError",
     "SettingsError",
     "TTSError",
     "TTSServiceError",
-    "TtsError",
-    "TtsServiceError",
     "ValidationAppError",
+    "get_settings",
+    "Settings",
+    "configure_logging",
+    "get_logger",
+    "log_event",
+    "Locale",
+    "generate_request_id",
+    "hash_user_id",
+    "normalize_locale",
+    "redact_basic_pii",
+    "safe_truncate",
+    "sanitize_text",
 ]
+
+# Backward compatibility aliases for incorrect casing
+RagError = RAGError
+RagServiceError = RAGServiceError

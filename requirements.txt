@@ -1,6 +1,5 @@
 # requirements.txt
-
-# Runtime
+# Core runtime
 fastapi>=0.136,<0.137
 uvicorn[standard]>=0.35,<0.36
 pydantic>=2.12,<3
