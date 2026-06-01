@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindPal — AI Mental Wellness Companion</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="./css/mindpal.css">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { 
+                        gemini: {
+                            bg: '#ffffff',
+                            surface: '#f0f4f9',
+                            darkBg: '#131314',
+                            darkSurface: '#1e1f20',
+                            text: '#1f1f1f',
+                            darkText: '#e3e3e3',
+                            muted: '#444746',
+                            darkMuted: '#c4c7c5',
+                            border: '#e0e0e0',
+                            darkBorder: '#444746'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+</head>
+<body class="bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">
+
+    <!-- Header / Navbar -->
+    <header class="flex items-center justify-between px-6 py-4 transition-all duration-300 flex-none z-10 bg-transparent absolute top-0 w-full" id="header">
+        <div class="flex items-center gap-2">
+            <span class="text-xl font-medium tracking-tight text-gray-800 dark:text-gray-200">MindPal</span>
+            <div id="env-tag" class="px-2 py-0.5 rounded-md bg-gemini-surface dark:bg-gemini-darkSurface text-[10px] font-medium text-gray-500 dark:text-gray-400 transition-colors">Local</div>
+        </div>
+        
+        <div class="flex items-center gap-1 sm:gap-2 text-gray-600 dark:text-gray-300">
+            <button id="theme-toggle-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" title="Toggle Theme">
+                <i data-lucide="moon" class="w-5 h-5" id="theme-icon"></i>
+            </button>
+            
+            <button id="streak-btn" class="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors text-[14px] font-medium" title="View Progress">
+                <span id="streak-counter">0</span>
+                <i data-lucide="flame" class="w-4 h-4 text-orange-500 dark:text-orange-400"></i>
+            </button>
+            
+            <button id="profile-btn" class="p-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" title="Profile & Settings">
+                <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-zinc-600" id="profile-avatar">
+                    <i data-lucide="user" class="w-4 h-4"></i>
+                </div>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col relative h-full overflow-hidden pt-[72px]" id="main-content">
+        
+        <!-- Chat History -->
+        <div id="chat-history" class="hidden flex-1 overflow-y-auto overflow-x-hidden flex-col gap-8 p-4 max-w-4xl mx-auto w-full pb-8 pt-6 scroll-smooth">
+            <!-- Messages injected here -->
+        </div>
+
+        <!-- Interaction Area -->
+        <div id="interaction-area" class="w-full flex flex-col flex-1 justify-center items-center px-4 pb-6 transition-all duration-500">
+            
+            <div id="welcome-screen" class="text-left md:text-center mb-10 w-full max-w-3xl animate-fade-in mt-[-8vh]">
+                <h1 class="text-4xl sm:text-5xl font-medium tracking-tight mb-2">
+                    <span id="greeting-text" class="bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]">Hello.</span>
+                </h1>
+                <p class="text-2xl sm:text-3xl text-[#444746] dark:text-[#c4c7c5] font-medium tracking-tight mb-8">What's on your mind today?</p>
+                
+                <div class="flex flex-wrap justify-start md:justify-center gap-3 mb-2">
+                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Overwhelmed">
+                        <i data-lucide="waves" class="w-4 h-4 text-blue-500"></i> I feel overwhelmed
+                    </button>
+                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Anxious">
+                        <i data-lucide="wind" class="w-4 h-4 text-purple-500"></i> I'm feeling anxious
+                    </button>
+                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Stuck">
+                        <i data-lucide="anchor" class="w-4 h-4 text-rose-500"></i> I feel stuck
+                    </button>
+                </div>
+            </div>
+
+            <!-- The Input Box Container -->
+            <div class="w-full max-w-4xl relative">
+                <div class="bg-gemini-surface dark:bg-zinc-800/80 rounded-[32px] p-2 flex items-end relative transition-shadow">
+                    <textarea 
+                        id="chat-input"
+                        rows="1"
+                        class="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-4 pr-2 py-2.5 text-[15px] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-[#c4c7c5] leading-6"
+                        placeholder="Ask MindPal"
+                        style="min-height: 44px;"
+                    ></textarea>
+
+                    <div class="flex items-center gap-1 pr-1 h-11">
+                        <div class="relative flex items-center h-full">
+                            <button id="mode-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-semibold text-gray-600 dark:text-[#c4c7c5] transition-colors">
+                                <span id="current-mode-text">Active Listen</span>
+                                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                            </button>
+
+                            <div id="mode-dropdown" class="absolute bottom-full right-0 mb-2 w-56 bg-white dark:bg-zinc-800 border border-gemini-border dark:border-gemini-darkBorder rounded-2xl shadow-xl p-2 hidden z-50">
+                                <div class="text-[10px] font-semibold text-gray-400 px-3 py-1.5 uppercase tracking-wider">Listening Style</div>
+                                <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left mode-option" data-mode="Active Listen">
+                                    <i data-lucide="message-square" class="w-4 h-4 text-blue-500"></i>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Active Listen</span>
+                                </button>
+                                <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left mode-option" data-mode="Guided Coach">
+                                    <i data-lucide="compass" class="w-4 h-4 text-purple-500"></i>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Guided Coach</span>
+                                </button>
+                                <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left mode-option" data-mode="Cognitive Tools">
+                                    <i data-lucide="brain" class="w-4 h-4 text-emerald-500"></i>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Cognitive Tools</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button id="voice-btn" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-gray-600 hover:bg-black/5 dark:text-[#c4c7c5] dark:hover:bg-white/10 transition-colors" title="Use Microphone">
+                            <i data-lucide="mic" class="w-5 h-5 transition-colors" id="mic-icon"></i>
+                        </button>
+
+                        <button id="send-btn" disabled class="hidden flex w-10 h-10 flex-shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black transition-all duration-200 hover:scale-105">
+                            <i data-lucide="arrow-up" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-3 text-[12px] text-gray-500 dark:text-[#c4c7c5]">
+                    MindPal may display inaccurate info, so verify its outputs.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[70] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- PROFILE / SETTINGS MODAL (Gemini Clean Style) -->
+    <div id="profile-modal" class="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white dark:bg-[#1e1f20] w-full max-w-md flex flex-col rounded-[24px] shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200 max-h-[90vh] my-4" id="profile-content">
+            
+            <div class="flex items-center justify-between px-5 py-4 flex-none border-b border-transparent">
+                <h2 class="text-base font-medium text-gray-900 dark:text-gray-100 pl-2">Profile & Settings</h2>
+                <button id="close-profile-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-zinc-800 rounded-full text-gray-500 hover:text-gray-700 dark:text-[#c4c7c5] dark:hover:text-gray-200 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="px-5 pb-6 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
+                
+                <!-- Profile Section -->
+                <div class="py-2 pb-6 border-b border-gray-100 dark:border-gemini-darkBorder flex flex-col items-center">
+                    
+                    <!-- Logged Out View -->
+                    <div id="auth-logged-out" class="flex flex-col items-center text-center w-full">
+                        <div class="w-16 h-16 rounded-full bg-gemini-surface dark:bg-zinc-800 flex items-center justify-center mb-3">
+                            <i data-lucide="cloud" class="w-7 h-7 text-gray-500 dark:text-[#c4c7c5]"></i>
+                        </div>
+                        <h3 class="text-base font-medium text-gray-900 dark:text-gray-100">Local Mode</h3>
+                        <p class="text-[13px] text-gray-500 dark:text-[#c4c7c5] mt-1 mb-5 max-w-[240px]">Conversations are saved only on this device. Sign in to sync anywhere.</p>
+                        
+                        <button id="btn-cloud-connect" class="w-full sm:w-auto px-8 py-2.5 rounded-full bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-white text-white dark:text-gray-900 text-[14px] font-medium transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="cloud-upload" class="w-4 h-4"></i> Backup to Cloud
+                        </button>
+                    </div>
+
+                    <!-- Logged In View -->
+                    <div id="auth-logged-in" class="hidden flex-col items-center text-center w-full">
+                        <div class="relative mb-3">
+                            <div class="w-20 h-20 rounded-full bg-[#9b72cb] text-white flex items-center justify-center text-3xl font-normal shadow-sm" id="profile-initial">
+                                M
+                            </div>
+                            <div class="absolute bottom-0 right-0 w-6 h-6 bg-gemini-surface dark:bg-[#1e1f20] rounded-full flex items-center justify-center border-2 border-white dark:border-[#1e1f20]" title="Cloud Synced">
+                                <i data-lucide="cloud-check" class="w-3 h-3 text-emerald-600 dark:text-emerald-400"></i>
+                            </div>
+                        </div>
+                        
+                        <input type="text" id="user-name-input" class="bg-transparent hover:bg-gemini-surface dark:hover:bg-zinc-800/50 focus:bg-gemini-surface dark:focus:bg-zinc-800/50 border-b-2 border-transparent focus:border-gray-300 dark:focus:border-gray-600 focus:outline-none w-48 text-center text-xl font-medium text-gray-900 dark:text-white py-1 transition-all rounded-t-md mb-4" placeholder="Enter your name">
+                        
+                        <div class="flex items-center justify-center gap-10 w-full mb-6">
+                            <div class="flex flex-col items-center">
+                                <div class="text-2xl font-medium text-gray-900 dark:text-white mb-0.5" id="stat-messages">0</div>
+                                <div class="text-[11px] text-gray-500 dark:text-[#c4c7c5]">Messages</div>
+                            </div>
+                            <div class="w-px h-8 bg-gray-200 dark:bg-gemini-darkBorder"></div>
+                            <div class="flex flex-col items-center">
+                                <div class="text-2xl font-medium text-gray-900 dark:text-white mb-0.5" id="stat-days">0</div>
+                                <div class="text-[11px] text-gray-500 dark:text-[#c4c7c5]">Days Active</div>
+                            </div>
+                        </div>
+
+                        <button id="btn-cloud-disconnect" class="px-6 py-2 rounded-full border border-gray-200 dark:border-gemini-darkBorder hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-600 dark:text-[#c4c7c5] text-[13px] font-medium transition-colors">
+                            Sign out
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Settings List (Gemini Clean) -->
+                <div class="flex flex-col mt-2">
+                    
+                    <label class="flex items-center justify-between cursor-pointer py-3.5 px-2 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors">
+                        <div class="flex items-center gap-4">
+                            <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5]"></i>
+                            <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200">Dark theme</span>
+                        </div>
+                        <div class="relative">
+                            <input type="checkbox" id="modal-theme-toggle" class="sr-only">
+                            <div class="block bg-gray-300 dark:bg-[#444746] w-10 h-6 rounded-full transition-colors toggle-bg"></div>
+                            <div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></div>
+                        </div>
+                    </label>
+
+                    <label class="flex items-center justify-between cursor-pointer py-3.5 px-2 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors mt-1">
+                        <div class="flex flex-col gap-0.5 pr-4">
+                            <div class="flex items-center gap-4">
+                                <i data-lucide="shield-alert" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5]"></i>
+                                <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200">Crisis interception</span>
+                            </div>
+                            <span class="text-[12px] text-gray-500 dark:text-[#c4c7c5] pl-[36px]">Locally blocks severe keywords with emergency support.</span>
+                        </div>
+                        <div class="relative flex-shrink-0 mt-[-14px]">
+                            <input type="checkbox" id="crisis-toggle" class="sr-only">
+                            <div class="block bg-gray-300 dark:bg-[#444746] w-10 h-6 rounded-full transition-colors toggle-bg"></div>
+                            <div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></div>
+                        </div>
+                    </label>
+
+                    <div class="h-px w-full bg-gray-100 dark:bg-gemini-darkBorder my-2"></div>
+
+                    <button id="export-chat-btn" class="flex items-center gap-4 px-2 py-3.5 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors text-left w-full">
+                        <i data-lucide="download" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5] btn-icon"></i>
+                        <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200 btn-text">Export conversation log</span>
+                    </button>
+                    
+                    <button id="clear-chat-btn" class="flex items-center gap-4 px-2 py-3.5 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-xl transition-colors text-left w-full">
+                        <i data-lucide="trash-2" class="w-5 h-5 text-rose-600 dark:text-rose-400 btn-icon"></i>
+                        <span class="text-[15px] font-medium text-rose-600 dark:text-rose-400 btn-text">Clear persistent memory</span>
+                    </button>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROGRESS / STREAK MODAL -->
+    <div id="streak-modal" class="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white dark:bg-[#1e1f20] w-full max-w-sm flex flex-col rounded-[28px] shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200" id="streak-content">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#444746]">
+                <h2 class="text-base font-medium text-gray-900 dark:text-gray-100">Your Journey</h2>
+                <button id="close-streak-btn" class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="p-8 flex flex-col items-center gap-8">
+                <!-- Big Flame & Streak -->
+                <div class="flex flex-col items-center">
+                    <div class="w-20 h-20 rounded-full bg-orange-50 dark:bg-orange-900/10 text-orange-500 flex items-center justify-center mb-4 shadow-sm border border-orange-100 dark:border-orange-800/30">
+                        <i data-lucide="flame" class="w-10 h-10 fill-current"></i>
+                    </div>
+                    <div class="text-4xl font-semibold text-gray-900 dark:text-white mb-1"><span id="modal-streak-count">0</span> Day Streak</div>
+                    <div class="text-sm text-gray-500 dark:text-[#c4c7c5]">You're building emotional resilience.</div>
+                </div>
+
+                <!-- 7 Day Tracker -->
+                <div class="w-full">
+                    <h3 class="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4 text-center">Past 7 Days</h3>
+                    <div class="flex justify-between items-center w-full px-2" id="weekly-tracker">
+                        <!-- JS injected days go here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/mindpal.js"></script>
+</body>
+</html>
