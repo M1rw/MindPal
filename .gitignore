@@ -9,6 +9,7 @@ venv/
 env/
 
 # Environment variables and secrets
+.secrets/
 secrets/
 .env
 
