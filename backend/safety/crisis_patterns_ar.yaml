@@ -1,0 +1,174 @@
+# backend/safety/crisis_patterns_ar.yaml
+
+schema_version: 1
+locale: ar
+description: >-
+  Arabic deterministic input safety patterns for MindPal. These rules are used
+  before any LLM call. They include Modern Standard Arabic and common Egyptian
+  Arabic variants. They store rule metadata only; raw user text must not be
+  persisted by the classifier.
+
+rules:
+  - id: ar_self_harm_imminent_direct
+    level: self_harm_imminent
+    action: deterministic_response
+    bypass_llm: true
+    response_template_id: imminent_self_harm_ar
+    should_log: true
+    user_visible_category: immediate_safety
+    confidence: 1.0
+    priority: 1000
+    match_mode: any
+    patterns:
+      - '(?i)(?:انا|أنا)?\s*(?:هقتل|حقتل|سأقتل|اقتل|أقتل)\s+(?:نفسي|نفسى)'
+      - '(?i)(?:انا|أنا)?\s*(?:هنتحر|حنتحر|سأنتحر|انتحر|أنتحر)'
+      - '(?i)(?:انا|أنا)?\s*(?:هنهي|حانهي|سأنهي|انهى|أنهي)\s+(?:حياتي|حياتى)'
+      - '(?i)(?:انا|أنا)?\s*(?:هخلص|حخلص)\s+(?:على|علي)\s+(?:نفسي|نفسى)'
+      - '(?i)(?:انا|أنا)?\s*(?:هأذي|هاذي|حأذي|حاذي|سأؤذي|اؤذي|أؤذي)\s+(?:نفسي|نفسى)'
+      - '(?i)(?:مش|مو|لست)\s+قادر\s+امنع\s+(?:نفسي|نفسى)\s+(?:اني|إنّي|انني|أنني)?\s*(?:اعملها|أعملها|اؤذي\s+نفسي|أؤذي\s+نفسي|انتحر|أنتحر)'
+      - '(?i)(?:دي|هذه)\s+(?:آخر|اخر)\s+(?:رسالة|كلام|مرة)'
+
+  - id: ar_self_harm_imminent_timing
+    level: self_harm_imminent
+    action: deterministic_response
+    bypass_llm: true
+    response_template_id: imminent_self_harm_ar
+    should_log: true
+    user_visible_category: immediate_safety
+    confidence: 0.98
+    priority: 980
+    match_mode: all_groups
+    pattern_groups:
+      intent:
+        - '(?i)(?:هقتل|حقتل|سأقتل|اقتل|أقتل)\s+(?:نفسي|نفسى)'
+        - '(?i)(?:هنتحر|حنتحر|سأنتحر|انتحر|أنتحر)'
+        - '(?i)(?:هنهي|حانهي|سأنهي|انهى|أنهي)\s+(?:حياتي|حياتى)'
+        - '(?i)(?:هأذي|هاذي|حأذي|حاذي|سأؤذي|اؤذي|أؤذي)\s+(?:نفسي|نفسى)'
+      immediacy:
+        - '(?i)(?:دلوقتي|دلوقت|الآن|حالا|حالًا|النهارده|اليوم|الليلة|الليلادي|بعد\s+شوية|كمان\s+شوية|قريب|قبل\s+الصبح|لما\s+الناس\s+تنام|لما\s+كلهم\s+يناموا)'
+
+  - id: ar_self_harm_imminent_means_access
+    level: self_harm_imminent
+    action: deterministic_response
+    bypass_llm: true
+    response_template_id: imminent_self_harm_ar
+    should_log: true
+    user_visible_category: immediate_safety
+    confidence: 0.97
+    priority: 970
+    match_mode: all_groups
+    pattern_groups:
+      intent:
+        - '(?i)(?:هقتل|حقتل|سأقتل|اقتل|أقتل)\s+(?:نفسي|نفسى)'
+        - '(?i)(?:هنتحر|حنتحر|سأنتحر|انتحر|أنتحر)'
+        - '(?i)(?:هأذي|هاذي|حأذي|حاذي|سأؤذي|اؤذي|أؤذي)\s+(?:نفسي|نفسى)'
+        - '(?i)(?:هعملها|حعملها|سأفعلها)'
+      access_or_plan:
+        - '(?i)(?:معايا|معي|جنبي|جنبى|قدامي|قدامى|في\s+ايدي|في\s+إيدي|حضرت|جهزت).{0,80}(?:حبوب|سكاكين|سكينة|موس|شفرة|حبل|مسدس|سلاح|سم)'
+        - '(?i)(?:حبوب|سكاكين|سكينة|موس|شفرة|حبل|مسدس|سلاح|سم).{0,80}(?:معايا|معي|جنبي|جنبى|قدامي|قدامى|جاهز|جاهزة|حضرت|جهزت)'
+
+  - id: ar_self_harm_ambiguous
+    level: self_harm_ambiguous
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: true
+    user_visible_category: emotional_distress
+    confidence: 0.7
+    priority: 700
+    match_mode: any
+    patterns:
+      - '(?i)(?:مش|مو|لست)\s+(?:عايز|عاوز|عايزة|اريد|أريد)\s+(?:اعيش|أعيش|الحياة)'
+      - '(?i)(?:نفسي|نفسى)\s+(?:اموت|أموت|اختفي|أختفي|اختفى|أختفى)'
+      - '(?i)(?:يا\s+ريت|ياريت)\s+(?:اموت|أموت|ما\s+اصحاش|ما\s+أصحاش)'
+      - '(?i)(?:الحياة|حياتي|حياتى)\s+(?:ملهاش\s+لازمة|ما\s+لهاش\s+معنى|بلا\s+معنى|مش\s+مستاهلة)'
+      - '(?i)(?:تعبت|انا\s+تعبت|أنا\s+تعبت)\s+(?:ومش|و\s+مش)\s+قادر\s+(?:اكمل|أكمل)'
+
+  - id: ar_severe_distress_supportive
+    level: supportive
+    action: continue_to_llm
+    bypass_llm: false
+    response_template_id: null
+    should_log: false
+    user_visible_category: emotional_support
+    confidence: 0.55
+    priority: 500
+    match_mode: any
+    patterns:
+      - '(?i)(?:حاسس|حاسة|اشعر|أشعر)\s+(?:باليأس|يائس|يائسة|بفراغ|فاضي|فاضية|مكسور|مكسورة|لوحدي|وحيد|وحيدة)'
+      - '(?i)(?:انا|أنا)?\s*(?:منهار|منهارة|مضغوط|مضغوطة|مستنزف|مستنزفة|مش\s+قادر\s+اتحمل|مش\s+قادرة\s+اتحمل)'
+      - '(?i)(?:محدش\s+مهتم|مافيش\s+حد\s+مهتم|مفيش\s+حد\s+مهتم|انا\s+لوحدي|أنا\s+لوحدي)'
+
+  - id: ar_panic_or_anxiety_grounding
+    level: supportive
+    action: continue_to_llm
+    bypass_llm: false
+    response_template_id: null
+    should_log: false
+    user_visible_category: grounding_support
+    confidence: 0.65
+    priority: 520
+    match_mode: any
+    rag_tags:
+      - panic_grounding
+      - box_breathing
+      - 54321_grounding
+    patterns:
+      - '(?i)(?:نوبة\s+هلع|نوبة\s+فزع|panic\s+attack)'
+      - '(?i)(?:مش\s+قادر|مش\s+قادرة|لا\s+استطيع|لا\s+أستطيع)\s+(?:اتنفس|أتنفس|التنفس)'
+      - '(?i)(?:قلبي|قلبى)\s+(?:بيدق\s+بسرعة|سريع|بيجري|هيطلع)'
+      - '(?i)(?:انا|أنا)?\s*(?:بنهار|بفزع|بتهز|بتوتر\s+جدا|قلقان\s+جدا|قلقانة\s+جدا)'
+
+  - id: ar_abuse_or_immediate_danger
+    level: abuse_or_violence
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: true
+    user_visible_category: personal_safety
+    confidence: 0.78
+    priority: 760
+    match_mode: any
+    patterns:
+      - '(?i)(?:انا|أنا)?\s*(?:مش\s+آمن|مش\s+امن|لست\s+آمنا|لست\s+آمنة|مش\s+في\s+أمان|مش\s+في\s+امان)\s*(?:في\s+البيت|هنا|دلوقتي|دلوقت)?'
+      - '(?i)(?:حد|شخص|هو|هي|هما)\s+(?:بيضربني|بيؤذيني|بيأذيني|بيهددني|بيطاردني|بيلاحقني)'
+      - '(?i)(?:خايف|خايفة|مرعوب|مرعوبة)\s+(?:انه|إنه|انها|إنها|حد)\s+(?:يأذيني|يؤذيني|يضربني|يقتلني)'
+      - '(?i)(?:الحقني|الحقوني|ساعدني|ساعدوني).{0,80}(?:خطر|مش\s+آمن|مش\s+امن|تهديد|اعتداء)'
+
+  - id: ar_violence_threat_imminent
+    level: abuse_or_violence
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: true
+    user_visible_category: violence_risk
+    confidence: 0.85
+    priority: 800
+    match_mode: any
+    patterns:
+      - '(?i)(?:انا|أنا)?\s*(?:هقتل|حقتل|سأقتل|هأذي|هاذي|حأذي|حاذي|سأؤذي|هضرب|حضرب|سأضرب)\s+(?:حد|شخص|واحد|واحدة|هو|هي|هما|الناس)'
+      - '(?i)(?:مش|لا)\s+قادر\s+امنع\s+(?:نفسي|نفسى)\s+اني\s+(?:أذي|اؤذي|أؤذي|اضرب|أضرب|اقتل|أقتل)\s+(?:حد|شخص|هو|هي|هما)'
+
+  - id: ar_toxicity_high
+    level: toxicity
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: false
+    user_visible_category: deescalation
+    confidence: 0.5
+    priority: 300
+    match_mode: any
+    patterns:
+      - '(?i)(?:اخرس|اسكت|انت\s+غبي|انتي\s+غبية|انت\s+مالكيش\s+لازمة|انت\s+ملكش\s+لازمة)'
+      - '(?i)(?:اكرهك|بكرهك|روح\s+في\s+داهية|يلعنك)'
+
+exclusion_patterns:
+  - id: ar_educational_or_reported_context
+    description: >-
+      Lower confidence when the user is clearly discussing a fictional,
+      academic, quoted, or third-person scenario. The classifier may still
+      escalate if imminent first-person danger is present.
+    patterns:
+      - '(?i)(?:واجب|قصة|خيالي|شخصية\s+في\s+قصة|في\s+فيلم|اقتباس|مثال|جملة\s+مثال)'
+      - '(?i)(?:صاحبي|صاحبتي|حد\s+اعرفه|شخص\s+اعرفه)\s+(?:قال|قالت|بيقول|بتقول)'

@@ -1,0 +1,241 @@
+# backend/safety/prohibited_outputs.yaml
+
+schema_version: 1
+description: >-
+  Output guard rules for MindPal. These rules scan generated assistant text
+  before it is returned to the user. If a rule matches, the response should be
+  blocked, rewritten, or replaced with a deterministic safe fallback. These
+  rules are not a substitute for input safety classification.
+
+default_action: safe_rewrite
+default_safe_fallback:
+  en: >-
+    I can support you with grounded, non-medical wellness steps, but I can’t provide
+    diagnosis, medication instructions, self-harm guidance, or unsafe certainty.
+    Tell me what you’re feeling right now, and I’ll help you choose one safe next step.
+  ar: >-
+    أقدر أساعدك بخطوات دعم نفسي عامة وآمنة، لكن لا أقدر أقدم تشخيص أو تعليمات
+    دوائية أو إرشادات لإيذاء النفس أو وعود مؤكدة. قلّي حاسس بإيه دلوقتي، ونختار
+    خطوة آمنة واحدة.
+
+rules:
+  - id: output_therapist_claim_en
+    category: therapist_claim
+    severity: high
+    action: safe_rewrite
+    confidence: 0.95
+    description: Assistant must not claim to be the user's therapist.
+    patterns:
+      - '(?i)\bI\s+(?:am|''m)\s+your\s+therapist\b'
+      - '(?i)\bas\s+your\s+therapist\b'
+      - '(?i)\bour\s+therapy\s+session\b'
+      - '(?i)\bmy\s+clinical\s+assessment\s+of\s+you\b'
+
+  - id: output_therapist_claim_ar
+    category: therapist_claim
+    severity: high
+    action: safe_rewrite
+    confidence: 0.95
+    description: Arabic therapist-role claims are prohibited.
+    patterns:
+      - '(?i)(?:انا|أنا)\s+(?:معالجك|دكتورك|طبيبك)\s+(?:النفسي)?'
+      - '(?i)(?:بصفتي|كـ)\s+(?:معالجك|طبيبك|دكتورك)\s+(?:النفسي)?'
+      - '(?i)(?:جلسة\s+العلاج\s+بتاعتنا|جلستنا\s+العلاجية)'
+
+  - id: output_diagnosis_certainty_en
+    category: diagnosis_certainty
+    severity: high
+    action: safe_rewrite
+    confidence: 0.9
+    description: Assistant must not diagnose or state clinical certainty.
+    patterns:
+      - '(?i)\byou\s+(?:definitely|clearly|certainly|obviously)\s+have\s+(?:depression|anxiety|bipolar|ptsd|ocd|adhd|borderline|psychosis|a\s+disorder)\b'
+      - '(?i)\bthis\s+means\s+you\s+have\s+(?:depression|anxiety|bipolar|ptsd|ocd|adhd|borderline|psychosis)\b'
+      - '(?i)\bmy\s+diagnosis\s+is\b'
+      - '(?i)\bi\s+diagnose\s+you\s+with\b'
+
+  - id: output_diagnosis_certainty_ar
+    category: diagnosis_certainty
+    severity: high
+    action: safe_rewrite
+    confidence: 0.9
+    description: Arabic diagnostic certainty is prohibited.
+    patterns:
+      - '(?i)(?:انت|أنت|انتي|أنتي)\s+(?:أكيد|بوضوح|قطعًا|قطعا)\s+(?:عندك|مصاب|مصابة)\s+(?:اكتئاب|قلق|ثنائي\s+القطب|وسواس|اضطراب)'
+      - '(?i)(?:تشخيصي|التشخيص)\s+(?:هو|إنك|انك)'
+      - '(?i)(?:انا|أنا)\s+بشخصك\s+بـ'
+
+  - id: output_medication_dosing_en
+    category: medication_instruction
+    severity: critical
+    action: block_and_fallback
+    confidence: 0.92
+    description: Assistant must not give medication dosage, start/stop/change instructions, or prescription-like guidance.
+    patterns:
+      - '(?i)\b(?:take|start|stop|increase|decrease|double|halve|reduce)\s+(?:your\s+)?(?:dose|dosage|medication|medicine|antidepressant|ssri|benzodiazepine|stimulant)\b'
+      - '(?i)\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml)\s+(?:of\s+)?[A-Za-z][A-Za-z0-9-]{2,}\b'
+      - '(?i)\b(?:take|use)\s+\d+\s+(?:pill|pills|tablet|tablets|capsule|capsules)\b'
+      - '(?i)\b(?:you\s+should|you\s+need\s+to)\s+(?:start|stop|change)\s+(?:medication|medicine|your\s+meds)\b'
+
+  - id: output_medication_dosing_ar
+    category: medication_instruction
+    severity: critical
+    action: block_and_fallback
+    confidence: 0.92
+    description: Arabic medication dosage/change instructions are prohibited.
+    patterns:
+      - '(?i)(?:خد|خذ|ابدأ|ابدئي|وقف|وقفي|زود|زودي|قلل|قللي)\s+(?:جرعة|الجرعة|الدواء|العلاج)'
+      - '(?i)\b\d+(?:\.\d+)?\s*(?:مجم|ملجم|ميكروجرام|جرام|مل)\b'
+      - '(?i)(?:خد|خذ)\s+\d+\s+(?:قرص|اقراص|أقراص|حبوب|كبسولة|كبسولات)'
+      - '(?i)(?:لازم|المفروض)\s+(?:تبدأ|توقّف|توقف|تغير|تغيّر)\s+(?:الدواء|العلاج|أدويتك|ادويتك)'
+
+  - id: output_self_harm_instruction_en
+    category: self_harm_instruction
+    severity: critical
+    action: block_and_fallback
+    confidence: 0.98
+    description: Assistant must not provide procedural self-harm guidance, encouragement, concealment, or optimization.
+    patterns:
+      - '(?i)\b(?:here(?:''s| is)\s+how|steps\s+to|the\s+best\s+way\s+to)\s+(?:hurt|harm|kill)\s+(?:yourself|oneself)\b'
+      - '(?i)\bto\s+(?:avoid\s+being\s+found|make\s+sure\s+no\s+one\s+finds\s+you)\b'
+      - '(?i)\b(?:do\s+it\s+when|wait\s+until)\s+(?:everyone|people|your\s+family)\s+(?:is|are)\s+(?:asleep|away|gone)\b'
+      - '(?i)\b(?:make\s+it\s+more\s+lethal|increase\s+the\s+chance\s+of\s+death|painless\s+suicide)\b'
+
+  - id: output_self_harm_instruction_ar
+    category: self_harm_instruction
+    severity: critical
+    action: block_and_fallback
+    confidence: 0.98
+    description: Arabic procedural self-harm guidance, encouragement, concealment, or optimization is prohibited.
+    patterns:
+      - '(?i)(?:دي|هذه)\s+(?:طريقة|خطوات)\s+(?:لإيذاء|لايذاء|لقتل)\s+(?:نفسك|نفسى|نفسي)'
+      - '(?i)(?:علشان|عشان)\s+(?:محدش|لا\s+أحد)\s+(?:يلاقيك|يجدك|ينقذك)'
+      - '(?i)(?:استنى|انتظر)\s+(?:لما|حتى)\s+(?:كلهم|الناس|أهلك|اهلك)\s+(?:يناموا|يمشوا)'
+      - '(?i)(?:أضمن|اضمن)\s+(?:الموت|إنها\s+تنجح|انها\s+تنجح)'
+
+  - id: output_violence_instruction_en
+    category: violence_instruction
+    severity: critical
+    action: block_and_fallback
+    confidence: 0.95
+    description: Assistant must not provide instructions to injure, attack, stalk, threaten, or evade accountability.
+    patterns:
+      - '(?i)\b(?:here(?:''s| is)\s+how|steps\s+to|the\s+best\s+way\s+to)\s+(?:hurt|attack|stab|shoot|kill|stalk|threaten)\s+(?:someone|them|him|her|people)\b'
+      - '(?i)\b(?:avoid\s+getting\s+caught|hide\s+the\s+evidence|make\s+it\s+look\s+like\s+an\s+accident)\b'
+      - '(?i)\b(?:bring|use)\s+(?:a\s+weapon|a\s+knife|a\s+gun)\s+to\s+(?:scare|threaten|hurt|attack)\b'
+
+  - id: output_violence_instruction_ar
+    category: violence_instruction
+    severity: critical
+    action: block_and_fallback
+    confidence: 0.95
+    description: Arabic instructions for violence or evasion are prohibited.
+    patterns:
+      - '(?i)(?:دي|هذه)\s+(?:طريقة|خطوات)\s+(?:لإيذاء|لايذاء|لضرب|لقتل|لتهديد)\s+(?:شخص|حد|واحد|واحدة)'
+      - '(?i)(?:ازاي|كيف)\s+(?:تخفي|تخبّي|تخبي)\s+(?:الدليل|الأدلة|الادلة)'
+      - '(?i)(?:خليها|اجعلها)\s+(?:تبان|تبدو)\s+(?:حادثة|مش\s+متعمدة)'
+
+  - id: output_dependency_language_en
+    category: dependency_language
+    severity: high
+    action: safe_rewrite
+    confidence: 0.9
+    description: Assistant must not create emotional dependency or isolate user from support.
+    patterns:
+      - '(?i)\byou\s+(?:only|just)\s+need\s+me\b'
+      - '(?i)\bdon''t\s+(?:tell|talk\s+to|go\s+to)\s+(?:anyone|anybody|others|your\s+family|your\s+friends)\b'
+      - '(?i)\bi\s+am\s+the\s+only\s+one\s+who\s+(?:understands|can\s+help|cares)\b'
+      - '(?i)\bstay\s+with\s+me\s+instead\s+of\s+(?:calling|telling|reaching\s+out)\b'
+
+  - id: output_dependency_language_ar
+    category: dependency_language
+    severity: high
+    action: safe_rewrite
+    confidence: 0.9
+    description: Arabic emotional dependency or isolation language is prohibited.
+    patterns:
+      - '(?i)(?:انت|أنت|انتي|أنتي)\s+(?:محتاجني|محتاجاني)\s+(?:انا|أنا)\s+بس'
+      - '(?i)(?:متقولش|ما\s+تقولش|متقوليش|ما\s+تكلمش)\s+(?:لحد|لأي\s+حد|لأهلك|لصحابك)'
+      - '(?i)(?:انا|أنا)\s+الوحيد\s+اللي\s+(?:فاهمك|أقدر\s+أساعدك|بحس\s+بيك)'
+      - '(?i)(?:خليك|خليكي)\s+معايا\s+بدل\s+ما\s+(?:تكلم|تكلمي|تطلب\s+مساعدة)'
+
+  - id: output_unsafe_certainty_en
+    category: unsafe_certainty
+    severity: medium
+    action: safe_rewrite
+    confidence: 0.85
+    description: Assistant must not promise safety, cure, or guaranteed emotional outcome.
+    patterns:
+      - '(?i)\byou\s+are\s+safe\s+now\b'
+      - '(?i)\bthis\s+will\s+(?:cure|fix)\s+you\b'
+      - '(?i)\beverything\s+will\s+(?:definitely|certainly|always)\s+be\s+fine\b'
+      - '(?i)\bi\s+guarantee\s+(?:you\s+will|this\s+will)\b'
+
+  - id: output_unsafe_certainty_ar
+    category: unsafe_certainty
+    severity: medium
+    action: safe_rewrite
+    confidence: 0.85
+    description: Arabic unsafe certainty or guarantees are prohibited.
+    patterns:
+      - '(?i)(?:انت|أنت|انتي|أنتي)\s+(?:آمن|آمنة|امن|امنة)\s+دلوقتي'
+      - '(?i)(?:ده|هذا)\s+(?:هيعالجك|سيعالجك|هيصلحك|سيصلحك)\s+تمامًا'
+      - '(?i)(?:كل\s+حاجة|كل\s+شيء)\s+(?:أكيد|قطعًا|قطعا)\s+(?:هيبقى|سيكون)\s+تمام'
+      - '(?i)(?:أضمن|اضمن)\s+لك\s+(?:إنك|انك|أنك)'
+
+  - id: output_unqualified_clinical_authority_en
+    category: clinical_overclaim
+    severity: high
+    action: safe_rewrite
+    confidence: 0.86
+    description: Assistant must not claim professional clinical authority or validated treatment status.
+    patterns:
+      - '(?i)\bclinically\s+verified\s+diagnosis\b'
+      - '(?i)\bcertified\s+(?:mental\s+health\s+)?treatment\b'
+      - '(?i)\bthis\s+is\s+medical\s+advice\b'
+      - '(?i)\buse\s+this\s+instead\s+of\s+(?:therapy|a\s+doctor|professional\s+help)\b'
+
+  - id: output_unqualified_clinical_authority_ar
+    category: clinical_overclaim
+    severity: high
+    action: safe_rewrite
+    confidence: 0.86
+    description: Arabic professional clinical overclaims are prohibited.
+    patterns:
+      - '(?i)(?:ده|هذا)\s+تشخيص\s+(?:طبي|إكلينيكي|اكلينيكي)\s+مؤكد'
+      - '(?i)(?:ده|هذا)\s+علاج\s+(?:معتمد|طبي|إكلينيكي|اكلينيكي)'
+      - '(?i)(?:هذه|دي)\s+نصيحة\s+طبية'
+      - '(?i)(?:استخدمه|استخدميه)\s+بدل\s+(?:العلاج|الدكتور|الطبيب|المساعدة\s+المهنية)'
+
+safe_rewrite_guidelines:
+  en:
+    - Restate that MindPal can provide general wellness support only.
+    - Remove diagnosis, dosage, guarantee, dependency, or procedural harm content.
+    - Offer one concrete safe coping step.
+    - For possible immediate danger, encourage local emergency services, moving away from means of harm, and contacting someone nearby.
+    - Keep the rewrite short.
+  ar:
+    - وضّح أن MindPal يقدم دعم نفسي عام وآمن فقط.
+    - احذف أي تشخيص أو جرعات أو وعود مؤكدة أو اعتماد عاطفي أو خطوات مؤذية.
+    - قدم خطوة تهدئة أو أمان واحدة واضحة.
+    - لو في خطر فوري، شجع على التواصل مع الطوارئ المحلية، الابتعاد عن أدوات الإيذاء، والتواصل مع شخص قريب.
+    - اجعل الصياغة قصيرة.
+
+actions:
+  safe_rewrite:
+    description: >-
+      Replace unsafe wording with a safe, bounded wellness-support response.
+      This may still answer the user's emotional need without preserving unsafe content.
+    return_original: false
+
+  block_and_fallback:
+    description: >-
+      Do not return the generated completion. Replace it with the locale-specific
+      default safe fallback or a deterministic crisis template when applicable.
+    return_original: false
+
+  annotate_for_review:
+    description: >-
+      Return a safe rewrite and include sanitized metadata for internal review.
+      Never expose policy internals to the user.
+    return_original: false

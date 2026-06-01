@@ -1,0 +1,164 @@
+# backend/safety/crisis_patterns_en.yaml
+
+schema_version: 1
+locale: en
+description: >-
+  English deterministic input safety patterns for MindPal. These rules are used
+  before any LLM call. They store rule metadata only; raw user text must not be
+  persisted by the classifier.
+
+rules:
+  - id: en_self_harm_imminent_direct
+    level: self_harm_imminent
+    action: deterministic_response
+    bypass_llm: true
+    response_template_id: imminent_self_harm_en
+    should_log: true
+    user_visible_category: immediate_safety
+    confidence: 1.0
+    priority: 1000
+    match_mode: any
+    patterns:
+      - '(?i)\b(?:i\s*(?:am|''m)?\s*)?(?:am\s+)?(?:going|gonna|about|ready|planning)\s+to\s+(?:kill|end|hurt|harm)\s+(?:myself|me|my\s+life)\b'
+      - '(?i)\b(?:i\s*)?(?:will|want\s+to|need\s+to|have\s+to)\s+(?:kill\s+myself|end\s+my\s+life|take\s+my\s+(?:own\s+)?life|hurt\s+myself|harm\s+myself)\b'
+      - '(?i)\b(?:i\s*)?(?:can''t|cannot)\s+stop\s+myself\s+from\s+(?:doing\s+it|hurting\s+myself|killing\s+myself)\b'
+      - '(?i)\b(?:this\s+is\s+)?(?:my\s+)?(?:last\s+message|final\s+message|goodbye\s+forever)\b'
+
+  - id: en_self_harm_imminent_timing
+    level: self_harm_imminent
+    action: deterministic_response
+    bypass_llm: true
+    response_template_id: imminent_self_harm_en
+    should_log: true
+    user_visible_category: immediate_safety
+    confidence: 0.98
+    priority: 980
+    match_mode: all_groups
+    pattern_groups:
+      intent:
+        - '(?i)\b(?:kill\s+myself|end\s+my\s+life|take\s+my\s+(?:own\s+)?life|suicide|hurt\s+myself|harm\s+myself)\b'
+      immediacy:
+        - '(?i)\b(?:now|right\s+now|today|tonight|soon|in\s+(?:a\s+)?few\s+minutes|after\s+this|before\s+morning|when\s+everyone\s+sleeps)\b'
+
+  - id: en_self_harm_imminent_means_access
+    level: self_harm_imminent
+    action: deterministic_response
+    bypass_llm: true
+    response_template_id: imminent_self_harm_en
+    should_log: true
+    user_visible_category: immediate_safety
+    confidence: 0.97
+    priority: 970
+    match_mode: all_groups
+    pattern_groups:
+      intent:
+        - '(?i)\b(?:kill\s+myself|end\s+it|do\s+it|hurt\s+myself|harm\s+myself)\b'
+      access_or_plan:
+        - '(?i)\b(?:i\s+have|i\s+got|i\s+found|with\s+me|next\s+to\s+me)\b.{0,80}\b(?:pills|knife|blade|rope|gun|weapon|poison)\b'
+        - '(?i)\b(?:pills|knife|blade|rope|gun|weapon|poison)\b.{0,80}\b(?:ready|with\s+me|next\s+to\s+me|in\s+my\s+hand|beside\s+me)\b'
+
+  - id: en_self_harm_ambiguous
+    level: self_harm_ambiguous
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: true
+    user_visible_category: emotional_distress
+    confidence: 0.7
+    priority: 700
+    match_mode: any
+    patterns:
+      - '(?i)\b(?:i\s+)?(?:don''t|do\s+not)\s+want\s+to\s+live\b'
+      - '(?i)\b(?:i\s+)?wish\s+i\s+(?:was|were)\s+dead\b'
+      - '(?i)\b(?:i\s+)?(?:can''t|cannot)\s+(?:keep\s+going|take\s+this\s+anymore|do\s+this\s+anymore)\b'
+      - '(?i)\b(?:life\s+isn''t|life\s+is\s+not)\s+worth\s+living\b'
+      - '(?i)\b(?:i\s+)?(?:feel\s+like\s+)?(?:disappearing|vanishing|not\s+existing)\b'
+
+  - id: en_severe_distress_supportive
+    level: supportive
+    action: continue_to_llm
+    bypass_llm: false
+    response_template_id: null
+    should_log: false
+    user_visible_category: emotional_support
+    confidence: 0.55
+    priority: 500
+    match_mode: any
+    patterns:
+      - '(?i)\b(?:i\s+)?(?:feel\s+)?(?:hopeless|worthless|empty|numb|broken|alone)\b'
+      - '(?i)\b(?:i\s+)?(?:am|''m)\s+(?:overwhelmed|exhausted|burned\s*out|burnt\s*out)\b'
+      - '(?i)\b(?:no\s+one\s+cares|nobody\s+cares|i\s+have\s+no\s+one)\b'
+
+  - id: en_panic_or_anxiety_grounding
+    level: supportive
+    action: continue_to_llm
+    bypass_llm: false
+    response_template_id: null
+    should_log: false
+    user_visible_category: grounding_support
+    confidence: 0.65
+    priority: 520
+    match_mode: any
+    rag_tags:
+      - panic_grounding
+      - box_breathing
+      - 54321_grounding
+    patterns:
+      - '(?i)\bpanic\s+attack\b'
+      - '(?i)\b(?:i\s+)?(?:can''t|cannot)\s+breathe\b'
+      - '(?i)\b(?:my\s+)?heart\s+(?:is\s+)?(?:racing|pounding)\b'
+      - '(?i)\b(?:i\s+)?(?:am|''m)\s+(?:panicking|spiraling)\b'
+
+  - id: en_abuse_or_immediate_danger
+    level: abuse_or_violence
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: true
+    user_visible_category: personal_safety
+    confidence: 0.78
+    priority: 760
+    match_mode: any
+    patterns:
+      - '(?i)\b(?:i\s+)?(?:am|''m)\s+not\s+safe\s+(?:at\s+home|here|right\s+now)\b'
+      - '(?i)\b(?:someone|he|she|they)\s+(?:is|are)\s+(?:hitting|hurting|threatening|following|stalking)\s+me\b'
+      - '(?i)\b(?:i\s+)?(?:am|''m)\s+scared\s+(?:he|she|they|someone)\s+will\s+hurt\s+me\b'
+      - '(?i)\b(?:i\s+)?(?:need\s+help|help\s+me)\s+.*\b(?:unsafe|danger|threatened|attacked)\b'
+
+  - id: en_violence_threat_imminent
+    level: abuse_or_violence
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: true
+    user_visible_category: violence_risk
+    confidence: 0.85
+    priority: 800
+    match_mode: any
+    patterns:
+      - '(?i)\b(?:i\s+)?(?:am\s+going|''m\s+going|gonna|will|want\s+to)\s+(?:kill|hurt|attack|stab|shoot)\s+(?:him|her|them|someone|people)\b'
+      - '(?i)\b(?:i\s+)?(?:can''t|cannot)\s+stop\s+myself\s+from\s+(?:hurting|attacking|killing)\s+(?:him|her|them|someone)\b'
+
+  - id: en_toxicity_high
+    level: toxicity
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: false
+    user_visible_category: deescalation
+    confidence: 0.5
+    priority: 300
+    match_mode: any
+    patterns:
+      - '(?i)\b(?:shut\s+up|you\s+are\s+useless|i\s+hate\s+you)\b'
+      - '(?i)\b(?:fuck\s+you|go\s+to\s+hell)\b'
+
+exclusion_patterns:
+  - id: en_educational_or_reported_context
+    description: >-
+      Lower confidence when the user is clearly discussing a fictional,
+      academic, quoted, or third-person scenario. The classifier may still
+      escalate if imminent first-person danger is present.
+    patterns:
+      - '(?i)\b(?:for\s+homework|for\s+a\s+story|fictional|a\s+character|in\s+a\s+movie|quoted|quote|example\s+sentence)\b'
+      - '(?i)\b(?:my\s+friend|someone\s+i\s+know|a\s+person\s+i\s+know)\s+(?:said|says|told\s+me)\b'
