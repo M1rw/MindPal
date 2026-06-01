@@ -2,7 +2,6 @@
   "version": 2,
   "functions": {
     "api/index.py": {
-      "runtime": "python3.12",
       "maxDuration": 60,
       "excludeFiles": "{frontend,node_modules,.git,.venv,venv,secrets,var,local_data}/**"
     }
