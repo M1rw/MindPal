@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError, ValidationAppError
-from backend.core.security import normalize_locale, safe_truncate, sanitize_text
+from backend.core.security import normalize_locale, sanitize_text
 from backend.models.schemas import TTSFormat, TTSRequest, TTSResponse
 
 
@@ -42,7 +43,7 @@ class TTSProvider(Protocol):
     """
     TTS provider protocol.
 
-    Future Camb.ai / ElevenLabs / OpenAI TTS providers should implement this.
+    Camb.ai / ElevenLabs / OpenAI TTS providers should implement this.
     This service intentionally does not import provider SDKs.
     """
 
@@ -91,7 +92,13 @@ class TTSService:
     - pick voice policy from locale/response mode/safety level
     - skip external TTS for crisis/high-risk modes unless explicitly allowed
     - cascade provider failures
-    - always support browser fallback
+    - expose clearly whether backend TTS is real or browser fallback only
+
+    Production policy:
+    - browser fallback is acceptable as a frontend fallback, but it is not a
+      configured backend TTS provider
+    - if REQUIRE_EXTERNAL_TTS_PROVIDER=true, browser fallback alone is not enough
+    - high-risk/crisis content does not use external TTS unless explicitly allowed
 
     Non-responsibilities:
     - generating assistant text
@@ -105,20 +112,61 @@ class TTSService:
         providers: list[TTSProvider] | tuple[TTSProvider, ...] | None = None,
         *,
         settings: Settings | None = None,
-        timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
-        include_browser_fallback: bool = True,
+        timeout_seconds: float | None = None,
+        include_browser_fallback: bool | None = None,
+        require_external_provider: bool | None = None,
+        allow_browser_fallback_in_production: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.timeout_seconds = float(timeout_seconds)
+        self.production_mode = _is_production(self.settings)
+        self.timeout_seconds = float(
+            timeout_seconds
+            if timeout_seconds is not None
+            else _setting_float(
+                self.settings,
+                "TTS_TIMEOUT_SECONDS",
+                default=DEFAULT_TIMEOUT_SECONDS,
+            )
+        )
+
+        self.require_external_provider = (
+            _setting_bool(
+                self.settings,
+                "REQUIRE_EXTERNAL_TTS_PROVIDER",
+                default=False,
+            )
+            if require_external_provider is None
+            else bool(require_external_provider)
+        )
+
+        self.allow_browser_fallback_in_production = (
+            _setting_bool(
+                self.settings,
+                "ALLOW_BROWSER_TTS_IN_PRODUCTION",
+                default=True,
+            )
+            if allow_browser_fallback_in_production is None
+            else bool(allow_browser_fallback_in_production)
+        )
+
+        should_include_browser_fallback = (
+            _setting_bool(
+                self.settings,
+                "ENABLE_BROWSER_TTS_FALLBACK",
+                default=True,
+            )
+            if include_browser_fallback is None
+            else bool(include_browser_fallback)
+        )
 
         configured_providers: list[TTSProvider] = list(providers or [])
 
-        if include_browser_fallback and not _has_provider(configured_providers, "browser"):
+        if should_include_browser_fallback and not _has_provider(configured_providers, "browser"):
             configured_providers.append(BrowserFallbackTTSProvider())
 
         if not configured_providers:
             raise ProviderError(
-                "TTSService requires at least one provider",
+                "TTSService requires at least one provider or browser fallback",
                 code="tts_no_providers",
             )
 
@@ -198,13 +246,19 @@ class TTSService:
 
         for provider in providers:
             provider_name = _clean_provider_name(provider.name)
+            is_browser = provider_name == "browser"
+
+            if is_browser and not self._browser_fallback_allowed_now():
+                fallback_count += 1
+                last_error_code = "browser_fallback_disabled"
+                continue
 
             if not provider.is_configured:
                 fallback_count += 1
                 last_error_code = "provider_not_configured"
                 continue
 
-            if provider_name != "browser":
+            if not is_browser:
                 external_attempted = True
 
             try:
@@ -216,11 +270,11 @@ class TTSService:
                 clean_response = _normalize_tts_response(
                     response,
                     provider_name=provider_name,
-                    fallback_to_browser=provider_name == "browser",
+                    fallback_to_browser=is_browser,
                 )
 
                 self.last_meta = TTSServiceMeta(
-                    mode="synthesized",
+                    mode="browser_fallback" if is_browser else "synthesized_external",
                     provider_used=clean_response.provider_used,
                     fallback_used=clean_response.fallback_to_browser,
                     external_attempted=external_attempted,
@@ -235,7 +289,7 @@ class TTSService:
 
                 if _is_last_provider(provider, providers):
                     raise ProviderTimeoutError(
-                        "All TTS providers timed out",
+                        "All enabled TTS providers timed out",
                         code="tts_all_providers_timeout",
                         details={"last_provider": provider_name},
                     ) from exc
@@ -256,9 +310,14 @@ class TTSService:
                 continue
 
         raise ProviderError(
-            "All TTS providers failed",
+            "All enabled TTS providers failed",
             code="tts_all_providers_failed",
-            details={"fallback_count": str(fallback_count)},
+            details={
+                "fallback_count": str(fallback_count),
+                "last_error_code": last_error_code or "",
+                "require_external_provider": str(self.require_external_provider),
+                "browser_fallback_allowed": str(self._browser_fallback_allowed_now()),
+            },
         )
 
     async def synthesize_text(
@@ -313,7 +372,7 @@ class TTSService:
         }
 
         external_tts_allowed = not crisis_or_high_risk or allow_external_for_crisis
-        browser_fallback_allowed = True
+        browser_fallback_allowed = self._browser_fallback_allowed_now()
 
         if speaking_rate is None:
             rate = _default_rate_for_mode(resolved_mode, resolved_safety)
@@ -333,6 +392,9 @@ class TTSService:
         if not external_tts_allowed:
             reason = "external_tts_disabled_for_safety"
 
+        if self.require_external_provider and not self._has_configured_external_provider():
+            reason = "external_tts_required_but_unavailable"
+
         return TTSPolicy(
             locale=resolved_locale,
             voice_id=selected_voice,
@@ -344,28 +406,50 @@ class TTSService:
         )
 
     def health(self) -> dict[str, Any]:
+        providers = [
+            {
+                "name": _clean_provider_name(provider.name),
+                "configured": bool(
+                    provider.is_configured
+                    and _clean_provider_name(provider.name) != "browser"
+                ),
+                "available": bool(provider.is_configured),
+                "browser_fallback": _clean_provider_name(provider.name) == "browser",
+            }
+            for provider in self._providers
+        ]
+
+        external_provider_available = any(
+            bool(item["configured"]) and not bool(item["browser_fallback"])
+            for item in providers
+        )
+
+        browser_fallback_available = any(
+            bool(item["available"]) and bool(item["browser_fallback"])
+            for item in providers
+        )
+
         return {
-            "mode": "provider_chain_with_browser_fallback",
-            "providers": [
-                {
-                    "name": _clean_provider_name(provider.name),
-                    "configured": bool(provider.is_configured),
-                    "browser_fallback": _clean_provider_name(provider.name) == "browser",
-                }
-                for provider in self._providers
-            ],
+            "mode": "provider_chain_with_explicit_browser_fallback",
+            "production_mode": self.production_mode,
+            "providers": providers,
             "timeout_seconds": self.timeout_seconds,
-            "browser_fallback_available": any(
-                _clean_provider_name(provider.name) == "browser"
-                for provider in self._providers
-            ),
+            "configured_external_provider_available": external_provider_available,
+            "external_provider_available": external_provider_available,
+            "require_external_provider": self.require_external_provider,
+            "browser_fallback_available": browser_fallback_available,
+            "browser_fallback_allowed": self._browser_fallback_allowed_now(),
+            "allow_browser_fallback_in_production": self.allow_browser_fallback_in_production,
             "external_tts_disabled_by_default_for_crisis": True,
             "last_meta": None if self.last_meta is None else asdict(self.last_meta),
         }
 
     def _provider_chain(self, policy: TTSPolicy) -> tuple[TTSProvider, ...]:
-        if policy.external_tts_allowed:
-            return tuple(self._providers)
+        external_providers = [
+            provider
+            for provider in self._providers
+            if _clean_provider_name(provider.name) != "browser"
+        ]
 
         browser_providers = [
             provider
@@ -373,16 +457,54 @@ class TTSService:
             if _clean_provider_name(provider.name) == "browser"
         ]
 
-        if browser_providers:
-            return tuple(browser_providers)
+        configured_external_providers = [
+            provider
+            for provider in external_providers
+            if bool(provider.is_configured)
+        ]
 
-        if not policy.browser_fallback_allowed:
+        if policy.external_tts_allowed and configured_external_providers:
+            if policy.browser_fallback_allowed:
+                return tuple(configured_external_providers + browser_providers)
+            return tuple(configured_external_providers)
+
+        if self.require_external_provider:
             raise ProviderError(
-                "No TTS provider available under current safety policy",
-                code="tts_no_safe_provider",
+                "External TTS provider is required but unavailable",
+                code="tts_external_provider_required",
+                details={
+                    "external_tts_allowed": str(policy.external_tts_allowed),
+                    "browser_fallback_allowed": str(policy.browser_fallback_allowed),
+                },
             )
 
-        return (BrowserFallbackTTSProvider(),)
+        if policy.browser_fallback_allowed and browser_providers:
+            return tuple(browser_providers)
+
+        raise ProviderError(
+            "No TTS provider available under current policy",
+            code="tts_no_safe_provider",
+            details={
+                "external_tts_allowed": str(policy.external_tts_allowed),
+                "browser_fallback_allowed": str(policy.browser_fallback_allowed),
+            },
+        )
+
+    def _has_configured_external_provider(self) -> bool:
+        return any(
+            _clean_provider_name(provider.name) != "browser"
+            and bool(provider.is_configured)
+            for provider in self._providers
+        )
+
+    def _browser_fallback_allowed_now(self) -> bool:
+        if not _has_provider(list(self._providers), "browser"):
+            return False
+
+        if self.production_mode:
+            return self.allow_browser_fallback_in_production
+
+        return True
 
 
 def _normalize_tts_response(
@@ -441,7 +563,7 @@ def _clamp_rate(value: float) -> float:
     return max(0.5, min(float(value), 2.0))
 
 
-def _has_provider(providers: list[TTSProvider], provider_name: str) -> bool:
+def _has_provider(providers: list[TTSProvider] | tuple[TTSProvider, ...], provider_name: str) -> bool:
     target = _clean_provider_name(provider_name)
     return any(_clean_provider_name(provider.name) == target for provider in providers)
 
@@ -453,3 +575,42 @@ def _clean_provider_name(value: str) -> str:
 
 def _is_last_provider(provider: TTSProvider, providers: tuple[TTSProvider, ...]) -> bool:
     return provider is providers[-1]
+
+
+def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return os.getenv(name, default)
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value()
+
+    return value
+
+
+def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
+    value = _setting_value(settings, name, None)
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _setting_float(settings: Settings, name: str, *, default: float) -> float:
+    value = _setting_value(settings, name, default)
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _is_production(settings: Settings) -> bool:
+    value = _setting_value(settings, "ENVIRONMENT", "development")
+    environment = sanitize_text(str(value or "development"), 80).lower()
+    return environment in {"production", "prod"}

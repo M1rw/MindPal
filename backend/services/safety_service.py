@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Any
 
 import yaml
 
+from backend.core.config import Settings, get_settings
 from backend.core.errors import SafetyError
 from backend.core.security import Locale, normalize_locale, sanitize_text
 from backend.models.safety import (
@@ -135,12 +137,36 @@ class SafetyService:
         self,
         safety_dir: Path | None = None,
         *,
+        settings: Settings | None = None,
         llm_service: LLMService | None = None,
-        enable_llm_ambiguity_classifier: bool = True,
+        enable_llm_ambiguity_classifier: bool | None = None,
+        allow_offline_llm_classifier: bool | None = None,
     ) -> None:
+        self.settings = settings or get_settings()
+        self.production_mode = _is_production(self.settings)
+
         self.safety_dir = safety_dir or Path(__file__).resolve().parents[1] / "safety"
         self.llm_service = llm_service
-        self.enable_llm_ambiguity_classifier = enable_llm_ambiguity_classifier
+
+        self.enable_llm_ambiguity_classifier = (
+            _setting_bool(
+                self.settings,
+                "ENABLE_LLM_SAFETY_CLASSIFIER",
+                default=True,
+            )
+            if enable_llm_ambiguity_classifier is None
+            else bool(enable_llm_ambiguity_classifier)
+        )
+
+        self.allow_offline_llm_classifier = (
+            _setting_bool(
+                self.settings,
+                "ALLOW_OFFLINE_LLM_SAFETY_CLASSIFIER",
+                default=False,
+            )
+            if allow_offline_llm_classifier is None
+            else bool(allow_offline_llm_classifier)
+        )
 
         self._rules: list[CompiledSafetyRule] = []
         self._exclusion_rules: list[CompiledExclusionRule] = []
@@ -233,12 +259,32 @@ class SafetyService:
             )
             return local_decision
 
-        if not self.enable_llm_ambiguity_classifier or self.llm_service is None:
+        if not self.enable_llm_ambiguity_classifier:
             self.last_meta = SafetyClassifierMeta(
                 mode="local_only",
                 used_llm=False,
                 fallback_used=True,
-                error_code="llm_classifier_missing_or_disabled",
+                error_code="llm_classifier_disabled",
+            )
+            return local_decision
+
+        if self.llm_service is None:
+            self.last_meta = SafetyClassifierMeta(
+                mode="local_only",
+                used_llm=False,
+                fallback_used=True,
+                error_code="llm_classifier_missing",
+            )
+            return local_decision
+
+        provider_state = self._llm_classifier_provider_state()
+
+        if not provider_state["classifier_can_call_llm"]:
+            self.last_meta = SafetyClassifierMeta(
+                mode="local_only",
+                used_llm=False,
+                fallback_used=True,
+                error_code="llm_classifier_provider_unavailable",
             )
             return local_decision
 
@@ -378,8 +424,11 @@ class SafetyService:
         return tags
 
     def health(self) -> dict[str, Any]:
+        provider_state = self._llm_classifier_provider_state()
+
         return {
             "mode": "deterministic_crisis_first_with_optional_llm_ambiguity_classifier",
+            "production_mode": self.production_mode,
             "rules_loaded": len(self._rules),
             "exclusion_rules_loaded": len(self._exclusion_rules),
             "templates_loaded": len(self._templates),
@@ -387,8 +436,57 @@ class SafetyService:
             "locales": list(SUPPORTED_PATTERN_LOCALES),
             "llm_ambiguity_classifier_enabled": self.enable_llm_ambiguity_classifier,
             "llm_service_available": self.llm_service is not None,
+            "llm_ambiguity_classifier_provider_state": provider_state,
+            "llm_ambiguity_classifier_can_call_llm": provider_state["classifier_can_call_llm"],
+            "offline_llm_classifier_allowed": self.allow_offline_llm_classifier,
             "imminent_self_harm_bypasses_llm": True,
+            "deterministic_crisis_templates_required": True,
             "last_meta": None if self.last_meta is None else asdict(self.last_meta),
+        }
+
+    def _llm_classifier_provider_state(self) -> dict[str, bool]:
+        if self.llm_service is None:
+            return {
+                "remote_provider_available": False,
+                "offline_available": False,
+                "offline_allowed_by_llm_service": False,
+                "offline_allowed_for_safety_classifier": self.allow_offline_llm_classifier,
+                "classifier_can_call_llm": False,
+            }
+
+        try:
+            health = self.llm_service.health()
+        except Exception:
+            return {
+                "remote_provider_available": False,
+                "offline_available": False,
+                "offline_allowed_by_llm_service": False,
+                "offline_allowed_for_safety_classifier": self.allow_offline_llm_classifier,
+                "classifier_can_call_llm": False,
+            }
+
+        remote_available = bool(
+            health.get("configured_remote_provider_available", False)
+            or health.get("remote_provider_available", False)
+        )
+        offline_available = bool(health.get("offline_available", False))
+        offline_allowed_by_llm_service = bool(health.get("offline_allowed", False))
+
+        classifier_can_call_llm = bool(
+            remote_available
+            or (
+                self.allow_offline_llm_classifier
+                and offline_available
+                and offline_allowed_by_llm_service
+            )
+        )
+
+        return {
+            "remote_provider_available": remote_available,
+            "offline_available": offline_available,
+            "offline_allowed_by_llm_service": offline_allowed_by_llm_service,
+            "offline_allowed_for_safety_classifier": self.allow_offline_llm_classifier,
+            "classifier_can_call_llm": classifier_can_call_llm,
         }
 
     async def _classify_with_llm(
@@ -430,13 +528,22 @@ class SafetyService:
             },
         )
 
-        response = await self.llm_service.generate(request)
+        result = await self.llm_service.generate_with_trace(request)
+        response = result.response
+        provider_used = sanitize_text(response.provider_used or "unknown", 80)
+
+        if _clean_provider_name(provider_used) == "offline" and not self.allow_offline_llm_classifier:
+            raise SafetyError(
+                "Offline LLM fallback cannot be used for safety ambiguity classification",
+                code="safety_llm_offline_classifier_disabled",
+            )
+
         payload = self._parse_llm_json(response.text)
 
         return self._decision_from_llm_payload(
             payload,
             locale=resolved_locale,
-        ), response.provider_used
+        ), provider_used
 
     def _decision_from_llm_payload(
         self,
@@ -1092,6 +1199,40 @@ class SafetyService:
                 )
 
             seen.add(item_id)
+
+
+def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return os.getenv(name, default)
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value()
+
+    return value
+
+
+def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
+    value = _setting_value(settings, name, None)
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_production(settings: Settings) -> bool:
+    value = _setting_value(settings, "ENVIRONMENT", "development")
+    environment = sanitize_text(str(value or "development"), 80).lower()
+    return environment in {"production", "prod"}
+
+
+def _clean_provider_name(value: str) -> str:
+    return sanitize_text(str(value or ""), 80).lower() or "unknown"
 
 
 def hash_matched_fragment(fragment: str) -> str:
