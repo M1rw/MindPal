@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -135,6 +137,42 @@ class Settings(BaseSettings):
             return [str(origin).strip() for origin in value if str(origin).strip()]
 
         raise TypeError("CORS_ORIGINS must be a comma-separated string or list of strings")
+
+
+    @field_validator(
+        "TRUSTED_HOSTS",
+        "CORS_ALLOW_ORIGINS",
+        "CORS_ALLOW_METHODS",
+        "CORS_ALLOW_HEADERS",
+        "CORS_ORIGINS",
+        mode="before",
+    )
+    @classmethod
+    def _parse_env_list(cls, value: object) -> list[str]:
+        if value is None:
+            return []
+
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+
+        if isinstance(value, tuple | set):
+            return [str(item).strip() for item in value if str(item).strip()]
+
+        raw = str(value or "").strip()
+
+        if not raw:
+            return []
+
+        if raw.startswith("["):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                parsed = None
+
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+
+        return [part.strip() for part in raw.split(",") if part.strip()]
 
     @model_validator(mode="after")
     def _validate_safe_config(self) -> Settings:
