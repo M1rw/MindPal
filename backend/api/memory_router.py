@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.api.dependencies import RequestContextDep, ServicesDep
+from backend.api.dependencies import AuthenticatedRequestContextDep, ServicesDep
 from backend.core.errors import AppError
 from backend.core.security import normalize_locale, sanitize_text
 from backend.models.memory import (
@@ -24,14 +24,17 @@ router = APIRouter(prefix="/api/memory", tags=["memory"])
 
 MAX_MEMORY_INTERACTIONS = 50
 MAX_CLIENT_MEMORY_ITEMS = 80
+MAX_SESSION_HASH_CHARS = 120
 
 
 class MemorySummarizePayload(BaseModel):
     """
-    Request body for explicit memory compaction.
+    Explicit memory compaction payload.
 
-    user_id_hash is intentionally absent. The route always uses the current
-    authenticated/anonymous session hash to prevent client-side spoofing.
+    user_id_hash is intentionally absent. The route always uses the verified
+    Firebase session hash to prevent client-side spoofing.
+
+    This route requires authentication.
     """
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
@@ -54,8 +57,8 @@ class MemorySavePayload(BaseModel):
     """
     Explicit memory overwrite/update payload.
 
-    The submitted summary is re-bound to the current session user_id_hash before
-    persistence.
+    The submitted summary is re-bound to the verified Firebase session hash
+    before persistence.
     """
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
@@ -66,13 +69,16 @@ class MemorySavePayload(BaseModel):
 @router.get("", response_model=MemoryLoadResult)
 async def load_memory(
     services: ServicesDep,
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> MemoryLoadResult:
     """
-    Load current user's memory summary.
+    Load the authenticated user's memory summary.
 
     Does not expose memory for arbitrary user IDs.
+    Anonymous sessions are not allowed.
     """
+    _assert_authenticated(context)
+
     try:
         return await services.db.load_memory(context.session.user_id_hash)
 
@@ -93,16 +99,19 @@ async def load_memory(
 async def summarize_memory(
     payload: MemorySummarizePayload,
     services: ServicesDep,
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> MemoryCompactionResult:
     """
-    Compact sanitized interaction fragments into user memory.
+    Compact sanitized interaction fragments into authenticated user memory.
 
     Flow:
+    - require verified Firebase session
     - load existing memory for current session
     - run LLM-primary memory compaction with local fallback
     - optionally persist only if changed and save=true
     """
+    _assert_authenticated(context)
+
     try:
         locale = payload.locale if payload.locale != "auto" else context.locale
 
@@ -121,7 +130,11 @@ async def summarize_memory(
         )
 
         if payload.save and compaction.changed:
-            await services.db.save_memory(compaction.summary)
+            safe_summary = _summary_for_session(
+                compaction.summary,
+                user_id_hash=context.session.user_id_hash,
+            )
+            await services.db.save_memory(safe_summary)
 
         return compaction
 
@@ -142,14 +155,16 @@ async def summarize_memory(
 async def save_memory(
     payload: MemorySavePayload,
     services: ServicesDep,
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> MemoryWriteResult:
     """
-    Save/replace current user's memory summary.
+    Save/replace the authenticated user's memory summary.
 
     The client cannot choose the target user hash. The submitted summary is
-    re-bound to context.session.user_id_hash.
+    always re-bound to context.session.user_id_hash.
     """
+    _assert_authenticated(context)
+
     try:
         summary = _summary_for_session(
             payload.summary,
@@ -173,11 +188,13 @@ async def save_memory(
 @router.delete("", response_model=MemoryWriteResult)
 async def delete_memory(
     services: ServicesDep,
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> MemoryWriteResult:
     """
-    Delete current user's memory summary.
+    Delete the authenticated user's memory summary.
     """
+    _assert_authenticated(context)
+
     try:
         return await services.db.delete_memory(context.session.user_id_hash)
 
@@ -197,38 +214,67 @@ async def delete_memory(
 @router.get("/health")
 async def memory_health(
     services: ServicesDep,
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> dict[str, Any]:
     """
     Memory subsystem health.
 
-    Does not return memory contents.
+    Does not return memory contents. Auth is still required because this route
+    belongs to the memory surface.
     """
+    _assert_authenticated(context)
+
     return {
         "request_id": context.request_id,
+        "authenticated": True,
         "memory": services.memory.health(),
     }
 
 
 def _summary_for_session(summary: MemorySummary, *, user_id_hash: str) -> MemorySummary:
     """
-    Rebind a MemorySummary to the current session user.
+    Rebind a MemorySummary to the authenticated session user.
 
     This prevents a client from submitting a summary for another user_id_hash.
+    Uses model_copy to preserve model fields added later.
     """
-    return MemorySummary(
-        user_id_hash=sanitize_text(user_id_hash, 80),
-        summary=summary.summary,
-        known_triggers=summary.known_triggers[:MAX_CLIENT_MEMORY_ITEMS],
-        preferred_coping_tools=summary.preferred_coping_tools[:MAX_CLIENT_MEMORY_ITEMS],
-        goals=summary.goals[:MAX_CLIENT_MEMORY_ITEMS],
-        preferences=summary.preferences[:MAX_CLIENT_MEMORY_ITEMS],
-        safety_flags=summary.safety_flags[:MAX_CLIENT_MEMORY_ITEMS],
-        items=summary.items[:MAX_CLIENT_MEMORY_ITEMS],
-        last_safety_level=summary.last_safety_level,
-        source=summary.source,
-        version=max(1, summary.version),
+    clean_user_hash = sanitize_text(user_id_hash, MAX_SESSION_HASH_CHARS)
+
+    if not clean_user_hash:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "invalid_authenticated_session",
+                "message": "Authenticated session is missing a stable user hash",
+            },
+        )
+
+    return summary.model_copy(
+        update={
+            "user_id_hash": clean_user_hash,
+            "known_triggers": summary.known_triggers[:MAX_CLIENT_MEMORY_ITEMS],
+            "preferred_coping_tools": summary.preferred_coping_tools[:MAX_CLIENT_MEMORY_ITEMS],
+            "goals": summary.goals[:MAX_CLIENT_MEMORY_ITEMS],
+            "preferences": summary.preferences[:MAX_CLIENT_MEMORY_ITEMS],
+            "safety_flags": summary.safety_flags[:MAX_CLIENT_MEMORY_ITEMS],
+            "items": summary.items[:MAX_CLIENT_MEMORY_ITEMS],
+            "version": max(1, summary.version),
+        }
     )
+
+
+def _assert_authenticated(context: Any) -> None:
+    session = getattr(context, "session", None)
+
+    if session is None or not getattr(session, "authenticated", False):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "authentication_required",
+                "message": "Authentication is required for memory operations",
+                "request_id": getattr(context, "request_id", None),
+            },
+        )
 
 
 def _http_error_from_app_error(exc: AppError) -> HTTPException:

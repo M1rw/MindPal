@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import os
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any, Protocol
 
 from backend.core.config import Settings, get_settings
@@ -22,8 +26,12 @@ class AuthIdentity:
     """
     Sanitized authenticated identity returned by an auth provider.
 
-    Do not put bearer tokens, refresh tokens, Firebase raw payloads, cookies, or
-    provider credentials in this object.
+    Never store:
+    - bearer tokens
+    - refresh tokens
+    - Firebase raw payloads
+    - cookies
+    - provider credentials
     """
 
     raw_user_id: str
@@ -42,13 +50,6 @@ class AuthResolutionMeta:
 
 
 class AuthProvider(Protocol):
-    """
-    Auth provider protocol.
-
-    A Firebase provider later should implement this interface using Admin SDK
-    token verification. This service intentionally does not import Firebase.
-    """
-
     name: str
 
     @property
@@ -59,16 +60,150 @@ class AuthProvider(Protocol):
         ...
 
 
+class FirebaseAuthProvider:
+    """
+    Firebase Auth ID-token verifier.
+
+    Production behavior:
+    - verifies Bearer tokens through Firebase Admin SDK
+    - never trusts client-supplied user IDs
+    - never falls back to anonymous when an Authorization header is invalid
+    - supports Vercel via FIREBASE_CREDENTIALS_JSON
+    """
+
+    name = "firebase"
+
+    def __init__(self, *, settings: Settings | None = None) -> None:
+        self.settings = settings or get_settings()
+        self.project_id = _firebase_project_id(self.settings)
+        self.app_name = _setting_str(self.settings, "FIREBASE_APP_NAME", "mindpal") or "mindpal"
+        self.check_revoked = _setting_bool(
+            self.settings,
+            "FIREBASE_CHECK_REVOKED_TOKENS",
+            default=False,
+        )
+
+        self._app: Any | None = None
+        self._init_error: str | None = None
+
+        try:
+            self._app = self._build_app()
+        except Exception as exc:
+            self._init_error = f"{exc.__class__.__name__}: {sanitize_text(str(exc), 500)}"
+            self._app = None
+
+    @property
+    def is_configured(self) -> bool:
+        return self._app is not None
+
+    @property
+    def init_error(self) -> str | None:
+        return self._init_error
+
+    async def verify_bearer_token(self, token: str) -> AuthIdentity:
+        clean_token = _clean_token(token)
+
+        if not clean_token:
+            raise AuthError(
+                "Missing bearer token",
+                code="auth_missing_bearer",
+            )
+
+        if self._app is None:
+            raise AuthError(
+                "Firebase authentication provider is not configured",
+                code="auth_provider_missing",
+                details={"init_error": self._init_error},
+            )
+
+        def _verify() -> dict[str, Any]:
+            from firebase_admin import auth
+
+            return auth.verify_id_token(
+                clean_token,
+                app=self._app,
+                check_revoked=self.check_revoked,
+            )
+
+        try:
+            decoded = await asyncio.to_thread(_verify)
+        except Exception as exc:
+            raise AuthError(
+                "Firebase token verification failed",
+                code="auth_token_rejected",
+            ) from exc
+
+        uid = sanitize_text(
+            str(decoded.get("uid") or decoded.get("sub") or ""),
+            MAX_RAW_USER_ID_CHARS,
+        )
+
+        if not uid:
+            raise AuthError(
+                "Firebase token is missing uid",
+                code="auth_identity_missing_user_id",
+            )
+
+        firebase_claims = decoded.get("firebase")
+        firebase_provider = None
+
+        if isinstance(firebase_claims, dict):
+            firebase_provider = firebase_claims.get("sign_in_provider")
+
+        metadata: dict[str, str | int | float | bool | None] = {
+            "project_id": self.project_id,
+            "email_verified": bool(decoded.get("email_verified", False)),
+        }
+
+        if firebase_provider:
+            metadata["firebase_sign_in_provider"] = sanitize_text(
+                str(firebase_provider),
+                MAX_METADATA_VALUE_CHARS,
+            )
+
+        auth_time = decoded.get("auth_time")
+        if isinstance(auth_time, (int, float)):
+            metadata["auth_time"] = int(auth_time)
+
+        return AuthIdentity(
+            raw_user_id=uid,
+            provider=self.name,
+            email_verified=bool(decoded.get("email_verified", False)),
+            metadata=metadata,
+        )
+
+    def _build_app(self) -> Any:
+        try:
+            import firebase_admin
+        except Exception as exc:
+            raise RuntimeError("firebase-admin is not installed") from exc
+
+        if not self.project_id:
+            raise RuntimeError("Missing FIREBASE_PROJECT_ID or GOOGLE_CLOUD_PROJECT")
+
+        if self.app_name in firebase_admin._apps:
+            return firebase_admin.get_app(self.app_name)
+
+        credential = _firebase_credentials(self.settings, expected_project_id=self.project_id)
+
+        return firebase_admin.initialize_app(
+            credential,
+            {"projectId": self.project_id},
+            name=self.app_name,
+        )
+
+
 class AuthService:
     """
     Authentication/session boundary.
 
-    Behavior:
-    - Bearer tokens are only trusted when a configured provider verifies them.
-    - If auth is required, missing/invalid/unconfigured auth fails closed.
-    - If auth is not required, fallback anonymous sessions are allowed.
-    - raw bearer tokens are never stored in metadata or errors.
-    - user_id_hash is the stable identifier for logs/storage.
+    Production rules:
+    - Bearer tokens are trusted only after Firebase Admin verification.
+    - Invalid Bearer tokens fail closed; they never become anonymous sessions.
+    - Anonymous sessions are allowed only when no Authorization header is present
+      and allow_anonymous=True.
+    - Required routes must pass require_auth=True.
+    - Raw tokens are never logged or stored.
     """
 
     def __init__(
@@ -76,11 +211,23 @@ class AuthService:
         *,
         provider: AuthProvider | None = None,
         settings: Settings | None = None,
-        allow_anonymous: bool = True,
+        allow_anonymous: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.provider = provider if provider is not None and provider.is_configured else None
-        self.allow_anonymous = allow_anonymous
+        self.allow_anonymous = (
+            _allow_anonymous_sessions(self.settings)
+            if allow_anonymous is None
+            else bool(allow_anonymous)
+        )
+
+        if provider is not None and provider.is_configured:
+            self.provider: AuthProvider | None = provider
+            self.provider_init_error: str | None = None
+        else:
+            firebase_provider = FirebaseAuthProvider(settings=self.settings)
+            self.provider = firebase_provider if firebase_provider.is_configured else None
+            self.provider_init_error = firebase_provider.init_error
+
         self.last_meta: AuthResolutionMeta | None = None
 
     async def resolve_session(
@@ -97,86 +244,11 @@ class AuthService:
         resolved_locale = normalize_locale(locale)
 
         if token:
-            if self.provider is None:
-                if require_auth:
-                    self.last_meta = AuthResolutionMeta(
-                        mode="auth_required_provider_missing",
-                        authenticated=False,
-                        provider="none",
-                        fallback_used=False,
-                        error_code="auth_provider_missing",
-                    )
-                    raise AuthError(
-                        "Authentication provider is not configured",
-                        code="auth_provider_missing",
-                    )
-
-                return self._anonymous_session(
-                    raw_user_id=raw_user_id or "anonymous",
-                    channel=resolved_channel,
-                    locale=resolved_locale,
-                    meta=AuthResolutionMeta(
-                        mode="anonymous_fallback_provider_missing",
-                        authenticated=False,
-                        provider="none",
-                        fallback_used=True,
-                        error_code="auth_provider_missing",
-                    ),
-                )
-
-            try:
-                identity = await self.provider.verify_bearer_token(token)
-                session = self._session_from_identity(
-                    identity,
-                    channel=resolved_channel,
-                    locale=resolved_locale,
-                )
-
-                self.last_meta = AuthResolutionMeta(
-                    mode="authenticated",
-                    authenticated=True,
-                    provider=_clean_provider_name(identity.provider),
-                    fallback_used=False,
-                )
-
-                return session
-
-            except AuthError:
-                self.last_meta = AuthResolutionMeta(
-                    mode="auth_provider_rejected",
-                    authenticated=False,
-                    provider=self.provider.name,
-                    fallback_used=False,
-                    error_code="auth_rejected",
-                )
-                raise
-
-            except Exception as exc:
-                if require_auth:
-                    self.last_meta = AuthResolutionMeta(
-                        mode="auth_provider_failed",
-                        authenticated=False,
-                        provider=self.provider.name,
-                        fallback_used=False,
-                        error_code=exc.__class__.__name__,
-                    )
-                    raise AuthError(
-                        "Authentication failed",
-                        code="auth_failed",
-                    ) from exc
-
-                return self._anonymous_session(
-                    raw_user_id=raw_user_id or "anonymous",
-                    channel=resolved_channel,
-                    locale=resolved_locale,
-                    meta=AuthResolutionMeta(
-                        mode="anonymous_fallback_auth_failed",
-                        authenticated=False,
-                        provider=self.provider.name,
-                        fallback_used=True,
-                        error_code=exc.__class__.__name__,
-                    ),
-                )
+            return await self._resolve_authenticated_token(
+                token=token,
+                channel=resolved_channel,
+                locale=resolved_locale,
+            )
 
         if require_auth:
             self.last_meta = AuthResolutionMeta(
@@ -203,13 +275,75 @@ class AuthService:
             ),
         )
 
+    async def _resolve_authenticated_token(
+        self,
+        *,
+        token: str,
+        channel: UserChannel,
+        locale: str,
+    ) -> UserSession:
+        if self.provider is None:
+            self.last_meta = AuthResolutionMeta(
+                mode="auth_provider_missing",
+                authenticated=False,
+                provider="none",
+                fallback_used=False,
+                error_code="auth_provider_missing",
+            )
+            raise AuthError(
+                "Authentication provider is not configured",
+                code="auth_provider_missing",
+                details={"init_error": self.provider_init_error},
+            )
+
+        try:
+            identity = await self.provider.verify_bearer_token(token)
+        except AuthError:
+            self.last_meta = AuthResolutionMeta(
+                mode="auth_provider_rejected",
+                authenticated=False,
+                provider=self.provider.name,
+                fallback_used=False,
+                error_code="auth_rejected",
+            )
+            raise
+        except Exception as exc:
+            self.last_meta = AuthResolutionMeta(
+                mode="auth_provider_failed",
+                authenticated=False,
+                provider=self.provider.name,
+                fallback_used=False,
+                error_code=exc.__class__.__name__,
+            )
+            raise AuthError(
+                "Authentication failed",
+                code="auth_failed",
+            ) from exc
+
+        session = self._session_from_identity(
+            identity,
+            channel=channel,
+            locale=locale,
+        )
+
+        self.last_meta = AuthResolutionMeta(
+            mode="authenticated",
+            authenticated=True,
+            provider=_clean_provider_name(identity.provider),
+            fallback_used=False,
+        )
+
+        return session
+
     def health(self) -> dict[str, Any]:
         return {
             "provider": self.provider.name if self.provider else "none",
             "provider_configured": self.provider is not None,
             "allow_anonymous": self.allow_anonymous,
-            "firebase_required": False,
+            "firebase_required": _firebase_env_present(self.settings),
+            "provider_init_error": self.provider_init_error,
             "trusts_unverified_bearer_tokens": False,
+            "invalid_bearer_falls_back_to_anonymous": False,
             "last_meta": None if self.last_meta is None else asdict(self.last_meta),
         }
 
@@ -263,7 +397,10 @@ class AuthService:
                 code="anonymous_disabled",
             )
 
-        clean_raw_id = sanitize_text(raw_user_id or "anonymous", MAX_RAW_USER_ID_CHARS) or "anonymous"
+        clean_raw_id = sanitize_text(
+            raw_user_id or "anonymous",
+            MAX_RAW_USER_ID_CHARS,
+        ) or "anonymous"
 
         self.last_meta = meta
 
@@ -276,23 +413,24 @@ class AuthService:
             metadata={
                 "provider": "anonymous",
                 "fallback_used": meta.fallback_used,
+                "trusted": False,
             },
         )
 
 
 def parse_bearer_token(authorization_header: str | None) -> str | None:
     """
-    Extract Bearer token from Authorization header.
+    Extract token from Authorization: Bearer <token>.
 
-    Returns token string only for syntactically valid Bearer headers.
-    The caller must never log this return value.
+    Returns only syntactically valid Bearer token strings.
+    Never log the returned value.
     """
     if authorization_header is None:
         return None
 
-    header = sanitize_text(str(authorization_header), MAX_AUTH_HEADER_CHARS)
+    header = str(authorization_header).replace("\r", " ").replace("\n", " ").strip()
 
-    if not header:
+    if not header or len(header) > MAX_AUTH_HEADER_CHARS:
         return None
 
     parts = header.split(None, 1)
@@ -302,10 +440,19 @@ def parse_bearer_token(authorization_header: str | None) -> str | None:
 
     scheme, token = parts[0].lower(), parts[1].strip()
 
-    if scheme != "bearer" or not token:
+    if scheme != "bearer":
         return None
 
-    return token
+    return _clean_token(token) or None
+
+
+def _clean_token(token: str) -> str:
+    clean = str(token or "").replace("\r", "").replace("\n", "").strip()
+
+    if not clean or len(clean) > MAX_AUTH_HEADER_CHARS:
+        return ""
+
+    return clean
 
 
 def _normalize_channel(channel: str | UserChannel) -> UserChannel:
@@ -338,7 +485,10 @@ def _sanitize_metadata(
 
         normalized_key = key.lower().replace("-", "_")
 
-        if any(secret in normalized_key for secret in ("token", "secret", "password", "credential", "cookie")):
+        if any(
+            secret in normalized_key
+            for secret in ("token", "secret", "password", "credential", "cookie", "key")
+        ):
             continue
 
         if raw_value is None or isinstance(raw_value, (bool, int, float)):
@@ -347,3 +497,115 @@ def _sanitize_metadata(
             cleaned[key] = sanitize_text(str(raw_value), MAX_METADATA_VALUE_CHARS)
 
     return cleaned
+
+
+def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return os.getenv(name, default)
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value()
+
+    return value
+
+
+def _setting_str(settings: Settings, name: str, default: str = "") -> str:
+    value = _setting_value(settings, name, default)
+    return sanitize_text(str(value or ""), 1_000)
+
+
+def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
+    value = _setting_value(settings, name, None)
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _firebase_project_id(settings: Settings) -> str:
+    return (
+        _setting_str(settings, "FIREBASE_PROJECT_ID")
+        or _setting_str(settings, "GOOGLE_CLOUD_PROJECT")
+    )
+
+
+def _firebase_env_present(settings: Settings) -> bool:
+    return bool(
+        _setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+        or _setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or _setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
+        or _setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
+    )
+
+
+def _allow_anonymous_sessions(settings: Settings) -> bool:
+    return _setting_bool(settings, "ALLOW_ANONYMOUS_SESSIONS", default=True)
+
+
+def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> Any:
+    try:
+        from firebase_admin import credentials
+    except Exception as exc:
+        raise RuntimeError("firebase-admin credentials module is unavailable") from exc
+
+    raw_json = _setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+    credentials_path = (
+        _setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or _setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
+    )
+    use_adc = _setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
+
+    if raw_json:
+        try:
+            data = json.loads(raw_json)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("FIREBASE_CREDENTIALS_JSON is not valid JSON") from exc
+
+        actual_project_id = sanitize_text(str(data.get("project_id") or ""), 160)
+
+        if expected_project_id and actual_project_id and actual_project_id != expected_project_id:
+            raise RuntimeError(
+                "Firebase credentials project_id does not match FIREBASE_PROJECT_ID"
+            )
+
+        private_key = str(data.get("private_key", ""))
+        if "\\n" in private_key:
+            data["private_key"] = private_key.replace("\\n", "\n")
+
+        return credentials.Certificate(data)
+
+    if credentials_path:
+        path = Path(credentials_path)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+
+        if not path.exists():
+            raise RuntimeError(f"Firebase credentials file not found: {path}")
+
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"Firebase credentials file is not valid JSON: {path}") from exc
+
+        actual_project_id = sanitize_text(str(data.get("project_id") or ""), 160)
+
+        if expected_project_id and actual_project_id and actual_project_id != expected_project_id:
+            raise RuntimeError(
+                "Firebase credentials project_id does not match FIREBASE_PROJECT_ID"
+            )
+
+        return credentials.Certificate(data)
+
+    if use_adc:
+        return credentials.ApplicationDefault()
+
+    raise RuntimeError(
+        "Missing Firebase credentials. Set FIREBASE_CREDENTIALS_JSON, "
+        "FIREBASE_CREDENTIALS_PATH, or FIREBASE_USE_APPLICATION_DEFAULT=true."
+    )
