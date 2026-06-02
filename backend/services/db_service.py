@@ -39,8 +39,9 @@ class DBProvider(Protocol):
     Storage provider protocol.
 
     Implementations:
-    - InMemoryDBProvider: local/test/offline fallback
     - FirebaseDBProvider: production Firestore provider
+    - InMemoryDBProvider: local/test/offline fallback
+    - UnavailableDBProvider: fail-closed production provider
     """
 
     name: str
@@ -67,11 +68,12 @@ class InMemoryDBProvider:
     Safe local/mock database provider.
 
     Intended for:
-    - development without Firebase credentials
+    - local development without Firebase credentials
     - tests
     - offline demo mode
 
-    This provider is process-local and not durable.
+    This provider is process-local and not durable. It must not be used as a
+    silent fallback in production.
     """
 
     name = "mock"
@@ -132,6 +134,47 @@ class InMemoryDBProvider:
             return deepcopy(self._events.get(collection, []))
 
 
+class UnavailableDBProvider:
+    """
+    Fail-closed provider used when production Firebase initialization fails.
+
+    This prevents production from silently writing user memory/profile data into
+    process-local mock storage.
+    """
+
+    name = "firebase_unavailable"
+
+    def __init__(self, *, reason: str | None = None) -> None:
+        self.reason = sanitize_text(str(reason or "Firebase provider unavailable"), 500)
+
+    @property
+    def is_configured(self) -> bool:
+        return False
+
+    async def get_document(self, collection: str, key: str) -> dict[str, Any] | None:
+        raise self._error("get_document")
+
+    async def set_document(self, collection: str, key: str, payload: dict[str, Any]) -> None:
+        raise self._error("set_document")
+
+    async def delete_document(self, collection: str, key: str) -> None:
+        raise self._error("delete_document")
+
+    async def append_event(self, collection: str, payload: dict[str, Any]) -> str:
+        raise self._error("append_event")
+
+    def _error(self, operation: str) -> DatabaseError:
+        return DatabaseError(
+            "Firebase database provider is unavailable",
+            code="db_provider_unavailable",
+            details={
+                "provider": self.name,
+                "operation": sanitize_text(operation, 80),
+                "reason": self.reason,
+            },
+        )
+
+
 class FirebaseDBProvider:
     """
     Firebase Firestore provider.
@@ -145,8 +188,8 @@ class FirebaseDBProvider:
 
     def __init__(self, *, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self.project_id = _firebase_project_id()
-        self.database_id = _firestore_database_id()
+        self.project_id = _firebase_project_id(self.settings)
+        self.database_id = _firestore_database_id(self.settings)
         self._client: Any | None = None
         self._init_error: str | None = None
 
@@ -174,13 +217,13 @@ class FirebaseDBProvider:
         if not self.project_id:
             raise RuntimeError("Missing FIREBASE_PROJECT_ID or GOOGLE_CLOUD_PROJECT")
 
-        app_name = os.getenv("FIREBASE_APP_NAME", "mindpal").strip() or "mindpal"
+        app_name = _setting_str(self.settings, "FIREBASE_APP_NAME", "mindpal") or "mindpal"
 
         if app_name in firebase_admin._apps:
             app = firebase_admin.get_app(app_name)
         else:
             app = firebase_admin.initialize_app(
-                _firebase_credentials(),
+                _firebase_credentials(self.settings, expected_project_id=self.project_id),
                 {"projectId": self.project_id},
                 name=app_name,
             )
@@ -246,11 +289,11 @@ class DBService:
 
     Responsibilities:
     - use Firebase Firestore when configured
-    - fall back to in-memory mode when Firebase is unavailable
+    - allow in-memory DB only outside production
+    - fail closed in production when Firebase is unavailable
     - persist sanitized memory summaries
     - persist sanitized user profiles
     - append sanitized safety events
-    - never require Firebase at startup
     - never log/store raw chat messages by default
 
     Non-responsibilities:
@@ -271,6 +314,7 @@ class DBService:
         settings: Settings | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self.production_mode = _is_production(self.settings)
         self.firebase_init_error: str | None = None
 
         if provider is not None and provider.is_configured:
@@ -285,9 +329,15 @@ class DBService:
             self.mock_mode = False
             return
 
+        self.firebase_init_error = firebase_provider.init_error
+
+        if self.production_mode:
+            self.provider = UnavailableDBProvider(reason=self.firebase_init_error)
+            self.mock_mode = False
+            return
+
         self.provider = InMemoryDBProvider()
         self.mock_mode = True
-        self.firebase_init_error = firebase_provider.init_error
 
     async def load_memory(self, user_id_hash: str) -> MemoryLoadResult:
         user_id_hash = _clean_key(user_id_hash)
@@ -312,6 +362,8 @@ class DBService:
                 summary=summary,
             )
 
+        except DatabaseError:
+            raise
         except Exception as exc:
             raise DatabaseError(
                 "Failed to load memory summary",
@@ -337,6 +389,8 @@ class DBService:
                 memory_updated=True,
             )
 
+        except DatabaseError:
+            raise
         except Exception as exc:
             user_id_hash = getattr(summary, "user_id_hash", "unknown")
 
@@ -362,6 +416,8 @@ class DBService:
                 memory_updated=True,
             )
 
+        except DatabaseError:
+            raise
         except Exception as exc:
             raise DatabaseError(
                 "Failed to delete memory summary",
@@ -388,6 +444,8 @@ class DBService:
                 provider=self.provider.name,
             )
 
+        except DatabaseError:
+            raise
         except Exception as exc:
             raise DatabaseError(
                 "Failed to load user profile",
@@ -412,6 +470,8 @@ class DBService:
                 provider=self.provider.name,
             )
 
+        except DatabaseError:
+            raise
         except Exception as exc:
             user_id_hash = getattr(profile, "user_id_hash", "unknown")
 
@@ -458,6 +518,8 @@ class DBService:
 
             return await self.provider.append_event(self.SAFETY_EVENTS_COLLECTION, payload)
 
+        except DatabaseError:
+            raise
         except Exception as exc:
             raise DatabaseError(
                 "Failed to append safety event",
@@ -470,8 +532,9 @@ class DBService:
             "provider": self.provider.name,
             "provider_configured": bool(self.provider.is_configured),
             "mock_mode": self.mock_mode,
+            "production_mode": self.production_mode,
             "stores_raw_chat_by_default": False,
-            "firebase_required": _firebase_env_present(),
+            "firebase_required": self.production_mode or _firebase_env_present(self.settings),
             "firebase_init_error": self.firebase_init_error,
             "project_id": getattr(self.provider, "project_id", None),
             "database_id": getattr(self.provider, "database_id", None),
@@ -483,50 +546,85 @@ class DBService:
         }
 
 
-def _firebase_project_id() -> str:
+def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return os.getenv(name, default)
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value()
+
+    return value
+
+
+def _setting_str(settings: Settings, name: str, default: str = "") -> str:
+    value = _setting_value(settings, name, default)
+    return sanitize_text(str(value or ""), 1_000)
+
+
+def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
+    value = _setting_value(settings, name, None)
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_production(settings: Settings) -> bool:
+    environment = _setting_str(settings, "ENVIRONMENT", "development").lower()
+    return environment in {"production", "prod"}
+
+
+def _firebase_project_id(settings: Settings) -> str:
     return (
-        os.getenv("FIREBASE_PROJECT_ID", "").strip()
-        or os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
+        _setting_str(settings, "FIREBASE_PROJECT_ID")
+        or _setting_str(settings, "GOOGLE_CLOUD_PROJECT")
     )
 
 
-def _firestore_database_id() -> str:
-    return os.getenv("FIRESTORE_DATABASE_ID", "default").strip() or "default"
+def _firestore_database_id(settings: Settings) -> str:
+    return _setting_str(settings, "FIRESTORE_DATABASE_ID", "default") or "default"
 
 
-def _firebase_env_present() -> bool:
+def _firebase_env_present(settings: Settings) -> bool:
     return bool(
-        os.getenv("FIREBASE_CREDENTIALS_JSON", "").strip()
-        or os.getenv("FIREBASE_CREDENTIALS_PATH", "").strip()
-        or os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
-        or os.getenv("FIREBASE_USE_APPLICATION_DEFAULT", "").strip().lower()
-        in {"1", "true", "yes", "on"}
+        _setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+        or _setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or _setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
+        or _setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
     )
 
 
-def _firebase_credentials() -> Any:
+def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> Any:
     try:
         from firebase_admin import credentials
     except Exception as exc:
         raise RuntimeError("firebase-admin credentials module is unavailable") from exc
 
-    raw_json = os.getenv("FIREBASE_CREDENTIALS_JSON", "").strip()
+    raw_json = _setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
     credentials_path = (
-        os.getenv("FIREBASE_CREDENTIALS_PATH", "").strip()
-        or os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+        _setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or _setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
     )
-    use_adc = os.getenv("FIREBASE_USE_APPLICATION_DEFAULT", "false").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+    use_adc = _setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
 
     if raw_json:
         try:
             data = json.loads(raw_json)
         except json.JSONDecodeError as exc:
             raise RuntimeError("FIREBASE_CREDENTIALS_JSON is not valid JSON") from exc
+
+        actual_project_id = sanitize_text(str(data.get("project_id") or ""), 160)
+
+        if expected_project_id and actual_project_id and actual_project_id != expected_project_id:
+            raise RuntimeError(
+                "Firebase credentials project_id does not match FIREBASE_PROJECT_ID"
+            )
 
         private_key = str(data.get("private_key", ""))
         if "\\n" in private_key:
@@ -542,7 +640,19 @@ def _firebase_credentials() -> Any:
         if not path.exists():
             raise RuntimeError(f"Firebase credentials file not found: {path}")
 
-        return credentials.Certificate(str(path))
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"Firebase credentials file is not valid JSON: {path}") from exc
+
+        actual_project_id = sanitize_text(str(data.get("project_id") or ""), 160)
+
+        if expected_project_id and actual_project_id and actual_project_id != expected_project_id:
+            raise RuntimeError(
+                "Firebase credentials project_id does not match FIREBASE_PROJECT_ID"
+            )
+
+        return credentials.Certificate(data)
 
     if use_adc:
         return credentials.ApplicationDefault()
