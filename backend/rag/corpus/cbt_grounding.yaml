@@ -1,0 +1,243 @@
+schema_version: 1
+domain: cbt_grounding
+description: >
+  Curated non-clinical CBT-informed grounding and thought-organization units
+  for MindPal. These units help users separate facts from interpretations,
+  identify thought patterns, and choose small practical actions. They are not
+  diagnosis, treatment, therapy, or medical advice.
+
+units:
+  - id: cbt_thought_feeling_action_loop
+    category: cbt_grounding
+    technique: thought-feeling-action loop
+    trigger_terms:
+      - overthinking
+      - negative thoughts
+      - I keep spiraling
+      - my thoughts control me
+      - I feel bad then act bad
+      - vicious cycle
+      - دماغي بتلف
+      - تفكير سلبي
+      - أفكاري مسيطرة عليا
+      - بدخل في دايرة
+      - دوامة
+      - بعمل تصرفات غلط لما بتضايق
+    instructions:
+      - Explain the loop simply as situation, thought, feeling, body sensation, and action.
+      - Ask the user to name the situation in one sentence.
+      - Ask what thought appeared automatically.
+      - Ask what feeling and body reaction followed.
+      - Ask what action urge appeared.
+      - Pick one point in the loop where a small change is possible.
+    contraindications:
+      - Do not present CBT as a cure.
+      - Do not diagnose the user.
+      - Do not argue that the user's thought is wrong before understanding it.
+      - If the user expresses immediate danger or self-harm risk, route to safety first.
+    response_style:
+      - structured
+      - simple
+      - non-clinical
+      - practical
+    tags:
+      - cbt
+      - thought_feeling_behavior
+      - cognitive_loop
+      - grounding
+      - arabic_supported
+
+  - id: cbt_fact_interpretation_split
+    category: cbt_grounding
+    technique: fact versus interpretation split
+    trigger_terms:
+      - I am assuming
+      - I don't know if it is true
+      - maybe they hate me
+      - maybe she is lying
+      - maybe he is lying
+      - I keep reading into it
+      - بفترض
+      - مش عارف ده حقيقي ولا لا
+      - يمكن بيكرهني
+      - يمكن بتكدب
+      - يمكن بيكدب
+      - بفسر كل حاجة
+      - دماغي بتكبر الموضوع
+    instructions:
+      - Ask the user to list only observable facts first.
+      - Put meanings, guesses, and fears in a separate interpretation list.
+      - Ask which interpretation is most painful, not necessarily most true.
+      - Ask for one alternative explanation that could also fit the facts.
+      - Choose one respectful way to verify instead of continuing mental guessing.
+    contraindications:
+      - Do not tell the user their concern is imaginary.
+      - Do not decide whether another person is lying without evidence.
+      - Do not encourage checking phones, hacking, stalking, or pressure tactics.
+      - If abuse or immediate risk is present, safety routing comes first.
+    response_style:
+      - analytical
+      - grounded
+      - calm
+      - non-accusatory
+    tags:
+      - cbt
+      - facts_vs_interpretations
+      - overthinking
+      - relationships
+      - uncertainty
+
+  - id: cbt_balanced_thought
+    category: cbt_grounding
+    technique: balanced thought
+    trigger_terms:
+      - I am a failure
+      - I always ruin things
+      - nobody cares about me
+      - I can't do anything right
+      - I failed everything
+      - أنا فاشل
+      - أنا فاشلة
+      - ببوظ كل حاجة
+      - محدش مهتم بيا
+      - مش بعرف أعمل حاجة صح
+      - فشلت في كل حاجة
+    instructions:
+      - Ask for the harsh thought exactly as it appears.
+      - Ask what emotion it creates.
+      - Ask what evidence supports part of it.
+      - Ask what evidence makes it incomplete or too extreme.
+      - Write a balanced thought that is believable, not fake-positive.
+    contraindications:
+      - Do not force optimism.
+      - Do not shame the user for negative thinking.
+      - Do not claim the balanced thought is objectively true.
+      - Do not use this before crisis stabilization when risk is immediate.
+    response_style:
+      - validating
+      - balanced
+      - precise
+      - non-cheesy
+    tags:
+      - cbt
+      - balanced_thought
+      - self_criticism
+      - negative_thoughts
+      - reframing
+
+  - id: cbt_behavioral_activation_micro
+    category: cbt_grounding
+    technique: behavioral activation micro-step
+    trigger_terms:
+      - I cannot start
+      - I do nothing all day
+      - I am stuck
+      - I feel frozen
+      - I lost motivation
+      - مش قادر أبدأ
+      - مش قادرة أبدأ
+      - واقف مكاني
+      - اليوم بيضيع
+      - مفيش طاقة
+      - معنديش دافع
+    instructions:
+      - Avoid waiting for motivation first.
+      - Choose one action that takes less than two minutes.
+      - Make the action physical or visible, such as standing up, opening the file, or writing one line.
+      - After completing it, ask the user to rate energy or resistance again.
+      - Build the next step only after the first step is done.
+    contraindications:
+      - Do not call the user lazy.
+      - Do not create a long productivity plan during overwhelm.
+      - Do not pressure action if the user is unsafe or in crisis.
+      - Do not promise motivation will appear immediately.
+    response_style:
+      - action-oriented
+      - direct
+      - low-pressure
+      - practical
+    tags:
+      - cbt
+      - behavioral_activation
+      - micro_step
+      - motivation
+      - study_stress
+
+  - id: cbt_problem_breakdown
+    category: cbt_grounding
+    technique: problem breakdown
+    trigger_terms:
+      - everything is too much
+      - too many problems
+      - I don't know where to start
+      - overwhelmed
+      - impossible
+      - حاجات كتير
+      - كل حاجة فوق دماغي
+      - مش عارف أبدأ منين
+      - مش عارفة أبدأ منين
+      - الموضوع مستحيل
+      - متلخبط
+      - متلخبطة
+    instructions:
+      - Ask the user to write the whole problem in one sentence.
+      - Split it into parts: controllable, influenceable, and not controllable today.
+      - Ignore the not-controllable part for the next 10 minutes.
+      - Pick one controllable part.
+      - Define the next physical action.
+    contraindications:
+      - Do not minimize the size of the problem.
+      - Do not make a huge plan.
+      - Do not imply everything is under the user's control.
+      - If danger or crisis is present, safety comes first.
+    response_style:
+      - organized
+      - calm
+      - concise
+      - tactical
+    tags:
+      - cbt
+      - problem_solving
+      - overwhelm
+      - control_filter
+      - next_action
+
+  - id: cbt_exam_thought_reset
+    category: cbt_grounding
+    technique: exam thought reset
+    trigger_terms:
+      - I will fail
+      - exam tomorrow
+      - quiz tomorrow
+      - I forgot everything
+      - I cannot study
+      - هسقط
+      - هموت في الامتحان
+      - امتحان بكرة
+      - كويز بكرة
+      - نسيت كل حاجة
+      - مش عارف اذاكر
+      - مش هلحق
+    instructions:
+      - Identify the exam thought creating panic.
+      - Replace global panic with a testable next unit.
+      - Use a 25-minute recall block, not passive rereading.
+      - After the block, list mistakes only.
+      - Repeat mistakes once, then move to the next highest-yield topic.
+    contraindications:
+      - Do not promise full marks.
+      - Do not create an unrealistic all-night plan.
+      - Do not shame the user for being behind.
+      - If the user expresses self-harm risk, route to safety first.
+    response_style:
+      - direct
+      - tactical
+      - study-focused
+      - confidence-building without false certainty
+    tags:
+      - cbt
+      - exams
+      - active_recall
+      - panic_to_action
+      - study_stress
+      - arabic_supported

@@ -1,0 +1,323 @@
+schema_version: 1
+domain: cognitive_support
+description: >
+  Curated non-clinical cognitive support units for MindPal.
+  These units help users organize thoughts, reduce rumination, prioritize
+  action, and make grounded decisions. They are not diagnosis, treatment,
+  therapy, or medical advice.
+
+units:
+  - id: cognitive_facts_vs_story
+    category: cognitive_support
+    technique: facts versus story
+    trigger_terms:
+      - overthinking
+      - assuming
+      - I keep making scenarios
+      - what if
+      - I think they hate me
+      - I don't know what is real
+      - I am reading too much into it
+      - دماغي بتعمل سيناريوهات
+      - بفترض
+      - مش عارف الحقيقة
+      - مش عارفة الحقيقة
+      - يمكن بيكرهني
+      - يمكن بيكرهوني
+      - بفكر زيادة
+      - بفسر كل حاجة
+    instructions:
+      - Split the situation into two lists: facts and story.
+      - Keep facts observable and short.
+      - Put guesses, fears, predictions, and meanings under story.
+      - Ask which story hurts the most.
+      - Choose one respectful way to verify reality instead of looping mentally.
+    contraindications:
+      - Do not dismiss the user's concern as imaginary.
+      - Do not claim certainty about another person's intent.
+      - Do not encourage surveillance, stalking, hacking, or privacy invasion.
+      - If abuse, danger, or self-harm appears, route to safety first.
+    response_style:
+      - analytical
+      - grounded
+      - concise
+      - non-accusatory
+    tags:
+      - rumination
+      - uncertainty
+      - facts_vs_story
+      - relationships
+      - arabic_supported
+
+  - id: cognitive_next_action_filter
+    category: cognitive_support
+    technique: next action filter
+    trigger_terms:
+      - I don't know what to do
+      - what should I do now
+      - stuck
+      - frozen
+      - overwhelmed
+      - too many things
+      - مش عارف اعمل ايه
+      - مش عارفة اعمل ايه
+      - متلخبط
+      - متلخبطة
+      - واقف مكاني
+      - مش قادر أبدأ
+      - مش قادرة أبدأ
+      - حاجات كتير
+    instructions:
+      - Ask what problem is directly in front of the user.
+      - Remove anything that cannot be acted on in the next 10 minutes.
+      - Pick one small, concrete, reversible action.
+      - Make the action visible: open a file, write one line, send one neutral message, stand up, or list three items.
+      - Reassess only after the action is done.
+    contraindications:
+      - Do not create a huge plan when the user is overwhelmed.
+      - Do not pressure action during danger, crisis, or exhaustion.
+      - Do not frame the chosen action as the only correct path.
+    response_style:
+      - direct
+      - tactical
+      - low-overhead
+      - action-first
+    tags:
+      - planning
+      - overwhelm
+      - executive_support
+      - next_step
+      - study_stress
+
+  - id: cognitive_priority_cut
+    category: cognitive_support
+    technique: priority cut
+    trigger_terms:
+      - too many tasks
+      - I have a lot to do
+      - I can't choose
+      - everything is important
+      - no time
+      - حاجات كتير
+      - عندي حاجات كتير
+      - مش عارف أختار
+      - كله مهم
+      - مفيش وقت
+      - الدنيا مزنقة
+      - متراكم عليا
+    instructions:
+      - Ask for all active tasks in a rough list.
+      - Mark each task as urgent, important, both, or neither.
+      - Cut anything that does not affect the next 24 hours.
+      - Pick the task with the highest consequence if ignored.
+      - Start with the smallest useful slice of that task.
+    contraindications:
+      - Do not optimize for productivity if the user is in crisis.
+      - Do not shame the user for being behind.
+      - Do not create a schedule longer than the user can realistically follow.
+    response_style:
+      - decisive
+      - practical
+      - focused
+      - low-noise
+    tags:
+      - prioritization
+      - productivity
+      - overwhelm
+      - time_management
+      - study
+
+  - id: cognitive_probability_check
+    category: cognitive_support
+    technique: probability check
+    trigger_terms:
+      - worst case
+      - catastrophe
+      - I am sure it will go wrong
+      - it will definitely fail
+      - everything will collapse
+      - كارثة
+      - أكيد هتفشل
+      - الدنيا هتبوظ
+      - كل حاجة هتقع
+      - أسوأ احتمال
+      - متأكد إنها هتبوظ
+      - متأكدة إنها هتبوظ
+    instructions:
+      - Ask the user to name the feared outcome.
+      - Ask for probability from 0 to 100, not emotion intensity.
+      - Ask what evidence increases that probability.
+      - Ask what evidence decreases it.
+      - End with one preventive action and one recovery action.
+    contraindications:
+      - Do not promise that the feared event will not happen.
+      - Do not mock catastrophic thinking.
+      - Do not feed reassurance loops with repeated certainty.
+      - If urgent safety action is needed, route to safety first.
+    response_style:
+      - rational
+      - calm
+      - practical
+      - non-reassurance-seeking
+    tags:
+      - catastrophizing
+      - probability
+      - uncertainty
+      - anxiety
+      - recovery_plan
+
+  - id: cognitive_three_option_decision
+    category: cognitive_support
+    technique: three-option decision
+    trigger_terms:
+      - should I do this or that
+      - I can't decide
+      - two choices
+      - confused decision
+      - محتار
+      - محتارة
+      - اختار ايه
+      - أعمل كده ولا كده
+      - مش عارف أقرر
+      - مش عارفة أقرر
+      - قرار صعب
+    instructions:
+      - Write option A and option B clearly.
+      - Add a third option that is smaller, delayed, or reversible.
+      - Compare cost, upside, downside, and reversibility.
+      - Prefer reversible choices when uncertainty is high.
+      - Set a review time so the user does not rethink endlessly.
+    contraindications:
+      - Do not decide for the user in high-stakes matters without constraints.
+      - Do not encourage impulsive decisions.
+      - Do not ignore safety, consent, legal boundaries, or financial risk.
+    response_style:
+      - strategic
+      - concise
+      - decision-oriented
+      - neutral
+    tags:
+      - decision_support
+      - tradeoffs
+      - reversibility
+      - uncertainty
+      - planning
+
+  - id: cognitive_conversation_plan
+    category: cognitive_support
+    technique: conversation plan
+    trigger_terms:
+      - I need to talk to them
+      - how do I explain
+      - I need to confront
+      - I want to say this right
+      - I don't want a fight
+      - لازم أتكلم معاه
+      - لازم أتكلم معاها
+      - أشرح ازاي
+      - أواجه ازاي
+      - مش عايز خناق
+      - مش عايزة خناق
+      - عايز أقولها صح
+      - عايزة أقوله صح
+    instructions:
+      - Define the goal of the conversation in one sentence.
+      - Separate the main point from emotional overflow.
+      - Use a calm opener, one fact, one feeling, and one request.
+      - Remove accusations, threats, and long history.
+      - Decide what boundary or pause to use if the conversation escalates.
+    contraindications:
+      - Do not help manipulate, guilt-trip, threaten, or pressure someone.
+      - Do not advise repeated contact if the other person asked for space.
+      - Do not encourage confrontation if there is danger.
+    response_style:
+      - mature
+      - clear
+      - calm
+      - non-manipulative
+    tags:
+      - communication
+      - relationships
+      - conflict
+      - conversation_planning
+      - boundaries
+      - arabic_supported
+
+  - id: cognitive_study_reset
+    category: cognitive_support
+    technique: study reset
+    trigger_terms:
+      - I can't study
+      - exam tomorrow
+      - quiz
+      - final
+      - I forgot everything
+      - I am behind
+      - مش عارف اذاكر
+      - مش عارفة اذاكر
+      - امتحان بكرة
+      - كويز
+      - فاينل
+      - نسيت كل حاجة
+      - متأخر
+      - مش هلحق
+    instructions:
+      - Stop trying to cover everything at once.
+      - Pick the nearest exam-relevant unit.
+      - Use a 25-minute active recall block.
+      - Start with questions or blank-page recall before rereading.
+      - After the block, list mistakes only and repeat them once.
+    contraindications:
+      - Do not promise full marks.
+      - Do not create impossible all-night schedules.
+      - Do not shame the user for being behind.
+      - If self-harm risk appears, route to safety first.
+    response_style:
+      - direct
+      - tactical
+      - study-focused
+      - confidence-building without false certainty
+    tags:
+      - study
+      - exams
+      - active_recall
+      - overwhelm
+      - planning
+      - arabic_supported
+
+  - id: cognitive_control_filter
+    category: cognitive_support
+    technique: control filter
+    trigger_terms:
+      - I can't control it
+      - everything is outside my control
+      - I feel helpless
+      - nothing I do matters
+      - مش بإيدي
+      - مش في إيدي
+      - كل حاجة خارجة عن سيطرتي
+      - حاسس بالعجز
+      - حاسة بالعجز
+      - مهما عملت مفيش فايدة
+    instructions:
+      - Split the situation into control, influence, and no-control.
+      - Put direct actions under control.
+      - Put conversations, requests, and preparation under influence.
+      - Put other people's choices and past events under no-control.
+      - Choose one control action and one influence action.
+    contraindications:
+      - Do not imply the user controls other people's behavior.
+      - Do not minimize external constraints.
+      - Do not use control language to blame the user.
+      - If the user is unsafe, safety actions come first.
+    response_style:
+      - grounded
+      - structured
+      - empowering
+      - realistic
+    tags:
+      - control
+      - helplessness
+      - planning
+      - agency
+      - uncertainty
