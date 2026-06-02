@@ -63,3 +63,5 @@ temp/
 var/
 local_data/
 secrets/firebase-service-account.json
+.vercel
+.env*
