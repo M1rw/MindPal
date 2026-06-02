@@ -1,0 +1,253 @@
+# backend/rag/corpus/emotion_regulation.yaml
+
+schema_version: 1
+domain: emotion_regulation
+description: >
+  Curated non-clinical emotion regulation support units for MindPal.
+  These units provide practical wellness support only. They are not diagnosis,
+  treatment, therapy, or medical advice.
+
+units:
+  - id: name_the_emotion
+    category: emotion_regulation
+    technique: name the emotion
+    trigger_terms:
+      - angry
+      - sad
+      - ashamed
+      - jealous
+      - hurt
+      - disappointed
+      - emotionally overwhelmed
+      - I do not know what I feel
+      - مش فاهم أنا حاسس بإيه
+      - مش فاهمة أنا حاسة بإيه
+      - مخنوق
+      - مخنوقة
+      - متضايق
+      - متضايقة
+      - زعلان
+      - زعلانة
+      - غضبان
+      - غضبانة
+      - غيران
+      - غيرانة
+    instructions:
+      - Invite the user to choose one or two emotion labels instead of explaining the whole situation.
+      - Offer simple labels if the user is stuck, such as hurt, angry, afraid, ashamed, lonely, or disappointed.
+      - Separate emotion from action: feeling something does not force a specific behavior.
+      - Ask what the emotion is trying to protect or signal.
+      - Move to one small next action after the emotion is named.
+    contraindications:
+      - Do not tell the user what they feel with certainty.
+      - Do not diagnose mood disorders.
+      - Do not force emotional analysis during acute crisis.
+      - If the user expresses immediate danger or self-harm risk, route to safety first.
+    response_style:
+      - validating
+      - clear
+      - short
+      - non-diagnostic
+    tags:
+      - emotion_labeling
+      - self_awareness
+      - regulation
+      - arabic_supported
+
+  - id: pause_before_action
+    category: emotion_regulation
+    technique: pause before action
+    trigger_terms:
+      - I want to text them now
+      - I want to explode
+      - I might say something bad
+      - I cannot control myself
+      - impulsive
+      - reactive
+      - هبعتلها دلوقتي
+      - هبعتله دلوقتي
+      - هتخانق
+      - مش قادر امسك نفسي
+      - عايز أزعق
+      - عايزة أزعق
+      - هقول كلام يزعل
+      - متعصب
+      - متعصبة
+    instructions:
+      - Ask the user to wait 90 seconds before acting.
+      - Suggest putting the message in notes first, not sending it immediately.
+      - Ask what outcome they want after the emotion drops by 20 percent.
+      - Help rewrite the action into a calmer version if needed.
+      - Keep the focus on control, not suppression.
+    contraindications:
+      - Do not shame the user for anger.
+      - Do not encourage manipulation, threats, stalking, or coercion.
+      - Do not help write abusive messages.
+      - If there is risk of violence or immediate danger, prioritize safety and distance.
+    response_style:
+      - direct
+      - steady
+      - practical
+      - de-escalating
+    tags:
+      - impulse_control
+      - anger
+      - texting_pause
+      - deescalation
+      - relationships
+
+  - id: check_the_facts
+    category: emotion_regulation
+    technique: check the facts
+    trigger_terms:
+      - overthinking
+      - assuming
+      - what if
+      - maybe they hate me
+      - maybe I failed
+      - I know they are lying
+      - دماغي بتفترض
+      - يمكن بيكرهوني
+      - يمكن هي بتكدب
+      - يمكن هو بيكدب
+      - مش متأكد
+      - بفكر كتير
+      - سيناريوهات
+    instructions:
+      - Separate facts from interpretations.
+      - Ask the user to list what they directly know.
+      - Ask what they are assuming but cannot prove yet.
+      - Ask what alternative explanation could also fit the facts.
+      - Move to the next useful check or conversation instead of endless analysis.
+    contraindications:
+      - Do not invalidate the user's concern.
+      - Do not claim the other person is innocent or guilty without evidence.
+      - Do not encourage surveillance, hacking, or privacy invasion.
+      - Do not use this when the user reports immediate abuse or danger; safety comes first.
+    response_style:
+      - analytical
+      - grounded
+      - non-accusatory
+      - concise
+    tags:
+      - cognitive_check
+      - rumination
+      - relationships
+      - uncertainty
+      - facts_vs_story
+
+  - id: opposite_action_light
+    category: emotion_regulation
+    technique: opposite action light
+    trigger_terms:
+      - I want to isolate
+      - I want to disappear
+      - I want to avoid everyone
+      - I cannot start
+      - I feel frozen
+      - مش عايز أكلم حد
+      - مش عايزة أكلم حد
+      - عايز أختفي
+      - عايزة أختفي
+      - مش قادر أبدأ
+      - متجمد
+      - متجمدة
+    instructions:
+      - Identify the action urge without judging it.
+      - Suggest the smallest safe opposite action, such as opening the book, sending one neutral message, or standing up.
+      - Keep the step small enough that the user can do it in under two minutes.
+      - Ask the user to do the action before discussing motivation.
+      - Reinforce action first, emotion change second.
+    contraindications:
+      - Do not force social contact if the person is unsafe.
+      - Do not use productivity pressure during crisis.
+      - Do not frame avoidance as laziness.
+      - If the user may be in danger, choose safety and support instead.
+    response_style:
+      - action-focused
+      - low-pressure
+      - practical
+      - brief
+    tags:
+      - avoidance
+      - activation
+      - emotion_regulation
+      - study_stress
+      - shutdown
+
+  - id: urge_surfing
+    category: emotion_regulation
+    technique: urge surfing
+    trigger_terms:
+      - craving
+      - urge
+      - impulse
+      - I want to do it now
+      - cannot resist
+      - عايز أعملها دلوقتي
+      - عايزة أعملها دلوقتي
+      - مش قادر أقاوم
+      - رغبة قوية
+      - اندفاع
+    instructions:
+      - Ask the user to rate the urge from 0 to 10.
+      - Ask where they feel it in the body.
+      - Ask them to watch the urge for one minute without obeying or fighting it.
+      - Remind them that urges rise, peak, and fall.
+      - Suggest delaying the action by five minutes and changing location if possible.
+    contraindications:
+      - Do not use this as the only response to self-harm, violence, or medical danger.
+      - Do not normalize harmful action.
+      - Do not make certainty claims that the urge will disappear immediately.
+    response_style:
+      - calm
+      - body-aware
+      - non-shaming
+      - structured
+    tags:
+      - urge_surfing
+      - impulse_control
+      - craving
+      - delay
+      - body_awareness
+
+  - id: repair_after_conflict
+    category: emotion_regulation
+    technique: repair after conflict
+    trigger_terms:
+      - I messed up
+      - I shouted
+      - I hurt them
+      - I want to apologize
+      - conflict
+      - argument
+      - غلطت
+      - زعقت
+      - جرحتها
+      - جرحته
+      - عايز أعتذر
+      - عايزة أعتذر
+      - اتخانقنا
+      - خناقة
+    instructions:
+      - Separate accountability from self-attack.
+      - Use a short repair format: what happened, ownership, impact, next behavior.
+      - Avoid excuses in the first apology.
+      - Ask what boundary or change will prevent repetition.
+      - Keep the repair message calm and specific.
+    contraindications:
+      - Do not help manipulate the other person into forgiving.
+      - Do not write guilt-tripping apology messages.
+      - Do not advise repeated contact if the other person asked for space.
+      - If abuse or safety risk is present, prioritize safety over repair.
+    response_style:
+      - mature
+      - accountable
+      - concise
+      - non-manipulative
+    tags:
+      - conflict_repair
+      - apology
+      - relationships
+      - accountability
+      - deescalation

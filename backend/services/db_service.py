@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 from collections import defaultdict
 from copy import deepcopy
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Protocol
 
 from backend.core.config import Settings, get_settings
@@ -35,9 +38,9 @@ class DBProvider(Protocol):
     """
     Storage provider protocol.
 
-    Firebase provider later should implement this interface. This service does
-    not import Firebase modules directly, so local/mock mode remains reliable
-    when Firebase credentials are missing.
+    Implementations:
+    - InMemoryDBProvider: local/test/offline fallback
+    - FirebaseDBProvider: production Firestore provider
     """
 
     name: str
@@ -64,9 +67,8 @@ class InMemoryDBProvider:
     Safe local/mock database provider.
 
     Intended for:
-    - development
+    - development without Firebase credentials
     - tests
-    - missing Firebase config
     - offline demo mode
 
     This provider is process-local and not durable.
@@ -130,12 +132,121 @@ class InMemoryDBProvider:
             return deepcopy(self._events.get(collection, []))
 
 
+class FirebaseDBProvider:
+    """
+    Firebase Firestore provider.
+
+    Uses explicit FIRESTORE_DATABASE_ID because this project created a Firestore
+    database with database ID "default", while Firestore Admin SDK may otherwise
+    try the legacy implicit "(default)" database.
+    """
+
+    name = "firebase"
+
+    def __init__(self, *, settings: Settings | None = None) -> None:
+        self.settings = settings or get_settings()
+        self.project_id = _firebase_project_id()
+        self.database_id = _firestore_database_id()
+        self._client: Any | None = None
+        self._init_error: str | None = None
+
+        try:
+            self._client = self._build_client()
+        except Exception as exc:
+            self._init_error = f"{exc.__class__.__name__}: {sanitize_text(str(exc), 500)}"
+            self._client = None
+
+    @property
+    def is_configured(self) -> bool:
+        return self._client is not None
+
+    @property
+    def init_error(self) -> str | None:
+        return self._init_error
+
+    def _build_client(self) -> Any:
+        try:
+            import firebase_admin
+            from firebase_admin import firestore
+        except Exception as exc:
+            raise RuntimeError("firebase-admin is not installed") from exc
+
+        if not self.project_id:
+            raise RuntimeError("Missing FIREBASE_PROJECT_ID or GOOGLE_CLOUD_PROJECT")
+
+        app_name = os.getenv("FIREBASE_APP_NAME", "mindpal").strip() or "mindpal"
+
+        if app_name in firebase_admin._apps:
+            app = firebase_admin.get_app(app_name)
+        else:
+            app = firebase_admin.initialize_app(
+                _firebase_credentials(),
+                {"projectId": self.project_id},
+                name=app_name,
+            )
+
+        return firestore.client(app=app, database_id=self.database_id)
+
+    async def get_document(self, collection: str, key: str) -> dict[str, Any] | None:
+        collection = _clean_collection(collection)
+        key = _clean_key(key)
+
+        def _read() -> dict[str, Any] | None:
+            assert self._client is not None
+            snap = self._client.collection(collection).document(key).get()
+            if not snap.exists:
+                return None
+            return deepcopy(snap.to_dict() or {})
+
+        return await asyncio.to_thread(_read)
+
+    async def set_document(self, collection: str, key: str, payload: dict[str, Any]) -> None:
+        collection = _clean_collection(collection)
+        key = _clean_key(key)
+        clean_payload = deepcopy(payload)
+
+        def _write() -> None:
+            assert self._client is not None
+            self._client.collection(collection).document(key).set(clean_payload)
+
+        await asyncio.to_thread(_write)
+
+    async def delete_document(self, collection: str, key: str) -> None:
+        collection = _clean_collection(collection)
+        key = _clean_key(key)
+
+        def _delete() -> None:
+            assert self._client is not None
+            self._client.collection(collection).document(key).delete()
+
+        await asyncio.to_thread(_delete)
+
+    async def append_event(self, collection: str, payload: dict[str, Any]) -> str:
+        collection = _clean_collection(collection)
+        clean_payload = deepcopy(payload)
+
+        def _append() -> str:
+            assert self._client is not None
+            doc_ref = self._client.collection(collection).document()
+            event_id = doc_ref.id
+            event_payload = {
+                "event_id": event_id,
+                "created_at": _utcnow_iso(),
+                **clean_payload,
+            }
+            doc_ref.set(event_payload)
+            return event_id
+
+        return await asyncio.to_thread(_append)
+
+
 class DBService:
     """
     Database boundary service.
 
     Responsibilities:
-    - choose mock mode when provider/Firebase is unavailable
+    - use Firebase Firestore when configured
+    - fall back to in-memory mode when Firebase is unavailable
     - persist sanitized memory summaries
     - persist sanitized user profiles
     - append sanitized safety events
@@ -160,13 +271,23 @@ class DBService:
         settings: Settings | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self.firebase_init_error: str | None = None
 
         if provider is not None and provider.is_configured:
             self.provider: DBProvider = provider
             self.mock_mode = False
-        else:
-            self.provider = InMemoryDBProvider()
-            self.mock_mode = True
+            return
+
+        firebase_provider = FirebaseDBProvider(settings=self.settings)
+
+        if firebase_provider.is_configured:
+            self.provider = firebase_provider
+            self.mock_mode = False
+            return
+
+        self.provider = InMemoryDBProvider()
+        self.mock_mode = True
+        self.firebase_init_error = firebase_provider.init_error
 
     async def load_memory(self, user_id_hash: str) -> MemoryLoadResult:
         user_id_hash = _clean_key(user_id_hash)
@@ -328,8 +449,8 @@ class DBService:
         """
         Append sanitized safety event metadata.
 
-        This intentionally stores rule IDs and decision metadata only. It does
-        not store raw user text.
+        This intentionally stores rule IDs and decision metadata only.
+        It does not store raw user text.
         """
         try:
             payload = event.model_dump(mode="json")
@@ -350,13 +471,86 @@ class DBService:
             "provider_configured": bool(self.provider.is_configured),
             "mock_mode": self.mock_mode,
             "stores_raw_chat_by_default": False,
-            "firebase_required": False,
+            "firebase_required": _firebase_env_present(),
+            "firebase_init_error": self.firebase_init_error,
+            "project_id": getattr(self.provider, "project_id", None),
+            "database_id": getattr(self.provider, "database_id", None),
             "collections": [
                 self.MEMORY_COLLECTION,
                 self.USER_COLLECTION,
                 self.SAFETY_EVENTS_COLLECTION,
             ],
         }
+
+
+def _firebase_project_id() -> str:
+    return (
+        os.getenv("FIREBASE_PROJECT_ID", "").strip()
+        or os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
+    )
+
+
+def _firestore_database_id() -> str:
+    return os.getenv("FIRESTORE_DATABASE_ID", "default").strip() or "default"
+
+
+def _firebase_env_present() -> bool:
+    return bool(
+        os.getenv("FIREBASE_CREDENTIALS_JSON", "").strip()
+        or os.getenv("FIREBASE_CREDENTIALS_PATH", "").strip()
+        or os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+        or os.getenv("FIREBASE_USE_APPLICATION_DEFAULT", "").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+
+
+def _firebase_credentials() -> Any:
+    try:
+        from firebase_admin import credentials
+    except Exception as exc:
+        raise RuntimeError("firebase-admin credentials module is unavailable") from exc
+
+    raw_json = os.getenv("FIREBASE_CREDENTIALS_JSON", "").strip()
+    credentials_path = (
+        os.getenv("FIREBASE_CREDENTIALS_PATH", "").strip()
+        or os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+    )
+    use_adc = os.getenv("FIREBASE_USE_APPLICATION_DEFAULT", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+    if raw_json:
+        try:
+            data = json.loads(raw_json)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("FIREBASE_CREDENTIALS_JSON is not valid JSON") from exc
+
+        private_key = str(data.get("private_key", ""))
+        if "\\n" in private_key:
+            data["private_key"] = private_key.replace("\\n", "\n")
+
+        return credentials.Certificate(data)
+
+    if credentials_path:
+        path = Path(credentials_path)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+
+        if not path.exists():
+            raise RuntimeError(f"Firebase credentials file not found: {path}")
+
+        return credentials.Certificate(str(path))
+
+    if use_adc:
+        return credentials.ApplicationDefault()
+
+    raise RuntimeError(
+        "Missing Firebase credentials. Set FIREBASE_CREDENTIALS_JSON, "
+        "FIREBASE_CREDENTIALS_PATH, or FIREBASE_USE_APPLICATION_DEFAULT=true."
+    )
 
 
 def _sanitize_memory_summary(summary: MemorySummary) -> MemorySummary:
