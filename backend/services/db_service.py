@@ -563,6 +563,17 @@ def _setting_str(settings: Settings, name: str, default: str = "") -> str:
     return sanitize_text(str(value or ""), 1_000)
 
 
+def _setting_secret_str(settings, name, default=""):
+    value = _setting_value(settings, name, default)
+
+    if value is None:
+        return default
+
+    if hasattr(value, "get_secret_value"):
+        value = value.get_secret_value()
+
+    return str(value or default).strip()
+
 def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
     value = _setting_value(settings, name, None)
 
@@ -606,7 +617,7 @@ def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> An
     except Exception as exc:
         raise RuntimeError("firebase-admin credentials module is unavailable") from exc
 
-    raw_json = _setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+    raw_json = _setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
     credentials_path = (
         _setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
         or _setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
