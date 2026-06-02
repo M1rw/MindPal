@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
@@ -22,18 +23,14 @@ from backend.models.safety import SafetyDecision
 from backend.models.user import UserProfile
 from backend.services.llm_service import build_llm_request
 from backend.services.memory_service import build_memory_interactions
-from backend.tasks.background_jobs import (
-    BackgroundJobStatus,
-    enqueue_memory_compaction,
-    enqueue_safety_event,
-    get_background_job_runner,
-)
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 MAX_HISTORY_FOR_LLM = 30
 MAX_USER_PREFS_PROMPT_CHARS = 1_200
+MEMORY_COMPACTION_TIMEOUT_SECONDS = 8.0
+SAFETY_EVENT_TIMEOUT_SECONDS = 4.0
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -45,16 +42,20 @@ async def chat(
     """
     Main MindPal chat route.
 
-    Required safety order:
+    Production safety order:
     1. classify input before LLM response generation
     2. deterministic crisis bypass if required
-    3. load profile/memory only after safety decision
+    3. load profile/memory only for authenticated users
     4. retrieve RAG grounding
     5. generate LLM answer
     6. output-guard generated answer before returning
-    7. queue non-critical memory/log persistence after guarded response
+    7. persist safety/memory inline best-effort, not queued background work
+
+    Anonymous chat is allowed as guest mode, but it does not get durable
+    Firestore profile or memory persistence.
     """
     locale = _resolve_locale(payload, context.locale)
+    authenticated = bool(context.session.authenticated)
 
     try:
         safety_decision = await services.safety.classify_input_with_context(
@@ -72,13 +73,21 @@ async def chat(
                 safety_decision=safety_decision,
             )
 
-        profile_response = await services.db.load_user_profile(context.session.user_id_hash)
-        profile = profile_response.profile
+        profile = await _load_chat_profile(
+            services=services,
+            context=context,
+            authenticated=authenticated,
+        )
 
         memory_summary = None
         memory_prompt = ""
 
-        if profile.preferences.safety.allow_memory:
+        memory_allowed = bool(
+            authenticated
+            and profile.preferences.safety.allow_memory
+        )
+
+        if memory_allowed:
             memory_load = await services.db.load_memory(context.session.user_id_hash)
             memory_summary = memory_load.summary
             memory_prompt = services.memory.build_prompt_summary(memory_summary)
@@ -119,6 +128,7 @@ async def chat(
                 "route": "chat",
                 "locale": locale,
                 "channel": context.channel.value,
+                "authenticated": authenticated,
                 "safety_level": safety_decision.level.value,
                 "response_mode": response_mode,
             },
@@ -133,10 +143,10 @@ async def chat(
 
         reply = guarded.final_text
 
-        memory_job_accepted = False
+        memory_updated = False
 
-        if profile.preferences.safety.allow_memory:
-            memory_job_accepted = await _queue_memory_compaction(
+        if memory_allowed:
+            memory_updated = await _persist_memory_compaction_inline(
                 payload=payload,
                 reply=reply,
                 services=services,
@@ -146,7 +156,7 @@ async def chat(
             )
 
         if safety_decision.should_log:
-            await _queue_safety_event(
+            await _persist_safety_event_inline(
                 services=services,
                 context=context,
                 decision=safety_decision,
@@ -162,7 +172,7 @@ async def chat(
             ),
             fallback_count=llm_result.response.fallback_count,
             rag_used=list(rag_result.references),
-            memory_updated=memory_job_accepted,
+            memory_updated=memory_updated,
             request_id=context.request_id,
         )
 
@@ -181,6 +191,28 @@ async def chat(
         ) from exc
 
 
+async def _load_chat_profile(
+    *,
+    services: ServiceContainer,
+    context: Any,
+    authenticated: bool,
+) -> UserProfile:
+    """
+    Load durable profile only for authenticated users.
+
+    Anonymous users get an ephemeral in-request profile. This prevents guest
+    sessions from creating user profile documents in Firestore.
+    """
+    if not authenticated:
+        return UserProfile(
+            user_id_hash=context.session.user_id_hash,
+            channel=context.session.channel,
+        )
+
+    profile_response = await services.db.load_user_profile(context.session.user_id_hash)
+    return profile_response.profile
+
+
 async def _handle_deterministic_safety_response(
     *,
     services: ServiceContainer,
@@ -197,13 +229,13 @@ async def _handle_deterministic_safety_response(
     - RAG planner
     - memory compaction
 
-    Safety event persistence is queued best-effort after deterministic response
-    is rendered.
+    Safety event persistence is inline best-effort and never blocks the crisis
+    response if storage fails.
     """
     reply = services.safety.render_deterministic_response(safety_decision, locale)
 
     if safety_decision.should_log:
-        await _queue_safety_event(
+        await _persist_safety_event_inline(
             services=services,
             context=context,
             decision=safety_decision,
@@ -221,7 +253,7 @@ async def _handle_deterministic_safety_response(
     )
 
 
-async def _queue_safety_event(
+async def _persist_safety_event_inline(
     *,
     services: ServiceContainer,
     context: Any,
@@ -229,9 +261,9 @@ async def _queue_safety_event(
     locale: str,
 ) -> bool:
     """
-    Queue safety event persistence best-effort.
+    Persist safety event metadata inline best-effort.
 
-    Failure to queue/persist a safety event must not block the user response.
+    Stores no raw user text. Failure must not block the user response.
     """
     try:
         event = services.safety.build_safety_event(
@@ -241,19 +273,18 @@ async def _queue_safety_event(
             locale=locale,
         )
 
-        result = await enqueue_safety_event(
-            get_background_job_runner(),
-            services=services,
-            event=event,
+        await asyncio.wait_for(
+            services.db.append_safety_event(event),
+            timeout=SAFETY_EVENT_TIMEOUT_SECONDS,
         )
 
-        return result.status != BackgroundJobStatus.DROPPED
+        return True
 
     except Exception:
         return False
 
 
-async def _queue_memory_compaction(
+async def _persist_memory_compaction_inline(
     *,
     payload: ChatRequest,
     reply: str,
@@ -263,33 +294,49 @@ async def _queue_memory_compaction(
     locale: str,
 ) -> bool:
     """
-    Queue memory compaction best-effort.
+    Compact and save memory inline best-effort for authenticated users only.
 
-    ChatResponse.memory_updated means the memory job was accepted or completed
-    inline; it does not guarantee durable persistence if the process exits before
-    the in-process queue drains.
+    This replaces the old in-process background queue. On Vercel/serverless,
+    queued jobs are not durable after the response returns.
     """
+    if not bool(context.session.authenticated):
+        return False
+
     try:
         interactions = build_memory_interactions(
             user_messages=[payload.message],
             assistant_messages=[reply],
         )
 
-        result = await enqueue_memory_compaction(
-            get_background_job_runner(),
-            services=services,
-            request=MemoryCompactionRequest(
-                request_id=context.request_id,
-                user_id_hash=context.session.user_id_hash,
-                existing_summary=existing_summary,
-                interactions=interactions,
-                locale=locale,
-                force=False,
+        compaction = await asyncio.wait_for(
+            services.memory.compact(
+                MemoryCompactionRequest(
+                    request_id=context.request_id,
+                    user_id_hash=context.session.user_id_hash,
+                    existing_summary=existing_summary,
+                    interactions=interactions,
+                    locale=locale,
+                    force=False,
+                )
             ),
-            save=True,
+            timeout=MEMORY_COMPACTION_TIMEOUT_SECONDS,
         )
 
-        return result.status != BackgroundJobStatus.DROPPED
+        if not compaction.changed:
+            return False
+
+        safe_summary = compaction.summary.model_copy(
+            update={
+                "user_id_hash": context.session.user_id_hash,
+            }
+        )
+
+        await asyncio.wait_for(
+            services.db.save_memory(safe_summary),
+            timeout=MEMORY_COMPACTION_TIMEOUT_SECONDS,
+        )
+
+        return True
 
     except Exception:
         return False
