@@ -20,7 +20,6 @@ from backend.api.dependencies import get_service_container, reset_service_contai
 from backend.core.config import Settings, get_settings
 from backend.core.errors import AppError
 from backend.core.security import generate_request_id, sanitize_text
-from backend.tasks.background_jobs import get_background_job_runner
 
 
 MAX_ERROR_MESSAGE_CHARS = 700
@@ -39,9 +38,6 @@ async def lifespan(app: FastAPI):
     Starts/stops only local infrastructure. Provider SDKs remain lazy and are
     not called here.
     """
-    runner = get_background_job_runner()
-    await runner.start()
-
     try:
         yield
     finally:
