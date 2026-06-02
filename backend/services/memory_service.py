@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -175,11 +176,33 @@ class MemoryService:
         *,
         settings: Settings | None = None,
         llm_service: LLMService | None = None,
-        enable_llm_summarization: bool = True,
+        enable_llm_summarization: bool | None = None,
+        allow_offline_llm_summarization: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self.production_mode = _is_production(self.settings)
         self.llm_service = llm_service
-        self.enable_llm_summarization = enable_llm_summarization
+
+        self.enable_llm_summarization = (
+            _setting_bool(
+                self.settings,
+                "ENABLE_LLM_MEMORY_SUMMARIZATION",
+                default=True,
+            )
+            if enable_llm_summarization is None
+            else bool(enable_llm_summarization)
+        )
+
+        self.allow_offline_llm_summarization = (
+            _setting_bool(
+                self.settings,
+                "ALLOW_OFFLINE_LLM_MEMORY_SUMMARIZATION",
+                default=False,
+            )
+            if allow_offline_llm_summarization is None
+            else bool(allow_offline_llm_summarization)
+        )
+
         self.summary_max_chars = int(self.settings.MEMORY_SUMMARY_MAX_CHARS)
         self.last_meta: MemoryCompactionMeta | None = None
 
@@ -200,7 +223,13 @@ class MemoryService:
                 items_added=0,
             )
 
-        if self.enable_llm_summarization and self.llm_service is not None:
+        provider_state = self._summarization_provider_state()
+
+        if (
+            self.enable_llm_summarization
+            and self.llm_service is not None
+            and provider_state["summarization_can_call_llm"]
+        ):
             try:
                 outcome = await self._compact_with_llm(request, existing)
                 self.last_meta = MemoryCompactionMeta(
@@ -218,6 +247,15 @@ class MemoryService:
                     error_code=exc.__class__.__name__,
                 )
                 return self.compact_local(request)
+
+        if self.enable_llm_summarization and self.llm_service is not None:
+            self.last_meta = MemoryCompactionMeta(
+                mode="local_fallback",
+                used_llm=False,
+                fallback_used=True,
+                error_code="memory_llm_provider_unavailable",
+            )
+            return self.compact_local(request)
 
         self.last_meta = MemoryCompactionMeta(
             mode="local_only",
@@ -373,14 +411,65 @@ class MemoryService:
         )
 
     def health(self) -> dict[str, Any]:
+        provider_state = self._summarization_provider_state()
+
         return {
             "mode": "llm_primary_with_local_fallback",
+            "production_mode": self.production_mode,
             "summary_max_chars": self.summary_max_chars,
             "stores_raw_chat": False,
             "llm_primary_enabled": self.enable_llm_summarization,
             "llm_service_available": self.llm_service is not None,
+            "llm_summarization_provider_state": provider_state,
+            "llm_summarization_can_call_llm": provider_state["summarization_can_call_llm"],
+            "offline_llm_summarization_allowed": self.allow_offline_llm_summarization,
             "local_fallback_available": True,
             "last_meta": None if self.last_meta is None else asdict(self.last_meta),
+        }
+
+    def _summarization_provider_state(self) -> dict[str, bool]:
+        if self.llm_service is None:
+            return {
+                "remote_provider_available": False,
+                "offline_available": False,
+                "offline_allowed_by_llm_service": False,
+                "offline_allowed_for_memory_summarization": self.allow_offline_llm_summarization,
+                "summarization_can_call_llm": False,
+            }
+
+        try:
+            health = self.llm_service.health()
+        except Exception:
+            return {
+                "remote_provider_available": False,
+                "offline_available": False,
+                "offline_allowed_by_llm_service": False,
+                "offline_allowed_for_memory_summarization": self.allow_offline_llm_summarization,
+                "summarization_can_call_llm": False,
+            }
+
+        remote_available = bool(
+            health.get("configured_remote_provider_available", False)
+            or health.get("remote_provider_available", False)
+        )
+        offline_available = bool(health.get("offline_available", False))
+        offline_allowed_by_llm_service = bool(health.get("offline_allowed", False))
+
+        summarization_can_call_llm = bool(
+            remote_available
+            or (
+                self.allow_offline_llm_summarization
+                and offline_available
+                and offline_allowed_by_llm_service
+            )
+        )
+
+        return {
+            "remote_provider_available": remote_available,
+            "offline_available": offline_available,
+            "offline_allowed_by_llm_service": offline_allowed_by_llm_service,
+            "offline_allowed_for_memory_summarization": self.allow_offline_llm_summarization,
+            "summarization_can_call_llm": summarization_can_call_llm,
         }
 
     async def _compact_with_llm(
@@ -410,7 +499,16 @@ class MemoryService:
             },
         )
 
-        llm_response = await self.llm_service.generate(llm_request)
+        llm_result = await self.llm_service.generate_with_trace(llm_request)
+        llm_response = llm_result.response
+        provider_used = sanitize_text(llm_response.provider_used or "unknown", 80)
+
+        if _clean_provider_name(provider_used) == "offline" and not self.allow_offline_llm_summarization:
+            raise MemoryServiceError(
+                "Offline LLM fallback cannot be used for memory summarization",
+                code="memory_offline_summarization_disabled",
+            )
+
         payload = self._parse_llm_json(llm_response.text)
 
         llm_summary = self._summary_from_llm_payload(
@@ -438,7 +536,7 @@ class MemoryService:
 
         return LLMCompactionOutcome(
             result=result,
-            provider_used=llm_response.provider_used,
+            provider_used=provider_used,
         )
 
     def merge_summary_from_llm_and_local(
@@ -748,6 +846,40 @@ class MemoryService:
             merged,
             max_chars=min(self.summary_max_chars, MAX_COMPACTED_SUMMARY_CHARS),
         )
+
+
+def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return os.getenv(name, default)
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value()
+
+    return value
+
+
+def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
+    value = _setting_value(settings, name, None)
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_production(settings: Settings) -> bool:
+    value = _setting_value(settings, "ENVIRONMENT", "development")
+    environment = sanitize_text(str(value or "development"), 80).lower()
+    return environment in {"production", "prod"}
+
+
+def _clean_provider_name(value: str) -> str:
+    return sanitize_text(str(value or ""), 80).lower() or "unknown"
 
 
 def build_memory_interactions(
