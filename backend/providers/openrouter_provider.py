@@ -39,7 +39,7 @@ class OpenRouterProviderConfig:
 
         return cls(
             api_key=sanitize_text(
-                str(getattr(settings, "OPENROUTER_API_KEY", "") or ""),
+                _setting_secret(settings, "OPENROUTER_API_KEY"),
                 4_000,
             ),
             model=sanitize_text(
@@ -448,3 +448,15 @@ def _optional_header_value(value: object) -> str | None:
 def _clean_error(value: str) -> str:
     cleaned = redact_basic_pii(sanitize_text(value, MAX_PROVIDER_ERROR_CHARS))
     return cleaned or "provider_error"
+
+def _setting_secret(settings: Settings, name: str, default: str = "") -> str:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return default
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value() or default
+
+    return str(value or default)
+

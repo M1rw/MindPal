@@ -35,7 +35,7 @@ class GeminiProviderConfig:
         settings = settings or get_settings()
 
         return cls(
-            api_key=sanitize_text(str(getattr(settings, "GEMINI_API_KEY", "") or ""), 4_000),
+            api_key=sanitize_text(_setting_secret(settings, "GEMINI_API_KEY"), 4_000),
             model=sanitize_text(
                 str(getattr(settings, "GEMINI_MODEL", DEFAULT_GEMINI_MODEL) or DEFAULT_GEMINI_MODEL),
                 MAX_MODEL_NAME_CHARS,
@@ -365,3 +365,15 @@ def _provider_http_error(response: httpx.Response) -> ProviderError:
             "message": message,
         },
     )
+
+def _setting_secret(settings: Settings, name: str, default: str = "") -> str:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return default
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value() or default
+
+    return str(value or default)
+
