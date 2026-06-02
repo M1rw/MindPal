@@ -1,0 +1,294 @@
+schema_version: 1
+domain: dbt_grounding
+description: >
+  Curated non-clinical DBT-informed grounding and distress-tolerance units
+  for MindPal. These units help users pause, regulate intense emotion, reduce
+  impulsive reactions, and choose safer next actions. They are not diagnosis,
+  treatment, therapy, or medical advice.
+
+units:
+  - id: dbt_stop_skill
+    category: dbt_grounding
+    technique: STOP skill
+    trigger_terms:
+      - I am about to explode
+      - I might react badly
+      - I want to send it now
+      - I want to shout
+      - I can't stop myself
+      - impulsive
+      - reactive
+      - هنفجر
+      - هتصرف غلط
+      - هبعت دلوقتي
+      - عايز أزعق
+      - عايزة أزعق
+      - مش قادر امسك نفسي
+      - مندفع
+      - متعصب
+      - متعصبة
+    instructions:
+      - Use STOP as four steps: Stop, Take a step back, Observe, Proceed intentionally.
+      - Tell the user not to send, shout, decide, or escalate for the next 90 seconds.
+      - Ask what they notice in body, thought, emotion, and action urge.
+      - Ask what outcome they want after the wave drops.
+      - Help choose the next action that protects that outcome.
+    contraindications:
+      - Do not shame the user for anger or intensity.
+      - Do not help write threats, insults, manipulation, or coercive messages.
+      - Do not use this as the only response if there is immediate self-harm, violence, or danger.
+      - If danger is present, prioritize distance, emergency help, or crisis routing.
+    response_style:
+      - firm
+      - calm
+      - de-escalating
+      - practical
+    tags:
+      - dbt
+      - distress_tolerance
+      - impulse_control
+      - deescalation
+      - arabic_supported
+
+  - id: dbt_wise_mind_check
+    category: dbt_grounding
+    technique: wise mind check
+    trigger_terms:
+      - emotional mind
+      - rational mind
+      - wise mind
+      - I don't know what is right
+      - my emotions are controlling me
+      - I know logically but I feel different
+      - مش عارف الصح
+      - مش عارفة الصح
+      - مشاعري سايقاني
+      - عارف بعقلي بس حاسس عكس كده
+      - محتار بين قلبي وعقلي
+      - محتارة بين قلبي وعقلي
+    instructions:
+      - Separate emotion mind from logic mind.
+      - Ask what emotion mind wants right now.
+      - Ask what logic mind says when calmer.
+      - Ask what wise mind would choose if it respected both emotion and consequences.
+      - Turn wise mind into one small next behavior.
+    contraindications:
+      - Do not tell the user their emotions are irrational or invalid.
+      - Do not make the decision for the user in complex personal matters.
+      - Do not ignore safety, consent, or boundaries.
+      - If acute danger or crisis is present, route to safety first.
+    response_style:
+      - reflective
+      - balanced
+      - concise
+      - decision-oriented
+    tags:
+      - dbt
+      - wise_mind
+      - emotion_logic_balance
+      - decision_support
+      - relationships
+
+  - id: dbt_tipp_light
+    category: dbt_grounding
+    technique: TIPP light
+    trigger_terms:
+      - panic
+      - intense emotion
+      - my body is shaking
+      - heart racing
+      - I can't calm down
+      - I feel out of control
+      - panic attack
+      - هلع
+      - جسمي بيرتعش
+      - قلبي بيدق بسرعة
+      - مش قادر أهدى
+      - مش قادرة أهدى
+      - مش مسيطر على نفسي
+      - مش مسيطرة على نفسي
+    instructions:
+      - Use a light version: cool temperature, short movement, and paced breathing.
+      - Suggest holding a cool object or splashing cool water on the face.
+      - Suggest 30 to 60 seconds of simple movement such as walking or shaking arms out.
+      - Suggest slow exhale breathing, making the exhale slightly longer than the inhale.
+      - Re-rate intensity from 0 to 10 after one round.
+    contraindications:
+      - Do not suggest extreme cold, breath-holding, hyperventilation, or intense exercise.
+      - Avoid temperature/movement suggestions if the user reports medical risk, fainting, chest pain, or injury.
+      - Do not treat this as medical help for panic symptoms.
+      - If the user may harm themselves or others, route to safety first.
+    response_style:
+      - grounding
+      - body-aware
+      - simple
+      - non-medical
+    tags:
+      - dbt
+      - tipp
+      - panic
+      - body_regulation
+      - grounding
+
+  - id: dbt_self_soothe_five_senses
+    category: dbt_grounding
+    technique: self-soothe with five senses
+    trigger_terms:
+      - I feel empty
+      - I feel alone
+      - I need comfort
+      - I can't relax
+      - I feel unsafe but I am physically safe
+      - محتاج أرتاح
+      - محتاجة أرتاح
+      - حاسس بفراغ
+      - حاسة بفراغ
+      - حاسس بوحدة
+      - حاسة بوحدة
+      - مش عارف أهدى
+      - مش عارفة أهدى
+    instructions:
+      - Ask the user to choose one sense, not all five.
+      - Offer examples: warm drink, soft fabric, calm sound, dim light, familiar smell.
+      - Keep the action small and available in the current place.
+      - Ask them to stay with the sensation for 60 seconds.
+      - Pair comfort with one safe next step.
+    contraindications:
+      - Do not suggest substances, overeating, self-harm, or risky comfort behaviors.
+      - Do not imply soothing solves the underlying problem.
+      - Do not use this alone for crisis, abuse, or immediate danger.
+    response_style:
+      - gentle
+      - concrete
+      - sensory
+      - low-pressure
+    tags:
+      - dbt
+      - self_soothe
+      - five_senses
+      - loneliness
+      - comfort
+      - arabic_supported
+
+  - id: dbt_radical_acceptance_light
+    category: dbt_grounding
+    technique: radical acceptance light
+    trigger_terms:
+      - I can't accept this
+      - this should not have happened
+      - I keep fighting reality
+      - why did this happen
+      - unfair
+      - مش قادر أتقبل
+      - مش قادرة أتقبل
+      - ده مكنش المفروض يحصل
+      - ليه ده حصل
+      - ظلم
+      - مش عادل
+      - رافض الواقع
+      - رافضة الواقع
+    instructions:
+      - Clarify that acceptance does not mean approval.
+      - Name the reality as it is right now.
+      - Name what the user wishes were different.
+      - Ask what fighting the facts is costing them today.
+      - Choose one action based on the current reality, not the wished reality.
+    contraindications:
+      - Do not use acceptance to excuse abuse, betrayal, coercion, or harm.
+      - Do not pressure forgiveness.
+      - Do not tell the user to accept danger instead of leaving or getting help.
+      - Do not minimize grief or injustice.
+    response_style:
+      - mature
+      - grounded
+      - non-minimizing
+      - practical
+    tags:
+      - dbt
+      - radical_acceptance
+      - reality_acceptance
+      - grief
+      - control
+
+  - id: dbt_dear_man_light
+    category: dbt_grounding
+    technique: DEAR MAN light
+    trigger_terms:
+      - I need to ask for something
+      - I need to set a boundary
+      - I want to talk without fighting
+      - how do I say this
+      - I need to confront them
+      - عايز أطلب حاجة
+      - عايزة أطلب حاجة
+      - عايز أحط حدود
+      - عايزة أحط حدود
+      - أقولها ازاي
+      - أقوله ازاي
+      - عايز أتكلم من غير خناق
+      - عايزة أتكلم من غير خناق
+      - لازم أواجه
+    instructions:
+      - Use a short version: describe facts, express feeling, ask clearly, reinforce the benefit.
+      - Keep the message specific and non-accusatory.
+      - Avoid long history or multiple complaints in one message.
+      - Add one boundary or one request, not both if the user is highly emotional.
+      - Make the wording calm enough to send after rereading.
+    contraindications:
+      - Do not help manipulate, threaten, guilt-trip, or pressure someone.
+      - Do not write repeated contact messages if the other person asked for space.
+      - Do not encourage confrontation if there is safety risk.
+      - Do not frame boundaries as punishment.
+    response_style:
+      - assertive
+      - respectful
+      - concise
+      - non-manipulative
+    tags:
+      - dbt
+      - interpersonal_effectiveness
+      - boundaries
+      - communication
+      - relationships
+      - arabic_supported
+
+  - id: dbt_check_action_urge
+    category: dbt_grounding
+    technique: check the action urge
+    trigger_terms:
+      - I want to disappear
+      - I want to block everyone
+      - I want to break something
+      - I want revenge
+      - I want to hurt them emotionally
+      - عايز أختفي
+      - عايزة أختفي
+      - عايز أعمل بلوك لكل الناس
+      - عايزة أعمل بلوك لكل الناس
+      - عايز أكسر حاجة
+      - عايزة أكسر حاجة
+      - عايز أنتقم
+      - عايزة أنتقم
+      - عايز أوجعها
+      - عايزة أوجعه
+    instructions:
+      - Ask the user to name the action urge exactly.
+      - Ask whether the urge protects them, attacks someone, escapes, or seeks reassurance.
+      - Ask what the urge would cost after one hour.
+      - Choose a safer action that serves the same need with less damage.
+      - Delay irreversible actions until the emotion drops.
+    contraindications:
+      - Do not endorse revenge, intimidation, property damage, stalking, or emotional harm.
+      - Do not help draft harmful messages.
+      - If there is risk of violence, self-harm, or immediate danger, route to safety first.
+    response_style:
+      - direct
+      - stabilizing
+      - consequence-aware
+      - non-shaming
+    tags:
+      - dbt
+      - action_urge
+      - impulse_control
+      - anger
+      - relationships

@@ -1,0 +1,368 @@
+schema_version: 1
+domain: relationship_support
+description: >
+  Curated non-clinical relationship support units for MindPal.
+  These units help users communicate clearly, de-escalate conflict, respect
+  boundaries, repair harm, and avoid impulsive or manipulative behavior.
+  They are not therapy, diagnosis, legal advice, or crisis intervention.
+
+units:
+  - id: relationship_deescalate_before_reply
+    category: relationship_support
+    technique: de-escalate before reply
+    trigger_terms:
+      - should I reply now
+      - I want to text now
+      - I am angry at them
+      - I want to send a long message
+      - I might say something bad
+      - أرد دلوقتي
+      - أبعت دلوقتي
+      - عايز أبعتلها
+      - عايزة أبعتله
+      - متعصب منها
+      - متعصبة منه
+      - هقول كلام يزعل
+      - عايز أكتب رسالة طويلة
+    instructions:
+      - Tell the user not to send while emotion is peaking.
+      - Ask what outcome they want from the reply.
+      - Remove insults, threats, guilt, sarcasm, and long history.
+      - Reduce the message to one fact, one feeling, and one request.
+      - Suggest waiting 10 minutes and rereading before sending.
+    contraindications:
+      - Do not write abusive, threatening, guilt-tripping, or coercive messages.
+      - Do not encourage repeated messages if the other person asked for space.
+      - Do not frame silence as punishment or power play.
+      - If there is danger, stalking, violence, or self-harm risk, route to safety.
+    response_style:
+      - calm
+      - direct
+      - mature
+      - de-escalating
+    tags:
+      - relationships
+      - texting
+      - impulse_control
+      - deescalation
+      - arabic_supported
+
+  - id: relationship_clear_boundary
+    category: relationship_support
+    technique: clear boundary
+    trigger_terms:
+      - I need to set a boundary
+      - they crossed my boundary
+      - I don't want this again
+      - I need respect
+      - I feel disrespected
+      - حدود
+      - عايز أحط حدود
+      - عايزة أحط حدود
+      - اتعدى حدوده
+      - اتعدت حدودها
+      - مش عايز ده يتكرر
+      - مش عايزة ده يتكرر
+      - حاسس بقلة احترام
+      - حاسة بقلة احترام
+    instructions:
+      - Define the boundary as a future rule, not a punishment.
+      - Use simple wording: when X happens, I feel Y, I need Z going forward.
+      - Keep the boundary specific and observable.
+      - Include the consequence only if it is realistic and non-threatening.
+      - Avoid debating the boundary endlessly after stating it clearly.
+    contraindications:
+      - Do not use boundaries as revenge, control, or manipulation.
+      - Do not encourage threats or ultimatums unless safety requires distance.
+      - Do not help isolate someone from all friends/family without safety context.
+      - If abuse or immediate danger is present, route to safety support.
+    response_style:
+      - assertive
+      - respectful
+      - concise
+      - non-punitive
+    tags:
+      - relationships
+      - boundaries
+      - respect
+      - communication
+      - arabic_supported
+
+  - id: relationship_repair_apology
+    category: relationship_support
+    technique: repair apology
+    trigger_terms:
+      - I need to apologize
+      - I hurt them
+      - I shouted
+      - I said something bad
+      - I messed up
+      - عايز أعتذر
+      - عايزة أعتذر
+      - جرحتها
+      - جرحته
+      - زعقت
+      - قلت كلام وحش
+      - غلطت
+      - بوظت الدنيا
+    instructions:
+      - Start with ownership, not explanation.
+      - Mention the specific behavior without minimizing it.
+      - Acknowledge likely impact.
+      - State what will change next time.
+      - Keep the apology short and do not demand forgiveness.
+    contraindications:
+      - Do not write apologies that pressure the other person to forgive.
+      - Do not include self-pity as a way to escape accountability.
+      - Do not use apology as a reason to force contact.
+      - If the other person requested no contact, respect that unless there is a necessary safe channel.
+    response_style:
+      - accountable
+      - concise
+      - calm
+      - non-manipulative
+    tags:
+      - relationships
+      - apology
+      - conflict_repair
+      - accountability
+      - communication
+
+  - id: relationship_trust_repair
+    category: relationship_support
+    technique: trust repair
+    trigger_terms:
+      - they lied
+      - they hid something
+      - I lost trust
+      - how do we rebuild trust
+      - betrayal
+      - كدب
+      - كذبت
+      - كذب
+      - خبى
+      - خبت
+      - فقدت الثقة
+      - مش واثق
+      - مش واثقة
+      - خيانة
+      - أخفت عني
+      - أخفى عني
+    instructions:
+      - Separate the event from the repair process.
+      - Identify what exactly broke trust: lying, hiding, repeated behavior, or boundary crossing.
+      - Ask for transparency rules that are specific and realistic.
+      - Set a review period instead of demanding instant trust.
+      - Make repair dependent on consistent behavior, not repeated promises.
+    contraindications:
+      - Do not recommend surveillance, phone checking, hacking, or control.
+      - Do not force instant forgiveness.
+      - Do not tell the user to stay or leave as a universal answer.
+      - If coercion, abuse, or danger exists, route to safety and support.
+    response_style:
+      - grounded
+      - firm
+      - realistic
+      - non-controlling
+    tags:
+      - relationships
+      - trust
+      - betrayal
+      - repair
+      - boundaries
+      - arabic_supported
+
+  - id: relationship_space_request
+    category: relationship_support
+    technique: space request
+    trigger_terms:
+      - I need space
+      - they need space
+      - should I give space
+      - they are not replying
+      - I feel ignored
+      - محتاج مساحة
+      - محتاجة مساحة
+      - هو عايز مساحة
+      - هي عايزة مساحة
+      - مش بيرد
+      - مش بترد
+      - حاسس بالتجاهل
+      - حاسة بالتجاهل
+    instructions:
+      - Clarify whether space means calming down, thinking, or ending the conversation.
+      - Suggest a time-bound pause when possible.
+      - Use a respectful message that does not punish or chase.
+      - Avoid repeated checking during the agreed space.
+      - Decide when to reconnect and what topic to discuss first.
+    contraindications:
+      - Do not encourage spamming, monitoring, or testing the other person.
+      - Do not use space as silent treatment.
+      - Do not advise waiting forever without a boundary.
+      - If disappearance suggests danger, use appropriate safety steps.
+    response_style:
+      - respectful
+      - steady
+      - non-clingy
+      - boundary-aware
+    tags:
+      - relationships
+      - space
+      - attachment
+      - communication
+      - anxiety
+
+  - id: relationship_jealousy_check
+    category: relationship_support
+    technique: jealousy check
+    trigger_terms:
+      - I am jealous
+      - I don't like their friend
+      - I want them to stop talking to someone
+      - I feel threatened
+      - غيران
+      - غيرانة
+      - مش عاجبني صاحبها
+      - مش عاجباني صاحبته
+      - عايزها تبعد عنه
+      - عايزاه يبعد عنها
+      - حاسس بتهديد
+      - حاسة بتهديد
+    instructions:
+      - Separate jealousy signal from control action.
+      - Ask what boundary was crossed, if any.
+      - Ask what evidence exists versus what fear is adding.
+      - Suggest expressing insecurity without demanding control.
+      - If a request is needed, make it specific, fair, and mutual.
+    contraindications:
+      - Do not encourage isolating the partner from friends.
+      - Do not endorse phone checking, stalking, threats, or control.
+      - Do not label all jealousy as toxic; treat it as a signal to inspect.
+      - If there is actual betrayal or danger, use trust repair or safety routing.
+    response_style:
+      - honest
+      - grounded
+      - non-controlling
+      - direct
+    tags:
+      - relationships
+      - jealousy
+      - insecurity
+      - boundaries
+      - trust
+      - arabic_supported
+
+  - id: relationship_hard_conversation_script
+    category: relationship_support
+    technique: hard conversation script
+    trigger_terms:
+      - how do I tell them
+      - I need to talk about something serious
+      - I don't know how to start
+      - I want to discuss our problem
+      - أقولها ازاي
+      - أقوله ازاي
+      - محتاج أتكلم في موضوع مهم
+      - محتاجة أتكلم في موضوع مهم
+      - أبدأ الكلام ازاي
+      - عايز أتكلم عن المشكلة
+      - عايزة أتكلم عن المشكلة
+    instructions:
+      - Start with permission: can we talk about something important calmly?
+      - State one topic only.
+      - Use one example, not a full case file.
+      - Say the feeling and the requested change.
+      - Ask for their view before continuing.
+    contraindications:
+      - Do not overload the conversation with every past issue.
+      - Do not script accusations as facts.
+      - Do not encourage public confrontation or humiliation.
+      - If direct conversation is unsafe, recommend distance and support instead.
+    response_style:
+      - clear
+      - mature
+      - emotionally controlled
+      - practical
+    tags:
+      - relationships
+      - serious_conversation
+      - communication
+      - conflict
+      - arabic_supported
+
+  - id: relationship_reassurance_loop
+    category: relationship_support
+    technique: reassurance loop breaker
+    trigger_terms:
+      - do they still love me
+      - I keep asking for reassurance
+      - I need them to prove it
+      - I feel insecure
+      - بتحبني ولا لا
+      - بيحبني ولا لا
+      - محتاج يتطمن
+      - محتاجة أتطمن
+      - عايز إثبات
+      - عايزة إثبات
+      - حاسس بعدم أمان
+      - حاسة بعدم أمان
+    instructions:
+      - Validate the need for reassurance without feeding endless checking.
+      - Ask what specific fear is underneath.
+      - Choose one direct reassurance request, then stop repeating it.
+      - Add one self-soothing or grounding action after the request.
+      - Watch behavior over time instead of demanding constant proof.
+    contraindications:
+      - Do not shame insecurity.
+      - Do not encourage tests, traps, fake withdrawal, or jealousy games.
+      - Do not advise constant reassurance demands as the main solution.
+      - If betrayal occurred, use trust repair instead of reassurance looping.
+    response_style:
+      - warm
+      - steady
+      - anti-game
+      - practical
+    tags:
+      - relationships
+      - reassurance
+      - attachment
+      - insecurity
+      - grounding
+
+  - id: relationship_no_contact_respect
+    category: relationship_support
+    technique: respect no-contact
+    trigger_terms:
+      - they blocked me
+      - they asked me not to contact
+      - should I message again
+      - I want to reach them anyway
+      - عملتلي بلوك
+      - عملتله بلوك
+      - قالتلي متكلمنيش
+      - قاللي متكلمنيش
+      - أبعت تاني
+      - عايز أوصلها بأي طريقة
+      - عايزة أوصله بأي طريقة
+    instructions:
+      - Treat no-contact as a boundary.
+      - Do not contact through alternate accounts, friends, or pressure routes.
+      - Write the unsent message privately if needed.
+      - Focus on regulation and next safe action.
+      - Revisit only if there is a legitimate, respectful, non-invasive reason later.
+    contraindications:
+      - Do not help bypass blocks.
+      - Do not encourage stalking, pressure, threats, or public posts to force contact.
+      - Do not frame persistence as romance when a boundary was set.
+      - If the user may harm themselves or others, route to safety immediately.
+    response_style:
+      - firm
+      - respectful
+      - safety-aware
+      - non-negotiable
+    tags:
+      - relationships
+      - no_contact
+      - boundaries
+      - stalking_prevention
+      - safety

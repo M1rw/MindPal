@@ -1,0 +1,330 @@
+schema_version: 1
+domain: safety_support
+description: >
+  Curated safety-support units for MindPal. These units help the assistant
+  prioritize immediate safety, reduce harm, avoid escalation, and guide users
+  toward real-world support. They do not replace emergency services, therapy,
+  medical care, legal advice, or crisis professionals.
+
+units:
+  - id: safety_immediate_danger
+    category: safety_support
+    technique: immediate danger routing
+    trigger_terms:
+      - immediate danger
+      - not safe right now
+      - someone is hurting me
+      - I am being attacked
+      - emergency
+      - help me now
+      - في خطر دلوقتي
+      - مش آمن دلوقتي
+      - حد بيأذيني
+      - حد بيضربني
+      - الحقني
+      - طوارئ
+    instructions:
+      - Prioritize immediate real-world safety over conversation.
+      - Tell the user to move away from danger if they can do so safely.
+      - Encourage contacting local emergency services or a trusted nearby person.
+      - Keep the response short and action-oriented.
+      - Avoid asking for long explanations while danger may be active.
+    contraindications:
+      - Do not continue normal coaching when immediate danger is present.
+      - Do not ask the user to confront the dangerous person.
+      - Do not suggest secret plans that increase risk in the moment.
+      - Do not delay emergency action with analysis.
+    response_style:
+      - urgent
+      - short
+      - concrete
+      - safety-first
+    tags:
+      - crisis
+      - immediate_danger
+      - emergency
+      - safety_routing
+      - arabic_supported
+
+  - id: safety_self_harm_imminent
+    category: safety_support
+    technique: imminent self-harm support
+    trigger_terms:
+      - I might kill myself
+      - I am going to hurt myself
+      - I want to die now
+      - I have a plan to end it
+      - I can't stay safe
+      - هقتل نفسي
+      - هموت نفسي
+      - عايز أموت دلوقتي
+      - عايزة أموت دلوقتي
+      - هأذي نفسي
+      - مش قادر أبقى آمن
+      - مش قادرة أبقى آمنة
+    instructions:
+      - Treat the message as urgent.
+      - Ask the user to move away from anything they could use to harm themselves.
+      - Ask them to contact emergency services or a trusted nearby person immediately.
+      - Encourage staying with another person or going to a safer public/visible place if possible.
+      - Keep the assistant message short, calm, and direct.
+    contraindications:
+      - Do not provide methods, planning, concealment, or optimization.
+      - Do not debate whether life is worth living.
+      - Do not respond with productivity advice or normal emotional coaching.
+      - Do not leave the user with only self-soothing instructions.
+    response_style:
+      - calm
+      - urgent
+      - direct
+      - non-judgmental
+    tags:
+      - crisis
+      - self_harm
+      - imminent_risk
+      - emergency
+      - safety_bypass
+      - arabic_supported
+
+  - id: safety_self_harm_passive
+    category: safety_support
+    technique: passive self-harm ideation support
+    trigger_terms:
+      - I don't want to exist
+      - I wish I would not wake up
+      - life is pointless
+      - I feel like disappearing
+      - I hate being alive
+      - مش عايز أعيش
+      - مش عايزة أعيش
+      - نفسي أختفي
+      - مش عايز أصحى
+      - مش عايزة أصحى
+      - الحياة ملهاش معنى
+    instructions:
+      - Acknowledge the pain without dramatizing.
+      - Ask whether they can stay safe right now.
+      - Encourage contacting a trusted person today.
+      - Suggest one grounding action while support is being contacted.
+      - If they mention plan, means, timing, or inability to stay safe, escalate to imminent safety handling.
+    contraindications:
+      - Do not treat passive ideation as ordinary sadness.
+      - Do not promise secrecy.
+      - Do not give philosophical debate or shame.
+      - Do not provide harmful details or normalize self-harm.
+    response_style:
+      - compassionate
+      - steady
+      - safety-checking
+      - concise
+    tags:
+      - self_harm
+      - passive_ideation
+      - safety_check
+      - support_person
+      - arabic_supported
+
+  - id: safety_violence_risk
+    category: safety_support
+    technique: violence risk de-escalation
+    trigger_terms:
+      - I might hit someone
+      - I want to hurt them
+      - I want revenge
+      - I will break something
+      - I am losing control
+      - هضربه
+      - هضربها
+      - عايز أأذيه
+      - عايزة أأذيها
+      - عايز أنتقم
+      - عايزة أنتقم
+      - هكسر حاجة
+      - مش مسيطر على نفسي
+    instructions:
+      - Tell the user to create distance immediately.
+      - Ask them to put down objects that could be used to hurt someone or damage property.
+      - Suggest leaving the room, stepping outside, or contacting a calm trusted person.
+      - Do not help them confront or message the target while activated.
+      - Move to grounding only after physical distance is created.
+    contraindications:
+      - Do not validate revenge as an action.
+      - Do not help plan threats, intimidation, property damage, or violence.
+      - Do not write aggressive messages.
+      - Do not encourage confrontation while the user is escalated.
+    response_style:
+      - firm
+      - de-escalating
+      - consequence-aware
+      - safety-first
+    tags:
+      - violence_risk
+      - anger
+      - deescalation
+      - distance
+      - impulse_control
+      - arabic_supported
+
+  - id: safety_abuse_or_coercion
+    category: safety_support
+    technique: abuse or coercion safety support
+    trigger_terms:
+      - they threaten me
+      - they control me
+      - they hit me
+      - I am scared of them
+      - they won't let me leave
+      - بيهددني
+      - بتهددني
+      - بيتحكم فيا
+      - بتتحكم فيا
+      - بيضربني
+      - بتضربني
+      - خايف منه
+      - خايفة منها
+      - مش سايبني أمشي
+      - مش سايباني أمشي
+    instructions:
+      - Validate that safety matters more than winning the argument.
+      - Avoid telling the user to confront the person directly.
+      - Encourage contacting trusted support or local emergency help if danger is active.
+      - Suggest preserving access to phone, ID, money, transport, and a safe contact if possible.
+      - Keep planning general and avoid details that could increase risk if monitored.
+    contraindications:
+      - Do not pressure the user to leave immediately without safety context.
+      - Do not tell the user to confront, threaten, or expose the person while unsafe.
+      - Do not ask for explicit abuse details unless needed for immediate safety.
+      - Do not minimize coercion because no physical injury is mentioned.
+    response_style:
+      - careful
+      - validating
+      - safety-aware
+      - non-escalating
+    tags:
+      - abuse
+      - coercion
+      - safety_planning
+      - emergency
+      - relationships
+      - arabic_supported
+
+  - id: safety_medical_red_flags
+    category: safety_support
+    technique: medical red flag routing
+    trigger_terms:
+      - chest pain
+      - fainting
+      - can't breathe
+      - severe shortness of breath
+      - overdose
+      - seizure
+      - نزيف
+      - ألم في الصدر
+      - إغماء
+      - مش قادر اتنفس
+      - مش قادرة اتنفس
+      - ضيق تنفس شديد
+      - جرعة زيادة
+      - تشنجات
+    instructions:
+      - Treat severe physical symptoms as requiring real-world medical support.
+      - Encourage contacting emergency services or going to urgent care.
+      - Keep emotional grounding secondary to medical safety.
+      - Avoid diagnosing the cause.
+      - If the user is alone, suggest contacting someone nearby.
+    contraindications:
+      - Do not reassure that symptoms are harmless.
+      - Do not diagnose panic, heart issues, overdose, or neurological events.
+      - Do not give medication dosing or medical instructions.
+      - Do not delay emergency help with long questioning.
+    response_style:
+      - urgent
+      - medically cautious
+      - concise
+      - practical
+    tags:
+      - medical_red_flags
+      - emergency
+      - breathing
+      - chest_pain
+      - safety_routing
+      - arabic_supported
+
+  - id: safety_digital_privacy
+    category: safety_support
+    technique: digital privacy and monitoring safety
+    trigger_terms:
+      - they check my phone
+      - they track me
+      - someone is watching my messages
+      - I think my account is monitored
+      - بيشوف موبايلي
+      - بتشوف موبايلي
+      - بيتتبعني
+      - بتتبعني
+      - حد بيراقب رسايلي
+      - الأكونت متراقب
+      - الموبايل متراقب
+    instructions:
+      - Avoid suggesting risky confrontations about monitoring.
+      - Suggest using a safer device or trusted person's phone if danger is present.
+      - Suggest changing passwords and enabling two-factor authentication only when safe.
+      - Encourage reviewing logged-in devices from a safe context.
+      - If the user is in danger, prioritize real-world safety over account cleanup.
+    contraindications:
+      - Do not provide hacking, spyware, or surveillance instructions.
+      - Do not encourage revenge monitoring.
+      - Do not tell the user to change settings if doing so may alert an abuser and increase risk.
+      - Do not ask for passwords, codes, or private credentials.
+    response_style:
+      - careful
+      - privacy-aware
+      - safety-first
+      - non-technical unless asked
+    tags:
+      - digital_safety
+      - privacy
+      - monitoring
+      - abuse
+      - account_security
+      - arabic_supported
+
+  - id: safety_ground_then_support
+    category: safety_support
+    technique: ground then contact support
+    trigger_terms:
+      - I am scared
+      - I feel unsafe
+      - I am shaking
+      - I need help but not emergency
+      - I don't want to be alone
+      - خايف
+      - خايفة
+      - حاسس مش آمن
+      - حاسة مش آمنة
+      - برتعش
+      - محتاج مساعدة
+      - محتاجة مساعدة
+      - مش عايز أبقى لوحدي
+      - مش عايزة أبقى لوحدي
+    instructions:
+      - Ask whether the user is in immediate danger.
+      - If not immediate, guide one short grounding step.
+      - Ask them to contact one trusted person.
+      - Keep the next action concrete: call, text, sit near someone, or move to a safer place.
+      - If risk increases, escalate to immediate danger handling.
+    contraindications:
+      - Do not continue normal coaching if immediate danger appears.
+      - Do not leave the user isolated if they say they cannot stay safe.
+      - Do not overcomplicate the plan.
+    response_style:
+      - calm
+      - practical
+      - supportive
+      - safety-checking
+    tags:
+      - safety_check
+      - grounding
+      - support_person
+      - fear
+      - arabic_supported
