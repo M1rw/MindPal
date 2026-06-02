@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import Any
 
 import yaml
 
+from backend.core.config import Settings, get_settings
 from backend.core.errors import RAGError
 from backend.core.security import normalize_locale, safe_truncate, sanitize_text
 from backend.models.chat import RagReference
@@ -188,17 +190,62 @@ class RAGService:
         self,
         corpus_dir: Path | None = None,
         *,
+        settings: Settings | None = None,
         llm_service: LLMService | None = None,
-        enable_llm_planning: bool = True,
-        use_builtin_fallback: bool = True,
+        enable_llm_planning: bool | None = None,
+        use_builtin_fallback: bool | None = None,
+        allow_builtin_fallback_in_production: bool | None = None,
+        allow_offline_llm_planner: bool | None = None,
     ) -> None:
+        self.settings = settings or get_settings()
+        self.production_mode = _is_production(self.settings)
+
         self.corpus_dir = corpus_dir or Path(__file__).resolve().parents[1] / "rag" / "corpus"
         self.llm_service = llm_service
-        self.enable_llm_planning = enable_llm_planning
-        self.use_builtin_fallback = use_builtin_fallback
+
+        self.enable_llm_planning = (
+            _setting_bool(
+                self.settings,
+                "ENABLE_LLM_RAG_PLANNING",
+                default=True,
+            )
+            if enable_llm_planning is None
+            else bool(enable_llm_planning)
+        )
+
+        self.use_builtin_fallback = (
+            _setting_bool(
+                self.settings,
+                "ENABLE_BUILTIN_RAG_FALLBACK",
+                default=not self.production_mode,
+            )
+            if use_builtin_fallback is None
+            else bool(use_builtin_fallback)
+        )
+
+        self.allow_builtin_fallback_in_production = (
+            _setting_bool(
+                self.settings,
+                "ALLOW_BUILTIN_RAG_FALLBACK_IN_PRODUCTION",
+                default=False,
+            )
+            if allow_builtin_fallback_in_production is None
+            else bool(allow_builtin_fallback_in_production)
+        )
+
+        self.allow_offline_llm_planner = (
+            _setting_bool(
+                self.settings,
+                "ALLOW_OFFLINE_LLM_RAG_PLANNER",
+                default=False,
+            )
+            if allow_offline_llm_planner is None
+            else bool(allow_offline_llm_planner)
+        )
 
         self._units: tuple[GroundingUnit, ...] = ()
         self._last_result: RAGRetrievalResult | None = None
+        self._using_builtin_fallback = False
 
         self.reload()
 
@@ -212,6 +259,7 @@ class RAGService:
 
     def reload(self) -> None:
         loaded_units: list[GroundingUnit] = []
+        self._using_builtin_fallback = False
 
         if self.corpus_dir.exists():
             for path in sorted(self.corpus_dir.glob("*.yaml")):
@@ -220,8 +268,28 @@ class RAGService:
             for path in sorted(self.corpus_dir.glob("*.yml")):
                 loaded_units.extend(self._load_yaml_units(path))
 
-        if not loaded_units and self.use_builtin_fallback:
+        if loaded_units:
+            self._assert_unique_ids(loaded_units)
+            self._units = tuple(loaded_units)
+            return
+
+        if self.production_mode and not self.allow_builtin_fallback_in_production:
+            raise RAGError(
+                "RAG corpus is missing or empty in production",
+                code="rag_corpus_missing_in_production",
+                details={"corpus_dir": str(self.corpus_dir)},
+            )
+
+        if self.use_builtin_fallback:
             loaded_units = list(_builtin_units())
+            self._using_builtin_fallback = True
+
+        if not loaded_units:
+            raise RAGError(
+                "RAG corpus is missing or empty",
+                code="rag_corpus_missing",
+                details={"corpus_dir": str(self.corpus_dir)},
+            )
 
         self._assert_unique_ids(loaded_units)
         self._units = tuple(loaded_units)
@@ -262,7 +330,9 @@ class RAGService:
             self._last_result = result
             return result
 
-        if self.enable_llm_planning and self.llm_service is not None:
+        planner_state = self._planner_provider_state()
+
+        if self.enable_llm_planning and self.llm_service is not None and planner_state["planner_can_call_llm"]:
             try:
                 plan, provider_used = await self._build_llm_plan(
                     cleaned_message,
@@ -406,17 +476,70 @@ class RAGService:
 
     def health(self) -> dict[str, Any]:
         categories = sorted({unit.category for unit in self._units})
+        planner_state = self._planner_provider_state()
+
         return {
             "mode": "llm_planner_with_local_curated_retrieval",
+            "production_mode": self.production_mode,
             "units_loaded": len(self._units),
             "categories": categories,
             "corpus_dir": str(self.corpus_dir),
             "corpus_dir_exists": self.corpus_dir.exists(),
-            "using_builtin_fallback": self.use_builtin_fallback and not self.corpus_dir.exists(),
+            "using_builtin_fallback": self._using_builtin_fallback,
+            "builtin_fallback_enabled": self.use_builtin_fallback,
+            "builtin_fallback_allowed_in_production": self.allow_builtin_fallback_in_production,
             "llm_planning_enabled": self.enable_llm_planning,
             "llm_service_available": self.llm_service is not None,
+            "llm_planner_provider_state": planner_state,
+            "llm_planner_can_call_llm": planner_state["planner_can_call_llm"],
+            "offline_llm_planner_allowed": self.allow_offline_llm_planner,
             "vector_db_required": False,
             "last_result": None if self._last_result is None else self._last_result.to_public_dict(),
+        }
+
+    def _planner_provider_state(self) -> dict[str, bool]:
+        if self.llm_service is None:
+            return {
+                "remote_provider_available": False,
+                "offline_available": False,
+                "offline_allowed_by_llm_service": False,
+                "offline_allowed_for_rag_planner": self.allow_offline_llm_planner,
+                "planner_can_call_llm": False,
+            }
+
+        try:
+            health = self.llm_service.health()
+        except Exception:
+            return {
+                "remote_provider_available": False,
+                "offline_available": False,
+                "offline_allowed_by_llm_service": False,
+                "offline_allowed_for_rag_planner": self.allow_offline_llm_planner,
+                "planner_can_call_llm": False,
+            }
+
+        remote_available = bool(
+            health.get("configured_remote_provider_available", False)
+            or health.get("remote_provider_available", False)
+        )
+        offline_available = bool(health.get("offline_available", False))
+        offline_allowed_by_llm_service = bool(health.get("offline_allowed", False))
+
+        planner_can_call_llm = bool(
+            remote_available
+            or (
+                self.allow_offline_llm_planner
+                and offline_available
+                and offline_allowed_by_llm_service
+            )
+        )
+
+        return {
+            "remote_provider_available": remote_available,
+            "offline_available": offline_available,
+            "offline_allowed_by_llm_service": offline_allowed_by_llm_service,
+            "offline_allowed_for_rag_planner": self.allow_offline_llm_planner,
+            "planner_can_call_llm": planner_can_call_llm,
         }
 
     async def _build_llm_plan(
@@ -452,7 +575,16 @@ class RAGService:
             },
         )
 
-        response = await self.llm_service.generate(llm_request)
+        result = await self.llm_service.generate_with_trace(llm_request)
+        response = result.response
+        provider_used = sanitize_text(response.provider_used or "unknown", 80)
+
+        if _clean_provider_name(provider_used) == "offline" and not self.allow_offline_llm_planner:
+            raise RAGError(
+                "Offline LLM fallback cannot be used for RAG planning",
+                code="rag_offline_planner_disabled",
+            )
+
         raw_plan = self._parse_llm_plan_json(response.text)
 
         return self._plan_from_payload(
@@ -461,7 +593,7 @@ class RAGService:
             fallback_tags=safety_tags,
             fallback_locale=locale,
             source="llm_planner",
-        ), response.provider_used
+        ), provider_used
 
     def _build_local_plan(
         self,
@@ -595,7 +727,7 @@ class RAGService:
         locale = normalize_locale(str(payload.get("locale") or fallback_locale))
 
         if not rewritten_query and not tags and not categories and not techniques:
-            raise RagError("LLM RAG plan is empty", code="rag_llm_empty_plan")
+            raise RAGError("LLM RAG plan is empty", code="rag_llm_empty_plan")
 
         return RAGQueryPlan(
             rewritten_query=rewritten_query,
@@ -611,7 +743,7 @@ class RAGService:
         try:
             data = yaml.safe_load(path.read_text(encoding="utf-8"))
         except yaml.YAMLError as exc:
-            raise RagError(
+            raise RAGError(
                 "RAG corpus YAML failed to parse",
                 code="rag_yaml_parse_error",
                 details={"path": str(path)},
@@ -629,14 +761,14 @@ class RAGService:
         elif isinstance(data, dict):
             raw_units = [data]
         else:
-            raise RagError(
+            raise RAGError(
                 "RAG corpus file must contain a mapping, list, or units list",
                 code="invalid_rag_corpus",
                 details={"path": str(path)},
             )
 
         if not isinstance(raw_units, list):
-            raise RagError(
+            raise RAGError(
                 "RAG corpus units must be a list",
                 code="invalid_rag_units",
                 details={"path": str(path)},
@@ -646,7 +778,7 @@ class RAGService:
 
         for index, raw_unit in enumerate(raw_units):
             if not isinstance(raw_unit, dict):
-                raise RagError(
+                raise RAGError(
                     "RAG corpus unit must be a mapping",
                     code="invalid_rag_unit",
                     details={"path": str(path), "index": index},
@@ -693,14 +825,14 @@ class RAGService:
         )
 
         if not trigger_terms and not tags:
-            raise RagError(
+            raise RAGError(
                 "RAG unit must define trigger_terms or tags",
                 code="invalid_rag_unit_terms",
                 details={"grounding_id": grounding_id},
             )
 
         if not instructions:
-            raise RagError(
+            raise RAGError(
                 "RAG unit must define at least one instruction",
                 code="invalid_rag_unit_instructions",
                 details={"grounding_id": grounding_id},
@@ -724,13 +856,47 @@ class RAGService:
 
         for unit in units:
             if unit.grounding_id in seen:
-                raise RagError(
+                raise RAGError(
                     "Duplicate RAG grounding id",
                     code="duplicate_rag_grounding_id",
                     details={"grounding_id": unit.grounding_id},
                 )
 
             seen.add(unit.grounding_id)
+
+
+def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return os.getenv(name, default)
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value()
+
+    return value
+
+
+def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
+    value = _setting_value(settings, name, None)
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_production(settings: Settings) -> bool:
+    value = _setting_value(settings, "ENVIRONMENT", "development")
+    environment = sanitize_text(str(value or "development"), 80).lower()
+    return environment in {"production", "prod"}
+
+
+def _clean_provider_name(value: str) -> str:
+    return sanitize_text(str(value or ""), 80).lower() or "unknown"
 
 
 def _score_unit(
@@ -812,7 +978,7 @@ def _clean_required(value: Any, field_name: str, max_chars: int) -> str:
     cleaned = sanitize_text(str(value or ""), max_chars)
 
     if not cleaned:
-        raise RagError(
+        raise RAGError(
             "RAG unit required field is missing",
             code="invalid_rag_unit_required_field",
             details={"field": field_name},
@@ -905,7 +1071,7 @@ def _extract_json_object(text: str) -> str:
     start = stripped.find("{")
 
     if start == -1:
-        raise RagError("LLM RAG plan did not contain JSON", code="rag_llm_invalid_json")
+        raise RAGError("LLM RAG plan did not contain JSON", code="rag_llm_invalid_json")
 
     depth = 0
     in_string = False
@@ -933,7 +1099,7 @@ def _extract_json_object(text: str) -> str:
             if depth == 0:
                 return stripped[start : index + 1]
 
-    raise RagError("LLM RAG plan JSON object was incomplete", code="rag_llm_invalid_json")
+    raise RAGError("LLM RAG plan JSON object was incomplete", code="rag_llm_invalid_json")
 
 
 def _builtin_units() -> tuple[GroundingUnit, ...]:

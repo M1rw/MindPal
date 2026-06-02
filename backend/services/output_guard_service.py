@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import Any, Literal
 
 import yaml
 
+from backend.core.config import Settings, get_settings
 from backend.core.errors import SafetyError
 from backend.core.security import Locale, normalize_locale, safe_truncate, sanitize_text
 from backend.services.llm_service import LLMService, build_llm_request
@@ -149,12 +151,36 @@ class OutputGuardService:
         self,
         safety_dir: Path | None = None,
         *,
+        settings: Settings | None = None,
         llm_service: LLMService | None = None,
-        enable_llm_rewrite: bool = True,
+        enable_llm_rewrite: bool | None = None,
+        allow_offline_llm_rewrite: bool | None = None,
     ) -> None:
+        self.settings = settings or get_settings()
+        self.production_mode = _is_production(self.settings)
+
         self.safety_dir = safety_dir or Path(__file__).resolve().parents[1] / "safety"
         self.llm_service = llm_service
-        self.enable_llm_rewrite = enable_llm_rewrite
+
+        self.enable_llm_rewrite = (
+            _setting_bool(
+                self.settings,
+                "ENABLE_LLM_OUTPUT_REWRITE",
+                default=True,
+            )
+            if enable_llm_rewrite is None
+            else bool(enable_llm_rewrite)
+        )
+
+        self.allow_offline_llm_rewrite = (
+            _setting_bool(
+                self.settings,
+                "ALLOW_OFFLINE_LLM_OUTPUT_REWRITE",
+                default=False,
+            )
+            if allow_offline_llm_rewrite is None
+            else bool(allow_offline_llm_rewrite)
+        )
 
         self._rules: list[CompiledOutputRule] = []
         self._default_action: OutputAction = "safe_rewrite"
@@ -301,15 +327,23 @@ class OutputGuardService:
         )
 
     def health(self) -> dict[str, Any]:
+        rewrite_provider_state = self._rewrite_provider_state()
+
         return {
             "mode": "deterministic_blocker_with_optional_llm_rewrite",
+            "production_mode": self.production_mode,
             "rules_loaded": len(self._rules),
             "fallback_locales": sorted(self._fallbacks),
             "default_action": self._default_action,
             "actions_loaded": sorted(self._actions),
             "llm_rewrite_enabled": self.enable_llm_rewrite,
             "llm_service_available": self.llm_service is not None,
+            "llm_rewrite_provider_state": rewrite_provider_state,
+            "llm_rewrite_can_call_llm": rewrite_provider_state["rewrite_can_call_llm"],
+            "offline_llm_rewrite_allowed": self.allow_offline_llm_rewrite,
             "critical_categories_never_rewritten": sorted(CRITICAL_CATEGORIES),
+            "rewrites_are_rescanned": True,
+            "unsafe_rewrite_falls_back": True,
         }
 
     def _validate_output_local(
@@ -370,6 +404,10 @@ class OutputGuardService:
         if not self.enable_llm_rewrite or self.llm_service is None:
             return False
 
+        provider_state = self._rewrite_provider_state()
+        if not provider_state["rewrite_can_call_llm"]:
+            return False
+
         if result.action == "block_and_fallback":
             return False
 
@@ -379,6 +417,51 @@ class OutputGuardService:
             return False
 
         return True
+
+    def _rewrite_provider_state(self) -> dict[str, bool]:
+        if self.llm_service is None:
+            return {
+                "remote_provider_available": False,
+                "offline_available": False,
+                "offline_allowed_by_llm_service": False,
+                "offline_allowed_for_output_rewrite": self.allow_offline_llm_rewrite,
+                "rewrite_can_call_llm": False,
+            }
+
+        try:
+            health = self.llm_service.health()
+        except Exception:
+            return {
+                "remote_provider_available": False,
+                "offline_available": False,
+                "offline_allowed_by_llm_service": False,
+                "offline_allowed_for_output_rewrite": self.allow_offline_llm_rewrite,
+                "rewrite_can_call_llm": False,
+            }
+
+        remote_available = bool(
+            health.get("configured_remote_provider_available", False)
+            or health.get("remote_provider_available", False)
+        )
+        offline_available = bool(health.get("offline_available", False))
+        offline_allowed_by_llm_service = bool(health.get("offline_allowed", False))
+
+        rewrite_can_call_llm = bool(
+            remote_available
+            or (
+                self.allow_offline_llm_rewrite
+                and offline_available
+                and offline_allowed_by_llm_service
+            )
+        )
+
+        return {
+            "remote_provider_available": remote_available,
+            "offline_available": offline_available,
+            "offline_allowed_by_llm_service": offline_allowed_by_llm_service,
+            "offline_allowed_for_output_rewrite": self.allow_offline_llm_rewrite,
+            "rewrite_can_call_llm": rewrite_can_call_llm,
+        }
 
     async def _rewrite_with_llm(
         self,
@@ -412,7 +495,16 @@ class OutputGuardService:
             },
         )
 
-        response = await self.llm_service.generate(request)
+        result = await self.llm_service.generate_with_trace(request)
+        response = result.response
+        provider_used = sanitize_text(response.provider_used or "unknown", 80)
+
+        if _clean_provider_name(provider_used) == "offline" and not self.allow_offline_llm_rewrite:
+            raise SafetyError(
+                "Offline LLM fallback cannot be used for output guard rewrite",
+                code="output_guard_offline_rewrite_disabled",
+            )
+
         rewrite = self._parse_rewrite_json(response.text)
 
         if not rewrite:
@@ -421,7 +513,7 @@ class OutputGuardService:
                 code="output_guard_empty_rewrite",
             )
 
-        return rewrite, response.provider_used
+        return rewrite, provider_used
 
     def _parse_rewrite_json(self, text: str) -> str:
         cleaned = sanitize_text(text, MAX_REWRITE_OUTPUT_CHARS).strip()
@@ -833,6 +925,40 @@ class OutputGuardService:
             )
 
         return action  # type: ignore[return-value]
+
+
+def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return os.getenv(name, default)
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value()
+
+    return value
+
+
+def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
+    value = _setting_value(settings, name, None)
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_production(settings: Settings) -> bool:
+    value = _setting_value(settings, "ENVIRONMENT", "development")
+    environment = sanitize_text(str(value or "development"), 80).lower()
+    return environment in {"production", "prod"}
+
+
+def _clean_provider_name(value: str) -> str:
+    return sanitize_text(str(value or ""), 80).lower() or "unknown"
 
 
 def _severity_rank(severity: OutputSeverity) -> int:
