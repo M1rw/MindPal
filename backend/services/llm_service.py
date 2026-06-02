@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Protocol
+from typing import Any, Protocol
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
@@ -24,8 +25,7 @@ class LLMProvider(Protocol):
     """
     Provider protocol used by LLMService.
 
-    Future provider classes in backend/providers must implement this interface.
-    The service intentionally does not import provider modules to avoid cycles.
+    Provider classes in backend/providers must implement this interface.
     """
 
     name: str
@@ -48,8 +48,10 @@ class OfflineLLMProvider:
     """
     Deterministic local fallback provider.
 
-    This is not a clinical model. It exists so chat can degrade safely when all
-    remote LLM providers are unavailable, missing keys, or timing out.
+    This is not a replacement for a remote LLM. It exists for development,
+    local demos, and explicit emergency degradation when enabled.
+
+    Production should normally require at least one configured remote provider.
     """
 
     name = "offline"
@@ -150,22 +152,20 @@ class LLMService:
     Responsibilities:
     - skip unconfigured providers
     - apply per-provider timeout
-    - cascade failures safely
-    - return deterministic offline fallback if all remote providers fail
+    - cascade remote provider failures safely
+    - optionally use deterministic offline fallback when explicitly allowed
     - expose provider trace metadata without raw prompt contents
+
+    Production policy:
+    - remote provider availability is explicit in health
+    - offline fallback is visible through provider_used='offline'
+    - production can be configured to fail instead of using offline fallback
 
     Non-responsibilities:
     - safety classification
     - output guard
     - RAG retrieval
     - memory compaction
-
-    Required chat route order:
-    safety_service.classify_input()
-    -> maybe deterministic crisis response
-    -> RAG/memory prompt construction
-    -> llm_service.generate()
-    -> output_guard_service.validate_output()
     """
 
     def __init__(
@@ -174,14 +174,51 @@ class LLMService:
         *,
         settings: Settings | None = None,
         timeout_seconds: float | None = None,
-        include_offline_provider: bool = True,
+        include_offline_provider: bool | None = None,
+        require_remote_provider: bool | None = None,
+        allow_offline_in_production: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.timeout_seconds = float(timeout_seconds or self.settings.LLM_TIMEOUT_SECONDS)
+        self.production_mode = _is_production(self.settings)
+        self.timeout_seconds = float(timeout_seconds or _setting_float(
+            self.settings,
+            "LLM_TIMEOUT_SECONDS",
+            default=45.0,
+        ))
+
+        self.require_remote_provider = (
+            _setting_bool(
+                self.settings,
+                "REQUIRE_REMOTE_LLM_PROVIDER",
+                default=self.production_mode,
+            )
+            if require_remote_provider is None
+            else bool(require_remote_provider)
+        )
+
+        self.allow_offline_in_production = (
+            _setting_bool(
+                self.settings,
+                "ALLOW_OFFLINE_LLM_IN_PRODUCTION",
+                default=False,
+            )
+            if allow_offline_in_production is None
+            else bool(allow_offline_in_production)
+        )
+
+        should_include_offline = (
+            _setting_bool(
+                self.settings,
+                "ENABLE_OFFLINE_LLM_FALLBACK",
+                default=not self.production_mode,
+            )
+            if include_offline_provider is None
+            else bool(include_offline_provider)
+        )
 
         configured_providers: list[LLMProvider] = list(providers or [])
 
-        if include_offline_provider and not _has_provider(configured_providers, "offline"):
+        if should_include_offline and not _has_provider(configured_providers, "offline"):
             configured_providers.append(OfflineLLMProvider())
 
         if not configured_providers:
@@ -191,6 +228,13 @@ class LLMService:
             )
 
         self._providers = configured_providers
+
+        if self.require_remote_provider and not self._has_configured_remote_provider():
+            if not self._offline_allowed_for_current_environment():
+                raise ProviderError(
+                    "Production requires at least one configured remote LLM provider",
+                    code="llm_remote_provider_required",
+                )
 
     @property
     def providers(self) -> tuple[LLMProvider, ...]:
@@ -228,9 +272,33 @@ class LLMService:
     async def generate_with_trace(self, request: LLMRequest) -> LLMServiceResult:
         traces: list[ProviderCallTrace] = []
         fallback_count = 0
+        attempted_remote = False
 
         for provider in self._providers:
             provider_name = _clean_provider_name(provider.name)
+            is_offline = provider_name == "offline"
+
+            if is_offline and not self._offline_allowed_for_current_environment():
+                traces.append(
+                    ProviderCallTrace(
+                        provider=provider_name,
+                        skipped=True,
+                        error_code="offline_fallback_disabled",
+                    )
+                )
+                fallback_count += 1
+                continue
+
+            if is_offline and self.require_remote_provider and not attempted_remote:
+                traces.append(
+                    ProviderCallTrace(
+                        provider=provider_name,
+                        skipped=True,
+                        error_code="remote_provider_required_before_offline",
+                    )
+                )
+                fallback_count += 1
+                continue
 
             if not provider.is_configured:
                 traces.append(
@@ -242,6 +310,9 @@ class LLMService:
                 )
                 fallback_count += 1
                 continue
+
+            if not is_offline:
+                attempted_remote = True
 
             started = perf_counter()
 
@@ -293,7 +364,7 @@ class LLMService:
 
                 if _is_last_provider(provider, self._providers):
                     raise ProviderTimeoutError(
-                        "All LLM providers timed out",
+                        "All enabled LLM providers timed out",
                         code="llm_all_providers_timeout",
                         details={"last_provider": provider_name},
                     ) from exc
@@ -332,7 +403,7 @@ class LLMService:
                 continue
 
         raise ProviderError(
-            "All LLM providers failed",
+            "All enabled LLM providers failed",
             code="llm_all_providers_failed",
             details={
                 "providers_attempted": ",".join(
@@ -341,24 +412,59 @@ class LLMService:
                 "providers_skipped": ",".join(
                     trace.provider for trace in traces if trace.skipped
                 ),
+                "remote_provider_required": str(self.require_remote_provider),
+                "offline_allowed": str(self._offline_allowed_for_current_environment()),
             },
         )
 
     def health(self) -> dict[str, object]:
+        providers = [
+            {
+                "name": _clean_provider_name(provider.name),
+                "configured": bool(provider.is_configured),
+                "offline": _clean_provider_name(provider.name) == "offline",
+            }
+            for provider in self._providers
+        ]
+
+        remote_provider_available = any(
+            item["configured"] and not item["offline"]
+            for item in providers
+        )
+
+        offline_available = any(
+            item["configured"] and item["offline"]
+            for item in providers
+        )
+
         return {
-            "providers": [
-                {
-                    "name": _clean_provider_name(provider.name),
-                    "configured": bool(provider.is_configured),
-                }
-                for provider in self._providers
-            ],
+            "providers": providers,
             "timeout_seconds": self.timeout_seconds,
-            "offline_available": any(
-                _clean_provider_name(provider.name) == "offline"
-                for provider in self._providers
-            ),
+            "production_mode": self.production_mode,
+            "remote_provider_available": remote_provider_available,
+            "configured_remote_provider_available": remote_provider_available,
+            "require_remote_provider": self.require_remote_provider,
+            "offline_available": offline_available,
+            "offline_enabled": _has_provider(self._providers, "offline"),
+            "offline_allowed": self._offline_allowed_for_current_environment(),
+            "allow_offline_in_production": self.allow_offline_in_production,
         }
+
+    def _has_configured_remote_provider(self) -> bool:
+        return any(
+            _clean_provider_name(provider.name) != "offline"
+            and bool(provider.is_configured)
+            for provider in self._providers
+        )
+
+    def _offline_allowed_for_current_environment(self) -> bool:
+        if not _has_provider(self._providers, "offline"):
+            return False
+
+        if self.production_mode:
+            return self.allow_offline_in_production
+
+        return True
 
 
 def build_llm_request(
@@ -453,3 +559,42 @@ def _elapsed_ms(started: float) -> float:
 
 def _clamp_fallback_count(value: int) -> int:
     return max(0, min(int(value), 10))
+
+
+def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
+    value = getattr(settings, name, None)
+
+    if value is None:
+        return os.getenv(name, default)
+
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value()
+
+    return value
+
+
+def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
+    value = _setting_value(settings, name, None)
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _setting_float(settings: Settings, name: str, *, default: float) -> float:
+    value = _setting_value(settings, name, default)
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _is_production(settings: Settings) -> bool:
+    value = _setting_value(settings, "ENVIRONMENT", "development")
+    environment = sanitize_text(str(value or "development"), 80).lower()
+    return environment in {"production", "prod"}
