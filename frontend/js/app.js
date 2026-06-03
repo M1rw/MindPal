@@ -75,12 +75,7 @@ async function bootstrap() {
   bindMoodButtons();
   bindConversationActions();
 
-  voiceController = initVoice({
-    onFinalTranscript: () => {
-      handleSend();
-    },
-    autoSend: false,
-  });
+  voiceController = initVoice();
 
   renderPersistedChat();
   updateProfileUI(getCurrentUser());
