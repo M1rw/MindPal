@@ -1,65 +1,65 @@
 /* Sleek Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 10px; }
-        .dark ::-webkit-scrollbar-thumb { background: #444746; }
-        ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
-        .dark ::-webkit-scrollbar-thumb:hover { background: #c4c7c5; }
-        
-        textarea::-webkit-scrollbar { width: 0px; }
-        textarea:focus::-webkit-scrollbar { width: 6px; }
-        
-        .dropdown-enter { opacity: 0; transform: scale(0.98) translateY(-5px); }
-        .dropdown-enter-active { opacity: 1; transform: scale(1) translateY(0); transition: opacity 150ms ease-out, transform 150ms ease-out; }
-        
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 10px; }
+.dark ::-webkit-scrollbar-thumb { background: #444746; }
+::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #c4c7c5; }
 
-        @keyframes slideUpFade {
-            from { opacity: 0; transform: translateY(1rem); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-toast { animation: slideUpFade 0.3s ease-out forwards; }
+textarea::-webkit-scrollbar { width: 0px; }
+textarea:focus::-webkit-scrollbar { width: 6px; }
 
-        /* Custom Toggle Switch */
-        input:checked ~ .toggle-bg { background-color: #3b82f6; }
-        .dark input:checked ~ .toggle-bg { background-color: #a8c7fa; }
-        input:checked ~ .toggle-dot { transform: translateX(100%); }
+.dropdown-enter { opacity: 0; transform: scale(0.98) translateY(-5px); }
+.dropdown-enter-active { opacity: 1; transform: scale(1) translateY(0); transition: opacity 150ms ease-out, transform 150ms ease-out; }
 
-        /* Hide default details marker */
-        details > summary { list-style: none; }
-        details > summary::-webkit-details-marker { display: none; }
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-        /* Shimmer text for AI loading state */
-        .shimmer-text {
-            background: linear-gradient(90deg, #4285f4 0%, #9b72cb 50%, #4285f4 100%);
-            background-size: 200% auto;
-            color: transparent;
-            -webkit-background-clip: text;
-            background-clip: text;
-            animation: shimmer 2s linear infinite;
-        }
-        .dark .shimmer-text {
-            background: linear-gradient(90deg, #a8c7fa 0%, #d3bcfa 50%, #a8c7fa 100%);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-        }
-        @keyframes shimmer { to { background-position: 200% center; } }
-        
-        /* Voice Recording Pulse */
-        @keyframes pulse-ring {
-            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-        .recording-pulse {
-            animation: pulse-ring 2s infinite;
-            background-color: rgba(239, 68, 68, 0.1);
-            color: #ef4444 !important;
-        }
+@keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(1rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-toast { animation: slideUpFade 0.3s ease-out forwards; }
+
+/* Custom Toggle Switch */
+input:checked ~ .toggle-bg { background-color: #3b82f6; }
+.dark input:checked ~ .toggle-bg { background-color: #a8c7fa; }
+input:checked ~ .toggle-dot { transform: translateX(100%); }
+
+/* Hide default details marker */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+
+/* Shimmer text for AI loading state */
+.shimmer-text {
+    background: linear-gradient(90deg, #4285f4 0%, #9b72cb 50%, #4285f4 100%);
+    background-size: 200% auto;
+    color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: shimmer 2s linear infinite;
+}
+.dark .shimmer-text {
+    background: linear-gradient(90deg, #a8c7fa 0%, #d3bcfa 50%, #a8c7fa 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+}
+@keyframes shimmer { to { background-position: 200% center; } }
+
+/* Voice Recording Pulse */
+@keyframes pulse-ring {
+    0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+.recording-pulse {
+    animation: pulse-ring 2s infinite;
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444 !important;
+}
 
 /* MindPal design tokens extracted from the prototype Tailwind config. */
 .bg-gemini-bg { background-color: #ffffff; }
@@ -76,3 +76,20 @@
 .dark .dark\:border-gemini-darkBorder { border-color: #444746; }
 .dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #1e1f20; }
 
+/* MindPal custom utility fallbacks.
+   These preserve the prototype colors if Tailwind CDN config is delayed. */
+
+.bg-gemini-bg { background-color: #ffffff; }
+.bg-gemini-surface { background-color: #f0f4f9; }
+.text-gemini-text { color: #1f1f1f; }
+.text-gemini-muted { color: #444746; }
+.border-gemini-border { border-color: #e0e0e0; }
+
+.dark .dark\:bg-gemini-darkBg { background-color: #131314; }
+.dark .dark\:bg-gemini-darkSurface { background-color: #1e1f20; }
+.dark .dark\:text-gemini-darkText { color: #e3e3e3; }
+.dark .dark\:text-gemini-darkMuted { color: #c4c7c5; }
+.dark .dark\:border-gemini-darkBorder { border-color: #444746; }
+
+.hover\:bg-gemini-surface:hover { background-color: #f0f4f9; }
+.dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #1e1f20; }
