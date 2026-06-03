@@ -155,7 +155,23 @@ export function calculateStreak() {
     state.visitHistory.push(today);
   }
 
+  updateStreakUI();
   return state.streak;
+}
+
+export function updateStreakUI() {
+  const streakCounter = document.getElementById("streak-counter");
+  const modalStreakCount = document.getElementById("modal-streak-count");
+
+  const value = String(Number(state.streak || 0));
+
+  if (streakCounter) {
+    streakCounter.textContent = value;
+  }
+
+  if (modalStreakCount) {
+    modalStreakCount.textContent = value;
+  }
 }
 
 export function initializeTheme() {
@@ -279,11 +295,13 @@ export function updateProfileUI(user = null) {
 }
 
 export function renderWeeklyTracker() {
+  updateStreakUI();
+
   const countEl = document.getElementById("modal-streak-count");
   const tracker = document.getElementById("weekly-tracker");
 
   if (countEl) {
-    countEl.textContent = String(state.streak || 0);
+    countEl.textContent = String(Number(state.streak || 0));
   }
 
   if (!tracker) return;
