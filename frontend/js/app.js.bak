@@ -56,7 +56,6 @@ let isGenerating = false;
 let isSessionLocked = false;
 let voiceController = null;
 let authUnsubscribe = null;
-let cloudConnectInProgress = false;
 
 document.addEventListener("DOMContentLoaded", bootstrap);
 
@@ -97,37 +96,26 @@ async function initFrontendAuth() {
 
     authUnsubscribe = onAuthChange(async (user) => {
       if (!user) {
-        if (!cloudConnectInProgress) {
-          setCloudSyncEnabled(false);
-          updateProfileUI(null);
-        }
+        setCloudSyncEnabled(false);
+        updateProfileUI(null);
         return;
       }
+
+      setCloudSyncEnabled(true);
 
       if (user.displayName) {
         setUserName(user.displayName);
       }
 
-      if (cloudConnectInProgress) {
-        updateProfileUI(user);
-        return;
-      }
+      updateProfileUI(user);
 
       try {
         const token = await getIdToken();
-
-        if (!token) {
-          throw new Error("Firebase returned no ID token.");
+        if (token) {
+          await getCurrentUserProfile(token);
         }
-
-        await getCurrentUserProfile(token);
-
-        setCloudSyncEnabled(true);
-        updateProfileUI(user);
-      } catch (error) {
-        console.warn("Silent cloud profile verification failed:", error);
-        setCloudSyncEnabled(false);
-        updateProfileUI(null);
+      } catch {
+        // Auth is valid but profile hydration can fail without breaking chat.
       }
     });
   } catch (error) {
@@ -175,46 +163,27 @@ function bindProfileModal() {
     }
 
     setButtonBusy(connectBtn, true, "Connecting...");
-    cloudConnectInProgress = true;
 
     try {
       const user = await signInWithGoogle();
+      const token = await getIdToken({ forceRefresh: true });
 
-      if (!user) {
-        throw new Error("Firebase sign-in returned no user.");
+      if (token) {
+        await getCurrentUserProfile(token);
       }
 
-      if (user.displayName) {
+      setCloudSyncEnabled(true);
+
+      if (user?.displayName) {
         setUserName(user.displayName);
       }
 
-      const token = await getIdToken({ forceRefresh: true });
-
-      if (!token) {
-        throw new Error("Firebase returned no ID token.");
-      }
-
-      console.info("MindPal auth debug:", {
-        uid: user.uid,
-        email: user.email,
-        providerId: user.providerId,
-        tokenPrefix: token.slice(0, 16),
-      });
-
-      const profile = await getCurrentUserProfile(token);
-
-      console.info("MindPal backend profile:", profile);
-
-      setCloudSyncEnabled(true);
       updateProfileUI(user);
-
       showToast("Cloud profile connected.");
     } catch (error) {
-      setCloudSyncEnabled(false);
-      updateProfileUI(null);
-      showToast(formatCloudConnectError(error));
+      console.error(error);
+      showToast("Could not connect cloud profile.");
     } finally {
-      cloudConnectInProgress = false;
       setButtonBusy(connectBtn, false);
     }
   });
