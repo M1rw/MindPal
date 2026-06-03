@@ -57,6 +57,7 @@ let isSessionLocked = false;
 let voiceController = null;
 let authUnsubscribe = null;
 let cloudConnectInProgress = false;
+let currentCloudProfileContext = null;
 
 document.addEventListener("DOMContentLoaded", bootstrap);
 
@@ -120,12 +121,15 @@ async function initFrontendAuth() {
           throw new Error("Firebase returned no ID token.");
         }
 
-        await getCurrentUserProfile(token);
+        const profile = await getCurrentUserProfile(token);
+
+        currentCloudProfileContext = buildCloudProfileContext(user, profile);
 
         setCloudSyncEnabled(true);
         updateProfileUI(user);
       } catch (error) {
         console.warn("Silent cloud profile verification failed:", error);
+        currentCloudProfileContext = null;
         setCloudSyncEnabled(false);
         updateProfileUI(null);
       }
@@ -136,6 +140,39 @@ async function initFrontendAuth() {
   }
 }
 
+
+
+function buildCloudProfileContext(user, profile = null) {
+  if (!user && !profile) return null;
+
+  const displayName =
+    profile?.display_name ||
+    profile?.displayName ||
+    profile?.name ||
+    user?.displayName ||
+    "";
+
+  const email =
+    profile?.email ||
+    user?.email ||
+    "";
+
+  const uid =
+    profile?.uid ||
+    profile?.firebase_uid ||
+    profile?.user_id ||
+    user?.uid ||
+    "";
+
+  if (!displayName && !email && !uid) return null;
+
+  return {
+    authenticated: true,
+    displayName,
+    email,
+    uid,
+  };
+}
 
 function formatCloudConnectErrorSafe(error) {
   console.error("MindPal cloud profile error:", error);
@@ -253,6 +290,8 @@ function bindProfileModal() {
 
       console.info("MindPal backend profile:", profile);
 
+      currentCloudProfileContext = buildCloudProfileContext(user, profile);
+
       setCloudSyncEnabled(true);
       updateProfileUI(user);
 
@@ -274,6 +313,7 @@ function bindProfileModal() {
       // Continue local disconnect even if Firebase signout fails.
     }
 
+    currentCloudProfileContext = null;
     setCloudSyncEnabled(false);
     updateProfileUI(null);
     showToast("Signed out. Local mode enabled.");
@@ -461,6 +501,7 @@ async function handleSend() {
       locale: resolveLocale(),
       mode,
       token,
+      profileContext: currentCloudProfileContext,
     });
 
     removeStatusIndicator(statusId);
@@ -767,6 +808,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       locale: resolveLocale(),
       mode,
       token,
+      profileContext: currentCloudProfileContext,
     });
 
     removeStatusIndicator(statusId);

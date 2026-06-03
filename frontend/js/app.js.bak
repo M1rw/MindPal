@@ -136,6 +136,54 @@ async function initFrontendAuth() {
   }
 }
 
+
+function formatCloudConnectErrorSafe(error) {
+  console.error("MindPal cloud profile error:", error);
+
+  const code = String(error?.code || "");
+  const status = Number(error?.status || 0);
+  const requestId = String(error?.requestId || "");
+  const message = String(error?.message || "");
+
+  if (code.includes("unauthorized-domain")) {
+    return "Firebase rejected this domain. Add mindpal-demo.vercel.app to Firebase Auth authorized domains.";
+  }
+
+  if (code.includes("popup-closed-by-user")) {
+    return "Sign-in popup was closed.";
+  }
+
+  if (code.includes("popup-blocked")) {
+    return "Browser blocked the sign-in popup.";
+  }
+
+  if (code.includes("cancelled-popup-request")) {
+    return "Another sign-in popup was already open.";
+  }
+
+  if (status === 401) {
+    return `Backend rejected the Firebase token: ${code || "401"}${requestId ? ` (${requestId})` : ""}.`;
+  }
+
+  if (status === 403) {
+    return `Backend blocked this profile request: ${code || "403"}${requestId ? ` (${requestId})` : ""}.`;
+  }
+
+  if (status === 404) {
+    return "Backend /api/user/me route was not found.";
+  }
+
+  if (status >= 500) {
+    return `Backend /api/user/me failed with ${status}${requestId ? ` (${requestId})` : ""}. Check Vercel logs.`;
+  }
+
+  if (code === "network_error" || message.toLowerCase().includes("failed to fetch")) {
+    return "Browser could not reach /api/user/me. Check API_BASE_URL and deployment routes.";
+  }
+
+  return `Cloud profile failed${code ? `: ${code}` : ""}${message ? ` — ${message}` : ""}.`;
+}
+
 function bindTheme() {
   document.getElementById("theme-toggle-btn")?.addEventListener("click", () => {
     toggleTheme();
@@ -212,7 +260,7 @@ function bindProfileModal() {
     } catch (error) {
       setCloudSyncEnabled(false);
       updateProfileUI(null);
-      showToast(formatCloudConnectError(error));
+      showToast(formatCloudConnectErrorSafe(error));
     } finally {
       cloudConnectInProgress = false;
       setButtonBusy(connectBtn, false);

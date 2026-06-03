@@ -163,6 +163,36 @@ export async function getCurrentUserProfile(token) {
   });
 }
 
+
+function buildAuthenticatedContextPrefix(profileContext) {
+  if (!profileContext?.authenticated) return "";
+
+  const lines = [
+    "Verified authenticated user context:",
+    "- authenticated: true",
+  ];
+
+  if (profileContext.displayName) {
+    lines.push(`- display_name: ${String(profileContext.displayName).trim()}`);
+  }
+
+  if (profileContext.email) {
+    lines.push(`- email: ${String(profileContext.email).trim()}`);
+  }
+
+  lines.push(
+    "",
+    "Assistant instruction:",
+    "Use this verified context when the user asks about their own identity or profile.",
+    "If the user asks for their name, answer from display_name when available.",
+    "Do not say you do not have access to their name when display_name is present.",
+    "",
+    "User message:",
+  );
+
+  return `${lines.join("\\n")}\\n`;
+}
+
 export async function sendChatMessage({
   message,
   history = [],
@@ -170,6 +200,7 @@ export async function sendChatMessage({
   channel = "web",
   mode = "Active Listen",
   token = null,
+  profileContext = null,
 }) {
   const cleanMessage = String(message || "").trim();
 
@@ -184,7 +215,7 @@ export async function sendChatMessage({
     token,
     timeoutMs: 60_000,
     body: {
-      message: cleanMessage,
+      message: `${buildAuthenticatedContextPrefix(profileContext)}${cleanMessage}`,
       history: [],
       metadata: {
         locale,
