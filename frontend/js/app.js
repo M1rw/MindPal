@@ -1,0 +1,837 @@
+// frontend/js/app.js
+
+import {
+  buildClientFallbackReply,
+  deleteMemory,
+  getCurrentUserProfile,
+  normalizeChatHistory,
+  sendChatMessage,
+} from "./api.js";
+
+import {
+  authIsConfigured,
+  getCurrentUser,
+  getIdToken,
+  initAuth,
+  onAuthChange,
+  signInWithGoogle,
+  signOut,
+} from "./auth.js";
+
+import {
+  addMessage,
+  appendStatusIndicator,
+  autoResizeInput,
+  clearChatMemory,
+  clearInput,
+  closeModal,
+  escapeHtml,
+  exportConversationLog,
+  getState,
+  initializeTheme,
+  loadState,
+  openModal,
+  patchState,
+  refreshIcons,
+  removeStatusIndicator,
+  renderWeeklyTracker,
+  replaceChatMemory,
+  scrollChatToBottom,
+  setButtonBusy,
+  setChatStarted,
+  setCloudSyncEnabled,
+  setCrisisMode,
+  setGreeting,
+  setInputState,
+  setUserName,
+  showToast,
+  syncInputButtons,
+  toggleTheme,
+  updateProfileUI,
+} from "./ui_state.js";
+
+import { initVoice } from "./voice.js";
+
+let isGenerating = false;
+let isSessionLocked = false;
+let voiceController = null;
+let authUnsubscribe = null;
+
+document.addEventListener("DOMContentLoaded", bootstrap);
+
+async function bootstrap() {
+  refreshIcons();
+  initializeTheme();
+  loadState();
+
+  await initFrontendAuth();
+
+  bindTheme();
+  bindProfileModal();
+  bindStreakModal();
+  bindSettings();
+  bindInput();
+  bindModeSelector();
+  bindMoodButtons();
+  bindConversationActions();
+
+  voiceController = initVoice({
+    onFinalTranscript: () => {
+      handleSend();
+    },
+    autoSend: true,
+  });
+
+  renderPersistedChat();
+  updateProfileUI(getCurrentUser());
+  setGreeting();
+  setInputState({ disabled: false, locked: false });
+
+  refreshIcons();
+}
+
+async function initFrontendAuth() {
+  if (!authIsConfigured()) {
+    setCloudSyncEnabled(false);
+    return;
+  }
+
+  try {
+    await initAuth();
+
+    authUnsubscribe = onAuthChange(async (user) => {
+      if (!user) {
+        setCloudSyncEnabled(false);
+        updateProfileUI(null);
+        return;
+      }
+
+      setCloudSyncEnabled(true);
+
+      if (user.displayName) {
+        setUserName(user.displayName);
+      }
+
+      updateProfileUI(user);
+
+      try {
+        const token = await getIdToken();
+        if (token) {
+          await getCurrentUserProfile(token);
+        }
+      } catch {
+        // Auth is valid but profile hydration can fail without breaking chat.
+      }
+    });
+  } catch (error) {
+    console.warn("Firebase frontend auth init failed:", error);
+    setCloudSyncEnabled(false);
+  }
+}
+
+function bindTheme() {
+  document.getElementById("theme-toggle-btn")?.addEventListener("click", () => {
+    toggleTheme();
+  });
+
+  document.getElementById("modal-theme-toggle")?.addEventListener("change", () => {
+    toggleTheme();
+  });
+}
+
+function bindProfileModal() {
+  const profileModal = document.getElementById("profile-modal");
+  const closeProfileBtn = document.getElementById("close-profile-btn");
+  const connectBtn = document.getElementById("btn-cloud-connect");
+  const disconnectBtn = document.getElementById("btn-cloud-disconnect");
+  const userNameInput = document.getElementById("user-name-input");
+
+  document.getElementById("profile-btn")?.addEventListener("click", () => {
+    updateProfileUI(getCurrentUser());
+    openModal("profile-modal", "profile-content");
+  });
+
+  closeProfileBtn?.addEventListener("click", () => {
+    closeModal("profile-modal", "profile-content");
+  });
+
+  profileModal?.addEventListener("click", (event) => {
+    if (event.target === profileModal) {
+      closeProfileBtn?.click();
+    }
+  });
+
+  connectBtn?.addEventListener("click", async () => {
+    if (!authIsConfigured()) {
+      showToast("Firebase web config is missing.");
+      return;
+    }
+
+    setButtonBusy(connectBtn, true, "Connecting...");
+
+    try {
+      const user = await signInWithGoogle();
+      const token = await getIdToken({ forceRefresh: true });
+
+      if (token) {
+        await getCurrentUserProfile(token);
+      }
+
+      setCloudSyncEnabled(true);
+
+      if (user?.displayName) {
+        setUserName(user.displayName);
+      }
+
+      updateProfileUI(user);
+      showToast("Cloud profile connected.");
+    } catch (error) {
+      console.error(error);
+      showToast("Could not connect cloud profile.");
+    } finally {
+      setButtonBusy(connectBtn, false);
+    }
+  });
+
+  disconnectBtn?.addEventListener("click", async () => {
+    try {
+      await signOut();
+    } catch {
+      // Continue local disconnect even if Firebase signout fails.
+    }
+
+    setCloudSyncEnabled(false);
+    updateProfileUI(null);
+    showToast("Signed out. Local mode enabled.");
+  });
+
+  userNameInput?.addEventListener("change", (event) => {
+    const nextName = setUserName(event.target.value);
+    updateProfileUI(getCurrentUser());
+    showToast(nextName === "Friend" ? "Profile name cleared." : "Profile updated.");
+  });
+}
+
+function bindStreakModal() {
+  const streakModal = document.getElementById("streak-modal");
+  const closeStreakBtn = document.getElementById("close-streak-btn");
+
+  document.getElementById("streak-btn")?.addEventListener("click", () => {
+    renderWeeklyTracker();
+    openModal("streak-modal", "streak-content");
+  });
+
+  closeStreakBtn?.addEventListener("click", () => {
+    closeModal("streak-modal", "streak-content");
+  });
+
+  streakModal?.addEventListener("click", (event) => {
+    if (event.target === streakModal) {
+      closeStreakBtn?.click();
+    }
+  });
+}
+
+function bindSettings() {
+  document.getElementById("crisis-toggle")?.addEventListener("change", (event) => {
+    setCrisisMode(event.target.checked);
+
+    showToast(
+      event.target.checked
+        ? "Crisis UI interception enabled. Backend safety is always active."
+        : "Crisis UI interception disabled. Backend safety is still active.",
+    );
+  });
+}
+
+function bindInput() {
+  const inputEl = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("send-btn");
+
+  inputEl?.addEventListener("input", () => {
+    autoResizeInput();
+    syncInputButtons();
+  });
+
+  inputEl?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+
+      if (!isGenerating && !isSessionLocked) {
+        handleSend();
+      }
+    }
+  });
+
+  sendBtn?.addEventListener("click", () => {
+    if (!isGenerating && !isSessionLocked) {
+      handleSend();
+    }
+  });
+}
+
+function bindModeSelector() {
+  const modeBtn = document.getElementById("mode-selector-btn");
+  const dropdown = document.getElementById("mode-dropdown");
+
+  modeBtn?.addEventListener("click", (event) => {
+    if (isSessionLocked) return;
+
+    event.stopPropagation();
+    dropdown?.classList.toggle("hidden");
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!dropdown || !modeBtn) return;
+
+    if (!dropdown.contains(event.target) && !modeBtn.contains(event.target)) {
+      dropdown.classList.add("hidden");
+    }
+  });
+
+  document.querySelectorAll(".mode-option").forEach((option) => {
+    option.addEventListener("click", () => {
+      const modeText = document.getElementById("current-mode-text");
+      const mode = option.getAttribute("data-mode") || "Active Listen";
+
+      if (modeText) {
+        modeText.textContent = mode;
+      }
+
+      dropdown?.classList.add("hidden");
+
+      if (!isSessionLocked) {
+        document.getElementById("chat-input")?.focus();
+      }
+    });
+  });
+}
+
+function bindMoodButtons() {
+  document.querySelectorAll(".mood-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (isSessionLocked || isGenerating) return;
+
+      const mood = String(button.getAttribute("data-mood") || "").toLowerCase();
+      const inputEl = document.getElementById("chat-input");
+
+      if (!inputEl || !mood) return;
+
+      inputEl.value = `I'm feeling ${mood} right now.`;
+      inputEl.dispatchEvent(new Event("input"));
+
+      handleSend();
+    });
+  });
+}
+
+function bindConversationActions() {
+  document.getElementById("export-chat-btn")?.addEventListener("click", () => {
+    exportConversationLog();
+  });
+
+  document.getElementById("clear-chat-btn")?.addEventListener("click", async () => {
+    const confirmed = window.confirm("Clear local conversation cache and cloud memory if signed in?");
+
+    if (!confirmed) return;
+
+    try {
+      const token = await getIdToken();
+
+      if (token) {
+        await deleteMemory(token);
+      }
+    } catch {
+      // Local clear should still happen.
+    }
+
+    clearChatMemory();
+
+    const chatHistory = document.getElementById("chat-history");
+    if (chatHistory) {
+      chatHistory.innerHTML = "";
+    }
+
+    setChatStarted(false);
+    showToast("Memory cleared.");
+  });
+}
+
+async function handleSend() {
+  const inputEl = document.getElementById("chat-input");
+  const text = inputEl?.value?.trim() || "";
+
+  if (!text || isGenerating || isSessionLocked) return;
+
+  isGenerating = true;
+  voiceController?.setGenerating(true);
+  setInputState({ disabled: true, locked: false });
+  setChatStarted(true);
+
+  await appendMessageToUI(text, "user", { smoothScroll: true });
+
+  addMessage("User", text);
+  clearInput();
+
+  const statusId = `status-${Date.now()}`;
+  appendStatusIndicator(statusId);
+
+  try {
+    const state = getState();
+    const token = await getIdToken();
+    const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
+
+    const response = await sendChatMessage({
+      message: text,
+      history: normalizeChatHistory(state.chatMemory),
+      locale: resolveLocale(),
+      mode,
+      token,
+    });
+
+    removeStatusIndicator(statusId);
+
+    const reply = String(response?.reply || "").trim();
+
+    if (!reply) {
+      throw new Error("Backend returned empty reply.");
+    }
+
+    if (isSafetyLock(response)) {
+      isSessionLocked = true;
+      voiceController?.setLocked(true);
+    }
+
+    addMessage("MindPal", reply, {
+      requestId: response.request_id || null,
+      providerUsed: response.provider_used || null,
+      safety: response.safety || null,
+      ragUsed: response.rag_used || [],
+      memoryUpdated: Boolean(response.memory_updated),
+    });
+
+    await appendMessageToUI(reply, "bot", {
+      smoothScroll: true,
+      typewriter: true,
+      backendMeta: response,
+    });
+  } catch (error) {
+    console.error(error);
+    removeStatusIndicator(statusId);
+
+    const fallback = buildClientFallbackReply(error);
+
+    addMessage("MindPal", fallback, {
+      providerUsed: "client_fallback",
+      errorCode: error?.code || "frontend_error",
+    });
+
+    await appendMessageToUI(fallback, "bot", {
+      smoothScroll: true,
+      typewriter: true,
+    });
+  } finally {
+    isGenerating = false;
+    voiceController?.setGenerating(false);
+
+    setInputState({ disabled: false, locked: isSessionLocked });
+
+    if (!isSessionLocked) {
+      document.getElementById("chat-input")?.focus();
+    }
+
+    updateProfileUI(getCurrentUser());
+  }
+}
+
+function renderPersistedChat() {
+  const state = getState();
+
+  if (!state.chatMemory.length) {
+    setChatStarted(false);
+    return;
+  }
+
+  setChatStarted(true);
+
+  const chatHistory = document.getElementById("chat-history");
+  if (!chatHistory) return;
+
+  chatHistory.innerHTML = "";
+
+  for (const message of state.chatMemory) {
+    appendMessageToUI(message.text, message.role === "User" ? "user" : "bot", {
+      smoothScroll: false,
+      typewriter: false,
+      persist: false,
+      backendMeta: message,
+    });
+  }
+
+  scrollChatToBottom("auto");
+}
+
+async function appendMessageToUI(text, sender, {
+  smoothScroll = true,
+  typewriter = false,
+  backendMeta = null,
+} = {}) {
+  const chatHistory = document.getElementById("chat-history");
+  if (!chatHistory) return;
+
+  const msgDiv = document.createElement("div");
+
+  if (sender === "user") {
+    msgDiv.className = "flex gap-4 w-full justify-end animate-fade-in";
+    msgDiv.innerHTML = `
+      <div class="bg-gemini-surface dark:bg-gemini-darkSurface text-gemini-text dark:text-gemini-darkText px-5 py-3 rounded-[24px] max-w-[80%] text-[15px] leading-relaxed">
+        ${escapeHtml(text)}
+      </div>
+    `;
+
+    chatHistory.appendChild(msgDiv);
+
+    if (smoothScroll) scrollChatToBottom("smooth");
+    return;
+  }
+
+  const safetyLevel = backendMeta?.safety?.level || backendMeta?.safety?.user_visible_category || "";
+  const isCrisis = isCrisisReply(text, safetyLevel);
+  const parsed = processStructuredResponse(text);
+
+  msgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-10";
+
+  const contentContainer = document.createElement("div");
+  contentContainer.className = `flex flex-col text-[15px] ${
+    isCrisis
+      ? "text-rose-700 dark:text-rose-400 font-medium"
+      : "text-gemini-text dark:text-gemini-darkText"
+  } leading-relaxed max-w-3xl w-full`;
+
+  if (parsed.timelineHtml) {
+    const timelineDiv = document.createElement("div");
+    timelineDiv.innerHTML = parsed.timelineHtml;
+    contentContainer.appendChild(timelineDiv);
+  }
+
+  const contentBox = document.createElement("div");
+  contentBox.className = "content-box";
+
+  if (!typewriter) {
+    contentBox.innerHTML = parsed.finalHtml;
+  }
+
+  contentContainer.appendChild(contentBox);
+
+  if (!isCrisis) {
+    contentContainer.appendChild(buildMessageActions(text));
+  }
+
+  if (backendMeta) {
+    const metaEl = buildBackendMeta(backendMeta);
+    if (metaEl) contentContainer.appendChild(metaEl);
+  }
+
+  msgDiv.appendChild(contentContainer);
+  chatHistory.appendChild(msgDiv);
+
+  bindAccordion(msgDiv);
+  refreshIcons();
+
+  if (typewriter) {
+    await typewriteHTML(contentBox, parsed.finalHtml, chatHistory);
+
+    const actions = contentContainer.querySelector(".action-buttons");
+    actions?.classList.remove("opacity-0");
+  }
+
+  if (smoothScroll) {
+    scrollChatToBottom("smooth");
+  }
+}
+
+function buildMessageActions(text) {
+  const actionDiv = document.createElement("div");
+  actionDiv.className = "flex items-center gap-1 mt-3 text-gray-500 dark:text-[#c4c7c5] action-buttons transition-opacity duration-300 opacity-100";
+
+  actionDiv.innerHTML = `
+    <button class="action-copy p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Copy text">
+      <i data-lucide="copy" class="w-[15px] h-[15px]"></i>
+    </button>
+    <button class="action-like p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Good response">
+      <i data-lucide="thumbs-up" class="w-[15px] h-[15px]"></i>
+    </button>
+    <button class="action-dislike p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Bad response">
+      <i data-lucide="thumbs-down" class="w-[15px] h-[15px]"></i>
+    </button>
+  `;
+
+  actionDiv.querySelector(".action-copy")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(stripMarkdown(text));
+      showToast("Copied to clipboard.");
+    } catch {
+      fallbackCopy(stripMarkdown(text));
+      showToast("Copied to clipboard.");
+    }
+  });
+
+  const likeBtn = actionDiv.querySelector(".action-like");
+  const dislikeBtn = actionDiv.querySelector(".action-dislike");
+
+  likeBtn?.addEventListener("click", () => {
+    likeBtn.classList.toggle("text-blue-600");
+    likeBtn.classList.toggle("dark:text-blue-400");
+    dislikeBtn?.classList.remove("text-red-600", "dark:text-red-400");
+  });
+
+  dislikeBtn?.addEventListener("click", () => {
+    dislikeBtn.classList.toggle("text-red-600");
+    dislikeBtn.classList.toggle("dark:text-red-400");
+    likeBtn?.classList.remove("text-blue-600", "dark:text-blue-400");
+  });
+
+  return actionDiv;
+}
+
+function buildBackendMeta(meta) {
+  const provider = meta.provider_used || meta.providerUsed;
+  const requestId = meta.request_id || meta.requestId;
+  const ragUsed = meta.rag_used || meta.ragUsed || [];
+
+  if (!provider && !requestId && !ragUsed.length) return null;
+
+  const wrapper = document.createElement("details");
+  wrapper.className = "mt-3 text-[12px] text-gray-400 dark:text-gray-500";
+
+  const ragText = Array.isArray(ragUsed) && ragUsed.length
+    ? ragUsed.slice(0, 3).map((item) => escapeHtml(item.technique || item.grounding_id || "grounding")).join(", ")
+    : "none";
+
+  wrapper.innerHTML = `
+    <summary class="cursor-pointer select-none hover:text-gray-600 dark:hover:text-gray-300">Response details</summary>
+    <div class="mt-2 space-y-1">
+      ${provider ? `<div>Provider: ${escapeHtml(provider)}</div>` : ""}
+      ${requestId ? `<div>Request: ${escapeHtml(requestId)}</div>` : ""}
+      <div>Grounding: ${ragText}</div>
+    </div>
+  `;
+
+  return wrapper;
+}
+
+function processStructuredResponse(text) {
+  if (!text.includes("**Thought:**") || !text.includes("**Balanced Reframe:**")) {
+    return {
+      timelineHtml: "",
+      finalHtml: formatMarkdown(text),
+    };
+  }
+
+  const thought = getMarkdownSection(text, "**Thought:**", "**Distortion:**");
+  const distortion = getMarkdownSection(text, "**Distortion:**", "**Evidence For:**");
+  const evidenceFor = getMarkdownSection(text, "**Evidence For:**", "**Evidence Against:**");
+  const evidenceAgainst = getMarkdownSection(text, "**Evidence Against:**", "**Balanced Reframe:**");
+  const reframe = getMarkdownSection(text, "**Balanced Reframe:**", "**Next Tiny Action:**");
+  const action = getMarkdownSection(text, "**Next Tiny Action:**", null);
+
+  if (!reframe) {
+    return {
+      timelineHtml: "",
+      finalHtml: formatMarkdown(text),
+    };
+  }
+
+  const timelineHtml = `
+    <div class="thought-accordion group mb-5">
+      <div class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-fit">
+        <span class="collapsed-text">Thought for a few seconds</span>
+        <span class="expanded-text hidden">Analyzed cognitive patterns</span>
+        <i data-lucide="chevron-right" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
+      </div>
+
+      <div class="accordion-content grid grid-rows-[0fr] opacity-0 transition-all duration-300 ease-in-out">
+        <div class="overflow-hidden">
+          <div class="mt-4 ml-[7px] pl-6 border-l border-gray-200 dark:border-[#444746] space-y-5 text-[15px] text-gray-700 dark:text-gray-300 relative pb-4">
+            ${thought ? timelineItem("Core Thought", thought, "circle-minus") : ""}
+            ${distortion ? timelineItem("Distortion Detected", distortion, "circle-minus") : ""}
+            ${
+              evidenceFor || evidenceAgainst
+                ? timelineItem(
+                    "Evidence Review",
+                    `${evidenceFor ? `<div><span class="text-gray-500 dark:text-[#c4c7c5]">For:</span> ${formatMarkdown(evidenceFor)}</div>` : ""}
+                     ${evidenceAgainst ? `<div><span class="text-gray-500 dark:text-[#c4c7c5]">Against:</span> ${formatMarkdown(evidenceAgainst)}</div>` : ""}`,
+                    "circle-minus",
+                    true,
+                  )
+                : ""
+            }
+            ${timelineItem("Done", "", "check-circle-2")}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  let finalHtml = `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(reframe)}</div>`;
+
+  if (action) {
+    finalHtml += `<div class="mt-4"><strong class="text-gray-900 dark:text-white font-semibold">Next Action:</strong> ${formatMarkdown(action)}</div>`;
+  }
+
+  return { timelineHtml, finalHtml };
+}
+
+function timelineItem(title, body, icon, bodyIsHtml = false) {
+  return `
+    <div class="relative">
+      <div class="absolute -left-[33px] top-0 bg-gemini-bg dark:bg-gemini-darkBg py-1">
+        <i data-lucide="${icon}" class="w-4 h-4 text-gray-400 dark:text-[#c4c7c5]"></i>
+      </div>
+      <div class="leading-relaxed">
+        <strong class="text-gray-900 dark:text-white font-semibold">${escapeHtml(title)}${body ? ":" : ""}</strong>
+        ${body ? (bodyIsHtml ? body : formatMarkdown(body)) : ""}
+      </div>
+    </div>
+  `;
+}
+
+function getMarkdownSection(text, startLabel, endLabel) {
+  const start = text.indexOf(startLabel);
+  if (start === -1) return "";
+
+  const startIndex = start + startLabel.length;
+  const end = endLabel ? text.indexOf(endLabel, startIndex) : text.length;
+
+  if (end === -1) {
+    return text.slice(startIndex).trim();
+  }
+
+  return text.slice(startIndex, end).trim();
+}
+
+function bindAccordion(root) {
+  const header = root.querySelector(".accordion-header");
+  if (!header) return;
+
+  header.addEventListener("click", () => {
+    const content = header.nextElementSibling;
+    const chevron = header.querySelector(".chevron-icon");
+    const collapsedText = header.querySelector(".collapsed-text");
+    const expandedText = header.querySelector(".expanded-text");
+
+    const isOpen = content?.classList.contains("grid-rows-[1fr]");
+
+    if (isOpen) {
+      content.classList.remove("grid-rows-[1fr]", "opacity-100");
+      content.classList.add("grid-rows-[0fr]", "opacity-0");
+      chevron?.classList.remove("rotate-90");
+      collapsedText?.classList.remove("hidden");
+      expandedText?.classList.add("hidden");
+    } else {
+      content?.classList.remove("grid-rows-[0fr]", "opacity-0");
+      content?.classList.add("grid-rows-[1fr]", "opacity-100");
+      chevron?.classList.add("rotate-90");
+      collapsedText?.classList.add("hidden");
+      expandedText?.classList.remove("hidden");
+    }
+  });
+}
+
+async function typewriteHTML(element, html, scrollContainer) {
+  element.innerHTML = "";
+
+  const tokens = html.match(/(<[^>]+>|[^<]+)/g) || [];
+  let currentHTML = "";
+
+  for (const token of tokens) {
+    if (token.startsWith("<")) {
+      currentHTML += token;
+      element.innerHTML = currentHTML;
+      continue;
+    }
+
+    for (let index = 0; index < token.length; index += 1) {
+      currentHTML += token.charAt(index);
+      element.innerHTML = currentHTML;
+
+      if (index % 3 === 0) {
+        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: "auto" });
+      }
+
+      await sleep(6);
+    }
+  }
+
+  scrollChatToBottom("smooth");
+}
+
+function formatMarkdown(text) {
+  const escaped = escapeHtml(text);
+
+  return escaped
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-gray-100 font-semibold">$1</strong>')
+    .replace(/\*(.*?)\*/g, "<em>$1</em>")
+    .replace(/\n\n/g, "<br><br>")
+    .replace(/\n/g, "<br>");
+}
+
+function stripMarkdown(text) {
+  return String(text || "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1");
+}
+
+function fallbackCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    document.execCommand("copy");
+  } finally {
+    textarea.remove();
+  }
+}
+
+function isSafetyLock(response) {
+  const level = String(response?.safety?.level || "").toLowerCase();
+  const category = String(response?.safety?.user_visible_category || "").toLowerCase();
+
+  return Boolean(
+    response?.lock_session ||
+    level.includes("imminent") ||
+    level.includes("self_harm") ||
+    category.includes("crisis") ||
+    category.includes("emergency"),
+  );
+}
+
+function isCrisisReply(text, safetyLevel) {
+  const haystack = `${text || ""} ${safetyLevel || ""}`.toLowerCase();
+
+  return (
+    haystack.includes("emergency") ||
+    haystack.includes("988") ||
+    haystack.includes("nearest emergency") ||
+    haystack.includes("self_harm_imminent") ||
+    haystack.includes("اتصل") ||
+    haystack.includes("الإسعاف")
+  );
+}
+
+function resolveLocale() {
+  const lang = document.documentElement.lang || navigator.language || "en";
+
+  if (lang.toLowerCase().startsWith("ar")) return "ar";
+  return "en";
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+window.addEventListener("beforeunload", () => {
+  authUnsubscribe?.();
+});
