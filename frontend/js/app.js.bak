@@ -603,153 +603,37 @@ function buildMessageActions(text) {
   });
 
   actionDiv.querySelector(".action-retry")?.addEventListener("click", () => {
-    regenerateLastUserMessage(text);
+    regenerateLastUserMessage();
   });
 
   return actionDiv;
 }
 
-async function regenerateLastUserMessage(targetAssistantText = "") {
+function regenerateLastUserMessage() {
   if (isGenerating || isSessionLocked) return;
 
   const state = getState();
-  const messages = Array.isArray(state.chatMemory) ? state.chatMemory : [];
+  let lastUserIndex = state.chatMemory.length - 1;
 
-  if (messages.length < 2) {
-    showToast("Nothing to regenerate.");
-    return;
+  while (lastUserIndex >= 0 && state.chatMemory[lastUserIndex]?.role !== "User") {
+    lastUserIndex -= 1;
   }
 
-  const cleanTarget = String(targetAssistantText || "").trim();
+  if (lastUserIndex < 0) return;
 
-  let assistantIndex = -1;
+  const lastUserMessage = state.chatMemory[lastUserIndex]?.text || "";
+  if (!lastUserMessage.trim()) return;
 
-  if (cleanTarget) {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-
-      if (
-        message?.role === "MindPal" &&
-        String(message?.text || "").trim() === cleanTarget
-      ) {
-        assistantIndex = index;
-        break;
-      }
-    }
-  }
-
-  if (assistantIndex < 0) {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      if (messages[index]?.role === "MindPal") {
-        assistantIndex = index;
-        break;
-      }
-    }
-  }
-
-  if (assistantIndex < 0) {
-    showToast("No assistant response to regenerate.");
-    return;
-  }
-
-  let userIndex = assistantIndex - 1;
-
-  while (userIndex >= 0 && messages[userIndex]?.role !== "User") {
-    userIndex -= 1;
-  }
-
-  if (userIndex < 0) {
-    showToast("No matching user message found.");
-    return;
-  }
-
-  const userMessage = String(messages[userIndex]?.text || "").trim();
-
-  if (!userMessage) {
-    showToast("No matching user message found.");
-    return;
-  }
-
-  const preservedMessages = messages.slice(0, assistantIndex);
-
-  replaceChatMemory(preservedMessages);
+  replaceChatMemory(state.chatMemory.slice(0, lastUserIndex));
   renderPersistedChat();
 
-  isGenerating = true;
-  voiceController?.setGenerating(true);
-  setInputState({ disabled: true, locked: false });
-  setChatStarted(true);
+  const inputEl = document.getElementById("chat-input");
+  if (!inputEl) return;
 
-  const statusId = `status-regenerate-${Date.now()}`;
-  appendStatusIndicator(statusId);
+  inputEl.value = lastUserMessage;
+  inputEl.dispatchEvent(new Event("input"));
 
-  try {
-    const token = await getIdToken();
-    const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
-
-    const response = await sendChatMessage({
-      message: userMessage,
-      history: normalizeChatHistory(messages.slice(0, userIndex)),
-      locale: resolveLocale(),
-      mode,
-      token,
-    });
-
-    removeStatusIndicator(statusId);
-
-    const reply = String(response?.reply || "").trim();
-
-    if (!reply) {
-      throw new Error("Backend returned empty reply.");
-    }
-
-    if (isSafetyLock(response)) {
-      isSessionLocked = true;
-      voiceController?.setLocked(true);
-    }
-
-    addMessage("MindPal", reply, {
-      requestId: response.request_id || null,
-      providerUsed: response.provider_used || null,
-      safety: response.safety || null,
-      ragUsed: response.rag_used || [],
-      memoryUpdated: Boolean(response.memory_updated),
-      regenerated: true,
-    });
-
-    await appendMessageToUI(reply, "bot", {
-      smoothScroll: true,
-      typewriter: true,
-      backendMeta: response,
-    });
-  } catch (error) {
-    console.error(error);
-    removeStatusIndicator(statusId);
-
-    const fallback = buildClientFallbackReply(error);
-
-    addMessage("MindPal", fallback, {
-      providerUsed: "client_fallback",
-      errorCode: error?.code || "frontend_regenerate_error",
-      regenerated: true,
-    });
-
-    await appendMessageToUI(fallback, "bot", {
-      smoothScroll: true,
-      typewriter: true,
-    });
-  } finally {
-    isGenerating = false;
-    voiceController?.setGenerating(false);
-
-    setInputState({ disabled: false, locked: isSessionLocked });
-
-    if (!isSessionLocked) {
-      document.getElementById("chat-input")?.focus();
-    }
-
-    updateProfileUI(getCurrentUser());
-  }
+  handleSend();
 }
 
 function buildBackendMeta(meta) {
