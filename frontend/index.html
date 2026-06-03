@@ -321,6 +321,20 @@
                         </div>
                     </label>
 
+                    <label class="flex items-center justify-between cursor-pointer py-3.5 px-2 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors mt-1">
+                        <div class="flex flex-col gap-0.5 pr-4">
+                            <div class="flex items-center gap-4">
+                                <i data-lucide="languages" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5]"></i>
+                                <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200">Voice language</span>
+                            </div>
+                            <span class="text-[12px] text-gray-500 dark:text-[#c4c7c5] pl-[36px]">Used for microphone transcription.</span>
+                        </div>
+
+                        <select id="voice-language-select" class="max-w-[190px] bg-gemini-surface dark:bg-zinc-800 border border-gemini-border dark:border-gemini-darkBorder rounded-full px-3 py-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-200 outline-none">
+                            <option value="auto">Auto / Browser default</option>
+                        </select>
+                    </label>
+
                     <div class="h-px w-full bg-gray-100 dark:bg-gemini-darkBorder my-2"></div>
 
                     <button id="export-chat-btn" class="flex items-center gap-4 px-2 py-3.5 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors text-left w-full">
