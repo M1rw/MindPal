@@ -79,7 +79,7 @@ async function bootstrap() {
     onFinalTranscript: () => {
       handleSend();
     },
-    autoSend: true,
+    autoSend: false,
   });
 
   renderPersistedChat();
@@ -942,6 +942,7 @@ function stripMarkdown(text) {
 
 let activeSpeechUtterance = null;
 let activeSpeechButton = null;
+const cancelledUtterances = new WeakSet();
 
 function speakText(text, button = null) {
   if (!("speechSynthesis" in window)) {
@@ -952,13 +953,20 @@ function speakText(text, button = null) {
   const clean = String(text || "").trim();
   if (!clean) return;
 
-  if (window.speechSynthesis.speaking) {
-    window.speechSynthesis.cancel();
+  const sameButton = activeSpeechButton === button;
 
-    if (activeSpeechUtterance && activeSpeechButton === button) {
-      activeSpeechUtterance = null;
-      resetPlayButton(button);
-      activeSpeechButton = null;
+  if (window.speechSynthesis.speaking || activeSpeechUtterance) {
+    if (activeSpeechUtterance) {
+      cancelledUtterances.add(activeSpeechUtterance);
+    }
+
+    window.speechSynthesis.cancel();
+    resetPlayButton(activeSpeechButton);
+
+    activeSpeechUtterance = null;
+    activeSpeechButton = null;
+
+    if (sameButton) {
       return;
     }
   }
@@ -974,19 +982,33 @@ function speakText(text, button = null) {
   setPlayButtonActive(button);
 
   utterance.onend = () => {
+    if (cancelledUtterances.has(utterance)) {
+      cancelledUtterances.delete(utterance);
+      return;
+    }
+
     activeSpeechUtterance = null;
-    resetPlayButton(button);
     activeSpeechButton = null;
+    resetPlayButton(button);
   };
 
   utterance.onerror = () => {
+    if (cancelledUtterances.has(utterance)) {
+      cancelledUtterances.delete(utterance);
+      return;
+    }
+
     activeSpeechUtterance = null;
-    resetPlayButton(button);
     activeSpeechButton = null;
+    resetPlayButton(button);
     showToast("Could not read this response aloud.");
   };
 
-  window.speechSynthesis.speak(utterance);
+  window.setTimeout(() => {
+    if (activeSpeechUtterance === utterance) {
+      window.speechSynthesis.speak(utterance);
+    }
+  }, 80);
 }
 
 function setPlayButtonActive(button) {

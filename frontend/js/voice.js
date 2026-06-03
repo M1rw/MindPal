@@ -7,17 +7,22 @@ import {
   syncInputButtons,
 } from "./ui_state.js";
 
+const RESTART_COOLDOWN_MS = 750;
+
 let recognition = null;
 let isRecording = false;
 let locked = false;
 let generating = false;
+let manualStopRequested = false;
+let pendingStartTimer = null;
+let lastEndAt = 0;
 
 export function initVoice({
   inputId = "chat-input",
   voiceButtonId = "voice-btn",
   micIconId = "mic-icon",
   onFinalTranscript = null,
-  autoSend = true,
+  autoSend = false,
 } = {}) {
   const inputEl = document.getElementById(inputId);
   const voiceBtn = document.getElementById(voiceButtonId);
@@ -32,7 +37,6 @@ export function initVoice({
 
   if (!SpeechRecognition) {
     voiceBtn.style.display = "none";
-
     return createUnavailableVoiceController();
   }
 
@@ -43,7 +47,10 @@ export function initVoice({
 
   recognition.onstart = () => {
     isRecording = true;
+    manualStopRequested = false;
+
     voiceBtn.classList.add("recording-pulse");
+    keepMicVisibleWhileRecording();
 
     if (micIcon) {
       micIcon.setAttribute("data-lucide", "square");
@@ -53,7 +60,6 @@ export function initVoice({
     inputEl.placeholder = "Listening...";
     inputEl.value = "";
     autoResizeInput();
-    syncInputButtons();
   };
 
   recognition.onresult = (event) => {
@@ -70,27 +76,46 @@ export function initVoice({
       }
     }
 
-    const nextValue = finalTranscript || interimTranscript;
+    const nextValue = (finalTranscript || interimTranscript).trimStart();
 
     if (nextValue) {
-      inputEl.value = nextValue.trimStart();
+      inputEl.value = nextValue;
       autoResizeInput();
-      syncInputButtons();
+
+      // Important: do NOT dispatch input while recording.
+      // Dispatching input hides the mic and shows send while the user is still talking.
+      keepMicVisibleWhileRecording();
     }
   };
 
   recognition.onerror = (event) => {
-    const error = event?.error || "unknown";
+    const error = String(event?.error || "unknown");
 
-    stopRecording({ inputEl, voiceBtn, micIcon });
+    stopRecording({ inputEl, voiceBtn, micIcon, syncButtons: true });
+
+    if (error === "aborted") {
+      return;
+    }
+
+    if (error === "no-speech") {
+      if (!manualStopRequested) {
+        showToast("I didn’t catch anything. Try again.");
+      }
+      return;
+    }
 
     if (error === "not-allowed" || error === "service-not-allowed") {
       showToast("Microphone permission is blocked.");
       return;
     }
 
-    if (error === "no-speech") {
-      showToast("I didn’t catch anything. Try again.");
+    if (error === "audio-capture") {
+      showToast("No microphone was found.");
+      return;
+    }
+
+    if (error === "network") {
+      showToast("Speech recognition network error.");
       return;
     }
 
@@ -98,19 +123,30 @@ export function initVoice({
   };
 
   recognition.onend = () => {
-    stopRecording({ inputEl, voiceBtn, micIcon });
+    const wasManualStop = manualStopRequested;
+
+    lastEndAt = Date.now();
+
+    stopRecording({ inputEl, voiceBtn, micIcon, syncButtons: true });
 
     const text = inputEl.value.trim();
 
+    // New behavior:
+    // - do not auto-send after speaking
+    // - leave transcript in the box
+    // - show send button after recognition ends
     if (
       autoSend &&
       text &&
+      !wasManualStop &&
       !locked &&
       !generating &&
       typeof onFinalTranscript === "function"
     ) {
       onFinalTranscript(text);
     }
+
+    manualStopRequested = false;
   };
 
   voiceBtn.addEventListener("click", () => {
@@ -147,18 +183,48 @@ export function initVoice({
 export function start() {
   if (!recognition || isRecording || locked || generating) return false;
 
+  const now = Date.now();
+  const remainingCooldown = RESTART_COOLDOWN_MS - (now - lastEndAt);
+
+  if (remainingCooldown > 0) {
+    window.clearTimeout(pendingStartTimer);
+
+    pendingStartTimer = window.setTimeout(() => {
+      pendingStartTimer = null;
+      start();
+    }, remainingCooldown);
+
+    return true;
+  }
+
   try {
+    manualStopRequested = false;
     recognition.lang = resolveSpeechLocale();
     recognition.start();
     return true;
-  } catch {
-    showToast("Voice recognition is already running.");
+  } catch (error) {
+    const name = String(error?.name || "");
+
+    if (name === "InvalidStateError") {
+      window.clearTimeout(pendingStartTimer);
+
+      pendingStartTimer = window.setTimeout(() => {
+        pendingStartTimer = null;
+        start();
+      }, RESTART_COOLDOWN_MS);
+
+      return true;
+    }
+
+    showToast("Voice recognition could not start.");
     return false;
   }
 }
 
 export function stop() {
   if (!recognition || !isRecording) return;
+
+  manualStopRequested = true;
 
   try {
     recognition.stop();
@@ -175,7 +241,7 @@ export function setVoiceGenerating(value) {
   generating = Boolean(value);
 }
 
-function stopRecording({ inputEl, voiceBtn, micIcon }) {
+function stopRecording({ inputEl, voiceBtn, micIcon, syncButtons }) {
   isRecording = false;
 
   voiceBtn?.classList.remove("recording-pulse");
@@ -189,7 +255,25 @@ function stopRecording({ inputEl, voiceBtn, micIcon }) {
     inputEl.placeholder = "Ask MindPal";
   }
 
-  syncInputButtons();
+  if (syncButtons) {
+    syncInputButtons();
+  }
+}
+
+function keepMicVisibleWhileRecording() {
+  const voiceBtn = document.getElementById("voice-btn");
+  const sendBtn = document.getElementById("send-btn");
+
+  if (voiceBtn) {
+    voiceBtn.classList.remove("hidden");
+    voiceBtn.classList.add("flex");
+  }
+
+  if (sendBtn) {
+    sendBtn.classList.add("hidden");
+    sendBtn.classList.remove("flex");
+    sendBtn.disabled = true;
+  }
 }
 
 function syncVoiceDisabledState(voiceBtn) {
