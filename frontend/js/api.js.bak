@@ -179,72 +179,18 @@ export async function sendChatMessage({
     });
   }
 
-  const textHistory = normalizeChatHistory(history, 30, "text");
-  const contentHistory = normalizeChatHistory(history, 30, "content");
-
-  const metadata = {
-    locale,
-    channel,
-    mode,
-  };
-
-  const attempts = [
-    {
-      label: "history_text",
-      body: {
-        message: cleanMessage,
-        history: textHistory,
-        metadata,
+  return requestJson("/chat", {
+    method: "POST",
+    token,
+    timeoutMs: 60_000,
+    body: {
+      message: cleanMessage,
+      history: [],
+      metadata: {
+        locale,
       },
     },
-    {
-      label: "history_content",
-      body: {
-        message: cleanMessage,
-        history: contentHistory,
-        metadata,
-      },
-    },
-    {
-      label: "minimal",
-      body: {
-        message: cleanMessage,
-        history: [],
-        metadata: {
-          locale,
-        },
-      },
-    },
-  ];
-
-  let lastError = null;
-
-  for (const attempt of attempts) {
-    try {
-      return await requestJson("/chat", {
-        method: "POST",
-        token,
-        timeoutMs: 60_000,
-        body: attempt.body,
-      });
-    } catch (error) {
-      lastError = error;
-
-      if (!isValidationError(error)) {
-        throw error;
-      }
-
-      console.warn("MindPal chat payload validation failed; retrying with fallback schema:", {
-        attempt: attempt.label,
-        code: error.code,
-        status: error.status,
-        details: error.details,
-        requestId: error.requestId,
-      });
-    }
-  }
-
-  throw lastError;
+  });
 }
 
 export async function getTtsPolicy({
