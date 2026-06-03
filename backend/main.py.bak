@@ -349,3 +349,17 @@ __all__ = [
     "get_service_container",
     "reset_service_container_for_tests",
 ]
+
+@app.get("/", include_in_schema=False)
+async def serve_frontend_index():
+    index_path = FRONTEND_DIR / "index.html"
+
+    if index_path.exists():
+        return FileResponse(index_path)
+
+    return {
+        "name": "MindPal",
+        "status": "ok",
+        "health": "/api/health",
+    }
+
