@@ -193,6 +193,14 @@ function buildAuthenticatedContextPrefix(profileContext) {
   return `${lines.join("\\n")}\\n`;
 }
 
+// Map UI listening preference names to backend preference IDs
+// Frontend shows user-friendly names, backend receives preference identifiers
+const MODE_UI_TO_BACKEND = {
+  "Active Listen": "active_listen",
+  "Guided Coach": "guided_coach",
+  "Cognitive Tools": "cognitive_tools",
+};
+
 export async function sendChatMessage({
   message,
   history = [],
@@ -210,6 +218,14 @@ export async function sendChatMessage({
     });
   }
 
+  // Map UI mode name to backend preference ID
+  const backendPreference = MODE_UI_TO_BACKEND[mode] || "active_listen";
+
+  const metadata = {
+    locale,
+    mode: backendPreference,  // Send as preference hint, not locked mode
+  };
+
   return requestJson("/chat", {
     method: "POST",
     token,
@@ -217,9 +233,7 @@ export async function sendChatMessage({
     body: {
       message: `${buildAuthenticatedContextPrefix(profileContext)}${cleanMessage}`,
       history: [],
-      metadata: {
-        locale,
-      },
+      metadata,
     },
   });
 }

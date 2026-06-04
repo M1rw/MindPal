@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from backend.api.dependencies import RequestContextDep, ServiceContainer, ServicesDep
 from backend.core.errors import AppError
-from backend.core.prompts import build_system_prompt, infer_response_mode
+from backend.core.prompts import build_system_prompt, infer_response_mode, infer_response_mode_for_preference
 from backend.core.security import sanitize_text
 from backend.models.chat import (
     ChatRequest,
@@ -93,7 +93,11 @@ async def chat(
             memory_prompt = services.memory.build_prompt_summary(memory_summary)
 
         rag_tags = services.safety.rag_tags_for_decision(safety_decision)
-        response_mode = infer_response_mode(
+        
+        # Infer mode respecting user's listening preference
+        user_preference = payload.metadata.mode or ""
+        response_mode = infer_response_mode_for_preference(
+            preference=user_preference,
             safety_level=safety_decision.level.value,
             rag_tags=rag_tags,
             user_message=payload.message,

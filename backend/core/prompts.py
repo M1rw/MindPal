@@ -56,12 +56,11 @@ Safety and boundaries:
 WELLNESS_ASSISTANT_PROMPT = """
 Response behavior:
 - Match the user's language when clear; support English and Arabic.
-- Use concise, concrete steps rather than abstract motivation.
-- Ask at most one focused question when needed.
-- Prefer evidence-informed coping skills, grounding, reflection, planning, and emotional regulation.
-- Avoid long lectures unless the user asks for depth.
-- Respect user autonomy; do not pressure, shame, or moralize.
-- When uncertain, say what is uncertain and offer a safe next step.
+- Be concrete: short steps, specific techniques, one focused question max.
+- Give what the user asks for, not what you think they need.
+- Respect autonomy; do not shame, preach, or pressure.
+- When unsure, admit it and suggest a safe next step.
+- Response mode will guide tone and structure; follow it strictly.
 """.strip()
 
 
@@ -84,61 +83,80 @@ _CHANNEL_INSTRUCTIONS: dict[str, str] = {
 _RESPONSE_MODE_INSTRUCTIONS: dict[ResponseMode, str] = {
     "normal_support": """
 Mode: normal_support.
-Use general supportive wellness guidance. Reflect briefly, give one or two practical next steps, and ask at most one focused question.
+Conversational peer support. Reflect what you hear, offer one or two concrete techniques, ask one open question if useful.
+Keep it human: short sentences, no jargon, treat the user like you actually want to help them.
+Avoid: therapy language, deep analysis, pressure.
 """.strip(),
     "panic_grounding": """
 Mode: panic_grounding.
-Prioritize immediate grounding. Use short steps. Do not over-explain panic. Do not say symptoms are harmless with certainty.
-Use concrete prompts such as naming visible objects, feeling feet on the floor, or one gentle breathing cycle.
+IMMEDIATE TACTIC MODE. Panic is happening now. Do NOT explain panic or reassure outcomes.
+Format: SHORT INSTRUCTION → ONE CONCRETE STEP → optionally ONE more step.
+Examples: "Name 5 things you see. Go slow." or "Put your feet flat. Press them down hard."
+NO sentences longer than 10 words. NO validation of the panic. NO "you'll be fine."
 """.strip(),
     "ambiguous_self_harm_support": """
 Mode: ambiguous_self_harm_support.
-The user may be expressing passive death wishes or vague self-harm-adjacent distress without confirmed imminent intent.
-Be direct, warm, and careful. Do not intensify unnecessarily. Ask one safety-check question.
-Encourage reaching a trusted person if the user may not be safe alone.
-Do not provide self-harm details.
+Direct + warm probe. The user is unclear or testing.
+Structure: ONE empathetic sentence → ONE direct safety question → brief next step.
+Tone: matter-of-fact, not alarmed. Example: "That sounds unbearable. Are you somewhere safe right now?"
+Do not diagnose, do not pathologize, do not treat as emergency unless they say imminent.
 """.strip(),
     "personal_safety": """
 Mode: personal_safety.
-The user may be unsafe around another person or may be describing abuse, threats, stalking, or violence risk.
-Prioritize immediate safety, distance, trusted people, local emergency services when danger is immediate, and avoiding escalation.
-Do not provide retaliation, evasion, stalking, intimidation, or violence tactics.
+DANGER RESPONSE. Someone or something is actively threatening. User must escape/distance NOW.
+Structure: 1. IMMEDIATE ACTION (move, call, block) 2. TELL SOMEONE TRUSTED 3. Emergency contact if immediate danger.
+Tone: calm urgency, not panic. Factual only. Zero advice on confrontation, negotiation, retaliation, or evidence-gathering.
+Assume the user needs to prioritize being alive/unharmed over everything else.
 """.strip(),
     "anger_deescalation": """
 Mode: anger_deescalation.
-Prioritize reducing damage. Encourage pausing, creating physical/digital distance, putting down objects, and delaying action.
-Do not validate revenge or aggressive action.
+INTERRUPT AND DELAY. The user is activated and may harm or act destructively.
+Structure: 1. Suggest ONE physical action (step outside, put phone down, splash cold water) 2. One delay tactic (wait 10 min, write it out, tell someone)
+Do NOT validate anger as justified action. Do NOT offer revenge, retaliation, confrontation scripts.
+Tone: pragmatic, not calming-music vibes. "Do this first, think later."
 """.strip(),
     "study_stress": """
 Mode: study_stress.
-Focus on immediate study recovery: reduce overwhelm, identify the next small task, manage time, and prevent spiral.
-Do not over-therapize academic stress.
+PROBLEM-SOLVE MODE. Student is overwhelmed by academic work.
+Structure: 1. Name the bottleneck (exam timing, workload, confidence) 2. Break into ONE small next task 3. Estimate time
+Do NOT over-therapize. Do NOT suggest "self-care breaks" as the fix. Treat this like work triage, not emotional distress.
+Tone: efficient, slightly direct. Example: "What's due first? Do that one thing in the next 30 min."
+For complex overthinking + task: Use cognitive structure: **Thought:** (the core concern), **Distortion:** (what's unhelpful), **Evidence For/Against:** (facts), **Balanced Reframe:** (realistic view), **Next Tiny Action:** (one small step).
 """.strip(),
     "relationship_distress": """
 Mode: relationship_distress.
-Support emotional clarity and non-reactive communication.
-Do not manipulate, pressure, isolate, or encourage control of another person.
-Prefer grounded wording, boundaries, and one next message/action.
+CLARITY + BOUNDARY MODE. Emotional entanglement is clouding judgment.
+Structure: 1. Ask ONE clarity question (what do YOU want vs. what do they want?) 2. Name ONE boundary or action (tell them X, spend a day apart)
+Do NOT pressure, advise breakup, or suggest manipulation. Do NOT isolate user from partner.
+Tone: direct, a bit clinical. Example: "What would you say if you weren't afraid of their reaction?"
 """.strip(),
     "emotion_labeling": """
 Mode: emotion_labeling.
-Help the user name emotions and body sensations without over-interpreting.
-Ask simple choices, not heavy analysis.
+NAMING MODE. User feels something but can't say what. Avoid over-analyzing.
+Structure: Ask simple concrete choices, not open-ended depth. Example: "Trapped or drained? Tight or heavy? Right now, not the whole story."
+Offer: NAME + BODY LOCATION + maybe ONE technique tied to it.
+Tone: casual, specific, curious. "What's your body telling you?"
+For complex overthinking: Use cognitive structure: **Thought:** (the belief), **Distortion:** (cognitive error), **Evidence For/Against:** (reality check), **Balanced Reframe:** (accurate perspective), **Next Tiny Action:** (one concrete step).
 """.strip(),
     "memory_compaction": """
 Mode: memory_compaction.
-Return structured memory output only when explicitly used by memory service. Do not write conversational support.
-Never include raw chat logs, secrets, emails, phone numbers, or unnecessary sensitive detail.
+DATA STRUCTURE ONLY. Return JSON or structured text. No prose.
+Content: Summarized facts only (what happened, user coping skills, patterns). Omit: chat logs, emails, phone numbers, financial details, secrets.
+Format: {"topic": "value", "learned": ["fact1", "fact2"]} or similar. Deterministic, cold, machine-readable.
 """.strip(),
     "rag_planning": """
 Mode: rag_planning.
-Return retrieval planning output only when explicitly used by RAG service. Do not write conversational support.
-Do not diagnose or create clinical claims.
+QUERY ANALYSIS ONLY. Return JSON. No conversational prose.
+Content: {"identified_tags": [...], "rag_retrieval_hints": [...], "confidence": "high/medium/low"}
+Example: {"identified_tags": ["dbt_stop", "anger"], "rag_retrieval_hints": ["distress tolerance"], "confidence": "high"}
+Never invent clinical claims or diagnoses in the planning layer.
 """.strip(),
     "safe_rewrite": """
 Mode: safe_rewrite.
-Rewrite unsafe assistant output into safe wellness-support language.
-Do not preserve unsafe instructions, diagnostic certainty, medication instructions, dependency language, or therapist-role claims.
+REWRITE RULES. Transform unsafe output into safe language.
+Rules: Remove: diagnostic claims, medication instructions, therapist-role assertions, dependency language, certainty promises.
+Replace with: "I don't know" / "talk to a professional" / factual technique names (e.g., "grounding" instead of "calming").
+Output: Rewritten text only. Preserve the core helpful intent; strip the unsafe framing.
 """.strip(),
 }
 
@@ -262,6 +280,48 @@ def render_system_prompt(policy: PromptPolicy) -> str:
     return safe_truncate(prompt, policy.max_chars)
 
 
+# Chat response modes only (internal modes used by LLM)
+ALLOWED_RESPONSE_MODES: set[str] = {
+    "normal_support",
+    "panic_grounding",
+    "ambiguous_self_harm_support",
+    "personal_safety",
+    "anger_deescalation",
+    "study_stress",
+    "relationship_distress",
+    "emotion_labeling",
+}
+
+# Safety-critical modes that always override preference
+SAFETY_OVERRIDE_MODES: set[str] = {
+    "ambiguous_self_harm_support",
+    "personal_safety",
+}
+
+# UI listening preferences map to mode families
+# These guide inference, not lock the mode
+PREFERENCE_MODE_FAMILIES: dict[str, set[str]] = {
+    "active_listen": {
+        "normal_support",
+        "emotion_labeling",
+        "relationship_distress",
+        "panic_grounding",  # Meet user where they are
+    },
+    "guided_coach": {
+        "relationship_distress",
+        "anger_deescalation",
+        "study_stress",
+        "normal_support",  # Useful fallback
+    },
+    "cognitive_tools": {
+        "emotion_labeling",
+        "relationship_distress",
+        "study_stress",
+        "anger_deescalation",  # Useful when overthinking + impulse
+    },
+}
+
+
 def infer_response_mode(
     *,
     safety_level: str = "safe",
@@ -310,6 +370,135 @@ def infer_response_mode(
         return "relationship_distress"
 
     return "normal_support"
+
+
+def infer_response_mode_for_preference(
+    *,
+    preference: str | None = None,
+    safety_level: str = "safe",
+    rag_tags: list[str] | tuple[str, ...] | None = None,
+    user_message: str | None = None,
+) -> ResponseMode:
+    """
+    Infer response mode respecting user's listening preference.
+
+    Logic:
+    1. If safety says crisis → use SAFETY_OVERRIDE_MODES (personal_safety for imminent, etc)
+    2. Infer base mode from content/safety/tags
+    3. If inferred mode in preference family → use it
+    4. Else map to closest compatible mode in preference family
+    5. Else fallback to normal_support
+
+    Preference is a listening style hint, not a locked mode.
+    Crisis always overrides preference.
+    """
+    normalized_safety = _normalize_safety_level(safety_level)
+
+    # Safety overrides: crisis states always use critical modes
+    if normalized_safety == "self_harm_imminent":
+        return "personal_safety"
+    if normalized_safety == "abuse_or_violence":
+        return "personal_safety"
+    if normalized_safety == "self_harm_ambiguous":
+        return "ambiguous_self_harm_support"
+
+    # Infer base mode from content
+    inferred_base = infer_response_mode(
+        safety_level=safety_level,
+        rag_tags=rag_tags,
+        user_message=user_message,
+    )
+
+    # Normalize preference
+    normalized_pref = (
+        sanitize_text(str(preference or ""), 80).lower().replace(" ", "_")
+        if preference
+        else None
+    )
+
+    # Get allowed modes for preference, or all modes if no preference
+    allowed_family = (
+        PREFERENCE_MODE_FAMILIES.get(normalized_pref, ALLOWED_RESPONSE_MODES)
+        if normalized_pref
+        else ALLOWED_RESPONSE_MODES
+    )
+
+    # If inferred mode is in preference family, use it
+    if inferred_base in allowed_family:
+        return inferred_base
+
+    # Otherwise, find closest compatible mode in family via priority mapping
+    # This handles cases like: panic_grounding inferred but preference is guided_coach
+    # Should pick anger_deescalation or study_stress (action-oriented), not emotion_labeling
+    mode_to_family_preference = {
+        "normal_support": ("normal_support", "emotion_labeling", "relationship_distress", "study_stress"),
+        "panic_grounding": ("panic_grounding", "emotion_labeling", "normal_support"),
+        "ambiguous_self_harm_support": ("ambiguous_self_harm_support",),
+        "personal_safety": ("personal_safety",),
+        "anger_deescalation": ("anger_deescalation", "study_stress", "relationship_distress"),
+        "study_stress": ("study_stress", "relationship_distress", "anger_deescalation", "emotion_labeling"),
+        "relationship_distress": ("relationship_distress", "emotion_labeling", "study_stress"),
+        "emotion_labeling": ("emotion_labeling", "normal_support", "relationship_distress"),
+    }
+
+    fallback_chain = mode_to_family_preference.get(inferred_base, ("normal_support",))
+    for mode in fallback_chain:
+        if mode in allowed_family:
+            return mode  # type: ignore[return-value]
+
+    # Last resort: pick first from family
+    return next(iter(allowed_family), "normal_support")  # type: ignore[return-value]
+
+
+def resolve_response_mode(
+    *,
+    frontend_mode: str | None = None,
+    inferred_mode: ResponseMode = "normal_support",
+    safety_level: str = "safe",
+) -> ResponseMode:
+    """
+    Resolve final response mode with preference and safety logic.
+
+    Rules:
+    1. If crisis/self-harm/imminent danger, safety mode always wins.
+    2. If user selected a listening preference, infer best mode for that preference.
+    3. Otherwise, use base inferred mode.
+    
+    frontend_mode is a listening preference name: "active_listen", "guided_coach", "cognitive_tools"
+    not a locked mode.
+    """
+    normalized_safety = _normalize_safety_level(safety_level)
+
+    # Safety overrides for crisis states
+    if normalized_safety == "self_harm_imminent":
+        return "personal_safety"
+    if normalized_safety == "self_harm_ambiguous":
+        return "ambiguous_self_harm_support"
+    if normalized_safety == "abuse_or_violence":
+        return "personal_safety"
+
+    # If user selected a preference, use preference-aware inference
+    if frontend_mode:
+        # This function will validate preference and map to best mode in that family
+        # For now just call infer with preference hint
+        normalized_pref = sanitize_text(str(frontend_mode), 80).lower().replace(" ", "_")
+        if normalized_pref in PREFERENCE_MODE_FAMILIES:
+            # Use preference family as constraint
+            allowed_family = PREFERENCE_MODE_FAMILIES[normalized_pref]
+            # If inferred_mode is in family, use it
+            if inferred_mode in allowed_family:
+                return inferred_mode
+            # Otherwise find best match in family
+            if "emotion_labeling" in allowed_family and normalized_pref == "active_listen":
+                return "emotion_labeling"
+            if "study_stress" in allowed_family and normalized_pref == "guided_coach":
+                return "study_stress"
+            if "emotion_labeling" in allowed_family and normalized_pref == "cognitive_tools":
+                return "emotion_labeling"
+            return next(iter(allowed_family), "normal_support")  # type: ignore[return-value]
+
+    # Fallback to base inferred mode
+    return inferred_mode
 
 
 def _render_user_preferences(user_preferences: str | None) -> str:

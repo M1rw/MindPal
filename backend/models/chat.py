@@ -72,6 +72,7 @@ class ChatMetadata(BaseModel):
     locale: Locale = "auto"
     channel: ChatChannel = ChatChannel.WEB
     voice: bool = False
+    mode: str | None = Field(default=None, max_length=80)
     client_request_id: str | None = Field(default=None, max_length=120)
     timezone: str | None = Field(default=None, max_length=80)
 
@@ -80,7 +81,7 @@ class ChatMetadata(BaseModel):
     def _normalize_locale(cls, value: object) -> Locale:
         return normalize_locale(str(value)) if value is not None else "auto"
 
-    @field_validator("client_request_id", "timezone", mode="before")
+    @field_validator("mode", "client_request_id", "timezone", mode="before")
     @classmethod
     def _sanitize_optional_short_text(cls, value: object) -> str | None:
         if value is None:
