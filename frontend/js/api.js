@@ -231,7 +231,8 @@ export async function sendChatMessage({
     token,
     timeoutMs: 60_000,
     body: {
-      message: `${buildAuthenticatedContextPrefix(profileContext)}${cleanMessage}`,
+      // Send clean message only. Authenticated context goes in system prompt via backend.
+      message: cleanMessage,
       history: [],
       metadata,
     },

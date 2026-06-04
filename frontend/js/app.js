@@ -54,9 +54,8 @@ import { initVoice } from "./voice.js";
 
 import {
   answerQuestionFromMemory,
-  buildMemoryPromptPrefix,
   classifyAndStoreMemoryFromMessage,
-  loadMemoryContext,
+  createEmptyMemory,
 } from "./memory_engine.js";
 
 let isGenerating = false;
@@ -64,7 +63,8 @@ let isSessionLocked = false;
 let voiceController = null;
 let authUnsubscribe = null;
 let cloudConnectInProgress = false;
-let memoryContext = loadMemoryContext();
+// Initialize to empty. Backend is source of truth for memory via API (Phase 2).
+let memoryContext = createEmptyMemory();
 let currentCloudProfileContext = null;
 
 document.addEventListener("DOMContentLoaded", bootstrap);
@@ -543,7 +543,8 @@ async function handleSend() {
     return;
   }
 
-  const outboundMessage = `${buildMemoryPromptPrefix(memoryContext)}${text}`;
+  // Send clean user message only. Memory/context goes in system prompt via backend.
+  const outboundMessage = text;
 
   const statusId = `status-${Date.now()}`;
   appendStatusIndicator(statusId);
@@ -553,6 +554,7 @@ async function handleSend() {
     const token = await getIdToken();
     const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
 
+    // Send clean message only. Memory/context managed by backend via system prompt.
     const response = await sendChatMessage({
       message: outboundMessage,
       history: normalizeChatHistory(state.chatMemory),
@@ -860,8 +862,9 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     const token = await getIdToken();
     const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
 
+    // Send clean message only. Memory/context managed by backend via system prompt.
     const response = await sendChatMessage({
-      message: `${buildMemoryPromptPrefix(memoryContext)}${userMessage}`,
+      message: userMessage,
       history: normalizeChatHistory(messages.slice(0, userIndex)),
       locale: resolveLocale(),
       mode,

@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend.core.security import Locale, normalize_locale, sanitize_text
 from backend.models.safety import SafetyLevel
+
+if TYPE_CHECKING:
+    from backend.models.memory import MemorySummary
 
 
 MAX_CHAT_MESSAGE_CHARS = 4_000
@@ -162,6 +166,7 @@ class ChatResponse(BaseModel):
     fallback_count: int = Field(default=0, ge=0, le=10)
     rag_used: list[RagReference] = Field(default_factory=list, max_length=20)
     memory_updated: bool = False
+    memory_summary: dict | None = Field(default=None, description="Compacted memory summary returned from backend")
     request_id: str = Field(min_length=1, max_length=80)
 
     @field_validator("reply", mode="before")

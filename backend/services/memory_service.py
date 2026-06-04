@@ -314,6 +314,9 @@ class MemoryService:
             if interaction.role == MemoryInteractionRole.USER
         )
 
+        # Strip any injected instruction prefixes from user text
+        user_text = _strip_instruction_prefixes(user_text)
+
         assistant_text = "\n".join(
             interaction.content
             for interaction in interactions
@@ -414,7 +417,7 @@ class MemoryService:
         provider_state = self._summarization_provider_state()
 
         return {
-            "mode": "llm_primary_with_local_fallback",
+            "mode": "llm_primary_with_local_fallback_only",
             "production_mode": self.production_mode,
             "summary_max_chars": self.summary_max_chars,
             "stores_raw_chat": False,
@@ -424,6 +427,7 @@ class MemoryService:
             "llm_summarization_can_call_llm": provider_state["summarization_can_call_llm"],
             "offline_llm_summarization_allowed": self.allow_offline_llm_summarization,
             "local_fallback_available": True,
+            "local_extraction_only_on_llm_failure": True,
             "last_meta": None if self.last_meta is None else asdict(self.last_meta),
         }
 
@@ -517,21 +521,14 @@ class MemoryService:
             existing=existing,
         )
 
-        local_extraction = self.extract_from_interactions(request.interactions)
-
-        merged = self.merge_summary_from_llm_and_local(
-            existing=existing,
-            llm_summary=llm_summary,
-            local_extraction=local_extraction,
-            user_id_hash=request.user_id_hash,
-        )
-
+        # LLM summary is primary. Local extraction only runs as fallback (in compact_local).
+        # Do not merge both; rely on LLM output for quality/safety.
         result = MemoryCompactionResult(
             request_id=request.request_id,
             user_id_hash=request.user_id_hash,
-            summary=merged,
-            changed=_summary_changed(existing, merged),
-            items_added=len(local_extraction.items) + len(llm_summary.items),
+            summary=llm_summary,
+            changed=_summary_changed(existing, llm_summary),
+            items_added=len(llm_summary.items),
         )
 
         return LLMCompactionOutcome(
@@ -925,6 +922,48 @@ def _redact_memory_sensitive(text: str) -> str:
     value = _MEMORY_LONG_TOKEN_RE.sub("[redacted_secret]", value)
 
     return value
+
+
+def _strip_instruction_prefixes(text: str) -> str:
+    """
+    Remove injected instruction prefixes from message text.
+    Prefixes like 'Saved user memory:', 'Verified authenticated user context:', etc.
+    should not be included in memory extraction.
+    """
+    lines = text.split("\n")
+    filtered_lines = []
+    skip_until_user_message = False
+
+    for line in lines:
+        lower = line.lower().strip()
+
+        # Skip lines that are clearly instruction sections
+        if any(
+            lower.startswith(marker)
+            for marker in [
+                "saved user memory:",
+                "verified authenticated",
+                "assistant instruction:",
+                "user message:",
+                "communication preferences",
+                "user communication preferences",
+            ]
+        ):
+            skip_until_user_message = True
+            continue
+
+        # Stop skipping when we hit "User message:" marker
+        if skip_until_user_message and lower == "user message:":
+            skip_until_user_message = False
+            continue
+
+        # If we're in the instruction section, skip this line
+        if skip_until_user_message:
+            continue
+
+        filtered_lines.append(line)
+
+    return "\n".join(filtered_lines).strip()
 
 
 def _summary_changed(existing: MemorySummary, new: MemorySummary) -> bool:
