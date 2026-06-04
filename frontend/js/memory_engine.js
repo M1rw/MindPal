@@ -320,7 +320,7 @@ export function buildMemoryLines(memoryContext = createEmptyMemory()) {
   return mergeUnique(lines).slice(0, 50);
 }
 
-function createEmptyMemory() {
+export function createEmptyMemory() {
   return {
     version: 1,
     user: {},

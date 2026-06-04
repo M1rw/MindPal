@@ -177,6 +177,7 @@ async def chat(
             fallback_count=llm_result.response.fallback_count,
             rag_used=list(rag_result.references),
             memory_updated=memory_updated,
+            memory_summary=memory_summary.model_dump(mode="json") if memory_summary and not memory_summary.is_empty() else None,
             request_id=context.request_id,
         )
 
