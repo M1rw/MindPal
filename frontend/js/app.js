@@ -52,11 +52,19 @@ import {
 
 import { initVoice } from "./voice.js";
 
+import {
+  answerQuestionFromMemory,
+  buildMemoryPromptPrefix,
+  classifyAndStoreMemoryFromMessage,
+  loadMemoryContext,
+} from "./memory_engine.js";
+
 let isGenerating = false;
 let isSessionLocked = false;
 let voiceController = null;
 let authUnsubscribe = null;
 let cloudConnectInProgress = false;
+let memoryContext = loadMemoryContext();
 let currentCloudProfileContext = null;
 
 document.addEventListener("DOMContentLoaded", bootstrap);
@@ -487,6 +495,56 @@ async function handleSend() {
   addMessage("User", text);
   clearInput();
 
+  const recentMessages = getState().chatMemory.slice(-8);
+  const memoryResult = classifyAndStoreMemoryFromMessage(text, {
+    memoryContext,
+    recentMessages,
+  });
+
+  memoryContext = memoryResult.memory;
+
+  if (memoryResult.shouldIntercept && memoryResult.localReply) {
+    addMessage("MindPal", memoryResult.localReply, {
+      providerUsed: "local_memory",
+      memoryUpdated: true,
+    });
+
+    await appendMessageToUI(memoryResult.localReply, "bot", {
+      smoothScroll: true,
+      typewriter: true,
+    });
+
+    isGenerating = false;
+    voiceController?.setGenerating(false);
+    setInputState({ disabled: false, locked: isSessionLocked });
+    updateProfileUI(getCurrentUser());
+    document.getElementById("chat-input")?.focus();
+    return;
+  }
+
+  const memoryDirectAnswer = answerQuestionFromMemory(text, memoryContext);
+
+  if (memoryDirectAnswer) {
+    addMessage("MindPal", memoryDirectAnswer, {
+      providerUsed: "local_memory",
+      memoryUsed: true,
+    });
+
+    await appendMessageToUI(memoryDirectAnswer, "bot", {
+      smoothScroll: true,
+      typewriter: true,
+    });
+
+    isGenerating = false;
+    voiceController?.setGenerating(false);
+    setInputState({ disabled: false, locked: isSessionLocked });
+    updateProfileUI(getCurrentUser());
+    document.getElementById("chat-input")?.focus();
+    return;
+  }
+
+  const outboundMessage = `${buildMemoryPromptPrefix(memoryContext)}${text}`;
+
   const statusId = `status-${Date.now()}`;
   appendStatusIndicator(statusId);
 
@@ -496,7 +554,7 @@ async function handleSend() {
     const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
 
     const response = await sendChatMessage({
-      message: text,
+      message: outboundMessage,
       history: normalizeChatHistory(state.chatMemory),
       locale: resolveLocale(),
       mode,
@@ -803,7 +861,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
 
     const response = await sendChatMessage({
-      message: userMessage,
+      message: `${buildMemoryPromptPrefix(memoryContext)}${userMessage}`,
       history: normalizeChatHistory(messages.slice(0, userIndex)),
       locale: resolveLocale(),
       mode,
