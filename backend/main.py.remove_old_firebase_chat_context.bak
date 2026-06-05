@@ -419,3 +419,216 @@ def _mindpal_configure_frontend_static():
 
 _mindpal_configure_frontend_static()
 
+# -----------------------------------------------------------------------------
+# MindPal authenticated chat context middleware
+# -----------------------------------------------------------------------------
+
+@app.middleware("http")
+async def _mindpal_authenticated_chat_context_middleware(request, call_next):
+    """
+    Inject verified Firebase Auth user context into /api/chat.
+
+    This lets the LLM know authenticated profile facts such as the user's display
+    name without trusting frontend-supplied metadata.
+    """
+    if request.method.upper() != "POST" or request.url.path.rstrip("/") != "/api/chat":
+        return await call_next(request)
+
+    content_type = request.headers.get("content-type", "")
+    if "application/json" not in content_type.lower():
+        return await call_next(request)
+
+    try:
+        import json as _json
+
+        raw_body = await request.body()
+        if not raw_body:
+            return await call_next(request)
+
+        payload = _json.loads(raw_body.decode("utf-8"))
+
+        if not isinstance(payload, dict):
+            return await call_next(request)
+
+        original_message = str(payload.get("message") or "").strip()
+        if not original_message:
+            return await call_next(request)
+
+        decoded_user = _mindpal_verify_firebase_bearer(
+            request.headers.get("authorization") or ""
+        )
+
+        if not decoded_user:
+            return await _mindpal_replay_request_body(request, call_next, raw_body)
+
+        display_name = _mindpal_first_non_empty(
+            decoded_user.get("name"),
+            decoded_user.get("displayName"),
+            decoded_user.get("firebase", {}).get("sign_in_provider"),
+        )
+
+        email = _mindpal_first_non_empty(
+            decoded_user.get("email"),
+            decoded_user.get("email_verified") and decoded_user.get("email"),
+        )
+
+        uid = _mindpal_first_non_empty(
+            decoded_user.get("uid"),
+            decoded_user.get("user_id"),
+            decoded_user.get("sub"),
+        )
+
+        # If Google/Firebase does not provide a display name, use a safe email
+        # local-part only as a weak fallback.
+        if not display_name and email and "@" in email:
+            display_name = email.split("@", 1)[0]
+
+        if not display_name and not email and not uid:
+            return await _mindpal_replay_request_body(request, call_next, raw_body)
+
+        context_lines = [
+            "Verified authenticated user context:",
+            "- authenticated: true",
+        ]
+
+        if display_name:
+            context_lines.append(f"- display_name: {display_name}")
+
+        if email:
+            context_lines.append(f"- email: {email}")
+
+        if uid:
+            context_lines.append(f"- firebase_uid: {uid}")
+
+        context_lines.extend([
+            "",
+            "Assistant instruction:",
+            "Use this verified context when the user asks about their own identity/profile.",
+            "If the user asks for their name, answer from display_name when available.",
+            "Do not claim you lack access to the user's name when display_name is present.",
+            "Do not expose raw Firebase UID unless the user explicitly asks for technical account details.",
+            "",
+            "User message:",
+        ])
+
+        payload["message"] = "\n".join(context_lines) + "\n" + original_message
+
+        patched_body = _json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        return await _mindpal_replay_request_body(request, call_next, patched_body)
+
+    except Exception as exc:
+        # Never break chat because profile-context injection failed.
+        try:
+            print(f"MindPal authenticated chat context skipped: {type(exc).__name__}: {exc}")
+        except Exception:
+            pass
+
+        return await call_next(request)
+
+
+async def _mindpal_replay_request_body(request, call_next, body: bytes):
+    async def receive():
+        return {
+            "type": "http.request",
+            "body": body,
+            "more_body": False,
+        }
+
+    request._receive = receive
+    return await call_next(request)
+
+
+def _mindpal_first_non_empty(*values):
+    for value in values:
+        if value is None:
+            continue
+
+        clean = str(value).strip()
+        if clean:
+            return clean
+
+    return ""
+
+
+def _mindpal_verify_firebase_bearer(authorization_header: str):
+    import os as _os
+
+    prefix = "Bearer "
+    if not authorization_header.startswith(prefix):
+        return None
+
+    token = authorization_header[len(prefix):].strip()
+    if not token:
+        return None
+
+    try:
+        import firebase_admin as _firebase_admin
+        from firebase_admin import auth as _firebase_auth
+        from firebase_admin import credentials as _firebase_credentials
+    except Exception:
+        return None
+
+    try:
+        if not _firebase_admin._apps:
+            _mindpal_initialize_firebase_admin(_firebase_admin, _firebase_credentials)
+
+        if not _firebase_admin._apps:
+            return None
+
+        check_revoked = (
+            str(_os.getenv("FIREBASE_CHECK_REVOKED_TOKENS", "false")).lower()
+            in {"1", "true", "yes", "on"}
+        )
+
+        return _firebase_auth.verify_id_token(token, check_revoked=check_revoked)
+
+    except Exception as exc:
+        try:
+            print(f"MindPal Firebase token verification failed in chat context: {type(exc).__name__}: {exc}")
+        except Exception:
+            pass
+
+        return None
+
+
+def _mindpal_initialize_firebase_admin(firebase_admin_module, firebase_credentials_module):
+    import json as _json
+    import os as _os
+
+    credentials_json = str(_os.getenv("FIREBASE_CREDENTIALS_JSON", "") or "").strip()
+    credentials_path = str(
+        _os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+        or _os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+        or ""
+    ).strip()
+
+    if credentials_json:
+        # Support accidental wrapping quotes from env dashboards.
+        if (
+            (credentials_json.startswith("'") and credentials_json.endswith("'"))
+            or (credentials_json.startswith('"') and credentials_json.endswith('"'))
+        ):
+            credentials_json = credentials_json[1:-1]
+
+        info = _json.loads(credentials_json)
+
+        private_key = info.get("private_key")
+        if isinstance(private_key, str):
+            info["private_key"] = private_key.replace("\\n", "\n")
+
+        cred = firebase_credentials_module.Certificate(info)
+        firebase_admin_module.initialize_app(cred, {
+            "projectId": info.get("project_id"),
+        })
+        return
+
+    if credentials_path:
+        cred = firebase_credentials_module.Certificate(credentials_path)
+        firebase_admin_module.initialize_app(cred)
+        return
+
+    # Last fallback for Google Cloud runtimes with ADC.
+    firebase_admin_module.initialize_app()
+
+
+# End MindPal authenticated chat context middleware
