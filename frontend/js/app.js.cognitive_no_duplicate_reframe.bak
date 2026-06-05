@@ -1374,6 +1374,12 @@ function processStructuredResponse(text) {
             ${distortion ? timelineItem("Distortion", distortion, "circle-minus") : ""}
             ${evidenceFor ? timelineItem("Evidence For", evidenceFor, "circle-minus") : ""}
             ${evidenceAgainst ? timelineItem("Evidence Against", evidenceAgainst, "circle-minus") : ""}
+            ${
+              reframe
+                ? timelineItem("Balanced Reframe", reframe, "circle-minus")
+                : ""
+            }
+            ${action ? timelineItem("Next Tiny Action", action, "circle-minus") : ""}
             ${timelineItem("Done", "", "check-circle-2")}
           </div>
       </div>
