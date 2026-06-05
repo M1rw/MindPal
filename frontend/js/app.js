@@ -985,8 +985,7 @@ function processStructuredResponse(text) {
         <i data-lucide="chevron-right" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
       </div>
 
-      <div class="accordion-content grid grid-rows-[0fr] opacity-0 transition-all duration-300 ease-in-out">
-        <div class="overflow-hidden">
+      <div class="accordion-content max-h-0 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
           <div class="mt-4 ml-[7px] pl-6 border-l border-gray-200 dark:border-[#444746] space-y-5 text-[15px] text-gray-700 dark:text-gray-300 relative pb-4">
             ${thought ? timelineItem("Core Thought", thought, "circle-minus") : ""}
             ${distortion ? timelineItem("Distortion Detected", distortion, "circle-minus") : ""}
@@ -1003,7 +1002,6 @@ function processStructuredResponse(text) {
             }
             ${timelineItem("Done", "", "check-circle-2")}
           </div>
-        </div>
       </div>
     </div>
   `;
@@ -1055,17 +1053,18 @@ function bindAccordion(root) {
     const collapsedText = header.querySelector(".collapsed-text");
     const expandedText = header.querySelector(".expanded-text");
 
-    const isOpen = content?.classList.contains("grid-rows-[1fr]");
+    // Use max-h-0 to check if collapsed (more reliable than grid-rows)
+    const isOpen = !content?.classList.contains("max-h-0");
 
     if (isOpen) {
-      content.classList.remove("grid-rows-[1fr]", "opacity-100");
-      content.classList.add("grid-rows-[0fr]", "opacity-0");
+      content.classList.remove("max-h-screen", "opacity-100");
+      content.classList.add("max-h-0", "opacity-0");
       chevron?.classList.remove("rotate-90");
       collapsedText?.classList.remove("hidden");
       expandedText?.classList.add("hidden");
     } else {
-      content?.classList.remove("grid-rows-[0fr]", "opacity-0");
-      content?.classList.add("grid-rows-[1fr]", "opacity-100");
+      content?.classList.remove("max-h-0", "opacity-0");
+      content?.classList.add("max-h-screen", "opacity-100");
       chevron?.classList.add("rotate-90");
       collapsedText?.classList.add("hidden");
       expandedText?.classList.remove("hidden");
