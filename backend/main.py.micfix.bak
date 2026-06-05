@@ -132,7 +132,7 @@ def _install_middleware(app: FastAPI, settings: Settings) -> None:
         response.headers["X-Process-Time-MS"] = str(getattr(request.state, "process_time_ms", "0"))
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(self), geolocation=()"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
 
         if bool(getattr(settings, "ENABLE_HSTS", False)):
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
