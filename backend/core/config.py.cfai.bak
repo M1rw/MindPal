@@ -53,16 +53,6 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
     OPENROUTER_API_KEY: SecretStr | None = Field(default=None, repr=False)
     GROQ_API_KEY: SecretStr | None = Field(default=None, repr=False)
-    CLOUDFLARE_AIG_TOKEN: SecretStr | None = Field(default=None, repr=False)
-    CLOUDFLARE_API_TOKEN: SecretStr | None = Field(default=None, repr=False)
-    CLOUDFLARE_ACCOUNT_ID: str = Field(default="")
-    CLOUDFLARE_GATEWAY_ID: str = Field(default="default")
-    CLOUDFLARE_MODEL: str = Field(default="workers-ai/@cf/meta/llama-3.1-8b-instruct-fp8-fast")
-    CLOUDFLARE_AI_MODE: str = Field(default="gateway_compat")
-    CLOUDFLARE_AI_GATEWAY_URL: str = Field(default="")
-    CLOUDFLARE_AI_GATEWAY_BASE_URL: str = Field(default="https://gateway.ai.cloudflare.com")
-    CLOUDFLARE_AI_NATIVE_BASE_URL: str = Field(default="https://api.cloudflare.com/client/v4")
-    CLOUDFLARE_TIMEOUT_SECONDS: float = Field(default=20.0, gt=0, le=120)
     PERSPECTIVE_API_KEY: SecretStr | None = Field(default=None, repr=False)
     CAMB_API_KEY: SecretStr | None = Field(default=None, repr=False)
 
@@ -95,8 +85,6 @@ class Settings(BaseSettings):
         "GEMINI_API_KEY",
         "OPENROUTER_API_KEY",
         "GROQ_API_KEY",
-        "CLOUDFLARE_API_TOKEN",
-        "CLOUDFLARE_AIG_TOKEN",
         "PERSPECTIVE_API_KEY",
         "CAMB_API_KEY",
         mode="before",
@@ -211,11 +199,6 @@ class Settings(BaseSettings):
     @property
     def has_groq(self) -> bool:
         return _has_secret(self.GROQ_API_KEY)
-
-
-    @property
-    def has_cloudflare(self) -> bool:
-        return _has_secret(self.CLOUDFLARE_AIG_TOKEN) or _has_secret(self.CLOUDFLARE_API_TOKEN)
 
     @property
     def has_perspective(self) -> bool:
