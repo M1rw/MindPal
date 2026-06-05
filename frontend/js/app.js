@@ -87,135 +87,12 @@ async function bootstrap() {
 
   voiceController = initVoice();
 
-  // Mobile optimizations (Phase 5 & 6)
-  initMobileOptimizations();
-
   renderPersistedChat();
   updateProfileUI(getCurrentUser());
   setGreeting();
   setInputState({ disabled: false, locked: false });
 
   refreshIcons();
-}
-
-/**
- * Initialize mobile-specific optimizations for iOS/Android
- * Handles safe areas, viewport, orientation, and touch optimizations
- */
-function initMobileOptimizations() {
-  // 1. Detect platform and set platform-specific classes
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const isAndroid = /Android/i.test(navigator.userAgent);
-  
-  if (isMobile) document.documentElement.classList.add("mobile");
-  if (isIOS) document.documentElement.classList.add("ios");
-  if (isAndroid) document.documentElement.classList.add("android");
-  
-  // 2. Handle viewport-fit for notched devices (already in viewport meta, but JS verification)
-  if (isIOS && window.visualViewport) {
-    // iOS: Ensure viewport is using safe area
-    const safeTop = Math.max(0, window.visualViewport.offsetTop);
-    const safeLeft = Math.max(0, window.visualViewport.offsetLeft);
-    document.documentElement.style.setProperty("--safe-viewport-offset-top", `${safeTop}px`);
-    document.documentElement.style.setProperty("--safe-viewport-offset-left", `${safeLeft}px`);
-  }
-  
-  // 3. Prevent iOS zoom on input focus (16px font-size enforced in CSS)
-  if (isIOS) {
-    document.addEventListener("gesturestart", (e) => e.preventDefault());
-  }
-  
-  // 4. Orientation change handler
-  window.addEventListener("orientationchange", () => {
-    // Scroll to top on orientation change
-    setTimeout(() => {
-      window.scrollTo(0, 0);
-      const mainContent = document.getElementById("main-content");
-      if (mainContent) mainContent.scrollTop = 0;
-    }, 100);
-  });
-  
-  // 5. Handle viewport resize for foldable devices
-  window.addEventListener("resize", debounce(() => {
-    const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth;
-    document.documentElement.style.setProperty("--viewport-height", `${viewportHeight}px`);
-    document.documentElement.style.setProperty("--viewport-width", `${viewportWidth}px`);
-  }, 250));
-  
-  // 6. Prevent pull-to-refresh on Android (optional, can be re-enabled if needed)
-  document.addEventListener("touchmove", (e) => {
-    if (e.touches.length > 1) {
-      // Allow pinch zoom
-      return;
-    }
-    // Optionally prevent pull-to-refresh by checking scroll position
-  }, { passive: true });
-  
-  // 7. Hide address bar on mobile (iOS Safari)
-  if (isIOS) {
-    let lastScrollTop = 0;
-    document.addEventListener("scroll", () => {
-      const scrollTop = window.pageYOffset;
-      if (scrollTop > lastScrollTop && scrollTop > 50) {
-        document.documentElement.style.visibility = "hidden";
-        document.documentElement.style.visibility = "visible";
-      }
-      lastScrollTop = scrollTop;
-    });
-  }
-  
-  // 8. Optimize momentum scrolling for iOS
-  const scrollableElements = document.querySelectorAll("#chat-history, #profile-content, #streak-content");
-  scrollableElements.forEach(el => {
-    if (isIOS) {
-      el.style.WebkitOverflowScrolling = "touch";
-    }
-  });
-  
-  // 9. Fix input zoom issue by ensuring base font size is >= 16px
-  const inputs = document.querySelectorAll("input, textarea");
-  inputs.forEach(input => {
-    const computedStyle = window.getComputedStyle(input);
-    const fontSize = parseFloat(computedStyle.fontSize);
-    if (fontSize < 16 && isIOS) {
-      input.style.fontSize = "16px";
-    }
-  });
-  
-  // 10. Set up safe area environment variables as fallback (in case CSS env() doesn't work)
-  if (window.CSS && CSS.supports("padding", "env(safe-area-inset-top)")) {
-    // env() is supported, CSS will handle it
-  } else {
-    // Fallback for browsers that don't support env()
-    const root = document.documentElement;
-    root.style.setProperty("--safe-area-inset-top", "0px");
-    root.style.setProperty("--safe-area-inset-right", "0px");
-    root.style.setProperty("--safe-area-inset-bottom", "0px");
-    root.style.setProperty("--safe-area-inset-left", "0px");
-  }
-  
-  // 11. Monitor viewport changes for foldable and multi-display devices
-  if ("screen" in window && "onchange" in window.screen) {
-    window.screen.addEventListener("change", () => {
-      console.log("Screen configuration changed (foldable device)");
-      // Re-layout as needed
-    });
-  }
-}
-
-// Utility function: debounce
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
 }
 
 async function initFrontendAuth() {
@@ -523,21 +400,7 @@ function bindModeSelector() {
     if (isSessionLocked) return;
 
     event.stopPropagation();
-    
-    // Mobile: Show dropdown as sheet instead of floating menu
-    const isMobile = window.innerWidth < 640;
-    if (isMobile) {
-      // For mobile, use modal-like behavior with bottom sheet positioning
-      dropdown?.classList.toggle("hidden");
-      if (!dropdown?.classList.contains("hidden")) {
-        // Position dropdown at bottom on mobile
-        dropdown.style.bottom = "auto";
-        dropdown.style.top = "auto";
-        dropdown.style.maxHeight = "60vh";
-      }
-    } else {
-      dropdown?.classList.toggle("hidden");
-    }
+    dropdown?.classList.toggle("hidden");
   });
 
   document.addEventListener("click", (event) => {
@@ -811,14 +674,14 @@ async function appendMessageToUI(text, sender, {
   const isCrisis = isCrisisReply(text, safetyLevel);
   const parsed = processStructuredResponse(text);
 
-  msgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
+  msgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-10";
 
   const contentContainer = document.createElement("div");
   contentContainer.className = `flex flex-col text-[15px] ${
     isCrisis
       ? "text-rose-700 dark:text-rose-400 font-medium"
       : "text-gemini-text dark:text-gemini-darkText"
-  } leading-relaxed max-w-3xl w-full pr-2 sm:pr-0`;
+  } leading-relaxed max-w-3xl w-full`;
 
   if (parsed.timelineHtml) {
     const timelineDiv = document.createElement("div");
