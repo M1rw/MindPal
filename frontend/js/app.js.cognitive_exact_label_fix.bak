@@ -1419,67 +1419,25 @@ function parseCognitiveSections(text) {
     action: "",
   };
 
-  const clean = String(text || "").replace(/\r\n/g, "\n").trim();
+  let currentKey = "";
 
-  if (!clean) return sections;
+  for (const line of String(text || "").replace(/\r\n/g, "\n").split("\n")) {
+    const match = line.match(/^\s*(?:[-*]\s*)?(?:\*\*)?\s*([A-Za-z][A-Za-z\s-]{1,40}?)(?:\*\*)?\s*:?\s*(.*)$/);
+    const key = match ? cognitiveSectionKey(match[1]) : "";
 
-  const labelToKey = {
-    thought: "thought",
-    "core thought": "thought",
-    distortion: "distortion",
-    "distortion detected": "distortion",
-    "evidence for": "evidenceFor",
-    "evidence against": "evidenceAgainst",
-    "balanced reframe": "reframe",
-    "next tiny action": "action",
-    "next action": "action",
-  };
+    if (key) {
+      currentKey = key;
+      const rest = (match[2] || "").trim();
 
-  const labelPattern = [
-    "Balanced Reframe",
-    "Evidence Against",
-    "Evidence For",
-    "Next Tiny Action",
-    "Distortion Detected",
-    "Core Thought",
-    "Next Action",
-    "Distortion",
-    "Thought",
-  ].join("|");
+      if (rest) {
+        sections[currentKey] = appendSectionLine(sections[currentKey], rest);
+      }
 
-  const headingRegex = new RegExp(
-    `^\\s*(?:[-*]\\s*)?(?:\\*\\*)?\\s*(${labelPattern})(?=\\s|:|\\*|$)\\s*(?::\\s*)?(?:\\*\\*)?\\s*`,
-    "gim",
-  );
+      continue;
+    }
 
-  const matches = [];
-  let match;
-
-  while ((match = headingRegex.exec(clean)) !== null) {
-    const label = String(match[1] || "").toLowerCase();
-    const key = labelToKey[label];
-
-    if (!key) continue;
-
-    matches.push({
-      key,
-      index: match.index,
-      contentStart: headingRegex.lastIndex,
-    });
-  }
-
-  matches.sort((a, b) => a.index - b.index);
-
-  for (let index = 0; index < matches.length; index += 1) {
-    const current = matches[index];
-    const next = matches[index + 1];
-
-    const value = clean
-      .slice(current.contentStart, next ? next.index : clean.length)
-      .trim();
-
-    if (value && !sections[current.key]) {
-      sections[current.key] = value;
+    if (currentKey) {
+      sections[currentKey] = appendSectionLine(sections[currentKey], line);
     }
   }
 
@@ -1487,27 +1445,23 @@ function parseCognitiveSections(text) {
 }
 
 function cognitiveSectionKey(label) {
-  const normalized = String(label || "")
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const normalized = String(label || "").toLowerCase().replace(/[^a-z]/g, "");
 
   switch (normalized) {
     case "thought":
-    case "core thought":
+    case "corethought":
       return "thought";
     case "distortion":
-    case "distortion detected":
+    case "distortiondetected":
       return "distortion";
-    case "evidence for":
+    case "evidencefor":
       return "evidenceFor";
-    case "evidence against":
+    case "evidenceagainst":
       return "evidenceAgainst";
-    case "balanced reframe":
+    case "balancedreframe":
       return "reframe";
-    case "next tiny action":
-    case "next action":
+    case "nexttinyaction":
+    case "nextaction":
       return "action";
     default:
       return "";
