@@ -1,0 +1,357 @@
+/* Mobile-Specific Optimizations for iOS & Android */
+
+/* 1. Safe Area Padding Support */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  
+  #header {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+}
+
+/* 2. iOS-Specific Improvements */
+.ios {
+  /* Smooth scrolling on iOS */
+  scroll-behavior: smooth;
+}
+
+.ios #chat-history,
+.ios #profile-content,
+.ios #streak-content {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent iOS zoom on input focus */
+.ios input,
+.ios textarea,
+.ios select {
+  font-size: 16px !important;
+}
+
+/* Remove iOS default button styling */
+.ios button {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: inherit;
+}
+
+/* 3. Android-Specific Improvements */
+.android {
+  /* Better default scrollbar for Android */
+  scroll-behavior: smooth;
+}
+
+.android::-webkit-scrollbar {
+  width: 8px;
+}
+
+.android::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.android::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 4px;
+}
+
+.android::-webkit-scrollbar-thumb:active {
+  background: #6b7280;
+}
+
+/* 4. Mobile Touch Optimization */
+@media (max-width: 640px) {
+  /* Larger tap targets */
+  button, a, input[type="button"], input[type="checkbox"], input[type="radio"] {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  
+  /* Better spacing for touch */
+  #chat-input {
+    min-height: 48px;
+    padding: 12px 16px;
+  }
+  
+  /* Prevent text selection on long press */
+  #chat-history {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  
+  /* Better modal spacing */
+  #profile-modal,
+  #streak-modal {
+    padding: 0 !important;
+  }
+  
+  #profile-content,
+  #streak-content {
+    border-radius: 20px 20px 0 0;
+    max-width: 100%;
+    margin: auto;
+    max-height: 90vh;
+  }
+  
+  /* Prevent horizontal scroll on mobile */
+  body, html {
+    overflow-x: hidden;
+    width: 100vw;
+    max-width: 100%;
+  }
+}
+
+/* 5. Landscape Orientation */
+@media (max-height: 500px) and (orientation: landscape) {
+  #header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  
+  #main-content {
+    margin-top: calc(3rem + env(safe-area-inset-top));
+  }
+  
+  #welcome-screen {
+    margin-top: -2vh;
+    margin-bottom: 4vh;
+  }
+  
+  #welcome-screen h1 {
+    font-size: clamp(1.25rem, 4vw, 1.5rem);
+  }
+  
+  #welcome-screen p {
+    font-size: clamp(0.875rem, 2vw, 1rem);
+    margin-bottom: 4px;
+  }
+  
+  .mood-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}
+
+/* 6. Notch Support (iPhone X+, Android devices) */
+@supports (padding: max(0px)) {
+  /* Left notch (Android foldable) */
+  @media (orientation: landscape) and (screen-width: 720px) {
+    body {
+      margin-left: env(safe-area-inset-left);
+    }
+  }
+  
+  /* Top notch (iPhone) */
+  @media (screen-width: 375px) and (screen-height: 812px) {
+    #header {
+      padding-top: max(1rem, calc(env(safe-area-inset-top) + 0.5rem));
+    }
+  }
+}
+
+/* 7. OLED Dark Mode Optimization */
+@media (prefers-color-scheme: dark) {
+  .dark {
+    background-color: #000000;
+    color: #e3e3e3;
+  }
+  
+  /* Reduce brightness of grays on OLED for reduced battery usage */
+  .dark #profile-content,
+  .dark #streak-content {
+    background-color: #0a0a0a;
+  }
+  
+  .dark #mode-dropdown {
+    background-color: #1a1a1a;
+  }
+}
+
+/* 8. Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 9. High Contrast Mode */
+@media (prefers-contrast: more) {
+  button {
+    border: 2px solid currentColor;
+    font-weight: 600;
+  }
+  
+  #mode-dropdown,
+  #profile-modal,
+  #streak-modal {
+    border: 2px solid currentColor;
+  }
+}
+
+/* 10. Mobile Keyboard Avoidance */
+@media (max-width: 640px) {
+  #interaction-area {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+  
+  /* When virtual keyboard is visible, reduce padding */
+  input:focus,
+  textarea:focus {
+    /* Increase scroll margin to prevent keyboard overlap */
+    scroll-margin-top: 64px;
+  }
+}
+
+/* 11. Foldable Device Support */
+@media (screen-spanning: single-fold-vertical) {
+  /* Handle vertical fold */
+  body {
+    display: grid;
+    grid-template-columns: env(viewport-segment-width 0 0) env(viewport-segment-width 1 0);
+  }
+}
+
+@media (screen-spanning: single-fold-horizontal) {
+  /* Handle horizontal fold */
+  body {
+    display: grid;
+    grid-template-rows: env(viewport-segment-height 0 0) env(viewport-segment-height 0 1);
+  }
+}
+
+/* 12. Better Input Placeholder on Mobile */
+@media (max-width: 640px) {
+  #chat-input::placeholder {
+    opacity: 0.7;
+    font-size: 15px;
+  }
+  
+  textarea::placeholder {
+    color: #9ca3af;
+  }
+  
+  .dark textarea::placeholder {
+    color: #6b7280;
+  }
+}
+
+/* 13. Bottom Sheet Modal Style for Mobile */
+@media (max-width: 640px) {
+  #mode-dropdown {
+    position: fixed !important;
+    bottom: env(safe-area-inset-bottom);
+    left: env(safe-area-inset-left);
+    right: env(safe-area-inset-right);
+    top: auto !important;
+    width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right));
+    max-width: none;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.1);
+    max-height: 60vh;
+    z-index: 50;
+  }
+  
+  .dark #mode-dropdown {
+    box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* 14. Better Scrollbar on Mobile (Hidden by default, visible on scroll) */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+    opacity: 0.5;
+  }
+  
+  .dark ::-webkit-scrollbar-thumb {
+    background: #4b5563;
+  }
+}
+
+/* 15. Prevent iOS Zoom on Double Tap */
+* {
+  touch-action: manipulation;
+}
+
+/* But allow pinch zoom for accessibility */
+body {
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
+/* 16. Better Focus Ring for Keyboard Navigation */
+@media (prefers-reduced-motion: no-preference) {
+  :focus-visible {
+    outline: 3px solid #3b82f6;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  
+  .dark :focus-visible {
+    outline-color: #a8c7fa;
+  }
+}
+
+/* 17. Optimize Performance on Mobile */
+.mobile * {
+  /* Enable GPU acceleration for animations */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Disable will-change after animation to save memory */
+.mobile *:not(:hover):not(:focus) {
+  will-change: auto;
+}
+
+/* 18. Bottom Safe Area Spacing for Modals */
+@supports (padding: max(0px)) {
+  #profile-content,
+  #streak-content {
+    padding-bottom: max(1.5rem, calc(1.5rem + env(safe-area-inset-bottom)));
+  }
+}
+
+/* 19. Voice Button Optimization */
+#voice-btn {
+  min-height: 48px;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#voice-btn:active {
+  background-color: rgba(0, 0, 0, 0.1);
+  transform: scale(0.95);
+}
+
+.dark #voice-btn:active {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 20. Send Button Visibility on Mobile */
+@media (max-width: 640px) {
+  #send-btn {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}

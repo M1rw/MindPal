@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta name="description" content="MindPal — AI mental wellness companion.">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>MindPal — AI Mental Wellness Companion</title>
     
     <!-- Tailwind CSS -->
@@ -14,6 +17,9 @@
 
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Mobile Optimizations -->
+    <link rel="stylesheet" href="./css/mobile.css">
 
     <script>
         tailwind.config = {
@@ -21,6 +27,12 @@
             theme: {
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    spacing: {
+                        'safe-top': 'env(safe-area-inset-top)',
+                        'safe-right': 'env(safe-area-inset-right)',
+                        'safe-bottom': 'env(safe-area-inset-bottom)',
+                        'safe-left': 'env(safe-area-inset-left)',
+                    },
                     colors: { 
                         gemini: {
                             bg: '#ffffff',
@@ -55,7 +67,23 @@
     </script>
 
     <style>
-        /* Sleek Scrollbar */
+        /* Safe Area Support for Notched Devices */
+        html, body { padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+        
+        /* Fluid Typography System */
+        html { font-size: clamp(14px, 2.5vw, 16px); }
+        h1 { font-size: clamp(1.5rem, 5vw, 3rem); line-height: 1.1; }
+        h2 { font-size: clamp(1.25rem, 4vw, 2rem); line-height: 1.2; }
+        h3 { font-size: clamp(1rem, 3vw, 1.5rem); line-height: 1.3; }
+        p, span { font-size: clamp(0.875rem, 2.5vw, 1rem); line-height: 1.5; }
+        
+        /* Touch Optimization - 44px Minimum Tap Targets */
+        button, a, input[type="button"], input[type="checkbox"], input[type="radio"] { min-height: 44px; min-width: 44px; }
+        
+        /* Sleek Scrollbar - Hide on Mobile */
+        @media (max-width: 768px) {
+            ::-webkit-scrollbar { width: 4px; }
+        }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 10px; }
@@ -103,6 +131,7 @@
             background: linear-gradient(90deg, #a8c7fa 0%, #d3bcfa 50%, #a8c7fa 100%);
             background-size: 200% auto;
             -webkit-background-clip: text;
+            background-clip: text;
         }
         @keyframes shimmer { to { background-position: 200% center; } }
         
@@ -117,28 +146,60 @@
             background-color: rgba(239, 68, 68, 0.1);
             color: #ef4444 !important;
         }
+        
+        /* iOS/Android Specific Optimizations */
+        * { -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1); }
+        .dark * { -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1); }
+        
+        /* Smooth Scrolling */
+        html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; scroll-behavior: smooth; }
+        
+        /* Prevent iOS Zoom on Input Focus */
+        input, textarea, select { font-size: 16px; }
+        
+        /* iOS Safe Area Support */
+        @supports (padding: max(0px)) {
+            body { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+        }
+        
+        /* Reduced Motion Support */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
+        
+        /* OLED Dark Mode Optimization */
+        @media (prefers-color-scheme: dark) {
+            body { background-color: #000000; }
+        }
+        
+        /* Mobile-Specific Layout Fixes */
+        @media (max-width: 640px) {
+            body { overflow-x: hidden; }
+            textarea { max-height: 120px; }
+            .modal-content { border-radius: 20px; max-height: 90vh; }
+        }
     </style>
 </head>
 
 <body class="bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">
 <!-- Header / Navbar -->
-    <header class="flex items-center justify-between px-6 py-4 transition-all duration-300 flex-none z-10 bg-transparent absolute top-0 w-full" id="header">
-        <div class="flex items-center gap-2">
-            <span class="text-xl font-medium tracking-tight text-gray-800 dark:text-gray-200">MindPal</span>
-            <div id="env-tag" class="px-2 py-0.5 rounded-md bg-gemini-surface dark:bg-gemini-darkSurface text-[10px] font-medium text-gray-500 dark:text-gray-400 transition-colors">Local</div>
+    <header class="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-4 transition-all duration-300 flex-none z-10 bg-transparent fixed top-0 w-full safe-top" style="padding-top: max(1rem, env(safe-area-inset-top)); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right));" id="header">
+        <div class="flex items-center gap-2 min-h-[44px]">
+            <span class="text-lg sm:text-xl font-medium tracking-tight text-gray-800 dark:text-gray-200">MindPal</span>
+            <div id="env-tag" class="px-2 py-0.5 rounded-md bg-gemini-surface dark:bg-gemini-darkSurface text-[9px] sm:text-[10px] font-medium text-gray-500 dark:text-gray-400 transition-colors">Local</div>
         </div>
         
-        <div class="flex items-center gap-1 sm:gap-2 text-gray-600 dark:text-gray-300">
-            <button id="theme-toggle-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" title="Toggle Theme">
+        <div class="flex items-center gap-0 sm:gap-2 text-gray-600 dark:text-gray-300">
+            <button id="theme-toggle-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Toggle Theme">
                 <i data-lucide="moon" class="w-5 h-5" id="theme-icon"></i>
             </button>
             
-            <button id="streak-btn" class="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors text-[14px] font-medium" title="View Progress">
+            <button id="streak-btn" class="hidden sm:flex items-center gap-1.5 px-3 py-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors text-[14px] font-medium min-h-[44px]" title="View Progress">
                 <span id="streak-counter">0</span>
                 <i data-lucide="flame" class="w-4 h-4 text-orange-500 dark:text-orange-400"></i>
             </button>
             
-            <button id="profile-btn" class="p-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" title="Profile & Settings">
+            <button id="profile-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Profile & Settings">
                 <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-zinc-600" id="profile-avatar">
                     <i data-lucide="user" class="w-4 h-4"></i>
                 </div>
@@ -147,49 +208,49 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col relative h-full overflow-hidden pt-[72px]" id="main-content">
+    <main class="flex-1 flex flex-col relative h-full overflow-hidden" style="margin-top: calc(4rem + env(safe-area-inset-top));" id="main-content">
         
         <!-- Chat History -->
-        <div id="chat-history" class="hidden flex-1 overflow-y-auto overflow-x-hidden flex-col gap-8 p-4 max-w-4xl mx-auto w-full pb-8 pt-6 scroll-smooth">
+        <div id="chat-history" class="hidden flex-1 overflow-y-auto overflow-x-hidden flex-col gap-4 sm:gap-8 p-3 sm:p-4 max-w-4xl mx-auto w-full pb-8 sm:pb-12 pt-4 sm:pt-6 scroll-smooth safe-left safe-right">
             <!-- Messages injected here -->
         </div>
 
         <!-- Interaction Area -->
         <div id="interaction-area" class="w-full flex flex-col flex-1 justify-center items-center px-4 pb-6 transition-all duration-500">
             
-            <div id="welcome-screen" class="text-left md:text-center mb-10 w-full max-w-3xl animate-fade-in mt-[-8vh]">
-                <h1 class="text-4xl sm:text-5xl font-medium tracking-tight mb-2">
+            <div id="welcome-screen" class="text-left md:text-center mb-8 sm:mb-10 w-full max-w-3xl animate-fade-in mt-[-6vh] sm:mt-[-8vh] px-3 sm:px-0">
+                <h1 class="font-medium tracking-tight mb-2">
                     <span id="greeting-text" class="bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]">Hello.</span>
                 </h1>
-                <p class="text-2xl sm:text-3xl text-[#444746] dark:text-[#c4c7c5] font-medium tracking-tight mb-8">What's on your mind today?</p>
+                <p class="text-[#444746] dark:text-[#c4c7c5] font-medium tracking-tight mb-6 sm:mb-8">What's on your mind today?</p>
                 
-                <div class="flex flex-wrap justify-start md:justify-center gap-3 mb-2">
-                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Overwhelmed">
-                        <i data-lucide="waves" class="w-4 h-4 text-blue-500"></i> I feel overwhelmed
+                <div class="flex flex-col sm:flex-wrap sm:justify-center gap-2 sm:gap-3 mb-2">
+                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2 min-h-[44px] w-full sm:w-auto" data-mood="Overwhelmed">
+                        <i data-lucide="waves" class="w-4 h-4 text-blue-500 flex-shrink-0"></i> <span>I feel overwhelmed</span>
                     </button>
-                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Anxious">
-                        <i data-lucide="wind" class="w-4 h-4 text-purple-500"></i> I'm feeling anxious
+                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2 min-h-[44px] w-full sm:w-auto" data-mood="Anxious">
+                        <i data-lucide="wind" class="w-4 h-4 text-purple-500 flex-shrink-0"></i> <span>I'm feeling anxious</span>
                     </button>
-                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Stuck">
-                        <i data-lucide="anchor" class="w-4 h-4 text-rose-500"></i> I feel stuck
+                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2 min-h-[44px] w-full sm:w-auto" data-mood="Stuck">
+                        <i data-lucide="anchor" class="w-4 h-4 text-rose-500 flex-shrink-0"></i> <span>I feel stuck</span>
                     </button>
                 </div>
             </div>
 
             <!-- The Input Box Container -->
-            <div class="w-full max-w-4xl relative z-10">
-                <div class="bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] p-2 flex items-end relative transition-shadow w-full">
+            <div class="w-full max-w-4xl relative z-10 px-3 sm:px-0 mb-4 sm:mb-6" style="padding-left: max(0.75rem, env(safe-area-inset-left)); padding-right: max(0.75rem, env(safe-area-inset-right));">
+                <div class="bg-gemini-surface dark:bg-gemini-darkSurface rounded-[28px] sm:rounded-[32px] p-2 flex items-end relative transition-shadow w-full">
                     <textarea 
                         id="chat-input"
                         rows="1"
-                        class="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-4 pr-2 py-2.5 text-[15px] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-[#c4c7c5] leading-6 min-h-[44px]"
+                        class="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-3 sm:pl-4 pr-2 py-3 text-[15px] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-[#c4c7c5] leading-6 min-h-[44px]"
                         placeholder="Ask MindPal"
                         
                     ></textarea>
 
                     <div class="flex items-center gap-1 pr-1 h-11">
                         <div class="relative flex items-center h-full">
-                            <button id="mode-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-semibold text-gray-600 dark:text-[#c4c7c5] transition-colors">
+                            <button id="mode-selector-btn" class="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[12px] sm:text-[13px] font-semibold text-gray-600 dark:text-[#c4c7c5] transition-colors min-h-[44px]">
                                 <span id="current-mode-text">Active Listen</span>
                                 <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
                             </button>
@@ -211,17 +272,17 @@
                             </div>
                         </div>
 
-                        <button id="voice-btn" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-gray-600 hover:bg-black/5 dark:text-[#c4c7c5] dark:hover:bg-white/10 transition-colors" title="Use Microphone">
+                        <button id="voice-btn" class="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-full text-gray-600 hover:bg-black/5 dark:text-[#c4c7c5] dark:hover:bg-white/10 transition-colors min-h-[44px]" title="Use Microphone">
                             <i data-lucide="mic" class="w-5 h-5 transition-colors" id="mic-icon"></i>
                         </button>
 
-                        <button id="send-btn" disabled class="hidden flex w-10 h-10 flex-shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black transition-all duration-200 hover:scale-105">
+                        <button id="send-btn" disabled class="hidden flex w-11 h-11 flex-shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black transition-all duration-200 hover:scale-105 min-h-[44px]">
                             <i data-lucide="arrow-up" class="w-5 h-5"></i>
                         </button>
                     </div>
                 </div>
                 
-                <div class="text-center mt-3 text-[12px] text-gray-500 dark:text-[#c4c7c5]">
+                <div class="text-center mt-2 sm:mt-3 text-[11px] sm:text-[12px] text-gray-500 dark:text-[#c4c7c5] px-2">
                     MindPal guarantees privacy. Secure conversations & strict clinical safety protocols.
                 </div>
             </div>
@@ -232,8 +293,8 @@
     <div id="toast-container" class="fixed bottom-6 right-6 z-[70] flex flex-col gap-2 pointer-events-none"></div>
 
     <!-- PROFILE / SETTINGS MODAL -->
-    <div id="profile-modal" class="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
-        <div class="bg-white dark:bg-[#1e1f20] w-full max-w-md flex flex-col rounded-[24px] shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200 max-h-[90vh] my-4" id="profile-content">
+    <div id="profile-modal" class="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200" style="padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);">
+        <div class="bg-white dark:bg-[#1e1f20] w-full max-w-md mx-3 sm:mx-0 flex flex-col rounded-[24px] shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200 max-h-[90vh] my-4" id="profile-content">
             
             <div class="flex items-center justify-between px-5 py-4 flex-none border-b border-transparent">
                 <h2 class="text-base font-medium text-gray-900 dark:text-gray-100 pl-2">Profile & Settings</h2>
@@ -242,7 +303,7 @@
                 </button>
             </div>
             
-            <div class="px-5 pb-6 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
+            <div class="px-4 sm:px-5 pb-6 flex flex-col gap-2 overflow-y-auto custom-scrollbar safe-bottom">
                 
                 <!-- Profile Section -->
                 <div class="py-2 pb-6 border-b border-gray-100 dark:border-gemini-darkBorder flex flex-col items-center">
@@ -255,7 +316,7 @@
                         <h3 class="text-base font-medium text-gray-900 dark:text-gray-100">Local Mode</h3>
                         <p class="text-[13px] text-gray-500 dark:text-[#c4c7c5] mt-1 mb-5 max-w-[240px]">Conversations are saved only on this device. Sign in to sync anywhere.</p>
                         
-                        <button id="btn-cloud-connect" class="w-full sm:w-auto px-8 py-2.5 rounded-full bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-white text-white dark:text-gray-900 text-[14px] font-medium transition-all flex items-center justify-center gap-2">
+                        <button id="btn-cloud-connect" class="w-full px-8 py-3 rounded-full bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-white text-white dark:text-gray-900 text-[14px] font-medium transition-all flex items-center justify-center gap-2 min-h-[44px]">
                             <i data-lucide="cloud-upload" class="w-4 h-4"></i> Backup to Cloud
                         </button>
                     </div>
@@ -285,7 +346,7 @@
                             </div>
                         </div>
 
-                        <button id="btn-cloud-disconnect" class="px-6 py-2 rounded-full border border-gray-200 dark:border-gemini-darkBorder hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-600 dark:text-[#c4c7c5] text-[13px] font-medium transition-colors">
+                        <button id="btn-cloud-disconnect" class="px-6 py-3 rounded-full border border-gray-200 dark:border-gemini-darkBorder hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-600 dark:text-[#c4c7c5] text-[13px] font-medium transition-colors min-h-[44px]">
                             Sign out
                         </button>
                     </div>
@@ -337,14 +398,14 @@
 
                     <div class="h-px w-full bg-gray-100 dark:bg-gemini-darkBorder my-2"></div>
 
-                    <button id="export-chat-btn" class="flex items-center gap-4 px-2 py-3.5 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors text-left w-full">
-                        <i data-lucide="download" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5] btn-icon"></i>
-                        <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200 btn-text">Export conversation log</span>
+                    <button id="export-chat-btn" class="flex items-center gap-4 px-3 sm:px-2 py-3 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors text-left w-full min-h-[44px]">
+                        <i data-lucide="download" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5] btn-icon flex-shrink-0"></i>
+                        <span class="text-[14px] sm:text-[15px] font-medium text-gray-800 dark:text-gray-200 btn-text">Export conversation log</span>
                     </button>
                     
-                    <button id="clear-chat-btn" class="flex items-center gap-4 px-2 py-3.5 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-xl transition-colors text-left w-full">
-                        <i data-lucide="trash-2" class="w-5 h-5 text-rose-600 dark:text-rose-400 btn-icon"></i>
-                        <span class="text-[15px] font-medium text-rose-600 dark:text-rose-400 btn-text">Clear persistent memory</span>
+                    <button id="clear-chat-btn" class="flex items-center gap-4 px-3 sm:px-2 py-3 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-xl transition-colors text-left w-full min-h-[44px]">
+                        <i data-lucide="trash-2" class="w-5 h-5 text-rose-600 dark:text-rose-400 btn-icon flex-shrink-0"></i>
+                        <span class="text-[14px] sm:text-[15px] font-medium text-rose-600 dark:text-rose-400 btn-text">Clear persistent memory</span>
                     </button>
 
                 </div>
@@ -353,8 +414,8 @@
     </div>
 
     <!-- PROGRESS / STREAK MODAL -->
-    <div id="streak-modal" class="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
-        <div class="bg-white dark:bg-[#1e1f20] w-full max-w-sm flex flex-col rounded-[28px] shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200" id="streak-content">
+    <div id="streak-modal" class="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200" style="padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);">
+        <div class="bg-white dark:bg-[#1e1f20] w-full max-w-sm mx-3 sm:mx-0 flex flex-col rounded-[28px] shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200" id="streak-content">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#444746]">
                 <h2 class="text-base font-medium text-gray-900 dark:text-gray-100">Your Journey</h2>
                 <button id="close-streak-btn" class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
@@ -362,7 +423,7 @@
                 </button>
             </div>
             
-            <div class="p-8 flex flex-col items-center gap-8">
+            <div class="p-6 sm:p-8 flex flex-col items-center gap-8 safe-bottom">
                 <!-- Big Flame & Streak -->
                 <div class="flex flex-col items-center">
                     <div class="w-20 h-20 rounded-full bg-orange-50 dark:bg-orange-900/10 text-orange-500 flex items-center justify-center mb-4 shadow-sm border border-orange-100 dark:border-orange-800/30">
