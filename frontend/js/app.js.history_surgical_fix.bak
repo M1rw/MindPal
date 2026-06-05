@@ -728,7 +728,7 @@ async function handleSend() {
     // Send clean message only. Memory/context managed by backend via system prompt.
     const response = await sendChatMessage({
       message: outboundMessage,
-      history: state.chatMemory,
+      history: normalizeChatHistory(state.chatMemory),
       locale: resolveLocale(),
       mode,
       token,
@@ -1041,7 +1041,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     // Send clean message only. Memory/context managed by backend via system prompt.
     const response = await sendChatMessage({
       message: userMessage,
-      history: messages.slice(0, userIndex),
+      history: normalizeChatHistory(messages.slice(0, userIndex)),
       locale: resolveLocale(),
       mode,
       token,

@@ -220,7 +220,6 @@ export async function sendChatMessage({
 
   // Map UI mode name to backend preference ID
   const backendPreference = MODE_UI_TO_BACKEND[mode] || "active_listen";
-  const normalizedHistory = normalizeChatHistory(history, 60, "content");
 
   const metadata = {
     locale,
@@ -234,7 +233,7 @@ export async function sendChatMessage({
     body: {
       // Send clean message only. Authenticated context goes in system prompt via backend.
       message: cleanMessage,
-      history: normalizedHistory,
+      history: [],
       metadata,
     },
   });
