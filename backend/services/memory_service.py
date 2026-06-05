@@ -18,6 +18,8 @@ from backend.core.security import (
     sanitize_text,
 )
 from backend.models.memory import (
+    CommunicationPreferences,
+    ImportantPerson,
     MemoryCategory,
     MemoryCompactionRequest,
     MemoryCompactionResult,
@@ -27,6 +29,7 @@ from backend.models.memory import (
     MemorySensitivity,
     MemorySource,
     MemorySummary,
+    RelationshipFact,
 )
 from backend.services.llm_service import LLMService, build_llm_request
 
@@ -87,6 +90,30 @@ _PREFERENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?i)(?:بفضل|افضل|أفضل|عايزك)\s+(.{3,140})"),
 )
 
+_PREFERRED_NAME_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?i)\b(?:my name is|call me|i am called|i'm called)\s+([A-Za-z\u0600-\u06FF][^.,!?\n]{0,60})"),
+    re.compile(r"(?i)\b(?:remember(?: this)?[:\s]+)?(?:my preferred name is)\s+([A-Za-z\u0600-\u06FF][^.,!?\n]{0,60})"),
+    re.compile(r"(?:اسمي|ناديني|ناديني باسم|اسمي هو)\s+([\u0600-\u06FFA-Za-z][^.,!?\n،؟]{0,60})"),
+)
+
+_IMPORTANT_PERSON_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("girlfriend", re.compile(r"(?i)\bmy girlfriend\s+(?:is\s+)?(?:called|named|is)\s+([^.,\n]{2,80})")),
+    ("boyfriend", re.compile(r"(?i)\bmy boyfriend\s+(?:is\s+)?(?:called|named|is)\s+([^.,\n]{2,80})")),
+    ("partner", re.compile(r"(?i)\bmy partner\s+(?:is\s+)?(?:called|named|is)\s+([^.,\n]{2,80})")),
+    ("girlfriend", re.compile(r"(?:حبيبتي|صاحبتي)\s+(?:اسمها|هي|اسمها هو)\s+([^\n.,،]{2,80})")),
+    ("boyfriend", re.compile(r"(?:حبيبي|صاحبي)\s+(?:اسمه|هو|اسمه هو)\s+([^\n.,،]{2,80})")),
+)
+
+_ALIAS_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?i)\b(?:i may write|may write|also call|or call)\s+(?:her|his|him|their|them|that person)?\s*(?:name)?\s*(?:as|:)?\s+(.{2,120})$"),
+    re.compile(r"(?i)\b(?:also known as|aka)\s+(.{2,120})$"),
+    re.compile(r"^(?:or|او|أو)\s+(.{2,80})$", re.IGNORECASE),
+)
+
+_DIRECT_STYLE_RE = re.compile(r"(?i)\b(?:direct answers|be direct|straight to the point|no fluff|brief|concise)\b")
+_EGYPTIAN_ARABIC_RE = re.compile(r"(?i)\b(?:egyptian arabic|egyptian dialect|masri)\b|(?:مصري|بالعامية|عامية مصرية)")
+_AVOID_RESPONSE_RE = re.compile(r"(?i)\b(?:don't|do not|avoid|stop)\s+(?:answering\s+)?(?:like\s+)?(.{3,140})")
+
 _SAFETY_FLAG_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("recent self-harm-related distress", re.compile(r"(?i)\bkill myself|suicide|end my life|hurt myself|هنتحر|هقتل نفسي\b")),
     ("possible immediate danger", re.compile(r"(?i)\bnot safe|danger|threatened|مش آمن|خطر|بيهددني\b")),
@@ -111,6 +138,32 @@ Critical rules:
 
 Return exactly this JSON shape:
 {
+  "preferred_name": "short name or null",
+  "important_people": [
+    {
+      "canonical_name": "short name",
+      "aliases": ["alias"],
+      "relationship": "girlfriend|boyfriend|partner|friend|family|other",
+      "notes": ["short durable note"],
+      "confidence": 0.0
+    }
+  ],
+  "relationship_facts": [
+    {
+      "summary": "short durable relationship fact",
+      "people": ["name"],
+      "confidence": 0.0
+    }
+  ],
+  "communication_preferences": {
+    "tone": "short tone",
+    "language": "short language preference",
+    "response_style": ["short preference"],
+    "avoid": ["short avoided response"]
+  },
+  "emotional_triggers": ["short trigger"],
+  "user_goals": ["short goal"],
+  "avoided_responses": ["short avoided response"],
   "summary": "short sanitized summary",
   "known_triggers": ["short trigger"],
   "preferred_coping_tools": ["short coping tool"],
@@ -132,6 +185,13 @@ Return exactly this JSON shape:
 @dataclass(frozen=True, slots=True)
 class MemoryExtraction:
     summary_sentences: tuple[str, ...]
+    preferred_name: str | None
+    important_people: tuple[ImportantPerson, ...]
+    relationship_facts: tuple[RelationshipFact, ...]
+    communication_preferences: CommunicationPreferences
+    emotional_triggers: tuple[str, ...]
+    user_goals: tuple[str, ...]
+    avoided_responses: tuple[str, ...]
     triggers: tuple[str, ...]
     coping_tools: tuple[str, ...]
     goals: tuple[str, ...]
@@ -331,8 +391,13 @@ class MemoryService:
         cleaned = self.redact_text(text, max_chars=MAX_COMPACTED_SUMMARY_CHARS)
 
         if not cleaned:
-            return MemoryExtraction((), (), (), (), (), (), ())
+            return MemoryExtraction((), None, (), (), CommunicationPreferences(), (), (), (), (), (), (), (), (), ())
 
+        preferred_name = self._extract_preferred_name(cleaned)
+        important_people = self._extract_important_people(cleaned)
+        relationship_facts = self._extract_relationship_facts(cleaned, important_people)
+        communication_preferences = self._extract_communication_preferences(cleaned)
+        avoided_responses = self._extract_avoided_responses(cleaned)
         triggers = self._extract_named_patterns(cleaned, _TRIGGER_PATTERNS)
         coping_tools = self._extract_named_patterns(cleaned, _COPING_PATTERNS)
         goals = self._extract_capture_patterns(cleaned, _GOAL_PATTERNS)
@@ -350,6 +415,13 @@ class MemoryService:
 
         return MemoryExtraction(
             summary_sentences=tuple(summary_sentences),
+            preferred_name=preferred_name,
+            important_people=tuple(important_people),
+            relationship_facts=tuple(relationship_facts),
+            communication_preferences=communication_preferences,
+            emotional_triggers=tuple(triggers),
+            user_goals=tuple(goals),
+            avoided_responses=tuple(avoided_responses),
             triggers=tuple(triggers),
             coping_tools=tuple(coping_tools),
             goals=tuple(goals),
@@ -368,6 +440,22 @@ class MemoryService:
         return MemorySummary(
             user_id_hash=user_id_hash,
             summary=self._merge_summary_text(existing.summary, extraction.summary_sentences),
+            preferred_name=extraction.preferred_name or existing.preferred_name,
+            important_people=_merge_important_people(
+                existing.important_people,
+                list(extraction.important_people),
+            ),
+            relationship_facts=_merge_relationship_facts(
+                existing.relationship_facts,
+                list(extraction.relationship_facts),
+            ),
+            communication_preferences=_merge_communication_preferences(
+                existing.communication_preferences,
+                extraction.communication_preferences,
+            ),
+            emotional_triggers=_merge_unique(existing.emotional_triggers, extraction.emotional_triggers),
+            user_goals=_merge_unique(existing.user_goals, extraction.user_goals),
+            avoided_responses=_merge_unique(existing.avoided_responses, extraction.avoided_responses),
             known_triggers=_merge_unique(existing.known_triggers, extraction.triggers),
             preferred_coping_tools=_merge_unique(
                 existing.preferred_coping_tools,
@@ -390,6 +478,56 @@ class MemoryService:
 
         if summary.summary:
             parts.append(f"Summary: {summary.summary}")
+
+        if summary.preferred_name:
+            parts.append(f"Preferred name: {summary.preferred_name}")
+
+        if summary.important_people:
+            people = []
+            for person in summary.important_people[:8]:
+                aliases = [alias for alias in person.aliases if alias != person.canonical_name]
+                label = person.canonical_name
+                if person.relationship:
+                    label = f"{label} ({person.relationship})"
+                if aliases:
+                    label = f"{label}; aliases: {', '.join(aliases[:6])}"
+                people.append(label)
+            parts.append(f"Important people: {'; '.join(people)}")
+
+        if summary.relationship_facts:
+            parts.append(
+                "Relationship facts: "
+                + "; ".join(fact.summary for fact in summary.relationship_facts[:8])
+            )
+
+        if summary.communication_preferences.tone or summary.communication_preferences.language:
+            pref_bits = [
+                bit
+                for bit in (
+                    f"tone={summary.communication_preferences.tone}" if summary.communication_preferences.tone else "",
+                    f"language={summary.communication_preferences.language}" if summary.communication_preferences.language else "",
+                )
+                if bit
+            ]
+            parts.append(f"Communication preferences: {', '.join(pref_bits)}")
+
+        if summary.communication_preferences.response_style:
+            parts.append(
+                f"Preferred response style: {', '.join(summary.communication_preferences.response_style[:12])}"
+            )
+
+        if summary.communication_preferences.avoid or summary.avoided_responses:
+            avoid = _merge_unique(
+                summary.communication_preferences.avoid,
+                summary.avoided_responses,
+            )
+            parts.append(f"Avoided responses: {', '.join(avoid[:12])}")
+
+        if summary.emotional_triggers:
+            parts.append(f"Emotional triggers: {', '.join(summary.emotional_triggers[:12])}")
+
+        if summary.user_goals:
+            parts.append(f"User goals: {', '.join(summary.user_goals[:12])}")
 
         if summary.known_triggers:
             parts.append(f"Known triggers: {', '.join(summary.known_triggers[:12])}")
@@ -557,6 +695,28 @@ class MemoryService:
 
         return MemorySummary(
             user_id_hash=user_id_hash,
+            preferred_name=llm_summary.preferred_name or local_summary.preferred_name,
+            important_people=_merge_important_people(
+                local_summary.important_people,
+                llm_summary.important_people,
+            ),
+            relationship_facts=_merge_relationship_facts(
+                local_summary.relationship_facts,
+                llm_summary.relationship_facts,
+            ),
+            communication_preferences=_merge_communication_preferences(
+                local_summary.communication_preferences,
+                llm_summary.communication_preferences,
+            ),
+            emotional_triggers=_merge_unique(
+                local_summary.emotional_triggers,
+                llm_summary.emotional_triggers,
+            ),
+            user_goals=_merge_unique(local_summary.user_goals, llm_summary.user_goals),
+            avoided_responses=_merge_unique(
+                local_summary.avoided_responses,
+                llm_summary.avoided_responses,
+            ),
             summary=summary_text,
             known_triggers=_merge_unique(local_summary.known_triggers, llm_summary.known_triggers),
             preferred_coping_tools=_merge_unique(
@@ -593,6 +753,19 @@ class MemoryService:
         return {
             "locale": request.locale,
             "existing_memory": {
+                "preferred_name": existing.preferred_name,
+                "important_people": [
+                    person.model_dump(mode="json")
+                    for person in existing.important_people[:10]
+                ],
+                "relationship_facts": [
+                    fact.model_dump(mode="json")
+                    for fact in existing.relationship_facts[:10]
+                ],
+                "communication_preferences": existing.communication_preferences.model_dump(mode="json"),
+                "emotional_triggers": existing.emotional_triggers[:20],
+                "user_goals": existing.user_goals[:20],
+                "avoided_responses": existing.avoided_responses[:20],
                 "summary": self.redact_text(
                     existing.summary,
                     max_chars=MAX_COMPACTED_SUMMARY_CHARS,
@@ -637,6 +810,15 @@ class MemoryService:
         try:
             return MemorySummary(
                 user_id_hash=user_id_hash,
+                preferred_name=self._clean_optional_name(payload.get("preferred_name")),
+                important_people=self._important_people_from_payload(payload.get("important_people", [])),
+                relationship_facts=self._relationship_facts_from_payload(payload.get("relationship_facts", [])),
+                communication_preferences=self._communication_preferences_from_payload(
+                    payload.get("communication_preferences", {})
+                ),
+                emotional_triggers=_clean_memory_list(payload.get("emotional_triggers", [])),
+                user_goals=_clean_memory_list(payload.get("user_goals", [])),
+                avoided_responses=_clean_memory_list(payload.get("avoided_responses", [])),
                 summary=self.redact_text(
                     str(payload.get("summary", "")),
                     max_chars=MAX_COMPACTED_SUMMARY_CHARS,
@@ -658,6 +840,86 @@ class MemoryService:
                 "LLM memory response failed validation",
                 code="memory_llm_validation_failed",
             ) from exc
+
+    def _clean_optional_name(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        cleaned = self.redact_text(str(value or ""), max_chars=160)
+        return cleaned or None
+
+    def _important_people_from_payload(self, raw_people: Any) -> list[ImportantPerson]:
+        if not isinstance(raw_people, list):
+            return []
+
+        people: list[ImportantPerson] = []
+
+        for raw in raw_people[:MAX_ITEMS_PER_COMPACTION]:
+            if not isinstance(raw, dict):
+                continue
+
+            name = self.redact_text(
+                str(raw.get("canonical_name") or raw.get("name") or ""),
+                max_chars=160,
+            )
+
+            if not name:
+                continue
+
+            try:
+                people.append(
+                    ImportantPerson(
+                        canonical_name=name,
+                        aliases=_clean_memory_list(raw.get("aliases", []))[:20],
+                        relationship=self.redact_text(
+                            str(raw.get("relationship") or ""),
+                            max_chars=160,
+                        ),
+                        notes=_clean_memory_list(raw.get("notes", []))[:20],
+                        confidence=_bounded_float(raw.get("confidence", 0.65), default=0.65),
+                    )
+                )
+            except (PydanticValidationError, TypeError, ValueError):
+                continue
+
+        return people
+
+    def _relationship_facts_from_payload(self, raw_facts: Any) -> list[RelationshipFact]:
+        if not isinstance(raw_facts, list):
+            return []
+
+        facts: list[RelationshipFact] = []
+
+        for raw in raw_facts[:MAX_ITEMS_PER_COMPACTION]:
+            if not isinstance(raw, dict):
+                continue
+
+            summary = self.redact_text(str(raw.get("summary") or ""), max_chars=500)
+            if not summary:
+                continue
+
+            try:
+                facts.append(
+                    RelationshipFact(
+                        summary=summary,
+                        people=_clean_memory_list(raw.get("people", []))[:20],
+                        confidence=_bounded_float(raw.get("confidence", 0.65), default=0.65),
+                    )
+                )
+            except (PydanticValidationError, TypeError, ValueError):
+                continue
+
+        return facts
+
+    def _communication_preferences_from_payload(self, raw: Any) -> CommunicationPreferences:
+        if not isinstance(raw, dict):
+            return CommunicationPreferences()
+
+        return CommunicationPreferences(
+            tone=self.redact_text(str(raw.get("tone") or ""), max_chars=160),
+            language=self.redact_text(str(raw.get("language") or ""), max_chars=160),
+            response_style=_clean_memory_list(raw.get("response_style", [])),
+            avoid=_clean_memory_list(raw.get("avoid", [])),
+        )
 
     def _items_from_llm_payload(self, raw_items: Any) -> list[MemoryItem]:
         if raw_items is None:
@@ -697,6 +959,135 @@ class MemoryService:
             )
 
         return items
+
+    def _extract_preferred_name(self, text: str) -> str | None:
+        for pattern in _PREFERRED_NAME_PATTERNS:
+            match = pattern.search(text)
+            if not match:
+                continue
+
+            name = _clean_person_name(self.redact_text(match.group(1), max_chars=160))
+            if name:
+                return name
+
+        return None
+
+    def _extract_important_people(self, text: str) -> list[ImportantPerson]:
+        people: list[ImportantPerson] = []
+
+        for relationship, pattern in _IMPORTANT_PERSON_PATTERNS:
+            for match in pattern.finditer(text):
+                name, aliases = _split_name_and_aliases(
+                    self.redact_text(match.group(1), max_chars=220)
+                )
+
+                if not name:
+                    continue
+
+                people.append(
+                    ImportantPerson(
+                        canonical_name=name,
+                        aliases=aliases,
+                        relationship=relationship,
+                        confidence=0.9,
+                    )
+                )
+
+        aliases = self._extract_standalone_aliases(text)
+        if aliases and people:
+            first = people[0]
+            people[0] = first.model_copy(
+                update={
+                    "aliases": _merge_unique(first.aliases, aliases)[:20],
+                    "confidence": max(first.confidence, 0.92),
+                }
+            )
+
+        return people[:MAX_ITEMS_PER_COMPACTION]
+
+    def _extract_standalone_aliases(self, text: str) -> list[str]:
+        aliases: list[str] = []
+
+        for pattern in _ALIAS_PATTERNS:
+            match = pattern.search(text.strip())
+            if not match:
+                continue
+
+            aliases.extend(_extract_aliases(match.group(1)))
+
+        return _unique_clean(aliases)[:20]
+
+    def _extract_relationship_facts(
+        self,
+        text: str,
+        people: list[ImportantPerson],
+    ) -> list[RelationshipFact]:
+        lowered = text.lower()
+        facts: list[RelationshipFact] = []
+        person_names = [person.canonical_name for person in people]
+
+        if any(token in lowered for token in ("relationship", "girlfriend", "boyfriend", "partner", "trust", "overthinking")) or any(
+            token in text for token in ("حبيبتي", "حبيبي", "العلاقة", "ثقة", "بيقلل", "بيتحكم")
+        ):
+            facts.append(
+                RelationshipFact(
+                    summary="User has active relationship context that may affect support needs.",
+                    people=person_names,
+                    confidence=0.68,
+                )
+            )
+
+        if any(token in lowered for token in ("trust", "hidden", "deleted chat", "concealment")) or any(
+            token in text for token in ("ثقة", "خبى", "خبت", "مخبي")
+        ):
+            facts.append(
+                RelationshipFact(
+                    summary="Trust and concealment are important relationship themes for the user.",
+                    people=person_names,
+                    confidence=0.85,
+                )
+            )
+
+        return facts
+
+    def _extract_communication_preferences(self, text: str) -> CommunicationPreferences:
+        response_style: list[str] = []
+        avoid: list[str] = []
+        tone = ""
+        language = ""
+
+        if _DIRECT_STYLE_RE.search(text):
+            tone = "direct"
+            response_style.extend(["direct answers", "concise practical guidance"])
+
+        if _EGYPTIAN_ARABIC_RE.search(text) or _contains_egyptian_arabic(text):
+            language = "Egyptian Arabic when the user writes Egyptian Arabic"
+
+        if any(token in text for token in ("مش عايز أسئلة هوية", "مش عايز اسئلة هوية")):
+            avoid.append("random identity questions")
+
+        return CommunicationPreferences(
+            tone=tone,
+            language=language,
+            response_style=response_style,
+            avoid=avoid,
+        )
+
+    def _extract_avoided_responses(self, text: str) -> list[str]:
+        avoided: list[str] = []
+
+        for match in _AVOID_RESPONSE_RE.finditer(text):
+            fragment = _clean_captured_fragment(self.redact_text(match.group(1), max_chars=160))
+            if fragment:
+                avoided.append(fragment)
+
+        if "random identity questions" in text.lower() or "اسئلة هوية" in text:
+            avoided.append("random identity questions")
+
+        if "formal msa" in text.lower() or "فصحى" in text:
+            avoided.append("formal MSA when user writes dialect")
+
+        return _unique_clean(avoided)
 
     def _extract_named_patterns(
         self,
@@ -1122,6 +1513,96 @@ def _merge_memory_items(
     return merged
 
 
+def _merge_important_people(
+    existing: list[ImportantPerson],
+    new_people: list[ImportantPerson],
+) -> list[ImportantPerson]:
+    merged: list[ImportantPerson] = []
+
+    for person in list(existing) + list(new_people):
+        if not person.canonical_name:
+            continue
+
+        match_index = _find_matching_person_index(merged, person)
+
+        if match_index < 0:
+            merged.append(person)
+            continue
+
+        current = merged[match_index]
+        merged[match_index] = ImportantPerson(
+            canonical_name=current.canonical_name,
+            aliases=_merge_unique(current.aliases, person.aliases)[:20],
+            relationship=person.relationship or current.relationship,
+            notes=_merge_unique(current.notes, person.notes),
+            confidence=max(current.confidence, person.confidence),
+            updated_at=max(current.updated_at, person.updated_at),
+        )
+
+        if len(merged) >= MAX_LIST_FIELD_ITEMS:
+            break
+
+    return merged[:MAX_LIST_FIELD_ITEMS]
+
+
+def _find_matching_person_index(people: list[ImportantPerson], candidate: ImportantPerson) -> int:
+    candidate_aliases = {_memory_key(alias) for alias in [candidate.canonical_name, *candidate.aliases] if alias}
+
+    for index, person in enumerate(people):
+        person_aliases = {_memory_key(alias) for alias in [person.canonical_name, *person.aliases] if alias}
+
+        if candidate_aliases.intersection(person_aliases):
+            return index
+
+    intimate_relationships = {"girlfriend", "boyfriend", "partner", "spouse"}
+    relationship = _memory_key(candidate.relationship)
+
+    if relationship in intimate_relationships:
+        matching_relationship_indexes = [
+            index
+            for index, person in enumerate(people)
+            if _memory_key(person.relationship) == relationship
+        ]
+
+        if len(matching_relationship_indexes) == 1:
+            return matching_relationship_indexes[0]
+
+    return -1
+
+
+def _merge_relationship_facts(
+    existing: list[RelationshipFact],
+    new_facts: list[RelationshipFact],
+) -> list[RelationshipFact]:
+    merged: list[RelationshipFact] = []
+    seen: set[str] = set()
+
+    for fact in list(existing) + list(new_facts):
+        key = _memory_key(fact.summary)
+        if not key or key in seen:
+            continue
+
+        seen.add(key)
+        merged.append(fact)
+
+        if len(merged) >= MAX_LIST_FIELD_ITEMS:
+            break
+
+    return merged
+
+
+def _merge_communication_preferences(
+    existing: CommunicationPreferences,
+    new: CommunicationPreferences,
+) -> CommunicationPreferences:
+    return CommunicationPreferences(
+        tone=new.tone or existing.tone,
+        language=new.language or existing.language,
+        response_style=_merge_unique(existing.response_style, new.response_style),
+        avoid=_merge_unique(existing.avoid, new.avoid),
+    )
+
+
 def _clean_memory_list(value: Any) -> list[str]:
     if value is None:
         return []
@@ -1169,3 +1650,65 @@ def _bounded_float(value: Any, *, default: float) -> float:
         return default
 
     return max(0.0, min(parsed, 1.0))
+
+
+def _split_name_and_aliases(value: str) -> tuple[str, list[str]]:
+    aliases = _extract_aliases(value)
+    name = aliases[0] if aliases else _clean_person_name(value)
+    return name, _merge_unique([name], aliases) if name else []
+
+
+def _extract_aliases(value: str) -> list[str]:
+    raw = re.sub(r"(?i)\b(?:or|aka|also known as|also|may write|write her name as|write his name as)\b", ",", value)
+    raw = raw.replace("أو", ",").replace("او", ",").replace("/", ",")
+    return _unique_clean([_clean_person_name(part) for part in raw.split(",")])
+
+
+def _clean_person_name(value: str) -> str:
+    cleaned = sanitize_text(str(value or ""), 160)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = cleaned.strip(" .,!?:;،؟'\"“”")
+
+    if not cleaned:
+        return ""
+
+    stop_phrases = (
+        "and",
+        "but",
+        "because",
+        "when",
+        "who",
+        "that",
+    )
+
+    words = cleaned.split()
+    if len(words) > 6:
+        words = words[:6]
+    cleaned = " ".join(words)
+
+    if cleaned.lower() in stop_phrases:
+        return ""
+
+    return cleaned
+
+
+def _memory_key(value: str) -> str:
+    return re.sub(r"\s+", " ", sanitize_text(str(value or ""), 220)).strip().lower()
+
+
+def _contains_egyptian_arabic(text: str) -> bool:
+    return any(
+        marker in text
+        for marker in (
+            "مش",
+            "عايز",
+            "عايزة",
+            "ازاي",
+            "بحس",
+            "حاسس",
+            "حاسة",
+            "دلوقتي",
+            "بيقلل",
+            "بيتحكم",
+        )
+    )

@@ -27,6 +27,8 @@ MAX_MEMORY_INTERACTION_CHARS = 2_000
 MAX_MEMORY_INTERACTIONS = 50
 MAX_METADATA_ITEMS = 40
 MAX_METADATA_VALUE_CHARS = 300
+MAX_MEMORY_ALIAS_ITEMS = 20
+MAX_MEMORY_SHORT_TEXT_CHARS = 160
 
 
 class MemoryCategory(str, Enum):
@@ -118,6 +120,87 @@ class MemoryItem(BaseModel):
         return self
 
 
+class ImportantPerson(BaseModel):
+    """
+    A durable person reference with aliases.
+
+    This stores only support-relevant relationship context. It must not store
+    direct contact details, addresses, or private identifiers.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    canonical_name: str = Field(min_length=1, max_length=MAX_MEMORY_SHORT_TEXT_CHARS)
+    aliases: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_ALIAS_ITEMS)
+    relationship: str = Field(default="", max_length=MAX_MEMORY_SHORT_TEXT_CHARS)
+    notes: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+    @field_validator("canonical_name", "relationship", mode="before")
+    @classmethod
+    def _clean_short_text(cls, value: object) -> str:
+        return _sanitize_memory_text(str(value or ""), MAX_MEMORY_SHORT_TEXT_CHARS)
+
+    @field_validator("aliases", "notes", mode="before")
+    @classmethod
+    def _clean_lists(cls, value: object) -> list[str]:
+        return _sanitize_string_list(value, max_items=MAX_MEMORY_LIST_ITEMS)
+
+    @model_validator(mode="after")
+    def _ensure_canonical_alias(self) -> ImportantPerson:
+        self.aliases = _sanitize_string_list(
+            [self.canonical_name, *self.aliases],
+            max_items=MAX_MEMORY_ALIAS_ITEMS,
+        )
+        return self
+
+
+class RelationshipFact(BaseModel):
+    """
+    A compact durable relationship-context fact.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    summary: str = Field(min_length=1, max_length=MAX_MEMORY_ITEM_TEXT_CHARS)
+    people: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_ALIAS_ITEMS)
+    confidence: float = Field(default=0.65, ge=0.0, le=1.0)
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+    @field_validator("summary", mode="before")
+    @classmethod
+    def _clean_summary(cls, value: object) -> str:
+        cleaned = _sanitize_memory_text(str(value or ""), MAX_MEMORY_ITEM_TEXT_CHARS)
+        if not cleaned:
+            raise ValueError("relationship fact summary cannot be empty")
+        return cleaned
+
+    @field_validator("people", mode="before")
+    @classmethod
+    def _clean_people(cls, value: object) -> list[str]:
+        return _sanitize_string_list(value, max_items=MAX_MEMORY_ALIAS_ITEMS)
+
+
+class CommunicationPreferences(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    tone: str = Field(default="", max_length=MAX_MEMORY_SHORT_TEXT_CHARS)
+    language: str = Field(default="", max_length=MAX_MEMORY_SHORT_TEXT_CHARS)
+    response_style: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    avoid: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+
+    @field_validator("tone", "language", mode="before")
+    @classmethod
+    def _clean_short_text(cls, value: object) -> str:
+        return _sanitize_memory_text(str(value or ""), MAX_MEMORY_SHORT_TEXT_CHARS)
+
+    @field_validator("response_style", "avoid", mode="before")
+    @classmethod
+    def _clean_lists(cls, value: object) -> list[str]:
+        return _sanitize_string_list(value, max_items=MAX_MEMORY_LIST_ITEMS)
+
+
 class MemorySummary(BaseModel):
     """
     Sanitized long-term memory summary stored per user.
@@ -128,6 +211,13 @@ class MemorySummary(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     user_id_hash: str = Field(min_length=1, max_length=80)
+    preferred_name: str | None = Field(default=None, max_length=MAX_MEMORY_SHORT_TEXT_CHARS)
+    important_people: list[ImportantPerson] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    relationship_facts: list[RelationshipFact] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    communication_preferences: CommunicationPreferences = Field(default_factory=CommunicationPreferences)
+    emotional_triggers: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    user_goals: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    avoided_responses: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
     summary: str = Field(default="", max_length=MAX_MEMORY_SUMMARY_CHARS)
     known_triggers: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
     preferred_coping_tools: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
@@ -153,11 +243,22 @@ class MemorySummary(BaseModel):
     def _clean_summary(cls, value: object) -> str:
         return _sanitize_memory_text(str(value or ""), MAX_MEMORY_SUMMARY_CHARS)
 
+    @field_validator("preferred_name", mode="before")
+    @classmethod
+    def _clean_preferred_name(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        cleaned = _sanitize_memory_text(str(value or ""), MAX_MEMORY_SHORT_TEXT_CHARS)
+        return cleaned or None
+
     @field_validator(
         "known_triggers",
+        "emotional_triggers",
         "preferred_coping_tools",
         "goals",
+        "user_goals",
         "preferences",
+        "avoided_responses",
         "safety_flags",
         mode="before",
     )
@@ -169,6 +270,16 @@ class MemorySummary(BaseModel):
         return not any(
             [
                 self.summary,
+                self.preferred_name,
+                self.important_people,
+                self.relationship_facts,
+                self.communication_preferences.tone,
+                self.communication_preferences.language,
+                self.communication_preferences.response_style,
+                self.communication_preferences.avoid,
+                self.emotional_triggers,
+                self.user_goals,
+                self.avoided_responses,
                 self.known_triggers,
                 self.preferred_coping_tools,
                 self.goals,

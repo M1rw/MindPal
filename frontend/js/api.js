@@ -291,6 +291,25 @@ export async function deleteMemory(token) {
   });
 }
 
+export async function loadMemory(token) {
+  return requestJson("/memory", {
+    method: "GET",
+    token,
+    timeoutMs: 20_000,
+  });
+}
+
+export async function saveMemory(summary, token) {
+  return requestJson("/memory", {
+    method: "PUT",
+    token,
+    timeoutMs: 20_000,
+    body: {
+      summary,
+    },
+  });
+}
+
 export function buildClientFallbackReply(error) {
   if (error?.status === 401) {
     return "You need to sign in before using this cloud feature.";

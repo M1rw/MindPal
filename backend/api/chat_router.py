@@ -18,7 +18,7 @@ from backend.models.chat import (
     LLMMessage,
     LLMRole,
 )
-from backend.models.memory import MemoryCompactionRequest
+from backend.models.memory import MemoryCompactionRequest, MemorySummary
 from backend.models.safety import SafetyDecision
 from backend.models.user import UserProfile
 from backend.services.llm_service import build_llm_request
@@ -166,9 +166,10 @@ async def chat(
         reply = guarded.final_text
 
         memory_updated = False
+        response_memory_summary = memory_summary
 
         if memory_allowed:
-            memory_updated = await _persist_memory_compaction_inline(
+            updated_summary = await _persist_memory_compaction_inline(
                 payload=payload,
                 reply=reply,
                 services=services,
@@ -176,6 +177,9 @@ async def chat(
                 existing_summary=memory_summary,
                 locale=locale,
             )
+            if updated_summary is not None:
+                memory_updated = True
+                response_memory_summary = updated_summary
 
         if safety_decision.should_log:
             await _persist_safety_event_inline(
@@ -195,7 +199,7 @@ async def chat(
             fallback_count=llm_result.response.fallback_count,
             rag_used=list(rag_result.references),
             memory_updated=memory_updated,
-            memory_summary=memory_summary.model_dump(mode="json") if memory_summary and not memory_summary.is_empty() else None,
+            memory_summary=response_memory_summary.model_dump(mode="json") if response_memory_summary and not response_memory_summary.is_empty() else None,
             request_id=context.request_id,
         )
 
@@ -282,7 +286,7 @@ async def _persist_safety_event_inline(
     context: Any,
     decision: SafetyDecision,
     locale: str,
-) -> bool:
+) -> MemorySummary | None:
     """
     Persist safety event metadata inline best-effort.
 
@@ -323,7 +327,7 @@ async def _persist_memory_compaction_inline(
     queued jobs are not durable after the response returns.
     """
     if not bool(context.session.authenticated):
-        return False
+        return None
 
     try:
         interactions = build_memory_interactions(
@@ -346,7 +350,7 @@ async def _persist_memory_compaction_inline(
         )
 
         if not compaction.changed:
-            return False
+            return None
 
         safe_summary = compaction.summary.model_copy(
             update={
@@ -359,10 +363,10 @@ async def _persist_memory_compaction_inline(
             timeout=MEMORY_COMPACTION_TIMEOUT_SECONDS,
         )
 
-        return True
+        return safe_summary
 
     except Exception:
-        return False
+        return None
 
 
 
