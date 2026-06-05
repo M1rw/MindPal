@@ -167,7 +167,7 @@ export function initVoice({
     startInFlight = true;
 
     try {
-      clearTimers();
+      clearCooldownTimer();
 
       const SpeechRecognitionCtor = getSpeechRecognitionCtor();
 
