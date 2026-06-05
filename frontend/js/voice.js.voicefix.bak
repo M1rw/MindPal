@@ -12,15 +12,13 @@ import {
   VOICE_LANGUAGE_FALLBACKS,
   SUPPORTED_VOICE_LOCALES,
   getVoiceLanguageLabel,
-  getVoiceLocaleFallbackChain,
 } from "./voice_languages.js";
 
 const RESTART_COOLDOWN_MS = 700;
 const WAVE_BAR_COUNT = 12;
-const VOICE_RMS_THRESHOLD = 0.030;
+const VOICE_RMS_THRESHOLD = 0.018;
 const RECENT_VOICE_WINDOW_MS = 2_500;
 const MAX_AUTO_RESTARTS = 3;
-const SILENCE_BEFORE_REVIEW_MS = 1_800;
 
 const VOICE_LANGUAGE_STORAGE_KEY = "mindpal_voice_language";
 const VOICE_LANGUAGE_CONFIRM_STORAGE_KEY = "mindpal_voice_language_confirmed";
@@ -43,7 +41,6 @@ export function initVoice({
   }
 
   let recognition = null;
-  let localeFallbackIndex = 0;
   let mediaStream = null;
   let audioContext = null;
   let analyser = null;
@@ -64,11 +61,9 @@ export function initVoice({
   let lastVoiceAt = 0;
   let recognitionRestartCount = 0;
   let pendingRestartTimer = null;
-  let startPendingTimer = null;
   let lastRecognitionError = "";
 
   let cleanupFns = [];
-  let sessionLanguageConfirmationKey = "";
 
   ensureInlineVoiceStyles();
   ensureInlineVoicePanel(inputEl);
@@ -95,32 +90,15 @@ export function initVoice({
     const waitMs = RESTART_COOLDOWN_MS - (Date.now() - lastEndedAt);
 
     if (waitMs > 0) {
-      if (startPendingTimer !== null) return true;
-
-      startPendingTimer = window.setTimeout(() => {
-        startPendingTimer = null;
-        startVoiceCapture();
-      }, waitMs);
-
+      window.setTimeout(startVoiceCapture, waitMs);
       return true;
-    }
-
-    if (startPendingTimer !== null) {
-      window.clearTimeout(startPendingTimer);
-      startPendingTimer = null;
     }
 
     const selectedLanguage = loadVoiceLanguagePreference();
     const effectiveLocale = resolveEffectiveSpeechLocale(selectedLanguage);
 
-    const confirmationKey = getConfirmationKey(selectedLanguage, effectiveLocale);
-    let confirmed = sessionLanguageConfirmationKey === confirmationKey;
-
-    if (!confirmed) {
-      confirmed = await confirmVoiceLanguageBeforeRecord(selectedLanguage, effectiveLocale);
-      if (!confirmed) return false;
-      sessionLanguageConfirmationKey = confirmationKey;
-    }
+    const confirmed = await confirmVoiceLanguageBeforeRecord(selectedLanguage, effectiveLocale);
+    if (!confirmed) return false;
 
     resetSessionState();
     sessionActive = true;
@@ -169,8 +147,7 @@ export function initVoice({
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    const speechLocale = getActiveSpeechLocale(locale);
-    recognition.lang = speechLocale;
+    recognition.lang = normalizeSpeechLocale(locale);
 
     recognition.onstart = () => {
       isRecording = true;
@@ -218,11 +195,6 @@ export function initVoice({
 
       if (error === "no-speech") {
         if (hasRecentVoiceActivity()) {
-          setPhase("hearing_audio");
-          if (scheduleRecognitionRestart(locale)) return;
-        }
-
-        if (tryAdvanceLocaleFallback(locale)) {
           setPhase("hearing_audio");
           if (scheduleRecognitionRestart(locale)) return;
         }
@@ -276,11 +248,6 @@ export function initVoice({
       }
 
       if (hasTranscript()) {
-        if (shouldContinueAfterRecognitionEnd()) {
-          setPhase("hearing_audio");
-          if (scheduleContinuationRestart(locale)) return;
-        }
-
         stopMicMeter();
         setPhase("review");
         updateTranscriptUI();
@@ -333,50 +300,6 @@ export function initVoice({
       startSpeechRecognition(locale);
     }, RESTART_COOLDOWN_MS);
 
-    return true;
-  }
-
-  function scheduleContinuationRestart(locale) {
-    if (!sessionActive) return false;
-    if (manualStopRequested) return false;
-
-    window.clearTimeout(pendingRestartTimer);
-    pendingRestartTimer = window.setTimeout(() => {
-      pendingRestartTimer = null;
-
-      if (!sessionActive || manualStopRequested) return;
-
-      startSpeechRecognition(locale);
-    }, RESTART_COOLDOWN_MS);
-
-    return true;
-  }
-
-
-  function shouldContinueAfterRecognitionEnd() {
-    if (!sessionActive) return false;
-    if (manualStopRequested) return false;
-    if (!voiceHeard || !lastVoiceAt) return false;
-
-    return Date.now() - lastVoiceAt < SILENCE_BEFORE_REVIEW_MS;
-  }
-
-  function getActiveSpeechLocale(locale) {
-    const normalized = normalizeSpeechLocale(locale);
-    const chain = getVoiceLocaleFallbackChain(normalized);
-
-    return chain[localeFallbackIndex] || chain[0] || normalized || "en-US";
-  }
-
-  function tryAdvanceLocaleFallback(locale) {
-    if (hasRecentVoiceActivity()) return false;
-
-    const normalized = normalizeSpeechLocale(locale);
-    const chain = getVoiceLocaleFallbackChain(normalized);
-
-    if (localeFallbackIndex >= chain.length - 1) return false;
-
-    localeFallbackIndex += 1;
     return true;
   }
 
@@ -511,7 +434,6 @@ export function initVoice({
 
     window.clearTimeout(pendingRestartTimer);
     pendingRestartTimer = null;
-    clearPendingStartTimer();
 
     if (recognition) {
       try {
@@ -545,7 +467,6 @@ export function initVoice({
 
     window.clearTimeout(pendingRestartTimer);
     pendingRestartTimer = null;
-    clearPendingStartTimer();
 
     if (recognition) {
       try {
@@ -580,7 +501,6 @@ export function initVoice({
 
     window.clearTimeout(pendingRestartTimer);
     pendingRestartTimer = null;
-    clearPendingStartTimer();
 
     if (recognition) {
       try {
@@ -595,14 +515,6 @@ export function initVoice({
     resetSessionState();
 
     window.setTimeout(startVoiceCapture, RESTART_COOLDOWN_MS);
-  }
-
-
-  function clearPendingStartTimer() {
-    if (startPendingTimer !== null) {
-      window.clearTimeout(startPendingTimer);
-      startPendingTimer = null;
-    }
   }
 
   function cleanupRecognition({ keepState = false } = {}) {
@@ -625,7 +537,6 @@ export function initVoice({
     voiceHeard = false;
     lastVoiceAt = 0;
     recognitionRestartCount = 0;
-    localeFallbackIndex = 0;
     lastRecognitionError = "";
     manualStopRequested = false;
 
@@ -796,7 +707,6 @@ export function initVoice({
 
     window.clearTimeout(pendingRestartTimer);
     pendingRestartTimer = null;
-    clearPendingStartTimer();
 
     if (recognition) {
       try {
@@ -837,8 +747,6 @@ export function initVoice({
     setLocale: (value) => {
       saveVoiceLanguagePreference(value || "auto");
       clearVoiceLanguageConfirmation();
-      sessionLanguageConfirmationKey = "";
-      localeFallbackIndex = 0;
     },
     destroy,
   };

@@ -208,61 +208,6 @@ export const VOICE_LANGUAGE_FALLBACKS = {
   zu: "zu-ZA",
 };
 
-
-
-export const VOICE_LOCALE_FALLBACK_CHAINS = {
-  "ar-EG": ["ar-EG", "ar-SA", "ar-AE"],
-  "ar-SA": ["ar-SA", "ar-EG", "ar-AE"],
-  "ar-AE": ["ar-AE", "ar-SA", "ar-EG"],
-  "ar-MA": ["ar-MA", "ar-EG", "ar-SA"],
-  "ar-DZ": ["ar-DZ", "ar-EG", "ar-SA"],
-  "ar-TN": ["ar-TN", "ar-EG", "ar-SA"],
-  "ar-IQ": ["ar-IQ", "ar-SA", "ar-EG"],
-  "ar-JO": ["ar-JO", "ar-SA", "ar-EG"],
-  "ar-KW": ["ar-KW", "ar-SA", "ar-EG"],
-  "ar-LB": ["ar-LB", "ar-EG", "ar-SA"],
-  "ar-QA": ["ar-QA", "ar-SA", "ar-EG"],
-  "ar-OM": ["ar-OM", "ar-SA", "ar-EG"],
-  "ar-BH": ["ar-BH", "ar-SA", "ar-EG"],
-  "ar-YE": ["ar-YE", "ar-SA", "ar-EG"],
-
-  "zh-CN": ["zh-CN", "cmn-Hans-CN"],
-  "cmn-Hans-CN": ["cmn-Hans-CN", "zh-CN"],
-  "zh-TW": ["zh-TW", "cmn-Hant-TW"],
-  "cmn-Hant-TW": ["cmn-Hant-TW", "zh-TW"],
-};
-
-export function getVoiceLocaleFallbackChain(value) {
-  const raw = String(value || "en-US").trim().replaceAll("_", "-");
-
-  if (!raw || raw === "auto" || raw === "custom") {
-    return ["en-US"];
-  }
-
-  const direct = VOICE_LOCALE_FALLBACK_CHAINS[raw];
-
-  if (direct) {
-    return direct;
-  }
-
-  const parts = raw.split("-").filter(Boolean);
-  const canonical = parts.length > 1
-    ? [
-        parts[0].toLowerCase(),
-        ...parts.slice(1).map((part) => (part.length === 2 ? part.toUpperCase() : part)),
-      ].join("-")
-    : raw.toLowerCase();
-
-  if (VOICE_LOCALE_FALLBACK_CHAINS[canonical]) {
-    return VOICE_LOCALE_FALLBACK_CHAINS[canonical];
-  }
-
-  const language = canonical.split("-")[0].toLowerCase();
-  const defaultLocale = VOICE_LANGUAGE_FALLBACKS[language] || canonical || "en-US";
-
-  return VOICE_LOCALE_FALLBACK_CHAINS[defaultLocale] || [defaultLocale];
-}
-
 export const SUPPORTED_VOICE_LOCALES = new Set(
   VOICE_LANGUAGE_OPTIONS
     .map((item) => item.value)
