@@ -31,7 +31,6 @@ MAX_RAG_ITEMS = 6
 MAX_RAG_ITEM_CHARS = 1_200
 MAX_USER_PREFERENCES_CHARS = 1_200
 MAX_SYSTEM_PROMPT_CHARS = 12_000
-MAX_INTENT_CONTEXT_CHARS = 1_800
 
 
 PRODUCT_BOUNDARY_PROMPT = """
@@ -56,10 +55,7 @@ Safety and boundaries:
 
 WELLNESS_ASSISTANT_PROMPT = """
 Response behavior:
-- First understand the user's actual situation from the whole message, then answer that underlying concern.
-- Do not latch onto one word and ask a generic reflective question when the user already gave enough context.
 - Match the user's language when clear; support English and Arabic.
-- If the user writes Egyptian Arabic or Arabic with Egyptian relationship wording, answer in natural Egyptian Arabic, not formal MSA.
 - Be concrete: short steps, specific techniques, one focused question max.
 - Give what the user asks for, not what you think they need.
 - Respect autonomy; do not shame, preach, or pressure.
@@ -70,7 +66,7 @@ Response behavior:
 
 _LOCALE_INSTRUCTIONS: dict[Locale, str] = {
     "en": "Use English unless the user asks for another language.",
-    "ar": "Use Arabic when appropriate. If the user writes Egyptian Arabic or relationship dialect, use natural Egyptian Arabic, not formal MSA.",
+    "ar": "Use Arabic when appropriate. Egyptian Arabic is acceptable when the user writes informally in Arabic.",
     "auto": "Infer the response language from the latest user message and conversation context.",
 }
 
@@ -122,48 +118,25 @@ Tone: pragmatic, not calming-music vibes. "Do this first, think later."
     "study_stress": """
 Mode: study_stress.
 PROBLEM-SOLVE MODE. Student is overwhelmed by academic work.
-Structure: 1. Name the academic bottleneck (deadline, scope, weak topic, confidence) 2. Pick ONE small next task 3. Estimate time 4. Define what "done" looks like.
-Do NOT over-therapize. Do NOT suggest self-care breaks as the core fix. Treat this like work triage.
-Tone: efficient, slightly direct.
-
-Only use the CBT Thought/Distortion/Evidence/Reframe format if the user explicitly asks to separate thoughts, assumptions, or overthinking. Otherwise use task triage.
+Structure: 1. Name the bottleneck (exam timing, workload, confidence) 2. Break into ONE small next task 3. Estimate time
+Do NOT over-therapize. Do NOT suggest "self-care breaks" as the fix. Treat this like work triage, not emotional distress.
+Tone: efficient, slightly direct. Example: "What's due first? Do that one thing in the next 30 min."
+For complex overthinking + task: Use cognitive structure: **Thought:** (the core concern), **Distortion:** (what's unhelpful), **Evidence For/Against:** (facts), **Balanced Reframe:** (realistic view), **Next Tiny Action:** (one small step).
 """.strip(),
     "relationship_distress": """
 Mode: relationship_distress.
-CLARITY + BOUNDARY MODE. The user is describing conflict, attachment pain, emotional invalidation, criticism, control, or relationship uncertainty.
-First answer the real relationship pattern, not a random self-discovery question.
-
-Structure:
-1. Name the pattern in one sentence: criticism, hiding, invalidation, control, mixed signals, or exhaustion.
-2. Validate without exaggerating and without diagnosing the other person.
-3. If there is long-term criticism, control, fear, threats, or "should I continue/end it", ask ONE safety/support question.
-4. Give ONE practical next step or wording.
-
-Hard rules:
-- Do NOT diagnose the partner/spouse with narcissism, schizophrenia, personality disorder, etc.
-- Do NOT say "spend a day apart" when the user describes abuse, fear, being trapped, or long-term emotional harm.
-- Do NOT ask generic identity questions like "how can you know your identity better?"
-- Do NOT pressure breakup, but do not normalize repeated humiliation/control.
-- If the user is in immediate danger, tell them to prioritize safety and contact nearby trusted/local emergency support.
-- If the user writes Egyptian Arabic, answer in Egyptian Arabic.
-Tone: direct, protective, calm.
+CLARITY + BOUNDARY MODE. Emotional entanglement is clouding judgment.
+Structure: 1. Ask ONE clarity question (what do YOU want vs. what do they want?) 2. Name ONE boundary or action (tell them X, spend a day apart)
+Do NOT pressure, advise breakup, or suggest manipulation. Do NOT isolate user from partner.
+Tone: direct, a bit clinical. Example: "What would you say if you weren't afraid of their reaction?"
 """.strip(),
     "emotion_labeling": """
 Mode: emotion_labeling.
-NAMING / COGNITIVE TOOLS MODE. User needs help understanding a feeling, thought loop, or overthinking.
-If the user asks for cognitive analysis, use this exact structure:
-**Thought:** the core belief or fear.
-**Distortion:** the likely thinking trap, if any.
-**Evidence For:** concrete facts only.
-**Evidence Against:** concrete facts only.
-**Balanced Reframe:** a realistic alternative, not fake positivity.
-**Next Tiny Action:** one action they can do now.
-
-If the user does not ask for analysis, ask simple choices instead:
-- "Trapped or drained?"
-- "Tight or heavy?"
-- "Angry, scared, ashamed, or exhausted?"
-Tone: casual, specific, curious. Do not turn every emotional answer into an academic worksheet.
+NAMING MODE. User feels something but can't say what. Avoid over-analyzing.
+Structure: Ask simple concrete choices, not open-ended depth. Example: "Trapped or drained? Tight or heavy? Right now, not the whole story."
+Offer: NAME + BODY LOCATION + maybe ONE technique tied to it.
+Tone: casual, specific, curious. "What's your body telling you?"
+For complex overthinking: Use cognitive structure: **Thought:** (the belief), **Distortion:** (cognitive error), **Evidence For/Against:** (reality check), **Balanced Reframe:** (accurate perspective), **Next Tiny Action:** (one concrete step).
 """.strip(),
     "memory_compaction": """
 Mode: memory_compaction.
@@ -174,18 +147,9 @@ Format: {"topic": "value", "learned": ["fact1", "fact2"]} or similar. Determinis
     "rag_planning": """
 Mode: rag_planning.
 QUERY ANALYSIS ONLY. Return JSON. No conversational prose.
-Content:
-{
-  "identified_tags": [...],
-  "rag_retrieval_hints": [...],
-  "confidence": "high/medium/low"
-}
-
-Use ONLY these identified_tags values when applicable:
-panic_grounding, grounding_54321, box_breathing, orienting_to_room, anxiety, anger, impulse, dbt_stop, study_stress, exam_anxiety, relationship, relationship_distress, grief, emotion_labeling, cognitive_reframe, safety, self_harm, abuse_or_violence, sleep, breathing, journaling.
-
-If none apply, use [].
-Never invent new tag names. Never invent clinical claims or diagnoses in the planning layer.
+Content: {"identified_tags": [...], "rag_retrieval_hints": [...], "confidence": "high/medium/low"}
+Example: {"identified_tags": ["dbt_stop", "anger"], "rag_retrieval_hints": ["distress tolerance"], "confidence": "high"}
+Never invent clinical claims or diagnoses in the planning layer.
 """.strip(),
     "safe_rewrite": """
 Mode: safe_rewrite.
@@ -225,7 +189,6 @@ class PromptPolicy:
     memory_summary: str | None = None
     rag_grounding: tuple[dict[str, Any], ...] = ()
     user_preferences: str | None = None
-    intent_context: dict[str, Any] | None = None
     max_chars: int = MAX_SYSTEM_PROMPT_CHARS
 
 
@@ -238,7 +201,6 @@ def build_prompt_policy(
     memory_summary: str | None = None,
     rag_grounding: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None = None,
     user_preferences: str | None = None,
-    intent_context: dict[str, Any] | None = None,
     max_chars: int = MAX_SYSTEM_PROMPT_CHARS,
 ) -> PromptPolicy:
     return PromptPolicy(
@@ -249,7 +211,6 @@ def build_prompt_policy(
         memory_summary=memory_summary,
         rag_grounding=tuple(rag_grounding or ()),
         user_preferences=user_preferences,
-        intent_context=intent_context,
         max_chars=max(1, min(int(max_chars), MAX_SYSTEM_PROMPT_CHARS)),
     )
 
@@ -263,7 +224,6 @@ def build_system_prompt(
     safety_level: str = "safe",
     channel: str = "web",
     user_preferences: str | None = None,
-    intent_context: dict[str, Any] | None = None,
     max_chars: int = MAX_SYSTEM_PROMPT_CHARS,
 ) -> str:
     """
@@ -283,7 +243,6 @@ def build_system_prompt(
         memory_summary=memory_summary,
         rag_grounding=rag_grounding,
         user_preferences=user_preferences,
-        intent_context=intent_context,
         max_chars=max_chars,
     )
     return render_system_prompt(policy)
@@ -299,10 +258,6 @@ def render_system_prompt(policy: PromptPolicy) -> str:
         _SAFETY_LEVEL_INSTRUCTIONS[policy.safety_level],
         _RESPONSE_MODE_INSTRUCTIONS[policy.response_mode],
     ]
-
-    rendered_intent = _render_intent_context(policy.intent_context)
-    if rendered_intent:
-        sections.append(rendered_intent)
 
     rendered_preferences = _render_user_preferences(policy.user_preferences)
     if rendered_preferences:
@@ -367,279 +322,21 @@ PREFERENCE_MODE_FAMILIES: dict[str, set[str]] = {
 }
 
 
-
-VALID_RAG_TAGS: tuple[str, ...] = (
-    "panic_grounding",
-    "grounding_54321",
-    "box_breathing",
-    "orienting_to_room",
-    "anxiety",
-    "anger",
-    "impulse",
-    "dbt_stop",
-    "study_stress",
-    "exam_anxiety",
-    "relationship",
-    "relationship_distress",
-    "grief",
-    "emotion_labeling",
-    "cognitive_reframe",
-    "safety",
-    "self_harm",
-    "abuse_or_violence",
-    "sleep",
-    "breathing",
-    "journaling",
-)
-
-_EGYPTIAN_ARABIC_MARKERS: tuple[str, ...] = (
-    "ازاي", "عايز", "عايزة", "مش", "مليش", "حاسس", "حاسه", "بحس", "خبت",
-    "بيقلل", "بيتحكم", "جوزي", "مراتي", "كفاية", "تعبت", "اقول", "أقول",
-)
-
-_PANIC_MARKERS: tuple[str, ...] = (
-    "panic", "panicking", "panic attack", "can't breathe", "cant breathe", "chest tight",
-    "heart racing", "هلع", "نوبة هلع", "مش قادر اتنفس", "مش قادرة اتنفس",
-    "ضيق نفس", "قلبي بيدق", "صدري", "رعشة", "بتخنق",
-)
-
-_ANGER_MARKERS: tuple[str, ...] = (
-    "angry", "rage", "furious", "revenge", "text her now", "text him now", "hurt him",
-    "hurt her", "break something", "غضبان", "متعصب", "هتجنن", "انتقم", "أنتقم",
-    "اكسر", "اضرب", "هكلمه دلوقتي", "هكلمها دلوقتي",
-)
-
-_STUDY_MARKERS: tuple[str, ...] = (
-    "exam", "quiz", "study", "studying", "homework", "assignment", "lecture", "sheet",
-    "امتحان", "كويز", "مذاكرة", "اذاكر", "أذاكر", "محاضرة", "شيت", "واجب",
-)
-
-_RELATIONSHIP_MARKERS: tuple[str, ...] = (
-    "girlfriend", "boyfriend", "relationship", "wife", "husband", "marriage", "partner",
-    "break up", "divorce", "حبيبتي", "حبيبي", "صاحبتي", "صاحبي", "جوزي", "زوجي",
-    "مراتي", "زوجتي", "جواز", "بعد الجواز", "انفصل", "أطلق", "طلاق", "مي",
-)
-
-_RELATIONSHIP_INVALIDATION_MARKERS: tuple[str, ...] = (
-    "criticize", "criticizes", "criticism", "worthless", "no value", "weak", "controlling",
-    "humiliate", "jealous of my success", "20 years", "continue or leave", "ينتقدني",
-    "بينتقدني", "ينتقد", "مش عاجبه", "مش عاجبه أي حاجة", "مليش قيمة", "مالييش قيمة",
-    "ضعيفة", "ضعيف", "بيقلل مني", "بيقلل", "تقليل", "يهزقني", "يذلني", "بيغير من نجاحي",
-    "بيغير", "بعد 20 سنة", "أكمل", "اكمل", "كفاية", "تعبت منه", "فين الحب",
-)
-
-_RELATIONSHIP_DANGER_MARKERS: tuple[str, ...] = (
-    "won't let me leave", "wont let me leave", "threatened me", "threatens me", "hit me",
-    "hits me", "afraid of him", "afraid of her", "unsafe", "trapped", "يهددني",
-    "هددني", "بيضربني", "ضربني", "خايفة منه", "خايف منه", "مش سايبني أخرج",
-    "مش سايباني أخرج", "مانعني", "حبسني", "مش آمنة", "مش امنة", "خطر",
-)
-
-_GRIEF_MARKERS: tuple[str, ...] = (
-    "died", "death", "lost someone", "grief", "مات", "ماتت", "وفاة", "توفى", "فقدت",
-)
-
-_SELF_HARM_MARKERS: tuple[str, ...] = (
-    "hurt myself", "kill myself", "suicide", "end my life", "مش عايز اعيش", "مش عايزة اعيش",
-    "أموت نفسي", "انتحر", "هأذي نفسي", "هاذي نفسي",
-)
-
-
-def build_intent_context(
-    user_message: str | None,
-    *,
-    locale: str | None = None,
-) -> dict[str, Any]:
-    """
-    Deterministic semantic intake.
-
-    This is not a diagnosis layer. It tells the final response what the user
-    appears to mean so the assistant answers the actual situation instead of a
-    random surface keyword.
-    """
-    raw_message = sanitize_text(user_message or "", 2_000)
-    lowered = raw_message.lower()
-    locale_hint = sanitize_text(locale or "auto", 40)
-
-    is_arabic = _contains_arabic(raw_message)
-    is_egyptian = is_arabic and _contains_any(raw_message, _EGYPTIAN_ARABIC_MARKERS)
-
-    risk_flags: list[str] = []
-    avoid: list[str] = []
-    detected_signals: list[str] = []
-    situation_type = "general_support"
-    core_problem = ""
-    user_need = ""
-    answer_strategy = "Respond to the user's actual underlying concern with one concrete next step."
-    force_response_mode: ResponseMode | None = None
-
-    if _contains_any(lowered, _SELF_HARM_MARKERS):
-        situation_type = "self_harm_or_safety"
-        risk_flags.append("possible_self_harm")
-        detected_signals.append("self_harm_language")
-        force_response_mode = "ambiguous_self_harm_support"
-        answer_strategy = "Ask one direct safety question and give a short immediate safety step."
-
-    if _contains_any(lowered, _RELATIONSHIP_DANGER_MARKERS):
-        situation_type = "relationship_safety"
-        risk_flags.append("possible_control_or_violence")
-        detected_signals.append("relationship_danger")
-        force_response_mode = "personal_safety"
-        answer_strategy = "Prioritize immediate safety, distance, trusted support, and emergency/local help if danger is current."
-        avoid.extend(["confrontation scripts", "relationship negotiation advice", "spend a day apart as the only advice"])
-
-    elif _contains_any(lowered, _RELATIONSHIP_MARKERS) or _contains_any(lowered, _RELATIONSHIP_INVALIDATION_MARKERS):
-        situation_type = "relationship_distress"
-        force_response_mode = "relationship_distress"
-        detected_signals.append("relationship_context")
-        core_problem = "relationship conflict or distress"
-
-        if _contains_any(lowered, _RELATIONSHIP_INVALIDATION_MARKERS):
-            risk_flags.append("possible_emotional_invalidation")
-            detected_signals.append("criticism_or_invalidation")
-            core_problem = "long-term criticism, invalidation, and emotional exhaustion in the relationship"
-            user_need = "needs validation, safety/support check, and one concrete next step before deciding whether to continue"
-            answer_strategy = (
-                "Validate the pattern, avoid diagnosing the other person, ask one safety/support question, "
-                "then give one practical next step."
-            )
-            avoid.extend([
-                "generic identity/self-discovery questions",
-                "diagnosing the spouse or partner",
-                "normalizing repeated humiliation",
-                "pressuring immediate breakup",
-            ])
-
-    if situation_type == "general_support" and _contains_any(lowered, _PANIC_MARKERS):
-        situation_type = "panic"
-        force_response_mode = "panic_grounding"
-        detected_signals.append("panic")
-        core_problem = "acute panic or body alarm"
-        user_need = "needs immediate grounding, not explanation"
-        answer_strategy = "Give one short grounding instruction first."
-
-    if situation_type == "general_support" and _contains_any(lowered, _ANGER_MARKERS):
-        situation_type = "anger_impulse"
-        force_response_mode = "anger_deescalation"
-        detected_signals.append("anger_or_impulse")
-        core_problem = "anger or impulse to act"
-        user_need = "needs interruption and delay before action"
-        answer_strategy = "Interrupt the impulse with a physical action and a short delay."
-
-    if situation_type == "general_support" and _contains_any(lowered, _STUDY_MARKERS):
-        situation_type = "study_stress"
-        force_response_mode = "study_stress"
-        detected_signals.append("study_or_exam")
-        core_problem = "academic overwhelm"
-        user_need = "needs task triage and the next study action"
-        answer_strategy = "Name the bottleneck and assign one timed task."
-
-    if situation_type == "general_support" and _contains_any(lowered, _GRIEF_MARKERS):
-        situation_type = "grief"
-        detected_signals.append("grief")
-        core_problem = "grief or loss"
-        user_need = "needs steady emotional support and one small stabilizing step"
-        answer_strategy = "Acknowledge the loss plainly and ask one grounded question."
-
-    language_style = "egyptian_arabic" if is_egyptian else ("arabic" if is_arabic else "english")
-
-    if language_style == "egyptian_arabic":
-        avoid.append("formal MSA tone")
-    if situation_type.startswith("relationship"):
-        avoid.append("random reflective question unrelated to the relationship problem")
-
-    return {
-        "language_style": language_style,
-        "locale_hint": locale_hint,
-        "situation_type": situation_type,
-        "core_problem": core_problem or situation_type.replace("_", " "),
-        "user_need": user_need,
-        "risk_flags": _unique_list(risk_flags),
-        "avoid": _unique_list(avoid),
-        "answer_strategy": answer_strategy,
-        "detected_signals": _unique_list(detected_signals),
-        "force_response_mode": force_response_mode,
-    }
-
-
-def _render_intent_context(intent_context: dict[str, Any] | None) -> str:
-    if not intent_context:
-        return ""
-
-    allowed_keys = (
-        "language_style",
-        "situation_type",
-        "core_problem",
-        "user_need",
-        "risk_flags",
-        "avoid",
-        "answer_strategy",
-        "detected_signals",
-    )
-
-    compact = {
-        key: intent_context.get(key)
-        for key in allowed_keys
-        if intent_context.get(key)
-    }
-
-    if not compact:
-        return ""
-
-    serialized = json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
-    serialized = sanitize_text(serialized, MAX_INTENT_CONTEXT_CHARS)
-
-    return (
-        "Semantic intake context. Use this to answer the user's real meaning, not just surface words. "
-        "Do not expose this JSON directly:\n"
-        f"{serialized}"
-    )
-
-
-def _contains_arabic(value: str) -> bool:
-    return any("\u0600" <= char <= "\u06ff" for char in value)
-
-
-def _contains_any(haystack: str, needles: tuple[str, ...]) -> bool:
-    haystack_lower = haystack.lower()
-    return any(needle.lower() in haystack_lower for needle in needles)
-
-
-def _unique_list(values: list[str]) -> list[str]:
-    seen: set[str] = set()
-    output: list[str] = []
-
-    for value in values:
-        clean = sanitize_text(value, 120)
-        if not clean or clean in seen:
-            continue
-
-        seen.add(clean)
-        output.append(clean)
-
-    return output
-
-
-
 def infer_response_mode(
     *,
     safety_level: str = "safe",
     rag_tags: list[str] | tuple[str, ...] | None = None,
     user_message: str | None = None,
-    intent_context: dict[str, Any] | None = None,
 ) -> ResponseMode:
     """
-    Deterministic response-mode fallback.
+    Lightweight deterministic response-mode fallback.
 
-    Uses safety first, then semantic intake, then RAG tags, then keyword fallback.
+    LLM/agentic services may choose a better mode later. This function is only
+    a safe default for routers.
     """
     normalized_safety = _normalize_safety_level(safety_level)
     tags = {sanitize_text(str(tag), 80).lower() for tag in (rag_tags or [])}
-    message = sanitize_text(user_message or "", 1_000).lower()
-    intent = intent_context or build_intent_context(user_message)
-
-    if normalized_safety == "self_harm_imminent":
-        return "personal_safety"
+    message = sanitize_text(user_message or "", 500).lower()
 
     if normalized_safety == "self_harm_ambiguous":
         return "ambiguous_self_harm_support"
@@ -650,39 +347,29 @@ def infer_response_mode(
     if normalized_safety == "toxicity":
         return "anger_deescalation"
 
-    forced_mode = sanitize_text(str(intent.get("force_response_mode") or ""), 80)
-    if forced_mode in ALLOWED_RESPONSE_MODES:
-        return forced_mode  # type: ignore[return-value]
-
-    if {"panic_grounding", "54321_grounding", "grounding_54321", "box_breathing", "anxiety"}.intersection(tags):
+    if {"panic_grounding", "54321_grounding", "box_breathing"}.intersection(tags):
         return "panic_grounding"
 
     if {"dbt_stop", "anger", "impulse"}.intersection(tags):
         return "anger_deescalation"
 
-    if {"emotion_labeling", "reflection", "cognitive_reframe"}.intersection(tags):
+    if {"emotion_labeling", "reflection"}.intersection(tags):
         return "emotion_labeling"
 
-    if {"relationship", "relationship_distress"}.intersection(tags):
-        return "relationship_distress"
-
-    if {"study_stress", "exam_anxiety"}.intersection(tags):
+    if "exam" in message or "quiz" in message or "امتحان" in message or "كويز" in message:
         return "study_stress"
 
-    if _contains_any(message, _PANIC_MARKERS):
-        return "panic_grounding"
-
-    if _contains_any(message, _ANGER_MARKERS):
-        return "anger_deescalation"
-
-    if _contains_any(message, _STUDY_MARKERS):
-        return "study_stress"
-
-    if _contains_any(message, _RELATIONSHIP_MARKERS) or _contains_any(message, _RELATIONSHIP_INVALIDATION_MARKERS):
+    if (
+        "girlfriend" in message
+        or "boyfriend" in message
+        or "relationship" in message
+        or "حبيبتي" in message
+        or "حبيبي" in message
+        or "صاحبتي" in message
+    ):
         return "relationship_distress"
 
     return "normal_support"
-
 
 
 def infer_response_mode_for_preference(
@@ -691,17 +378,23 @@ def infer_response_mode_for_preference(
     safety_level: str = "safe",
     rag_tags: list[str] | tuple[str, ...] | None = None,
     user_message: str | None = None,
-    intent_context: dict[str, Any] | None = None,
 ) -> ResponseMode:
     """
     Infer response mode respecting user's listening preference.
 
+    Logic:
+    1. If safety says crisis → use SAFETY_OVERRIDE_MODES (personal_safety for imminent, etc)
+    2. Infer base mode from content/safety/tags
+    3. If inferred mode in preference family → use it
+    4. Else map to closest compatible mode in preference family
+    5. Else fallback to normal_support
+
     Preference is a listening style hint, not a locked mode.
-    Crisis and semantic danger always override preference.
+    Crisis always overrides preference.
     """
     normalized_safety = _normalize_safety_level(safety_level)
-    intent = intent_context or build_intent_context(user_message)
 
+    # Safety overrides: crisis states always use critical modes
     if normalized_safety == "self_harm_imminent":
         return "personal_safety"
     if normalized_safety == "abuse_or_violence":
@@ -709,53 +402,52 @@ def infer_response_mode_for_preference(
     if normalized_safety == "self_harm_ambiguous":
         return "ambiguous_self_harm_support"
 
-    forced_mode = sanitize_text(str(intent.get("force_response_mode") or ""), 80)
-    if forced_mode in SAFETY_OVERRIDE_MODES:
-        return forced_mode  # type: ignore[return-value]
-
+    # Infer base mode from content
     inferred_base = infer_response_mode(
         safety_level=safety_level,
         rag_tags=rag_tags,
         user_message=user_message,
-        intent_context=intent,
     )
 
-    # Strong semantic routing should not be weakened by a UI preference.
-    if inferred_base in {"personal_safety", "ambiguous_self_harm_support", "panic_grounding", "relationship_distress"}:
-        return inferred_base
-
+    # Normalize preference
     normalized_pref = (
         sanitize_text(str(preference or ""), 80).lower().replace(" ", "_")
         if preference
         else None
     )
 
+    # Get allowed modes for preference, or all modes if no preference
     allowed_family = (
         PREFERENCE_MODE_FAMILIES.get(normalized_pref, ALLOWED_RESPONSE_MODES)
         if normalized_pref
         else ALLOWED_RESPONSE_MODES
     )
 
+    # If inferred mode is in preference family, use it
     if inferred_base in allowed_family:
         return inferred_base
 
-    mode_to_family_preference: dict[str, tuple[str, ...]] = {
+    # Otherwise, find closest compatible mode in family via priority mapping
+    # This handles cases like: panic_grounding inferred but preference is guided_coach
+    # Should pick anger_deescalation or study_stress (action-oriented), not emotion_labeling
+    mode_to_family_preference = {
         "normal_support": ("normal_support", "emotion_labeling", "relationship_distress", "study_stress"),
         "panic_grounding": ("panic_grounding", "emotion_labeling", "normal_support"),
         "ambiguous_self_harm_support": ("ambiguous_self_harm_support",),
         "personal_safety": ("personal_safety",),
-        "anger_deescalation": ("anger_deescalation", "relationship_distress", "study_stress", "normal_support"),
-        "study_stress": ("study_stress", "relationship_distress", "emotion_labeling", "normal_support"),
-        "relationship_distress": ("relationship_distress", "emotion_labeling", "normal_support"),
+        "anger_deescalation": ("anger_deescalation", "study_stress", "relationship_distress"),
+        "study_stress": ("study_stress", "relationship_distress", "anger_deescalation", "emotion_labeling"),
+        "relationship_distress": ("relationship_distress", "emotion_labeling", "study_stress"),
         "emotion_labeling": ("emotion_labeling", "normal_support", "relationship_distress"),
     }
 
-    for mode in mode_to_family_preference.get(inferred_base, ("normal_support",)):
+    fallback_chain = mode_to_family_preference.get(inferred_base, ("normal_support",))
+    for mode in fallback_chain:
         if mode in allowed_family:
             return mode  # type: ignore[return-value]
 
-    return "normal_support"
-
+    # Last resort: pick first from family
+    return next(iter(allowed_family), "normal_support")  # type: ignore[return-value]
 
 
 def resolve_response_mode(
@@ -765,13 +457,19 @@ def resolve_response_mode(
     safety_level: str = "safe",
 ) -> ResponseMode:
     """
-    Backward-compatible resolver.
+    Resolve final response mode with preference and safety logic.
 
-    Prefer infer_response_mode_for_preference() in new chat routes because it
-    has access to the user message and semantic intake.
+    Rules:
+    1. If crisis/self-harm/imminent danger, safety mode always wins.
+    2. If user selected a listening preference, infer best mode for that preference.
+    3. Otherwise, use base inferred mode.
+    
+    frontend_mode is a listening preference name: "active_listen", "guided_coach", "cognitive_tools"
+    not a locked mode.
     """
     normalized_safety = _normalize_safety_level(safety_level)
 
+    # Safety overrides for crisis states
     if normalized_safety == "self_harm_imminent":
         return "personal_safety"
     if normalized_safety == "self_harm_ambiguous":
@@ -779,23 +477,28 @@ def resolve_response_mode(
     if normalized_safety == "abuse_or_violence":
         return "personal_safety"
 
-    if not frontend_mode:
-        return inferred_mode
+    # If user selected a preference, use preference-aware inference
+    if frontend_mode:
+        # This function will validate preference and map to best mode in that family
+        # For now just call infer with preference hint
+        normalized_pref = sanitize_text(str(frontend_mode), 80).lower().replace(" ", "_")
+        if normalized_pref in PREFERENCE_MODE_FAMILIES:
+            # Use preference family as constraint
+            allowed_family = PREFERENCE_MODE_FAMILIES[normalized_pref]
+            # If inferred_mode is in family, use it
+            if inferred_mode in allowed_family:
+                return inferred_mode
+            # Otherwise find best match in family
+            if "emotion_labeling" in allowed_family and normalized_pref == "active_listen":
+                return "emotion_labeling"
+            if "study_stress" in allowed_family and normalized_pref == "guided_coach":
+                return "study_stress"
+            if "emotion_labeling" in allowed_family and normalized_pref == "cognitive_tools":
+                return "emotion_labeling"
+            return next(iter(allowed_family), "normal_support")  # type: ignore[return-value]
 
-    normalized_pref = sanitize_text(str(frontend_mode), 80).lower().replace(" ", "_")
-    allowed_family = PREFERENCE_MODE_FAMILIES.get(normalized_pref)
-
-    if not allowed_family:
-        return inferred_mode
-
-    if inferred_mode in allowed_family:
-        return inferred_mode
-
-    if "normal_support" in allowed_family:
-        return "normal_support"
-
-    return next(iter(allowed_family), "normal_support")  # type: ignore[return-value]
-
+    # Fallback to base inferred mode
+    return inferred_mode
 
 
 def _render_user_preferences(user_preferences: str | None) -> str:
