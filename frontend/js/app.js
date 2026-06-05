@@ -4,7 +4,9 @@ import {
   buildClientFallbackReply,
   deleteMemory,
   getCurrentUserProfile,
+  loadMemory,
   normalizeChatHistory,
+  saveMemory,
   sendChatMessage,
   deleteCurrentCloudChat,
   loadCurrentCloudChat,
@@ -60,6 +62,11 @@ import {
   answerQuestionFromMemory,
   classifyAndStoreMemoryFromMessage,
   createEmptyMemory,
+  getMemoryInspectorRows,
+  loadMemoryContext,
+  memoryFromBackendSummary,
+  memoryToBackendSummary,
+  saveMemoryContext,
 } from "./memory_engine.js";
 
 let isGenerating = false;
@@ -67,8 +74,7 @@ let isSessionLocked = false;
 let voiceController = null;
 let authUnsubscribe = null;
 let cloudConnectInProgress = false;
-// Initialize to empty. Backend is source of truth for memory via API (Phase 2).
-let memoryContext = createEmptyMemory();
+let memoryContext = loadMemoryContext();
 let currentCloudProfileContext = null;
 let cloudChatHydrated = false;
 let cloudChatSyncInFlight = false;
@@ -140,6 +146,7 @@ async function initFrontendAuth() {
         const profile = await getCurrentUserProfile(token);
 
         currentCloudProfileContext = buildCloudProfileContext(user, profile);
+        await hydrateCloudMemory(token);
         await hydrateCloudChat(token);
 
         setCloudSyncEnabled(true);
@@ -147,6 +154,7 @@ async function initFrontendAuth() {
       } catch (error) {
         console.warn("Silent cloud profile verification failed:", error);
         currentCloudProfileContext = null;
+        memoryContext = loadMemoryContext();
         setCloudSyncEnabled(false);
         updateProfileUI(null);
       }
@@ -158,6 +166,26 @@ async function initFrontendAuth() {
 }
 
 
+
+
+async function hydrateCloudMemory(token) {
+  if (!token) return;
+
+  try {
+    const response = await loadMemory(token);
+    if (response?.loaded && response.summary) {
+      memoryContext = saveMemoryContext(memoryFromBackendSummary(response.summary));
+    } else {
+      memoryContext = saveMemoryContext(memoryContext);
+      await saveMemory(memoryToBackendSummary(memoryContext), token);
+    }
+    renderMemoryInspector();
+  } catch (error) {
+    console.warn("Cloud memory load failed; using local memory.", error);
+    memoryContext = loadMemoryContext();
+    renderMemoryInspector();
+  }
+}
 
 
 async function hydrateCloudChat(token) {
@@ -236,6 +264,22 @@ async function replaceCloudChatSnapshotSafe(messages = null) {
     await replaceCurrentCloudChat(normalizeLocalMessages(messages || getState().chatMemory || []), token);
   } catch (error) {
     console.warn("Cloud chat snapshot replace failed:", error);
+  }
+}
+
+async function persistMemoryContextSafe() {
+  try {
+    const token = await getIdToken();
+
+    if (!token) {
+      saveMemoryContext(memoryContext);
+      return;
+    }
+
+    await saveMemory(memoryToBackendSummary(memoryContext), token);
+  } catch (error) {
+    console.warn("Memory sync failed; local memory retained:", error);
+    saveMemoryContext(memoryContext);
   }
 }
 
@@ -410,6 +454,7 @@ function bindProfileModal() {
 
   document.getElementById("profile-btn")?.addEventListener("click", () => {
     updateProfileUI(getCurrentUser());
+    renderMemoryInspector();
     openModal("profile-modal", "profile-content");
   });
 
@@ -461,6 +506,7 @@ function bindProfileModal() {
       console.info("MindPal backend profile:", profile);
 
       currentCloudProfileContext = buildCloudProfileContext(user, profile);
+      await hydrateCloudMemory(token);
       await hydrateCloudChat(token);
 
       setCloudSyncEnabled(true);
@@ -485,6 +531,7 @@ function bindProfileModal() {
     }
 
     currentCloudProfileContext = null;
+    memoryContext = loadMemoryContext();
     cloudChatHydrated = false;
     pendingCloudChatMessages.length = 0;
     setCloudSyncEnabled(false);
@@ -494,6 +541,11 @@ function bindProfileModal() {
 
   userNameInput?.addEventListener("change", (event) => {
     const nextName = setUserName(event.target.value);
+    memoryContext.preferredName = nextName === "Friend" ? "" : nextName;
+    memoryContext.user.preferredName = memoryContext.preferredName;
+    saveMemoryContext(memoryContext);
+    void persistMemoryContextSafe();
+    renderMemoryInspector();
     updateProfileUI(getCurrentUser());
     showToast(nextName === "Friend" ? "Profile name cleared." : "Profile updated.");
   });
@@ -529,6 +581,136 @@ function bindSettings() {
         : "Crisis UI interception disabled. Backend safety is still active.",
     );
   });
+
+  document.getElementById("memory-refresh-btn")?.addEventListener("click", async () => {
+    const token = await getIdToken();
+    if (token) {
+      await hydrateCloudMemory(token);
+      showToast("Memory refreshed.");
+      return;
+    }
+
+    memoryContext = loadMemoryContext();
+    renderMemoryInspector();
+    showToast("Local memory refreshed.");
+  });
+}
+
+function renderMemoryInspector() {
+  const list = document.getElementById("memory-inspector-list");
+  if (!list) return;
+
+  const rows = getMemoryInspectorRows(memoryContext);
+
+  if (!rows.length) {
+    list.innerHTML = `<div class="text-gray-400 dark:text-gray-500">No saved memory yet.</div>`;
+    return;
+  }
+
+  list.innerHTML = rows.map((row) => `
+    <div class="flex items-start justify-between gap-3 rounded-lg border border-gray-100 dark:border-gemini-darkBorder px-3 py-2">
+      <div class="min-w-0">
+        <div class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">${escapeHtml(row.label)}</div>
+        <div class="text-[13px] text-gray-800 dark:text-gray-200 break-words">${escapeHtml(row.value)}</div>
+      </div>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button class="memory-edit-btn p-1.5 rounded-full hover:bg-gemini-surface dark:hover:bg-zinc-800" data-memory-key="${escapeHtml(row.key)}" title="Edit memory" type="button">
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+        </button>
+        <button class="memory-delete-btn p-1.5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-600 dark:text-rose-400" data-memory-key="${escapeHtml(row.key)}" title="Delete memory" type="button">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </div>
+  `).join("");
+
+  list.querySelectorAll(".memory-delete-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      deleteMemoryEntry(button.getAttribute("data-memory-key") || "");
+      renderMemoryInspector();
+      void persistMemoryContextSafe();
+    });
+  });
+
+  list.querySelectorAll(".memory-edit-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      editMemoryEntry(button.getAttribute("data-memory-key") || "");
+      renderMemoryInspector();
+      void persistMemoryContextSafe();
+    });
+  });
+
+  refreshIcons();
+}
+
+function deleteMemoryEntry(key) {
+  const cleanKey = String(key || "");
+
+  if (cleanKey === "preferred_name") {
+    memoryContext.preferredName = "";
+    memoryContext.user.preferredName = "";
+  } else if (cleanKey.startsWith("person.")) {
+    const name = cleanKey.slice("person.".length);
+    memoryContext.importantPeople = memoryContext.importantPeople.filter((person) => person.canonicalName !== name);
+    if (memoryContext.relationship.girlfriend.name === name) {
+      memoryContext.relationship.girlfriend.name = "";
+      memoryContext.relationship.girlfriend.aliases = [];
+    }
+  } else if (cleanKey === "communication") {
+    memoryContext.communicationPreferences = createEmptyMemory().communicationPreferences;
+    memoryContext.avoidedResponses = [];
+  } else if (cleanKey.startsWith("avoid.")) {
+    const value = cleanKey.slice("avoid.".length);
+    memoryContext.avoidedResponses = memoryContext.avoidedResponses.filter((item) => item !== value);
+    memoryContext.communicationPreferences.avoid = memoryContext.communicationPreferences.avoid.filter((item) => item !== value);
+  } else {
+    memoryContext.relationshipFacts = memoryContext.relationshipFacts.filter((fact) => (fact.key || fact.summary) !== cleanKey);
+    memoryContext.facts = memoryContext.facts.filter((fact) => fact.key !== cleanKey);
+  }
+
+  memoryContext = saveMemoryContext(memoryContext);
+  showToast("Memory deleted.");
+}
+
+function editMemoryEntry(key) {
+  const rows = getMemoryInspectorRows(memoryContext);
+  const row = rows.find((item) => item.key === key);
+  if (!row) return;
+
+  const next = window.prompt(`Edit ${row.label}`, row.value);
+  if (next === null) return;
+
+  const value = next.trim();
+  if (!value) {
+    deleteMemoryEntry(key);
+    return;
+  }
+
+  if (key === "preferred_name") {
+    memoryContext.preferredName = value;
+    memoryContext.user.preferredName = value;
+    setUserName(value);
+  } else if (key.startsWith("person.")) {
+    const name = key.slice("person.".length);
+    const person = memoryContext.importantPeople.find((item) => item.canonicalName === name);
+    if (person) {
+      const parts = value.split("/").map((part) => part.trim()).filter(Boolean);
+      person.canonicalName = parts[0] || person.canonicalName;
+      person.aliases = [...new Set([person.canonicalName, ...parts])];
+      if (person.relationship === "girlfriend") {
+        memoryContext.relationship.girlfriend.name = person.canonicalName;
+        memoryContext.relationship.girlfriend.aliases = person.aliases;
+      }
+    }
+  } else if (key === "communication") {
+    memoryContext.communicationPreferences.responseStyle = [value];
+  } else {
+    const fact = memoryContext.relationshipFacts.find((item) => (item.key || item.summary) === key);
+    if (fact) fact.summary = value;
+  }
+
+  memoryContext = saveMemoryContext(memoryContext);
+  showToast("Memory updated.");
 }
 
 function bindInput() {
@@ -634,6 +816,8 @@ function bindConversationActions() {
     }
 
     clearChatMemory();
+    memoryContext = saveMemoryContext(createEmptyMemory());
+    renderMemoryInspector();
 
     const chatHistory = document.getElementById("chat-history");
     if (chatHistory) {
@@ -669,6 +853,10 @@ async function handleSend() {
   });
 
   memoryContext = memoryResult.memory;
+  if (memoryResult.saved.length) {
+    renderMemoryInspector();
+    void persistMemoryContextSafe();
+  }
 
   if (memoryResult.shouldIntercept && memoryResult.localReply) {
     const memoryReplyRecord = addMessage("MindPal", memoryResult.localReply, {
@@ -757,6 +945,11 @@ async function handleSend() {
     });
 
     scheduleCloudMessageSync(assistantMessageRecord);
+
+    if (response.memory_summary) {
+      memoryContext = saveMemoryContext(memoryFromBackendSummary(response.memory_summary));
+      renderMemoryInspector();
+    }
 
     await appendMessageToUI(reply, "bot", {
       smoothScroll: true,
@@ -1072,6 +1265,11 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
     scheduleCloudMessageSync(regeneratedRecord);
 
+    if (response.memory_summary) {
+      memoryContext = saveMemoryContext(memoryFromBackendSummary(response.memory_summary));
+      renderMemoryInspector();
+    }
+
     await appendMessageToUI(reply, "bot", {
       smoothScroll: true,
       typewriter: true,
@@ -1136,19 +1334,24 @@ function buildBackendMeta(meta) {
 }
 
 function processStructuredResponse(text) {
-  if (!text.includes("**Thought:**") || !text.includes("**Balanced Reframe:**")) {
+  const sections = parseCognitiveSections(text);
+  const hasCognitiveStructure =
+    Boolean(sections.reframe || sections.action) &&
+    Boolean(sections.thought || sections.distortion || sections.evidenceFor || sections.evidenceAgainst);
+
+  if (!hasCognitiveStructure) {
     return {
       timelineHtml: "",
       finalHtml: formatMarkdown(text),
     };
   }
 
-  const thought = getMarkdownSection(text, "**Thought:**", "**Distortion:**");
-  const distortion = getMarkdownSection(text, "**Distortion:**", "**Evidence For:**");
-  const evidenceFor = getMarkdownSection(text, "**Evidence For:**", "**Evidence Against:**");
-  const evidenceAgainst = getMarkdownSection(text, "**Evidence Against:**", "**Balanced Reframe:**");
-  const reframe = getMarkdownSection(text, "**Balanced Reframe:**", "**Next Tiny Action:**");
-  const action = getMarkdownSection(text, "**Next Tiny Action:**", null);
+  const thought = sections.thought;
+  const distortion = sections.distortion;
+  const evidenceFor = sections.evidenceFor;
+  const evidenceAgainst = sections.evidenceAgainst;
+  const reframe = sections.reframe;
+  const action = sections.action;
 
   if (!reframe) {
     return {
@@ -1167,19 +1370,16 @@ function processStructuredResponse(text) {
 
       <div class="accordion-content max-h-0 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
           <div class="mt-4 ml-[7px] pl-6 border-l border-gray-200 dark:border-[#444746] space-y-5 text-[15px] text-gray-700 dark:text-gray-300 relative pb-4">
-            ${thought ? timelineItem("Core Thought", thought, "circle-minus") : ""}
-            ${distortion ? timelineItem("Distortion Detected", distortion, "circle-minus") : ""}
+            ${thought ? timelineItem("Thought", thought, "circle-minus") : ""}
+            ${distortion ? timelineItem("Distortion", distortion, "circle-minus") : ""}
+            ${evidenceFor ? timelineItem("Evidence For", evidenceFor, "circle-minus") : ""}
+            ${evidenceAgainst ? timelineItem("Evidence Against", evidenceAgainst, "circle-minus") : ""}
             ${
-              evidenceFor || evidenceAgainst
-                ? timelineItem(
-                    "Evidence Review",
-                    `${evidenceFor ? `<div><span class="text-gray-500 dark:text-[#c4c7c5]">For:</span> ${formatMarkdown(evidenceFor)}</div>` : ""}
-                     ${evidenceAgainst ? `<div><span class="text-gray-500 dark:text-[#c4c7c5]">Against:</span> ${formatMarkdown(evidenceAgainst)}</div>` : ""}`,
-                    "circle-minus",
-                    true,
-                  )
+              reframe
+                ? timelineItem("Balanced Reframe", reframe, "circle-minus")
                 : ""
             }
+            ${action ? timelineItem("Next Tiny Action", action, "circle-minus") : ""}
             ${timelineItem("Done", "", "check-circle-2")}
           </div>
       </div>
@@ -1209,18 +1409,71 @@ function timelineItem(title, body, icon, bodyIsHtml = false) {
   `;
 }
 
-function getMarkdownSection(text, startLabel, endLabel) {
-  const start = text.indexOf(startLabel);
-  if (start === -1) return "";
+function parseCognitiveSections(text) {
+  const sections = {
+    thought: "",
+    distortion: "",
+    evidenceFor: "",
+    evidenceAgainst: "",
+    reframe: "",
+    action: "",
+  };
 
-  const startIndex = start + startLabel.length;
-  const end = endLabel ? text.indexOf(endLabel, startIndex) : text.length;
+  let currentKey = "";
 
-  if (end === -1) {
-    return text.slice(startIndex).trim();
+  for (const line of String(text || "").replace(/\r\n/g, "\n").split("\n")) {
+    const match = line.match(/^\s*(?:[-*]\s*)?(?:\*\*)?\s*([A-Za-z][A-Za-z\s-]{1,40}?)(?:\*\*)?\s*:?\s*(.*)$/);
+    const key = match ? cognitiveSectionKey(match[1]) : "";
+
+    if (key) {
+      currentKey = key;
+      const rest = (match[2] || "").trim();
+
+      if (rest) {
+        sections[currentKey] = appendSectionLine(sections[currentKey], rest);
+      }
+
+      continue;
+    }
+
+    if (currentKey) {
+      sections[currentKey] = appendSectionLine(sections[currentKey], line);
+    }
   }
 
-  return text.slice(startIndex, end).trim();
+  return sections;
+}
+
+function cognitiveSectionKey(label) {
+  const normalized = String(label || "").toLowerCase().replace(/[^a-z]/g, "");
+
+  switch (normalized) {
+    case "thought":
+    case "corethought":
+      return "thought";
+    case "distortion":
+    case "distortiondetected":
+      return "distortion";
+    case "evidencefor":
+      return "evidenceFor";
+    case "evidenceagainst":
+      return "evidenceAgainst";
+    case "balancedreframe":
+      return "reframe";
+    case "nexttinyaction":
+    case "nextaction":
+      return "action";
+    default:
+      return "";
+  }
+}
+
+function appendSectionLine(currentValue, line) {
+  const clean = String(line || "").trim();
+
+  if (!clean) return currentValue;
+
+  return currentValue ? `${currentValue}\n${clean}` : clean;
 }
 
 function bindAccordion(root) {

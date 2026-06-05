@@ -1,8 +1,10 @@
 # Memory V2
 
-Memory v2 should store durable structured facts, not raw chat logs.
+Memory v2 stores durable structured facts, not raw chat logs. It is implemented
+as a shared contract between backend compaction, Firestore-backed memory APIs,
+guest local storage, and the frontend Memory Inspector.
 
-Target fields:
+Structured fields:
 
 ```txt
 preferred_name
@@ -14,6 +16,49 @@ user_goals
 avoided_responses
 updated_at
 source_confidence
+```
+
+Backend model:
+
+```txt
+backend/models/memory.py
+  MemorySummary
+  ImportantPerson
+  RelationshipFact
+  CommunicationPreferences
+```
+
+Backend service:
+
+```txt
+backend/services/memory_service.py
+  deterministic extraction
+  optional LLM compaction
+  structured merge
+  prompt summary rendering
+  PII/secret redaction
+```
+
+Frontend model:
+
+```txt
+frontend/js/memory_engine.js
+  guest local Memory v2 store
+  backend summary conversion
+  lightweight client extraction
+  inspector row formatting
+```
+
+Frontend surface:
+
+```txt
+frontend/index.html
+  Settings -> What MindPal remembers
+
+frontend/js/app.js
+  cloud user -> GET/PUT /memory
+  guest user -> localStorage
+  edit/delete inspector rows
 ```
 
 Example:
@@ -57,6 +102,19 @@ Guest user
   -> local memory
 ```
 
+API rule:
+
+```txt
+GET /api/memory
+  returns authenticated user's scoped MemorySummary
+
+PUT /api/memory
+  accepts MemorySummary but rebinds user_id_hash to the authenticated session
+
+POST /api/memory/compact
+  compacts supplied interaction fragments into structured memory
+```
+
 Identity priority:
 
 ```txt
@@ -98,6 +156,40 @@ Update behavior:
 6. Let user delete/edit memory later.
 ```
 
+Implemented extraction examples:
+
+```txt
+"My name is Marwan"
+  -> preferred_name=Marwan
+
+"My girlfriend is named Maya. I may write her name as Mi or Maya"
+  -> important_people[0].canonical_name=Maya
+  -> aliases include Maya, Mi
+
+"I prefer direct answers"
+  -> communication_preferences.tone=direct
+  -> response_style includes direct answers
+
+"Do not answer like random identity questions"
+  -> avoided_responses includes random identity questions
+```
+
+Merge rules:
+
+```txt
+same alias overlap
+  -> merge person records
+
+one existing intimate partner with same relationship
+  -> merge aliases instead of duplicating the partner
+
+new communication preference
+  -> fills empty scalar fields and merges list fields
+
+relationship facts
+  -> deduplicated by normalized summary text
+```
+
 Memory Inspector target:
 
 ```txt
@@ -128,3 +220,11 @@ Memory API responses must not leak other users' facts.
 Memory debug UI must require the current user session.
 ```
 
+Tests:
+
+```txt
+tests/test_memory_v2.py
+  extracts preferred name, important people, aliases, preferences, avoided responses
+  merges partner aliases and communication preferences
+  renders structured memory into the prompt summary
+```

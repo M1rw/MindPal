@@ -337,6 +337,23 @@
 
                     <div class="h-px w-full bg-gray-100 dark:bg-gemini-darkBorder my-2"></div>
 
+                    <div class="px-2 py-3.5">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <div class="flex items-center gap-4">
+                                <i data-lucide="database" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5]"></i>
+                                <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200">What MindPal remembers</span>
+                            </div>
+                            <button id="memory-refresh-btn" class="p-2 rounded-full hover:bg-gemini-surface dark:hover:bg-zinc-800 text-gray-500 dark:text-[#c4c7c5]" title="Refresh memory" type="button">
+                                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <div id="memory-inspector-list" class="flex flex-col gap-2 pl-[36px] text-[13px] text-gray-600 dark:text-[#c4c7c5]">
+                            <div class="text-gray-400 dark:text-gray-500">No saved memory yet.</div>
+                        </div>
+                    </div>
+
+                    <div class="h-px w-full bg-gray-100 dark:bg-gemini-darkBorder my-2"></div>
+
                     <button id="export-chat-btn" class="flex items-center gap-4 px-2 py-3.5 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors text-left w-full">
                         <i data-lucide="download" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5] btn-icon"></i>
                         <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200 btn-text">Export conversation log</span>

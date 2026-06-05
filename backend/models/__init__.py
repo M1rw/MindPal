@@ -32,6 +32,8 @@ from .chat import (
     RagReference,
 )
 from .memory import (
+    CommunicationPreferences,
+    ImportantPerson,
     MemoryCategory,
     MemoryCompactionRequest,
     MemoryCompactionResult,
@@ -43,6 +45,7 @@ from .memory import (
     MemorySource,
     MemorySummary,
     MemoryWriteResult,
+    RelationshipFact,
 )
 from .safety import (
     CrisisResponseTemplate,
@@ -104,6 +107,8 @@ __all__ = [
     "LLMRequest",
     "LLMResponse",
     "LLMRole",
+    "CommunicationPreferences",
+    "ImportantPerson",
     "MemoryCategory",
     "MemoryCompactionRequest",
     "MemoryCompactionResult",
@@ -115,6 +120,7 @@ __all__ = [
     "MemorySource",
     "MemorySummary",
     "MemoryWriteResult",
+    "RelationshipFact",
     "ProviderCallTrace",
     "ProviderChainTrace",
     "RagReference",

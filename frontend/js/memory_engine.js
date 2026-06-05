@@ -1,10 +1,11 @@
 // frontend/js/memory_engine.js
 
-const MEMORY_STORAGE_KEY = "mindpal_memory_engine_v1";
+const MEMORY_STORAGE_KEY = "mindpal_memory_engine_v2";
+const LEGACY_MEMORY_STORAGE_KEY = "mindpal_memory_engine_v1";
 
 export function loadMemoryContext() {
   try {
-    const raw = localStorage.getItem(MEMORY_STORAGE_KEY);
+    const raw = localStorage.getItem(MEMORY_STORAGE_KEY) || localStorage.getItem(LEGACY_MEMORY_STORAGE_KEY);
 
     if (!raw) {
       return createEmptyMemory();
@@ -50,6 +51,23 @@ export function classifyAndStoreMemoryFromMessage(text, {
 
   const lower = message.toLowerCase();
   const explicitMemory = isExplicitMemoryCommand(lower);
+  const preferredName = extractPreferredName(message);
+
+  if (preferredName) {
+    memory.preferredName = preferredName;
+    memory.user.preferredName = preferredName;
+
+    upsertFact(memory, {
+      key: "profile.preferred_name",
+      category: "profile.identity",
+      value: `The user's preferred name is ${preferredName}.`,
+      confidence: 0.96,
+    });
+
+    result.saved.push(`Preferred name saved: ${preferredName}.`);
+    result.confidence = Math.max(result.confidence, 0.96);
+    result.shouldIntercept = explicitMemory;
+  }
 
   const girlfriendSave = extractGirlfriendNameAndAliases(message);
 
@@ -60,6 +78,12 @@ export function classifyAndStoreMemoryFromMessage(text, {
       girlfriendSave.name,
       ...girlfriendSave.aliases,
     ]);
+    upsertImportantPerson(memory, {
+      canonicalName: girlfriendSave.name,
+      aliases: memory.relationship.girlfriend.aliases,
+      relationship: "girlfriend",
+      confidence: 0.98,
+    });
 
     memory.focus = {
       type: "relationship.girlfriend",
@@ -128,6 +152,14 @@ export function classifyAndStoreMemoryFromMessage(text, {
   }
 
   if (mentionsRelationshipProblem(message)) {
+    upsertRelationshipFact(memory, {
+      key: "relationship.active_topic",
+      summary: "The user is discussing an active relationship problem.",
+      people: knownImportantPeopleNames(memory),
+      confidence: 0.68,
+      volatile: true,
+    });
+
     upsertFact(memory, {
       key: "relationship.active_topic",
       category: "relationship.issue",
@@ -140,6 +172,13 @@ export function classifyAndStoreMemoryFromMessage(text, {
   }
 
   if (mentionsTrustAndOverthinking(message)) {
+    upsertRelationshipFact(memory, {
+      key: "relationship.trust_overthinking",
+      summary: "Trust and overthinking are important relationship themes for the user.",
+      people: knownImportantPeopleNames(memory),
+      confidence: 0.92,
+    });
+
     upsertFact(memory, {
       key: "relationship.main_issue",
       category: "relationship.issue",
@@ -153,6 +192,13 @@ export function classifyAndStoreMemoryFromMessage(text, {
   }
 
   if (mentionsConcealmentBoundary(message)) {
+    upsertRelationshipFact(memory, {
+      key: "relationship.trust_boundary",
+      summary: "Hiding or concealment breaks trust for the user.",
+      people: knownImportantPeopleNames(memory),
+      confidence: 0.9,
+    });
+
     upsertFact(memory, {
       key: "relationship.trust_boundary",
       category: "relationship.boundary",
@@ -166,6 +212,12 @@ export function classifyAndStoreMemoryFromMessage(text, {
   }
 
   if (lower.includes("calm strength")) {
+    memory.communicationPreferences.responseStyle = mergeUnique([
+      ...memory.communicationPreferences.responseStyle,
+      "calm strength",
+      "clear boundaries without chasing",
+    ]);
+
     upsertFact(memory, {
       key: "relationship.best_approach",
       category: "relationship.strategy",
@@ -179,6 +231,12 @@ export function classifyAndStoreMemoryFromMessage(text, {
   }
 
   if (mentionsAdviceStylePreference(message)) {
+    memory.communicationPreferences.tone = "direct";
+    memory.communicationPreferences.avoid = mergeUnique([
+      ...memory.communicationPreferences.avoid,
+      "responses that make the user look weak, begging, controlling, or emotionally chasing",
+    ]);
+
     upsertFact(memory, {
       key: "response_style.relationship",
       category: "communication.style",
@@ -233,6 +291,20 @@ export function answerQuestionFromMemory(text, memoryContext = createEmptyMemory
   const girlfriend = memory.relationship.girlfriend;
   const aliases = girlfriend.aliases || [];
   const girlfriendName = girlfriend.name || aliases[0] || "";
+  const preferredName = memory.preferredName || memory.user.preferredName || "";
+
+  if (
+    preferredName &&
+    (
+      lower.includes("what is my name") ||
+      lower.includes("what's my name") ||
+      lower.includes("who am i") ||
+      lower.includes("اسمي ايه") ||
+      lower.includes("اسمي إيه")
+    )
+  ) {
+    return `Your preferred name is ${preferredName}.`;
+  }
 
   if (!girlfriendName && !aliases.length) return "";
 
@@ -302,6 +374,38 @@ export function buildMemoryLines(memoryContext = createEmptyMemory()) {
   const lines = [];
 
   const girlfriend = memory.relationship.girlfriend;
+  const preferredName = memory.preferredName || memory.user.preferredName || "";
+
+  if (preferredName) {
+    lines.push(`The user's preferred name is ${preferredName}.`);
+  }
+
+  for (const person of memory.importantPeople) {
+    const aliases = person.aliases?.filter((alias) => alias !== person.canonicalName) || [];
+    const relationship = person.relationship ? ` (${person.relationship})` : "";
+    lines.push(
+      `${person.canonicalName}${relationship}${aliases.length ? `; aliases: ${aliases.join(", ")}` : ""}.`,
+    );
+  }
+
+  for (const fact of memory.relationshipFacts) {
+    if (fact?.summary && !fact.volatile) {
+      lines.push(fact.summary);
+    }
+  }
+
+  const comm = memory.communicationPreferences;
+  if (comm.tone || comm.language) {
+    lines.push(`Communication preferences: ${[comm.tone, comm.language].filter(Boolean).join(", ")}.`);
+  }
+
+  if (comm.responseStyle.length) {
+    lines.push(`Preferred response style: ${comm.responseStyle.join(", ")}.`);
+  }
+
+  if (comm.avoid.length || memory.avoidedResponses.length) {
+    lines.push(`Avoid responses: ${mergeUnique([...comm.avoid, ...memory.avoidedResponses]).join(", ")}.`);
+  }
 
   if (girlfriend.name) {
     lines.push(`The user's girlfriend is called ${girlfriend.name}.`);
@@ -322,8 +426,22 @@ export function buildMemoryLines(memoryContext = createEmptyMemory()) {
 
 export function createEmptyMemory() {
   return {
-    version: 1,
-    user: {},
+    version: 2,
+    preferredName: "",
+    user: {
+      preferredName: "",
+    },
+    importantPeople: [],
+    relationshipFacts: [],
+    communicationPreferences: {
+      tone: "",
+      language: "",
+      responseStyle: [],
+      avoid: [],
+    },
+    emotionalTriggers: [],
+    userGoals: [],
+    avoidedResponses: [],
     relationship: {
       girlfriend: {
         name: "",
@@ -346,7 +464,15 @@ function normalizeMemory(value) {
     user: {
       ...base.user,
       ...(raw.user || {}),
+      preferredName: normalizeNameValue(raw.user?.preferredName || raw.user?.preferred_name || raw.preferredName || raw.preferred_name || ""),
     },
+    preferredName: normalizeNameValue(raw.preferredName || raw.preferred_name || raw.user?.preferredName || raw.user?.preferred_name || ""),
+    importantPeople: normalizeImportantPeople(raw.importantPeople || raw.important_people || []),
+    relationshipFacts: normalizeRelationshipFacts(raw.relationshipFacts || raw.relationship_facts || []),
+    communicationPreferences: normalizeCommunicationPreferences(raw.communicationPreferences || raw.communication_preferences || {}),
+    emotionalTriggers: normalizeStringList(raw.emotionalTriggers || raw.emotional_triggers || raw.known_triggers || []),
+    userGoals: normalizeStringList(raw.userGoals || raw.user_goals || raw.goals || []),
+    avoidedResponses: normalizeStringList(raw.avoidedResponses || raw.avoided_responses || []),
     relationship: {
       ...base.relationship,
       ...(raw.relationship || {}),
@@ -361,6 +487,130 @@ function normalizeMemory(value) {
     facts: Array.isArray(raw.facts) ? raw.facts : [],
     focus: raw.focus || null,
   };
+}
+
+export function memoryToBackendSummary(memoryContext, userIdHash = "client") {
+  const memory = normalizeMemory(memoryContext);
+
+  return {
+    user_id_hash: userIdHash || "client",
+    preferred_name: memory.preferredName || null,
+    important_people: memory.importantPeople.map((person) => ({
+      canonical_name: person.canonicalName,
+      aliases: person.aliases,
+      relationship: person.relationship,
+      notes: person.notes || [],
+      confidence: person.confidence,
+    })),
+    relationship_facts: memory.relationshipFacts
+      .filter((fact) => !fact.volatile)
+      .map((fact) => ({
+        summary: fact.summary,
+        people: fact.people || [],
+        confidence: fact.confidence,
+      })),
+    communication_preferences: {
+      tone: memory.communicationPreferences.tone,
+      language: memory.communicationPreferences.language,
+      response_style: memory.communicationPreferences.responseStyle,
+      avoid: memory.communicationPreferences.avoid,
+    },
+    emotional_triggers: memory.emotionalTriggers,
+    user_goals: memory.userGoals,
+    avoided_responses: memory.avoidedResponses,
+    summary: buildMemoryLines(memory).slice(0, 12).map((line) => `- ${line}`).join("\n"),
+    known_triggers: memory.emotionalTriggers,
+    preferred_coping_tools: [],
+    goals: memory.userGoals,
+    preferences: [
+      ...memory.communicationPreferences.responseStyle,
+      memory.communicationPreferences.tone,
+      memory.communicationPreferences.language,
+    ].filter(Boolean),
+    safety_flags: [],
+    items: memory.facts
+      .filter((fact) => fact?.value && !fact.volatile)
+      .slice(0, 40)
+      .map((fact) => ({
+        category: categoryToBackend(fact.category),
+        text: String(fact.value).slice(0, 700),
+        source: "manual",
+        sensitivity: "medium",
+        confidence: Number(fact.confidence || 0.7),
+        tags: [String(fact.category || "other")],
+        metadata: { key: fact.key || "" },
+      })),
+    source: "manual",
+    version: 2,
+  };
+}
+
+export function memoryFromBackendSummary(summary) {
+  const raw = summary && typeof summary === "object" ? summary : {};
+  const memory = createEmptyMemory();
+
+  memory.preferredName = normalizeNameValue(raw.preferred_name || "");
+  memory.user.preferredName = memory.preferredName;
+  memory.importantPeople = normalizeImportantPeople(raw.important_people || []);
+  memory.relationshipFacts = normalizeRelationshipFacts(raw.relationship_facts || []);
+  memory.communicationPreferences = normalizeCommunicationPreferences(raw.communication_preferences || {});
+  memory.emotionalTriggers = normalizeStringList(raw.emotional_triggers || raw.known_triggers || []);
+  memory.userGoals = normalizeStringList(raw.user_goals || raw.goals || []);
+  memory.avoidedResponses = normalizeStringList(raw.avoided_responses || []);
+  memory.facts = Array.isArray(raw.items)
+    ? raw.items.map((item, index) => ({
+      key: item?.metadata?.key || `backend.item.${index}`,
+      category: item?.category || "other",
+      value: item?.text || "",
+      confidence: Number(item?.confidence || 0.6),
+      volatile: false,
+      updatedAt: item?.created_at || new Date().toISOString(),
+    })).filter((item) => item.value)
+    : [];
+
+  const girlfriend = memory.importantPeople.find((person) => person.relationship === "girlfriend");
+  if (girlfriend) {
+    memory.relationship.girlfriend.name = girlfriend.canonicalName;
+    memory.relationship.girlfriend.aliases = girlfriend.aliases;
+  }
+
+  return normalizeMemory(memory);
+}
+
+export function getMemoryInspectorRows(memoryContext = createEmptyMemory()) {
+  const memory = normalizeMemory(memoryContext);
+  const rows = [];
+
+  if (memory.preferredName) {
+    rows.push({ key: "preferred_name", label: "Name", value: memory.preferredName });
+  }
+
+  for (const person of memory.importantPeople) {
+    rows.push({
+      key: `person.${person.canonicalName}`,
+      label: titleCase(person.relationship || "Person"),
+      value: [person.canonicalName, ...(person.aliases || []).filter((alias) => alias !== person.canonicalName)].join(" / "),
+    });
+  }
+
+  const comm = memory.communicationPreferences;
+  if (comm.tone || comm.language || comm.responseStyle.length) {
+    rows.push({
+      key: "communication",
+      label: "Preference",
+      value: [comm.tone, comm.language, ...comm.responseStyle].filter(Boolean).join(", "),
+    });
+  }
+
+  for (const fact of memory.relationshipFacts.filter((item) => !item.volatile).slice(0, 6)) {
+    rows.push({ key: fact.key || fact.summary, label: "Relationship", value: fact.summary });
+  }
+
+  for (const avoided of memory.avoidedResponses.slice(0, 6)) {
+    rows.push({ key: `avoid.${avoided}`, label: "Avoid", value: avoided });
+  }
+
+  return rows;
 }
 
 function extractGirlfriendNameAndAliases(message) {
@@ -392,6 +642,14 @@ function extractGirlfriendNameAndAliases(message) {
   }
 
   return result;
+}
+
+function extractPreferredName(message) {
+  const match =
+    message.match(/\b(?:my name is|call me|i am called|i'm called|my preferred name is)\s+([^.,\n]+)/i) ||
+    message.match(/(?:اسمي|ناديني|اسمي هو)\s+([^.,،\n]+)/i);
+
+  return match ? normalizeNameValue(match[1]) : "";
 }
 
 function extractContinuationAlias(message) {
@@ -498,6 +756,14 @@ function normalizeName(value) {
     .replace(/[.،,!?؟]+$/g, "");
 }
 
+function normalizeNameValue(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^["'“”]+|["'“”]+$/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/[.،,!?؟]+$/g, "");
+}
+
 function upsertFact(memory, fact) {
   const key = fact.key;
   const existing = memory.facts.find((item) => item.key === key);
@@ -516,6 +782,64 @@ function upsertFact(memory, fact) {
   } else {
     memory.facts.push(next);
   }
+}
+
+function upsertImportantPerson(memory, person) {
+  const canonicalName = normalizeNameValue(person.canonicalName);
+
+  if (!canonicalName) return;
+
+  const next = {
+    canonicalName,
+    aliases: mergeUnique([canonicalName, ...(person.aliases || [])]),
+    relationship: String(person.relationship || "").trim().toLowerCase(),
+    notes: normalizeStringList(person.notes || []),
+    confidence: Number(person.confidence || 0.7),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const candidateAliases = new Set(next.aliases.map((alias) => alias.toLowerCase()));
+  const existing = memory.importantPeople.find((item) => {
+    const aliases = new Set([item.canonicalName, ...(item.aliases || [])].map((alias) => normalizeNameValue(alias).toLowerCase()));
+    return [...candidateAliases].some((alias) => aliases.has(alias));
+  });
+
+  if (existing) {
+    existing.aliases = mergeUnique([...(existing.aliases || []), ...next.aliases]);
+    existing.relationship = next.relationship || existing.relationship;
+    existing.notes = mergeUnique([...(existing.notes || []), ...next.notes]);
+    existing.confidence = Math.max(Number(existing.confidence || 0), next.confidence);
+    existing.updatedAt = next.updatedAt;
+  } else {
+    memory.importantPeople.push(next);
+  }
+}
+
+function upsertRelationshipFact(memory, fact) {
+  const key = fact.key || `relationship.${hashText(fact.summary || "")}`;
+  const summary = String(fact.summary || "").trim();
+
+  if (!summary) return;
+
+  const existing = memory.relationshipFacts.find((item) => item.key === key);
+  const next = {
+    key,
+    summary,
+    people: normalizeStringList(fact.people || []),
+    confidence: Number(fact.confidence || 0.65),
+    volatile: Boolean(fact.volatile),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existing) {
+    Object.assign(existing, next);
+  } else {
+    memory.relationshipFacts.push(next);
+  }
+}
+
+function knownImportantPeopleNames(memory) {
+  return memory.importantPeople.map((person) => person.canonicalName).filter(Boolean);
 }
 
 function getFact(memory, key) {
@@ -566,6 +890,86 @@ function summarizeMemory(memory) {
   }
 
   return `Here is what I remember:\n${lines.map((line) => `- ${line}`).join("\n")}`;
+}
+
+function normalizeStringList(value) {
+  const raw = Array.isArray(value) ? value : (value ? [value] : []);
+  return mergeUnique(raw.map((item) => String(item || "").trim()).filter(Boolean));
+}
+
+function normalizeImportantPeople(value) {
+  if (!Array.isArray(value)) return [];
+
+  const output = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+
+    const canonicalName = normalizeNameValue(item.canonicalName || item.canonical_name || item.name || "");
+    if (!canonicalName) continue;
+
+    output.push({
+      canonicalName,
+      aliases: mergeUnique([canonicalName, ...(item.aliases || [])]),
+      relationship: String(item.relationship || "").trim().toLowerCase(),
+      notes: normalizeStringList(item.notes || []),
+      confidence: Number(item.confidence || 0.7),
+      updatedAt: item.updatedAt || item.updated_at || new Date().toISOString(),
+    });
+  }
+
+  return output.slice(0, 80);
+}
+
+function normalizeRelationshipFacts(value) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== "object") return null;
+
+      const summary = String(item.summary || item.value || "").trim();
+      if (!summary) return null;
+
+      return {
+        key: item.key || `relationship.${hashText(summary)}.${index}`,
+        summary,
+        people: normalizeStringList(item.people || []),
+        confidence: Number(item.confidence || 0.65),
+        volatile: Boolean(item.volatile),
+        updatedAt: item.updatedAt || item.updated_at || new Date().toISOString(),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 80);
+}
+
+function normalizeCommunicationPreferences(value) {
+  const raw = value && typeof value === "object" ? value : {};
+
+  return {
+    tone: String(raw.tone || "").trim(),
+    language: String(raw.language || "").trim(),
+    responseStyle: normalizeStringList(raw.responseStyle || raw.response_style || []),
+    avoid: normalizeStringList(raw.avoid || []),
+  };
+}
+
+function categoryToBackend(category) {
+  const value = String(category || "").toLowerCase();
+
+  if (value.includes("trigger")) return "trigger";
+  if (value.includes("goal")) return "goal";
+  if (value.includes("preference") || value.includes("style")) return "preference";
+  if (value.includes("relationship")) return "support_context";
+  if (value.includes("safety")) return "safety_flag";
+  return "other";
+}
+
+function titleCase(value) {
+  return String(value || "Memory")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function mergeUnique(values) {

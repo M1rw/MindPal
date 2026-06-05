@@ -20,7 +20,7 @@ MindPal Voice State Machine
 
 Design goals:
 - Web Speech recognition never auto-retries after no-speech/network/device errors.
-- Waveform is visual only; waveform volume is not treated as confirmed speech.
+- Waveform is visual only; hardware waveform volume is the only audio detection signal.
 - Retry is the only path from terminal error states back to recording.
 - One cleanup path owns recognition, timers, mic stream, AudioContext, and UI.
 - The panel design stays the same: inline waveform + transcript + retry/cancel/check.
@@ -202,17 +202,21 @@ export function initVoice({
 
       enterPhase(PHASE.PREPARING_MIC);
 
-      try {
-        await startMicMeter();
-      } catch (error) {
-        console.warn("Mic capture failed:", error);
+      if (shouldUseHardwareMicMeter()) {
+        try {
+          await startMicMeter();
+        } catch (error) {
+          console.warn("Mic capture failed:", error);
 
-        const permissionError =
-          error?.name === "NotAllowedError" ||
-          error?.name === "PermissionDeniedError";
+          const permissionError =
+            error?.name === "NotAllowedError" ||
+            error?.name === "PermissionDeniedError";
 
-        endToTerminal(permissionError ? PHASE.PERMISSION_ERROR : PHASE.DEVICE_ERROR, { runId });
-        return false;
+          endToTerminal(permissionError ? PHASE.PERMISSION_ERROR : PHASE.DEVICE_ERROR, { runId });
+          return false;
+        }
+      } else {
+        startSyntheticWaveform();
       }
 
       if (!startSpeechRecognition(effectiveLocale, runId, SpeechRecognitionCtor)) {
@@ -230,7 +234,7 @@ export function initVoice({
     clearRecognition({ abort: true });
 
     recognition = new SpeechRecognitionCtor();
-    recognition.continuous = true;
+    recognition.continuous = !isMobileSpeechClient();
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognition.lang = resolveSpeechRecognitionLocale(locale);
@@ -343,6 +347,33 @@ export function initVoice({
     }
   }
 
+  function startSyntheticWaveform() {
+    stopMicMeter();
+
+    const startedAt = Date.now();
+
+    const draw = () => {
+      const refs = getRefs();
+      const bars = refs.bars;
+      const elapsed = (Date.now() - startedAt) / 1000;
+
+      for (let index = 0; index < bars.length; index += 1) {
+        const wave = Math.sin(elapsed * 4.8 + index * 0.8);
+        const level = 0.34 + Math.abs(wave) * 0.38;
+        const bar = bars[index];
+
+        if (bar) {
+          bar.style.height = `${Math.round(10 + level * 28)}px`;
+          bar.style.opacity = `${clamp(0.34 + level * 0.5, 0.34, 0.78)}`;
+        }
+      }
+
+      waveformFrame = window.requestAnimationFrame(draw);
+    };
+
+    draw();
+  }
+
   async function startMicMeter() {
     stopMicMeter();
 
@@ -425,6 +456,18 @@ export function initVoice({
     }
 
     waveformFrame = window.requestAnimationFrame(drawWaveform);
+  }
+
+  function shouldUseHardwareMicMeter() {
+    return !isMobileSpeechClient();
+  }
+
+  function isMobileSpeechClient() {
+    const ua = navigator.userAgent || navigator.vendor || "";
+    const touchPoints = navigator.maxTouchPoints || 0;
+    const isIPadOS = navigator.platform === "MacIntel" && touchPoints > 1;
+
+    return /iPad|iPhone|iPod|Android/i.test(ua) || isIPadOS;
   }
 
   function stopVoiceRecognition() {

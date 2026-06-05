@@ -14,7 +14,7 @@ Start here:
 - `docs/backend/rag-clinical-frameworks.md`
 - `docs/backend/memory-v2.md`
 - `docs/backend/chat-sync-and-history.md`
-- `docs/frontend/voice-and-mobile-ios.md`
+- `docs/frontend/voice-and-mobile-ios.md` covers iOS and Android mobile voice behavior.
 - `docs/observability/debug-panel.md`
 - `docs/testing/regression-checklist.md`
 - `docs/ops/release-and-deploy-flow.md`
@@ -28,4 +28,3 @@ Core rules:
 5. Safety routing overrides user mode preferences.
 6. Egyptian Arabic input should get natural Egyptian Arabic output unless the user asks otherwise.
 7. Clinical frameworks are safe technique guidance, not diagnosis, treatment, or therapy claims.
-

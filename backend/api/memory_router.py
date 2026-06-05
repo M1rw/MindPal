@@ -252,6 +252,11 @@ def _summary_for_session(summary: MemorySummary, *, user_id_hash: str) -> Memory
     return summary.model_copy(
         update={
             "user_id_hash": clean_user_hash,
+            "important_people": summary.important_people[:MAX_CLIENT_MEMORY_ITEMS],
+            "relationship_facts": summary.relationship_facts[:MAX_CLIENT_MEMORY_ITEMS],
+            "emotional_triggers": summary.emotional_triggers[:MAX_CLIENT_MEMORY_ITEMS],
+            "user_goals": summary.user_goals[:MAX_CLIENT_MEMORY_ITEMS],
+            "avoided_responses": summary.avoided_responses[:MAX_CLIENT_MEMORY_ITEMS],
             "known_triggers": summary.known_triggers[:MAX_CLIENT_MEMORY_ITEMS],
             "preferred_coping_tools": summary.preferred_coping_tools[:MAX_CLIENT_MEMORY_ITEMS],
             "goals": summary.goals[:MAX_CLIENT_MEMORY_ITEMS],
