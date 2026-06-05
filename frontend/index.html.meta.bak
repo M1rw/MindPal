@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Tailwind CSS -->
+    <meta name="description" content="MindPal — AI mental wellness companion.">
+    <title>MindPal — AI Mental Wellness Companion</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Lucide Icons -->
@@ -115,49 +118,6 @@
             color: #ef4444 !important;
         }
     </style>
-    
-    <!-- MindPal SEO / Social / PWA -->
-    <title>MindPal — AI support that remembers what matters</title>
-    <meta name="description" content="MindPal is a private AI companion for reflection, emotional clarity, voice journaling, memory, and practical support.">
-    <meta name="robots" content="index, follow, max-image-preview:large">
-    <link rel="canonical" href="https://mindpal-demo.vercel.app/">
-
-    <meta name="application-name" content="MindPal">
-    <meta name="apple-mobile-web-app-title" content="MindPal">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="format-detection" content="telephone=no">
-
-    <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
-
-    <link rel="manifest" href="/site.webmanifest">
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="icon" href="/assets/brand/icon-32.png" type="image/png" sizes="32x32">
-    <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
-
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="MindPal">
-    <meta property="og:title" content="MindPal — AI support that remembers what matters">
-    <meta property="og:description" content="MindPal is a private AI companion for reflection, emotional clarity, voice journaling, memory, and practical support.">
-    <meta property="og:url" content="https://mindpal-demo.vercel.app/">
-    <meta property="og:image" content="https://mindpal-demo.vercel.app/assets/brand/og-image.png">
-    <meta property="og:image:secure_url" content="https://mindpal-demo.vercel.app/assets/brand/og-image.png">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="MindPal — AI support that remembers what matters">
-    <meta property="og:locale" content="en_US">
-
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="MindPal — AI support that remembers what matters">
-    <meta name="twitter:description" content="MindPal is a private AI companion for reflection, emotional clarity, voice journaling, memory, and practical support.">
-    <meta name="twitter:image" content="https://mindpal-demo.vercel.app/assets/brand/og-image.png">
-    <meta name="twitter:image:alt" content="MindPal — AI support that remembers what matters">
-    <!-- /MindPal SEO / Social / PWA -->
-
 </head>
 
 <body class="bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">

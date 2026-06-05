@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mindpal-demo.vercel.app/sitemap.xml
