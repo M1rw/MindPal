@@ -674,14 +674,14 @@ async function appendMessageToUI(text, sender, {
   const isCrisis = isCrisisReply(text, safetyLevel);
   const parsed = processStructuredResponse(text);
 
-  msgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-10";
+  msgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
 
   const contentContainer = document.createElement("div");
   contentContainer.className = `flex flex-col text-[15px] ${
     isCrisis
       ? "text-rose-700 dark:text-rose-400 font-medium"
       : "text-gemini-text dark:text-gemini-darkText"
-  } leading-relaxed max-w-3xl w-full`;
+  } leading-relaxed max-w-3xl w-full pr-2 sm:pr-0`;
 
   if (parsed.timelineHtml) {
     const timelineDiv = document.createElement("div");
