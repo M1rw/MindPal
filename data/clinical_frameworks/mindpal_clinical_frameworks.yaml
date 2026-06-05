@@ -1,0 +1,317 @@
+schema_version: 1
+domain: clinical_frameworks
+description: >
+  Curated non-clinical wellness framework units for MindPal RAG retrieval.
+  These units provide practical grounding, emotion regulation, cognitive
+  support, study triage, and relationship safety/boundary patterns. They are
+  not diagnosis, treatment, therapy, legal advice, or emergency response.
+
+units:
+  - id: clinical_panic_grounding_54321
+    category: anxiety
+    technique: panic grounding with 5-4-3-2-1
+    trigger_terms:
+      - panic
+      - panic attack
+      - anxiety attack
+      - I am panicking
+      - can't breathe
+      - cannot breathe
+      - heart racing
+      - spiraling
+      - نوبة هلع
+      - مش قادر اتنفس
+      - مش قادرة اتنفس
+      - قلبي بيدق بسرعة
+    instructions:
+      - Start with one immediate sensory step, not an explanation.
+      - Ask for 5 things the user can see, then pause.
+      - If they can continue, ask for 4 physical sensations, 3 sounds, 2 smells, and 1 taste.
+      - Keep each instruction short and concrete.
+      - Switch to orienting to the room if counting feels too hard.
+    contraindications:
+      - Do not claim the user is medically safe or that symptoms are harmless.
+      - Do not present grounding as treatment for panic disorder.
+      - If the user reports chest pain, fainting, injury, severe shortness of breath, or immediate danger, prioritize urgent real-world help.
+    response_style:
+      - short
+      - calm
+      - step-by-step
+      - concrete
+    tags:
+      - panic_grounding
+      - grounding_54321
+      - anxiety
+      - orienting_to_room
+      - breathing
+
+  - id: clinical_dbt_stop_anger_delay
+    category: emotion_regulation
+    technique: DBT STOP anger delay
+    trigger_terms:
+      - angry
+      - anger
+      - rage
+      - furious
+      - I want to explode
+      - I am about to text
+      - I might say something bad
+      - I want revenge
+      - impulse
+      - متنرفز
+      - غضبان
+      - عايز ازعق
+      - مش قادر امسك نفسي
+      - هتصرف غلط
+    instructions:
+      - Use STOP: Stop, Take a step back, Observe, Proceed intentionally.
+      - Tell the user not to send, shout, decide, or escalate for 90 seconds.
+      - Ask them to put the phone down or physically step away if possible.
+      - Ask what outcome they want after the anger drops.
+      - Choose one next action that reduces damage.
+    contraindications:
+      - Do not validate revenge, threats, intimidation, or property damage.
+      - Do not help draft insulting, coercive, or threatening messages.
+      - If violence or immediate danger is present, prioritize distance and local emergency or trusted support.
+    response_style:
+      - firm
+      - direct
+      - de-escalating
+      - action-oriented
+    tags:
+      - dbt_stop
+      - anger
+      - impulse
+      - emotion_labeling
+      - safety
+
+  - id: clinical_grounding_54321_general
+    category: anxiety
+    technique: 5-4-3-2-1 grounding
+    trigger_terms:
+      - grounding
+      - ground me
+      - disconnected
+      - unreal
+      - overwhelmed
+      - frozen
+      - I feel outside my body
+      - مش مستوعب
+      - تايه
+      - حاسس مش في الواقع
+    instructions:
+      - Ask the user to slowly look around the room.
+      - Name 5 visible objects without judging them.
+      - Name 4 things touching the body or skin.
+      - Continue only if the user can engage without more distress.
+      - End with feet on floor or hand on a stable surface.
+    contraindications:
+      - Do not ask for traumatic details.
+      - Do not force the full sequence if one step is enough.
+      - Do not diagnose dissociation or trauma.
+    response_style:
+      - present-focused
+      - low-pressure
+      - sensory
+      - simple
+    tags:
+      - grounding_54321
+      - orienting_to_room
+      - anxiety
+      - panic_grounding
+
+  - id: clinical_cognitive_reframe_overthinking
+    category: cognitive_support
+    technique: cognitive reframe
+    trigger_terms:
+      - overthinking
+      - I can't stop thinking
+      - rumination
+      - catastrophizing
+      - what if
+      - I am assuming
+      - I failed
+      - everyone hates me
+      - دماغي مش بتسكت
+      - بفكر زيادة
+      - بفترض
+      - انا فاشل
+      - سيناريوهات
+    instructions:
+      - Separate the thought from the facts.
+      - Ask for one fact that supports the thought and one fact that weakens it.
+      - Name the likely thinking trap only when useful.
+      - Build a balanced reframe using realistic wording, not forced positivity.
+      - End with one tiny action that tests reality or reduces the loop.
+    contraindications:
+      - Do not argue aggressively with the user's feeling.
+      - Do not claim certainty about another person's thoughts or motives.
+      - Do not use reframing to minimize danger, abuse, grief, or real constraints.
+    response_style:
+      - balanced
+      - analytical
+      - respectful
+      - concise
+    tags:
+      - cognitive_reframe
+      - emotion_labeling
+      - anxiety
+      - journaling
+
+  - id: clinical_anger_delay
+    category: emotion_regulation
+    technique: anger delay
+    trigger_terms:
+      - I need to calm down before replying
+      - I want to send it now
+      - I might regret this
+      - I want to break something
+      - I want to hurt them emotionally
+      - هبعت دلوقتي
+      - هكلمه دلوقتي
+      - عايز اكسر حاجة
+      - عايز انتقم
+      - هقول كلام يزعل
+    instructions:
+      - Delay irreversible action for 10 minutes.
+      - Move the draft message to notes instead of sending it.
+      - Use a body reset: cold water, step outside, or unclench hands.
+      - Ask what the user wants the situation to look like tomorrow.
+      - Choose the least damaging action that still protects a real boundary.
+    contraindications:
+      - Do not endorse retaliation, humiliation, stalking, threats, or coercion.
+      - Do not write attack messages.
+      - If the user may hurt themselves or someone else, route to safety first.
+    response_style:
+      - practical
+      - consequence-aware
+      - direct
+      - non-shaming
+    tags:
+      - anger
+      - impulse
+      - dbt_stop
+      - safety
+
+  - id: clinical_study_triage
+    category: cognitive_support
+    technique: study triage
+    trigger_terms:
+      - study
+      - exam
+      - quiz
+      - assignment
+      - I can't study
+      - I am behind
+      - too much syllabus
+      - I don't know where to start
+      - امتحان
+      - كويز
+      - مش عارف اذاكر
+      - مش عارفة اذاكر
+      - مش هلحق
+      - متراكم عليا
+    instructions:
+      - Identify the academic bottleneck: deadline, scope, weak topic, or confidence.
+      - Pick the nearest testable topic instead of the whole workload.
+      - Set one 25-minute active recall block.
+      - Define done as a visible output: answered questions, a blank-page recall, or a mistake list.
+      - Reassess after the block, not before.
+    contraindications:
+      - Do not over-therapize academic stress.
+      - Do not create impossible all-night plans.
+      - Do not promise grades or outcomes.
+      - If self-harm risk appears, route to safety first.
+    response_style:
+      - efficient
+      - direct
+      - study-focused
+      - tactical
+    tags:
+      - study_stress
+      - exam_anxiety
+      - cognitive_reframe
+
+  - id: clinical_relationship_boundary
+    category: relationship_support
+    technique: relationship boundary
+    trigger_terms:
+      - relationship boundary
+      - set a boundary
+      - I need respect
+      - they keep criticizing me
+      - they control me
+      - should I continue this relationship
+      - I feel small around them
+      - حدود
+      - عايز احط حدود
+      - عايزة احط حدود
+      - بيقلل مني
+      - بينتقدني
+      - بيتحكم فيا
+      - مش عارف اكمل
+      - مش عارفة اكمل
+      - تعبت من العلاقة
+    instructions:
+      - Name the pattern without diagnosing the other person.
+      - Frame the boundary as a future rule, not punishment.
+      - Use one sentence: when X happens, I feel Y, and I need Z going forward.
+      - Ask one safety/support question if there is control, fear, threats, or long-term humiliation.
+      - Suggest support from a trusted person if the user feels worn down or isolated.
+    contraindications:
+      - Do not diagnose the partner or spouse.
+      - Do not normalize repeated humiliation, control, or fear.
+      - Do not pressure immediate breakup as the only option.
+      - Do not recommend confrontation when the user may be unsafe.
+    response_style:
+      - protective
+      - direct
+      - calm
+      - non-diagnostic
+    tags:
+      - relationship
+      - relationship_distress
+      - safety
+
+  - id: clinical_relationship_safety
+    category: relationship_support
+    technique: relationship safety check
+    trigger_terms:
+      - unsafe relationship
+      - trapped
+      - afraid of him
+      - afraid of her
+      - threatened me
+      - they hit me
+      - they won't let me leave
+      - abuse
+      - خايفة منه
+      - خايف منها
+      - بيهددني
+      - ضربني
+      - بيضربني
+      - مش سايبني اخرج
+      - حابسني
+      - مش آمنة
+      - خطر
+    instructions:
+      - Prioritize immediate distance and safety over relationship analysis.
+      - Ask whether the user is physically safe right now.
+      - Encourage contacting a nearby trusted person if safe to do so.
+      - If danger is current, point to local emergency support.
+      - Avoid confrontation, negotiation, or evidence-gathering advice during immediate danger.
+    contraindications:
+      - Do not suggest couples communication as the first step when fear, threats, or violence are present.
+      - Do not tell the user to confront the person.
+      - Do not minimize control, threats, or physical harm.
+      - Do not provide tactics for retaliation or evading accountability.
+    response_style:
+      - urgent
+      - concise
+      - protective
+      - practical
+    tags:
+      - relationship
+      - relationship_distress
+      - safety
+      - abuse_or_violence
