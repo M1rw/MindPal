@@ -1,6 +1,3 @@
-Replace your README with this:
-
-````markdown
 # MindPal — AI Support That Remembers What Matters
 
 MindPal is a private AI companion for reflection, emotional clarity, voice journaling, structured memory, grounded coping tools, and context-aware support.
@@ -1414,7 +1411,4 @@ They need something that remembers.
 
 ```txt
 AI support that remembers what matters.
-```
-
-```
 ```
