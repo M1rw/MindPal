@@ -14,6 +14,7 @@ import yaml
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import RAGError
+from backend.core.prompts import VALID_RAG_TAGS
 from backend.core.security import normalize_locale, safe_truncate, sanitize_text
 from backend.models.chat import RagReference
 from backend.services.llm_service import LLMService, build_llm_request
@@ -27,6 +28,9 @@ MAX_INSTRUCTION_CHARS = 500
 MAX_RESPONSE_STYLE_ITEMS = 12
 MAX_LLM_PLAN_CHARS = 6_000
 DEFAULT_MAX_RESULTS = 4
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CORPUS_DIR = Path(__file__).resolve().parents[1] / "rag" / "corpus"
+CLINICAL_FRAMEWORKS_DIR = PROJECT_ROOT / "data" / "clinical_frameworks"
 
 _WORD_RE = re.compile(r"[\w\u0600-\u06FF']+", re.UNICODE)
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
@@ -200,7 +204,8 @@ class RAGService:
         self.settings = settings or get_settings()
         self.production_mode = _is_production(self.settings)
 
-        self.corpus_dir = corpus_dir or Path(__file__).resolve().parents[1] / "rag" / "corpus"
+        self.corpus_dir = corpus_dir or DEFAULT_CORPUS_DIR
+        self.corpus_dirs = _unique_paths((self.corpus_dir, CLINICAL_FRAMEWORKS_DIR))
         self.llm_service = llm_service
 
         self.enable_llm_planning = (
@@ -244,6 +249,8 @@ class RAGService:
         )
 
         self._units: tuple[GroundingUnit, ...] = ()
+        self._failed_files: tuple[dict[str, str], ...] = ()
+        self._loaded_files: tuple[str, ...] = ()
         self._last_result: RAGRetrievalResult | None = None
         self._using_builtin_fallback = False
 
@@ -259,25 +266,45 @@ class RAGService:
 
     def reload(self) -> None:
         loaded_units: list[GroundingUnit] = []
+        loaded_files: list[str] = []
+        failed_files: list[dict[str, str]] = []
         self._using_builtin_fallback = False
 
-        if self.corpus_dir.exists():
-            for path in sorted(self.corpus_dir.glob("*.yaml")):
-                loaded_units.extend(self._load_yaml_units(path))
+        for corpus_dir in self.corpus_dirs:
+            if not corpus_dir.exists():
+                continue
 
-            for path in sorted(self.corpus_dir.glob("*.yml")):
-                loaded_units.extend(self._load_yaml_units(path))
+            for path in _iter_yaml_files(corpus_dir):
+                try:
+                    units = self._load_yaml_units(path)
+                except RAGError as exc:
+                    failed_files.append(
+                        {
+                            "path": str(path),
+                            "code": sanitize_text(getattr(exc, "code", "") or exc.__class__.__name__, 120),
+                            "message": sanitize_text(str(exc), 300),
+                        }
+                    )
+                    continue
+
+                loaded_units.extend(units)
+                loaded_files.append(str(path))
 
         if loaded_units:
             self._assert_unique_ids(loaded_units)
             self._units = tuple(loaded_units)
+            self._loaded_files = tuple(loaded_files)
+            self._failed_files = tuple(failed_files)
             return
 
         if self.production_mode and not self.allow_builtin_fallback_in_production:
             raise RAGError(
                 "RAG corpus is missing or empty in production",
                 code="rag_corpus_missing_in_production",
-                details={"corpus_dir": str(self.corpus_dir)},
+                details={
+                    "corpus_dirs": [str(path) for path in self.corpus_dirs],
+                    "failed_files": failed_files,
+                },
             )
 
         if self.use_builtin_fallback:
@@ -288,11 +315,16 @@ class RAGService:
             raise RAGError(
                 "RAG corpus is missing or empty",
                 code="rag_corpus_missing",
-                details={"corpus_dir": str(self.corpus_dir)},
+                details={
+                    "corpus_dirs": [str(path) for path in self.corpus_dirs],
+                    "failed_files": failed_files,
+                },
             )
 
         self._assert_unique_ids(loaded_units)
         self._units = tuple(loaded_units)
+        self._loaded_files = tuple(loaded_files)
+        self._failed_files = tuple(failed_files)
 
     async def retrieve_contextual(
         self,
@@ -476,6 +508,8 @@ class RAGService:
 
     def health(self) -> dict[str, Any]:
         categories = sorted({unit.category for unit in self._units})
+        tags = sorted({tag for unit in self._units for tag in unit.tags})
+        invalid_tags = [tag for tag in tags if tag not in VALID_RAG_TAGS]
         planner_state = self._planner_provider_state()
 
         return {
@@ -483,8 +517,14 @@ class RAGService:
             "production_mode": self.production_mode,
             "units_loaded": len(self._units),
             "categories": categories,
+            "tags": tags,
+            "invalid_tags": invalid_tags,
             "corpus_dir": str(self.corpus_dir),
             "corpus_dir_exists": self.corpus_dir.exists(),
+            "corpus_dirs": [str(path) for path in self.corpus_dirs],
+            "corpus_dirs_exist": {str(path): path.exists() for path in self.corpus_dirs},
+            "loaded_files": list(self._loaded_files),
+            "failed_files": list(self._failed_files),
             "using_builtin_fallback": self._using_builtin_fallback,
             "builtin_fallback_enabled": self.use_builtin_fallback,
             "builtin_fallback_allowed_in_production": self.allow_builtin_fallback_in_production,
@@ -637,6 +677,43 @@ class RAGService:
         )
 
         for phrase, tags in heuristic_map:
+            if phrase in combined:
+                expanded_tags.extend(tags)
+
+        valid_tag_heuristics: tuple[tuple[str, tuple[str, ...]], ...] = (
+            ("panic", ("panic_grounding", "grounding_54321", "box_breathing", "anxiety")),
+            ("panic attack", ("panic_grounding", "grounding_54321", "box_breathing", "anxiety")),
+            ("can't breathe", ("panic_grounding", "grounding_54321", "box_breathing")),
+            ("cannot breathe", ("panic_grounding", "grounding_54321", "box_breathing")),
+            ("نوبة هلع", ("panic_grounding", "grounding_54321", "box_breathing")),
+            ("مش قادر اتنفس", ("panic_grounding", "grounding_54321", "box_breathing")),
+            ("مش قادرة اتنفس", ("panic_grounding", "grounding_54321", "box_breathing")),
+            ("angry", ("dbt_stop", "anger", "impulse")),
+            ("rage", ("dbt_stop", "anger", "impulse")),
+            ("furious", ("dbt_stop", "anger", "impulse")),
+            ("متنرفز", ("dbt_stop", "anger")),
+            ("مش قادر امسك نفسي", ("dbt_stop", "impulse")),
+            ("overthinking", ("cognitive_reframe", "emotion_labeling")),
+            ("can't stop thinking", ("cognitive_reframe", "emotion_labeling")),
+            ("catastrophizing", ("cognitive_reframe", "anxiety")),
+            ("worthless", ("cognitive_reframe", "emotion_labeling")),
+            ("i failed", ("cognitive_reframe", "study_stress")),
+            ("انا فاشل", ("cognitive_reframe", "emotion_labeling")),
+            ("exam", ("study_stress", "exam_anxiety")),
+            ("study", ("study_stress",)),
+            ("assignment", ("study_stress",)),
+            ("boundary", ("relationship", "relationship_distress", "safety")),
+            ("relationship", ("relationship", "relationship_distress")),
+            ("partner", ("relationship", "relationship_distress")),
+            ("husband", ("relationship", "relationship_distress", "safety")),
+            ("wife", ("relationship", "relationship_distress", "safety")),
+            ("مش عارف اكمل", ("relationship", "relationship_distress")),
+            ("بيقلل مني", ("relationship", "relationship_distress")),
+            ("بيهددني", ("relationship", "relationship_distress", "safety", "abuse_or_violence")),
+            ("خايفة منه", ("relationship", "relationship_distress", "safety", "abuse_or_violence")),
+        )
+
+        for phrase, tags in valid_tag_heuristics:
             if phrase in combined:
                 expanded_tags.extend(tags)
 
@@ -897,6 +974,27 @@ def _is_production(settings: Settings) -> bool:
 
 def _clean_provider_name(value: str) -> str:
     return sanitize_text(str(value or ""), 80).lower() or "unknown"
+
+
+def _unique_paths(paths: tuple[Path, ...]) -> tuple[Path, ...]:
+    seen: set[str] = set()
+    output: list[Path] = []
+
+    for path in paths:
+        resolved = path.resolve()
+        key = str(resolved).lower()
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        output.append(resolved)
+
+    return tuple(output)
+
+
+def _iter_yaml_files(directory: Path) -> tuple[Path, ...]:
+    return tuple(sorted({*directory.glob("*.yaml"), *directory.glob("*.yml")}))
 
 
 def _score_unit(

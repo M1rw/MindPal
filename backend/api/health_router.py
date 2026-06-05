@@ -113,6 +113,19 @@ async def readiness(
     )
 
 
+@router.get("/rag/health")
+async def rag_health(
+    services: ServicesDep,
+) -> dict[str, Any]:
+    """
+    RAG-specific corpus health.
+
+    Exposes curated corpus loading metadata only. It does not expose prompts,
+    user messages, memory contents, provider secrets, or retrieved chat data.
+    """
+    return services.rag.health()
+
+
 def _build_dependency_health(
     service_health: dict[str, object],
     *,
