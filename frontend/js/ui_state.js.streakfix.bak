@@ -110,7 +110,6 @@ export function addMessage(role, text, extra = {}) {
 
   if (normalizedRole === "User") {
     state.messageCount += 1;
-    recordDailyActivity({ save: false });
   }
 
   saveState();
@@ -130,69 +129,41 @@ export function clearChatMemory() {
 }
 
 export function calculateStreak() {
-  normalizeVisitHistory();
+  const today = new Date().toDateString();
 
-  const snapshot = getStreakSnapshot();
+  if (!Array.isArray(state.visitHistory)) {
+    state.visitHistory = [];
+  }
 
-  state.streak = snapshot.currentStreak;
-  state.lastVisitDate = snapshot.lastActiveDate;
+  if (state.lastVisitDate !== today) {
+    if (state.lastVisitDate) {
+      const previous = new Date(state.lastVisitDate);
+      const now = new Date();
+      const diffDays = Math.ceil(Math.abs(now - previous) / 86_400_000);
 
-  updateStreakUI(snapshot);
+      state.streak = diffDays === 1 ? Number(state.streak || 0) + 1 : 1;
+    } else {
+      state.streak = 1;
+    }
+
+    state.lastVisitDate = today;
+
+    if (!state.visitHistory.includes(today)) {
+      state.visitHistory.push(today);
+    }
+  } else if (!state.visitHistory.includes(today)) {
+    state.visitHistory.push(today);
+  }
+
+  updateStreakUI();
   return state.streak;
 }
 
-export function recordDailyActivity({ save = true } = {}) {
-  normalizeVisitHistory();
-
-  const todayKey = getLocalDateKey();
-
-  if (!state.visitHistory.includes(todayKey)) {
-    state.visitHistory.push(todayKey);
-  }
-
-  state.visitHistory = normalizeDayKeys(state.visitHistory);
-  state.lastVisitDate = todayKey;
-
-  const snapshot = getStreakSnapshot(todayKey);
-
-  state.streak = snapshot.currentStreak;
-  state.lastVisitDate = snapshot.lastActiveDate;
-
-  updateStreakUI(snapshot);
-
-  if (save) {
-    saveState();
-  }
-
-  return snapshot;
-}
-
-export function getStreakSnapshot(todayKey = getLocalDateKey()) {
-  normalizeVisitHistory();
-
-  const activeDays = new Set(state.visitHistory);
-  const currentStreak = computeCurrentStreak(activeDays, todayKey);
-  const lastActiveDate = getMostRecentActiveDate(activeDays);
-
-  return {
-    todayKey,
-    activeDays,
-    currentStreak,
-    lastActiveDate,
-    weekDays: getLast7Days(todayKey),
-  };
-}
-
-export function updateStreakUI(snapshot = null) {
+export function updateStreakUI() {
   const streakCounter = document.getElementById("streak-counter");
   const modalStreakCount = document.getElementById("modal-streak-count");
-  const statDays = document.getElementById("stat-days");
 
-  const nextSnapshot = snapshot || getStreakSnapshot();
-  const value = String(Number(nextSnapshot.currentStreak || 0));
-
-  state.streak = Number(nextSnapshot.currentStreak || 0);
-  state.lastVisitDate = nextSnapshot.lastActiveDate;
+  const value = String(Number(state.streak || 0));
 
   if (streakCounter) {
     streakCounter.textContent = value;
@@ -200,10 +171,6 @@ export function updateStreakUI(snapshot = null) {
 
   if (modalStreakCount) {
     modalStreakCount.textContent = value;
-  }
-
-  if (statDays) {
-    statDays.textContent = String(nextSnapshot.activeDays.size);
   }
 }
 
@@ -328,19 +295,30 @@ export function updateProfileUI(user = null) {
 }
 
 export function renderWeeklyTracker() {
-  const snapshot = getStreakSnapshot();
+  updateStreakUI();
 
-  updateStreakUI(snapshot);
-
+  const countEl = document.getElementById("modal-streak-count");
   const tracker = document.getElementById("weekly-tracker");
+
+  if (countEl) {
+    countEl.textContent = String(Number(state.streak || 0));
+  }
+
   if (!tracker) return;
 
   tracker.innerHTML = "";
 
-  for (const day of snapshot.weekDays) {
-    const isVisited = snapshot.activeDays.has(day.key);
-    const isToday = day.key === snapshot.todayKey;
-    const label = isToday ? "Today" : day.label;
+  const days = ["S", "M", "T", "W", "T", "F", "S"];
+  const today = new Date();
+
+  for (let i = 6; i >= 0; i -= 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+
+    const dateStr = date.toDateString();
+    const isVisited = state.visitHistory.includes(dateStr);
+    const isToday = i === 0;
+    const label = isToday ? "Today" : days[date.getDay()];
 
     let circleClasses = "w-8 h-8 rounded-full flex items-center justify-center text-sm transition-colors ";
     let iconHtml = "";
@@ -359,7 +337,7 @@ export function renderWeeklyTracker() {
       `
         <div class="flex flex-col items-center gap-2">
           <span class="text-[11px] ${isToday ? "text-gray-900 dark:text-white font-bold" : "text-gray-400 dark:text-gray-500 font-medium"}">${label}</span>
-          <div class="${circleClasses}" title="${day.key}">${iconHtml}</div>
+          <div class="${circleClasses}">${iconHtml}</div>
         </div>
       `,
     );
@@ -600,128 +578,6 @@ export function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
-
-function normalizeVisitHistory() {
-  state.visitHistory = normalizeDayKeys(state.visitHistory);
-
-  if (state.lastVisitDate) {
-    const normalizedLastVisit = normalizeDateKey(state.lastVisitDate);
-
-    if (normalizedLastVisit) {
-      state.lastVisitDate = normalizedLastVisit;
-
-      if (!state.visitHistory.includes(normalizedLastVisit)) {
-        state.visitHistory.push(normalizedLastVisit);
-        state.visitHistory = normalizeDayKeys(state.visitHistory);
-      }
-    } else {
-      state.lastVisitDate = getMostRecentActiveDate(new Set(state.visitHistory));
-    }
-  }
-}
-
-function normalizeDayKeys(values) {
-  if (!Array.isArray(values)) return [];
-
-  const seen = new Set();
-  const output = [];
-
-  for (const value of values) {
-    const key = normalizeDateKey(value);
-
-    if (!key || seen.has(key)) continue;
-
-    seen.add(key);
-    output.push(key);
-  }
-
-  output.sort();
-  return output;
-}
-
-function normalizeDateKey(value) {
-  const raw = String(value || "").trim();
-
-  if (!raw) return "";
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    return raw;
-  }
-
-  const parsed = new Date(raw);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  return getLocalDateKey(parsed);
-}
-
-function getLocalDateKey(date = new Date()) {
-  const value = date instanceof Date ? date : new Date(date);
-
-  if (Number.isNaN(value.getTime())) {
-    return "";
-  }
-
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function parseLocalDateKey(dateKey) {
-  const [year, month, day] = String(dateKey || "").split("-").map(Number);
-
-  if (!year || !month || !day) {
-    return new Date();
-  }
-
-  return new Date(year, month - 1, day);
-}
-
-function addDaysLocal(dateKey, deltaDays) {
-  const date = parseLocalDateKey(dateKey);
-  date.setDate(date.getDate() + Number(deltaDays || 0));
-  return getLocalDateKey(date);
-}
-
-function computeCurrentStreak(activeDays, todayKey = getLocalDateKey()) {
-  let cursor = todayKey;
-  let count = 0;
-
-  while (activeDays.has(cursor)) {
-    count += 1;
-    cursor = addDaysLocal(cursor, -1);
-  }
-
-  return count;
-}
-
-function getMostRecentActiveDate(activeDays) {
-  const values = Array.from(activeDays || []).filter(Boolean).sort();
-  return values.length ? values[values.length - 1] : null;
-}
-
-function getLast7Days(todayKey = getLocalDateKey()) {
-  const labels = ["S", "M", "T", "W", "T", "F", "S"];
-  const output = [];
-
-  for (let offset = 6; offset >= 0; offset -= 1) {
-    const key = addDaysLocal(todayKey, -offset);
-    const date = parseLocalDateKey(key);
-
-    output.push({
-      key,
-      label: labels[date.getDay()],
-    });
-  }
-
-  return output;
-}
-
 
 function normalizeName(value) {
   const clean = String(value || "").trim();
