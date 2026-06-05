@@ -15,7 +15,7 @@ from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
 
 
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025"
+DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
 DEFAULT_TIMEOUT_SECONDS = 45.0
 MAX_MODEL_NAME_CHARS = 120
 MAX_BASE_URL_CHARS = 300
