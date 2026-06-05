@@ -99,14 +99,10 @@ export function addMessage(role, text, extra = {}) {
 
   if (!cleanText) return null;
 
-  const now = new Date().toISOString();
-
   const message = {
     role: normalizedRole,
     text: cleanText,
-    messageId: extra.messageId || extra.message_id || `msg_${cryptoRandomId()}_${Date.now()}`,
-    createdAt: extra.createdAt || extra.created_at || now,
-    syncStatus: extra.syncStatus || "local",
+    createdAt: new Date().toISOString(),
     ...extra,
   };
 
@@ -122,19 +118,7 @@ export function addMessage(role, text, extra = {}) {
 }
 
 export function replaceChatMemory(messages) {
-  state.chatMemory = Array.isArray(messages)
-    ? messages
-        .filter((item) => item && typeof item === "object")
-        .map((item) => ({
-          ...item,
-          role: item.role === "User" || item.role === "user" ? "User" : "MindPal",
-          text: String(item.text || item.content || "").trim(),
-          messageId: item.messageId || item.message_id || `msg_${cryptoRandomId()}_${Date.now()}`,
-          createdAt: item.createdAt || item.created_at || new Date().toISOString(),
-        }))
-        .filter((item) => item.text)
-    : [];
-
+  state.chatMemory = Array.isArray(messages) ? messages : [];
   state.messageCount = state.chatMemory.filter((item) => item.role === "User").length;
   saveState();
 }
