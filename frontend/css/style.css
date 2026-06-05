@@ -93,3 +93,14 @@ details > summary::-webkit-details-marker { display: none; }
 
 .hover\:bg-gemini-surface:hover { background-color: #f0f4f9; }
 .dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #1e1f20; }
+
+/* Message content box padding for proper spacing on all screen sizes */
+.content-box {
+  padding-right: 8px;
+}
+
+@media (max-width: 640px) {
+  .content-box {
+    padding-right: 4px;
+  }
+}
