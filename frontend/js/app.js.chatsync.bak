@@ -6,10 +6,6 @@ import {
   getCurrentUserProfile,
   normalizeChatHistory,
   sendChatMessage,
-  deleteCurrentCloudChat,
-  loadCurrentCloudChat,
-  replaceCurrentCloudChat,
-  upsertCloudChatMessages,
 } from "./api.js";
 
 import {
@@ -70,10 +66,6 @@ let cloudConnectInProgress = false;
 // Initialize to empty. Backend is source of truth for memory via API (Phase 2).
 let memoryContext = createEmptyMemory();
 let currentCloudProfileContext = null;
-let cloudChatHydrated = false;
-let cloudChatSyncInFlight = false;
-let cloudChatSyncTimer = null;
-const pendingCloudChatMessages = [];
 
 document.addEventListener("DOMContentLoaded", bootstrap);
 
@@ -140,7 +132,6 @@ async function initFrontendAuth() {
         const profile = await getCurrentUserProfile(token);
 
         currentCloudProfileContext = buildCloudProfileContext(user, profile);
-        await hydrateCloudChat(token);
 
         setCloudSyncEnabled(true);
         updateProfileUI(user);
@@ -157,159 +148,6 @@ async function initFrontendAuth() {
   }
 }
 
-
-
-
-async function hydrateCloudChat(token) {
-  if (!token || cloudChatHydrated) return;
-
-  try {
-    const response = await loadCurrentCloudChat(token);
-    const cloudMessages = normalizeCloudMessages(response?.chat?.messages || []);
-    const localMessages = normalizeLocalMessages(getState().chatMemory || []);
-    const merged = mergeChatMessages(localMessages, cloudMessages);
-
-    if (merged.length) {
-      replaceChatMemory(merged);
-      renderPersistedChat();
-      setChatStarted(true);
-    }
-
-    cloudChatHydrated = true;
-
-    if (merged.length && merged.length !== cloudMessages.length) {
-      await replaceCurrentCloudChat(merged, token);
-    }
-
-    await flushPendingCloudChatMessages();
-  } catch (error) {
-    console.warn("Cloud chat hydration failed:", error);
-  }
-}
-
-function scheduleCloudMessageSync(message) {
-  if (!message || !getCurrentUser()) return;
-
-  pendingCloudChatMessages.push(normalizeLocalMessage(message));
-
-  if (cloudChatSyncTimer) {
-    window.clearTimeout(cloudChatSyncTimer);
-  }
-
-  cloudChatSyncTimer = window.setTimeout(() => {
-    flushPendingCloudChatMessages();
-  }, 250);
-}
-
-async function flushPendingCloudChatMessages() {
-  if (cloudChatSyncInFlight || pendingCloudChatMessages.length === 0) return;
-
-  const token = await getIdToken();
-  if (!token) return;
-
-  cloudChatSyncInFlight = true;
-
-  try {
-    const batch = pendingCloudChatMessages.splice(0, pendingCloudChatMessages.length);
-    const response = await upsertCloudChatMessages(batch, token);
-
-    if (response?.chat?.messages) {
-      const merged = mergeChatMessages(
-        normalizeLocalMessages(getState().chatMemory || []),
-        normalizeCloudMessages(response.chat.messages),
-      );
-
-      replaceChatMemory(merged);
-    }
-  } catch (error) {
-    console.warn("Cloud chat sync failed; will retry later:", error);
-  } finally {
-    cloudChatSyncInFlight = false;
-  }
-}
-
-async function replaceCloudChatSnapshotSafe(messages = null) {
-  const token = await getIdToken();
-  if (!token) return;
-
-  try {
-    await replaceCurrentCloudChat(normalizeLocalMessages(messages || getState().chatMemory || []), token);
-  } catch (error) {
-    console.warn("Cloud chat snapshot replace failed:", error);
-  }
-}
-
-function normalizeCloudMessages(messages) {
-  if (!Array.isArray(messages)) return [];
-
-  return messages
-    .map((message) => ({
-      role: message.role === "User" || message.role === "user" ? "User" : "MindPal",
-      text: String(message.text || message.content || "").trim(),
-      messageId: message.message_id || message.messageId || stableMessageId(message),
-      createdAt: message.created_at || message.createdAt || new Date().toISOString(),
-      providerUsed: message.provider_used || message.providerUsed || "",
-      requestId: message.request_id || message.requestId || "",
-      safety: message.metadata?.safety || message.safety || null,
-      ragUsed: message.metadata?.rag_used || message.metadata?.ragUsed || message.rag_used || message.ragUsed || [],
-      memoryUpdated: Boolean(message.metadata?.memory_updated || message.metadata?.memoryUpdated || message.memory_updated || message.memoryUpdated),
-      regenerated: Boolean(message.metadata?.regenerated || message.regenerated),
-      syncStatus: "cloud",
-    }))
-    .filter((message) => message.text);
-}
-
-function normalizeLocalMessages(messages) {
-  if (!Array.isArray(messages)) return [];
-
-  return messages
-    .map(normalizeLocalMessage)
-    .filter((message) => message.text);
-}
-
-function normalizeLocalMessage(message) {
-  return {
-    ...message,
-    role: message?.role === "User" || message?.role === "user" ? "User" : "MindPal",
-    text: String(message?.text || message?.content || "").trim(),
-    messageId: message?.messageId || message?.message_id || stableMessageId(message),
-    createdAt: message?.createdAt || message?.created_at || new Date().toISOString(),
-  };
-}
-
-function mergeChatMessages(localMessages, cloudMessages) {
-  const byId = new Map();
-
-  for (const message of [...localMessages, ...cloudMessages]) {
-    const clean = normalizeLocalMessage(message);
-    if (!clean.text) continue;
-
-    byId.set(clean.messageId || stableMessageId(clean), clean);
-  }
-
-  return Array.from(byId.values()).sort((a, b) => {
-    const dateA = String(a.createdAt || "");
-    const dateB = String(b.createdAt || "");
-
-    if (dateA !== dateB) {
-      return dateA.localeCompare(dateB);
-    }
-
-    return String(a.messageId || "").localeCompare(String(b.messageId || ""));
-  });
-}
-
-function stableMessageId(message) {
-  const seed = `${message?.role || ""}|${message?.createdAt || message?.created_at || ""}|${message?.text || message?.content || ""}`;
-  let hash = 0;
-
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = ((hash << 5) - hash) + seed.charCodeAt(index);
-    hash |= 0;
-  }
-
-  return `msg_${Math.abs(hash).toString(36)}`;
-}
 
 
 function buildCloudProfileContext(user, profile = null) {
@@ -461,7 +299,6 @@ function bindProfileModal() {
       console.info("MindPal backend profile:", profile);
 
       currentCloudProfileContext = buildCloudProfileContext(user, profile);
-      await hydrateCloudChat(token);
 
       setCloudSyncEnabled(true);
       updateProfileUI(user);
@@ -485,8 +322,6 @@ function bindProfileModal() {
     }
 
     currentCloudProfileContext = null;
-    cloudChatHydrated = false;
-    pendingCloudChatMessages.length = 0;
     setCloudSyncEnabled(false);
     updateProfileUI(null);
     showToast("Signed out. Local mode enabled.");
@@ -627,7 +462,6 @@ function bindConversationActions() {
 
       if (token) {
         await deleteMemory(token);
-        await deleteCurrentCloudChat(token);
       }
     } catch {
       // Local clear should still happen.
@@ -658,8 +492,7 @@ async function handleSend() {
 
   await appendMessageToUI(text, "user", { smoothScroll: true });
 
-  const userMessageRecord = addMessage("User", text);
-  scheduleCloudMessageSync(userMessageRecord);
+  addMessage("User", text);
   clearInput();
 
   const recentMessages = getState().chatMemory.slice(-8);
@@ -671,12 +504,10 @@ async function handleSend() {
   memoryContext = memoryResult.memory;
 
   if (memoryResult.shouldIntercept && memoryResult.localReply) {
-    const memoryReplyRecord = addMessage("MindPal", memoryResult.localReply, {
+    addMessage("MindPal", memoryResult.localReply, {
       providerUsed: "local_memory",
       memoryUpdated: true,
     });
-
-    scheduleCloudMessageSync(memoryReplyRecord);
 
     await appendMessageToUI(memoryResult.localReply, "bot", {
       smoothScroll: true,
@@ -694,12 +525,10 @@ async function handleSend() {
   const memoryDirectAnswer = answerQuestionFromMemory(text, memoryContext);
 
   if (memoryDirectAnswer) {
-    const memoryAnswerRecord = addMessage("MindPal", memoryDirectAnswer, {
+    addMessage("MindPal", memoryDirectAnswer, {
       providerUsed: "local_memory",
       memoryUsed: true,
     });
-
-    scheduleCloudMessageSync(memoryAnswerRecord);
 
     await appendMessageToUI(memoryDirectAnswer, "bot", {
       smoothScroll: true,
@@ -748,15 +577,13 @@ async function handleSend() {
       voiceController?.setLocked(true);
     }
 
-    const assistantMessageRecord = addMessage("MindPal", reply, {
+    addMessage("MindPal", reply, {
       requestId: response.request_id || null,
       providerUsed: response.provider_used || null,
       safety: response.safety || null,
       ragUsed: response.rag_used || [],
       memoryUpdated: Boolean(response.memory_updated),
     });
-
-    scheduleCloudMessageSync(assistantMessageRecord);
 
     await appendMessageToUI(reply, "bot", {
       smoothScroll: true,
@@ -769,12 +596,10 @@ async function handleSend() {
 
     const fallback = buildClientFallbackReply(error);
 
-    const fallbackMessageRecord = addMessage("MindPal", fallback, {
+    addMessage("MindPal", fallback, {
       providerUsed: "client_fallback",
       errorCode: error?.code || "frontend_error",
     });
-
-    scheduleCloudMessageSync(fallbackMessageRecord);
 
     await appendMessageToUI(fallback, "bot", {
       smoothScroll: true,
@@ -1024,7 +849,6 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
   replaceChatMemory(preservedMessages);
   renderPersistedChat();
-  void replaceCloudChatSnapshotSafe(preservedMessages);
 
   isGenerating = true;
   voiceController?.setGenerating(true);
@@ -1061,7 +885,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       voiceController?.setLocked(true);
     }
 
-    const regeneratedRecord = addMessage("MindPal", reply, {
+    addMessage("MindPal", reply, {
       requestId: response.request_id || null,
       providerUsed: response.provider_used || null,
       safety: response.safety || null,
@@ -1069,8 +893,6 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       memoryUpdated: Boolean(response.memory_updated),
       regenerated: true,
     });
-
-    scheduleCloudMessageSync(regeneratedRecord);
 
     await appendMessageToUI(reply, "bot", {
       smoothScroll: true,
@@ -1083,13 +905,11 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
     const fallback = buildClientFallbackReply(error);
 
-    const regeneratedFallbackRecord = addMessage("MindPal", fallback, {
+    addMessage("MindPal", fallback, {
       providerUsed: "client_fallback",
       errorCode: error?.code || "frontend_regenerate_error",
       regenerated: true,
     });
-
-    scheduleCloudMessageSync(regeneratedFallbackRecord);
 
     await appendMessageToUI(fallback, "bot", {
       smoothScroll: true,
