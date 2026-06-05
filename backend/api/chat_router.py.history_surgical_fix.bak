@@ -150,7 +150,6 @@ async def chat(
                 "authenticated": authenticated,
                 "safety_level": safety_decision.level.value,
                 "response_mode": response_mode,
-                "history_count": len(payload.history or []),
                 "mode_preference": user_preference,
                 "intent_situation_type": intent_context.get("situation_type"),
             },
