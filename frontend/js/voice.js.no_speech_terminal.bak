@@ -217,7 +217,17 @@ export function initVoice({
       }
 
       if (error === "no-speech") {
-        finishVoiceCaptureForRetry(hasRecentVoiceActivity() ? "heard_no_transcript" : "no_speech");
+        if (hasRecentVoiceActivity()) {
+          setPhase("hearing_audio");
+          if (scheduleRecognitionRestart(locale)) return;
+        }
+
+        if (tryAdvanceLocaleFallback(locale)) {
+          setPhase("hearing_audio");
+          if (scheduleRecognitionRestart(locale)) return;
+        }
+
+        setPhase("no_speech");
         return;
       }
 
@@ -260,12 +270,6 @@ export function initVoice({
         return;
       }
 
-
-      if (lastRecognitionError === "no-speech") {
-        finishVoiceCaptureForRetry(hasRecentVoiceActivity() ? "heard_no_transcript" : "no_speech");
-        return;
-      }
-
       if (interimTranscript) {
         finalTranscript = `${finalTranscript} ${interimTranscript}`.trim();
         interimTranscript = "";
@@ -285,7 +289,7 @@ export function initVoice({
 
       if (
         sessionActive &&
-        lastRecognitionError === "network" &&
+        (lastRecognitionError === "no-speech" || lastRecognitionError === "network") &&
         hasRecentVoiceActivity()
       ) {
         setPhase("hearing_audio");
@@ -311,27 +315,6 @@ export function initVoice({
       console.warn("Speech recognition start failed:", err);
       return false;
     }
-  }
-
-
-  function finishVoiceCaptureForRetry(phase = "no_speech") {
-    sessionActive = false;
-    isRecording = false;
-    manualStopRequested = false;
-
-    window.clearTimeout(pendingRestartTimer);
-    pendingRestartTimer = null;
-
-    if (typeof clearPendingStartTimer === "function") {
-      clearPendingStartTimer();
-    }
-
-    cleanupRecognition({ keepState: true });
-    stopMicMeter();
-    setMainMicIdle();
-    setInputBoxVoiceMode(true);
-    setPhase(phase);
-    updateTranscriptUI();
   }
 
   function scheduleRecognitionRestart(locale) {
@@ -597,10 +580,7 @@ export function initVoice({
 
     window.clearTimeout(pendingRestartTimer);
     pendingRestartTimer = null;
-
-    if (typeof clearPendingStartTimer === "function") {
-      clearPendingStartTimer();
-    }
+    clearPendingStartTimer();
 
     if (recognition) {
       try {
@@ -613,13 +593,16 @@ export function initVoice({
     cleanupRecognition({ keepState: true });
     stopMicMeter();
     resetSessionState();
-    setMainMicIdle();
-    setInputBoxVoiceMode(true);
 
-    window.setTimeout(() => {
-      manualStopRequested = false;
-      startVoiceCapture();
-    }, RESTART_COOLDOWN_MS);
+    window.setTimeout(startVoiceCapture, RESTART_COOLDOWN_MS);
+  }
+
+
+  function clearPendingStartTimer() {
+    if (startPendingTimer !== null) {
+      window.clearTimeout(startPendingTimer);
+      startPendingTimer = null;
+    }
   }
 
   function cleanupRecognition({ keepState = false } = {}) {
@@ -682,11 +665,11 @@ export function initVoice({
       listening: ["Listening", "Speak naturally. Press check to use the transcript."],
       hearing_audio: ["Listening", "I can hear your mic. Keep speaking while transcription catches up."],
       review: ["Review voice input", "Press check to place it in the message box."],
-      heard_no_transcript: ["Audio heard", "Your mic worked, but the browser did not return words. Press retry or type."],
+      heard_no_transcript: ["Audio heard", "Your mic worked, but the browser did not return words. Try again or type."],
       network_error: ["Voice transcription unavailable", "Your mic works, but browser speech service failed. Try again or type."],
       permission_error: ["Microphone blocked", "Allow microphone access in your browser settings."],
       device_error: ["No microphone found", "Connect a microphone or use typing."],
-      no_speech: ["No speech detected", "Press retry and speak closer to the mic."],
+      no_speech: ["No speech detected", "Try again and speak closer to the mic."],
       unsupported: ["Voice unavailable", "This browser does not support speech recognition."],
       idle: ["Voice paused", "Try again or type your message."],
     };
