@@ -659,14 +659,25 @@ class MemoryService:
             existing=existing,
         )
 
-        # LLM summary is primary. Local extraction only runs as fallback (in compact_local).
-        # Do not merge both; rely on LLM output for quality/safety.
+        # Preserve existing memory on the LLM path.
+        # The LLM may return only a fresh delta even though existing_memory was supplied.
+        # Treat the validated LLM output as new memory, then merge it with:
+        # 1) existing stored memory
+        # 2) deterministic local extraction from the current interactions
+        local_extraction = self.extract_from_interactions(request.interactions)
+        merged_summary = self.merge_summary_from_llm_and_local(
+            existing=existing,
+            llm_summary=llm_summary,
+            local_extraction=local_extraction,
+            user_id_hash=request.user_id_hash,
+        )
+
         result = MemoryCompactionResult(
             request_id=request.request_id,
             user_id_hash=request.user_id_hash,
-            summary=llm_summary,
-            changed=_summary_changed(existing, llm_summary),
-            items_added=len(llm_summary.items),
+            summary=merged_summary,
+            changed=_summary_changed(existing, merged_summary),
+            items_added=max(0, len(merged_summary.items) - len(existing.items)),
         )
 
         return LLMCompactionOutcome(

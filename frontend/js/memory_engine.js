@@ -489,6 +489,180 @@ function normalizeMemory(value) {
   };
 }
 
+export function mergeMemoryContexts(existingContext = createEmptyMemory(), incomingContext = createEmptyMemory()) {
+  const existing = normalizeMemory(existingContext);
+  const incoming = normalizeMemory(incomingContext);
+  const merged = normalizeMemory(existing);
+
+  merged.preferredName = incoming.preferredName || existing.preferredName;
+  merged.user.preferredName = merged.preferredName || incoming.user.preferredName || existing.user.preferredName || "";
+
+  merged.importantPeople = mergeImportantPeopleForContext(
+    existing.importantPeople,
+    incoming.importantPeople,
+  );
+
+  merged.relationshipFacts = mergeRelationshipFactsForContext(
+    existing.relationshipFacts,
+    incoming.relationshipFacts,
+  );
+
+  merged.communicationPreferences = {
+    tone: incoming.communicationPreferences.tone || existing.communicationPreferences.tone,
+    language: incoming.communicationPreferences.language || existing.communicationPreferences.language,
+    responseStyle: mergeUnique([
+      ...existing.communicationPreferences.responseStyle,
+      ...incoming.communicationPreferences.responseStyle,
+    ]),
+    avoid: mergeUnique([
+      ...existing.communicationPreferences.avoid,
+      ...incoming.communicationPreferences.avoid,
+    ]),
+  };
+
+  merged.emotionalTriggers = mergeUnique([
+    ...existing.emotionalTriggers,
+    ...incoming.emotionalTriggers,
+  ]);
+
+  merged.userGoals = mergeUnique([
+    ...existing.userGoals,
+    ...incoming.userGoals,
+  ]);
+
+  merged.avoidedResponses = mergeUnique([
+    ...existing.avoidedResponses,
+    ...incoming.avoidedResponses,
+  ]);
+
+  merged.facts = mergeFactsForContext(existing.facts, incoming.facts);
+
+  const existingGirlfriend = existing.relationship.girlfriend;
+  const incomingGirlfriend = incoming.relationship.girlfriend;
+
+  merged.relationship.girlfriend = {
+    name: incomingGirlfriend.name || existingGirlfriend.name,
+    aliases: mergeUnique([
+      existingGirlfriend.name,
+      ...existingGirlfriend.aliases,
+      incomingGirlfriend.name,
+      ...incomingGirlfriend.aliases,
+    ]),
+  };
+
+  if (!merged.relationship.girlfriend.name && merged.relationship.girlfriend.aliases.length) {
+    merged.relationship.girlfriend.name = merged.relationship.girlfriend.aliases[0];
+  }
+
+  merged.focus = incoming.focus || existing.focus || null;
+  merged.updatedAt = new Date().toISOString();
+
+  return normalizeMemory(merged);
+}
+
+function mergeImportantPeopleForContext(existingPeople = [], incomingPeople = []) {
+  const merged = [];
+
+  for (const person of [...existingPeople, ...incomingPeople]) {
+    if (!person || typeof person !== "object") continue;
+
+    const canonicalName = normalizeNameValue(person.canonicalName || person.canonical_name || person.name || "");
+    if (!canonicalName) continue;
+
+    const next = {
+      canonicalName,
+      aliases: mergeUnique([canonicalName, ...(person.aliases || [])]),
+      relationship: String(person.relationship || "").trim().toLowerCase(),
+      notes: normalizeStringList(person.notes || []),
+      confidence: Number(person.confidence || 0.7),
+      updatedAt: person.updatedAt || person.updated_at || new Date().toISOString(),
+    };
+
+    const nextAliases = new Set(next.aliases.map((alias) => normalizeNameValue(alias).toLowerCase()));
+    const existingIndex = merged.findIndex((item) => {
+      const aliases = new Set([item.canonicalName, ...(item.aliases || [])].map((alias) => normalizeNameValue(alias).toLowerCase()));
+      const aliasMatch = [...nextAliases].some((alias) => aliases.has(alias));
+      const relationshipMatch = next.relationship && item.relationship === next.relationship;
+      return aliasMatch || relationshipMatch;
+    });
+
+    if (existingIndex < 0) {
+      merged.push(next);
+      continue;
+    }
+
+    const current = merged[existingIndex];
+    merged[existingIndex] = {
+      ...current,
+      aliases: mergeUnique([...(current.aliases || []), ...next.aliases]),
+      relationship: next.relationship || current.relationship,
+      notes: mergeUnique([...(current.notes || []), ...next.notes]),
+      confidence: Math.max(Number(current.confidence || 0), next.confidence),
+      updatedAt: next.updatedAt,
+    };
+  }
+
+  return merged.slice(0, 80);
+}
+
+function mergeRelationshipFactsForContext(existingFacts = [], incomingFacts = []) {
+  const merged = [];
+  const seen = new Set();
+
+  for (const fact of [...existingFacts, ...incomingFacts]) {
+    if (!fact || typeof fact !== "object") continue;
+
+    const summary = String(fact.summary || fact.value || "").trim();
+    if (!summary) continue;
+
+    const key = fact.key || `relationship.${hashText(summary)}`;
+    const dedupeKey = `${key}:${summary.toLowerCase()}`;
+
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    merged.push({
+      key,
+      summary,
+      people: normalizeStringList(fact.people || []),
+      confidence: Number(fact.confidence || 0.65),
+      volatile: Boolean(fact.volatile),
+      updatedAt: fact.updatedAt || fact.updated_at || new Date().toISOString(),
+    });
+  }
+
+  return merged.slice(0, 80);
+}
+
+function mergeFactsForContext(existingFacts = [], incomingFacts = []) {
+  const mergedByKey = new Map();
+
+  for (const fact of [...existingFacts, ...incomingFacts]) {
+    if (!fact || typeof fact !== "object") continue;
+
+    const value = String(fact.value || fact.text || "").trim();
+    if (!value) continue;
+
+    const key = fact.key || fact?.metadata?.key || `fact.${hashText(value)}`;
+
+    const next = {
+      key,
+      category: fact.category || "profile.fact",
+      value,
+      confidence: Number(fact.confidence || 0.7),
+      volatile: Boolean(fact.volatile),
+      updatedAt: fact.updatedAt || fact.updated_at || fact.created_at || new Date().toISOString(),
+    };
+
+    const current = mergedByKey.get(key);
+    if (!current || next.confidence >= Number(current.confidence || 0)) {
+      mergedByKey.set(key, next);
+    }
+  }
+
+  return [...mergedByKey.values()].slice(0, 80);
+}
+
 export function memoryToBackendSummary(memoryContext, userIdHash = "client") {
   const memory = normalizeMemory(memoryContext);
 
