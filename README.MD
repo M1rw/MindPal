@@ -6,6 +6,9 @@ It started as a simple Discord bot idea.
 
 The original concept was small:
 
+![Screenshot_2](https://github.com/M1rw/MindPal/blob/main/frontend/assets/Screenshot%202026-06-07%20121714.png)
+![Screenshot_2](https://github.com/M1rw/MindPal/blob/main/frontend/assets/Screenshot%202026-06-07%20121844.png)
+
 ```txt
 A Discord bot
   -> mental health resources
