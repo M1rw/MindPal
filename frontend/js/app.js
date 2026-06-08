@@ -67,6 +67,7 @@ import {
   memoryFromBackendSummary,
   memoryToBackendSummary,
   saveMemoryContext,
+  mergeMemoryContexts,
 } from "./memory_engine.js";
 
 let isGenerating = false;
@@ -947,7 +948,9 @@ async function handleSend() {
     scheduleCloudMessageSync(assistantMessageRecord);
 
     if (response.memory_summary) {
-      memoryContext = saveMemoryContext(memoryFromBackendSummary(response.memory_summary));
+      memoryContext = saveMemoryContext(
+        mergeMemoryContexts(memoryContext, memoryFromBackendSummary(response.memory_summary)),
+      );
       renderMemoryInspector();
     }
 
@@ -1266,7 +1269,9 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     scheduleCloudMessageSync(regeneratedRecord);
 
     if (response.memory_summary) {
-      memoryContext = saveMemoryContext(memoryFromBackendSummary(response.memory_summary));
+      memoryContext = saveMemoryContext(
+        mergeMemoryContexts(memoryContext, memoryFromBackendSummary(response.memory_summary)),
+      );
       renderMemoryInspector();
     }
 
