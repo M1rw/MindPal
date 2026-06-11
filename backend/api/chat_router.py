@@ -19,9 +19,21 @@ from backend.models.chat import (
     LLMRole,
 )
 from backend.models.memory import MemoryCompactionRequest, MemorySummary
+from backend.models.memory_v3 import (
+    MemoryGraph,
+    MemorySource as MemoryGraphSource,
+    memory_graph_from_summary,
+    summary_from_memory_graph,
+)
 from backend.models.safety import SafetyDecision
 from backend.models.user import UserProfile
 from backend.services.llm_service import build_llm_request
+from backend.services.memory_graph_service import (
+    build_memory_graph_prompt,
+    extract_memory_graph_from_text,
+    memory_graph_delta_from_summary,
+    merge_memory_graph,
+)
 from backend.services.memory_service import build_memory_interactions
 
 
@@ -93,6 +105,7 @@ async def chat(
         )
 
         memory_summary = None
+        memory_graph = None
         memory_prompt = ""
 
         memory_allowed = bool(
@@ -101,9 +114,12 @@ async def chat(
         )
 
         if memory_allowed:
-            memory_load = await services.db.load_memory(context.session.user_id_hash)
-            memory_summary = memory_load.summary
-            memory_prompt = services.memory.build_prompt_summary(memory_summary)
+            memory_graph = await _load_or_migrate_memory_graph_inline(
+                services=services,
+                user_id_hash=context.session.user_id_hash,
+            )
+            memory_summary = summary_from_memory_graph(memory_graph)
+            memory_prompt = build_memory_graph_prompt(memory_graph)
 
         rag_tags = services.safety.rag_tags_for_decision(safety_decision)
         intent_context = build_intent_context(payload.message, locale=locale)
@@ -167,19 +183,23 @@ async def chat(
 
         memory_updated = False
         response_memory_summary = memory_summary
+        response_memory_graph_delta = None
+        response_memory_graph_snapshot = None
 
         if memory_allowed:
-            updated_summary = await _persist_memory_compaction_inline(
+            graph_update = await _persist_memory_graph_inline(
                 payload=payload,
                 reply=reply,
                 services=services,
                 context=context,
-                existing_summary=memory_summary,
+                existing_graph=memory_graph or MemoryGraph(user_id_hash=context.session.user_id_hash),
                 locale=locale,
             )
-            if updated_summary is not None:
+            if graph_update is not None:
                 memory_updated = True
-                response_memory_summary = updated_summary
+                response_memory_graph_delta = graph_update["delta"]
+                response_memory_graph_snapshot = graph_update["snapshot"]
+                response_memory_summary = summary_from_memory_graph(response_memory_graph_snapshot)
 
         if safety_decision.should_log:
             await _persist_safety_event_inline(
@@ -200,6 +220,9 @@ async def chat(
             rag_used=list(rag_result.references),
             memory_updated=memory_updated,
             memory_summary=response_memory_summary.model_dump(mode="json") if response_memory_summary and not response_memory_summary.is_empty() else None,
+            memory_graph_delta=response_memory_graph_delta.model_dump(mode="json") if response_memory_graph_delta else None,
+            memory_graph_snapshot=response_memory_graph_snapshot.model_dump(mode="json") if response_memory_graph_snapshot else None,
+            memory_graph_full_snapshot=bool(response_memory_graph_snapshot),
             request_id=context.request_id,
         )
 
@@ -364,6 +387,98 @@ async def _persist_memory_compaction_inline(
         )
 
         return safe_summary
+
+    except Exception:
+        return None
+
+
+async def _load_or_migrate_memory_graph_inline(
+    *,
+    services: ServiceContainer,
+    user_id_hash: str,
+) -> MemoryGraph:
+    graph_load = await services.db.load_memory_graph(user_id_hash)
+
+    if graph_load.loaded and graph_load.graph:
+        return graph_load.graph
+
+    memory_load = await services.db.load_memory(user_id_hash)
+
+    if memory_load.summary:
+        graph = memory_graph_from_summary(memory_load.summary)
+        await services.db.save_memory_graph(graph)
+        return graph
+
+    return MemoryGraph(user_id_hash=user_id_hash)
+
+
+async def _persist_memory_graph_inline(
+    *,
+    payload: ChatRequest,
+    reply: str,
+    services: ServiceContainer,
+    context: Any,
+    existing_graph: MemoryGraph,
+    locale: str,
+) -> dict[str, MemoryGraph] | None:
+    """
+    Build a Memory V3 delta and merge it into the durable graph.
+
+    Failures are swallowed because memory persistence must never block chat.
+    """
+    if not bool(context.session.authenticated):
+        return None
+
+    try:
+        deterministic_delta = extract_memory_graph_from_text(
+            payload.message,
+            user_id_hash=context.session.user_id_hash,
+        )
+
+        existing_summary = summary_from_memory_graph(existing_graph)
+        interactions = build_memory_interactions(
+            user_messages=[payload.message],
+            assistant_messages=[reply],
+        )
+        compaction = await asyncio.wait_for(
+            services.memory.compact(
+                MemoryCompactionRequest(
+                    request_id=context.request_id,
+                    user_id_hash=context.session.user_id_hash,
+                    existing_summary=existing_summary,
+                    interactions=interactions,
+                    locale=locale,
+                    force=False,
+                )
+            ),
+            timeout=MEMORY_COMPACTION_TIMEOUT_SECONDS,
+        )
+
+        delta = deterministic_delta
+        if compaction.changed:
+            compacted_delta = memory_graph_delta_from_summary(
+                compaction.summary,
+                source=MemoryGraphSource.BACKEND_COMPACTION,
+            )
+            delta = merge_memory_graph(deterministic_delta, compacted_delta)
+            delta.full_snapshot = False
+
+        if not delta.atoms:
+            return None
+
+        snapshot = merge_memory_graph(existing_graph, delta)
+        snapshot = snapshot.model_copy(update={"user_id_hash": context.session.user_id_hash, "full_snapshot": True})
+
+        await asyncio.wait_for(
+            services.db.save_memory_graph(snapshot),
+            timeout=MEMORY_COMPACTION_TIMEOUT_SECONDS,
+        )
+        await asyncio.wait_for(
+            services.db.save_memory(summary_from_memory_graph(snapshot)),
+            timeout=MEMORY_COMPACTION_TIMEOUT_SECONDS,
+        )
+
+        return {"delta": delta, "snapshot": snapshot}
 
     except Exception:
         return None

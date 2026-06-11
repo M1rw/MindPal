@@ -20,6 +20,11 @@ from backend.models.memory import (
     MemorySummary,
     MemoryWriteResult,
 )
+from backend.models.memory_v3 import (
+    MemoryGraph,
+    MemoryGraphLoadResult,
+    MemoryGraphWriteResult,
+)
 from backend.models.safety import SafetyEvent
 from backend.models.user import (
     UserProfile,
@@ -304,6 +309,7 @@ class DBService:
     """
 
     MEMORY_COLLECTION = "memory_summaries"
+    MEMORY_GRAPH_COLLECTION = "memory_graphs"
     USER_COLLECTION = "user_profiles"
     SAFETY_EVENTS_COLLECTION = "safety_events"
 
@@ -422,6 +428,91 @@ class DBService:
             raise DatabaseError(
                 "Failed to delete memory summary",
                 code="db_memory_delete_failed",
+                details={"provider": self.provider.name, "user_id_hash": user_id_hash},
+            ) from exc
+
+    async def load_memory_graph(self, user_id_hash: str) -> MemoryGraphLoadResult:
+        user_id_hash = _clean_key(user_id_hash)
+
+        try:
+            payload = await self.provider.get_document(self.MEMORY_GRAPH_COLLECTION, user_id_hash)
+
+            if not payload:
+                return MemoryGraphLoadResult(
+                    user_id_hash=user_id_hash,
+                    loaded=False,
+                    graph=None,
+                    provider=self.provider.name,
+                )
+
+            graph = MemoryGraph.model_validate(payload)
+            return MemoryGraphLoadResult(
+                user_id_hash=user_id_hash,
+                loaded=True,
+                graph=graph,
+                provider=self.provider.name,
+            )
+
+        except DatabaseError:
+            raise
+        except Exception as exc:
+            raise DatabaseError(
+                "Failed to load memory graph",
+                code="db_memory_graph_load_failed",
+                details={"provider": self.provider.name, "user_id_hash": user_id_hash},
+            ) from exc
+
+    async def save_memory_graph(self, graph: MemoryGraph) -> MemoryGraphWriteResult:
+        try:
+            clean_graph = graph.model_copy(update={"user_id_hash": _clean_key(graph.user_id_hash)})
+            payload = clean_graph.model_dump(mode="json")
+
+            await self.provider.set_document(
+                self.MEMORY_GRAPH_COLLECTION,
+                clean_graph.user_id_hash,
+                payload,
+            )
+
+            return MemoryGraphWriteResult(
+                user_id_hash=clean_graph.user_id_hash,
+                saved=True,
+                provider=self.provider.name,
+                memory_updated=True,
+                version=clean_graph.version,
+            )
+
+        except DatabaseError:
+            raise
+        except Exception as exc:
+            user_id_hash = getattr(graph, "user_id_hash", "unknown")
+            raise DatabaseError(
+                "Failed to save memory graph",
+                code="db_memory_graph_save_failed",
+                details={
+                    "provider": self.provider.name,
+                    "user_id_hash": sanitize_text(str(user_id_hash), 80),
+                },
+            ) from exc
+
+    async def delete_memory_graph(self, user_id_hash: str) -> MemoryGraphWriteResult:
+        user_id_hash = _clean_key(user_id_hash)
+
+        try:
+            await self.provider.delete_document(self.MEMORY_GRAPH_COLLECTION, user_id_hash)
+            return MemoryGraphWriteResult(
+                user_id_hash=user_id_hash,
+                saved=True,
+                provider=self.provider.name,
+                memory_updated=True,
+                version=1,
+            )
+
+        except DatabaseError:
+            raise
+        except Exception as exc:
+            raise DatabaseError(
+                "Failed to delete memory graph",
+                code="db_memory_graph_delete_failed",
                 details={"provider": self.provider.name, "user_id_hash": user_id_hash},
             ) from exc
 

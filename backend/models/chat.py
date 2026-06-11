@@ -167,6 +167,9 @@ class ChatResponse(BaseModel):
     rag_used: list[RagReference] = Field(default_factory=list, max_length=20)
     memory_updated: bool = False
     memory_summary: dict | None = Field(default=None, description="Compacted memory summary returned from backend")
+    memory_graph_delta: dict | None = Field(default=None, description="Memory V3 graph delta returned from backend")
+    memory_graph_snapshot: dict | None = Field(default=None, description="Memory V3 full snapshot returned from backend")
+    memory_graph_full_snapshot: bool = False
     request_id: str = Field(min_length=1, max_length=80)
 
     @field_validator("reply", mode="before")
