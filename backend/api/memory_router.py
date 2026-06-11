@@ -18,6 +18,19 @@ from backend.models.memory import (
     MemorySummary,
     MemoryWriteResult,
 )
+from backend.models.memory_v3 import (
+    MemoryAtom,
+    MemoryGraph,
+    MemoryGraphLoadResult,
+    MemoryGraphPatch,
+    MemoryGraphWriteResult,
+    memory_graph_from_summary,
+    summary_from_memory_graph,
+)
+from backend.services.memory_graph_service import (
+    delete_memory_atom,
+    merge_memory_graph,
+)
 
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
@@ -64,6 +77,234 @@ class MemorySavePayload(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     summary: MemorySummary
+
+
+class MemoryGraphSavePayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    graph: MemoryGraph
+    also_update_summary: bool = True
+
+
+class MemoryGraphPatchPayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    patch: MemoryGraphPatch
+    also_update_summary: bool = True
+
+
+class MemoryGraphMergePayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    graph: MemoryGraph | None = None
+    atoms: list[MemoryAtom] = Field(default_factory=list, max_length=MAX_CLIENT_MEMORY_ITEMS)
+    also_update_summary: bool = True
+
+
+@router.get("/v3", response_model=MemoryGraphLoadResult)
+async def load_memory_v3(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemoryGraphLoadResult:
+    _assert_authenticated(context)
+
+    try:
+        loaded = await services.db.load_memory_graph(context.session.user_id_hash)
+        if loaded.loaded and loaded.graph:
+            return loaded
+
+        legacy = await services.db.load_memory(context.session.user_id_hash)
+        if legacy.summary:
+            graph = memory_graph_from_summary(legacy.summary)
+            graph = _graph_for_session(graph, user_id_hash=context.session.user_id_hash)
+            await services.db.save_memory_graph(graph)
+            return MemoryGraphLoadResult(
+                user_id_hash=context.session.user_id_hash,
+                loaded=True,
+                graph=graph,
+                migrated_from_summary=True,
+                provider=loaded.provider,
+            )
+
+        return loaded
+
+    except AppError as exc:
+        raise _http_error_from_app_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "memory_graph_load_failed",
+                "message": "Failed to load memory graph",
+                "request_id": context.request_id,
+            },
+        ) from exc
+
+
+@router.put("/v3", response_model=MemoryGraphWriteResult)
+async def save_memory_v3(
+    payload: MemoryGraphSavePayload,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemoryGraphWriteResult:
+    _assert_authenticated(context)
+
+    try:
+        graph = _graph_for_session(payload.graph, user_id_hash=context.session.user_id_hash)
+        result = await services.db.save_memory_graph(graph)
+        if payload.also_update_summary:
+            await services.db.save_memory(summary_from_memory_graph(graph))
+        return result
+
+    except AppError as exc:
+        raise _http_error_from_app_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "memory_graph_save_failed",
+                "message": "Failed to save memory graph",
+                "request_id": context.request_id,
+            },
+        ) from exc
+
+
+@router.patch("/v3", response_model=MemoryGraphLoadResult)
+async def patch_memory_v3(
+    payload: MemoryGraphPatchPayload,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemoryGraphLoadResult:
+    _assert_authenticated(context)
+
+    try:
+        existing = await _load_or_migrate_graph(services, context.session.user_id_hash)
+        graph = existing
+        for atom_id in payload.patch.deleted_atom_ids:
+            graph = delete_memory_atom(graph, atom_id, tombstone=True)
+        graph = merge_memory_graph(graph, payload.patch.atoms)
+        graph = _graph_for_session(graph, user_id_hash=context.session.user_id_hash)
+        await services.db.save_memory_graph(graph)
+        if payload.also_update_summary:
+            await services.db.save_memory(summary_from_memory_graph(graph))
+        return MemoryGraphLoadResult(
+            user_id_hash=context.session.user_id_hash,
+            loaded=True,
+            graph=graph,
+            provider=services.db.provider.name,
+        )
+
+    except AppError as exc:
+        raise _http_error_from_app_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "memory_graph_patch_failed",
+                "message": "Failed to patch memory graph",
+                "request_id": context.request_id,
+            },
+        ) from exc
+
+
+@router.delete("/v3/items/{atom_id}", response_model=MemoryGraphLoadResult)
+async def delete_memory_v3_item(
+    atom_id: str,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemoryGraphLoadResult:
+    _assert_authenticated(context)
+
+    try:
+        graph = await _load_or_migrate_graph(services, context.session.user_id_hash)
+        graph = delete_memory_atom(graph, sanitize_text(atom_id, 160), tombstone=True)
+        await services.db.save_memory_graph(graph)
+        await services.db.save_memory(summary_from_memory_graph(graph))
+        return MemoryGraphLoadResult(
+            user_id_hash=context.session.user_id_hash,
+            loaded=True,
+            graph=graph,
+            provider=services.db.provider.name,
+        )
+
+    except AppError as exc:
+        raise _http_error_from_app_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "memory_graph_delete_item_failed",
+                "message": "Failed to delete memory graph item",
+                "request_id": context.request_id,
+            },
+        ) from exc
+
+
+@router.post("/v3/merge", response_model=MemoryGraphLoadResult)
+async def merge_memory_v3(
+    payload: MemoryGraphMergePayload,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemoryGraphLoadResult:
+    _assert_authenticated(context)
+
+    try:
+        existing = await _load_or_migrate_graph(services, context.session.user_id_hash)
+        incoming = payload.graph or payload.atoms
+        graph = merge_memory_graph(existing, incoming)
+        graph = _graph_for_session(graph, user_id_hash=context.session.user_id_hash)
+        await services.db.save_memory_graph(graph)
+        if payload.also_update_summary:
+            await services.db.save_memory(summary_from_memory_graph(graph))
+        return MemoryGraphLoadResult(
+            user_id_hash=context.session.user_id_hash,
+            loaded=True,
+            graph=graph,
+            provider=services.db.provider.name,
+        )
+
+    except AppError as exc:
+        raise _http_error_from_app_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "memory_graph_merge_failed",
+                "message": "Failed to merge memory graph",
+                "request_id": context.request_id,
+            },
+        ) from exc
+
+
+@router.post("/v3/migrate", response_model=MemoryGraphLoadResult)
+async def migrate_memory_v3(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemoryGraphLoadResult:
+    _assert_authenticated(context)
+
+    try:
+        graph = await _load_or_migrate_graph(services, context.session.user_id_hash)
+        await services.db.save_memory_graph(graph)
+        return MemoryGraphLoadResult(
+            user_id_hash=context.session.user_id_hash,
+            loaded=True,
+            graph=graph,
+            migrated_from_summary=True,
+            provider=services.db.provider.name,
+        )
+
+    except AppError as exc:
+        raise _http_error_from_app_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": "memory_graph_migrate_failed",
+                "message": "Failed to migrate memory graph",
+                "request_id": context.request_id,
+            },
+        ) from exc
 
 
 @router.get("", response_model=MemoryLoadResult)
@@ -264,6 +505,41 @@ def _summary_for_session(summary: MemorySummary, *, user_id_hash: str) -> Memory
             "safety_flags": summary.safety_flags[:MAX_CLIENT_MEMORY_ITEMS],
             "items": summary.items[:MAX_CLIENT_MEMORY_ITEMS],
             "version": max(1, summary.version),
+        }
+    )
+
+
+async def _load_or_migrate_graph(services: Any, user_id_hash: str) -> MemoryGraph:
+    loaded = await services.db.load_memory_graph(user_id_hash)
+
+    if loaded.loaded and loaded.graph:
+        return _graph_for_session(loaded.graph, user_id_hash=user_id_hash)
+
+    legacy = await services.db.load_memory(user_id_hash)
+    if legacy.summary:
+        return _graph_for_session(memory_graph_from_summary(legacy.summary), user_id_hash=user_id_hash)
+
+    return MemoryGraph(user_id_hash=user_id_hash)
+
+
+def _graph_for_session(graph: MemoryGraph, *, user_id_hash: str) -> MemoryGraph:
+    clean_user_hash = sanitize_text(user_id_hash, MAX_SESSION_HASH_CHARS)
+
+    if not clean_user_hash:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "invalid_authenticated_session",
+                "message": "Authenticated session is missing a stable user hash",
+            },
+        )
+
+    return graph.model_copy(
+        update={
+            "user_id_hash": clean_user_hash,
+            "atoms": graph.atoms[:MAX_CLIENT_MEMORY_ITEMS],
+            "version": max(1, graph.version),
+            "full_snapshot": True,
         }
     )
 

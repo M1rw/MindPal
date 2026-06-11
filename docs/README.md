@@ -12,6 +12,7 @@ Start here:
 - `docs/architecture/system-overview.md`
 - `docs/product/current-state-and-roadmap.md`
 - `docs/backend/rag-clinical-frameworks.md`
+- `docs/backend/memory-v3.md`
 - `docs/backend/memory-v2.md`
 - `docs/backend/chat-sync-and-history.md`
 - `docs/frontend/voice-and-mobile-ios.md` covers iOS and Android mobile voice behavior.

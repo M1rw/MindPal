@@ -310,6 +310,46 @@ export async function saveMemory(summary, token) {
   });
 }
 
+export async function loadMemoryGraph(token) {
+  return requestJson("/memory/v3", {
+    method: "GET",
+    token,
+    timeoutMs: 20_000,
+  });
+}
+
+export async function saveMemoryGraph(graph, token) {
+  return requestJson("/memory/v3", {
+    method: "PUT",
+    token,
+    timeoutMs: 20_000,
+    body: {
+      graph,
+      also_update_summary: true,
+    },
+  });
+}
+
+export async function mergeMemoryGraph(graph, token) {
+  return requestJson("/memory/v3/merge", {
+    method: "POST",
+    token,
+    timeoutMs: 20_000,
+    body: {
+      graph,
+      also_update_summary: true,
+    },
+  });
+}
+
+export async function deleteMemoryGraphItem(atomId, token) {
+  return requestJson(`/memory/v3/items/${encodeURIComponent(atomId)}`, {
+    method: "DELETE",
+    token,
+    timeoutMs: 20_000,
+  });
+}
+
 export function buildClientFallbackReply(error) {
   if (error?.status === 401) {
     return "You need to sign in before using this cloud feature.";

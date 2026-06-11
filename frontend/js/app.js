@@ -3,10 +3,14 @@
 import {
   buildClientFallbackReply,
   deleteMemory,
+  deleteMemoryGraphItem,
   getCurrentUserProfile,
   loadMemory,
+  loadMemoryGraph,
+  mergeMemoryGraph,
   normalizeChatHistory,
   saveMemory,
+  saveMemoryGraph,
   sendChatMessage,
   deleteCurrentCloudChat,
   loadCurrentCloudChat,
@@ -60,13 +64,23 @@ import { initVoice } from "./voice.js";
 
 import {
   answerQuestionFromMemory,
+  answerQuestionFromMemoryGraph,
   classifyAndStoreMemoryFromMessage,
+  classifyAndStoreMemoryGraphFromMessage,
   createEmptyMemory,
+  createEmptyMemoryGraph,
+  getMemoryInspectorCards,
   getMemoryInspectorRows,
+  loadMemoryGraphContext,
   loadMemoryContext,
+  memoryGraphFromBackend,
+  memoryGraphFromLegacyMemory,
+  memoryGraphToBackend,
   memoryFromBackendSummary,
   memoryToBackendSummary,
+  mergeMemoryGraphs,
   saveMemoryContext,
+  saveMemoryGraphContext,
   mergeMemoryContexts,
 } from "./memory_engine.js";
 
@@ -76,6 +90,7 @@ let voiceController = null;
 let authUnsubscribe = null;
 let cloudConnectInProgress = false;
 let memoryContext = loadMemoryContext();
+let memoryGraphContext = loadMemoryGraphContext();
 let currentCloudProfileContext = null;
 let cloudChatHydrated = false;
 let cloudChatSyncInFlight = false;
@@ -156,6 +171,7 @@ async function initFrontendAuth() {
         console.warn("Silent cloud profile verification failed:", error);
         currentCloudProfileContext = null;
         memoryContext = loadMemoryContext();
+        memoryGraphContext = loadMemoryGraphContext();
         setCloudSyncEnabled(false);
         updateProfileUI(null);
       }
@@ -173,9 +189,23 @@ async function hydrateCloudMemory(token) {
   if (!token) return;
 
   try {
-    const response = await loadMemory(token);
-    if (response?.loaded && response.summary) {
-      memoryContext = saveMemoryContext(memoryFromBackendSummary(response.summary));
+    const localGraph = saveMemoryGraphContext(memoryGraphContext);
+    const response = await loadMemoryGraph(token);
+    if (response?.loaded && response.graph) {
+      const cloudGraph = memoryGraphFromBackend(response.graph);
+      const mergedGraph = mergeMemoryGraphs(cloudGraph, localGraph);
+      memoryGraphContext = saveMemoryGraphContext(mergedGraph);
+      if (mergedGraph.version !== cloudGraph.version || mergedGraph.atoms.length !== cloudGraph.atoms.length) {
+        await mergeMemoryGraph(memoryGraphToBackend(localGraph), token);
+      }
+    } else {
+      memoryGraphContext = saveMemoryGraphContext(localGraph);
+      await saveMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
+    }
+
+    const legacyResponse = await loadMemory(token).catch(() => null);
+    if (legacyResponse?.loaded && legacyResponse.summary) {
+      memoryContext = saveMemoryContext(mergeMemoryContexts(memoryContext, memoryFromBackendSummary(legacyResponse.summary)));
     } else {
       memoryContext = saveMemoryContext(memoryContext);
       await saveMemory(memoryToBackendSummary(memoryContext), token);
@@ -184,6 +214,7 @@ async function hydrateCloudMemory(token) {
   } catch (error) {
     console.warn("Cloud memory load failed; using local memory.", error);
     memoryContext = loadMemoryContext();
+    memoryGraphContext = loadMemoryGraphContext();
     renderMemoryInspector();
   }
 }
@@ -271,15 +302,18 @@ async function replaceCloudChatSnapshotSafe(messages = null) {
 async function persistMemoryContextSafe() {
   try {
     const token = await getIdToken();
+    memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
 
     if (!token) {
       saveMemoryContext(memoryContext);
       return;
     }
 
+    await mergeMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
     await saveMemory(memoryToBackendSummary(memoryContext), token);
   } catch (error) {
     console.warn("Memory sync failed; local memory retained:", error);
+    saveMemoryGraphContext(memoryGraphContext);
     saveMemoryContext(memoryContext);
   }
 }
@@ -533,6 +567,7 @@ function bindProfileModal() {
 
     currentCloudProfileContext = null;
     memoryContext = loadMemoryContext();
+    memoryGraphContext = loadMemoryGraphContext();
     cloudChatHydrated = false;
     pendingCloudChatMessages.length = 0;
     setCloudSyncEnabled(false);
@@ -544,6 +579,10 @@ function bindProfileModal() {
     const nextName = setUserName(event.target.value);
     memoryContext.preferredName = nextName === "Friend" ? "" : nextName;
     memoryContext.user.preferredName = memoryContext.preferredName;
+    if (memoryContext.preferredName) {
+      memoryGraphContext = mergeMemoryGraphs(memoryGraphContext, memoryGraphFromLegacyMemory(memoryContext));
+    }
+    saveMemoryGraphContext(memoryGraphContext);
     saveMemoryContext(memoryContext);
     void persistMemoryContextSafe();
     renderMemoryInspector();
@@ -592,6 +631,7 @@ function bindSettings() {
     }
 
     memoryContext = loadMemoryContext();
+    memoryGraphContext = loadMemoryGraphContext();
     renderMemoryInspector();
     showToast("Local memory refreshed.");
   });
@@ -601,33 +641,44 @@ function renderMemoryInspector() {
   const list = document.getElementById("memory-inspector-list");
   if (!list) return;
 
-  const rows = getMemoryInspectorRows(memoryContext);
+  const cards = getMemoryInspectorCards(memoryGraphContext);
 
-  if (!rows.length) {
+  if (!cards.length) {
     list.innerHTML = `<div class="text-gray-400 dark:text-gray-500">No saved memory yet.</div>`;
     return;
   }
 
-  list.innerHTML = rows.map((row) => `
-    <div class="flex items-start justify-between gap-3 rounded-lg border border-gray-100 dark:border-gemini-darkBorder px-3 py-2">
-      <div class="min-w-0">
-        <div class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">${escapeHtml(row.label)}</div>
-        <div class="text-[13px] text-gray-800 dark:text-gray-200 break-words">${escapeHtml(row.value)}</div>
+  list.innerHTML = cards.map((card) => `
+    <div class="rounded-lg border border-gray-100 dark:border-gemini-darkBorder px-3 py-2">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <div class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">${escapeHtml(card.label)}</div>
+        <button class="memory-clear-category-btn p-1 rounded-full hover:bg-gemini-surface dark:hover:bg-zinc-800 text-gray-400" data-memory-category="${escapeHtml(card.key)}" title="Clear category" type="button">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
       </div>
-      <div class="flex items-center gap-1 flex-shrink-0">
-        <button class="memory-edit-btn p-1.5 rounded-full hover:bg-gemini-surface dark:hover:bg-zinc-800" data-memory-key="${escapeHtml(row.key)}" title="Edit memory" type="button">
-          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-        </button>
-        <button class="memory-delete-btn p-1.5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-600 dark:text-rose-400" data-memory-key="${escapeHtml(row.key)}" title="Delete memory" type="button">
-          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-        </button>
+      <div class="flex flex-wrap gap-1.5">
+        ${card.items.map((item) => `
+          <span class="inline-flex max-w-full items-center gap-1 rounded-full bg-gemini-surface dark:bg-zinc-800 px-2.5 py-1 text-[12px] text-gray-700 dark:text-gray-200">
+            <span class="truncate">${escapeHtml(item.value)}</span>
+            ${item.pinned ? `<i data-lucide="pin" class="w-3 h-3 text-gray-400"></i>` : ""}
+            <button class="memory-pin-btn text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" data-memory-id="${escapeHtml(item.id)}" title="${item.pinned ? "Unpin memory" : "Pin memory"}" type="button">
+              <i data-lucide="${item.pinned ? "pin-off" : "pin"}" class="w-3 h-3"></i>
+            </button>
+            <button class="memory-edit-btn text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" data-memory-id="${escapeHtml(item.id)}" title="Edit memory" type="button">
+              <i data-lucide="pencil" class="w-3 h-3"></i>
+            </button>
+            <button class="memory-delete-btn text-rose-500 hover:text-rose-700" data-memory-id="${escapeHtml(item.id)}" title="Delete memory" type="button">
+              <i data-lucide="x" class="w-3 h-3"></i>
+            </button>
+          </span>
+        `).join("")}
       </div>
     </div>
   `).join("");
 
   list.querySelectorAll(".memory-delete-btn").forEach((button) => {
     button.addEventListener("click", () => {
-      deleteMemoryEntry(button.getAttribute("data-memory-key") || "");
+      deleteMemoryEntry(button.getAttribute("data-memory-id") || "");
       renderMemoryInspector();
       void persistMemoryContextSafe();
     });
@@ -635,7 +686,23 @@ function renderMemoryInspector() {
 
   list.querySelectorAll(".memory-edit-btn").forEach((button) => {
     button.addEventListener("click", () => {
-      editMemoryEntry(button.getAttribute("data-memory-key") || "");
+      editMemoryEntry(button.getAttribute("data-memory-id") || "");
+      renderMemoryInspector();
+      void persistMemoryContextSafe();
+    });
+  });
+
+  list.querySelectorAll(".memory-pin-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      toggleMemoryPin(button.getAttribute("data-memory-id") || "");
+      renderMemoryInspector();
+      void persistMemoryContextSafe();
+    });
+  });
+
+  list.querySelectorAll(".memory-clear-category-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      clearMemoryCategory(button.getAttribute("data-memory-category") || "");
       renderMemoryInspector();
       void persistMemoryContextSafe();
     });
@@ -644,74 +711,62 @@ function renderMemoryInspector() {
   refreshIcons();
 }
 
-function deleteMemoryEntry(key) {
-  const cleanKey = String(key || "");
+async function deleteMemoryEntry(atomId) {
+  const cleanId = String(atomId || "");
+  const now = new Date().toISOString();
+  memoryGraphContext.atoms = memoryGraphContext.atoms.map((atom) => (
+    atom.id === cleanId
+      ? { ...atom, status: "deleted", pinned: false, updated_at: now, metadata: { ...(atom.metadata || {}), deleted_by_user: true } }
+      : atom
+  ));
 
-  if (cleanKey === "preferred_name") {
-    memoryContext.preferredName = "";
-    memoryContext.user.preferredName = "";
-  } else if (cleanKey.startsWith("person.")) {
-    const name = cleanKey.slice("person.".length);
-    memoryContext.importantPeople = memoryContext.importantPeople.filter((person) => person.canonicalName !== name);
-    if (memoryContext.relationship.girlfriend.name === name) {
-      memoryContext.relationship.girlfriend.name = "";
-      memoryContext.relationship.girlfriend.aliases = [];
-    }
-  } else if (cleanKey === "communication") {
-    memoryContext.communicationPreferences = createEmptyMemory().communicationPreferences;
-    memoryContext.avoidedResponses = [];
-  } else if (cleanKey.startsWith("avoid.")) {
-    const value = cleanKey.slice("avoid.".length);
-    memoryContext.avoidedResponses = memoryContext.avoidedResponses.filter((item) => item !== value);
-    memoryContext.communicationPreferences.avoid = memoryContext.communicationPreferences.avoid.filter((item) => item !== value);
-  } else {
-    memoryContext.relationshipFacts = memoryContext.relationshipFacts.filter((fact) => (fact.key || fact.summary) !== cleanKey);
-    memoryContext.facts = memoryContext.facts.filter((fact) => fact.key !== cleanKey);
+  memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
+  const token = await getIdToken();
+  if (token) {
+    await deleteMemoryGraphItem(cleanId, token).catch((error) => console.warn("Cloud memory delete failed:", error));
   }
-
-  memoryContext = saveMemoryContext(memoryContext);
   showToast("Memory deleted.");
 }
 
-function editMemoryEntry(key) {
-  const rows = getMemoryInspectorRows(memoryContext);
-  const row = rows.find((item) => item.key === key);
-  if (!row) return;
+function editMemoryEntry(atomId) {
+  const atom = memoryGraphContext.atoms.find((item) => item.id === atomId);
+  if (!atom) return;
 
-  const next = window.prompt(`Edit ${row.label}`, row.value);
+  const next = window.prompt("Edit memory", atom.value);
   if (next === null) return;
 
   const value = next.trim();
   if (!value) {
-    deleteMemoryEntry(key);
+    void deleteMemoryEntry(atomId);
     return;
   }
 
-  if (key === "preferred_name") {
-    memoryContext.preferredName = value;
-    memoryContext.user.preferredName = value;
-    setUserName(value);
-  } else if (key.startsWith("person.")) {
-    const name = key.slice("person.".length);
-    const person = memoryContext.importantPeople.find((item) => item.canonicalName === name);
-    if (person) {
-      const parts = value.split("/").map((part) => part.trim()).filter(Boolean);
-      person.canonicalName = parts[0] || person.canonicalName;
-      person.aliases = [...new Set([person.canonicalName, ...parts])];
-      if (person.relationship === "girlfriend") {
-        memoryContext.relationship.girlfriend.name = person.canonicalName;
-        memoryContext.relationship.girlfriend.aliases = person.aliases;
-      }
-    }
-  } else if (key === "communication") {
-    memoryContext.communicationPreferences.responseStyle = [value];
-  } else {
-    const fact = memoryContext.relationshipFacts.find((item) => (item.key || item.summary) === key);
-    if (fact) fact.summary = value;
-  }
+  memoryGraphContext.atoms = memoryGraphContext.atoms.map((item) => (
+    item.id === atomId
+      ? { ...item, value, display_value: value, source: "manual", confidence: Math.max(item.confidence || 0, 0.95), updated_at: new Date().toISOString() }
+      : item
+  ));
 
-  memoryContext = saveMemoryContext(memoryContext);
+  memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
   showToast("Memory updated.");
+}
+
+function toggleMemoryPin(atomId) {
+  memoryGraphContext.atoms = memoryGraphContext.atoms.map((atom) => (
+    atom.id === atomId ? { ...atom, pinned: !atom.pinned, updated_at: new Date().toISOString() } : atom
+  ));
+  memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
+}
+
+function clearMemoryCategory(category) {
+  const now = new Date().toISOString();
+  memoryGraphContext.atoms = memoryGraphContext.atoms.map((atom) => (
+    atom.category === category
+      ? { ...atom, status: "deleted", pinned: false, updated_at: now, metadata: { ...(atom.metadata || {}), deleted_by_user: true } }
+      : atom
+  ));
+  memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
+  showToast("Memory category cleared.");
 }
 
 function bindInput() {
@@ -810,6 +865,7 @@ function bindConversationActions() {
 
       if (token) {
         await deleteMemory(token);
+        await saveMemoryGraph(createEmptyMemoryGraph(), token);
         await deleteCurrentCloudChat(token);
       }
     } catch {
@@ -818,6 +874,7 @@ function bindConversationActions() {
 
     clearChatMemory();
     memoryContext = saveMemoryContext(createEmptyMemory());
+    memoryGraphContext = saveMemoryGraphContext(createEmptyMemoryGraph());
     renderMemoryInspector();
 
     const chatHistory = document.getElementById("chat-history");
@@ -852,22 +909,27 @@ async function handleSend() {
     memoryContext,
     recentMessages,
   });
+  const graphResult = classifyAndStoreMemoryGraphFromMessage(text, {
+    graphContext: memoryGraphContext,
+  });
 
   memoryContext = memoryResult.memory;
-  if (memoryResult.saved.length) {
+  memoryGraphContext = graphResult.graph;
+  if (memoryResult.saved.length || graphResult.saved.length) {
     renderMemoryInspector();
     void persistMemoryContextSafe();
   }
 
-  if (memoryResult.shouldIntercept && memoryResult.localReply) {
-    const memoryReplyRecord = addMessage("MindPal", memoryResult.localReply, {
+  const localMemoryReply = graphResult.localReply || memoryResult.localReply;
+  if ((graphResult.shouldIntercept || memoryResult.shouldIntercept) && localMemoryReply) {
+    const memoryReplyRecord = addMessage("MindPal", localMemoryReply, {
       providerUsed: "local_memory",
       memoryUpdated: true,
     });
 
     scheduleCloudMessageSync(memoryReplyRecord);
 
-    await appendMessageToUI(memoryResult.localReply, "bot", {
+    await appendMessageToUI(localMemoryReply, "bot", {
       smoothScroll: true,
       typewriter: true,
     });
@@ -880,7 +942,7 @@ async function handleSend() {
     return;
   }
 
-  const memoryDirectAnswer = answerQuestionFromMemory(text, memoryContext);
+  const memoryDirectAnswer = answerQuestionFromMemoryGraph(text, memoryGraphContext) || answerQuestionFromMemory(text, memoryContext);
 
   if (memoryDirectAnswer) {
     const memoryAnswerRecord = addMessage("MindPal", memoryDirectAnswer, {
@@ -951,6 +1013,17 @@ async function handleSend() {
       memoryContext = saveMemoryContext(
         mergeMemoryContexts(memoryContext, memoryFromBackendSummary(response.memory_summary)),
       );
+    }
+
+    if (response.memory_graph_snapshot && response.memory_graph_full_snapshot) {
+      memoryGraphContext = saveMemoryGraphContext(memoryGraphFromBackend(response.memory_graph_snapshot));
+    } else if (response.memory_graph_delta) {
+      memoryGraphContext = saveMemoryGraphContext(
+        mergeMemoryGraphs(memoryGraphContext, memoryGraphFromBackend(response.memory_graph_delta)),
+      );
+    }
+
+    if (response.memory_summary || response.memory_graph_snapshot || response.memory_graph_delta) {
       renderMemoryInspector();
     }
 
@@ -1272,6 +1345,17 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       memoryContext = saveMemoryContext(
         mergeMemoryContexts(memoryContext, memoryFromBackendSummary(response.memory_summary)),
       );
+    }
+
+    if (response.memory_graph_snapshot && response.memory_graph_full_snapshot) {
+      memoryGraphContext = saveMemoryGraphContext(memoryGraphFromBackend(response.memory_graph_snapshot));
+    } else if (response.memory_graph_delta) {
+      memoryGraphContext = saveMemoryGraphContext(
+        mergeMemoryGraphs(memoryGraphContext, memoryGraphFromBackend(response.memory_graph_delta)),
+      );
+    }
+
+    if (response.memory_summary || response.memory_graph_snapshot || response.memory_graph_delta) {
       renderMemoryInspector();
     }
 

@@ -47,6 +47,17 @@ from .memory import (
     MemoryWriteResult,
     RelationshipFact,
 )
+from .memory_v3 import (
+    MemoryAtom,
+    MemoryGraph,
+    MemoryGraphLoadResult,
+    MemoryGraphPatch,
+    MemoryGraphWriteResult,
+    MemoryCategory as MemoryGraphCategory,
+    MemorySensitivity as MemoryGraphSensitivity,
+    MemorySource as MemoryGraphSource,
+    MemoryStatus,
+)
 from .safety import (
     CrisisResponseTemplate,
     SafetyAction,
@@ -120,6 +131,15 @@ __all__ = [
     "MemorySource",
     "MemorySummary",
     "MemoryWriteResult",
+    "MemoryAtom",
+    "MemoryGraph",
+    "MemoryGraphCategory",
+    "MemoryGraphLoadResult",
+    "MemoryGraphPatch",
+    "MemoryGraphSensitivity",
+    "MemoryGraphSource",
+    "MemoryGraphWriteResult",
+    "MemoryStatus",
     "RelationshipFact",
     "ProviderCallTrace",
     "ProviderChainTrace",
