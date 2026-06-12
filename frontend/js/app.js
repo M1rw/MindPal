@@ -109,6 +109,7 @@ async function bootstrap() {
   bindTheme();
   bindProfileModal();
   bindSettingsTabs();
+  bindSettingsActions();
   bindStreakModal();
   bindSettings();
   bindInput();
@@ -749,7 +750,7 @@ function renderMemoryInspector() {
     });
   });
 
-  refreshIcons();
+  refreshIcons(list);
 }
 
 function bindSettingsTabs() {
@@ -777,8 +778,6 @@ function bindSettingsTabs() {
     if (nextTab === "memory") {
       renderMemoryInspector();
     }
-
-    refreshIcons();
   };
 
   buttons.forEach((button) => {
@@ -790,6 +789,154 @@ function bindSettingsTabs() {
   });
 
   activate("general");
+}
+
+function bindSettingsActions() {
+  const modal = document.getElementById("profile-content");
+  if (!modal) return;
+
+  modal.querySelectorAll(".settings-row-action").forEach((control) => {
+    if (control.closest("button")) return;
+    control.setAttribute("role", "button");
+    control.setAttribute("tabindex", "0");
+  });
+  applyStoredSettingsActions(modal);
+
+  modal.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    const control = event.target.closest?.(".settings-row-action");
+    if (!control || control.closest("button")) return;
+
+    event.preventDefault();
+    handleSettingsAction(control);
+  });
+
+  modal.addEventListener("click", (event) => {
+    const control = event.target.closest?.(".settings-row-action");
+    if (!control || control.closest("button")) return;
+
+    handleSettingsAction(control);
+  });
+}
+
+function handleSettingsAction(control) {
+  const row = control.closest(".settings-row");
+  const title = row?.querySelector(".settings-row-title")?.textContent?.trim() || "Setting";
+  const label = control.textContent.trim().replace(/\s+/g, " ");
+
+  const cycleMap = {
+    Appearance: ["System", "Light", "Dark"],
+    Contrast: ["System", "Standard", "High"],
+    Language: ["Auto-detect", "English", "Arabic"],
+    "Streak reminders": ["Push", "In app", "Off"],
+    "Response complete": ["Push", "In app", "Off"],
+    "Mood check-in": ["Off", "In app", "Push"],
+    "Memory updates": ["In app", "Push", "Off"],
+    "Safety follow-up": ["In app", "Push", "Off"],
+    "Base style and tone": ["Balanced", "Warm", "Direct"],
+    Directness: ["High", "Medium", "Low"],
+    "Egyptian Arabic style": ["Auto", "Always", "Off"],
+  };
+
+  if (title === "Accent color") {
+    cycleAccentColor(control);
+    return;
+  }
+
+  if (title === "Voice") {
+    showToast("Voice preview is not available in this browser session.");
+    return;
+  }
+
+  if (title === "Cognitive structure" || title === "Clinical grounding" || title === "Email") {
+    showToast(`${title} is already ${label.toLowerCase()}.`);
+    return;
+  }
+
+  const values = cycleMap[title];
+  if (values) {
+    const current = values.find((value) => label.startsWith(value)) || values[0];
+    const next = values[(values.indexOf(current) + 1) % values.length];
+    setSettingsActionLabel(control, next);
+    saveSettingsActionValue(title, next);
+    showToast(`${title} set to ${next}.`);
+    return;
+  }
+
+  const actionCopy = {
+    "Improve MindPal for everyone": "Product-quality sharing is off.",
+    "Archived chats": "Archived chat management is not available for local-only chats yet.",
+    "Security keys & passkeys": "Passkeys will be available when cloud account security supports them.",
+    "Active sessions": "This browser is the current active session.",
+  };
+
+  showToast(actionCopy[title] || `${title} setting opened.`);
+}
+
+function setSettingsActionLabel(control, label) {
+  const icons = Array.from(control.querySelectorAll("svg, i[data-lucide]"));
+  const accentDot = control.querySelector(".settings-accent-dot");
+
+  control.textContent = `${label} `;
+
+  if (accentDot) {
+    control.prepend(accentDot);
+  }
+
+  icons.forEach((icon) => control.appendChild(icon));
+}
+
+function cycleAccentColor(control) {
+  const values = ["MindPal blue", "Orange", "Green"];
+  const label = control.textContent.trim().replace(/\s+/g, " ");
+  const current = values.find((value) => label.includes(value)) || values[0];
+  const next = values[(values.indexOf(current) + 1) % values.length];
+  const dot = control.querySelector(".settings-accent-dot");
+
+  if (dot) {
+    dot.dataset.accent = next.toLowerCase().replaceAll(" ", "-");
+  }
+
+  setSettingsActionLabel(control, next);
+  saveSettingsActionValue("Accent color", next);
+  showToast(`Accent color set to ${next}.`);
+}
+
+function saveSettingsActionValue(title, value) {
+  try {
+    window.localStorage?.setItem(`mindpal.settings.${title}`, value);
+  } catch {
+    // Storage can be blocked in hardened/private browser modes. The visible setting still updates.
+  }
+}
+
+function loadSettingsActionValue(title) {
+  try {
+    return window.localStorage?.getItem(`mindpal.settings.${title}`) || "";
+  } catch {
+    return "";
+  }
+}
+
+function applyStoredSettingsActions(root) {
+  root.querySelectorAll(".settings-row-action").forEach((control) => {
+    if (control.closest("button")) return;
+
+    const row = control.closest(".settings-row");
+    const title = row?.querySelector(".settings-row-title")?.textContent?.trim() || "";
+    const value = loadSettingsActionValue(title);
+    if (!value) return;
+
+    if (title === "Accent color") {
+      const dot = control.querySelector(".settings-accent-dot");
+      if (dot) {
+        dot.dataset.accent = value.toLowerCase().replaceAll(" ", "-");
+      }
+    }
+
+    setSettingsActionLabel(control, value);
+  });
 }
 
 async function deleteMemoryEntry(atomId) {
