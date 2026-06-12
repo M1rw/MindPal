@@ -157,6 +157,10 @@ details > summary::-webkit-details-marker { display: none; }
   display: block;
 }
 
+.settings-panel[hidden] {
+  display: none !important;
+}
+
 .settings-title {
   font-size: 18px;
   line-height: 28px;
