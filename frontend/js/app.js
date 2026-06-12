@@ -491,7 +491,9 @@ function bindProfileModal() {
 
   document.getElementById("profile-btn")?.addEventListener("click", () => {
     updateProfileUI(getCurrentUser());
-    renderMemoryInspector();
+    if (document.querySelector('[data-settings-panel="memory"]')?.classList.contains("active")) {
+      renderMemoryInspector();
+    }
     openModal("profile-modal", "profile-content");
   });
 

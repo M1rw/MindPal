@@ -16,6 +16,8 @@ const DEFAULT_STATE = Object.freeze({
 });
 
 let state = createDefaultState();
+let iconRefreshFrame = null;
+let deferredStateSaveTimer = null;
 
 export function createDefaultState() {
   return {
@@ -59,8 +61,25 @@ export function loadState() {
   }
 }
 
-export function saveState() {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+export function saveState({ defer = false } = {}) {
+  const write = () => {
+    deferredStateSaveTimer = null;
+    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  };
+
+  if (!defer) {
+    if (deferredStateSaveTimer !== null) {
+      window.clearTimeout(deferredStateSaveTimer);
+      deferredStateSaveTimer = null;
+    }
+    write();
+    return;
+  }
+
+  if (deferredStateSaveTimer !== null) return;
+
+  const schedule = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 120));
+  deferredStateSaveTimer = schedule(write, { timeout: 1_000 });
 }
 
 export function getState() {
@@ -117,7 +136,7 @@ export function addMessage(role, text, extra = {}) {
     recordDailyActivity({ save: false });
   }
 
-  saveState();
+  saveState({ defer: true });
   return message;
 }
 
@@ -136,7 +155,7 @@ export function replaceChatMemory(messages) {
     : [];
 
   state.messageCount = state.chatMemory.filter((item) => item.role === "User").length;
-  saveState();
+  saveState({ defer: true });
 }
 
 export function clearChatMemory() {
@@ -603,9 +622,12 @@ export function exportConversationLog() {
 }
 
 export function refreshIcons() {
-  if (window.lucide?.createIcons) {
+  if (!window.lucide?.createIcons || iconRefreshFrame !== null) return;
+
+  iconRefreshFrame = window.requestAnimationFrame(() => {
+    iconRefreshFrame = null;
     window.lucide.createIcons();
-  }
+  });
 }
 
 export function escapeHtml(value) {

@@ -106,6 +106,20 @@ details > summary::-webkit-details-marker { display: none; }
 }
 
 /* Settings modal */
+#profile-content {
+  width: min(860px, calc(100vw - 24px));
+  height: min(760px, calc(100vh - 32px));
+  max-height: calc(100vh - 32px);
+}
+
+.settings-panel-scroll {
+  min-height: 0;
+}
+
+.settings-sidebar {
+  min-height: 0;
+}
+
 .settings-tab-btn {
   display: flex;
   align-items: center;
@@ -282,7 +296,10 @@ details > summary::-webkit-details-marker { display: none; }
 
 @media (max-width: 640px) {
   #profile-content {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 20px);
     border-radius: 14px;
+    flex-direction: column;
   }
 
   .settings-row {
