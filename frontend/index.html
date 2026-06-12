@@ -11,6 +11,7 @@
 
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./css/style.css">
 
     <script>
         tailwind.config = {
@@ -344,7 +345,7 @@
                         </div>
                     </div>
 
-                    <div class="settings-panel" data-settings-panel="account">
+                    <div class="settings-panel" data-settings-panel="account" hidden>
                         <h2 class="settings-title">Account</h2>
                         <div class="settings-section">
                             <div class="settings-account-surface">
@@ -381,7 +382,7 @@
                         </div>
                     </div>
 
-                    <div class="settings-panel" data-settings-panel="voice">
+                    <div class="settings-panel" data-settings-panel="voice" hidden>
                         <h2 class="settings-title">Voice</h2>
                         <div class="settings-section">
                             <label class="settings-row">
@@ -414,7 +415,7 @@
                         </div>
                     </div>
 
-                    <div class="settings-panel" data-settings-panel="memory">
+                    <div class="settings-panel" data-settings-panel="memory" hidden>
                         <div class="flex items-center justify-between gap-3 border-b border-gray-100 dark:border-[#303030] pb-5 mb-1">
                             <div>
                                 <h2 class="text-lg font-medium text-gray-900 dark:text-white">Memory</h2>
@@ -429,7 +430,7 @@
                         </div>
                     </div>
 
-                    <div class="settings-panel" data-settings-panel="safety">
+                    <div class="settings-panel" data-settings-panel="safety" hidden>
                         <h2 class="settings-title">Safety</h2>
                         <div class="settings-section">
                             <label class="settings-row">
@@ -453,7 +454,7 @@
                         </div>
                     </div>
 
-                    <div class="settings-panel" data-settings-panel="data">
+                    <div class="settings-panel" data-settings-panel="data" hidden>
                         <h2 class="settings-title">Data controls</h2>
                         <div class="settings-section">
                             <button id="export-chat-btn" class="settings-row text-left w-full">

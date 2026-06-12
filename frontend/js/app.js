@@ -732,7 +732,9 @@ function bindSettingsTabs() {
     });
 
     panels.forEach((panel) => {
-      panel.classList.toggle("active", panel.getAttribute("data-settings-panel") === nextTab);
+      const isActive = panel.getAttribute("data-settings-panel") === nextTab;
+      panel.classList.toggle("active", isActive);
+      panel.hidden = !isActive;
     });
 
     if (mobileSelect && mobileSelect.value !== nextTab) {
