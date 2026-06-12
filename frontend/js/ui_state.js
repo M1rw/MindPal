@@ -552,7 +552,7 @@ export function showToast(message) {
   toast.innerHTML = `<i data-lucide="info" class="w-4 h-4 opacity-80"></i><span class="text-sm font-medium">${escapeHtml(message)}</span>`;
 
   container.appendChild(toast);
-  refreshIcons();
+  refreshIcons(toast);
 
   window.setTimeout(() => {
     toast.style.opacity = "0";
@@ -621,8 +621,58 @@ export function exportConversationLog() {
   showToast("Log exported.");
 }
 
-export function refreshIcons() {
-  if (!window.lucide?.createIcons || iconRefreshFrame !== null) return;
+function getLucideExportName(iconName) {
+  return String(iconName || "")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+}
+
+function renderScopedIcons(root) {
+  const lucide = window.lucide;
+  const iconNodes = Array.from(root?.querySelectorAll?.("i[data-lucide]") || []);
+
+  if (!lucide?.icons || iconNodes.length === 0) return true;
+
+  let renderedCount = 0;
+
+  for (const node of iconNodes) {
+    const iconName = node.getAttribute("data-lucide");
+    const iconDefinition = lucide.icons[iconName] || lucide.icons[getLucideExportName(iconName)];
+    if (!iconDefinition) continue;
+
+    const attrs = {
+      class: node.getAttribute("class") || "",
+      "aria-hidden": "true",
+    };
+
+    let svg = null;
+    if (typeof iconDefinition.toSvg === "function") {
+      const template = document.createElement("template");
+      template.innerHTML = iconDefinition.toSvg(attrs).trim();
+      svg = template.content.firstElementChild;
+    } else if (typeof lucide.createElement === "function") {
+      svg = lucide.createElement(iconDefinition, attrs);
+    }
+
+    if (svg) {
+      node.replaceWith(svg);
+      renderedCount += 1;
+    }
+  }
+
+  return renderedCount === iconNodes.length;
+}
+
+export function refreshIcons(root = document) {
+  if (!window.lucide?.createIcons) return;
+
+  if (root !== document && renderScopedIcons(root)) {
+    return;
+  }
+
+  if (iconRefreshFrame !== null) return;
 
   iconRefreshFrame = window.requestAnimationFrame(() => {
     iconRefreshFrame = null;

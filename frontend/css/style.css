@@ -228,12 +228,29 @@ details > summary::-webkit-details-marker { display: none; }
   align-items: center;
   gap: 6px;
   flex: none;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 8px;
   font-size: 14px;
   color: #111827;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.settings-row-action:hover,
+.settings-row-action:focus-visible {
+  background: #f3f4f6;
+  outline: none;
 }
 
 .dark .settings-row-action {
   color: #ffffff;
+}
+
+.dark .settings-row-action:hover,
+.dark .settings-row-action:focus-visible {
+  background: #303030;
 }
 
 .settings-select {
@@ -302,6 +319,18 @@ details > summary::-webkit-details-marker { display: none; }
   width: 10px;
   height: 10px;
   border-radius: 999px;
+  background: #3b82f6;
+}
+
+.settings-accent-dot[data-accent="orange"] {
+  background: #f97316;
+}
+
+.settings-accent-dot[data-accent="green"] {
+  background: #22c55e;
+}
+
+.settings-accent-dot[data-accent="mindpal-blue"] {
   background: #3b82f6;
 }
 
