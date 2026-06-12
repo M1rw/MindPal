@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from enum import Enum
@@ -26,6 +27,9 @@ MAX_PROFILE_LIST_ITEMS = 50
 MAX_PROFILE_LIST_ITEM_CHARS = 180
 MAX_METADATA_ITEMS = 30
 MAX_METADATA_VALUE_CHARS = 300
+MAX_CUSTOM_INSTRUCTIONS_CHARS = 800
+MAX_UI_SETTINGS_ITEMS = 80
+MAX_UI_SETTINGS_VALUE_CHARS = 800
 
 
 def _utcnow() -> datetime:
@@ -85,6 +89,8 @@ class UserPreferences(BaseModel):
     preferred_coping_tools: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
     wellness_goals: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
     avoided_topics: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
+    custom_instructions: str = Field(default="", max_length=MAX_CUSTOM_INSTRUCTIONS_CHARS)
+    ui_settings: dict[str, Any] = Field(default_factory=dict)
     safety: UserSafetyPreference = Field(default_factory=UserSafetyPreference)
 
     @field_validator("locale", mode="before")
@@ -112,6 +118,16 @@ class UserPreferences(BaseModel):
     @classmethod
     def _clean_list_fields(cls, value: object) -> list[str]:
         return _clean_profile_list(value)
+
+    @field_validator("custom_instructions", mode="before")
+    @classmethod
+    def _clean_custom_instructions(cls, value: object) -> str:
+        return _clean_profile_text(str(value or ""), MAX_CUSTOM_INSTRUCTIONS_CHARS)
+
+    @field_validator("ui_settings", mode="before")
+    @classmethod
+    def _clean_ui_settings(cls, value: object) -> dict[str, Any]:
+        return _clean_ui_settings(value)
 
 
 class UserProfile(BaseModel):
@@ -326,3 +342,52 @@ def _clean_metadata(value: object) -> dict[str, str | int | float | bool | None]
             cleaned[key] = _clean_profile_text(str(raw_value), MAX_METADATA_VALUE_CHARS)
 
     return cleaned
+
+
+def _clean_ui_settings(value: object) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        return {}
+
+    cleaned: dict[str, Any] = {}
+
+    for raw_key, raw_value in value.items():
+        if len(cleaned) >= MAX_UI_SETTINGS_ITEMS:
+            break
+
+        key = _clean_profile_text(str(raw_key or ""), MAX_METADATA_VALUE_CHARS)
+        if not key:
+            continue
+
+        cleaned[key] = _clean_ui_setting_value(raw_value, depth=0)
+
+    return cleaned
+
+
+def _clean_ui_setting_value(value: object, *, depth: int) -> Any:
+    if depth >= 4:
+        return _clean_profile_text(str(value or ""), MAX_UI_SETTINGS_VALUE_CHARS)
+
+    if value is None or isinstance(value, bool):
+        return value
+
+    if isinstance(value, int | float):
+        return value
+
+    if isinstance(value, str):
+        return _clean_profile_text(value, MAX_UI_SETTINGS_VALUE_CHARS)
+
+    if isinstance(value, Mapping):
+        output: dict[str, Any] = {}
+        for raw_key, raw_value in list(value.items())[:MAX_UI_SETTINGS_ITEMS]:
+            key = _clean_profile_text(str(raw_key or ""), MAX_METADATA_VALUE_CHARS)
+            if key:
+                output[key] = _clean_ui_setting_value(raw_value, depth=depth + 1)
+        return output
+
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [
+            _clean_ui_setting_value(item, depth=depth + 1)
+            for item in list(value)[:MAX_PROFILE_LIST_ITEMS]
+        ]
+
+    return _clean_profile_text(str(value or ""), MAX_UI_SETTINGS_VALUE_CHARS)

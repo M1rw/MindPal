@@ -163,6 +163,25 @@ export async function getCurrentUserProfile(token) {
   });
 }
 
+export async function loadUserProfile(token) {
+  return requestJson("/user/profile", {
+    method: "GET",
+    token,
+    timeoutMs: 20_000,
+  });
+}
+
+export async function updateUserProfilePreferences(preferences, token) {
+  return requestJson("/user/profile", {
+    method: "PATCH",
+    token,
+    timeoutMs: 20_000,
+    body: {
+      preferences,
+    },
+  });
+}
+
 
 function buildAuthenticatedContextPrefix(profileContext) {
   if (!profileContext?.authenticated) return "";
@@ -225,6 +244,7 @@ export async function sendChatMessage({
   const metadata = {
     locale,
     mode: backendPreference,  // Send as preference hint, not locked mode
+    ...(profileContext?.settingsMetadata || {}),
   };
 
   return requestJson("/chat", {
