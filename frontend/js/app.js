@@ -5,6 +5,7 @@ import {
   deleteMemory,
   deleteMemoryGraphItem,
   getCurrentUserProfile,
+  loadUserProfile,
   loadMemory,
   loadMemoryGraph,
   mergeMemoryGraph,
@@ -16,7 +17,8 @@ import {
   loadCurrentCloudChat,
   replaceCurrentCloudChat,
   upsertCloudChatMessages,
-} from "./api.js";
+  updateUserProfilePreferences,
+} from "./api.js?v=20260612-settings-v4";
 
 import {
   authIsConfigured,
@@ -26,7 +28,7 @@ import {
   onAuthChange,
   signInWithGoogle,
   signOut,
-} from "./auth.js";
+} from "./auth.js?v=20260612-settings-v4";
 
 import {
   addMessage,
@@ -58,9 +60,20 @@ import {
   syncInputButtons,
   toggleTheme,
   updateProfileUI,
-} from "./ui_state.js";
+} from "./ui_state.js?v=20260612-settings-v4";
 
-import { initVoice } from "./voice.js";
+import { initVoice } from "./voice.js?v=20260612-settings-v4";
+
+import {
+  applyVisualSettings,
+  buildChatSettingsMetadata,
+  buildProfilePreferencesPatch,
+  getAppSettings,
+  hydrateSettingsFromProfile,
+  mergeAppSettings,
+  requestBrowserNotificationsIfNeeded,
+  setAppSetting,
+} from "./settings_store.js?v=20260612-settings-v4";
 
 import {
   answerQuestionFromMemory,
@@ -82,7 +95,7 @@ import {
   saveMemoryContext,
   saveMemoryGraphContext,
   mergeMemoryContexts,
-} from "./memory_engine.js";
+} from "./memory_engine.js?v=20260612-settings-v4";
 
 let isGenerating = false;
 let isSessionLocked = false;
@@ -102,6 +115,7 @@ document.addEventListener("DOMContentLoaded", bootstrap);
 async function bootstrap() {
   refreshIcons();
   initializeTheme();
+  applyVisualSettings();
   loadState();
 
   await initFrontendAuth();
@@ -109,7 +123,9 @@ async function bootstrap() {
   bindTheme();
   bindProfileModal();
   bindSettingsTabs();
-  bindSettingsActions();
+  bindSettingsControls();
+  bindSettingsChoiceEvents();
+  bindKeyboardShortcuts();
   bindStreakModal();
   bindSettings();
   bindInput();
@@ -162,8 +178,15 @@ async function initFrontendAuth() {
         }
 
         const profile = await getCurrentUserProfile(token);
+        const storedProfile = await loadUserProfile(token).catch(() => null);
+        if (storedProfile) {
+          hydrateSettingsFromProfile(storedProfile);
+        }
 
-        currentCloudProfileContext = buildCloudProfileContext(user, profile);
+        currentCloudProfileContext = {
+          ...buildCloudProfileContext(user, profile),
+          settingsMetadata: buildChatSettingsMetadata(),
+        };
         await hydrateCloudMemory(token);
         await hydrateCloudChat(token);
 
@@ -474,11 +497,17 @@ function formatCloudConnectErrorSafe(error) {
 
 function bindTheme() {
   document.getElementById("theme-toggle-btn")?.addEventListener("click", () => {
-    toggleTheme();
+    const isDark = document.documentElement.classList.contains("dark");
+    setAppSetting("appearance", isDark ? "light" : "dark");
+    renderSettingsControls(document.getElementById("profile-content") || document);
+    void persistAppSettingsToCloud();
   });
 
   document.getElementById("modal-theme-toggle")?.addEventListener("change", () => {
-    toggleTheme();
+    const checked = document.getElementById("modal-theme-toggle")?.checked;
+    setAppSetting("appearance", checked ? "dark" : "light");
+    renderSettingsControls(document.getElementById("profile-content") || document);
+    void persistAppSettingsToCloud();
   });
 }
 
@@ -546,10 +575,18 @@ function bindProfileModal() {
       });
 
       const profile = await getCurrentUserProfile(token);
+      const storedProfile = await loadUserProfile(token).catch(() => null);
+      if (storedProfile) {
+        hydrateSettingsFromProfile(storedProfile);
+      }
 
       console.info("MindPal backend profile:", profile);
 
-      currentCloudProfileContext = buildCloudProfileContext(user, profile);
+      currentCloudProfileContext = {
+        ...buildCloudProfileContext(user, profile),
+        settingsMetadata: buildChatSettingsMetadata(),
+      };
+      await persistAppSettingsToCloud();
       await hydrateCloudMemory(token);
       await hydrateCloudChat(token);
 
@@ -791,152 +828,434 @@ function bindSettingsTabs() {
   activate("general");
 }
 
-function bindSettingsActions() {
+function bindSettingsControls() {
   const modal = document.getElementById("profile-content");
   if (!modal) return;
 
-  modal.querySelectorAll(".settings-row-action").forEach((control) => {
-    if (control.closest("button")) return;
-    control.setAttribute("role", "button");
-    control.setAttribute("tabindex", "0");
-  });
-  applyStoredSettingsActions(modal);
+  renderSettingsControls(modal);
 
-  modal.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
+  modal.addEventListener("change", async (event) => {
+    const select = event.target.closest?.("[data-setting-select]");
+    const toggle = event.target.closest?.("[data-setting-toggle]");
+    const textbox = event.target.closest?.("[data-setting-text]");
 
-    const control = event.target.closest?.(".settings-row-action");
-    if (!control || control.closest("button")) return;
-
-    event.preventDefault();
-    handleSettingsAction(control);
-  });
-
-  modal.addEventListener("click", (event) => {
-    const control = event.target.closest?.(".settings-row-action");
-    if (!control || control.closest("button")) return;
-
-    handleSettingsAction(control);
-  });
-}
-
-function handleSettingsAction(control) {
-  const row = control.closest(".settings-row");
-  const title = row?.querySelector(".settings-row-title")?.textContent?.trim() || "Setting";
-  const label = control.textContent.trim().replace(/\s+/g, " ");
-
-  const cycleMap = {
-    Appearance: ["System", "Light", "Dark"],
-    Contrast: ["System", "Standard", "High"],
-    Language: ["Auto-detect", "English", "Arabic"],
-    "Streak reminders": ["Push", "In app", "Off"],
-    "Response complete": ["Push", "In app", "Off"],
-    "Mood check-in": ["Off", "In app", "Push"],
-    "Memory updates": ["In app", "Push", "Off"],
-    "Safety follow-up": ["In app", "Push", "Off"],
-    "Base style and tone": ["Balanced", "Warm", "Direct"],
-    Directness: ["High", "Medium", "Low"],
-    "Egyptian Arabic style": ["Auto", "Always", "Off"],
-  };
-
-  if (title === "Accent color") {
-    cycleAccentColor(control);
-    return;
-  }
-
-  if (title === "Voice") {
-    showToast("Voice preview is not available in this browser session.");
-    return;
-  }
-
-  if (title === "Cognitive structure" || title === "Clinical grounding" || title === "Email") {
-    showToast(`${title} is already ${label.toLowerCase()}.`);
-    return;
-  }
-
-  const values = cycleMap[title];
-  if (values) {
-    const current = values.find((value) => label.startsWith(value)) || values[0];
-    const next = values[(values.indexOf(current) + 1) % values.length];
-    setSettingsActionLabel(control, next);
-    saveSettingsActionValue(title, next);
-    showToast(`${title} set to ${next}.`);
-    return;
-  }
-
-  const actionCopy = {
-    "Improve MindPal for everyone": "Product-quality sharing is off.",
-    "Archived chats": "Archived chat management is not available for local-only chats yet.",
-    "Security keys & passkeys": "Passkeys will be available when cloud account security supports them.",
-    "Active sessions": "This browser is the current active session.",
-  };
-
-  showToast(actionCopy[title] || `${title} setting opened.`);
-}
-
-function setSettingsActionLabel(control, label) {
-  const icons = Array.from(control.querySelectorAll("svg, i[data-lucide]"));
-  const accentDot = control.querySelector(".settings-accent-dot");
-
-  control.textContent = `${label} `;
-
-  if (accentDot) {
-    control.prepend(accentDot);
-  }
-
-  icons.forEach((icon) => control.appendChild(icon));
-}
-
-function cycleAccentColor(control) {
-  const values = ["MindPal blue", "Orange", "Green"];
-  const label = control.textContent.trim().replace(/\s+/g, " ");
-  const current = values.find((value) => label.includes(value)) || values[0];
-  const next = values[(values.indexOf(current) + 1) % values.length];
-  const dot = control.querySelector(".settings-accent-dot");
-
-  if (dot) {
-    dot.dataset.accent = next.toLowerCase().replaceAll(" ", "-");
-  }
-
-  setSettingsActionLabel(control, next);
-  saveSettingsActionValue("Accent color", next);
-  showToast(`Accent color set to ${next}.`);
-}
-
-function saveSettingsActionValue(title, value) {
-  try {
-    window.localStorage?.setItem(`mindpal.settings.${title}`, value);
-  } catch {
-    // Storage can be blocked in hardened/private browser modes. The visible setting still updates.
-  }
-}
-
-function loadSettingsActionValue(title) {
-  try {
-    return window.localStorage?.getItem(`mindpal.settings.${title}`) || "";
-  } catch {
-    return "";
-  }
-}
-
-function applyStoredSettingsActions(root) {
-  root.querySelectorAll(".settings-row-action").forEach((control) => {
-    if (control.closest("button")) return;
-
-    const row = control.closest(".settings-row");
-    const title = row?.querySelector(".settings-row-title")?.textContent?.trim() || "";
-    const value = loadSettingsActionValue(title);
-    if (!value) return;
-
-    if (title === "Accent color") {
-      const dot = control.querySelector(".settings-accent-dot");
-      if (dot) {
-        dot.dataset.accent = value.toLowerCase().replaceAll(" ", "-");
-      }
+    if (select) {
+      await updateSettingFromControl(select.getAttribute("data-setting-select"), select.value, select);
+      return;
     }
 
-    setSettingsActionLabel(control, value);
+    if (toggle) {
+      await updateSettingFromControl(toggle.getAttribute("data-setting-toggle"), toggle.checked, toggle);
+      return;
+    }
+
+    if (textbox) {
+      await updateSettingFromControl(textbox.getAttribute("data-setting-text"), textbox.value, textbox);
+    }
   });
+
+  modal.addEventListener("click", async (event) => {
+    const button = event.target.closest?.("[data-settings-action]");
+    if (!button) return;
+
+    event.stopPropagation();
+    await handleSettingsButtonAction(button.getAttribute("data-settings-action"), button);
+  });
+}
+
+const SETTINGS_SELECTS = {
+  Appearance: {
+    path: "appearance",
+    options: [["system", "System"], ["light", "Light"], ["dark", "Dark"]],
+  },
+  Contrast: {
+    path: "contrast",
+    options: [["system", "System"], ["standard", "Standard"], ["high", "High"]],
+  },
+  "Accent color": {
+    path: "accentColor",
+    options: [["blue", "MindPal blue"], ["orange", "Orange"], ["green", "Green"]],
+    accent: true,
+  },
+  Language: {
+    path: "language",
+    options: [["auto", "Auto-detect"], ["en", "English"], ["ar-EG", "Egyptian Arabic"]],
+  },
+  "Spoken language": {
+    path: "spokenLanguage",
+    options: [["auto", "Auto / Browser default"], ["en-US", "English (US)"], ["ar-EG", "Egyptian Arabic"]],
+  },
+  Voice: {
+    path: "voicePreview",
+    options: [["browser", "Preview"], ["off", "Off"]],
+  },
+  "Streak reminders": {
+    path: "notifications.streakReminders",
+    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
+  },
+  "Response complete": {
+    path: "notifications.responseComplete",
+    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
+  },
+  "Mood check-in": {
+    path: "notifications.moodCheckIn",
+    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
+  },
+  "Memory updates": {
+    path: "notifications.memoryUpdates",
+    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
+  },
+  "Safety follow-up": {
+    path: "notifications.safetyFollowUp",
+    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
+  },
+  "Base style and tone": {
+    path: "personalization.baseTone",
+    options: [["concise", "Concise"], ["balanced", "Balanced"], ["detailed", "Detailed"]],
+  },
+  Directness: {
+    path: "personalization.directness",
+    options: [["low", "Low"], ["medium", "Medium"], ["high", "High"]],
+  },
+  "Egyptian Arabic style": {
+    path: "personalization.egyptianArabic",
+    options: [["auto", "Auto"], ["always", "Always"], ["off", "Off"]],
+  },
+};
+
+const SETTINGS_TOGGLES = {
+  "Enable dictation": "dictationEnabled",
+  "Dark theme": "appearance",
+  "Fast answers": "personalization.fastAnswers",
+  "Cognitive structure": "personalization.cognitiveStructure",
+  "Enable memory": "memoryEnabled",
+  "Improve MindPal for everyone": "improveProduct",
+};
+
+function renderSettingsControls(root) {
+  const settings = getAppSettings();
+
+  root.querySelectorAll(".settings-row").forEach((row) => {
+    const title = row.querySelector(".settings-row-title")?.textContent?.trim();
+    if (!title) return;
+
+    const selectConfig = SETTINGS_SELECTS[title];
+    const action = row.querySelector(".settings-row-action");
+    const existingChoice = row.querySelector(".settings-choice");
+    const nativeSelect = row.querySelector("select");
+    if (selectConfig && (action || existingChoice || nativeSelect)) {
+      (action || existingChoice || nativeSelect).replaceWith(createSettingsSelect(title, selectConfig, settings));
+    }
+
+    const toggle = row.querySelector("input[type='checkbox']");
+    if (toggle && SETTINGS_TOGGLES[title]) {
+      const path = SETTINGS_TOGGLES[title];
+      toggle.setAttribute("data-setting-toggle", path);
+      toggle.checked = path === "appearance" ? settings.appearance === "dark" : Boolean(readPath(settings, path));
+    }
+  });
+
+  const customBox = root.querySelector(".settings-textbox");
+  if (customBox && !customBox.matches("textarea")) {
+    const textarea = document.createElement("textarea");
+    textarea.className = "settings-textbox settings-textarea";
+    textarea.value = settings.personalization.customInstructions;
+    textarea.setAttribute("data-setting-text", "personalization.customInstructions");
+    textarea.setAttribute("rows", "6");
+    customBox.replaceWith(textarea);
+  }
+
+  applyVisualSettings(settings);
+  refreshIcons(root);
+}
+
+function createSettingsSelect(title, config, settings) {
+  return createSettingsChoice(title, config, settings);
+}
+
+function createSettingsChoice(title, config, settings) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "settings-choice";
+  wrapper.setAttribute("data-settings-choice", config.path);
+
+  const selectedValue = readPath(settings, config.path);
+  const selectedLabel = config.options.find(([value]) => value === selectedValue)?.[1] || config.options[0]?.[1] || "";
+
+  wrapper.insertAdjacentHTML("beforeend", `
+    <button class="settings-choice-trigger" data-setting-choice-trigger="${escapeHtml(config.path)}" aria-label="${escapeHtml(title)}" aria-haspopup="listbox" aria-expanded="false" type="button">
+      ${config.accent ? `<span class="settings-accent-dot" data-accent="${escapeHtml(selectedValue)}"></span>` : ""}
+      <span class="settings-choice-label">${escapeHtml(selectedLabel)}</span>
+      <i data-lucide="chevron-down" class="w-4 h-4"></i>
+    </button>
+    <div class="settings-choice-menu" role="listbox" aria-label="${escapeHtml(title)}">
+      ${config.options.map(([value, label]) => `
+        <button class="settings-choice-option${value === selectedValue ? " active" : ""}" data-setting-choice-option="${escapeHtml(config.path)}" data-setting-choice-value="${escapeHtml(value)}" role="option" aria-selected="${value === selectedValue}" type="button">
+          <span>${escapeHtml(label)}</span>
+          ${value === selectedValue ? `<i data-lucide="check" class="w-4 h-4"></i>` : ""}
+        </button>
+      `).join("")}
+    </div>
+  `);
+
+  return wrapper;
+}
+
+async function updateSettingFromControl(path, value, control) {
+  if (!path) return;
+
+  const normalizedValue = path === "appearance" && typeof value === "boolean"
+    ? (value ? "dark" : "light")
+    : value;
+
+  setAppSetting(path, normalizedValue);
+
+  if (path.startsWith("notifications.")) {
+    const permission = await requestBrowserNotificationsIfNeeded(normalizedValue);
+    if (permission === "denied") {
+      setAppSetting(path, "in_app");
+      if (control) control.value = "in_app";
+      showToast("Browser notifications are blocked. Saved as in-app.");
+    } else if (permission === "unsupported") {
+      setAppSetting(path, "in_app");
+      if (control) control.value = "in_app";
+      showToast("This browser does not support notifications. Saved as in-app.");
+    } else if (permission === "granted") {
+      showToast("Browser notifications enabled for this setting.");
+    }
+  }
+
+  renderSettingsControls(document.getElementById("profile-content") || document);
+  await persistAppSettingsToCloud();
+}
+
+async function handleSettingsButtonAction(action, source = null) {
+  if (action === "choice-toggle") return;
+
+  if (source?.matches?.("[data-setting-choice-trigger]")) {
+    toggleSettingsChoice(source);
+    return;
+  }
+
+  if (source?.matches?.("[data-setting-choice-option]")) {
+    await chooseSettingsOption(source);
+    return;
+  }
+
+  if (action === "location") {
+    showToast("Location is kept off until local-resource features need it.");
+    return;
+  }
+
+  if (action === "passkeys") {
+    showToast("Passkeys require provider support. Firebase auth remains active.");
+    return;
+  }
+
+  if (action === "sessions") {
+    showToast(getCurrentUser() ? "This browser is the current signed-in session." : "No cloud session is active.");
+    return;
+  }
+
+  if (action === "shortcut") {
+    runShortcutAction(source?.getAttribute("data-shortcut-action") || "");
+    return;
+  }
+
+  if (action === "restore-shortcuts") {
+    showToast("Keyboard shortcuts restored to defaults.");
+    return;
+  }
+
+  showToast("Setting is not available for this account mode yet.");
+}
+
+function bindSettingsChoiceEvents() {
+  document.addEventListener("click", async (event) => {
+    const trigger = event.target.closest?.("[data-setting-choice-trigger]");
+    const option = event.target.closest?.("[data-setting-choice-option]");
+
+    if (trigger) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleSettingsChoice(trigger);
+      return;
+    }
+
+    if (option) {
+      event.preventDefault();
+      event.stopPropagation();
+      await chooseSettingsOption(option);
+      return;
+    }
+
+    closeSettingsChoices();
+  });
+
+  document.addEventListener("keydown", async (event) => {
+    if (event.key === "Escape") {
+      closeSettingsChoices();
+      return;
+    }
+
+    const focusedOption = document.activeElement?.matches?.("[data-setting-choice-option]")
+      ? document.activeElement
+      : null;
+    if (!focusedOption || (event.key !== "Enter" && event.key !== " ")) return;
+
+    event.preventDefault();
+    await chooseSettingsOption(focusedOption);
+  });
+}
+
+function bindKeyboardShortcuts() {
+  document.addEventListener("keydown", (event) => {
+    const key = event.key.toLowerCase();
+    const command = event.ctrlKey || event.metaKey;
+    const editable = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName || "");
+
+    if (command && key === ",") {
+      event.preventDefault();
+      runShortcutAction("settings");
+      return;
+    }
+
+    if (!command || !event.shiftKey) return;
+
+    if (key === "d") {
+      event.preventDefault();
+      runShortcutAction("dictation");
+      return;
+    }
+
+    if (key === "m") {
+      event.preventDefault();
+      runShortcutAction("mode");
+      return;
+    }
+
+    if (key === "o" && !editable) {
+      event.preventDefault();
+      runShortcutAction("new-chat");
+    }
+  });
+}
+
+function runShortcutAction(action) {
+  if (action === "send") {
+    if (!isGenerating && !isSessionLocked) {
+      void handleSend();
+    }
+    return;
+  }
+
+  if (action === "dictation") {
+    if (!getAppSettings().dictationEnabled) {
+      showToast("Dictation is disabled in settings.");
+      return;
+    }
+    document.getElementById("voice-btn")?.click();
+    return;
+  }
+
+  if (action === "mode") {
+    closeModal("profile-modal", "profile-content");
+    document.getElementById("mode-dropdown")?.classList.toggle("hidden");
+    return;
+  }
+
+  if (action === "settings") {
+    updateProfileUI(getCurrentUser());
+    openModal("profile-modal", "profile-content");
+    return;
+  }
+
+  if (action === "new-chat") {
+    startNewLocalChat();
+  }
+}
+
+function startNewLocalChat() {
+  if (isGenerating) {
+    showToast("Wait for the current response before starting a new chat.");
+    return;
+  }
+
+  clearChatMemory();
+  document.getElementById("chat-history")?.replaceChildren();
+  clearInput();
+  setChatStarted(false);
+  updateProfileUI(getCurrentUser());
+  showToast("New local chat started.");
+}
+
+function toggleSettingsChoice(trigger) {
+  const choice = trigger.closest(".settings-choice");
+  if (!choice) return;
+
+  const isOpen = choice.classList.contains("open");
+  closeSettingsChoices(choice);
+  choice.classList.toggle("open", !isOpen);
+  trigger.setAttribute("aria-expanded", String(!isOpen));
+}
+
+async function chooseSettingsOption(option) {
+  const path = option.getAttribute("data-setting-choice-option");
+  const value = option.getAttribute("data-setting-choice-value");
+  if (!path) return;
+
+  closeSettingsChoices();
+  await updateSettingFromControl(path, value, option);
+}
+
+function closeSettingsChoices(except = null) {
+  document.querySelectorAll(".settings-choice.open").forEach((choice) => {
+    if (choice === except) return;
+    choice.classList.remove("open");
+    choice.querySelector("[data-setting-choice-trigger]")?.setAttribute("aria-expanded", "false");
+  });
+}
+
+function notifyFromSetting(key, title, body) {
+  const setting = getAppSettings().notifications?.[key] || "off";
+
+  if (setting === "off") return;
+
+  if (setting === "push" && "Notification" in window && Notification.permission === "granted") {
+    new Notification(title, { body });
+    return;
+  }
+
+  showToast(body || title);
+}
+
+let appSettingsPersistTimer = null;
+
+async function persistAppSettingsToCloud() {
+  const token = await getIdToken();
+  if (!token) return;
+
+  if (appSettingsPersistTimer !== null) {
+    window.clearTimeout(appSettingsPersistTimer);
+  }
+
+  appSettingsPersistTimer = window.setTimeout(async () => {
+    appSettingsPersistTimer = null;
+    try {
+      const response = await updateUserProfilePreferences(buildProfilePreferencesPatch(), token);
+      hydrateSettingsFromProfile(response);
+      currentCloudProfileContext = {
+        ...(currentCloudProfileContext || {}),
+        settingsMetadata: buildChatSettingsMetadata(),
+      };
+    } catch (error) {
+      console.warn("MindPal settings sync failed:", error);
+      showToast("Settings saved locally. Cloud sync failed.");
+    }
+  }, 500);
+}
+
+function readPath(source, path) {
+  return String(path).split(".").reduce((cursor, part) => cursor?.[part], source);
 }
 
 async function deleteMemoryEntry(atomId) {
@@ -1211,7 +1530,10 @@ async function handleSend() {
       locale: resolveLocale(),
       mode,
       token,
-      profileContext: currentCloudProfileContext,
+      profileContext: {
+        ...(currentCloudProfileContext || {}),
+        settingsMetadata: buildChatSettingsMetadata(),
+      },
     });
 
     removeStatusIndicator(statusId);
@@ -1260,6 +1582,7 @@ async function handleSend() {
       typewriter: true,
       backendMeta: response,
     });
+    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
   } catch (error) {
     console.error(error);
     removeStatusIndicator(statusId);
@@ -1277,6 +1600,7 @@ async function handleSend() {
       smoothScroll: true,
       typewriter: true,
     });
+    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the fallback response.");
   } finally {
     isGenerating = false;
     voiceController?.setGenerating(false);
@@ -1331,7 +1655,7 @@ async function appendMessageToUI(text, sender, {
   if (sender === "user") {
     msgDiv.className = "flex gap-4 w-full justify-end animate-fade-in";
     msgDiv.innerHTML = `
-      <div class="bg-gemini-surface dark:bg-gemini-darkSurface text-gemini-text dark:text-gemini-darkText px-5 py-3 rounded-[24px] max-w-[80%] text-[15px] leading-relaxed">
+      <div class="chat-user-bubble bg-gemini-surface dark:bg-gemini-darkSurface text-gemini-text dark:text-gemini-darkText px-5 py-3 rounded-[24px] max-w-[80%] text-[15px] leading-relaxed">
         ${escapeHtml(text)}
       </div>
     `;
@@ -1542,7 +1866,10 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       locale: resolveLocale(),
       mode,
       token,
-      profileContext: currentCloudProfileContext,
+      profileContext: {
+        ...(currentCloudProfileContext || {}),
+        settingsMetadata: buildChatSettingsMetadata(),
+      },
     });
 
     removeStatusIndicator(statusId);
@@ -1592,6 +1919,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       typewriter: true,
       backendMeta: response,
     });
+    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the regenerated response.");
   } catch (error) {
     console.error(error);
     removeStatusIndicator(statusId);
@@ -1610,6 +1938,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       smoothScroll: true,
       typewriter: true,
     });
+    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the fallback response.");
   } finally {
     isGenerating = false;
     voiceController?.setGenerating(false);
@@ -2035,6 +2364,10 @@ function isCrisisReply(text, safetyLevel) {
 }
 
 function resolveLocale() {
+  const configured = getAppSettings().language;
+  if (configured === "ar-EG") return "ar";
+  if (configured === "en") return "en";
+
   const lang = document.documentElement.lang || navigator.language || "en";
 
   if (lang.toLowerCase().startsWith("ar")) return "ar";

@@ -149,7 +149,7 @@ async def chat(
             response_mode=response_mode,
             safety_level=safety_decision.level.value,
             channel=context.channel.value,
-            user_preferences=_build_user_preferences_prompt(profile),
+            user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
         )
 
         llm_request = build_llm_request(
@@ -681,7 +681,7 @@ def _safety_view(decision: SafetyDecision) -> ChatSafetyView:
     )
 
 
-def _build_user_preferences_prompt(profile: UserProfile) -> str:
+def _build_user_preferences_prompt(profile: UserProfile, metadata: Any | None = None) -> str:
     preferences = profile.preferences
 
     parts: list[str] = [
@@ -702,6 +702,23 @@ def _build_user_preferences_prompt(profile: UserProfile) -> str:
 
     if preferences.avoided_topics:
         parts.append("avoided_topics=" + ", ".join(preferences.avoided_topics[:10]))
+
+    if preferences.custom_instructions:
+        parts.append(f"custom_instructions={preferences.custom_instructions}")
+
+    if metadata:
+        if getattr(metadata, "communication_style", None):
+            parts.append(f"client_communication_style={metadata.communication_style}")
+        if getattr(metadata, "directness", None):
+            parts.append(f"client_directness={metadata.directness}")
+        if getattr(metadata, "egyptian_arabic_style", None):
+            parts.append(f"client_egyptian_arabic_style={metadata.egyptian_arabic_style}")
+        if getattr(metadata, "cognitive_structure", None) is not None:
+            parts.append(f"client_cognitive_structure={metadata.cognitive_structure}")
+        if getattr(metadata, "fast_answers", None) is not None:
+            parts.append(f"client_fast_answers={metadata.fast_answers}")
+        if getattr(metadata, "custom_instructions", None):
+            parts.append(f"client_custom_instructions={metadata.custom_instructions}")
 
     return sanitize_text("\n".join(parts), MAX_USER_PREFS_PROMPT_CHARS)
 

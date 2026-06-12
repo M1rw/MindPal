@@ -547,7 +547,10 @@ export function showToast(message) {
   const container = document.getElementById("toast-container");
   if (!container) return;
 
+  container.querySelectorAll("[data-toast]").forEach((existing) => existing.remove());
+
   const toast = document.createElement("div");
+  toast.dataset.toast = "true";
   toast.className = "flex items-center gap-2 px-4 py-3 rounded-2xl shadow-lg animate-toast pointer-events-auto bg-gray-900 dark:bg-white text-white dark:text-gray-900";
   toast.innerHTML = `<i data-lucide="info" class="w-4 h-4 opacity-80"></i><span class="text-sm font-medium">${escapeHtml(message)}</span>`;
 

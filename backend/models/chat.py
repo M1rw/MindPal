@@ -20,6 +20,7 @@ MAX_HISTORY_MESSAGES = 100
 MAX_LLM_MESSAGES = 120
 MAX_LLM_PROMPT_CHARS = 12_000
 MAX_PROVIDER_NAME_CHARS = 80
+MAX_CLIENT_CUSTOM_INSTRUCTIONS_CHARS = 800
 
 
 class ChatRole(str, Enum):
@@ -79,18 +80,42 @@ class ChatMetadata(BaseModel):
     mode: str | None = Field(default=None, max_length=80)
     client_request_id: str | None = Field(default=None, max_length=120)
     timezone: str | None = Field(default=None, max_length=80)
+    ui_language: str | None = Field(default=None, max_length=20)
+    communication_style: str | None = Field(default=None, max_length=40)
+    directness: str | None = Field(default=None, max_length=20)
+    egyptian_arabic_style: str | None = Field(default=None, max_length=20)
+    cognitive_structure: bool | None = None
+    fast_answers: bool | None = None
+    custom_instructions: str | None = Field(default=None, max_length=MAX_CLIENT_CUSTOM_INSTRUCTIONS_CHARS)
 
     @field_validator("locale", mode="before")
     @classmethod
     def _normalize_locale(cls, value: object) -> Locale:
         return normalize_locale(str(value)) if value is not None else "auto"
 
-    @field_validator("mode", "client_request_id", "timezone", mode="before")
+    @field_validator(
+        "mode",
+        "client_request_id",
+        "timezone",
+        "ui_language",
+        "communication_style",
+        "directness",
+        "egyptian_arabic_style",
+        mode="before",
+    )
     @classmethod
     def _sanitize_optional_short_text(cls, value: object) -> str | None:
         if value is None:
             return None
         cleaned = sanitize_text(str(value), 120)
+        return cleaned or None
+
+    @field_validator("custom_instructions", mode="before")
+    @classmethod
+    def _sanitize_custom_instructions(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        cleaned = sanitize_text(str(value), MAX_CLIENT_CUSTOM_INSTRUCTIONS_CHARS)
         return cleaned or None
 
 

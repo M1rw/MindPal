@@ -11,7 +11,7 @@
 
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./css/style.css?v=20260612-settings-actions">
+    <link rel="stylesheet" href="./css/style.css?v=20260612-settings-v4">
 
     <script>
         tailwind.config = {
@@ -369,8 +369,8 @@
                     <div class="settings-panel" data-settings-panel="data" hidden>
                         <h2 class="settings-title">Data controls</h2>
                         <div class="settings-section">
-                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Improve MindPal for everyone</span><span class="settings-row-copy">Use anonymized product quality signals, never raw private memory.</span></span><span class="settings-row-action">Off <i data-lucide="chevron-right" class="w-4 h-4"></i></span></div>
-                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Location</span><span class="settings-row-copy">Optional. Helps make local resources and timing more relevant.</span></span><button class="settings-pill-btn" type="button">Turn on</button></div>
+                            <label class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Improve MindPal for everyone</span><span class="settings-row-copy">Use anonymized product quality signals, never raw private memory.</span></span><span class="relative flex-shrink-0"><input type="checkbox" class="sr-only"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></span></label>
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Location</span><span class="settings-row-copy">Optional. Helps make local resources and timing more relevant.</span></span><button class="settings-pill-btn" data-settings-action="location" type="button">Turn on</button></div>
                             <button id="export-chat-btn" class="settings-row text-left w-full"><span class="settings-row-main"><span class="settings-row-title">Export conversation log</span><span class="settings-row-copy">Download the current local conversation as a text file.</span></span><span class="settings-row-action">Export</span></button>
                             <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Archived chats</span><span class="settings-row-copy">Manage old local conversations.</span></span><span class="settings-row-action">Manage <i data-lucide="chevron-right" class="w-4 h-4"></i></span></div>
                             <button id="clear-chat-btn" class="settings-row text-left w-full"><span class="settings-row-main"><span class="settings-row-title text-rose-600 dark:text-rose-400">Delete all chats and memory</span><span class="settings-row-copy">Clear local conversation cache and cloud memory if signed in.</span></span><span class="settings-danger-pill">Delete all</span></button>
@@ -382,9 +382,9 @@
                         <div class="settings-section">
                             <label class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Crisis interception</span><span class="settings-row-copy">Locally blocks severe keywords with emergency support. Backend safety is always active.</span></span><span class="relative flex-shrink-0"><input type="checkbox" id="crisis-toggle" class="sr-only"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></span></label>
                             <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Clinical grounding</span><span class="settings-row-copy">Panic, anger, overthinking, and relationship distress can use curated RAG techniques.</span></span><span class="settings-row-action">On</span></div>
-                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Security keys & passkeys</span><span class="settings-row-copy">Use stronger sign-in methods when cloud account support is available.</span></span><span class="settings-row-action">Add <i data-lucide="chevron-right" class="w-4 h-4"></i></span></div>
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Security keys & passkeys</span><span class="settings-row-copy">Use stronger sign-in methods when cloud account support is available.</span></span><button class="settings-pill-btn" data-settings-action="passkeys" type="button">Add</button></div>
                             <h3 class="settings-subtitle">Sessions</h3>
-                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Active sessions</span><span class="settings-row-copy">Review browsers and devices connected to this account.</span></span><span class="settings-row-action">Current <i data-lucide="chevron-right" class="w-4 h-4"></i></span></div>
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Active sessions</span><span class="settings-row-copy">Review browsers and devices connected to this account.</span></span><button class="settings-pill-btn" data-settings-action="sessions" type="button">Current</button></div>
                         </div>
                     </div>
 
@@ -402,17 +402,22 @@
 
                     <div class="settings-panel" data-settings-panel="keyboard" hidden>
                         <h2 class="settings-title">Keyboard</h2>
-                        <p class="settings-intro">To change a shortcut, select the key combination and then type the new keys.</p>
-                        <h3 class="settings-subtitle">Composer</h3>
-                        <div class="settings-shortcut-list">
-                            <div class="settings-shortcut-row"><span>Send message or stop answering</span><kbd>Enter</kbd></div>
-                            <div class="settings-shortcut-row"><span>Toggle dictation</span><kbd>Ctrl + Shift + D</kbd></div>
-                            <div class="settings-shortcut-row"><span>Select mode</span><kbd>Ctrl + Shift + M</kbd></div>
-                        </div>
-                        <h3 class="settings-subtitle">App</h3>
-                        <div class="settings-shortcut-list">
-                            <div class="settings-shortcut-row"><span>Open settings</span><kbd>Ctrl + ,</kbd></div>
-                            <div class="settings-shortcut-row"><span>New chat</span><kbd>Ctrl + Shift + O</kbd></div>
+                        <div class="settings-section">
+                            <p class="settings-intro">Shortcuts are local to this browser. Editable shortcut capture is prepared here; commands that are not implemented yet stay disabled.</p>
+                            <h3 class="settings-subtitle">Composer</h3>
+                            <div class="settings-shortcut-list">
+                                <button class="settings-shortcut-row" data-settings-action="shortcut" data-shortcut-action="send" type="button"><span>Send message or stop answering</span><kbd>Enter</kbd></button>
+                                <button class="settings-shortcut-row" data-settings-action="shortcut" data-shortcut-action="dictation" type="button"><span>Toggle dictation</span><kbd>Ctrl + Shift + D</kbd></button>
+                                <button class="settings-shortcut-row" data-settings-action="shortcut" data-shortcut-action="mode" type="button"><span>Select mode</span><kbd>Ctrl + Shift + M</kbd></button>
+                            </div>
+                            <h3 class="settings-subtitle">App</h3>
+                            <div class="settings-shortcut-list">
+                                <button class="settings-shortcut-row" data-settings-action="shortcut" data-shortcut-action="settings" type="button"><span>Open settings</span><kbd>Ctrl + ,</kbd></button>
+                                <button class="settings-shortcut-row" data-settings-action="shortcut" data-shortcut-action="new-chat" type="button"><span>New chat</span><kbd>Ctrl + Shift + O</kbd></button>
+                            </div>
+                            <div class="pt-4 flex justify-end">
+                                <button class="settings-pill-btn" data-settings-action="restore-shortcuts" type="button">Restore defaults</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -451,6 +456,6 @@
         </div>
     </div>
 
-    <script type="module" src="./js/app.js"></script>
+    <script type="module" src="./js/app.js?v=20260612-settings-v4"></script>
 </body>
 </html>
