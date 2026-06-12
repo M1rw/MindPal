@@ -274,140 +274,197 @@
     <div id="toast-container" class="fixed bottom-6 right-6 z-[70] flex flex-col gap-2 pointer-events-none"></div>
 
     <!-- PROFILE / SETTINGS MODAL -->
-    <div id="profile-modal" class="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
-        <div class="bg-white dark:bg-[#1e1f20] w-full max-w-md flex flex-col rounded-[24px] shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200 max-h-[90vh] my-4" id="profile-content">
-            
-            <div class="flex items-center justify-between px-5 py-4 flex-none border-b border-transparent">
-                <h2 class="text-base font-medium text-gray-900 dark:text-gray-100 pl-2">Profile & Settings</h2>
-                <button id="close-profile-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-zinc-800 rounded-full text-gray-500 hover:text-gray-700 dark:text-[#c4c7c5] dark:hover:text-gray-200 transition-colors">
+    <div id="profile-modal" class="fixed inset-0 bg-black/25 dark:bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200 p-3 sm:p-5">
+        <div class="bg-white dark:bg-[#1f1f1f] w-full max-w-[860px] h-[min(760px,92vh)] flex rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200 border border-black/5 dark:border-white/10" id="profile-content">
+            <aside class="settings-sidebar w-[196px] flex-none bg-gray-50 dark:bg-[#1f1f1f] border-r border-gray-100 dark:border-[#303030] p-3 hidden sm:flex flex-col">
+                <button id="close-profile-btn" class="w-10 h-10 mb-3 rounded-lg flex items-center justify-center hover:bg-gray-200/70 dark:hover:bg-[#333333] text-gray-600 dark:text-gray-300 transition-colors" title="Close settings" type="button">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
-            </div>
-            
-            <div class="px-5 pb-6 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
-                
-                <!-- Profile Section -->
-                <div class="py-2 pb-6 border-b border-gray-100 dark:border-gemini-darkBorder flex flex-col items-center">
-                    
-                    <!-- Logged Out View -->
-                    <div id="auth-logged-out" class="flex flex-col items-center text-center w-full">
-                        <div class="w-16 h-16 rounded-full bg-gemini-surface dark:bg-zinc-800 flex items-center justify-center mb-3">
-                            <i data-lucide="cloud" class="w-7 h-7 text-gray-500 dark:text-[#c4c7c5]"></i>
-                        </div>
-                        <h3 class="text-base font-medium text-gray-900 dark:text-gray-100">Local Mode</h3>
-                        <p class="text-[13px] text-gray-500 dark:text-[#c4c7c5] mt-1 mb-5 max-w-[240px]">Conversations are saved only on this device. Sign in to sync anywhere.</p>
-                        
-                        <button id="btn-cloud-connect" class="w-full sm:w-auto px-8 py-2.5 rounded-full bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-white text-white dark:text-gray-900 text-[14px] font-medium transition-all flex items-center justify-center gap-2">
-                            <i data-lucide="cloud-upload" class="w-4 h-4"></i> Backup to Cloud
-                        </button>
-                    </div>
+                <nav class="flex flex-col gap-1 text-[14px]">
+                    <button class="settings-tab-btn active" data-settings-tab="general" type="button"><i data-lucide="settings" class="w-4 h-4"></i><span>General</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="account" type="button"><i data-lucide="circle-user-round" class="w-4 h-4"></i><span>Account</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="voice" type="button"><i data-lucide="mic" class="w-4 h-4"></i><span>Voice</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="memory" type="button"><i data-lucide="database" class="w-4 h-4"></i><span>Memory</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="safety" type="button"><i data-lucide="shield-alert" class="w-4 h-4"></i><span>Safety</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="data" type="button"><i data-lucide="hard-drive" class="w-4 h-4"></i><span>Data controls</span></button>
+                </nav>
+            </aside>
 
-                    <!-- Logged In View -->
-                    <div id="auth-logged-in" class="hidden flex-col items-center text-center w-full">
-                        <div class="relative mb-3">
-                            <div class="w-20 h-20 rounded-full bg-[#9b72cb] text-white flex items-center justify-center text-3xl font-normal shadow-sm" id="profile-initial">
-                                M
-                            </div>
-                            <div class="absolute bottom-0 right-0 w-6 h-6 bg-gemini-surface dark:bg-[#1e1f20] rounded-full flex items-center justify-center border-2 border-white dark:border-[#1e1f20]" title="Cloud Synced">
-                                <i data-lucide="cloud-check" class="w-3 h-3 text-emerald-600 dark:text-emerald-400"></i>
-                            </div>
-                        </div>
-                        
-                        <input type="text" id="user-name-input" class="bg-transparent hover:bg-gemini-surface dark:hover:bg-zinc-800/50 focus:bg-gemini-surface dark:focus:bg-zinc-800/50 border-b-2 border-transparent focus:border-gray-300 dark:focus:border-gray-600 focus:outline-none w-48 text-center text-xl font-medium text-gray-900 dark:text-white py-1 transition-all rounded-t-md mb-4" placeholder="Enter your name">
-                        
-                        <div class="flex items-center justify-center gap-10 w-full mb-6">
-                            <div class="flex flex-col items-center">
-                                <div class="text-2xl font-medium text-gray-900 dark:text-white mb-0.5" id="stat-messages">0</div>
-                                <div class="text-[11px] text-gray-500 dark:text-[#c4c7c5]">Messages</div>
-                            </div>
-                            <div class="w-px h-8 bg-gray-200 dark:bg-gemini-darkBorder"></div>
-                            <div class="flex flex-col items-center">
-                                <div class="text-2xl font-medium text-gray-900 dark:text-white mb-0.5" id="stat-days">0</div>
-                                <div class="text-[11px] text-gray-500 dark:text-[#c4c7c5]">Days Active</div>
-                            </div>
-                        </div>
-
-                        <button id="btn-cloud-disconnect" class="px-6 py-2 rounded-full border border-gray-200 dark:border-gemini-darkBorder hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-600 dark:text-[#c4c7c5] text-[13px] font-medium transition-colors">
-                            Sign out
-                        </button>
-                    </div>
+            <section class="flex-1 min-w-0 flex flex-col">
+                <div class="sm:hidden flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100 dark:border-[#303030]">
+                    <select id="settings-mobile-tabs" class="flex-1 bg-gray-100 dark:bg-[#2f2f2f] rounded-lg px-3 py-2 text-[14px] text-gray-900 dark:text-gray-100 outline-none">
+                        <option value="general">General</option>
+                        <option value="account">Account</option>
+                        <option value="voice">Voice</option>
+                        <option value="memory">Memory</option>
+                        <option value="safety">Safety</option>
+                        <option value="data">Data controls</option>
+                    </select>
+                    <button id="close-profile-mobile-btn" class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#333333] text-gray-600 dark:text-gray-300 transition-colors" title="Close settings" type="button">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
                 </div>
 
-                <!-- Settings List -->
-                <div class="flex flex-col mt-2">
-                    
-                    <label class="flex items-center justify-between cursor-pointer py-3.5 px-2 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors">
-                        <div class="flex items-center gap-4">
-                            <i data-lucide="moon" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5]"></i>
-                            <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200">Dark theme</span>
-                        </div>
-                        <div class="relative">
-                            <input type="checkbox" id="modal-theme-toggle" class="sr-only">
-                            <div class="block bg-gray-300 dark:bg-[#444746] w-10 h-6 rounded-full transition-colors toggle-bg"></div>
-                            <div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></div>
-                        </div>
-                    </label>
-
-                    <label class="flex items-center justify-between cursor-pointer py-3.5 px-2 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors mt-1">
-                        <div class="flex flex-col gap-0.5 pr-4">
-                            <div class="flex items-center gap-4">
-                                <i data-lucide="shield-alert" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5]"></i>
-                                <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200">Crisis interception</span>
+                <div class="settings-panel-scroll flex-1 overflow-y-auto px-5 sm:px-8 py-5 sm:py-6 custom-scrollbar">
+                    <div class="settings-panel active" data-settings-panel="general">
+                        <h2 class="settings-title">General</h2>
+                        <div class="settings-section">
+                            <label class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Appearance</span>
+                                </span>
+                                <span class="settings-row-action">System <i data-lucide="chevron-down" class="w-4 h-4"></i></span>
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Dark theme</span>
+                                    <span class="settings-row-copy">Use MindPal in dark mode on this device.</span>
+                                </span>
+                                <span class="relative flex-shrink-0">
+                                    <input type="checkbox" id="modal-theme-toggle" class="sr-only">
+                                    <span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span>
+                                    <span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span>
+                                </span>
+                            </label>
+                            <div class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Language</span>
+                                </span>
+                                <span class="settings-row-action">Auto-detect <i data-lucide="chevron-down" class="w-4 h-4"></i></span>
                             </div>
-                            <span class="text-[12px] text-gray-500 dark:text-[#c4c7c5] pl-[36px]">Locally blocks severe keywords with emergency support.</span>
                         </div>
-                        <div class="relative flex-shrink-0 mt-[-14px]">
-                            <input type="checkbox" id="crisis-toggle" class="sr-only">
-                            <div class="block bg-gray-300 dark:bg-[#444746] w-10 h-6 rounded-full transition-colors toggle-bg"></div>
-                            <div class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></div>
-                        </div>
-                    </label>
+                    </div>
 
-                    <label class="flex items-center justify-between cursor-pointer py-3.5 px-2 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors mt-1">
-                        <div class="flex flex-col gap-0.5 pr-4">
-                            <div class="flex items-center gap-4">
-                                <i data-lucide="languages" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5]"></i>
-                                <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200">Voice language</span>
+                    <div class="settings-panel" data-settings-panel="account">
+                        <h2 class="settings-title">Account</h2>
+                        <div class="settings-section">
+                            <div class="settings-account-surface">
+                                <div id="auth-logged-out" class="flex flex-col items-start text-left w-full">
+                                    <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-[#2f2f2f] flex items-center justify-center mb-3">
+                                        <i data-lucide="cloud" class="w-6 h-6 text-gray-500 dark:text-gray-300"></i>
+                                    </div>
+                                    <h3 class="text-base font-medium text-gray-900 dark:text-gray-100">Local Mode</h3>
+                                    <p class="text-[13px] text-gray-500 dark:text-gray-400 mt-1 mb-5 max-w-md">Conversations and guest memory stay on this device. Sign in to sync memory and chat across browsers.</p>
+                                    <button id="btn-cloud-connect" class="px-5 py-2.5 rounded-lg bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-white text-white dark:text-gray-900 text-[14px] font-medium transition-all flex items-center justify-center gap-2">
+                                        <i data-lucide="cloud-upload" class="w-4 h-4"></i> Backup to Cloud
+                                    </button>
+                                </div>
+
+                                <div id="auth-logged-in" class="hidden flex-col items-start text-left w-full">
+                                    <div class="flex items-center gap-4 w-full">
+                                        <div class="relative flex-none">
+                                            <div class="w-16 h-16 rounded-full bg-[#9b72cb] text-white flex items-center justify-center text-2xl font-normal shadow-sm" id="profile-initial">M</div>
+                                            <div class="absolute bottom-0 right-0 w-5 h-5 bg-white dark:bg-[#1f1f1f] rounded-full flex items-center justify-center border-2 border-white dark:border-[#1f1f1f]" title="Cloud Synced">
+                                                <i data-lucide="cloud-check" class="w-3 h-3 text-emerald-600 dark:text-emerald-400"></i>
+                                            </div>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <input type="text" id="user-name-input" class="bg-transparent hover:bg-gray-100 dark:hover:bg-[#2f2f2f] focus:bg-gray-100 dark:focus:bg-[#2f2f2f] border border-transparent focus:border-gray-300 dark:focus:border-[#444] focus:outline-none w-full max-w-xs text-lg font-medium text-gray-900 dark:text-white px-3 py-2 transition-all rounded-lg" placeholder="Enter your name">
+                                            <div class="flex items-center gap-6 mt-3">
+                                                <div><div class="text-xl font-medium text-gray-900 dark:text-white" id="stat-messages">0</div><div class="text-[11px] text-gray-500 dark:text-gray-400">Messages</div></div>
+                                                <div><div class="text-xl font-medium text-gray-900 dark:text-white" id="stat-days">0</div><div class="text-[11px] text-gray-500 dark:text-gray-400">Days Active</div></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button id="btn-cloud-disconnect" class="mt-5 px-4 py-2 rounded-lg border border-gray-200 dark:border-[#383838] hover:bg-gray-50 dark:hover:bg-[#2f2f2f] text-gray-600 dark:text-gray-300 text-[13px] font-medium transition-colors">Sign out</button>
+                                </div>
                             </div>
-                            <span class="text-[12px] text-gray-500 dark:text-[#c4c7c5] pl-[36px]">Used for microphone transcription.</span>
                         </div>
+                    </div>
 
-                        <select id="voice-language-select" class="max-w-[190px] bg-gemini-surface dark:bg-zinc-800 border border-gemini-border dark:border-gemini-darkBorder rounded-full px-3 py-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-200 outline-none">
-                            <option value="auto">Auto / Browser default</option>
-                        </select>
-                    </label>
-
-                    <div class="h-px w-full bg-gray-100 dark:bg-gemini-darkBorder my-2"></div>
-
-                    <div class="px-2 py-3.5">
-                        <div class="flex items-center justify-between gap-3 mb-3">
-                            <div class="flex items-center gap-4">
-                                <i data-lucide="database" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5]"></i>
-                                <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200">What MindPal remembers</span>
+                    <div class="settings-panel" data-settings-panel="voice">
+                        <h2 class="settings-title">Voice</h2>
+                        <div class="settings-section">
+                            <label class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Enable dictation</span>
+                                    <span class="settings-row-copy">Use dictation in the chat composer.</span>
+                                </span>
+                                <span class="relative flex-shrink-0">
+                                    <input type="checkbox" checked class="sr-only">
+                                    <span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span>
+                                    <span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span>
+                                </span>
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Spoken language</span>
+                                    <span class="settings-row-copy">Used for microphone transcription.</span>
+                                </span>
+                                <select id="voice-language-select" class="settings-select">
+                                    <option value="auto">Auto / Browser default</option>
+                                </select>
+                            </label>
+                            <div class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Mobile voice mode</span>
+                                    <span class="settings-row-copy">iOS and Android use browser speech recognition without a separate hardware meter.</span>
+                                </span>
+                                <span class="settings-row-action">Automatic</span>
                             </div>
-                            <button id="memory-refresh-btn" class="p-2 rounded-full hover:bg-gemini-surface dark:hover:bg-zinc-800 text-gray-500 dark:text-[#c4c7c5]" title="Refresh memory" type="button">
+                        </div>
+                    </div>
+
+                    <div class="settings-panel" data-settings-panel="memory">
+                        <div class="flex items-center justify-between gap-3 border-b border-gray-100 dark:border-[#303030] pb-5 mb-1">
+                            <div>
+                                <h2 class="text-lg font-medium text-gray-900 dark:text-white">Memory</h2>
+                                <p class="text-[13px] text-gray-500 dark:text-gray-400 mt-1">Inspectable Memory V3 graph grouped by category.</p>
+                            </div>
+                            <button id="memory-refresh-btn" class="settings-icon-btn" title="Refresh memory" type="button">
                                 <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                             </button>
                         </div>
-                        <div id="memory-inspector-list" class="flex flex-col gap-2 pl-[36px] text-[13px] text-gray-600 dark:text-[#c4c7c5]">
-                            <div class="text-gray-400 dark:text-gray-500">No saved memory yet.</div>
+                        <div id="memory-inspector-list" class="settings-memory-grid">
+                            <div class="text-gray-400 dark:text-gray-500 text-[13px]">No saved memory yet.</div>
                         </div>
                     </div>
 
-                    <div class="h-px w-full bg-gray-100 dark:bg-gemini-darkBorder my-2"></div>
+                    <div class="settings-panel" data-settings-panel="safety">
+                        <h2 class="settings-title">Safety</h2>
+                        <div class="settings-section">
+                            <label class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Crisis interception</span>
+                                    <span class="settings-row-copy">Locally blocks severe keywords with emergency support. Backend safety is always active.</span>
+                                </span>
+                                <span class="relative flex-shrink-0">
+                                    <input type="checkbox" id="crisis-toggle" class="sr-only">
+                                    <span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span>
+                                    <span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span>
+                                </span>
+                            </label>
+                            <div class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Clinical grounding</span>
+                                    <span class="settings-row-copy">Panic, anger, overthinking, and relationship distress can use curated RAG techniques.</span>
+                                </span>
+                                <span class="settings-row-action">On</span>
+                            </div>
+                        </div>
+                    </div>
 
-                    <button id="export-chat-btn" class="flex items-center gap-4 px-2 py-3.5 hover:bg-gemini-surface dark:hover:bg-zinc-800/50 rounded-xl transition-colors text-left w-full">
-                        <i data-lucide="download" class="w-5 h-5 text-gray-600 dark:text-[#c4c7c5] btn-icon"></i>
-                        <span class="text-[15px] font-medium text-gray-800 dark:text-gray-200 btn-text">Export conversation log</span>
-                    </button>
-                    
-                    <button id="clear-chat-btn" class="flex items-center gap-4 px-2 py-3.5 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-xl transition-colors text-left w-full">
-                        <i data-lucide="trash-2" class="w-5 h-5 text-rose-600 dark:text-rose-400 btn-icon"></i>
-                        <span class="text-[15px] font-medium text-rose-600 dark:text-rose-400 btn-text">Clear persistent memory</span>
-                    </button>
-
+                    <div class="settings-panel" data-settings-panel="data">
+                        <h2 class="settings-title">Data controls</h2>
+                        <div class="settings-section">
+                            <button id="export-chat-btn" class="settings-row text-left w-full">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Export conversation log</span>
+                                    <span class="settings-row-copy">Download the current local conversation as a text file.</span>
+                                </span>
+                                <i data-lucide="download" class="w-4 h-4 text-gray-500 dark:text-gray-400"></i>
+                            </button>
+                            <button id="clear-chat-btn" class="settings-row text-left w-full">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title text-rose-600 dark:text-rose-400">Clear persistent memory</span>
+                                    <span class="settings-row-copy">Clear local conversation cache and cloud memory if signed in.</span>
+                                </span>
+                                <i data-lucide="trash-2" class="w-4 h-4 text-rose-600 dark:text-rose-400"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </section>
         </div>
     </div>
 

@@ -108,6 +108,7 @@ async function bootstrap() {
 
   bindTheme();
   bindProfileModal();
+  bindSettingsTabs();
   bindStreakModal();
   bindSettings();
   bindInput();
@@ -483,6 +484,7 @@ function bindTheme() {
 function bindProfileModal() {
   const profileModal = document.getElementById("profile-modal");
   const closeProfileBtn = document.getElementById("close-profile-btn");
+  const closeProfileMobileBtn = document.getElementById("close-profile-mobile-btn");
   const connectBtn = document.getElementById("btn-cloud-connect");
   const disconnectBtn = document.getElementById("btn-cloud-disconnect");
   const userNameInput = document.getElementById("user-name-input");
@@ -494,6 +496,10 @@ function bindProfileModal() {
   });
 
   closeProfileBtn?.addEventListener("click", () => {
+    closeModal("profile-modal", "profile-content");
+  });
+
+  closeProfileMobileBtn?.addEventListener("click", () => {
     closeModal("profile-modal", "profile-content");
   });
 
@@ -709,6 +715,44 @@ function renderMemoryInspector() {
   });
 
   refreshIcons();
+}
+
+function bindSettingsTabs() {
+  const buttons = Array.from(document.querySelectorAll("[data-settings-tab]"));
+  const panels = Array.from(document.querySelectorAll("[data-settings-panel]"));
+  const mobileSelect = document.getElementById("settings-mobile-tabs");
+
+  const activate = (tab) => {
+    const nextTab = tab || "general";
+
+    buttons.forEach((button) => {
+      button.classList.toggle("active", button.getAttribute("data-settings-tab") === nextTab);
+    });
+
+    panels.forEach((panel) => {
+      panel.classList.toggle("active", panel.getAttribute("data-settings-panel") === nextTab);
+    });
+
+    if (mobileSelect && mobileSelect.value !== nextTab) {
+      mobileSelect.value = nextTab;
+    }
+
+    if (nextTab === "memory") {
+      renderMemoryInspector();
+    }
+
+    refreshIcons();
+  };
+
+  buttons.forEach((button) => {
+    button.addEventListener("click", () => activate(button.getAttribute("data-settings-tab") || "general"));
+  });
+
+  mobileSelect?.addEventListener("change", (event) => {
+    activate(event.target.value);
+  });
+
+  activate("general");
 }
 
 async function deleteMemoryEntry(atomId) {
