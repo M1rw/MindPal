@@ -55,10 +55,10 @@ export async function startLiveVoice() {
     const textContainer = document.getElementById("voice-text-container");
     const orbContainer = document.getElementById("voice-orb-container");
     setTimeout(() => {
-        textContainer.classList.remove("translate-y-4", "opacity-0");
-        textContainer.classList.add("translate-y-0", "opacity-100");
-        orbContainer.classList.remove("scale-90");
-        orbContainer.classList.add("scale-100");
+        if (textContainer) {
+            textContainer.classList.remove("translate-y-4", "opacity-0");
+            textContainer.classList.add("translate-y-0", "opacity-100");
+        }
     }, 50);
 
     try {
@@ -270,15 +270,15 @@ export function stopLiveVoice() {
     const orbContainer = document.getElementById("voice-orb-container");
     
     overlay.classList.add("opacity-0");
-    textContainer.classList.add("translate-y-4", "opacity-0");
-    textContainer.classList.remove("translate-y-0", "opacity-100");
-    orbContainer.classList.add("scale-90");
-    orbContainer.classList.remove("scale-100");
+    if (textContainer) {
+        textContainer.classList.add("translate-y-4", "opacity-0");
+        textContainer.classList.remove("translate-y-0", "opacity-100");
+    }
     
     overlay.classList.remove("pointer-events-auto");
     setTimeout(() => {
         overlay.classList.add("hidden");
-    }, 700);
+    }, 300);
 
     // Sync to chat
     if (onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
@@ -287,40 +287,29 @@ export function stopLiveVoice() {
 }
 
 function setUIMode(mode) {
-    const ring = document.getElementById("voice-live-ring");
+    const circle = document.getElementById("voice-live-circle");
     const glow = document.getElementById("voice-live-glow");
-    const icon = document.getElementById("voice-live-icon");
     const statusEl = document.getElementById("voice-live-status");
     
+    if (!circle || !glow) return;
+    
     if (mode === "speaking") {
-        ring.setAttribute("stroke", "rgba(168,85,247,0.8)");
-        ringOuter.setAttribute("stroke", "rgba(168,85,247,0.2)");
-        glow.className = "absolute inset-0 rounded-full bg-purple-500/30 blur-[60px] transition-all duration-700 scale-110";
-        icon.className = "w-12 h-12 text-purple-300 drop-shadow-[0_0_20px_rgba(168,85,247,0.6)] transition-colors duration-500";
-        statusEl.textContent = "AI SPEAKING...";
+        circle.className = "relative z-10 w-20 h-20 rounded-full bg-purple-500 flex items-center justify-center shadow-lg transition-colors duration-500";
+        glow.className = "absolute inset-0 rounded-full bg-purple-500/20 scale-100 transition-all duration-300";
+        if (statusEl) statusEl.textContent = "AI speaking...";
     } else {
-        ring.setAttribute("stroke", "rgba(34,211,238,0.8)");
-        ringOuter.setAttribute("stroke", "rgba(34,211,238,0.1)");
-        glow.className = "absolute inset-0 rounded-full bg-cyan-400/20 blur-[60px] transition-all duration-700 scale-100";
-        icon.className = "w-12 h-12 text-cyan-200/90 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] transition-colors duration-500";
-        statusEl.textContent = "LISTENING...";
+        circle.className = "relative z-10 w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center shadow-lg transition-colors duration-500";
+        glow.className = "absolute inset-0 rounded-full bg-blue-500/20 scale-100 transition-all duration-300";
+        if (statusEl) statusEl.textContent = "Listening...";
     }
 }
 
 function updateWaveform(rms, source = "user") {
-    // scale dashoffset based on rms
-    const ring = document.getElementById("voice-live-ring");
-    if (!ring) return;
+    const glow = document.getElementById("voice-live-glow");
+    if (!glow) return;
     
-    const circumference = 628;
     const level = Math.min(1, rms * 15);
-    const offset = circumference - (level * circumference);
-    ring.setAttribute("stroke-dashoffset", offset.toString());
-    
-    const ringOuter = document.getElementById("voice-live-ring-outer");
-    if (ringOuter) {
-        const outerCircumference = 722;
-        const outerOffset = outerCircumference - (level * outerCircumference * 1.5);
-        ringOuter.setAttribute("stroke-dashoffset", outerOffset.toString());
-    }
+    // scale from 1 (base) up to 2 (expanded) based on volume
+    const scale = 1 + level;
+    glow.style.transform = `scale(${scale})`;
 }
