@@ -1261,8 +1261,8 @@ async function handleSend() {
           isGenerating = false;
           setInputState({ disabled: false, locked: isSessionLocked });
           document.getElementById("chat-input")?.focus();
-          
-          earlyAssistantMessage = addMessage("MindPal", streamResponseStr.trim(), {
+          const replyText = streamResponseStr.trim();
+          earlyAssistantMessage = addMessage("MindPal", replyText, {
             requestId: null,
             providerUsed: null,
             safety: null,
@@ -1271,6 +1271,11 @@ async function handleSend() {
           });
 
           notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
+
+          if (!isCrisisReply(replyText, "")) {
+            contentContainer.appendChild(buildMessageActions(replyText));
+            refreshIcons();
+          }
         }
       },
       onMetadata: (meta) => {
@@ -1339,8 +1344,8 @@ async function handleSend() {
     const isCrisis = isCrisisReply(reply, safetyLevel);
     if (isCrisis) {
       contentContainer.className = "flex flex-col text-[15px] text-rose-700 dark:text-rose-400 font-medium leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
-    } else {
-      contentContainer.appendChild(buildMessageActions(reply));
+      const actionsEl = contentContainer.querySelector('.action-buttons');
+      if (actionsEl) actionsEl.remove();
     }
 
     if (window.MINDPAL_CONFIG?.SHOW_RESPONSE_DEBUG && backendMetaFinal) {
@@ -1705,8 +1710,8 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
           isGenerating = false;
           setInputState({ disabled: false, locked: isSessionLocked });
           document.getElementById("chat-input")?.focus();
-          
-          earlyRegeneratedMessage = addMessage("MindPal", streamResponseStr.trim(), {
+          const replyText = streamResponseStr.trim();
+          earlyRegeneratedMessage = addMessage("MindPal", replyText, {
             requestId: null,
             providerUsed: null,
             safety: null,
@@ -1716,6 +1721,11 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
           });
 
           notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the regenerated response.");
+
+          if (!isCrisisReply(replyText, "")) {
+            contentContainer.appendChild(buildMessageActions(replyText));
+            refreshIcons();
+          }
         }
       },
       onMetadata: (meta) => {
@@ -1785,8 +1795,8 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     const isCrisis = isCrisisReply(reply, safetyLevel);
     if (isCrisis) {
       contentContainer.className = "flex flex-col text-[15px] text-rose-700 dark:text-rose-400 font-medium leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
-    } else {
-      contentContainer.appendChild(buildMessageActions(reply));
+      const actionsEl = contentContainer.querySelector('.action-buttons');
+      if (actionsEl) actionsEl.remove();
     }
 
     if (window.MINDPAL_CONFIG?.SHOW_RESPONSE_DEBUG && backendMetaFinal) {
