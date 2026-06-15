@@ -213,6 +213,7 @@ async function bootstrap() {
   bindStreakModal();
   bindSettings();
   bindInput();
+  bindModelSelector();
   bindModeSelector();
   bindMoodButtons();
   bindConversationActions();
@@ -1108,6 +1109,56 @@ function bindModeSelector() {
   });
 }
 
+function bindModelSelector() {
+  const modelBtn = document.getElementById("model-selector-btn");
+  const dropdown = document.getElementById("model-dropdown");
+
+  modelBtn?.addEventListener("click", (event) => {
+    if (isSessionLocked) return;
+
+    event.stopPropagation();
+    dropdown?.classList.toggle("hidden");
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!dropdown || !modelBtn) return;
+
+    if (!dropdown.contains(event.target) && !modelBtn.contains(event.target)) {
+      dropdown.classList.add("hidden");
+    }
+  });
+
+  document.querySelectorAll(".model-option").forEach((option) => {
+    option.addEventListener("click", () => {
+      const modelText = document.getElementById("current-model-text");
+      const modelValue = option.getAttribute("data-model");
+      
+      if (modelText) {
+        if (modelValue === "pro") {
+          modelText.innerHTML = 'MindPal Pro <span class="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ml-1">Clinical</span>';
+          document.getElementById("current-model-icon")?.classList.replace("text-blue-500", "text-purple-500");
+          document.getElementById("current-model-icon")?.setAttribute("data-lucide", "stethoscope");
+        } else {
+          modelText.textContent = "MindPal Standard";
+          document.getElementById("current-model-icon")?.classList.replace("text-purple-500", "text-blue-500");
+          document.getElementById("current-model-icon")?.setAttribute("data-lucide", "sparkles");
+        }
+        
+        // Re-init lucide icons for the new icon
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      }
+
+      dropdown?.classList.add("hidden");
+
+      if (!isSessionLocked) {
+        document.getElementById("chat-input")?.focus();
+      }
+    });
+  });
+}
+
 function bindMoodButtons() {
   document.querySelectorAll(".mood-btn").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1268,6 +1319,8 @@ async function handleSend() {
     const state = getState();
     const token = await getIdToken();
     const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
+    const modelRaw = document.getElementById("current-model-text")?.textContent || "MindPal Standard";
+    const model = modelRaw.includes("Pro") ? "pro" : "standard";
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     contentBox = document.createElement("div");
@@ -1288,6 +1341,7 @@ async function handleSend() {
       history: state.chatMemory,
       locale: resolveLocale(),
       mode,
+      model,
       token,
       profileContext: {
         ...(currentCloudProfileContext || {}),

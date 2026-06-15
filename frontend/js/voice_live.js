@@ -158,7 +158,8 @@ export async function startLiveVoice() {
             // Send Setup Message
             liveWebSocket.send(JSON.stringify({
                 setup: {
-                    model: "models/gemini-2.0-flash-exp",
+                    // This is the correct API string for the Gemini Native Audio Dialog model
+                    model: "models/gemini-2.5-flash",
                     generationConfig: {
                         responseModalities: ["AUDIO", "TEXT"],
                         speechConfig: {
@@ -233,14 +234,28 @@ export async function startLiveVoice() {
             stopLiveVoice();
         };
         
-        liveWebSocket.onclose = () => {
-            stopLiveVoice();
+        liveWebSocket.onclose = (event) => {
+            console.log("Live WebSocket Closed", event.code, event.reason);
+            if (event.code === 1008) {
+                statusEl.textContent = "Error 1008: Invalid API Key. Please verify your Gemini API key.";
+                statusEl.classList.add("text-red-500");
+                setTimeout(stopLiveVoice, 4000);
+            } else if (event.code !== 1000) {
+                statusEl.textContent = `Connection Closed (${event.code})`;
+                statusEl.classList.add("text-red-500");
+                setTimeout(stopLiveVoice, 3000);
+            } else {
+                stopLiveVoice();
+            }
         };
 
     } catch (error) {
         console.error("Failed to start Live Voice", error);
-        statusEl.textContent = "Error Accessing Microphone";
-        setTimeout(stopLiveVoice, 2000);
+        if (statusEl) {
+            statusEl.textContent = "Error: " + (error.message || "Failed to connect");
+            statusEl.classList.add("text-red-500");
+        }
+        setTimeout(stopLiveVoice, 3000);
     }
 }
 
