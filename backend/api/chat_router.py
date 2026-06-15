@@ -723,6 +723,19 @@ def _build_user_preferences_prompt(profile: UserProfile, metadata: Any | None = 
         if getattr(metadata, "custom_instructions", None):
             parts.append(f"client_custom_instructions={metadata.custom_instructions}")
 
+    if hasattr(profile, "clinical") and profile.clinical:
+        clinical = profile.clinical
+        if clinical.presenting_problems:
+            parts.append("presenting_problems=" + ", ".join(clinical.presenting_problems))
+        if clinical.suspected_diagnoses:
+            parts.append("suspected_diagnoses=" + ", ".join(clinical.suspected_diagnoses))
+        if clinical.treatment_plan:
+            parts.append(f"treatment_plan={clinical.treatment_plan}")
+        if clinical.latest_phq9_score is not None:
+            parts.append(f"latest_phq9_score={clinical.latest_phq9_score}")
+        if clinical.latest_gad7_score is not None:
+            parts.append(f"latest_gad7_score={clinical.latest_gad7_score}")
+
     return sanitize_text("\n".join(parts), MAX_USER_PREFS_PROMPT_CHARS)
 
 

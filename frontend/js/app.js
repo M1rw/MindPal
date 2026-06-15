@@ -62,6 +62,7 @@ import {
   syncInputButtons,
   toggleTheme,
   updateProfileUI,
+  updateMentalHealthUI,
 } from "./ui_state.js?v=20260615-streaming-v7";
 
 import { initVoice } from "./voice.js?v=20260615-streaming-v7";
@@ -313,6 +314,7 @@ async function initFrontendAuth() {
         const storedProfile = await loadUserProfile(token).catch(() => null);
         if (storedProfile) {
           hydrateSettingsFromProfile(storedProfile);
+          updateMentalHealthUI(storedProfile);
         }
 
         currentCloudProfileContext = {
@@ -710,6 +712,7 @@ function bindProfileModal() {
       const storedProfile = await loadUserProfile(token).catch(() => null);
       if (storedProfile) {
         hydrateSettingsFromProfile(storedProfile);
+        updateMentalHealthUI(storedProfile);
       }
 
       console.info("MindPal backend profile:", profile);
