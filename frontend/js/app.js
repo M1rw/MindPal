@@ -138,6 +138,19 @@ let currentCloudProfileContext = null;
 let cloudChatHydrated = false;
 let cloudChatSyncInFlight = false;
 let cloudChatSyncTimer = null;
+
+let globalLoaderRemoved = false;
+export function removeGlobalLoader() {
+  if (globalLoaderRemoved) return;
+  globalLoaderRemoved = true;
+  const loader = document.getElementById("global-loader");
+  if (loader) {
+    setTimeout(() => {
+      loader.classList.add("opacity-0");
+      setTimeout(() => loader.remove(), 700);
+    }, 150);
+  }
+}
 const pendingCloudChatMessages = [];
 
 const consoleBanner = `
@@ -212,13 +225,8 @@ async function bootstrap() {
 
   refreshIcons();
 
-  const loader = document.getElementById("global-loader");
-  if (loader) {
-    // Add a tiny delay to ensure the UI has completely painted
-    setTimeout(() => {
-      loader.classList.add("opacity-0");
-      setTimeout(() => loader.remove(), 700); // Wait for transition to finish before removing
-    }, 150);
+  if (!authIsConfigured()) {
+    removeGlobalLoader();
   }
 }
 
@@ -237,6 +245,7 @@ async function initFrontendAuth() {
           setCloudSyncEnabled(false);
           updateProfileUI(null);
         }
+        removeGlobalLoader();
         return;
       }
 
@@ -278,11 +287,14 @@ async function initFrontendAuth() {
         memoryGraphContext = loadMemoryGraphContext();
         setCloudSyncEnabled(false);
         updateProfileUI(null);
+      } finally {
+        removeGlobalLoader();
       }
     });
   } catch (error) {
     console.warn("Firebase frontend auth init failed:", error);
     setCloudSyncEnabled(false);
+    removeGlobalLoader();
   }
 }
 
