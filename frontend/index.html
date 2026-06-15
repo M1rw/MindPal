@@ -125,21 +125,39 @@
             </div>
         </div>
 
-        <!-- Main Content Skeleton -->
-        <div class="flex-1 flex flex-col items-center justify-center w-full px-4 gap-6 mt-[-8vh]">
-            <div class="flex flex-col items-center gap-4 mb-8 w-full max-w-2xl">
-                <div class="w-48 h-10 bg-gray-200 dark:bg-zinc-800 rounded-xl animate-pulse"></div>
-                <div class="w-72 h-8 bg-gray-200 dark:bg-zinc-800 rounded-lg animate-pulse"></div>
+        <!-- Main Content Skeleton (Chat layout) -->
+        <div class="flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 py-8 gap-8 overflow-hidden">
+            <!-- Assistant message skeleton -->
+            <div class="flex items-start gap-4 mt-8">
+                <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-800 animate-pulse shrink-0"></div>
+                <div class="flex flex-col gap-2 w-full max-w-2xl">
+                    <div class="w-3/4 h-4 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse"></div>
+                    <div class="w-5/6 h-4 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse"></div>
+                    <div class="w-1/2 h-4 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse"></div>
+                </div>
             </div>
 
-            <div class="flex flex-wrap justify-center gap-3 mb-4 w-full max-w-2xl">
-                <div class="w-40 h-12 bg-gray-200 dark:bg-zinc-800 rounded-2xl animate-pulse"></div>
-                <div class="w-40 h-12 bg-gray-200 dark:bg-zinc-800 rounded-2xl animate-pulse"></div>
-                <div class="w-32 h-12 bg-gray-200 dark:bg-zinc-800 rounded-2xl animate-pulse"></div>
+            <!-- User message skeleton -->
+            <div class="flex items-start justify-end gap-4 mt-4">
+                <div class="flex flex-col gap-2 w-full max-w-md items-end">
+                    <div class="w-full h-[52px] bg-gray-200 dark:bg-zinc-800 rounded-2xl animate-pulse"></div>
+                </div>
             </div>
+            
+            <!-- Assistant message skeleton -->
+            <div class="flex items-start gap-4 mt-4">
+                <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-800 animate-pulse shrink-0"></div>
+                <div class="flex flex-col gap-2 w-full max-w-2xl">
+                    <div class="w-2/3 h-4 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse"></div>
+                    <div class="w-1/3 h-4 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse"></div>
+                </div>
+            </div>
+        </div>
 
-            <div class="w-full max-w-4xl h-[60px] bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] flex items-center px-4">
-                <div class="flex-1 h-6 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse opacity-50 mr-12 max-w-xs"></div>
+        <!-- Input Box Skeleton -->
+        <div class="w-full pb-6 px-4 flex justify-center flex-none">
+            <div class="w-full max-w-4xl h-[60px] bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] flex items-center px-4 border border-transparent dark:border-zinc-800">
+                <div class="flex-1 h-5 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse opacity-50 mr-12 max-w-[200px]"></div>
                 <div class="w-10 h-10 bg-gray-200 dark:bg-zinc-800 rounded-full animate-pulse opacity-50 flex-shrink-0"></div>
             </div>
         </div>
