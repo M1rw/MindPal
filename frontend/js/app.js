@@ -1023,7 +1023,7 @@ function renderSettingsControls(root) {
   }
 
   applyVisualSettings(settings);
-  refreshIcons(root);
+  refreshIcons(document);
 }
 
 function createSettingsSelect(title, config, settings) {
@@ -1250,6 +1250,11 @@ async function chooseSettingsOption(option) {
   if (!path) return;
 
   closeSettingsChoices();
+  
+  // Yield main thread to allow the browser to paint the closed dropdown immediately
+  // This drastically improves Interaction to Next Paint (INP)
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
   await updateSettingFromControl(path, value, option);
 }
 
