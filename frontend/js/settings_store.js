@@ -115,12 +115,21 @@ export function applyVisualSettings(settings = appSettings) {
   root.dataset.contrast = normalized.contrast;
 
   const themeIcon = document.getElementById("theme-icon");
-  const modalThemeToggle = document.getElementById("modal-theme-toggle");
-
   if (themeIcon) {
-    themeIcon.setAttribute("data-lucide", dark ? "sun" : "moon");
+    const nextIcon = dark ? "sun" : "moon";
+    if (themeIcon.tagName.toLowerCase() === "svg") {
+      const i = document.createElement("i");
+      i.id = "theme-icon";
+      i.className = "w-5 h-5";
+      i.setAttribute("data-lucide", nextIcon);
+      themeIcon.replaceWith(i);
+      if (window.lucide?.createIcons) window.lucide.createIcons();
+    } else {
+      themeIcon.setAttribute("data-lucide", nextIcon);
+    }
   }
 
+  const modalThemeToggle = document.getElementById("modal-theme-toggle");
   if (modalThemeToggle) {
     modalThemeToggle.checked = dark;
   }
