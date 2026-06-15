@@ -129,17 +129,15 @@ export function cognitiveSectionKey(label) {
 export function processStructuredResponse(text, elapsedMs = null) {
   const sections = parseCognitiveSections(text);
   
-  // Looser check: if ANY cognitive section was found, we treat it as structured
-  const hasCognitiveStructure = Boolean(
+  // Only build a timeline dropdown if we actually have thinking logic to show
+  const hasTimelineItems = Boolean(
     sections.thought || 
     sections.distortion || 
     sections.evidenceFor || 
-    sections.evidenceAgainst || 
-    sections.reframe || 
-    sections.action
+    sections.evidenceAgainst
   );
 
-  if (!hasCognitiveStructure) {
+  if (!hasTimelineItems) {
     return {
       timelineHtml: "",
       finalHtml: formatMarkdown(text),
