@@ -440,6 +440,7 @@ export async function sendChatMessageStream({
   token = null,
   profileContext = null,
   onChunk = (text) => {},
+  onStatus = (status) => {},
   onMetadata = (meta) => {},
   onError = (error) => {}
 }) {
@@ -487,6 +488,8 @@ export async function sendChatMessageStream({
                 onError(new Error(data.error));
               } else if (data.text !== undefined) {
                 onChunk(data.text);
+              } else if (data.type === 'status') {
+                onStatus(data.status);
               } else if (data.type === 'metadata') {
                 onMetadata(data);
               }

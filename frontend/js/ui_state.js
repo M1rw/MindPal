@@ -578,7 +578,7 @@ export function appendStatusIndicator(id, parentContainer = null) {
 
   const msgDiv = document.createElement("div");
   msgDiv.id = id;
-  msgDiv.className = "flex w-full animate-fade-in pl-4 sm:pl-10 py-1";
+  msgDiv.className = "flex w-full animate-fade-in py-1";
   msgDiv.innerHTML = `
     <div class="flex items-center gap-3">
       <div class="flex items-end gap-[3px]">

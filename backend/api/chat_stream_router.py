@@ -157,6 +157,7 @@ async def chat_stream(
                 response_memory_graph_delta = None
                 response_memory_graph_snapshot = None
 
+                yield f"data: {json.dumps({'type': 'status', 'status': 'text_finished'})}\n\n"
                 if memory_allowed:
                     graph_update = await _persist_memory_graph_inline(
                         payload=payload,
