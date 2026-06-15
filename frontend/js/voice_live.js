@@ -17,20 +17,27 @@ let smoothVolume = 0;
 let blobPhase = 0;
 
 // Colour palettes (CSS custom properties on the overlay)
-const PALETTE_LISTEN = { blob1: "#22d3ee", blob2: "#3b82f6", blob3: "#6366f1", blob4: "#a855f7" };
-const PALETTE_SPEAK  = { blob1: "#f472b6", blob2: "#c084fc", blob3: "#fb923c", blob4: "#e879f9" };
+const PALETTE_LISTEN = { blob1: "#60a5fa", blob2: "#818cf8", blob3: "#a78bfa", blob4: "#c4b5fd" };
+const PALETTE_SPEAK  = { blob1: "#f9a8d4", blob2: "#c084fc", blob3: "#fbbf24", blob4: "#e879f9" };
 
 let onChatSyncCallback = null;
 let ccVisible = true;
 
 /* ═══════════════ Helpers ═══════════════ */
 
-/** Strip the model's internal thinking/reasoning markers from displayed text */
+/** Strip the model's internal thinking/reasoning markers from displayed text.
+ *  Gemini Native Audio returns cognitive monologue as text — we only want
+ *  the words the model actually *speaks* to the user. */
 function cleanAiText(raw) {
-    // Remove lines like "**Initiating Friendly Exchange**" or "**Acknowledge Politeness**"
     return raw
-        .replace(/\*\*[^*]+\*\*/g, "")   // remove bold markers
-        .replace(/\n{2,}/g, "\n")         // collapse extra newlines
+        // Remove **bold markers** like "**Acknowledge Greeting**"
+        .replace(/\*\*[^*]+\*\*/g, "")
+        // Remove lines that are clearly internal reasoning
+        .replace(/^.*?\b(I can certainly|I'll respond|I'm processing|I am processing|I will|I am prioritizing|To continue|meaning I|reciprocate|optimal function|inform our|overture|cordially|I'll pose|straightforward)\b.*$/gim, "")
+        // Remove any remaining lines that start with "I " followed by cognitive verbs
+        .replace(/^I\s+(understand|need to|should|must|recognize|notice|sense|perceive|detect|observe|acknowledge|am going to|want to|plan to)\b.*$/gim, "")
+        // Collapse leftover whitespace
+        .replace(/\n{2,}/g, "\n")
         .trim();
 }
 
@@ -182,6 +189,11 @@ export async function startLiveVoice() {
                         speechConfig: {
                             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
                         }
+                    },
+                    systemInstruction: {
+                        parts: [{
+                            text: "You are MindPal, a warm and supportive AI companion. Speak naturally and conversationally. IMPORTANT: Any text you return must be ONLY the exact words you speak aloud. Do NOT include internal reasoning, cognitive notes, thinking steps, or meta-commentary about what you are doing. Never start sentences with 'I am processing' or 'I will respond' or similar."
+                        }]
                     }
                 }
             }));
