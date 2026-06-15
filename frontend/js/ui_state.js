@@ -358,6 +358,21 @@ export function updateProfileUI(user = null) {
     crisisToggle.checked = Boolean(state.crisisMode);
   }
 
+  // Dynamic email row and delete account visibility
+  const emailCopy = document.getElementById("account-email-copy");
+  const emailStatus = document.getElementById("account-email-status");
+  const deleteAccountBtn = document.getElementById("delete-account-btn");
+
+  if (isCloud && user) {
+    if (emailCopy) emailCopy.textContent = user.email || "Cloud identity managed by Firebase.";
+    if (emailStatus) emailStatus.textContent = user.email ? "Connected" : "Pending";
+    if (deleteAccountBtn) deleteAccountBtn.style.display = "";
+  } else {
+    if (emailCopy) emailCopy.textContent = "Sign in to connect your cloud identity.";
+    if (emailStatus) emailStatus.textContent = "Not connected";
+    if (deleteAccountBtn) deleteAccountBtn.style.display = "none";
+  }
+
   setGreeting();
   refreshIcons();
 }

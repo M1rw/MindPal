@@ -503,12 +503,6 @@ function bindTheme() {
     void persistAppSettingsToCloud();
   });
 
-  document.getElementById("modal-theme-toggle")?.addEventListener("change", () => {
-    const checked = document.getElementById("modal-theme-toggle")?.checked;
-    setAppSetting("appearance", checked ? "dark" : "light");
-    renderSettingsControls(document.getElementById("profile-content") || document);
-    void persistAppSettingsToCloud();
-  });
 }
 
 function bindProfileModal() {
@@ -634,6 +628,49 @@ function bindProfileModal() {
     renderMemoryInspector();
     updateProfileUI(getCurrentUser());
     showToast(nextName === "Friend" ? "Profile name cleared." : "Profile updated.");
+  });
+
+  document.getElementById("delete-account-btn")?.addEventListener("click", async () => {
+    const user = getCurrentUser();
+    if (!user) {
+      showToast("No cloud account is connected.");
+      return;
+    }
+
+    const confirmed = await showCustomDialog({
+      title: "Delete account",
+      message: `This will permanently remove your cloud identity (${user.email || "unknown"}) and all synced data. This cannot be undone.`,
+      confirmText: "Delete account",
+      danger: true,
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const token = await getIdToken();
+      if (token) {
+        await deleteMemory(token);
+        await saveMemoryGraph(createEmptyMemoryGraph(), token);
+        await deleteCurrentCloudChat(token);
+      }
+      await signOut();
+    } catch (error) {
+      console.warn("Account deletion failed:", error);
+    }
+
+    currentCloudProfileContext = null;
+    clearChatMemory();
+    memoryContext = saveMemoryContext(createEmptyMemory());
+    memoryGraphContext = saveMemoryGraphContext(createEmptyMemoryGraph());
+    renderMemoryInspector();
+    document.getElementById("chat-history")?.replaceChildren();
+    setChatStarted(false);
+    cloudChatHydrated = false;
+    pendingCloudChatMessages.length = 0;
+    setCloudSyncEnabled(false);
+    updateProfileUI(null);
+    closeModal("profile-modal", "profile-content");
+    showToast("Account deleted and signed out.");
   });
 }
 
@@ -951,7 +988,7 @@ function renderSettingsControls(root) {
     if (toggle && SETTINGS_TOGGLES[title]) {
       const path = SETTINGS_TOGGLES[title];
       toggle.setAttribute("data-setting-toggle", path);
-      toggle.checked = path === "appearance" ? settings.appearance === "dark" : Boolean(readPath(settings, path));
+      toggle.checked = path === "appearance" ? document.documentElement.classList.contains("dark") : Boolean(readPath(settings, path));
     }
   });
 
@@ -963,6 +1000,27 @@ function renderSettingsControls(root) {
     textarea.setAttribute("data-setting-text", "personalization.customInstructions");
     textarea.setAttribute("rows", "6");
     customBox.replaceWith(textarea);
+  }
+
+  // Character counter for custom instructions
+  const ciTextarea = root.querySelector("textarea[data-setting-text='personalization.customInstructions']");
+  if (ciTextarea) {
+    let counter = ciTextarea.parentElement?.querySelector(".settings-char-counter");
+    if (!counter) {
+      counter = document.createElement("span");
+      counter.className = "settings-char-counter";
+      ciTextarea.insertAdjacentElement("afterend", counter);
+      ciTextarea.addEventListener("input", () => {
+        const l = ciTextarea.value.length;
+        counter.textContent = `${l} / 800`;
+        counter.classList.toggle("near-limit", l > 640 && l <= 780);
+        counter.classList.toggle("at-limit", l > 780);
+      });
+    }
+    const len = ciTextarea.value.length;
+    counter.textContent = `${len} / 800`;
+    counter.classList.toggle("near-limit", len > 640 && len <= 780);
+    counter.classList.toggle("at-limit", len > 780);
   }
 
   applyVisualSettings(settings);
@@ -1041,19 +1099,8 @@ async function handleSettingsButtonAction(action, source = null) {
     return;
   }
 
-  if (action === "location") {
-    showToast("Location is kept off until local-resource features need it.");
-    return;
-  }
-
-  if (action === "passkeys") {
-    showToast("Passkeys require provider support. Firebase auth remains active.");
-    return;
-  }
-
-  if (action === "sessions") {
-    showToast(getCurrentUser() ? "This browser is the current signed-in session." : "No cloud session is active.");
-    return;
+  if (action === "location" || action === "passkeys" || action === "sessions" || action === "archived") {
+    return; // These features show "Coming soon" in the UI
   }
 
   if (action === "shortcut") {
@@ -1275,11 +1322,69 @@ async function deleteMemoryEntry(atomId) {
   showToast("Memory deleted.");
 }
 
-function editMemoryEntry(atomId) {
+function showCustomDialog({ title = "Confirm", message = "", input = false, defaultValue = "", confirmText = "Confirm", danger = false } = {}) {
+  return new Promise((resolve) => {
+    const dialog = document.getElementById("custom-dialog");
+    const content = document.getElementById("custom-dialog-content");
+    const titleEl = document.getElementById("custom-dialog-title");
+    const messageEl = document.getElementById("custom-dialog-message");
+    const inputWrap = document.getElementById("custom-dialog-input-wrap");
+    const inputEl = document.getElementById("custom-dialog-input");
+    const confirmBtn = document.getElementById("custom-dialog-confirm");
+    const cancelBtn = document.getElementById("custom-dialog-cancel");
+
+    if (!dialog || !content) { resolve(input ? null : false); return; }
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+    if (confirmBtn) {
+      confirmBtn.textContent = confirmText;
+      confirmBtn.classList.toggle("dialog-danger", Boolean(danger));
+    }
+
+    if (input && inputWrap && inputEl) {
+      inputWrap.classList.remove("hidden");
+      inputEl.value = defaultValue;
+    } else if (inputWrap) {
+      inputWrap.classList.add("hidden");
+    }
+
+    dialog.classList.remove("opacity-0", "pointer-events-none");
+    content.classList.remove("scale-95");
+
+    if (input && inputEl) {
+      window.setTimeout(() => inputEl.focus(), 100);
+    }
+
+    const cleanup = () => {
+      dialog.classList.add("opacity-0", "pointer-events-none");
+      content.classList.add("scale-95");
+      confirmBtn?.removeEventListener("click", onConfirm);
+      cancelBtn?.removeEventListener("click", onCancel);
+      dialog.removeEventListener("click", onBackdrop);
+    };
+
+    const onConfirm = () => { cleanup(); resolve(input ? (inputEl?.value ?? "") : true); };
+    const onCancel = () => { cleanup(); resolve(input ? null : false); };
+    const onBackdrop = (e) => { if (e.target === dialog) onCancel(); };
+
+    confirmBtn?.addEventListener("click", onConfirm);
+    cancelBtn?.addEventListener("click", onCancel);
+    dialog.addEventListener("click", onBackdrop);
+  });
+}
+
+async function editMemoryEntry(atomId) {
   const atom = memoryGraphContext.atoms.find((item) => item.id === atomId);
   if (!atom) return;
 
-  const next = window.prompt("Edit memory", atom.value);
+  const next = await showCustomDialog({
+    title: "Edit memory",
+    message: "Update or clear this memory entry.",
+    input: true,
+    defaultValue: atom.value,
+    confirmText: "Save",
+  });
   if (next === null) return;
 
   const value = next.trim();
@@ -1403,7 +1508,12 @@ function bindConversationActions() {
   });
 
   document.getElementById("clear-chat-btn")?.addEventListener("click", async () => {
-    const confirmed = window.confirm("Clear local conversation cache and cloud memory if signed in?");
+    const confirmed = await showCustomDialog({
+      title: "Delete all chats and memory",
+      message: "This will clear your local conversation cache and cloud memory if signed in. This action cannot be undone.",
+      confirmText: "Delete all",
+      danger: true,
+    });
 
     if (!confirmed) return;
 
