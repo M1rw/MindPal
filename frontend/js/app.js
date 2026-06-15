@@ -19,7 +19,7 @@ import {
   replaceCurrentCloudChat,
   upsertCloudChatMessages,
   updateUserProfilePreferences,
-} from "./api.js?v=20260615-streaming-v6";
+} from "./api.js?v=20260615-streaming-v7";
 
 import {
   authIsConfigured,
@@ -29,7 +29,7 @@ import {
   onAuthChange,
   signInWithGoogle,
   signOut,
-} from "./auth.js?v=20260615-streaming-v6";
+} from "./auth.js?v=20260615-streaming-v7";
 
 import {
   addMessage,
@@ -62,9 +62,9 @@ import {
   syncInputButtons,
   toggleTheme,
   updateProfileUI,
-} from "./ui_state.js?v=20260615-streaming-v6";
+} from "./ui_state.js?v=20260615-streaming-v7";
 
-import { initVoice } from "./voice.js?v=20260615-streaming-v6";
+import { initVoice } from "./voice.js?v=20260615-streaming-v7";
 
 import {
   applyVisualSettings,
@@ -75,7 +75,7 @@ import {
   mergeAppSettings,
   requestBrowserNotificationsIfNeeded,
   setAppSetting,
-} from "./settings_store.js?v=20260615-streaming-v6";
+} from "./settings_store.js?v=20260615-streaming-v7";
 
 import {
   answerQuestionFromMemory,
@@ -97,7 +97,7 @@ import {
   saveMemoryContext,
   saveMemoryGraphContext,
   mergeMemoryContexts,
-} from "./memory_engine.js?v=20260615-streaming-v6";
+} from "./memory_engine.js?v=20260615-streaming-v7";
 
 let isGenerating = false;
 let isSessionLocked = false;
@@ -1633,23 +1633,26 @@ async function handleSend() {
 
   const statusId = `status-${Date.now()}`;
   appendStatusIndicator(statusId);
+  // Create streaming container before try so catch can clean it up on failure
+  const chatHistory = document.getElementById("chat-history");
+  let streamMsgDiv = null;
+  let contentBox = null;
 
   try {
     const state = getState();
     const token = await getIdToken();
     const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
 
-    // Send clean message only. Memory/context managed by backend via system prompt.
-    const chatHistory = document.getElementById("chat-history");
-    const msgDiv = document.createElement("div");
-    msgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
+    // Build the streaming container
+    streamMsgDiv = document.createElement("div");
+    streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
-    const contentBox = document.createElement("div");
+    contentBox = document.createElement("div");
     contentBox.className = "content-box";
     contentContainer.appendChild(contentBox);
-    msgDiv.appendChild(contentContainer);
-    if (chatHistory) chatHistory.appendChild(msgDiv);
+    streamMsgDiv.appendChild(contentContainer);
+    if (chatHistory) chatHistory.appendChild(streamMsgDiv);
     scrollChatToBottom("auto");
     let streamResponseStr = "";
     let backendMetaFinal = null;
@@ -1763,12 +1766,14 @@ async function handleSend() {
       if (metaEl) contentContainer.appendChild(metaEl);
     }
 
-    bindAccordion(msgDiv);
+    bindAccordion(streamMsgDiv);
     refreshIcons();
 
     notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
   } catch (error) {
     console.error(error);
+    // Remove the orphan streaming div so no blank bubble is left in the chat
+    streamMsgDiv?.remove();
     removeStatusIndicator(statusId);
 
     const fallback = buildClientFallbackReply(error);
