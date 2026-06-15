@@ -211,6 +211,15 @@ async function bootstrap() {
   setInputState({ disabled: false, locked: false });
 
   refreshIcons();
+
+  const loader = document.getElementById("global-loader");
+  if (loader) {
+    // Add a tiny delay to ensure the UI has completely painted
+    setTimeout(() => {
+      loader.classList.add("opacity-0");
+      setTimeout(() => loader.remove(), 700); // Wait for transition to finish before removing
+    }, 150);
+  }
 }
 
 async function initFrontendAuth() {
@@ -1423,7 +1432,7 @@ function renderPersistedChat() {
     });
   }
 
-  scrollChatToBottom("auto");
+  scrollChatToBottom("auto", true);
 }
 
 async function appendMessageToUI(text, sender, {
