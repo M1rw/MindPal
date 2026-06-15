@@ -19,7 +19,7 @@ import {
   replaceCurrentCloudChat,
   upsertCloudChatMessages,
   updateUserProfilePreferences,
-} from "./api.js?v=20260615-streaming-v3";
+} from "./api.js?v=20260615-streaming-v4";
 
 import {
   authIsConfigured,
@@ -29,7 +29,7 @@ import {
   onAuthChange,
   signInWithGoogle,
   signOut,
-} from "./auth.js?v=20260615-streaming-v3";
+} from "./auth.js?v=20260615-streaming-v4";
 
 import {
   addMessage,
@@ -61,9 +61,9 @@ import {
   syncInputButtons,
   toggleTheme,
   updateProfileUI,
-} from "./ui_state.js?v=20260615-streaming-v3";
+} from "./ui_state.js?v=20260615-streaming-v4";
 
-import { initVoice } from "./voice.js?v=20260615-streaming-v3";
+import { initVoice } from "./voice.js?v=20260615-streaming-v4";
 
 import {
   applyVisualSettings,
@@ -74,7 +74,7 @@ import {
   mergeAppSettings,
   requestBrowserNotificationsIfNeeded,
   setAppSetting,
-} from "./settings_store.js?v=20260615-streaming-v3";
+} from "./settings_store.js?v=20260615-streaming-v4";
 
 import {
   answerQuestionFromMemory,
@@ -96,7 +96,7 @@ import {
   saveMemoryContext,
   saveMemoryGraphContext,
   mergeMemoryContexts,
-} from "./memory_engine.js?v=20260615-streaming-v3";
+} from "./memory_engine.js?v=20260615-streaming-v4";
 
 let isGenerating = false;
 let isSessionLocked = false;
@@ -1649,7 +1649,7 @@ async function handleSend() {
     contentContainer.appendChild(contentBox);
     msgDiv.appendChild(contentContainer);
     if (chatHistory) chatHistory.appendChild(msgDiv);
-    scrollChatToBottom("smooth");
+    scrollChatToBottom("auto");
     let streamResponseStr = "";
     let backendMetaFinal = null;
 
@@ -1685,14 +1685,14 @@ async function handleSend() {
           }
           const parsed = processStructuredResponse(streamResponseStr);
           contentBox.innerHTML = parsed.finalHtml;
-          scrollChatToBottom("smooth");
+          scrollChatToBottom("auto");
         } else if (!renderTimeout) {
           renderTimeout = requestAnimationFrame(() => {
             renderTimeout = null;
             lastRenderTime = performance.now();
             const parsed = processStructuredResponse(streamResponseStr);
             contentBox.innerHTML = parsed.finalHtml;
-            scrollChatToBottom("smooth");
+            scrollChatToBottom("auto");
           });
         }
       },
@@ -1708,7 +1708,7 @@ async function handleSend() {
     }
     const finalParsed = processStructuredResponse(streamResponseStr);
     contentBox.innerHTML = finalParsed.finalHtml;
-    scrollChatToBottom("smooth");
+    scrollChatToBottom("auto");
 
     const reply = streamResponseStr.trim();
     if (!reply) {
@@ -1844,7 +1844,7 @@ async function appendMessageToUI(text, sender, {
 
     chatHistory.appendChild(msgDiv);
 
-    if (smoothScroll) scrollChatToBottom("smooth");
+    if (smoothScroll) scrollChatToBottom("auto");
     return;
   }
 
@@ -1899,7 +1899,7 @@ async function appendMessageToUI(text, sender, {
   }
 
   if (smoothScroll) {
-    scrollChatToBottom("smooth");
+    scrollChatToBottom("auto");
   }
 }
 
@@ -2087,14 +2087,14 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
           }
           const parsed = processStructuredResponse(streamResponseStr);
           contentBox.innerHTML = parsed.finalHtml;
-          scrollChatToBottom("smooth");
+          scrollChatToBottom("auto");
         } else if (!renderTimeout) {
           renderTimeout = requestAnimationFrame(() => {
             renderTimeout = null;
             lastRenderTime = performance.now();
             const parsed = processStructuredResponse(streamResponseStr);
             contentBox.innerHTML = parsed.finalHtml;
-            scrollChatToBottom("smooth");
+            scrollChatToBottom("auto");
           });
         }
       },
@@ -2110,7 +2110,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     }
     const finalParsed = processStructuredResponse(streamResponseStr);
     contentBox.innerHTML = finalParsed.finalHtml;
-    scrollChatToBottom("smooth");
+    scrollChatToBottom("auto");
 
     const reply = streamResponseStr.trim();
     if (!reply) {
@@ -2464,7 +2464,7 @@ async function typewriteHTML(element, html, scrollContainer) {
     }
   }
 
-  scrollChatToBottom("smooth");
+  scrollChatToBottom("auto");
 }
 
 function formatMarkdown(text) {
