@@ -543,10 +543,10 @@ export function clearInput() {
   inputEl.dispatchEvent(new Event("input"));
 }
 
-export function appendStatusIndicator(id) {
-  const chatHistory = document.getElementById("chat-history");
+export function appendStatusIndicator(id, parentContainer = null) {
+  const container = parentContainer || document.getElementById("chat-history");
 
-  if (!chatHistory) return;
+  if (!container) return;
 
   // Inject the wave-dot keyframes once
   if (!document.getElementById("mindpal-dot-style")) {
@@ -586,11 +586,11 @@ export function appendStatusIndicator(id) {
         <span class="mp-dot"></span>
         <span class="mp-dot"></span>
       </div>
-      <span class="text-[14px] font-medium text-[#444746] dark:text-[#c4c7c5]">Thought for a few seconds...</span>
+      <span class="text-[14px] font-medium text-[#444746] dark:text-[#c4c7c5]">Thinking...</span>
     </div>
   `;
 
-  chatHistory.appendChild(msgDiv);
+  container.appendChild(msgDiv);
   scrollChatToBottom();
 }
 
