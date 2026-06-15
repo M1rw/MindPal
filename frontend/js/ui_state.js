@@ -424,6 +424,7 @@ export function openModal(modalId, contentId) {
 
   modal?.classList.remove("opacity-0", "pointer-events-none");
   content?.classList.remove("scale-95");
+  document.body.classList.add("overflow-hidden");
 }
 
 export function closeModal(modalId, contentId) {
@@ -432,6 +433,13 @@ export function closeModal(modalId, contentId) {
 
   modal?.classList.add("opacity-0", "pointer-events-none");
   content?.classList.add("scale-95");
+  
+  // Only remove overflow-hidden if no other modals are open
+  // In a simple app, we can just remove it, but to be safe we should check
+  const anyModalOpen = document.querySelectorAll('.fixed.inset-0:not(.opacity-0)').length > 0;
+  if (!anyModalOpen) {
+    document.body.classList.remove("overflow-hidden");
+  }
 }
 
 export function setChatStarted(started) {
@@ -612,11 +620,18 @@ export function finalizeStatusIndicator(id, elapsedMs) {
   }
 }
 
-export function scrollChatToBottom(behavior = "auto") {
+export function scrollChatToBottom(behavior = "auto", force = false) {
   requestAnimationFrame(() => {
     const chatHistory = document.getElementById("chat-history");
     if (chatHistory) {
-      chatHistory.scrollTop = chatHistory.scrollHeight;
+      // Only auto-scroll if we are near the bottom already, or if forced
+      const isNearBottom = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 150;
+      if (force || isNearBottom) {
+        chatHistory.scrollTo({
+          top: chatHistory.scrollHeight,
+          behavior: behavior === "smooth" ? "smooth" : "auto"
+        });
+      }
     }
   });
 }

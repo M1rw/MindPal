@@ -67,6 +67,19 @@ import {
 import { initVoice } from "./voice.js?v=20260615-streaming-v7";
 
 import {
+  formatMarkdown,
+  stripMarkdown,
+  appendSectionLine,
+  sleep,
+  typewriteHTML,
+  bindAccordion
+} from "./utils/dom.js";
+
+import {
+  processStructuredResponse
+} from "./utils/chat_helpers.js";
+
+import {
   applyVisualSettings,
   buildChatSettingsMetadata,
   buildProfilePreferencesPatch,
@@ -76,6 +89,21 @@ import {
   requestBrowserNotificationsIfNeeded,
   setAppSetting,
 } from "./settings_store.js?v=20260615-streaming-v7";
+
+import {
+  initSettingsUI,
+  bindSettingsControls,
+  bindSettingsChoiceEvents,
+  bindKeyboardShortcuts,
+  persistAppSettingsToCloud,
+  renderSettingsControls,
+  notifyFromSetting
+} from "./components/settings_ui.js";
+
+import {
+  initMemoryUI,
+  renderMemoryInspector
+} from "./components/memory_inspector.js";
 
 import {
   answerQuestionFromMemory,
@@ -121,6 +149,30 @@ async function bootstrap() {
   loadState();
 
   await initFrontendAuth();
+
+  initSettingsUI({
+    refreshIcons,
+    showToast,
+    openModal,
+    closeModal,
+    startNewLocalChat,
+    handleSend: () => handleSend(),
+    getCurrentUser,
+    updateProfileUI,
+    get isGenerating() { return isGenerating; },
+    get isSessionLocked() { return isSessionLocked; },
+    get currentCloudProfileContext() { return currentCloudProfileContext; }
+  });
+
+  initMemoryUI({
+    refreshIcons,
+    deleteMemoryEntry,
+    editMemoryEntry,
+    toggleMemoryPin,
+    clearMemoryCategory,
+    persistMemoryContextSafe,
+    getMemoryGraphContext: () => memoryGraphContext
+  });
 
   bindTheme();
   bindProfileModal();
@@ -248,7 +300,10 @@ async function hydrateCloudMemory(token) {
 
 
 async function hydrateCloudChat(token) {
-  if (!token || cloudChatHydrated) return;
+  if (!token || cloudChatHydrated) {
+    cloudChatHydrated = true;
+    return;
+  }
 
   try {
     const response = await loadCurrentCloudChat(token);
@@ -722,112 +777,7 @@ function bindSettings() {
   });
 }
 
-function renderMemoryInspector() {
-  const list = document.getElementById("memory-inspector-list");
-  if (!list) return;
-
-  const cards = getMemoryInspectorCards(memoryGraphContext);
-  const totalItems = cards.reduce((sum, card) => sum + card.items.length, 0);
-
-  if (!cards.length) {
-    list.innerHTML = `
-      <div class="settings-memory-empty">
-        <div class="font-medium text-gray-800 dark:text-gray-100">No saved memory yet.</div>
-        <div class="mt-1 text-gray-500 dark:text-gray-400">When you explicitly ask MindPal to remember something durable, it will appear here.</div>
-      </div>
-    `;
-    return;
-  }
-
-  const summaryLines = cards.map((card) => {
-    const values = card.items.slice(0, 4).map((item) => item.value).join(", ");
-    const more = card.items.length > 4 ? `, +${card.items.length - 4} more` : "";
-    return `<li><strong>${escapeHtml(card.label)}:</strong> ${escapeHtml(values + more)}</li>`;
-  }).join("");
-
-  list.innerHTML = `
-    <div class="settings-memory-summary-card">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <div class="font-medium text-gray-900 dark:text-white">MindPal remembers ${totalItems} durable ${totalItems === 1 ? "item" : "items"}.</div>
-          <ul class="mt-3 space-y-1.5 text-[13px] leading-5 text-gray-600 dark:text-gray-300">${summaryLines}</ul>
-        </div>
-        <button class="settings-pill-btn memory-manage-toggle" type="button">Manage</button>
-      </div>
-    </div>
-    <div class="settings-memory-manage hidden">
-      ${cards.map((card) => `
-        <div class="settings-memory-manage-card">
-          <div class="flex items-center justify-between gap-3 mb-2">
-            <div class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">${escapeHtml(card.label)}</div>
-            <button class="memory-clear-category-btn p-1 rounded-full hover:bg-gemini-surface dark:hover:bg-zinc-800 text-gray-400" data-memory-category="${escapeHtml(card.key)}" title="Clear category" type="button">
-              <i data-lucide="x" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-          <div class="flex flex-wrap gap-1.5">
-            ${card.items.map((item) => `
-              <span class="inline-flex max-w-full items-center gap-1 rounded-full bg-gemini-surface dark:bg-zinc-800 px-2.5 py-1 text-[12px] text-gray-700 dark:text-gray-200">
-                <span class="truncate">${escapeHtml(item.value)}</span>
-                ${item.pinned ? `<i data-lucide="pin" class="w-3 h-3 text-gray-400"></i>` : ""}
-                <button class="memory-pin-btn text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" data-memory-id="${escapeHtml(item.id)}" title="${item.pinned ? "Unpin memory" : "Pin memory"}" type="button">
-                  <i data-lucide="${item.pinned ? "pin-off" : "pin"}" class="w-3 h-3"></i>
-                </button>
-                <button class="memory-edit-btn text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" data-memory-id="${escapeHtml(item.id)}" title="Edit memory" type="button">
-                  <i data-lucide="pencil" class="w-3 h-3"></i>
-                </button>
-                <button class="memory-delete-btn text-rose-500 hover:text-rose-700" data-memory-id="${escapeHtml(item.id)}" title="Delete memory" type="button">
-                  <i data-lucide="x" class="w-3 h-3"></i>
-                </button>
-              </span>
-            `).join("")}
-          </div>
-        </div>
-      `).join("")}
-    </div>
-  `;
-
-  list.querySelector(".memory-manage-toggle")?.addEventListener("click", (event) => {
-    const manage = list.querySelector(".settings-memory-manage");
-    if (!manage) return;
-
-    const isHidden = manage.classList.toggle("hidden");
-    event.currentTarget.textContent = isHidden ? "Manage" : "Hide";
-  });
-
-  list.querySelectorAll(".memory-delete-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      deleteMemoryEntry(button.getAttribute("data-memory-id") || "");
-      renderMemoryInspector();
-      void persistMemoryContextSafe();
-    });
-  });
-
-  list.querySelectorAll(".memory-edit-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      editMemoryEntry(button.getAttribute("data-memory-id") || "");
-      renderMemoryInspector();
-      void persistMemoryContextSafe();
-    });
-  });
-
-  list.querySelectorAll(".memory-pin-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      toggleMemoryPin(button.getAttribute("data-memory-id") || "");
-      renderMemoryInspector();
-      void persistMemoryContextSafe();
-    });
-  });
-
-  list.querySelectorAll(".memory-clear-category-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      clearMemoryCategory(button.getAttribute("data-memory-category") || "");
-      renderMemoryInspector();
-      void persistMemoryContextSafe();
-    });
-  });
-
-  refreshIcons(list);
-}
+// renderMemoryInspector moved to components/memory_inspector.js
 
 function bindSettingsTabs() {
   const buttons = Array.from(document.querySelectorAll("[data-settings-tab]"));
@@ -867,360 +817,7 @@ function bindSettingsTabs() {
   activate("general");
 }
 
-function bindSettingsControls() {
-  const modal = document.getElementById("profile-content");
-  if (!modal) return;
-
-  renderSettingsControls(modal);
-
-  modal.addEventListener("change", async (event) => {
-    const select = event.target.closest?.("[data-setting-select]");
-    const toggle = event.target.closest?.("[data-setting-toggle]");
-    const textbox = event.target.closest?.("[data-setting-text]");
-
-    if (select) {
-      await updateSettingFromControl(select.getAttribute("data-setting-select"), select.value, select);
-      return;
-    }
-
-    if (toggle) {
-      await updateSettingFromControl(toggle.getAttribute("data-setting-toggle"), toggle.checked, toggle);
-      return;
-    }
-
-    if (textbox) {
-      await updateSettingFromControl(textbox.getAttribute("data-setting-text"), textbox.value, textbox);
-    }
-  });
-
-  modal.addEventListener("click", async (event) => {
-    const button = event.target.closest?.("[data-settings-action]");
-    if (!button) return;
-
-    event.stopPropagation();
-    await handleSettingsButtonAction(button.getAttribute("data-settings-action"), button);
-  });
-}
-
-const SETTINGS_SELECTS = {
-  Appearance: {
-    path: "appearance",
-    options: [["system", "System"], ["light", "Light"], ["dark", "Dark"]],
-  },
-  Contrast: {
-    path: "contrast",
-    options: [["system", "System"], ["standard", "Standard"], ["high", "High"]],
-  },
-  "Accent color": {
-    path: "accentColor",
-    options: [["blue", "MindPal blue"], ["orange", "Orange"], ["green", "Green"]],
-    accent: true,
-  },
-  Language: {
-    path: "language",
-    options: [["auto", "Auto-detect"], ["en", "English"], ["ar-EG", "Egyptian Arabic"]],
-  },
-  "Spoken language": {
-    path: "spokenLanguage",
-    options: [["auto", "Auto / Browser default"], ["en-US", "English (US)"], ["ar-EG", "Egyptian Arabic"]],
-  },
-  Voice: {
-    path: "voicePreview",
-    options: [["browser", "Preview"], ["off", "Off"]],
-  },
-  "Streak reminders": {
-    path: "notifications.streakReminders",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Response complete": {
-    path: "notifications.responseComplete",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Mood check-in": {
-    path: "notifications.moodCheckIn",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Memory updates": {
-    path: "notifications.memoryUpdates",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Safety follow-up": {
-    path: "notifications.safetyFollowUp",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Base style and tone": {
-    path: "personalization.baseTone",
-    options: [["concise", "Concise"], ["balanced", "Balanced"], ["detailed", "Detailed"]],
-  },
-  Directness: {
-    path: "personalization.directness",
-    options: [["low", "Low"], ["medium", "Medium"], ["high", "High"]],
-  },
-  "Egyptian Arabic style": {
-    path: "personalization.egyptianArabic",
-    options: [["auto", "Auto"], ["always", "Always"], ["off", "Off"]],
-  },
-};
-
-const SETTINGS_TOGGLES = {
-  "Enable dictation": "dictationEnabled",
-  "Fast answers": "personalization.fastAnswers",
-  "Cognitive structure": "personalization.cognitiveStructure",
-  "Enable memory": "memoryEnabled",
-  "Improve MindPal for everyone": "improveProduct",
-};
-
-function renderSettingsControls(root) {
-  const settings = getAppSettings();
-
-  root.querySelectorAll(".settings-row").forEach((row) => {
-    const title = row.querySelector(".settings-row-title")?.textContent?.trim();
-    if (!title) return;
-
-    const selectConfig = SETTINGS_SELECTS[title];
-    const action = row.querySelector(".settings-row-action");
-    const existingChoice = row.querySelector(".settings-choice");
-    const nativeSelect = row.querySelector("select");
-    if (selectConfig && (action || existingChoice || nativeSelect)) {
-      (action || existingChoice || nativeSelect).replaceWith(createSettingsSelect(title, selectConfig, settings));
-    }
-
-    const toggle = row.querySelector("input[type='checkbox']");
-    if (toggle && SETTINGS_TOGGLES[title]) {
-      const path = SETTINGS_TOGGLES[title];
-      toggle.setAttribute("data-setting-toggle", path);
-      toggle.checked = path === "appearance" ? document.documentElement.classList.contains("dark") : Boolean(readPath(settings, path));
-    }
-  });
-
-  const customBox = root.querySelector(".settings-textbox");
-  if (customBox && !customBox.matches("textarea")) {
-    const textarea = document.createElement("textarea");
-    textarea.className = "settings-textbox settings-textarea";
-    textarea.value = settings.personalization.customInstructions;
-    textarea.setAttribute("data-setting-text", "personalization.customInstructions");
-    textarea.setAttribute("rows", "6");
-    customBox.replaceWith(textarea);
-  }
-
-  // Character counter for custom instructions
-  const ciTextarea = root.querySelector("textarea[data-setting-text='personalization.customInstructions']");
-  if (ciTextarea) {
-    let counter = ciTextarea.parentElement?.querySelector(".settings-char-counter");
-    if (!counter) {
-      counter = document.createElement("span");
-      counter.className = "settings-char-counter";
-      ciTextarea.insertAdjacentElement("afterend", counter);
-      ciTextarea.addEventListener("input", () => {
-        const l = ciTextarea.value.length;
-        counter.textContent = `${l} / 800`;
-        counter.classList.toggle("near-limit", l > 640 && l <= 780);
-        counter.classList.toggle("at-limit", l > 780);
-      });
-    }
-    const len = ciTextarea.value.length;
-    counter.textContent = `${len} / 800`;
-    counter.classList.toggle("near-limit", len > 640 && len <= 780);
-    counter.classList.toggle("at-limit", len > 780);
-  }
-
-  applyVisualSettings(settings);
-  refreshIcons(document);
-}
-
-function createSettingsSelect(title, config, settings) {
-  return createSettingsChoice(title, config, settings);
-}
-
-function createSettingsChoice(title, config, settings) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "settings-choice";
-  wrapper.setAttribute("data-settings-choice", config.path);
-
-  const selectedValue = readPath(settings, config.path);
-  const selectedLabel = config.options.find(([value]) => value === selectedValue)?.[1] || config.options[0]?.[1] || "";
-
-  wrapper.insertAdjacentHTML("beforeend", `
-    <button class="settings-choice-trigger" data-setting-choice-trigger="${escapeHtml(config.path)}" aria-label="${escapeHtml(title)}" aria-haspopup="listbox" aria-expanded="false" type="button">
-      ${config.accent ? `<span class="settings-accent-dot" data-accent="${escapeHtml(selectedValue)}"></span>` : ""}
-      <span class="settings-choice-label">${escapeHtml(selectedLabel)}</span>
-      <i data-lucide="chevron-down" class="w-4 h-4"></i>
-    </button>
-    <div class="settings-choice-menu" role="listbox" aria-label="${escapeHtml(title)}">
-      ${config.options.map(([value, label]) => `
-        <button class="settings-choice-option${value === selectedValue ? " active" : ""}" data-setting-choice-option="${escapeHtml(config.path)}" data-setting-choice-value="${escapeHtml(value)}" role="option" aria-selected="${value === selectedValue}" type="button">
-          <span>${escapeHtml(label)}</span>
-          ${value === selectedValue ? `<i data-lucide="check" class="w-4 h-4"></i>` : ""}
-        </button>
-      `).join("")}
-    </div>
-  `);
-
-  return wrapper;
-}
-
-async function updateSettingFromControl(path, value, control) {
-  if (!path) return;
-
-  const normalizedValue = path === "appearance" && typeof value === "boolean"
-    ? (value ? "dark" : "light")
-    : value;
-
-  setAppSetting(path, normalizedValue);
-
-  if (path.startsWith("notifications.")) {
-    const permission = await requestBrowserNotificationsIfNeeded(normalizedValue);
-    if (permission === "denied") {
-      setAppSetting(path, "in_app");
-      if (control) control.value = "in_app";
-      showToast("Browser notifications are blocked. Saved as in-app.");
-    } else if (permission === "unsupported") {
-      setAppSetting(path, "in_app");
-      if (control) control.value = "in_app";
-      showToast("This browser does not support notifications. Saved as in-app.");
-    } else if (permission === "granted") {
-      showToast("Browser notifications enabled for this setting.");
-    }
-  }
-
-  renderSettingsControls(document.getElementById("profile-content") || document);
-  await persistAppSettingsToCloud();
-}
-
-async function handleSettingsButtonAction(action, source = null) {
-  if (action === "choice-toggle") return;
-
-  if (source?.matches?.("[data-setting-choice-trigger]")) {
-    toggleSettingsChoice(source);
-    return;
-  }
-
-  if (source?.matches?.("[data-setting-choice-option]")) {
-    await chooseSettingsOption(source);
-    return;
-  }
-
-  if (action === "location" || action === "passkeys" || action === "sessions" || action === "archived") {
-    return; // These features show "Coming soon" in the UI
-  }
-
-  if (action === "shortcut") {
-    runShortcutAction(source?.getAttribute("data-shortcut-action") || "");
-    return;
-  }
-
-  if (action === "restore-shortcuts") {
-    showToast("Keyboard shortcuts restored to defaults.");
-    return;
-  }
-
-  showToast("Setting is not available for this account mode yet.");
-}
-
-function bindSettingsChoiceEvents() {
-  document.addEventListener("click", async (event) => {
-    const trigger = event.target.closest?.("[data-setting-choice-trigger]");
-    const option = event.target.closest?.("[data-setting-choice-option]");
-
-    if (trigger) {
-      event.preventDefault();
-      event.stopPropagation();
-      toggleSettingsChoice(trigger);
-      return;
-    }
-
-    if (option) {
-      event.preventDefault();
-      event.stopPropagation();
-      await chooseSettingsOption(option);
-      return;
-    }
-
-    closeSettingsChoices();
-  });
-
-  document.addEventListener("keydown", async (event) => {
-    if (event.key === "Escape") {
-      closeSettingsChoices();
-      return;
-    }
-
-    const focusedOption = document.activeElement?.matches?.("[data-setting-choice-option]")
-      ? document.activeElement
-      : null;
-    if (!focusedOption || (event.key !== "Enter" && event.key !== " ")) return;
-
-    event.preventDefault();
-    await chooseSettingsOption(focusedOption);
-  });
-}
-
-function bindKeyboardShortcuts() {
-  document.addEventListener("keydown", (event) => {
-    const key = event.key.toLowerCase();
-    const command = event.ctrlKey || event.metaKey;
-    const editable = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName || "");
-
-    if (command && key === ",") {
-      event.preventDefault();
-      runShortcutAction("settings");
-      return;
-    }
-
-    if (!command || !event.shiftKey) return;
-
-    if (key === "d") {
-      event.preventDefault();
-      runShortcutAction("dictation");
-      return;
-    }
-
-    if (key === "m") {
-      event.preventDefault();
-      runShortcutAction("mode");
-      return;
-    }
-
-    if (key === "o" && !editable) {
-      event.preventDefault();
-      runShortcutAction("new-chat");
-    }
-  });
-}
-
-function runShortcutAction(action) {
-  if (action === "send") {
-    if (!isGenerating && !isSessionLocked) {
-      void handleSend();
-    }
-    return;
-  }
-
-  if (action === "dictation") {
-    if (!getAppSettings().dictationEnabled) {
-      showToast("Dictation is disabled in settings.");
-      return;
-    }
-    document.getElementById("voice-btn")?.click();
-    return;
-  }
-
-  if (action === "mode") {
-    closeModal("profile-modal", "profile-content");
-    document.getElementById("mode-dropdown")?.classList.toggle("hidden");
-    return;
-  }
-
-  if (action === "settings") {
-    updateProfileUI(getCurrentUser());
-    openModal("profile-modal", "profile-content");
-    return;
-  }
-
-  if (action === "new-chat") {
-    startNewLocalChat();
-  }
-}
+// Settings UI functions moved to components/settings_ui.js
 
 function startNewLocalChat() {
   if (isGenerating) {
@@ -1236,80 +833,7 @@ function startNewLocalChat() {
   showToast("New local chat started.");
 }
 
-function toggleSettingsChoice(trigger) {
-  const choice = trigger.closest(".settings-choice");
-  if (!choice) return;
 
-  const isOpen = choice.classList.contains("open");
-  closeSettingsChoices(choice);
-  choice.classList.toggle("open", !isOpen);
-  trigger.setAttribute("aria-expanded", String(!isOpen));
-}
-
-async function chooseSettingsOption(option) {
-  const path = option.getAttribute("data-setting-choice-option");
-  const value = option.getAttribute("data-setting-choice-value");
-  if (!path) return;
-
-  closeSettingsChoices();
-  
-  // Yield main thread to allow the browser to paint the closed dropdown immediately
-  // This drastically improves Interaction to Next Paint (INP)
-  await new Promise((resolve) => setTimeout(resolve, 0));
-
-  await updateSettingFromControl(path, value, option);
-}
-
-function closeSettingsChoices(except = null) {
-  document.querySelectorAll(".settings-choice.open").forEach((choice) => {
-    if (choice === except) return;
-    choice.classList.remove("open");
-    choice.querySelector("[data-setting-choice-trigger]")?.setAttribute("aria-expanded", "false");
-  });
-}
-
-function notifyFromSetting(key, title, body) {
-  const setting = getAppSettings().notifications?.[key] || "off";
-
-  if (setting === "off") return;
-
-  if (setting === "push" && "Notification" in window && Notification.permission === "granted") {
-    new Notification(title, { body });
-    return;
-  }
-
-  showToast(body || title);
-}
-
-let appSettingsPersistTimer = null;
-
-async function persistAppSettingsToCloud() {
-  const token = await getIdToken();
-  if (!token) return;
-
-  if (appSettingsPersistTimer !== null) {
-    window.clearTimeout(appSettingsPersistTimer);
-  }
-
-  appSettingsPersistTimer = window.setTimeout(async () => {
-    appSettingsPersistTimer = null;
-    try {
-      const response = await updateUserProfilePreferences(buildProfilePreferencesPatch(), token);
-      hydrateSettingsFromProfile(response);
-      currentCloudProfileContext = {
-        ...(currentCloudProfileContext || {}),
-        settingsMetadata: buildChatSettingsMetadata(),
-      };
-    } catch (error) {
-      console.warn("MindPal settings sync failed:", error);
-      showToast("Settings saved locally. Cloud sync failed.");
-    }
-  }, 500);
-}
-
-function readPath(source, path) {
-  return String(path).split(".").reduce((cursor, part) => cursor?.[part], source);
-}
 
 async function deleteMemoryEntry(atomId) {
   const cleanId = String(atomId || "");
@@ -1357,9 +881,19 @@ function showCustomDialog({ title = "Confirm", message = "", input = false, defa
 
     dialog.classList.remove("opacity-0", "pointer-events-none");
     content.classList.remove("scale-95");
+    document.body.classList.add("overflow-hidden");
 
     if (input && inputEl) {
       window.setTimeout(() => inputEl.focus(), 100);
+    }
+
+    const onConfirm = () => { cleanup(); resolve(input ? (inputEl?.value ?? "") : true); };
+    const onCancel = () => { cleanup(); resolve(input ? null : false); };
+    const onBackdrop = (e) => { if (e.target === dialog) onCancel(); };
+    const onInputKeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); onConfirm(); } };
+
+    if (input && inputEl) {
+      inputEl.addEventListener("keydown", onInputKeydown);
     }
 
     const cleanup = () => {
@@ -1368,11 +902,15 @@ function showCustomDialog({ title = "Confirm", message = "", input = false, defa
       confirmBtn?.removeEventListener("click", onConfirm);
       cancelBtn?.removeEventListener("click", onCancel);
       dialog.removeEventListener("click", onBackdrop);
+      if (input && inputEl) {
+        inputEl.removeEventListener("keydown", onInputKeydown);
+      }
+      
+      const anyModalOpen = document.querySelectorAll('.fixed.inset-0:not(.opacity-0)').length > 0;
+      if (!anyModalOpen) {
+        document.body.classList.remove("overflow-hidden");
+      }
     };
-
-    const onConfirm = () => { cleanup(); resolve(input ? (inputEl?.value ?? "") : true); };
-    const onCancel = () => { cleanup(); resolve(input ? null : false); };
-    const onBackdrop = (e) => { if (e.target === dialog) onCancel(); };
 
     confirmBtn?.addEventListener("click", onConfirm);
     cancelBtn?.addEventListener("click", onCancel);
@@ -1637,6 +1175,9 @@ async function handleSend() {
   const chatHistory = document.getElementById("chat-history");
   let streamMsgDiv = null;
   let contentBox = null;
+  let streamResponseStr = "";
+
+  let firstChunkReceived = false;
 
   try {
     const state = getState();
@@ -1645,14 +1186,7 @@ async function handleSend() {
 
     // Build the streaming container
     streamMsgDiv = document.createElement("div");
-    streamMsgDiv.className = "flex gap-4 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
-    streamMsgDiv.innerHTML = `
-      <div class="flex-none pt-1 shrink-0">
-        <div class="w-[30px] h-[30px] rounded-full overflow-hidden flex items-center justify-center bg-transparent shrink-0">
-          <img src="/assets/icons/mindpal_v2.png" alt="MindPal" class="w-full h-full object-cover">
-        </div>
-      </div>
-    `;
+    streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     contentBox = document.createElement("div");
@@ -1660,13 +1194,11 @@ async function handleSend() {
     contentContainer.appendChild(contentBox);
     streamMsgDiv.appendChild(contentContainer);
     if (chatHistory) chatHistory.appendChild(streamMsgDiv);
-    scrollChatToBottom("auto");
-    let streamResponseStr = "";
+    scrollChatToBottom("auto", true);
     let backendMetaFinal = null;
 
     let lastRenderTime = 0;
     let renderTimeout = null;
-    let firstChunkReceived = false;
     const streamStartTime = performance.now();
 
     // Send clean message only. Memory/context managed by backend via system prompt.
@@ -1689,21 +1221,20 @@ async function handleSend() {
         streamResponseStr += text;
 
         const now = performance.now();
-        if (now - lastRenderTime > 60) {
+        if (now - lastRenderTime > 150) {
           lastRenderTime = now;
           if (renderTimeout) {
             cancelAnimationFrame(renderTimeout);
             renderTimeout = null;
           }
-          const parsed = processStructuredResponse(streamResponseStr);
-          contentBox.innerHTML = parsed.finalHtml;
+          // Use lightweight rendering during stream for 100% smooth performance
+          contentBox.innerHTML = escapeHtml(streamResponseStr).replace(/\n/g, "<br>");
           scrollChatToBottom("auto");
         } else if (!renderTimeout) {
           renderTimeout = requestAnimationFrame(() => {
             renderTimeout = null;
             lastRenderTime = performance.now();
-            const parsed = processStructuredResponse(streamResponseStr);
-            contentBox.innerHTML = parsed.finalHtml;
+            contentBox.innerHTML = escapeHtml(streamResponseStr).replace(/\n/g, "<br>");
             scrollChatToBottom("auto");
           });
         }
@@ -1780,8 +1311,8 @@ async function handleSend() {
   } catch (error) {
     console.error("handleSend error:", error);
     // Remove the orphan streaming div only if no content was received
-    if (!streamResponseStr.trim()) {
-      streamMsgDiv?.remove();
+    if (!streamResponseStr.trim() && streamMsgDiv) {
+      streamMsgDiv.remove();
     }
     
     // Check if the thought indicator is still waving, if so remove it since it failed
@@ -1859,16 +1390,16 @@ async function appendMessageToUI(text, sender, {
   const msgDiv = document.createElement("div");
 
   if (sender === "user") {
-    msgDiv.className = "flex gap-4 w-full justify-end animate-fade-in";
+    msgDiv.className = "flex justify-end w-full animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
     msgDiv.innerHTML = `
-      <div class="chat-user-bubble bg-gemini-surface dark:bg-gemini-darkSurface text-gemini-text dark:text-gemini-darkText px-5 py-3 rounded-[24px] max-w-[80%] text-[15px] leading-relaxed">
+      <div class="bg-gemini-surface dark:bg-gemini-darkSurface text-gemini-text dark:text-gemini-darkText px-5 py-3 rounded-[24px] max-w-[80%] text-[15px] leading-relaxed">
         ${escapeHtml(text)}
       </div>
     `;
 
     chatHistory.appendChild(msgDiv);
 
-    if (smoothScroll) scrollChatToBottom("auto");
+    if (smoothScroll) scrollChatToBottom("auto", true);
     return;
   }
 
@@ -2060,6 +1591,10 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
   const statusId = `status-regenerate-${Date.now()}`;
   appendStatusIndicator(statusId);
+  let streamResponseStr = "";
+
+  let streamMsgDiv = null;
+  let firstChunkReceived = false;
 
   try {
     const token = await getIdToken();
@@ -2067,15 +1602,8 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
     // Create streaming container before try so catch can clean it up on failure
     const chatHistory = document.getElementById("chat-history");
-    let streamMsgDiv = document.createElement("div");
-    streamMsgDiv.className = "flex gap-4 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
-    streamMsgDiv.innerHTML = `
-      <div class="flex-none pt-1 shrink-0">
-        <div class="w-[30px] h-[30px] rounded-full overflow-hidden flex items-center justify-center bg-transparent shrink-0">
-          <img src="/assets/icons/mindpal_v2.png" alt="MindPal" class="w-full h-full object-cover">
-        </div>
-      </div>
-    `;
+    streamMsgDiv = document.createElement("div");
+    streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     const contentBox = document.createElement("div");
@@ -2083,13 +1611,12 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     contentContainer.appendChild(contentBox);
     streamMsgDiv.appendChild(contentContainer);
     if (chatHistory) chatHistory.appendChild(streamMsgDiv);
+    scrollChatToBottom("auto", true);
 
-    let streamResponseStr = "";
     let backendMetaFinal = null;
 
     let lastRenderTime = 0;
     let renderTimeout = null;
-    let firstChunkReceived = false;
     const streamStartTime = performance.now();
 
     await sendChatMessageStream({
@@ -2111,21 +1638,20 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
         streamResponseStr += text;
         
         const now = performance.now();
-        if (now - lastRenderTime > 60) {
+        if (now - lastRenderTime > 150) {
           lastRenderTime = now;
           if (renderTimeout) {
             cancelAnimationFrame(renderTimeout);
             renderTimeout = null;
           }
-          const parsed = processStructuredResponse(streamResponseStr);
-          contentBox.innerHTML = parsed.finalHtml;
+          // Use lightweight rendering during stream for 100% smooth performance
+          contentBox.innerHTML = escapeHtml(streamResponseStr).replace(/\n/g, "<br>");
           scrollChatToBottom("auto");
         } else if (!renderTimeout) {
           renderTimeout = requestAnimationFrame(() => {
             renderTimeout = null;
             lastRenderTime = performance.now();
-            const parsed = processStructuredResponse(streamResponseStr);
-            contentBox.innerHTML = parsed.finalHtml;
+            contentBox.innerHTML = escapeHtml(streamResponseStr).replace(/\n/g, "<br>");
             scrollChatToBottom("auto");
           });
         }
@@ -2205,8 +1731,8 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     console.error("regenerateLastUserMessage error:", error);
     
     // Remove the orphan streaming div only if no content was received
-    if (!streamResponseStr.trim()) {
-      streamMsgDiv?.remove();
+    if (!streamResponseStr.trim() && streamMsgDiv) {
+      streamMsgDiv.remove();
     }
     
     // Check if the thought indicator is still waving, if so remove it since it failed
@@ -2273,261 +1799,7 @@ function buildBackendMeta(meta) {
   return wrapper;
 }
 
-function processStructuredResponse(text) {
-  const sections = parseCognitiveSections(text);
-  const hasCognitiveStructure =
-    Boolean(sections.reframe || sections.action) &&
-    Boolean(sections.thought || sections.distortion || sections.evidenceFor || sections.evidenceAgainst);
-
-  if (!hasCognitiveStructure) {
-    return {
-      timelineHtml: "",
-      finalHtml: formatMarkdown(text),
-    };
-  }
-
-  const thought = sections.thought;
-  const distortion = sections.distortion;
-  const evidenceFor = sections.evidenceFor;
-  const evidenceAgainst = sections.evidenceAgainst;
-  const reframe = sections.reframe;
-  const action = sections.action;
-
-  if (!reframe) {
-    return {
-      timelineHtml: "",
-      finalHtml: formatMarkdown(text),
-    };
-  }
-
-  const timelineHtml = `
-    <div class="thought-accordion group mb-5">
-      <div class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-fit">
-        <span class="collapsed-text">Thought for a few seconds</span>
-        <span class="expanded-text hidden">Analyzed cognitive patterns</span>
-        <i data-lucide="chevron-right" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
-      </div>
-
-      <div class="accordion-content max-h-0 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
-          <div class="mt-4 ml-[7px] pl-6 border-l border-gray-200 dark:border-[#444746] space-y-5 text-[15px] text-gray-700 dark:text-gray-300 relative pb-4">
-            ${thought ? timelineItem("Thought", thought, "circle-minus") : ""}
-            ${distortion ? timelineItem("Distortion", distortion, "circle-minus") : ""}
-            ${evidenceFor ? timelineItem("Evidence For", evidenceFor, "circle-minus") : ""}
-            ${evidenceAgainst ? timelineItem("Evidence Against", evidenceAgainst, "circle-minus") : ""}
-            ${timelineItem("Done", "", "check-circle-2")}
-          </div>
-      </div>
-    </div>
-  `;
-
-  let finalHtml = `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(reframe)}</div>`;
-
-  if (action) {
-    finalHtml += `<div class="mt-4"><strong class="text-gray-900 dark:text-white font-semibold">Next Action:</strong> ${formatMarkdown(action)}</div>`;
-  }
-
-  return { timelineHtml, finalHtml };
-}
-
-function timelineItem(title, body, icon, bodyIsHtml = false) {
-  return `
-    <div class="relative">
-      <div class="absolute -left-[33px] top-0 bg-gemini-bg dark:bg-gemini-darkBg py-1">
-        <i data-lucide="${icon}" class="w-4 h-4 text-gray-400 dark:text-[#c4c7c5]"></i>
-      </div>
-      <div class="leading-relaxed">
-        <strong class="text-gray-900 dark:text-white font-semibold">${escapeHtml(title)}${body ? ":" : ""}</strong>
-        ${body ? (bodyIsHtml ? body : formatMarkdown(body)) : ""}
-      </div>
-    </div>
-  `;
-}
-
-function parseCognitiveSections(text) {
-  const sections = {
-    thought: "",
-    distortion: "",
-    evidenceFor: "",
-    evidenceAgainst: "",
-    reframe: "",
-    action: "",
-  };
-
-  const clean = String(text || "").replace(/\r\n/g, "\n").trim();
-
-  if (!clean) return sections;
-
-  const labelToKey = {
-    thought: "thought",
-    "core thought": "thought",
-    distortion: "distortion",
-    "distortion detected": "distortion",
-    "evidence for": "evidenceFor",
-    "evidence against": "evidenceAgainst",
-    "balanced reframe": "reframe",
-    "next tiny action": "action",
-    "next action": "action",
-  };
-
-  const labelPattern = [
-    "Balanced Reframe",
-    "Evidence Against",
-    "Evidence For",
-    "Next Tiny Action",
-    "Distortion Detected",
-    "Core Thought",
-    "Next Action",
-    "Distortion",
-    "Thought",
-  ].join("|");
-
-  const headingRegex = new RegExp(
-    `^\\s*(?:[-*]\\s*)?(?:\\*\\*)?\\s*(${labelPattern})(?=\\s|:|\\*|$)\\s*(?::\\s*)?(?:\\*\\*)?\\s*`,
-    "gim",
-  );
-
-  const matches = [];
-  let match;
-
-  while ((match = headingRegex.exec(clean)) !== null) {
-    const label = String(match[1] || "").toLowerCase();
-    const key = labelToKey[label];
-
-    if (!key) continue;
-
-    matches.push({
-      key,
-      index: match.index,
-      contentStart: headingRegex.lastIndex,
-    });
-  }
-
-  matches.sort((a, b) => a.index - b.index);
-
-  for (let index = 0; index < matches.length; index += 1) {
-    const current = matches[index];
-    const next = matches[index + 1];
-
-    const value = clean
-      .slice(current.contentStart, next ? next.index : clean.length)
-      .trim();
-
-    if (value && !sections[current.key]) {
-      sections[current.key] = value;
-    }
-  }
-
-  return sections;
-}
-
-function cognitiveSectionKey(label) {
-  const normalized = String(label || "")
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  switch (normalized) {
-    case "thought":
-    case "core thought":
-      return "thought";
-    case "distortion":
-    case "distortion detected":
-      return "distortion";
-    case "evidence for":
-      return "evidenceFor";
-    case "evidence against":
-      return "evidenceAgainst";
-    case "balanced reframe":
-      return "reframe";
-    case "next tiny action":
-    case "next action":
-      return "action";
-    default:
-      return "";
-  }
-}
-
-function appendSectionLine(currentValue, line) {
-  const clean = String(line || "").trim();
-
-  if (!clean) return currentValue;
-
-  return currentValue ? `${currentValue}\n${clean}` : clean;
-}
-
-function bindAccordion(root) {
-  const header = root.querySelector(".accordion-header");
-  if (!header) return;
-
-  header.addEventListener("click", () => {
-    const content = header.nextElementSibling;
-    const chevron = header.querySelector(".chevron-icon");
-    const collapsedText = header.querySelector(".collapsed-text");
-    const expandedText = header.querySelector(".expanded-text");
-
-    // Use max-h-0 to check if collapsed (more reliable than grid-rows)
-    const isOpen = !content?.classList.contains("max-h-0");
-
-    if (isOpen) {
-      content.classList.remove("max-h-screen", "opacity-100");
-      content.classList.add("max-h-0", "opacity-0");
-      chevron?.classList.remove("rotate-90");
-      collapsedText?.classList.remove("hidden");
-      expandedText?.classList.add("hidden");
-    } else {
-      content?.classList.remove("max-h-0", "opacity-0");
-      content?.classList.add("max-h-screen", "opacity-100");
-      chevron?.classList.add("rotate-90");
-      collapsedText?.classList.add("hidden");
-      expandedText?.classList.remove("hidden");
-    }
-  });
-}
-
-async function typewriteHTML(element, html, scrollContainer) {
-  element.innerHTML = "";
-
-  const tokens = html.match(/(<[^>]+>|[^<]+)/g) || [];
-  let currentHTML = "";
-
-  for (const token of tokens) {
-    if (token.startsWith("<")) {
-      currentHTML += token;
-      element.innerHTML = currentHTML;
-      continue;
-    }
-
-    for (let index = 0; index < token.length; index += 1) {
-      currentHTML += token.charAt(index);
-      element.innerHTML = currentHTML;
-
-      if (index % 3 === 0) {
-        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: "auto" });
-      }
-
-      await sleep(6);
-    }
-  }
-
-  scrollChatToBottom("auto");
-}
-
-function formatMarkdown(text) {
-  const escaped = escapeHtml(text);
-
-  return escaped
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-gray-100 font-semibold">$1</strong>')
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    .replace(/\n\n/g, "<br><br>")
-    .replace(/\n/g, "<br>");
-}
-
-function stripMarkdown(text) {
-  return String(text || "")
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/\*(.*?)\*/g, "$1");
-}
+// DOM helpers moved to utils/dom.js
 
 let activeSpeechUtterance = null;
 let activeSpeechButton = null;
@@ -2668,9 +1940,7 @@ function resolveLocale() {
   return "en";
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
+// sleep moved to utils/dom.js
 
 window.addEventListener("beforeunload", () => {
   authUnsubscribe?.();
