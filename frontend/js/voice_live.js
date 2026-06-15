@@ -159,7 +159,7 @@ export async function startLiveVoice() {
             liveWebSocket.send(JSON.stringify({
                 setup: {
                     // This is the correct API string for the Gemini Native Audio Dialog model
-                    model: "models/gemini-2.5-flash",
+                    model: "models/gemini-2.5-flash-native-audio-latest",
                     generationConfig: {
                         responseModalities: ["AUDIO"],
                         speechConfig: {
