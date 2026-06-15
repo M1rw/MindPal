@@ -1976,7 +1976,28 @@ function speakText(text, button = null) {
   }
 
   const utterance = new SpeechSynthesisUtterance(clean);
-  utterance.lang = resolveLocale() === "ar" ? "ar-EG" : "en-US";
+  
+  // Smart language detection
+  if (/[\u0600-\u06FF]/.test(clean)) {
+    utterance.lang = "ar-SA";
+  } else if (/[\u4E00-\u9FFF]/.test(clean)) {
+    utterance.lang = "zh-CN";
+  } else if (/[áéíóúñ¿¡]/i.test(clean)) {
+    utterance.lang = "es-ES";
+  } else if (/[\u0400-\u04FF]/.test(clean)) {
+    utterance.lang = "ru-RU";
+  } else if (/[\u3040-\u30FF]/.test(clean)) {
+    utterance.lang = "ja-JP";
+  } else if (/[\uAC00-\uD7AF]/.test(clean)) {
+    utterance.lang = "ko-KR";
+  } else if (/[\u0900-\u097F]/.test(clean)) {
+    utterance.lang = "hi-IN";
+  } else if (/[çãõáéíóú]/i.test(clean) && !/[ñ¿¡]/.test(clean)) {
+    utterance.lang = "pt-BR";
+  } else {
+    utterance.lang = "en-US";
+  }
+
   utterance.rate = 0.95;
   utterance.pitch = 1;
 

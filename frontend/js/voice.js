@@ -132,6 +132,9 @@ export function initVoice({
   let interimTranscript = "";
   let audioDetected = false;
 
+  let mediaRecorder = null;
+  let audioChunks = [];
+
   let sessionLanguageConfirmationKey = "";
   const cleanupFns = [];
 
@@ -168,14 +171,6 @@ export function initVoice({
 
     try {
       clearTimers();
-
-      const SpeechRecognitionCtor = getSpeechRecognitionCtor();
-
-      if (!SpeechRecognitionCtor) {
-        openVoicePanel();
-        enterPhase(PHASE.UNSUPPORTED);
-        return false;
-      }
 
       const selectedLanguage = loadVoiceLanguagePreference();
       const effectiveLocale = resolveEffectiveSpeechLocale(selectedLanguage);
@@ -219,7 +214,7 @@ export function initVoice({
         startSyntheticWaveform();
       }
 
-      if (!startSpeechRecognition(effectiveLocale, runId, SpeechRecognitionCtor)) {
+      if (!startMediaRecorder(runId)) {
         endToTerminal(PHASE.GENERIC_ERROR, { runId });
         return false;
       }
@@ -230,118 +225,105 @@ export function initVoice({
     }
   }
 
-  function startSpeechRecognition(locale, runId, SpeechRecognitionCtor) {
+  function startMediaRecorder(runId) {
     clearRecognition({ abort: true });
 
-    recognition = new SpeechRecognitionCtor();
-    recognition.continuous = !isMobileSpeechClient();
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.lang = resolveSpeechRecognitionLocale(locale);
+    if (!mediaStream) return false;
 
-    recognition.onstart = () => {
+    try {
+      mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
+    } catch (error) {
+      console.warn("MediaRecorder creation failed:", error);
+      return false;
+    }
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) {
+        audioChunks.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstart = () => {
       if (!isCurrentRun(runId)) return;
-
       isRecording = true;
       manualStopRequested = false;
-
       openVoicePanel();
       setMainMicRecording();
       enterPhase(PHASE.LISTENING);
     };
 
-    recognition.onresult = (event) => {
+    mediaRecorder.onerror = (event) => {
       if (!isCurrentRun(runId)) return;
-
-      let interim = "";
-
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const result = event.results[index];
-        const text = result?.[0]?.transcript ?? "";
-
-        if (!text) continue;
-
-        if (result.isFinal) {
-          finalTranscript = `${finalTranscript} ${text}`.replace(/\s+/g, " ").trim();
-        } else {
-          interim += text;
-        }
-      }
-
-      interimTranscript = interim.trim();
-      updateTranscriptUI();
+      isRecording = false;
+      lastEndedAt = Date.now();
+      setMainMicIdle();
+      endToTerminal(PHASE.GENERIC_ERROR, { runId });
     };
 
-    recognition.onerror = (event) => {
+    mediaRecorder.onstop = async () => {
       if (!isCurrentRun(runId)) return;
-
-      const error = String(event?.error ?? "unknown");
       isRecording = false;
       lastEndedAt = Date.now();
       setMainMicIdle();
 
-      if (manualStopRequested || error === "aborted") {
+      if (audioChunks.length === 0) {
+        if (manualStopRequested) {
+          cancelVoiceCapture();
+        } else {
+          endToTerminal(PHASE.NO_SPEECH, { runId });
+        }
         return;
       }
 
-      if (error === "no-speech") {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      audioChunks = [];
+
+      if (!audioDetected && !manualStopRequested) {
         endToTerminal(PHASE.NO_SPEECH, { runId });
         return;
       }
 
-      if (error === "network") {
-        endToTerminal(PHASE.NETWORK_ERROR, { runId });
-        return;
+      const refs = getRefs();
+      if (refs.transcript) {
+        refs.transcript.innerHTML = `<span class="text-blue-500 dark:text-blue-400 font-medium tracking-wide flex items-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Transcribing with Gemini...</span>`;
+        if (window.lucide) window.lucide.createIcons();
       }
 
-      if (error === "not-allowed" || error === "service-not-allowed") {
-        endToTerminal(PHASE.PERMISSION_ERROR, { runId });
-        return;
+      try {
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64data = reader.result.split(',')[1];
+          try {
+            const res = await fetch('/api/voice/transcribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audio_base64: base64data, mime_type: 'audio/webm' })
+            });
+
+            if (!res.ok) throw new Error('Transcription failed');
+            const data = await res.json();
+            finalTranscript = data.text || "";
+
+            if (finalTranscript) {
+              endToReview({ runId });
+            } else {
+              endToTerminal(PHASE.HEARD_NO_TRANSCRIPT, { runId });
+            }
+          } catch (e) {
+            endToTerminal(PHASE.NETWORK_ERROR, { runId });
+          }
+        };
+      } catch (e) {
+        endToTerminal(PHASE.GENERIC_ERROR, { runId });
       }
-
-      if (error === "audio-capture") {
-        endToTerminal(PHASE.DEVICE_ERROR, { runId });
-        return;
-      }
-
-      endToTerminal(PHASE.GENERIC_ERROR, { runId });
-    };
-
-    recognition.onend = () => {
-      if (!isCurrentRun(runId)) return;
-
-      isRecording = false;
-      lastEndedAt = Date.now();
-      setMainMicIdle();
-
-      if (interimTranscript) {
-        finalTranscript = `${finalTranscript} ${interimTranscript}`.replace(/\s+/g, " ").trim();
-        interimTranscript = "";
-      }
-
-      if (manualStopRequested) {
-        if (hasTranscript()) {
-          endToReview({ runId });
-        } else {
-          endToTerminal(PHASE.NO_SPEECH, { runId });
-        }
-
-        return;
-      }
-
-      if (hasTranscript()) {
-        endToReview({ runId });
-        return;
-      }
-
-      endToTerminal(audioDetected ? PHASE.HEARD_NO_TRANSCRIPT : PHASE.NO_SPEECH, { runId });
     };
 
     try {
-      recognition.start();
+      audioChunks = [];
+      mediaRecorder.start(200);
       return true;
     } catch (error) {
-      console.warn("Speech recognition start failed:", error);
       clearRecognition();
       return false;
     }
@@ -476,7 +458,7 @@ export function initVoice({
     manualStopRequested = true;
     enterPhase(PHASE.STOPPING);
 
-    if (!recognition) {
+    if (!mediaRecorder || mediaRecorder.state === "inactive") {
       if (hasTranscript()) {
         endToReview();
       } else {
@@ -487,7 +469,7 @@ export function initVoice({
     }
 
     try {
-      recognition.stop();
+      mediaRecorder.stop();
     } catch {
       if (hasTranscript()) {
         endToReview();
@@ -664,19 +646,20 @@ export function initVoice({
   }
 
   function clearRecognition({ abort = false } = {}) {
-    if (!recognition) return;
+    if (!mediaRecorder) return;
 
-    const current = recognition;
-    recognition = null;
+    const current = mediaRecorder;
+    mediaRecorder = null;
+    audioChunks = [];
 
     current.onstart = null;
-    current.onresult = null;
+    current.ondataavailable = null;
     current.onerror = null;
-    current.onend = null;
+    current.onstop = null;
 
-    if (abort) {
+    if (abort && current.state !== "inactive") {
       try {
-        current.abort();
+        current.stop();
       } catch {
         // ignore native browser cleanup failures
       }
