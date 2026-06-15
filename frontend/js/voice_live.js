@@ -520,7 +520,7 @@ function updateBins(v) {
     }
 }
 
-/* ── Draw organic gradient light from frequency data ── */
+/* ── Draw fluid gradient bars from frequency data ── */
 function drawVisualizer(v) {
     if (!vizCtx || !vizCanvas || !smoothBins) return;
 
@@ -535,90 +535,84 @@ function drawVisualizer(v) {
     // Update frequency bins
     updateBins(v);
 
-    // ── Extract energy from frequency bands ──
-    let bassEnergy = 0, midEnergy = 0, highEnergy = 0;
-    const third = Math.floor(BIN_COUNT / 3);
-    for (let i = 0; i < third; i++) bassEnergy += smoothBins[i];
-    for (let i = third; i < third * 2; i++) midEnergy += smoothBins[i];
-    for (let i = third * 2; i < BIN_COUNT; i++) highEnergy += smoothBins[i];
-    bassEnergy = Math.min(1, bassEnergy / third * 1.5);
-    midEnergy = Math.min(1, midEnergy / third * 1.8);
-    highEnergy = Math.min(1, highEnergy / third * 2.5);
-
-    const totalEnergy = (bassEnergy * 0.5 + midEnergy * 0.3 + highEnergy * 0.2);
-
     // ── Colors ──
-    const br = 59, bg2 = 130, bb = 246;   // blue base
-    const pr = 200, pg = 120, pb = 240;    // pink accent
+    const br = 59, bg2 = 130, bb = 246;
+    const pr = 200, pg = 120, pb = 240;
     const bl = colorBlend * 0.6;
     const r1 = Math.round(br + (pr - br) * bl);
     const g1 = Math.round(bg2 + (pg - bg2) * bl);
     const b1 = Math.round(bb + (pb - bb) * bl);
-    // Lighter version for glow center
-    const r2 = Math.min(255, r1 + 60);
-    const g2 = Math.min(255, g1 + 50);
-    const b2 = Math.min(255, b1 + 30);
-
-    const cx = W / 2;
-    const cy = H + H * 0.05; // just below bottom edge
 
     const t = blobPhase;
 
-    // ── Layer 1: Deep ambient glow ──
-    const ambR = W * (0.7 + bassEnergy * 0.5);
-    const ambGrad = vizCtx.createRadialGradient(cx, cy, 0, cx, cy, ambR);
-    ambGrad.addColorStop(0, `rgba(${r1},${g1},${b1},${0.25 + totalEnergy * 0.2})`);
-    ambGrad.addColorStop(0.4, `rgba(${r1},${g1},${b1},${0.12 + totalEnergy * 0.12})`);
-    ambGrad.addColorStop(0.7, `rgba(${r1},${g1},${b1},${0.04 + totalEnergy * 0.05})`);
-    ambGrad.addColorStop(1, `rgba(${r1},${g1},${b1},0)`);
-    vizCtx.fillStyle = ambGrad;
-    vizCtx.fillRect(0, 0, W, H);
+    // ── Draw gradient bars ──
+    // Use 32 visible bars, centered horizontally
+    const barCount = 32;
+    const barSpacing = W * 0.6 / barCount; // bars occupy 60% of width
+    const startX = W * 0.2; // 20% margin on each side
+    const maxBarH = H * 0.35;
 
-    // ── Layer 2: Mid-frequency reactive glow (offset left/right) ──
-    const midOx = Math.sin(t * 0.7) * W * 0.08 * (1 + midEnergy);
-    const midR = W * (0.4 + midEnergy * 0.35);
-    const midGrad = vizCtx.createRadialGradient(cx + midOx, cy - H * 0.1, 0, cx + midOx, cy - H * 0.1, midR);
-    const mr = Math.min(255, r1 + 30);
-    const mg = Math.min(255, g1 + 20);
-    const mb = Math.min(255, b1 + 15);
-    midGrad.addColorStop(0, `rgba(${mr},${mg},${mb},${0.2 + midEnergy * 0.25})`);
-    midGrad.addColorStop(0.5, `rgba(${mr},${mg},${mb},${0.08 + midEnergy * 0.1})`);
-    midGrad.addColorStop(1, `rgba(${mr},${mg},${mb},0)`);
-    vizCtx.fillStyle = midGrad;
-    vizCtx.fillRect(0, 0, W, H);
+    // Map 64 bins down to 32 bars
+    for (let i = 0; i < barCount; i++) {
+        // Average 2 bins per bar
+        const binIdx = Math.floor(i * (BIN_COUNT / barCount));
+        const binVal = (smoothBins[binIdx] + (smoothBins[binIdx + 1] || 0)) * 0.5;
 
-    // ── Layer 3: High-frequency shimmer (smaller, brighter) ──
-    const hiOx = Math.sin(t * 1.2 + 2) * W * 0.06;
-    const hiOy = Math.sin(t * 0.9 + 1) * H * 0.03;
-    const hiR = W * (0.2 + highEnergy * 0.25);
-    const hiGrad = vizCtx.createRadialGradient(cx + hiOx, cy - H * 0.15 + hiOy, 0, cx + hiOx, cy - H * 0.15 + hiOy, hiR);
-    hiGrad.addColorStop(0, `rgba(${r2},${g2},${b2},${0.15 + highEnergy * 0.3})`);
-    hiGrad.addColorStop(0.4, `rgba(${r2},${g2},${b2},${0.06 + highEnergy * 0.12})`);
-    hiGrad.addColorStop(1, `rgba(${r2},${g2},${b2},0)`);
-    vizCtx.fillStyle = hiGrad;
-    vizCtx.fillRect(0, 0, W, H);
+        // Mirror from center: bars get taller toward center
+        const centerDist = Math.abs(i - barCount / 2) / (barCount / 2);
+        const centerBoost = 1 - centerDist * 0.3;
 
-    // ── Layer 4: Bright core — the "light source" ──
-    const coreR = W * (0.15 + totalEnergy * 0.2);
-    const corePulse = 1 + Math.sin(t * 1.5) * 0.05 * (1 + totalEnergy * 3);
-    const coreGrad = vizCtx.createRadialGradient(cx, cy, 0, cx, cy, coreR * corePulse);
-    coreGrad.addColorStop(0, `rgba(${r2},${g2},${b2},${0.3 + totalEnergy * 0.35})`);
-    coreGrad.addColorStop(0.3, `rgba(${r1},${g1},${b1},${0.15 + totalEnergy * 0.2})`);
-    coreGrad.addColorStop(1, `rgba(${r1},${g1},${b1},0)`);
-    vizCtx.fillStyle = coreGrad;
-    vizCtx.fillRect(0, 0, W, H);
+        const barH = binVal * maxBarH * centerBoost;
+        if (barH < 2) continue;
 
-    // ── Layer 5: Pink accent bloom (only when speaking) ──
-    if (colorBlend > 0.05) {
-        const pinkOx = Math.sin(t * 0.5 + 3) * W * 0.1;
-        const pinkR = W * (0.3 + bassEnergy * 0.2) * colorBlend;
-        const pinkGrad = vizCtx.createRadialGradient(cx + pinkOx, cy - H * 0.08, 0, cx + pinkOx, cy - H * 0.08, pinkR);
-        pinkGrad.addColorStop(0, `rgba(${pr},${pg},${pb},${0.12 * colorBlend + totalEnergy * 0.15})`);
-        pinkGrad.addColorStop(0.5, `rgba(${pr},${pg},${pb},${0.04 * colorBlend + totalEnergy * 0.05})`);
-        pinkGrad.addColorStop(1, `rgba(${pr},${pg},${pb},0)`);
-        vizCtx.fillStyle = pinkGrad;
-        vizCtx.fillRect(0, 0, W, H);
+        const x = startX + i * barSpacing + barSpacing / 2;
+        const y = H; // bottom edge
+
+        // Slight organic movement per bar
+        const ox = Math.sin(t * 0.8 + i * 0.3) * 2;
+        const barX = x + ox;
+
+        // Soft radial gradient — wide enough to overlap neighbors
+        const glowW = barSpacing * 1.8;
+        const glowH = barH * 1.4;
+
+        const grad = vizCtx.createRadialGradient(
+            barX, y, 0,
+            barX, y - glowH * 0.4, Math.max(glowW, glowH)
+        );
+
+        // Color shifts slightly per bar for depth
+        const hueShift = Math.sin(i * 0.4 + t * 0.3) * 15;
+        const cr = Math.min(255, r1 + hueShift);
+        const cg = Math.min(255, g1 + hueShift * 0.5);
+        const cb = Math.min(255, b1 - hueShift * 0.3);
+
+        const alpha = 0.25 + binVal * 0.35;
+
+        grad.addColorStop(0, `rgba(${cr},${cg},${cb},${alpha})`);
+        grad.addColorStop(0.3, `rgba(${cr},${cg},${cb},${alpha * 0.5})`);
+        grad.addColorStop(0.6, `rgba(${cr},${cg},${cb},${alpha * 0.15})`);
+        grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+
+        // Scale the gradient vertically based on bar height
+        vizCtx.save();
+        vizCtx.translate(barX, y);
+        vizCtx.scale(1, glowH / Math.max(glowW, glowH));
+        vizCtx.translate(-barX, -y);
+
+        vizCtx.fillStyle = grad;
+        vizCtx.fillRect(barX - glowW, y - glowH * 2, glowW * 2, glowH * 2);
+        vizCtx.restore();
     }
+
+    // ── Subtle base glow for cohesion ──
+    const baseGrad = vizCtx.createRadialGradient(W / 2, H, 0, W / 2, H, W * 0.35);
+    const totalE = smoothBins.reduce((a, b) => a + b, 0) / BIN_COUNT;
+    baseGrad.addColorStop(0, `rgba(${r1},${g1},${b1},${0.1 + totalE * 0.15})`);
+    baseGrad.addColorStop(0.5, `rgba(${r1},${g1},${b1},${0.03 + totalE * 0.05})`);
+    baseGrad.addColorStop(1, `rgba(${r1},${g1},${b1},0)`);
+    vizCtx.fillStyle = baseGrad;
+    vizCtx.fillRect(0, 0, W, H);
 }
 
 /* ═══════════════ Animation tick ═══════════════ */
