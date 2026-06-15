@@ -111,7 +111,18 @@
 </head>
 
 <body class="bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">
-<!-- Header / Navbar -->
+    <!-- Global Loading Screen -->
+    <div id="global-loader" class="fixed inset-0 z-[999] flex items-center justify-center bg-gemini-bg dark:bg-gemini-darkBg transition-opacity duration-700 ease-in-out">
+        <div class="relative flex items-center justify-center">
+            <div class="absolute w-24 h-24 bg-[#4285f4] dark:bg-[#7baaf7] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-xl opacity-50 animate-pulse"></div>
+            <div class="absolute w-24 h-24 bg-[#9b72cb] dark:bg-[#c58af9] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-xl opacity-50 animate-pulse" style="animation-delay: 1s;"></div>
+            <div class="relative w-16 h-16 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl flex items-center justify-center overflow-hidden border border-gray-200 dark:border-gray-800 z-10">
+                <img src="/assets/brand/icon-32.png" alt="MindPal" class="w-8 h-8 animate-bounce">
+            </div>
+        </div>
+    </div>
+
+    <!-- Header / Navbar -->
     <header class="flex items-center justify-between px-6 py-4 transition-all duration-300 flex-none z-10 bg-transparent absolute top-0 w-full" id="header">
         <div class="flex items-center gap-2">
             <span class="text-xl font-medium tracking-tight text-gray-800 dark:text-gray-200">MindPal</span>
