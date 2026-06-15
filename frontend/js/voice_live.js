@@ -334,20 +334,21 @@ function setUIMode(mode) {
     const bgGradient = document.getElementById("voice-bg-gradient");
     const statusEl = document.getElementById("voice-live-status");
     const orbGlow = document.getElementById("voice-orb-glow");
-    const meshGrad = document.getElementById("mesh-grad");
     const ccBtn = document.getElementById("voice-cc-btn");
+    const waves = document.querySelectorAll(".voice-css-wave");
     
     if (mode === "speaking") {
         if (bgGradient) {
             bgGradient.className = "absolute inset-0 bg-gradient-to-b from-[#f0e4ff] via-[#f7f1ff] to-[#fcf9ff] dark:from-[#1b1124] dark:via-[#1e1128] dark:to-[#221a33] transition-colors duration-1000";
         }
         if (orbGlow) {
-            orbGlow.classList.remove("bg-blue-400/20", "dark:bg-blue-500/10");
-            orbGlow.classList.add("bg-purple-400/20", "dark:bg-purple-500/10");
+            orbGlow.classList.remove("bg-blue-400/30", "dark:bg-blue-500/20");
+            orbGlow.classList.add("bg-purple-400/30", "dark:bg-purple-500/20");
         }
-        if (meshGrad) {
-            meshGrad.innerHTML = `<stop offset="0%" stop-color="rgba(255,255,255,1)" /><stop offset="50%" stop-color="rgba(200,150,255,0.7)" /><stop offset="100%" stop-color="rgba(255,255,255,1)" />`;
-        }
+        waves.forEach(w => {
+            w.classList.remove("border-blue-500/40", "dark:border-blue-400/40", "border-blue-500/30", "dark:border-blue-400/30", "border-blue-500/20", "dark:border-blue-400/20", "border-blue-500/10", "dark:border-blue-400/10");
+            w.classList.add("border-purple-500/30", "dark:border-purple-400/30");
+        });
         if (ccBtn) {
             ccBtn.className = "relative z-10 w-20 h-20 flex items-center justify-center rounded-full bg-[#9333ea] shadow-[0_8px_30px_rgba(147,51,234,0.4)] text-white transition-transform hover:scale-105 active:scale-95";
         }
@@ -357,20 +358,22 @@ function setUIMode(mode) {
             bgGradient.className = "absolute inset-0 bg-gradient-to-b from-[#e4f0ff] via-[#f1f6ff] to-[#f9fbff] dark:from-[#0b1324] dark:via-[#111928] dark:to-[#1a2333] transition-colors duration-1000";
         }
         if (orbGlow) {
-            orbGlow.classList.remove("bg-purple-400/20", "dark:bg-purple-500/10");
-            orbGlow.classList.add("bg-blue-400/20", "dark:bg-blue-500/10");
+            orbGlow.classList.remove("bg-purple-400/30", "dark:bg-purple-500/20");
+            orbGlow.classList.add("bg-blue-400/30", "dark:bg-blue-500/20");
         }
-        if (meshGrad) {
-            meshGrad.innerHTML = `<stop offset="0%" stop-color="rgba(255,255,255,1)" /><stop offset="50%" stop-color="rgba(150,200,255,0.7)" /><stop offset="100%" stop-color="rgba(255,255,255,1)" />`;
-        }
+        waves.forEach((w, i) => {
+            w.classList.remove("border-purple-500/30", "dark:border-purple-400/30");
+            if(i===0) w.classList.add("border-blue-500/40", "dark:border-blue-400/40");
+            if(i===1) w.classList.add("border-blue-500/30", "dark:border-blue-400/30");
+            if(i===2) w.classList.add("border-blue-500/20", "dark:border-blue-400/20");
+            if(i===3) w.classList.add("border-blue-500/10", "dark:border-blue-400/10");
+        });
         if (ccBtn) {
             ccBtn.className = "relative z-10 w-20 h-20 flex items-center justify-center rounded-full bg-[#1b73e8] shadow-[0_8px_30px_rgba(27,115,232,0.4)] text-white transition-transform hover:scale-105 active:scale-95";
         }
         if (statusEl) statusEl.textContent = "Listening...";
     }
 }
-
-let currentRotations = [0,0,0,0];
 
 function updateWaveform(rms, source = "user") {
     const level = Math.min(1, rms * 15);
@@ -390,25 +393,22 @@ function updateWaveform(rms, source = "user") {
         micRipple2.style.opacity = level > 0.05 ? 0.6 : 0;
     }
 
-    // Animate the Ethereal Mesh Orb
+    // Animate the Glow
     const orbGlow = document.getElementById("voice-orb-glow");
     if (orbGlow) {
-        orbGlow.style.transform = `scale(${1 + level * 0.4})`;
+        orbGlow.style.transform = `scale(${1 + level * 0.5})`;
         orbGlow.style.opacity = 0.5 + (level * 0.5);
     }
     
-    // Rotate and scale the SVG paths
-    for (let i = 1; i <= 4; i++) {
-        const rotator = document.querySelector(`.orb-rotator-${i}`);
-        if (rotator) {
-            // base rotation speed + added speed based on volume
-            const speed = (0.5 + level * 2) * (i % 2 === 0 ? 1 : -1); 
-            currentRotations[i-1] += speed;
-            
-            // scale expands slightly when speaking
-            const scale = 1 + (level * 0.15 * (i/2));
-            
-            rotator.style.transform = `scale(${scale}) rotate(${currentRotations[i-1]}deg)`;
-        }
-    }
+    // Animate CSS Waves
+    const waves = document.querySelectorAll(".voice-css-wave");
+    waves.forEach((w, index) => {
+        const baseScale = 1;
+        const expander = (index + 1) * 0.6 * level;
+        const scale = baseScale + expander;
+        const opacity = level > 0.05 ? Math.max(0, 1 - (index * 0.25)) : 0;
+        
+        w.style.transform = `scale(${scale})`;
+        w.style.opacity = opacity.toString();
+    });
 }

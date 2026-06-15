@@ -377,6 +377,50 @@ export function updateProfileUI(user = null) {
   refreshIcons();
 }
 
+export function updateUsageUI(profileResponse = null) {
+  const usage = profileResponse?.profile?.usage || null;
+  const proBar = document.getElementById("usage-pro-bar");
+  const proText = document.getElementById("usage-pro-text");
+  const modeSelectorBtn = document.getElementById("mode-selector-btn");
+  
+  if (!usage) return;
+
+  // 40 messages limit for Pro
+  const proCount = usage.pro_messages_count || 0;
+  const proPct = Math.min(100, (proCount / 40) * 100);
+  
+  if (proBar) {
+    proBar.style.width = `${proPct}%`;
+    if (proPct >= 100) {
+      proBar.classList.remove("bg-indigo-600", "dark:bg-indigo-500");
+      proBar.classList.add("bg-rose-500");
+    } else {
+      proBar.classList.add("bg-indigo-600", "dark:bg-indigo-500");
+      proBar.classList.remove("bg-rose-500");
+    }
+  }
+  
+  if (proText) {
+    proText.textContent = `${proCount} / 40 Used`;
+    if (proPct >= 100) {
+      proText.classList.add("text-rose-500");
+    }
+  }
+
+  // Disable Pro mode toggle if out of quota
+  const proModelOption = document.querySelector('.model-option[data-model="pro"]');
+  if (proModelOption && proPct >= 100) {
+    proModelOption.classList.add("opacity-50", "cursor-not-allowed", "pointer-events-none");
+    // Change internal text to show it's rate limited
+    const proDesc = proModelOption.querySelector('.text-\\[11px\\]');
+    if (proDesc) proDesc.textContent = "Rate limited. Available soon.";
+  } else if (proModelOption) {
+    proModelOption.classList.remove("opacity-50", "cursor-not-allowed", "pointer-events-none");
+    const proDesc = proModelOption.querySelector('.text-\\[11px\\]');
+    if (proDesc) proDesc.textContent = "Deep analysis, diagnostic thinking.";
+  }
+}
+
 export function updateMentalHealthUI(profileResponse = null) {
   const clinical = profileResponse?.profile?.clinical || null;
 
