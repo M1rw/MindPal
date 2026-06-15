@@ -43,13 +43,15 @@ async def transcribe_audio(payload: TranscribeRequest) -> TranscribeResponse:
 
     prompt = "Transcribe this audio precisely. Do not answer it. Do not add any text other than the transcription itself."
 
+    clean_mime_type = payload.mime_type.split(";")[0] if payload.mime_type else "audio/webm"
+
     gemini_payload = {
         "contents": [
             {
                 "parts": [
                     {
                         "inlineData": {
-                            "mimeType": payload.mime_type,
+                            "mimeType": clean_mime_type,
                             "data": payload.audio_base64
                         }
                     },

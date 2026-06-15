@@ -230,8 +230,7 @@ export function initVoice({
 
     try {
       audioChunks = [];
-      const options = MediaRecorder.isTypeSupported('audio/webm') ? { mimeType: 'audio/webm' } : undefined;
-      mediaRecorder = new MediaRecorder(mediaStream, options);
+      mediaRecorder = new MediaRecorder(mediaStream);
     } catch (error) {
       console.warn("MediaRecorder creation failed:", error);
       return false;
@@ -275,7 +274,7 @@ export function initVoice({
         return;
       }
 
-      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
       audioChunks = [];
 
       if (!audioDetected && !manualStopRequested) {
@@ -297,10 +296,13 @@ export function initVoice({
             const res = await fetch('/api/voice/transcribe', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ audio_base64: base64data, mime_type: 'audio/webm' })
+              body: JSON.stringify({ audio_base64: base64data, mime_type: mediaRecorder.mimeType || 'audio/webm' })
             });
 
-            if (!res.ok) throw new Error('Transcription failed');
+            if (!res.ok) {
+              const err = await res.text();
+              throw new Error(err || `HTTP ${res.status}`);
+            }
             const data = await res.json();
             finalTranscript = data.text || "";
 
@@ -310,11 +312,13 @@ export function initVoice({
               endToTerminal(PHASE.HEARD_NO_TRANSCRIPT, { runId });
             }
           } catch (e) {
-            endToTerminal(PHASE.NETWORK_ERROR, { runId });
+            console.error("Transcription error:", e);
+            endToTerminal(PHASE.NETWORK_ERROR, { runId, customMessage: `Failed: ${e.message.slice(0, 50)}` });
           }
         };
       } catch (e) {
-        endToTerminal(PHASE.GENERIC_ERROR, { runId });
+        console.error("FileReader error:", e);
+        endToTerminal(PHASE.GENERIC_ERROR, { runId, customMessage: `Error: ${e.message.slice(0, 50)}` });
       }
     };
 
@@ -562,7 +566,7 @@ export function initVoice({
     enterPhase(PHASE.REVIEW);
   }
 
-  function endToTerminal(nextPhase, { runId = activeRunId } = {}) {
+  function endToTerminal(nextPhase, { runId = activeRunId, customMessage } = {}) {
     if (!isCurrentRun(runId)) return;
 
     sessionActive = false;
@@ -574,7 +578,7 @@ export function initVoice({
     stopMicMeter();
     setMainMicIdle();
     openVoicePanel();
-    enterPhase(nextPhase);
+    enterPhase(nextPhase, customMessage);
   }
 
   function enterIdle({ closePanel = false } = {}) {
@@ -591,7 +595,7 @@ export function initVoice({
     updateTranscriptUI();
   }
 
-  function enterPhase(nextPhase) {
+  function enterPhase(nextPhase, customMessage) {
     phase = nextPhase;
 
     const refs = getRefs();
@@ -603,7 +607,7 @@ export function initVoice({
     const [title, status] = PHASE_COPY[nextPhase] ?? PHASE_COPY[PHASE.IDLE];
 
     if (refs.title) refs.title.textContent = title;
-    if (refs.status) refs.status.textContent = status;
+    if (refs.status) refs.status.textContent = customMessage || status;
 
     if (refs.acceptBtn) {
       refs.acceptBtn.disabled = phase !== PHASE.LISTENING && !hasTranscript();
