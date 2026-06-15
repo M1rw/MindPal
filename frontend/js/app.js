@@ -13,6 +13,7 @@ import {
   saveMemory,
   saveMemoryGraph,
   sendChatMessage,
+  sendChatMessageStream,
   deleteCurrentCloudChat,
   loadCurrentCloudChat,
   replaceCurrentCloudChat,
@@ -1648,13 +1649,14 @@ async function handleSend() {
     contentContainer.appendChild(contentBox);
     msgDiv.appendChild(contentContainer);
     if (chatHistory) chatHistory.appendChild(msgDiv);
-    
-    if (smoothScroll) scrollChatToBottom("smooth"); // We need to define smoothScroll here? Actually just use true
-    
+    scrollChatToBottom("smooth");
     let streamResponseStr = "";
     let backendMetaFinal = null;
 
     removeStatusIndicator(statusId);
+
+    let lastRenderTime = 0;
+    let renderTimeout = null;
 
     // Send clean message only. Memory/context managed by backend via system prompt.
     await sendChatMessageStream({
@@ -1669,14 +1671,40 @@ async function handleSend() {
       },
       onChunk: (text) => {
         streamResponseStr += text;
-        const parsed = processStructuredResponse(streamResponseStr);
-        contentBox.innerHTML = parsed.finalHtml;
-        scrollChatToBottom("smooth");
+
+        const now = performance.now();
+        if (now - lastRenderTime > 60) {
+          lastRenderTime = now;
+          if (renderTimeout) {
+            cancelAnimationFrame(renderTimeout);
+            renderTimeout = null;
+          }
+          const parsed = processStructuredResponse(streamResponseStr);
+          contentBox.innerHTML = parsed.finalHtml;
+          scrollChatToBottom("smooth");
+        } else if (!renderTimeout) {
+          renderTimeout = requestAnimationFrame(() => {
+            renderTimeout = null;
+            lastRenderTime = performance.now();
+            const parsed = processStructuredResponse(streamResponseStr);
+            contentBox.innerHTML = parsed.finalHtml;
+            scrollChatToBottom("smooth");
+          });
+        }
       },
       onMetadata: (meta) => {
         backendMetaFinal = meta;
       }
     });
+
+    // Flush any pending rAF render so the final content is never dropped
+    if (renderTimeout) {
+      cancelAnimationFrame(renderTimeout);
+      renderTimeout = null;
+    }
+    const finalParsed = processStructuredResponse(streamResponseStr);
+    contentBox.innerHTML = finalParsed.finalHtml;
+    scrollChatToBottom("smooth");
 
     const reply = streamResponseStr.trim();
     if (!reply) {
@@ -2026,6 +2054,9 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
     removeStatusIndicator(statusId);
 
+    let lastRenderTime = 0;
+    let renderTimeout = null;
+
     await sendChatMessageStream({
       message: userMessage,
       history: messages.slice(0, userIndex),
@@ -2038,14 +2069,40 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       },
       onChunk: (text) => {
         streamResponseStr += text;
-        const parsed = processStructuredResponse(streamResponseStr);
-        contentBox.innerHTML = parsed.finalHtml;
-        scrollChatToBottom("smooth");
+        
+        const now = performance.now();
+        if (now - lastRenderTime > 60) {
+          lastRenderTime = now;
+          if (renderTimeout) {
+            cancelAnimationFrame(renderTimeout);
+            renderTimeout = null;
+          }
+          const parsed = processStructuredResponse(streamResponseStr);
+          contentBox.innerHTML = parsed.finalHtml;
+          scrollChatToBottom("smooth");
+        } else if (!renderTimeout) {
+          renderTimeout = requestAnimationFrame(() => {
+            renderTimeout = null;
+            lastRenderTime = performance.now();
+            const parsed = processStructuredResponse(streamResponseStr);
+            contentBox.innerHTML = parsed.finalHtml;
+            scrollChatToBottom("smooth");
+          });
+        }
       },
       onMetadata: (meta) => {
         backendMetaFinal = meta;
       }
     });
+
+    // Flush any pending rAF render so the final content is never dropped
+    if (renderTimeout) {
+      cancelAnimationFrame(renderTimeout);
+      renderTimeout = null;
+    }
+    const finalParsed = processStructuredResponse(streamResponseStr);
+    contentBox.innerHTML = finalParsed.finalHtml;
+    scrollChatToBottom("smooth");
 
     const reply = streamResponseStr.trim();
     if (!reply) {

@@ -213,6 +213,50 @@ class CloudflareAIProvider:
                 details={"error": sanitize_text(str(exc), MAX_ERROR_CHARS)},
             ) from exc
 
+    async def generate_stream(self, request: LLMRequest) -> Any:
+        if not self.is_configured:
+            raise ProviderError(
+                "Cloudflare Workers AI provider is not configured",
+                code="cloudflare_not_configured",
+            )
+
+        payload = self._build_payload(request)
+        payload["stream"] = True
+
+        try:
+            async with httpx.AsyncClient(timeout=self.config.timeout_seconds) as client:
+                async with client.stream("POST", self._endpoint_url(), headers=self._headers(), json=payload) as response:
+                    if response.status_code >= 400:
+                        await response.aread()
+                        raise _cloudflare_http_error(response)
+
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: "):
+                            data_str = line[6:]
+                            if data_str.strip() == "[DONE]":
+                                break
+                            import json
+                            try:
+                                data = json.loads(data_str)
+                                text = _extract_text(data)
+                                if text:
+                                    yield text
+                            except json.JSONDecodeError:
+                                pass
+
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeoutError(
+                "Cloudflare Workers AI request timed out",
+                code="cloudflare_timeout",
+            ) from exc
+
+        except httpx.HTTPError as exc:
+            raise ProviderError(
+                "Cloudflare Workers AI HTTP request failed",
+                code="cloudflare_http_error",
+                details={"error": sanitize_text(str(exc), MAX_ERROR_CHARS)},
+            ) from exc
+
     async def embed(self, texts: list[str]) -> list[list[float]]:
         if not self.is_configured:
             raise ProviderError(
@@ -347,7 +391,7 @@ def _extract_text(data: dict[str, Any]) -> str:
 
     if isinstance(choices, list) and choices:
         first = choices[0] or {}
-        message = first.get("message") or {}
+        message = first.get("message") or first.get("delta") or {}
 
         if isinstance(message, dict):
             content = message.get("content")
