@@ -38,8 +38,23 @@ async def transcribe_audio(payload: TranscribeRequest) -> TranscribeResponse:
             detail="Gemini API key is not configured for audio transcription.",
         )
 
-    model = getattr(settings, "GEMINI_MODEL", "gemini-1.5-flash-latest") or "gemini-1.5-flash-latest"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    # Fetch available models to ensure we pick one that exists
+    models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            models_response = await client.get(models_url)
+            models_response.raise_for_status()
+            available_models = models_response.json().get("models", [])
+            valid_models = [m["name"] for m in available_models if "generateContent" in m.get("supportedGenerationMethods", [])]
+        except Exception:
+            valid_models = ["models/gemini-1.5-flash"]
+            
+    # Prefer 1.5 flash, then 1.5 pro, then anything available
+    target_models = ["models/gemini-1.5-flash", "models/gemini-1.5-pro", "models/gemini-1.5-flash-latest"]
+    model_path = next((m for m in target_models if m in valid_models), valid_models[0] if valid_models else "models/gemini-1.5-flash")
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/{model_path}:generateContent?key={api_key}"
 
     prompt = "Transcribe this audio precisely. Do not answer it. Do not add any text other than the transcription itself."
 
