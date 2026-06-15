@@ -19,7 +19,7 @@ import {
   replaceCurrentCloudChat,
   upsertCloudChatMessages,
   updateUserProfilePreferences,
-} from "./api.js?v=20260615-streaming-v2";
+} from "./api.js?v=20260615-streaming-v3";
 
 import {
   authIsConfigured,
@@ -29,7 +29,7 @@ import {
   onAuthChange,
   signInWithGoogle,
   signOut,
-} from "./auth.js?v=20260615-streaming-v2";
+} from "./auth.js?v=20260615-streaming-v3";
 
 import {
   addMessage,
@@ -61,9 +61,9 @@ import {
   syncInputButtons,
   toggleTheme,
   updateProfileUI,
-} from "./ui_state.js?v=20260615-streaming-v2";
+} from "./ui_state.js?v=20260615-streaming-v3";
 
-import { initVoice } from "./voice.js?v=20260615-streaming-v2";
+import { initVoice } from "./voice.js?v=20260615-streaming-v3";
 
 import {
   applyVisualSettings,
@@ -74,7 +74,7 @@ import {
   mergeAppSettings,
   requestBrowserNotificationsIfNeeded,
   setAppSetting,
-} from "./settings_store.js?v=20260615-streaming-v2";
+} from "./settings_store.js?v=20260615-streaming-v3";
 
 import {
   answerQuestionFromMemory,
@@ -96,7 +96,7 @@ import {
   saveMemoryContext,
   saveMemoryGraphContext,
   mergeMemoryContexts,
-} from "./memory_engine.js?v=20260615-streaming-v2";
+} from "./memory_engine.js?v=20260615-streaming-v3";
 
 let isGenerating = false;
 let isSessionLocked = false;
@@ -1653,10 +1653,9 @@ async function handleSend() {
     let streamResponseStr = "";
     let backendMetaFinal = null;
 
-    removeStatusIndicator(statusId);
-
     let lastRenderTime = 0;
     let renderTimeout = null;
+    let firstChunkReceived = false;
 
     // Send clean message only. Memory/context managed by backend via system prompt.
     await sendChatMessageStream({
@@ -1670,6 +1669,11 @@ async function handleSend() {
         settingsMetadata: buildChatSettingsMetadata(),
       },
       onChunk: (text) => {
+        // Remove the thinking indicator on the very first chunk
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          removeStatusIndicator(statusId);
+        }
         streamResponseStr += text;
 
         const now = performance.now();
@@ -2052,10 +2056,9 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     let streamResponseStr = "";
     let backendMetaFinal = null;
 
-    removeStatusIndicator(statusId);
-
     let lastRenderTime = 0;
     let renderTimeout = null;
+    let firstChunkReceived = false;
 
     await sendChatMessageStream({
       message: userMessage,
@@ -2068,6 +2071,11 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
         settingsMetadata: buildChatSettingsMetadata(),
       },
       onChunk: (text) => {
+        // Remove the thinking indicator on the very first chunk
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          removeStatusIndicator(statusId);
+        }
         streamResponseStr += text;
         
         const now = performance.now();
