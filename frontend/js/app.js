@@ -1265,14 +1265,14 @@ async function handleSend() {
             cancelAnimationFrame(renderTimeout);
             renderTimeout = null;
           }
-          // Use lightweight rendering during stream for 100% smooth performance
-          contentBox.innerHTML = escapeHtml(streamResponseStr).replace(/\n/g, "<br>");
+          // Render live markdown and strip any cognitive thought blocks until finished
+          contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
           scrollChatToBottom("auto");
         } else if (!renderTimeout) {
           renderTimeout = requestAnimationFrame(() => {
             renderTimeout = null;
             lastRenderTime = performance.now();
-            contentBox.innerHTML = escapeHtml(streamResponseStr).replace(/\n/g, "<br>");
+            contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
             scrollChatToBottom("auto");
           });
         }
@@ -1283,8 +1283,20 @@ async function handleSend() {
             cancelAnimationFrame(renderTimeout);
             renderTimeout = null;
           }
-          const finalParsed = processStructuredResponse(streamResponseStr);
+          const elapsedMs = performance.now() - streamStartTime;
+          const finalParsed = processStructuredResponse(streamResponseStr, elapsedMs);
           contentBox.innerHTML = finalParsed.finalHtml;
+          
+          if (finalParsed.timelineHtml) {
+            const timelineDiv = document.createElement("div");
+            timelineDiv.innerHTML = finalParsed.timelineHtml;
+            contentContainer.insertBefore(timelineDiv, contentBox);
+            
+            // Remove the static status indicator since we have a rich timeline dropdown
+            const statusEl = document.getElementById(statusId);
+            if (statusEl) statusEl.remove();
+          }
+          
           scrollChatToBottom("auto");
 
           isGenerating = false;
@@ -1713,14 +1725,14 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
             cancelAnimationFrame(renderTimeout);
             renderTimeout = null;
           }
-          // Use lightweight rendering during stream for 100% smooth performance
-          contentBox.innerHTML = escapeHtml(streamResponseStr).replace(/\n/g, "<br>");
+          // Render live markdown and strip any cognitive thought blocks until finished
+          contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
           scrollChatToBottom("auto");
         } else if (!renderTimeout) {
           renderTimeout = requestAnimationFrame(() => {
             renderTimeout = null;
             lastRenderTime = performance.now();
-            contentBox.innerHTML = escapeHtml(streamResponseStr).replace(/\n/g, "<br>");
+            contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
             scrollChatToBottom("auto");
           });
         }
@@ -1731,8 +1743,20 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
             cancelAnimationFrame(renderTimeout);
             renderTimeout = null;
           }
-          const finalParsed = processStructuredResponse(streamResponseStr);
+          const elapsedMs = performance.now() - streamStartTime;
+          const finalParsed = processStructuredResponse(streamResponseStr, elapsedMs);
           contentBox.innerHTML = finalParsed.finalHtml;
+          
+          if (finalParsed.timelineHtml) {
+            const timelineDiv = document.createElement("div");
+            timelineDiv.innerHTML = finalParsed.timelineHtml;
+            contentContainer.insertBefore(timelineDiv, contentBox);
+            
+            // Remove the static status indicator since we have a rich timeline dropdown
+            const statusEl = document.getElementById(statusId);
+            if (statusEl) statusEl.remove();
+          }
+          
           scrollChatToBottom("auto");
 
           isGenerating = false;

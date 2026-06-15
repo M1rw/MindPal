@@ -121,7 +121,7 @@ export function cognitiveSectionKey(label) {
   }
 }
 
-export function processStructuredResponse(text) {
+export function processStructuredResponse(text, elapsedMs = null) {
   const sections = parseCognitiveSections(text);
   const hasCognitiveStructure =
     Boolean(sections.reframe || sections.action) &&
@@ -148,10 +148,14 @@ export function processStructuredResponse(text) {
     };
   }
 
+  const timeText = elapsedMs 
+    ? `Thought for ${(elapsedMs / 1000).toFixed(1)}s`
+    : "Thought for a few seconds";
+
   const timelineHtml = `
     <div class="thought-accordion group mb-5">
       <div class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-fit">
-        <span class="collapsed-text">Thought for a few seconds</span>
+        <span class="collapsed-text">${timeText}</span>
         <span class="expanded-text hidden">Analyzed cognitive patterns</span>
         <i data-lucide="chevron-right" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
       </div>
