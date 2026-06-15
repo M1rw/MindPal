@@ -27,7 +27,8 @@ from backend.models.chat import ChatRequest
 from backend.models.memory_v3 import MemoryGraph, summary_from_memory_graph
 from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
-
+from backend.services.telemetry_service import TelemetryService
+import time
 
 router = APIRouter(prefix="/api", tags=["chat_stream"])
 
@@ -39,6 +40,7 @@ async def chat_stream(
 ):
     locale = _resolve_locale(payload, context.locale)
     authenticated = bool(context.session.authenticated)
+    start_time = time.perf_counter()
 
     try:
         safety_decision = await services.safety.classify_input_with_context(
@@ -195,6 +197,21 @@ async def chat_stream(
                     metadata['memory_graph_snapshot'] = response_memory_graph_snapshot.model_dump(mode="json")
 
                 yield f"data: {json.dumps(metadata)}\n\n"
+
+                # Telemetry Tracking (Component 4)
+                telemetry = TelemetryService(context.session, profile)
+                if hasattr(rag_result, "references"):
+                    telemetry.log_rag_retrieval(
+                        num_results=len(rag_result.references),
+                        top_score=rag_result.references[0].score if rag_result.references else 0.0,
+                        fallback_triggered=False
+                    )
+                
+                # We do not have token count for stream currently, so we use string length approximations
+                prompt_tokens_est = len(system_prompt + payload.message) // 4
+                comp_tokens_est = len(final_reply) // 4
+                telemetry.log_llm_usage(provider="streaming", prompt_tokens=prompt_tokens_est, completion_tokens=comp_tokens_est)
+                telemetry.log_latency("chat_stream_full", (time.perf_counter() - start_time) * 1000)
 
             except Exception as exc:
                 yield f"data: {json.dumps({'error': str(exc)})}\n\n"

@@ -67,6 +67,7 @@ class UserSafetyPreference(BaseModel):
 
     allow_memory: bool = True
     allow_safety_event_logging: bool = True
+    allow_product_improvement: bool = False
     prefer_short_crisis_responses: bool = True
     emergency_country_hint: str | None = Field(default=None, max_length=80)
 

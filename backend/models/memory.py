@@ -83,6 +83,7 @@ class MemoryItem(BaseModel):
     sensitivity: MemorySensitivity = MemorySensitivity.MEDIUM
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
     tags: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    vector: list[float] | None = Field(default=None)
     metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=_utcnow)
     expires_at: datetime | None = None
