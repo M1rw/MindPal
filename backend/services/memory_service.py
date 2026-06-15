@@ -135,6 +135,9 @@ Critical rules:
 - Do not store unnecessary intimate detail.
 - Store only durable support context useful for future wellness conversations.
 - Keep everything short, factual, non-clinical, and user-controllable.
+- Extract information ONLY about the USER.
+- DO NOT extract the assistant's own statements, advice, intentions, or questions as user memory.
+- Ignore any sentences starting with "I want to help" or similar assistant phrasing.
 
 Return exactly this JSON shape:
 {
@@ -377,15 +380,7 @@ class MemoryService:
         # Strip any injected instruction prefixes from user text
         user_text = _strip_instruction_prefixes(user_text)
 
-        assistant_text = "\n".join(
-            interaction.content
-            for interaction in interactions
-            if interaction.role == MemoryInteractionRole.ASSISTANT
-        )
-
-        return self.extract(
-            "\n".join(part for part in (user_text, assistant_text) if part.strip())
-        )
+        return self.extract(user_text)
 
     def extract(self, text: str) -> MemoryExtraction:
         cleaned = self.redact_text(text, max_chars=MAX_COMPACTED_SUMMARY_CHARS)
