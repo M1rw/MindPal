@@ -19,7 +19,7 @@ import {
   replaceCurrentCloudChat,
   upsertCloudChatMessages,
   updateUserProfilePreferences,
-} from "./api.js?v=20260615-streaming-v4";
+} from "./api.js?v=20260615-streaming-v5";
 
 import {
   authIsConfigured,
@@ -29,7 +29,7 @@ import {
   onAuthChange,
   signInWithGoogle,
   signOut,
-} from "./auth.js?v=20260615-streaming-v4";
+} from "./auth.js?v=20260615-streaming-v5";
 
 import {
   addMessage,
@@ -61,9 +61,9 @@ import {
   syncInputButtons,
   toggleTheme,
   updateProfileUI,
-} from "./ui_state.js?v=20260615-streaming-v4";
+} from "./ui_state.js?v=20260615-streaming-v5";
 
-import { initVoice } from "./voice.js?v=20260615-streaming-v4";
+import { initVoice } from "./voice.js?v=20260615-streaming-v5";
 
 import {
   applyVisualSettings,
@@ -74,7 +74,7 @@ import {
   mergeAppSettings,
   requestBrowserNotificationsIfNeeded,
   setAppSetting,
-} from "./settings_store.js?v=20260615-streaming-v4";
+} from "./settings_store.js?v=20260615-streaming-v5";
 
 import {
   answerQuestionFromMemory,
@@ -96,7 +96,7 @@ import {
   saveMemoryContext,
   saveMemoryGraphContext,
   mergeMemoryContexts,
-} from "./memory_engine.js?v=20260615-streaming-v4";
+} from "./memory_engine.js?v=20260615-streaming-v5";
 
 let isGenerating = false;
 let isSessionLocked = false;
