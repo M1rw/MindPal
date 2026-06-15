@@ -391,7 +391,7 @@ def _extract_text(data: dict[str, Any]) -> str:
 
     if isinstance(choices, list) and choices:
         first = choices[0] or {}
-        message = first.get("message") or {}
+        message = first.get("message") or first.get("delta") or {}
 
         if isinstance(message, dict):
             content = message.get("content")
