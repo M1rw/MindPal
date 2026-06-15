@@ -550,21 +550,24 @@
     <div id="voice-live-overlay"
          class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-500 hidden overflow-hidden font-sans bg-white dark:bg-[#0a0a0f]">
 
-        <!-- Gradient wave bands — horizontally stretched blurred layers -->
+        <!-- Gradient wave bands — positioned near the bottom -->
         <div id="voice-wave-layer" class="absolute inset-0 pointer-events-none z-0 overflow-hidden">
             <!-- Primary glow band -->
-            <div id="voice-glow-1" class="absolute left-[-10%] right-[-10%] h-[180px] rounded-[100%] will-change-transform transition-all duration-200"
-                 style="bottom:28%; background: linear-gradient(90deg, rgba(96,165,250,0.35), rgba(129,140,248,0.5), rgba(167,139,250,0.35)); filter: blur(60px);"></div>
+            <div id="voice-glow-1" class="absolute left-[-10%] right-[-10%] h-[180px] rounded-[100%] will-change-transform transition-[background] duration-700"
+                 style="bottom:12%; background: linear-gradient(90deg, rgba(96,165,250,0.35), rgba(129,140,248,0.5), rgba(167,139,250,0.35)); filter: blur(60px);"></div>
             <!-- Secondary wider glow -->
-            <div id="voice-glow-2" class="absolute left-[-15%] right-[-15%] h-[140px] rounded-[100%] will-change-transform transition-all duration-300"
-                 style="bottom:24%; background: linear-gradient(90deg, rgba(56,189,248,0.2), rgba(96,165,250,0.35), rgba(192,132,252,0.2)); filter: blur(80px);"></div>
+            <div id="voice-glow-2" class="absolute left-[-15%] right-[-15%] h-[140px] rounded-[100%] will-change-transform transition-[background] duration-700"
+                 style="bottom:8%; background: linear-gradient(90deg, rgba(56,189,248,0.2), rgba(96,165,250,0.35), rgba(192,132,252,0.2)); filter: blur(80px);"></div>
             <!-- Bright center highlight -->
-            <div id="voice-glow-3" class="absolute left-[15%] right-[15%] h-[100px] rounded-[100%] will-change-transform transition-all duration-150"
-                 style="bottom:32%; background: linear-gradient(90deg, rgba(224,242,254,0.15), rgba(255,255,255,0.4), rgba(224,242,254,0.15)); filter: blur(40px);"></div>
+            <div id="voice-glow-3" class="absolute left-[15%] right-[15%] h-[100px] rounded-[100%] will-change-transform transition-[background] duration-700"
+                 style="bottom:16%; background: linear-gradient(90deg, rgba(224,242,254,0.15), rgba(255,255,255,0.4), rgba(224,242,254,0.15)); filter: blur(40px);"></div>
             <!-- Deep bottom wash -->
-            <div id="voice-glow-4" class="absolute left-[-5%] right-[-5%] h-[200px] rounded-[50%] will-change-transform transition-all duration-500"
-                 style="bottom:15%; background: linear-gradient(90deg, rgba(99,102,241,0.15), rgba(129,140,248,0.2), rgba(99,102,241,0.15)); filter: blur(100px);"></div>
+            <div id="voice-glow-4" class="absolute left-[-5%] right-[-5%] h-[200px] rounded-[50%] will-change-transform transition-[background] duration-700"
+                 style="bottom:0%; background: linear-gradient(90deg, rgba(99,102,241,0.15), rgba(129,140,248,0.2), rgba(99,102,241,0.15)); filter: blur(100px);"></div>
         </div>
+
+        <!-- Audio visualizer bars — anchored to the very bottom -->
+        <canvas id="voice-viz-canvas" class="absolute bottom-0 left-0 right-0 h-[120px] z-[1] pointer-events-none"></canvas>
 
         <!-- ── Top bar ── -->
         <header class="relative z-20 flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top,12px),12px)] pb-2 w-full">
