@@ -11,6 +11,7 @@ from .memory_router import router as memory_router
 from .chat_store_router import router as chat_store_router
 from .safety_router import router as safety_router
 from .tts_router import router as tts_router
+from .chat_stream_router import router as chat_stream_router
 
 
 def create_api_router() -> APIRouter:
@@ -23,6 +24,7 @@ def create_api_router() -> APIRouter:
     api_router.include_router(chat_store_router)
     api_router.include_router(safety_router)
     api_router.include_router(tts_router)
+    api_router.include_router(chat_stream_router)
 
     return api_router
 

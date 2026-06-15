@@ -126,6 +126,7 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=MAX_CHAT_MESSAGE_CHARS)
     history: list[ChatMessage] = Field(default_factory=list, max_length=MAX_HISTORY_MESSAGES)
     metadata: ChatMetadata = Field(default_factory=ChatMetadata)
+    stream: bool = False
 
     @field_validator("user_id", mode="before")
     @classmethod

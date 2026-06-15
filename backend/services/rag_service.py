@@ -251,6 +251,7 @@ class RAGService:
         self._units: tuple[GroundingUnit, ...] = ()
         self._failed_files: tuple[dict[str, str], ...] = ()
         self._loaded_files: tuple[str, ...] = ()
+        self._embeddings: dict[str, list[float]] = {}
         self._last_result: RAGRetrievalResult | None = None
         self._using_builtin_fallback = False
 
@@ -295,6 +296,22 @@ class RAGService:
             self._units = tuple(loaded_units)
             self._loaded_files = tuple(loaded_files)
             self._failed_files = tuple(failed_files)
+
+            # Load pre-computed embeddings if available
+            embeddings_file = self.corpus_dir / "corpus_embeddings.json"
+            if embeddings_file.exists():
+                try:
+                    with open(embeddings_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    
+                    for uid, item in data.items():
+                        if "vector" in item:
+                            self._embeddings[uid] = item["vector"]
+                except Exception as exc:
+                    self._failed_files = tuple(
+                        list(self._failed_files) + [{"path": str(embeddings_file), "code": "embedding_load_error", "message": str(exc)}]
+                    )
+
             return
 
         if self.production_mode and not self.allow_builtin_fallback_in_production:
@@ -372,12 +389,24 @@ class RAGService:
                     locale=resolved_locale,
                     memory_summary=memory_summary,
                 )
+                
+                query_vector = None
+                if plan.rewritten_query:
+                    try:
+                        # Attempt to get embeddings for semantic search
+                        query_vector_res = await self.llm_service.embed([plan.rewritten_query])
+                        if query_vector_res:
+                            query_vector = query_vector_res[0]
+                    except Exception:
+                        pass
+                
                 result = self._result_from_plan(
                     plan,
                     max_results=max_results,
                     used_llm_plan=True,
                     fallback_used=False,
                     planner_provider=provider_used,
+                    query_vector=query_vector,
                 )
                 self._last_result = result
                 return result
@@ -423,6 +452,7 @@ class RAGService:
         tags: list[str] | tuple[str, ...] | None = None,
         max_results: int = DEFAULT_MAX_RESULTS,
         min_score: float = 0.08,
+        query_vector: list[float] | None = None,
     ) -> list[RetrievalMatch]:
         """
         Deterministic local retrieval.
@@ -432,7 +462,7 @@ class RAGService:
         cleaned_query = sanitize_text(query, MAX_QUERY_CHARS)
         cleaned_tags = _clean_terms(tags or ())
 
-        if not cleaned_query and not cleaned_tags:
+        if not cleaned_query and not cleaned_tags and not query_vector:
             return []
 
         if max_results <= 0:
@@ -444,13 +474,21 @@ class RAGService:
         matches: list[RetrievalMatch] = []
 
         for unit in self._units:
-            score, matched_terms = _score_unit(
+            lexical_score, matched_terms = _score_unit(
                 unit,
                 query_lower=query_lower,
                 query_tokens=query_tokens,
                 requested_tags=cleaned_tags,
             )
 
+            score = lexical_score
+            
+            if query_vector is not None and unit.grounding_id in self._embeddings:
+                unit_vector = self._embeddings[unit.grounding_id]
+                semantic_score = _cosine_similarity(query_vector, unit_vector)
+                # Hybrid search: semantic score carries more weight for semantic queries
+                score = (semantic_score * 0.7) + (lexical_score * 0.3)
+                
             if score < min_score:
                 continue
 
@@ -742,6 +780,7 @@ class RAGService:
         fallback_used: bool,
         planner_provider: str | None = None,
         error_code: str | None = None,
+        query_vector: list[float] | None = None,
     ) -> RAGRetrievalResult:
         tags = _clean_terms(list(plan.tags) + list(plan.categories) + list(plan.techniques))
         query = " ".join(
@@ -759,6 +798,7 @@ class RAGService:
             tags=tags,
             max_results=max_results,
             min_score=0.05,
+            query_vector=query_vector,
         )
 
         return RAGRetrievalResult(
@@ -995,6 +1035,17 @@ def _unique_paths(paths: tuple[Path, ...]) -> tuple[Path, ...]:
 
 def _iter_yaml_files(directory: Path) -> tuple[Path, ...]:
     return tuple(sorted({*directory.glob("*.yaml"), *directory.glob("*.yml")}))
+
+
+def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
+    if not vec1 or not vec2 or len(vec1) != len(vec2):
+        return 0.0
+    dot = sum(a * b for a, b in zip(vec1, vec2))
+    norm_a = sum(a * a for a in vec1)
+    norm_b = sum(b * b for b in vec2)
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / math.sqrt(norm_a * norm_b)
 
 
 def _score_unit(
