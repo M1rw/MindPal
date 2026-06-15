@@ -1,5 +1,5 @@
-import { formatMarkdown, escapeHtml } from "./dom.js";
-
+import { formatMarkdown } from "./dom.js";
+import { escapeHtml } from "../ui_state.js?v=20260615-streaming-v7";
 export function timelineItem(title, body, icon, bodyIsHtml = false) {
   return `
     <div class="relative">
