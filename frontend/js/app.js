@@ -962,7 +962,6 @@ const SETTINGS_SELECTS = {
 
 const SETTINGS_TOGGLES = {
   "Enable dictation": "dictationEnabled",
-  "Dark theme": "appearance",
   "Fast answers": "personalization.fastAnswers",
   "Cognitive structure": "personalization.cognitiveStructure",
   "Enable memory": "memoryEnabled",

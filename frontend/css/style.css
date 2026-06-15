@@ -428,6 +428,14 @@ details > summary::-webkit-details-marker { display: none; }
   box-shadow: none;
 }
 
+.dark .settings-choice-trigger:hover,
+.dark .settings-choice-trigger:focus-visible,
+.dark .settings-choice.open .settings-choice-trigger {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: #2a2f36;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
 .dark .settings-choice-menu {
   background: #20252b;
   border-color: rgba(255, 255, 255, 0.12);

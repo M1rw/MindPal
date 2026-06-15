@@ -52,70 +52,8 @@
         };
     </script>
 
-    <style>
-        /* Sleek Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 10px; }
-        .dark ::-webkit-scrollbar-thumb { background: #444746; }
-        ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
-        .dark ::-webkit-scrollbar-thumb:hover { background: #c4c7c5; }
-        
-        textarea::-webkit-scrollbar { width: 0px; }
-        textarea:focus::-webkit-scrollbar { width: 6px; }
-        
-        .dropdown-enter { opacity: 0; transform: scale(0.98) translateY(-5px); }
-        .dropdown-enter-active { opacity: 1; transform: scale(1) translateY(0); transition: opacity 150ms ease-out, transform 150ms ease-out; }
-        
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    <!-- All component styles consolidated in css/style.css -->
 
-        @keyframes slideUpFade {
-            from { opacity: 0; transform: translateY(1rem); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-toast { animation: slideUpFade 0.3s ease-out forwards; }
-
-        /* Custom Toggle Switch */
-        input:checked ~ .toggle-bg { background-color: #3b82f6; }
-        .dark input:checked ~ .toggle-bg { background-color: #a8c7fa; }
-        input:checked ~ .toggle-dot { transform: translateX(100%); }
-
-        /* Hide default details marker */
-        details > summary { list-style: none; }
-        details > summary::-webkit-details-marker { display: none; }
-
-        /* Shimmer text for AI loading state */
-        .shimmer-text {
-            background: linear-gradient(90deg, #4285f4 0%, #9b72cb 50%, #4285f4 100%);
-            background-size: 200% auto;
-            color: transparent;
-            -webkit-background-clip: text;
-            background-clip: text;
-            animation: shimmer 2s linear infinite;
-        }
-        .dark .shimmer-text {
-            background: linear-gradient(90deg, #a8c7fa 0%, #d3bcfa 50%, #a8c7fa 100%);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-        }
-        @keyframes shimmer { to { background-position: 200% center; } }
-        
-        /* Voice Recording Pulse */
-        @keyframes pulse-ring {
-            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-        .recording-pulse {
-            animation: pulse-ring 2s infinite;
-            background-color: rgba(239, 68, 68, 0.1);
-            color: #ef4444 !important;
-        }
-    </style>
 
     <!-- MindPal SEO / Social / PWA -->
     <title>MindPal — AI support that remembers what matters</title>
@@ -326,7 +264,7 @@
                             <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Appearance</span></span><span class="settings-row-action">System <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
                             <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Contrast</span></span><span class="settings-row-action">System <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
                             <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Accent color</span></span><span class="settings-row-action"><span class="settings-accent-dot"></span> MindPal blue <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
-                            <label class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Dark theme</span><span class="settings-row-copy">Use MindPal in dark mode on this device.</span></span><span class="relative flex-shrink-0"><input type="checkbox" id="modal-theme-toggle" class="sr-only"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></span></label>
+
                             <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Language</span></span><span class="settings-row-action">Auto-detect <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
                             <label class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Enable dictation</span><span class="settings-row-copy">Use voice input in the chat composer.</span></span><span class="relative flex-shrink-0"><input type="checkbox" checked class="sr-only"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></span></label>
                             <label class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Spoken language</span><span class="settings-row-copy">For best results, choose the language you mainly speak.</span></span><select id="voice-language-select" class="settings-select"><option value="auto">Auto / Browser default</option></select></label>
