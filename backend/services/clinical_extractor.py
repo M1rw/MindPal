@@ -2,6 +2,7 @@
 
 import json
 import logging
+import uuid
 from datetime import datetime, UTC
 from collections.abc import Sequence
 
@@ -15,8 +16,8 @@ CLINICAL_EXTRACTION_PROMPT = """You are an expert clinical data extractor. Your 
 Output ONLY a valid JSON object matching this schema. Do NOT wrap it in ```json blocks or include any markdown formatting.
 
 {
-    "presenting_problems": ["string", "string"], // Up to 5 current presenting problems identified.
-    "suspected_diagnoses": ["string"], // Up to 3 suspected diagnoses.
+    "presenting_problems": ["string", "string"], // Up to 10 current presenting problems identified.
+    "suspected_diagnoses": ["string"], // Up to 10 suspected diagnoses.
     "treatment_plan": "string", // A short 1-2 sentence treatment plan or current strategy.
     "phq9_score": number, // Estimated PHQ-9 depression severity score (0-27) based on conversation. 0 if none.
     "gad7_score": number // Estimated GAD-7 anxiety severity score (0-21) based on conversation. 0 if none.
@@ -44,7 +45,7 @@ async def extract_clinical_profile(
     user_prompt = f"Current Profile:\n{current_profile.model_dump_json()}\n\nRecent Conversation:\n{history_text}"
 
     request = build_llm_request(
-        request_id="clinical_extraction",
+        request_id=f"clinical_extraction_{uuid.uuid4().hex[:12]}",
         system_prompt=CLINICAL_EXTRACTION_PROMPT,
         user_message=user_prompt,
         temperature=0.0,

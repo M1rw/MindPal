@@ -381,7 +381,6 @@ export function updateUsageUI(profileResponse = null) {
   const usage = profileResponse?.profile?.usage || null;
   const proBar = document.getElementById("usage-pro-bar");
   const proText = document.getElementById("usage-pro-text");
-  const modeSelectorBtn = document.getElementById("mode-selector-btn");
   
   if (!usage) return;
 
@@ -404,6 +403,8 @@ export function updateUsageUI(profileResponse = null) {
     proText.textContent = `${proCount} / 40 Used`;
     if (proPct >= 100) {
       proText.classList.add("text-rose-500");
+    } else {
+      proText.classList.remove("text-rose-500");
     }
   }
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 from typing import Any
 
@@ -23,7 +24,7 @@ from backend.api.chat_router import (
     _provider_label,
 )
 from backend.core.prompts import build_intent_context, build_system_prompt, infer_response_mode_for_preference
-from backend.models.chat import ChatRequest, LLMMessage
+from backend.models.chat import ChatRequest, LLMMessage, LLMRole
 from backend.models.memory_v3 import MemoryGraph, summary_from_memory_graph
 from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
@@ -110,8 +111,6 @@ async def chat_stream(
                 quota_exceeded = True
             else:
                 profile.usage.pro_messages_count += 1
-                # Save the profile asynchronously but don't await it here so we don't block
-                asyncio.create_task(services.db.save_user_profile(profile))
 
         response_mode = infer_response_mode_for_preference(
             preference=user_preference,
@@ -237,18 +236,33 @@ async def chat_stream(
 
                 # TRIGGER CLINICAL EXTRACTION IN BACKGROUND
                 if clinical_mode and authenticated:
-                    async def run_extraction():
-                        # Extract from the full conversation window (history + current message)
-                        extraction_messages = list(llm_request.history) + [LLMMessage(role="user", content=payload.message)]
-                        updated_profile = await extract_clinical_profile(
+                    # Deep-copy clinical data to avoid race conditions
+                    clinical_snapshot = copy.deepcopy(profile.clinical)
+                    # Filter to only user/assistant messages (skip system prompt)
+                    extraction_messages = [
+                        msg for msg in llm_request.messages
+                        if msg.role != LLMRole.SYSTEM
+                    ]
+                    req_id = context.request_id
+
+                    async def run_extraction(
+                        _msgs=extraction_messages,
+                        _clinical=clinical_snapshot,
+                        _req_id=req_id,
+                    ):
+                        updated_clinical = await extract_clinical_profile(
                             llm=services.llm,
-                            messages=extraction_messages,
-                            current_profile=profile.clinical
+                            messages=_msgs,
+                            current_profile=_clinical,
                         )
-                        profile.clinical = updated_profile
+                        profile.clinical = updated_clinical
                         await services.db.save_user_profile(profile)
 
                     asyncio.create_task(run_extraction())
+                else:
+                    # Save quota increment even if not running extraction
+                    if authenticated and not quota_exceeded:
+                        asyncio.create_task(services.db.save_user_profile(profile))
 
             except Exception as exc:
                 yield f"data: {json.dumps({'error': str(exc)})}\n\n"

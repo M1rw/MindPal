@@ -1,5 +1,5 @@
 // frontend/js/voice_live.js
-// ─── MindPal Voice — iOS 18 Apple Intelligence style ───
+// ─── MindPal Voice — real-time voice with Gemini Live ───
 
 let liveWebSocket = null;
 let audioContext = null;
@@ -13,37 +13,52 @@ let nextPlaybackTime = 0;
 
 // Animation state
 let animFrameId = null;
-let smoothVolume = 0;     // smoothed volume 0..1
-let blobPhase = 0;        // continuously incrementing phase for orbit
+let smoothVolume = 0;
+let blobPhase = 0;
 
-// Colour palettes (CSS custom properties)
+// Colour palettes (CSS custom properties on the overlay)
 const PALETTE_LISTEN = { blob1: "#22d3ee", blob2: "#3b82f6", blob3: "#6366f1", blob4: "#a855f7" };
 const PALETTE_SPEAK  = { blob1: "#f472b6", blob2: "#c084fc", blob3: "#fb923c", blob4: "#e879f9" };
 
 let onChatSyncCallback = null;
+let ccVisible = true;
 
-/* ───────── Init ───────── */
+/* ═══════════════ Helpers ═══════════════ */
+
+/** Strip the model's internal thinking/reasoning markers from displayed text */
+function cleanAiText(raw) {
+    // Remove lines like "**Initiating Friendly Exchange**" or "**Acknowledge Politeness**"
+    return raw
+        .replace(/\*\*[^*]+\*\*/g, "")   // remove bold markers
+        .replace(/\n{2,}/g, "\n")         // collapse extra newlines
+        .trim();
+}
+
+function scrollTranscript() {
+    const panel = document.getElementById("voice-transcript-panel");
+    if (panel) panel.scrollTop = panel.scrollHeight;
+}
+
+/* ═══════════════ Init ═══════════════ */
 export function initLiveVoice({ onChatSync } = {}) {
     onChatSyncCallback = onChatSync;
 
-    // Close buttons
     document.getElementById("voice-live-close")?.addEventListener("click", stopLiveVoice);
     document.getElementById("voice-live-close-bottom")?.addEventListener("click", stopLiveVoice);
 
-    // CC toggle — show/hide transcript text
+    // CC toggle — show/hide transcript
     const ccBtn = document.getElementById("voice-cc-toggle");
-    const panel = document.getElementById("voice-transcript-panel");
-    if (ccBtn && panel) {
+    if (ccBtn) {
         ccBtn.addEventListener("click", () => {
-            const isVisible = panel.style.opacity !== "0";
-            panel.style.opacity = isVisible ? "0" : "1";
-            ccBtn.classList.toggle("bg-blue-500/20", !isVisible);
-            ccBtn.classList.toggle("text-blue-500", !isVisible);
+            ccVisible = !ccVisible;
+            const panel = document.getElementById("voice-transcript-panel");
+            if (panel) panel.style.opacity = ccVisible ? "1" : "0";
+            ccBtn.classList.toggle("bg-blue-500/15", ccVisible);
         });
     }
 }
 
-/* ───────── Start ───────── */
+/* ═══════════════ Start ═══════════════ */
 export async function startLiveVoice() {
     if (isLiveSessionActive) return;
     isLiveSessionActive = true;
@@ -53,30 +68,36 @@ export async function startLiveVoice() {
     nextPlaybackTime = 0;
     smoothVolume = 0;
     blobPhase = 0;
+    ccVisible = true;
 
     const overlay = document.getElementById("voice-live-overlay");
     const statusEl = document.getElementById("voice-live-status");
     const userTextEl = document.getElementById("voice-live-user-text");
     const aiTextEl = document.getElementById("voice-live-ai-text");
+    const panel = document.getElementById("voice-transcript-panel");
 
     if (userTextEl) userTextEl.textContent = "";
     if (aiTextEl)   aiTextEl.textContent = "";
     if (statusEl)   statusEl.textContent = "Connecting…";
+    if (panel) panel.style.opacity = "1";
+
+    // Reset CC toggle visual
+    const ccBtn = document.getElementById("voice-cc-toggle");
+    if (ccBtn) ccBtn.classList.add("bg-blue-500/15");
 
     // Show overlay
     overlay.classList.remove("hidden");
-    void overlay.offsetWidth; // trigger reflow
+    void overlay.offsetWidth;
     overlay.classList.remove("opacity-0");
     overlay.classList.add("pointer-events-auto");
 
     // Set listening colours
     applyPalette(PALETTE_LISTEN);
 
-    // Start blob animation
+    // Start animation
     if (!animFrameId) tick();
 
     try {
-        // Fetch API Key
         const baseUrl = window.MINDPAL_CONFIG.API_BASE_URL;
         const keyRes = await fetch(`${baseUrl}/voice/key`);
         if (!keyRes.ok) throw new Error("Failed to fetch API key");
@@ -88,7 +109,7 @@ export async function startLiveVoice() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         micSource = audioContext.createMediaStreamSource(stream);
 
-        // AudioWorklet for mic capture (replaces deprecated ScriptProcessorNode)
+        // AudioWorklet
         const workletCode = `
         class PCMProcessor extends AudioWorkletProcessor {
           constructor() { super(); this.buffer = new Float32Array(4096); this.ptr = 0; }
@@ -109,8 +130,7 @@ export async function startLiveVoice() {
         registerProcessor('pcm-processor', PCMProcessor);
         `;
         const blob = new Blob([workletCode], { type: "application/javascript" });
-        const workletUrl = URL.createObjectURL(blob);
-        await audioContext.audioWorklet.addModule(workletUrl);
+        await audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
 
         scriptNode = new AudioWorkletNode(audioContext, "pcm-processor");
 
@@ -126,8 +146,7 @@ export async function startLiveVoice() {
                 sum += s * s;
             }
 
-            const rms = Math.sqrt(sum / inputData.length);
-            feedVolume(rms);
+            feedVolume(Math.sqrt(sum / inputData.length));
 
             const buffer = new ArrayBuffer(pcmData.length * 2);
             const view = new DataView(buffer);
@@ -147,7 +166,7 @@ export async function startLiveVoice() {
         micSource.connect(scriptNode);
         scriptNode.connect(audioContext.destination);
 
-        // WebSocket to Gemini Live API
+        // WebSocket
         const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
         liveWebSocket = new WebSocket(wsUrl);
 
@@ -180,9 +199,10 @@ export async function startLiveVoice() {
                 for (const part of data.serverContent.modelTurn.parts) {
                     if (part.text) {
                         aiTranscript += part.text;
-                        if (aiTextEl) aiTextEl.textContent = aiTranscript;
+                        if (aiTextEl) aiTextEl.textContent = cleanAiText(aiTranscript);
                         applyPalette(PALETTE_SPEAK);
-                        if (statusEl) statusEl.textContent = "MindPal speaking…";
+                        if (statusEl) statusEl.textContent = "MindPal is speaking…";
+                        scrollTranscript();
                     }
                     if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
                         const audioData = atob(part.inlineData.data);
@@ -194,7 +214,7 @@ export async function startLiveVoice() {
                         const floatBuffer = new Float32Array(pcmBuffer.length);
                         for (let i = 0; i < pcmBuffer.length; i++) floatBuffer[i] = pcmBuffer[i] / 32768.0;
 
-                        // Compute AI audio level for visualisation
+                        // Drive visualization from AI audio too
                         let aiSum = 0;
                         for (let i = 0; i < floatBuffer.length; i++) aiSum += floatBuffer[i] * floatBuffer[i];
                         feedVolume(Math.sqrt(aiSum / floatBuffer.length));
@@ -246,7 +266,7 @@ export async function startLiveVoice() {
     }
 }
 
-/* ───────── Stop ───────── */
+/* ═══════════════ Stop ═══════════════ */
 export function stopLiveVoice() {
     if (!isLiveSessionActive) return;
     isLiveSessionActive = false;
@@ -270,7 +290,7 @@ export function stopLiveVoice() {
     }
 }
 
-/* ───────── Colour palette via CSS custom properties ───────── */
+/* ═══════════════ Palette ═══════════════ */
 function applyPalette(p) {
     const overlay = document.getElementById("voice-live-overlay");
     if (!overlay) return;
@@ -280,72 +300,58 @@ function applyPalette(p) {
     overlay.style.setProperty("--blob4", p.blob4);
 }
 
-/* ───────── Volume feeder ───────── */
+/* ═══════════════ Volume feeder ═══════════════ */
 function feedVolume(rms) {
-    const level = Math.min(1, rms * 14);
-    // Peak-hold: take the higher value to prevent jarring drops
-    smoothVolume = Math.max(smoothVolume, level);
+    smoothVolume = Math.max(smoothVolume, Math.min(1, rms * 14));
 }
 
-/* ───────── Animation tick (runs at 60fps via rAF) ───────── */
+/* ═══════════════ Animation tick ═══════════════ */
 function tick() {
     if (!isLiveSessionActive) { animFrameId = null; return; }
 
-    blobPhase += 0.008;
-
-    // Smooth decay
-    smoothVolume *= 0.92;
-    if (smoothVolume < 0.005) smoothVolume = 0;
+    blobPhase += 0.006;
+    smoothVolume *= 0.93;
+    if (smoothVolume < 0.003) smoothVolume = 0;
 
     const v = smoothVolume;
 
-    // Move blobs — each has its own orbit pattern using sin/cos
+    // Move blobs — gentle sine orbit at edges
     const b1 = document.getElementById("mp-blob-1");
     const b2 = document.getElementById("mp-blob-2");
     const b3 = document.getElementById("mp-blob-3");
     const b4 = document.getElementById("mp-blob-4");
 
-    const baseScale = 1;
-    const expand = v * 0.25; // expand inward with volume
+    const expand = v * 0.2;
 
     if (b1) {
-        const x = Math.sin(blobPhase * 1.1) * 40;
-        const y = Math.cos(blobPhase * 0.7) * 30;
-        b1.style.transform = `translate(${x}px, ${y}px) scale(${baseScale + expand})`;
-        b1.style.opacity = 0.3 + v * 0.25;
+        b1.style.transform = `translate(${Math.sin(blobPhase * 1.1) * 30}px, ${Math.cos(blobPhase * 0.7) * 25}px) scale(${1 + expand})`;
+        b1.style.opacity = 0.15 + v * 0.15;
     }
     if (b2) {
-        const x = Math.cos(blobPhase * 0.8) * 35;
-        const y = Math.sin(blobPhase * 1.2) * 45;
-        b2.style.transform = `translate(${x}px, ${y}px) scale(${baseScale + expand * 1.1})`;
-        b2.style.opacity = 0.25 + v * 0.3;
+        b2.style.transform = `translate(${Math.cos(blobPhase * 0.8) * 25}px, ${Math.sin(blobPhase * 1.2) * 35}px) scale(${1 + expand * 1.1})`;
+        b2.style.opacity = 0.12 + v * 0.18;
     }
     if (b3) {
-        const x = Math.sin(blobPhase * 0.6) * 50;
-        const y = Math.cos(blobPhase * 0.9) * 35;
-        b3.style.transform = `translate(${x}px, ${y}px) scale(${baseScale + expand * 0.9})`;
-        b3.style.opacity = 0.25 + v * 0.2;
+        b3.style.transform = `translate(${Math.sin(blobPhase * 0.6) * 40}px, ${Math.cos(blobPhase * 0.9) * 28}px) scale(${1 + expand * 0.9})`;
+        b3.style.opacity = 0.12 + v * 0.12;
     }
     if (b4) {
-        const x = Math.cos(blobPhase * 1.3) * 30;
-        const y = Math.sin(blobPhase * 0.5) * 40;
-        b4.style.transform = `translate(${x}px, ${y}px) scale(${baseScale + expand * 1.2})`;
-        b4.style.opacity = 0.2 + v * 0.25;
+        b4.style.transform = `translate(${Math.cos(blobPhase * 1.3) * 22}px, ${Math.sin(blobPhase * 0.5) * 32}px) scale(${1 + expand * 1.2})`;
+        b4.style.opacity = 0.1 + v * 0.15;
     }
 
     // Mic dot pulse
     const micDot = document.getElementById("voice-mic-dot");
     if (micDot) {
-        const micScale = 1 + v * 0.15;
-        micDot.style.transform = `scale(${micScale})`;
-        micDot.style.boxShadow = `0 0 ${30 + v * 40}px rgba(59,130,246,${0.3 + v * 0.3})`;
+        micDot.style.transform = `scale(${1 + v * 0.12})`;
+        micDot.style.boxShadow = `0 0 ${22 + v * 35}px rgba(59,130,246,${0.25 + v * 0.25})`;
     }
 
     // Mic ripples
     const r1 = document.getElementById("voice-mic-ripple-1");
     const r2 = document.getElementById("voice-mic-ripple-2");
-    if (r1) { r1.style.transform = `scale(${1 + v * 0.4})`; r1.style.opacity = v > 0.05 ? (0.6 * v) : 0; }
-    if (r2) { r2.style.transform = `scale(${1 + v * 0.7})`; r2.style.opacity = v > 0.05 ? (0.3 * v) : 0; }
+    if (r1) { r1.style.transform = `scale(${1 + v * 0.35})`; r1.style.opacity = v > 0.04 ? String(0.5 * v) : "0"; }
+    if (r2) { r2.style.transform = `scale(${1 + v * 0.6})`; r2.style.opacity = v > 0.04 ? String(0.25 * v) : "0"; }
 
     animFrameId = requestAnimationFrame(tick);
 }
