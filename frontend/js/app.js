@@ -1105,6 +1105,26 @@ function bindModeSelector() {
       if (!isSessionLocked) {
         document.getElementById("chat-input")?.focus();
       }
+
+      const chatHistory = document.getElementById("chat-history");
+      if (chatHistory) {
+        const lastChild = chatHistory.lastElementChild;
+        const text = `Mode switched to ${mode}`;
+        if (lastChild && lastChild.classList.contains("mode-switch-indicator")) {
+          const span = lastChild.querySelector('.indicator-text');
+          if (span) span.textContent = text;
+        } else {
+          const div = document.createElement("div");
+          div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
+          div.innerHTML = `
+            <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
+            <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 font-medium tracking-wide uppercase">${text}</span>
+            <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
+          `;
+          chatHistory.appendChild(div);
+          scrollChatToBottom("smooth");
+        }
+      }
     });
   });
 }
@@ -1154,6 +1174,27 @@ function bindModelSelector() {
 
       if (!isSessionLocked) {
         document.getElementById("chat-input")?.focus();
+      }
+
+      const chatHistory = document.getElementById("chat-history");
+      if (chatHistory) {
+        const lastChild = chatHistory.lastElementChild;
+        const textName = modelValue === "pro" ? "MindPal Pro" : "MindPal Standard";
+        const text = `Model switched to ${textName}`;
+        if (lastChild && lastChild.classList.contains("mode-switch-indicator")) {
+          const span = lastChild.querySelector('.indicator-text');
+          if (span) span.textContent = text;
+        } else {
+          const div = document.createElement("div");
+          div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
+          div.innerHTML = `
+            <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
+            <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 font-medium tracking-wide uppercase">${text}</span>
+            <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
+          `;
+          chatHistory.appendChild(div);
+          scrollChatToBottom("smooth");
+        }
       }
     });
   });
