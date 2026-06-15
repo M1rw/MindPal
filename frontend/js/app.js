@@ -13,6 +13,7 @@ import {
   saveMemory,
   saveMemoryGraph,
   sendChatMessage,
+  sendChatMessageStream,
   deleteCurrentCloudChat,
   loadCurrentCloudChat,
   replaceCurrentCloudChat,
@@ -1696,6 +1697,15 @@ async function handleSend() {
       }
     });
 
+    // Flush any pending rAF render so the final content is never dropped
+    if (renderTimeout) {
+      cancelAnimationFrame(renderTimeout);
+      renderTimeout = null;
+    }
+    const finalParsed = processStructuredResponse(streamResponseStr);
+    contentBox.innerHTML = finalParsed.finalHtml;
+    scrollChatToBottom("smooth");
+
     const reply = streamResponseStr.trim();
     if (!reply) {
       throw new Error("Backend returned empty reply.");
@@ -2084,6 +2094,15 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
         backendMetaFinal = meta;
       }
     });
+
+    // Flush any pending rAF render so the final content is never dropped
+    if (renderTimeout) {
+      cancelAnimationFrame(renderTimeout);
+      renderTimeout = null;
+    }
+    const finalParsed = processStructuredResponse(streamResponseStr);
+    contentBox.innerHTML = finalParsed.finalHtml;
+    scrollChatToBottom("smooth");
 
     const reply = streamResponseStr.trim();
     if (!reply) {

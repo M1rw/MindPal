@@ -450,7 +450,7 @@ export async function sendChatMessageStream({
   const normalizedHistory = normalizeChatHistory(history, 60, "content");
   const metadata = { locale, mode: backendPreference, ...(profileContext?.settingsMetadata || {}) };
 
-  const url = "/api/chat/stream";
+  const url = `${API_BASE_URL}/chat/stream`;
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
