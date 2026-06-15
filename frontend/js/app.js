@@ -1309,6 +1309,7 @@ async function handleSend() {
             safety: null,
             ragUsed: [],
             memoryUpdated: false,
+            generationTimeMs: elapsedMs,
           });
 
           notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
@@ -1503,6 +1504,25 @@ async function appendMessageToUI(text, sender, {
 
   const contentBox = document.createElement("div");
   contentBox.className = "content-box";
+
+  if (!parsed.timelineHtml && backendMeta?.generationTimeMs) {
+    const timeSec = (backendMeta.generationTimeMs / 1000).toFixed(1);
+    const staticThoughtHtml = `
+      <div class="flex items-center gap-1 mb-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+          class="text-[#4285f4] dark:text-[#7baaf7] flex-shrink-0 opacity-80">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        <span class="text-[13px] text-[#5f6368] dark:text-[#9aa0a6] italic">
+          Thought for ${timeSec}s
+        </span>
+      </div>
+    `;
+    const staticDiv = document.createElement("div");
+    staticDiv.innerHTML = staticThoughtHtml;
+    contentContainer.appendChild(staticDiv);
+  }
 
   if (!typewriter) {
     contentBox.innerHTML = parsed.finalHtml;
@@ -1770,6 +1790,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
             ragUsed: [],
             memoryUpdated: false,
             regenerated: true,
+            generationTimeMs: elapsedMs,
           });
 
           notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the regenerated response.");
