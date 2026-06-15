@@ -23,6 +23,12 @@ let isMicMuted = false;
 let activeAudioSources = [];
 let isAiSpeaking = false;
 
+// AnalyserNode for real frequency visualizer
+let analyser = null;
+let freqData = null;
+let smoothBins = null;
+const BIN_COUNT = 64;
+
 // Colour palettes (used to differentiate listen vs speak state)
 const PALETTE_LISTEN = { id: "listen" };
 const PALETTE_SPEAK  = { id: "speak" };
@@ -52,8 +58,8 @@ function createBubble(type) {
 
 function appendToTranscript(type, text) {
     if (!text) return;
-    // Filter out noise markers without collapsing natural spaces
-    const cleaned = text.replace(/<noise>/gi, "");
+    // Filter out noise markers
+    let cleaned = text.replace(/<noise>/gi, "");
     if (!cleaned || !cleaned.trim()) return;
 
     // New speaker → new bubble
@@ -258,6 +264,14 @@ export async function startLiveVoice() {
         micSource.connect(scriptNode);
         scriptNode.connect(audioContext.destination);
 
+        // AnalyserNode for frequency visualizer
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.8;
+        freqData = new Uint8Array(analyser.frequencyBinCount);
+        smoothBins = new Float32Array(BIN_COUNT).fill(0);
+        micSource.connect(analyser);
+
 
 
         // WebSocket
@@ -371,6 +385,7 @@ MENTAL HEALTH SUPPORT:
 
             // inputTranscription = what the user said (from the API)
             if (data.serverContent?.inputTranscription?.text) {
+                console.log("[INPUT_TRANSCRIPT]", JSON.stringify(data.serverContent.inputTranscription.text));
                 appendToTranscript("user", data.serverContent.inputTranscription.text);
             }
         };
@@ -408,6 +423,7 @@ export function stopLiveVoice() {
     flushAiAudio();
 
     if (scriptNode)  { scriptNode.disconnect(); scriptNode = null; }
+    if (analyser)    { analyser.disconnect(); analyser = null; freqData = null; smoothBins = null; }
     if (micSource)   { micSource.disconnect(); micSource = null; }
     if (audioContext && audioContext.state !== "closed") { audioContext.close(); audioContext = null; }
     if (liveWebSocket) { liveWebSocket.close(); liveWebSocket = null; }
@@ -429,9 +445,8 @@ export function stopLiveVoice() {
 
 /* ═══════════════ Wave State ═══════════════ */
 let currentPalette = "listen"; // "listen" | "speak"
-let gl = null;
-let glProgram = null;
-let glCanvas = null;
+let vizCanvas = null;
+let vizCtx = null;
 let colorBlend = 0; // smooth 0→1 for listen→speak
 
 function applyPalette(p) {
@@ -443,194 +458,152 @@ function feedVolume(rms) {
     smoothVolume = Math.max(smoothVolume, Math.min(1, rms * 14));
 }
 
-/* ═══════════════ WebGL Wave ═══════════════ */
-const VERT_SRC = `attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0,1);}`;
-
-const FRAG_SRC = `
-precision highp float;
-uniform vec2 u_res;
-uniform float u_time;
-uniform float u_vol;
-uniform float u_blend;
-uniform float u_dark;
-
-// Smooth noise-like function from sine harmonics
-float wave(float x, float t, float freq, float speed, float phase) {
-    return sin(x * freq + t * speed + phase)
-         + 0.5 * sin(x * freq * 1.73 + t * speed * 0.67 + phase + 1.3)
-         + 0.3 * sin(x * freq * 0.51 + t * speed * 1.41 + phase + 2.7)
-         + 0.15 * sin(x * freq * 2.31 + t * speed * 0.83 + phase + 4.1);
-}
-
-void main() {
-    vec2 uv = gl_FragCoord.xy / u_res;
-    float x = uv.x;
-    float y = uv.y; // 0=bottom, 1=top
-
-    // Volume drives wave height
-    float vol = u_vol;
-    float t = u_time;
-
-    // 3 wave layers with different frequencies and phases
-    float baseH1 = 0.12 + vol * 0.22;
-    float baseH2 = 0.09 + vol * 0.17;
-    float baseH3 = 0.06 + vol * 0.12;
-
-    float amp = 0.03 + vol * 0.08;
-
-    float w1 = baseH1 + wave(x * 3.14159, t, 1.8, 1.0, 0.0) * amp;
-    float w2 = baseH2 + wave(x * 3.14159, t, 2.3, 0.7, 2.0) * amp * 0.8;
-    float w3 = baseH3 + wave(x * 3.14159, t, 2.9, 1.3, 4.0) * amp * 0.6;
-
-    // Blue colors
-    vec3 blue1 = vec3(0.23, 0.51, 0.97);   // blue-500
-    vec3 blue2 = vec3(0.38, 0.65, 0.98);   // blue-400
-    vec3 blue3 = vec3(0.58, 0.77, 0.99);   // blue-300
-
-    // Pink accent colors
-    vec3 pink1 = vec3(0.91, 0.47, 0.98);   // fuchsia-400
-    vec3 pink2 = vec3(0.82, 0.55, 0.95);   // purple-400
-    vec3 pink3 = vec3(0.72, 0.65, 0.99);   // violet-300
-
-    // Interpolate between blue and pink based on blend
-    vec3 c1 = mix(blue1, pink1, u_blend * 0.7);
-    vec3 c2 = mix(blue2, pink2, u_blend * 0.5);
-    vec3 c3 = mix(blue3, pink3, u_blend * 0.3);
-
-    float alpha = 0.0;
-    vec3 color = vec3(0.0);
-
-    // Layer 3 (back, widest, most transparent)
-    if (y < w3) {
-        float fade = smoothstep(w3, w3 * 0.3, y);
-        float edge = 1.0 - smoothstep(w3 - amp * 0.5, w3, y);
-        float a3 = fade * (0.15 + vol * 0.12) + edge * (0.08 + vol * 0.1);
-        color = mix(color, c3, a3);
-        alpha = max(alpha, a3);
-    }
-
-    // Layer 2 (middle)
-    if (y < w2) {
-        float fade = smoothstep(w2, w2 * 0.2, y);
-        float edge = 1.0 - smoothstep(w2 - amp * 0.4, w2, y);
-        float a2 = fade * (0.22 + vol * 0.18) + edge * (0.12 + vol * 0.15);
-        color = mix(color, c2, a2);
-        alpha = max(alpha, a2);
-    }
-
-    // Layer 1 (front, brightest)
-    if (y < w1) {
-        float fade = smoothstep(w1, w1 * 0.1, y);
-        float edge = 1.0 - smoothstep(w1 - amp * 0.3, w1, y);
-        float a1 = fade * (0.3 + vol * 0.25) + edge * (0.15 + vol * 0.2);
-        color = mix(color, c1, a1);
-        alpha = max(alpha, a1);
-    }
-
-    // Glow at wave edges — soft bright line
-    float glow = 0.0;
-    glow += (0.4 + vol * 0.5) * exp(-pow((y - w1) * (40.0 - vol * 15.0), 2.0));
-    glow += (0.25 + vol * 0.3) * exp(-pow((y - w2) * (35.0 - vol * 10.0), 2.0));
-    glow += (0.15 + vol * 0.2) * exp(-pow((y - w3) * (30.0 - vol * 8.0), 2.0));
-
-    // Glow color — brighter version
-    vec3 glowColor = mix(c1, vec3(1.0), 0.4);
-    color += glowColor * glow;
-    alpha = max(alpha, glow * 0.6);
-
-    // Subtle ambient fill for bottom
-    float ambientY = smoothstep(0.15 + vol * 0.1, 0.0, y);
-    color = mix(color, c1 * 0.5, ambientY * (0.08 + vol * 0.05));
-    alpha = max(alpha, ambientY * (0.06 + vol * 0.04));
-
-    gl_FragColor = vec4(color, alpha);
-}
-`;
+/* ═══════════════ Canvas 2D Visualizer ═══════════════ */
 
 function initWaveCanvas() {
-    glCanvas = document.getElementById("voice-wave-canvas");
-    if (!glCanvas) return;
-
-    gl = glCanvas.getContext("webgl", { alpha: true, premultipliedAlpha: false, antialias: true });
-    if (!gl) {
-        // Fallback: no WebGL — just leave canvas blank
-        console.warn("WebGL not available for voice wave");
-        return;
-    }
-
-    // Compile shaders
-    const vs = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vs, VERT_SRC);
-    gl.compileShader(vs);
-
-    const fs = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fs, FRAG_SRC);
-    gl.compileShader(fs);
-    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
-        console.error("Fragment shader error:", gl.getShaderInfoLog(fs));
-        return;
-    }
-
-    glProgram = gl.createProgram();
-    gl.attachShader(glProgram, vs);
-    gl.attachShader(glProgram, fs);
-    gl.linkProgram(glProgram);
-    gl.useProgram(glProgram);
-
-    // Fullscreen quad
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-
-    const aPos = gl.getAttribLocation(glProgram, "a_pos");
-    gl.enableVertexAttribArray(aPos);
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-
-    // Enable blending for alpha
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
+    vizCanvas = document.getElementById("voice-wave-canvas");
+    if (!vizCanvas) return;
+    vizCtx = vizCanvas.getContext("2d");
     resizeWaveCanvas();
     window.addEventListener("resize", resizeWaveCanvas);
 }
 
 function resizeWaveCanvas() {
-    if (!glCanvas) return;
+    if (!vizCanvas) return;
     const dpr = window.devicePixelRatio || 1;
-    glCanvas.width = glCanvas.clientWidth * dpr;
-    glCanvas.height = glCanvas.clientHeight * dpr;
-    if (gl) gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+    vizCanvas.width = vizCanvas.clientWidth * dpr;
+    vizCanvas.height = vizCanvas.clientHeight * dpr;
+    vizCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 function destroyWaveCanvas() {
     window.removeEventListener("resize", resizeWaveCanvas);
-    if (gl && glProgram) {
-        gl.deleteProgram(glProgram);
-    }
-    gl = null;
-    glProgram = null;
-    glCanvas = null;
+    vizCanvas = null;
+    vizCtx = null;
 }
 
-function drawWave(v) {
-    if (!gl || !glProgram || !glCanvas) return;
+/* ── Frequency binning with lerp smoothing ── */
+function updateBins(v) {
+    if (!smoothBins) return;
 
-    // Smoothly blend toward target palette
-    const target = currentPalette === "speak" ? 1 : 0;
-    colorBlend += (target - colorBlend) * 0.04;
+    if (analyser && freqData && !isAiSpeaking) {
+        // Real frequency data from mic
+        analyser.getByteFrequencyData(freqData);
+        const binSize = Math.floor(freqData.length * 0.6 / BIN_COUNT);
+        for (let i = 0; i < BIN_COUNT; i++) {
+            let sum = 0;
+            for (let j = 0; j < binSize; j++) {
+                sum += freqData[i * binSize + j];
+            }
+            const target = (sum / binSize) / 255;
+            // Lerp: rise fast, fall slow
+            if (target > smoothBins[i]) {
+                smoothBins[i] += (target - smoothBins[i]) * 0.35;
+            } else {
+                smoothBins[i] += (target - smoothBins[i]) * 0.12;
+            }
+        }
+    } else {
+        // AI speaking: synthetic frequency curve from volume
+        for (let i = 0; i < BIN_COUNT; i++) {
+            const nx = i / BIN_COUNT;
+            const speechCurve = Math.exp(-Math.pow((nx - 0.25) * 3, 2)) * 0.8
+                              + Math.exp(-Math.pow((nx - 0.5) * 4, 2)) * 0.4;
+            const variation = Math.sin(blobPhase * 3 + i * 0.4) * 0.3 + 0.7;
+            const target = v * speechCurve * variation;
+            if (target > smoothBins[i]) {
+                smoothBins[i] += (target - smoothBins[i]) * 0.3;
+            } else {
+                smoothBins[i] += (target - smoothBins[i]) * 0.1;
+            }
+        }
+    }
+}
 
-    const isDark = document.documentElement.classList.contains("dark");
+/* ── Draw bezier curves through frequency bins ── */
+function drawVisualizer(v) {
+    if (!vizCtx || !vizCanvas) return;
 
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    const W = vizCanvas.clientWidth;
+    const H = vizCanvas.clientHeight;
+    vizCtx.clearRect(0, 0, W, H);
 
-    gl.uniform2f(gl.getUniformLocation(glProgram, "u_res"), glCanvas.width, glCanvas.height);
-    gl.uniform1f(gl.getUniformLocation(glProgram, "u_time"), blobPhase);
-    gl.uniform1f(gl.getUniformLocation(glProgram, "u_vol"), v);
-    gl.uniform1f(gl.getUniformLocation(glProgram, "u_blend"), colorBlend);
-    gl.uniform1f(gl.getUniformLocation(glProgram, "u_dark"), isDark ? 1.0 : 0.0);
+    // Smoothly blend color palette
+    const blendTarget = currentPalette === "speak" ? 1 : 0;
+    colorBlend += (blendTarget - colorBlend) * 0.04;
 
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // Update frequency bins
+    updateBins(v);
+
+    const maxH = H * 0.4;
+
+    // 3 layers: different height scales and alpha for depth
+    const layers = [
+        { scale: 1.0,  alpha: 0.35, offset: 0 },
+        { scale: 0.7,  alpha: 0.25, offset: 0.15 },
+        { scale: 0.45, alpha: 0.18, offset: 0.3 },
+    ];
+
+    // Blue base → pink accent
+    const br = 59, bg = 130, bb = 246;
+    const pr = 200, pg = 120, pb = 240;
+    const cr = Math.round(br + (pr - br) * colorBlend * 0.6);
+    const cg = Math.round(bg + (pg - bg) * colorBlend * 0.6);
+    const cb = Math.round(bb + (pb - bb) * colorBlend * 0.6);
+
+    // Draw layers back to front
+    for (let li = layers.length - 1; li >= 0; li--) {
+        const L = layers[li];
+
+        // Build smooth points from bins
+        const pts = [];
+        for (let i = 0; i < BIN_COUNT; i++) {
+            const x = (i / (BIN_COUNT - 1)) * W;
+            const phaseShift = Math.sin(blobPhase * (1 + li * 0.3) + i * L.offset) * 0.15;
+            const binVal = Math.min(1, smoothBins[i] + phaseShift) * L.scale;
+            pts.push({ x, y: H - binVal * maxH });
+        }
+
+        // Filled bezier path
+        vizCtx.beginPath();
+        vizCtx.moveTo(0, H);
+        vizCtx.lineTo(pts[0].x, pts[0].y);
+
+        for (let i = 0; i < pts.length - 1; i++) {
+            const cpX = (pts[i].x + pts[i + 1].x) / 2;
+            vizCtx.bezierCurveTo(cpX, pts[i].y, cpX, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y);
+        }
+
+        vizCtx.lineTo(W, H);
+        vizCtx.closePath();
+
+        // Gradient: wave edge → transparent bottom
+        const topY = Math.min(...pts.map(p => p.y));
+        const grad = vizCtx.createLinearGradient(0, topY, 0, H);
+        const lr = Math.min(255, cr + li * 20);
+        const lg = Math.min(255, cg + li * 15);
+        const lb = Math.min(255, cb + li * 5);
+        grad.addColorStop(0, `rgba(${lr},${lg},${lb},${L.alpha + v * 0.15})`);
+        grad.addColorStop(0.3, `rgba(${lr},${lg},${lb},${L.alpha * 0.7 + v * 0.1})`);
+        grad.addColorStop(1, `rgba(${lr},${lg},${lb},0.02)`);
+
+        vizCtx.fillStyle = grad;
+        vizCtx.fill();
+
+        // Glowing edge stroke
+        vizCtx.beginPath();
+        vizCtx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 0; i < pts.length - 1; i++) {
+            const cpX = (pts[i].x + pts[i + 1].x) / 2;
+            vizCtx.bezierCurveTo(cpX, pts[i].y, cpX, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y);
+        }
+        vizCtx.strokeStyle = `rgba(${Math.min(255, lr + 40)},${Math.min(255, lg + 40)},${Math.min(255, lb + 20)},${0.15 + v * 0.3})`;
+        vizCtx.lineWidth = 1.5 + v * 1.5;
+        vizCtx.shadowColor = `rgba(${lr},${lg},${lb},${0.3 + v * 0.4})`;
+        vizCtx.shadowBlur = 12 + v * 20;
+        vizCtx.stroke();
+        vizCtx.shadowBlur = 0;
+    }
 }
 
 /* ═══════════════ Animation tick ═══════════════ */
@@ -643,10 +616,9 @@ function tick() {
 
     const v = smoothVolume;
 
-    // Draw the WebGL fluid wave
-    drawWave(v);
+    drawVisualizer(v);
 
-    // Mic dot pulse — theme-aware
+    // Mic dot pulse
     const isDark = document.documentElement.classList.contains("dark");
     const micDot = document.getElementById("voice-mic-dot");
     if (micDot && !isMicMuted) {
@@ -661,14 +633,14 @@ function tick() {
     }
 
     // Mic ripples
-    const r1 = document.getElementById("voice-mic-ripple-1");
-    const r2 = document.getElementById("voice-mic-ripple-2");
+    const rp1 = document.getElementById("voice-mic-ripple-1");
+    const rp2 = document.getElementById("voice-mic-ripple-2");
     if (!isMicMuted) {
-        if (r1) { r1.style.transform = `scale(${1 + v * 0.25})`; r1.style.opacity = v > 0.04 ? String(0.4 * v) : "0"; }
-        if (r2) { r2.style.transform = `scale(${1 + v * 0.45})`; r2.style.opacity = v > 0.04 ? String(0.2 * v) : "0"; }
+        if (rp1) { rp1.style.transform = `scale(${1 + v * 0.25})`; rp1.style.opacity = v > 0.04 ? String(0.4 * v) : "0"; }
+        if (rp2) { rp2.style.transform = `scale(${1 + v * 0.45})`; rp2.style.opacity = v > 0.04 ? String(0.2 * v) : "0"; }
     } else {
-        if (r1) r1.style.opacity = "0";
-        if (r2) r2.style.opacity = "0";
+        if (rp1) rp1.style.opacity = "0";
+        if (rp2) rp2.style.opacity = "0";
     }
 
     animFrameId = requestAnimationFrame(tick);
