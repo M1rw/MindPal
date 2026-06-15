@@ -103,7 +103,7 @@ class GeminiProvider:
             )
 
             if response.status_code >= 400:
-                raise self._provider_http_error(response)
+                raise _provider_http_error(response)
 
             data = response.json()
             text = _extract_text(data)
@@ -172,7 +172,7 @@ class GeminiProvider:
             async with client.stream("POST", url, headers=headers, json=payload) as response:
                 if response.status_code >= 400:
                     await response.aread()
-                    raise self._provider_http_error(response)
+                    raise _provider_http_error(response)
 
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):
