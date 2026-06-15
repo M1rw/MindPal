@@ -56,7 +56,12 @@ async def transcribe_audio(payload: TranscribeRequest) -> TranscribeResponse:
 
     url = f"https://generativelanguage.googleapis.com/v1beta/{model_path}:generateContent?key={api_key}"
 
-    prompt = "Transcribe this audio precisely. Do not answer it. Do not add any text other than the transcription itself."
+    prompt = (
+        "Transcribe this audio precisely in the exact original language(s) spoken. "
+        "CRITICAL: DO NOT translate the audio to English. If the user speaks in Arabic, transcribe in Arabic. "
+        "If multiple languages are spoken, transcribe each part in its respective language. "
+        "Do not answer the audio. Do not add any text other than the transcription itself."
+    )
 
     clean_mime_type = payload.mime_type.split(";")[0] if payload.mime_type else "audio/webm"
 
