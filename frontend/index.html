@@ -12,6 +12,9 @@
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./css/style.css?v=20260612-settings-v4">
+    
+    <!-- SiriWave -->
+    <script src="https://unpkg.com/siriwave/dist/siriwave.umd.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -565,27 +568,15 @@
         <!-- Main Content Area -->
         <div class="relative z-10 flex-1 flex flex-col items-center justify-start pt-6 h-full w-full max-w-md mx-auto">
             
-            <!-- Smooth CSS Waves Visualizer -->
-            <div class="w-full flex justify-center items-center h-[280px]" id="voice-orb-container">
-                <div id="voice-live-status" class="absolute top-8 text-sm font-medium text-gray-500 dark:text-gray-400 transition-opacity duration-300 opacity-0 pointer-events-none">Connecting...</div>
+            <!-- SiriWave Visualizer Container -->
+            <div class="w-full flex justify-center items-center h-[280px] relative" id="voice-wave-container">
+                <div id="voice-live-status" class="absolute top-4 z-20 text-sm font-medium text-gray-500 dark:text-gray-400 transition-opacity duration-300 opacity-0 pointer-events-none">Connecting...</div>
                 
-                <div class="relative w-[280px] h-[280px] flex items-center justify-center mt-4">
-                    <!-- Base glow -->
-                    <div id="voice-orb-glow" class="absolute inset-0 rounded-full bg-blue-400/30 dark:bg-blue-500/20 blur-[60px] transition-all duration-1000 scale-100"></div>
-                    
-                    <!-- Clean CSS Waves -->
-                    <div id="voice-wave-container" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div class="voice-css-wave absolute w-[100px] h-[100px] rounded-full border-[1.5px] border-blue-500/40 dark:border-blue-400/40 transition-all duration-150 opacity-0 ease-out"></div>
-                        <div class="voice-css-wave absolute w-[140px] h-[140px] rounded-full border-[1.5px] border-blue-500/30 dark:border-blue-400/30 transition-all duration-[250ms] opacity-0 ease-out"></div>
-                        <div class="voice-css-wave absolute w-[190px] h-[190px] rounded-full border border-blue-500/20 dark:border-blue-400/20 transition-all duration-[400ms] opacity-0 ease-out"></div>
-                        <div class="voice-css-wave absolute w-[250px] h-[250px] rounded-full border border-blue-500/10 dark:border-blue-400/10 transition-all duration-[600ms] opacity-0 ease-out"></div>
-                    </div>
-                    
-                    <!-- Central Core -->
-                    <div id="voice-live-circle" class="relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-blue-300 to-blue-500 dark:from-blue-400 dark:to-blue-600 shadow-[0_0_50px_rgba(59,130,246,0.5)] flex items-center justify-center transition-all duration-500">
-                        <i id="voice-live-icon" data-lucide="sparkles" class="w-8 h-8 text-white/90 transition-colors duration-300"></i>
-                    </div>
-                </div>
+                <!-- Base glow behind the canvas -->
+                <div id="voice-orb-glow" class="absolute inset-0 rounded-full bg-blue-400/20 dark:bg-blue-500/10 blur-[60px] transition-all duration-1000 scale-100 w-[280px] h-[280px] mx-auto my-auto pointer-events-none"></div>
+                
+                <!-- The SiriWave Canvas mounts here -->
+                <div id="siri-container" class="relative z-10 w-full h-[200px] flex items-center justify-center overflow-hidden"></div>
             </div>
 
             <!-- Transcript Area -->
