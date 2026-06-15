@@ -590,6 +590,28 @@ export function removeStatusIndicator(id) {
   document.getElementById(id)?.remove();
 }
 
+export function finalizeStatusIndicator(id, elapsedMs) {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  const seconds = (elapsedMs / 1000).toFixed(1);
+
+  // Stop the wave animation by swapping dots for a static checkmark-style icon
+  const inner = el.querySelector(".flex.items-center");
+  if (inner) {
+    inner.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        class="text-[#4285f4] dark:text-[#7baaf7] flex-shrink-0 mr-1 opacity-80">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span class="text-[13px] text-[#5f6368] dark:text-[#9aa0a6] italic">
+        Thought for ${seconds}s
+      </span>
+    `;
+  }
+}
+
 export function scrollChatToBottom(behavior = "auto") {
   requestAnimationFrame(() => {
     const chatHistory = document.getElementById("chat-history");
