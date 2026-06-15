@@ -522,7 +522,7 @@ function updateBins(v) {
 
 /* ── Draw bezier curves through frequency bins ── */
 function drawVisualizer(v) {
-    if (!vizCtx || !vizCanvas) return;
+    if (!vizCtx || !vizCanvas || !smoothBins) return;
 
     const W = vizCanvas.clientWidth;
     const H = vizCanvas.clientHeight;
