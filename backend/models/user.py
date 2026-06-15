@@ -159,6 +159,15 @@ class ClinicalProfile(BaseModel):
         return _clean_profile_text(str(value or ""), MAX_PROFILE_TEXT_CHARS)
 
 
+class UsageProfile(BaseModel):
+    """
+    Usage metrics for the 5-hour rolling limit window.
+    """
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    pro_messages_count: int = Field(default=0, ge=0)
+    pro_last_reset_time: float = Field(default=0.0, ge=0.0)
+
+
 class UserProfile(BaseModel):
     """
     Sanitized user profile stored by the backend.
@@ -174,6 +183,7 @@ class UserProfile(BaseModel):
     channel: UserChannel = UserChannel.WEB
     preferences: UserPreferences = Field(default_factory=UserPreferences)
     clinical: ClinicalProfile = Field(default_factory=ClinicalProfile)
+    usage: UsageProfile = Field(default_factory=UsageProfile)
     notes: str = Field(default="", max_length=MAX_PROFILE_TEXT_CHARS)
     metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=_utcnow)

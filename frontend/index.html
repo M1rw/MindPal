@@ -315,6 +315,7 @@
                     <button class="settings-tab-btn" data-settings-tab="notifications" type="button"><i data-lucide="bell" class="w-4 h-4"></i><span>Notifications</span></button>
                     <button class="settings-tab-btn" data-settings-tab="personalization" type="button"><i data-lucide="gauge" class="w-4 h-4"></i><span>Personalization</span></button>
                     <button class="settings-tab-btn" data-settings-tab="health" type="button"><i data-lucide="activity" class="w-4 h-4"></i><span>Mental Health</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="usage" type="button"><i data-lucide="bar-chart-2" class="w-4 h-4"></i><span>Usage</span></button>
                     <button class="settings-tab-btn" data-settings-tab="memory" type="button"><i data-lucide="database" class="w-4 h-4"></i><span>Memory</span></button>
                     <button class="settings-tab-btn" data-settings-tab="data" type="button"><i data-lucide="database-zap" class="w-4 h-4"></i><span>Data controls</span></button>
                     <button class="settings-tab-btn" data-settings-tab="security" type="button"><i data-lucide="shield-alert" class="w-4 h-4"></i><span>Security</span></button>
@@ -330,6 +331,7 @@
                         <option value="notifications">Notifications</option>
                         <option value="personalization">Personalization</option>
                         <option value="health">Mental Health</option>
+                        <option value="usage">Usage</option>
                         <option value="memory">Memory</option>
                         <option value="data">Data controls</option>
                         <option value="security">Security</option>
@@ -407,6 +409,20 @@
                             <div class="settings-row settings-row-block">
                                 <span class="settings-row-main"><span class="settings-row-title">Treatment Plan</span></span>
                                 <div class="settings-textbox text-[13px] min-h-[60px]" id="treatment-plan-display">None active.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-panel" data-settings-panel="usage" hidden>
+                        <h2 class="settings-title">Usage & Quotas</h2>
+                        <p class="settings-intro">MindPal enforces a rolling 5-hour quota to manage server limits securely.</p>
+                        <div class="settings-section">
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main mb-3"><span class="settings-row-title">MindPal Pro</span><span class="settings-row-copy">Max 40 messages every 5 hours.</span></div>
+                                <div class="w-full bg-gray-200 dark:bg-[#333] rounded-full h-2.5 mb-1">
+                                  <div id="usage-pro-bar" class="bg-indigo-600 dark:bg-indigo-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 text-right w-full font-medium" id="usage-pro-text">0 / 40 Used</div>
                             </div>
                         </div>
                     </div>
@@ -549,60 +565,35 @@
         <!-- Main Content Area -->
         <div class="relative z-10 flex-1 flex flex-col items-center justify-start pt-6 h-full w-full max-w-md mx-auto">
             
-            <!-- Ethereal Mesh Orb Visualizer -->
-            <div class="w-full flex justify-center items-center h-[320px]" id="voice-orb-container">
-                <div id="voice-live-status" class="absolute top-12 text-sm font-medium text-gray-500 dark:text-gray-400 transition-opacity duration-300 opacity-0 pointer-events-none">Connecting...</div>
+            <!-- Smooth CSS Waves Visualizer -->
+            <div class="w-full flex justify-center items-center h-[280px]" id="voice-orb-container">
+                <div id="voice-live-status" class="absolute top-8 text-sm font-medium text-gray-500 dark:text-gray-400 transition-opacity duration-300 opacity-0 pointer-events-none">Connecting...</div>
                 
-                <div class="relative w-[280px] h-[280px] flex items-center justify-center">
+                <div class="relative w-[280px] h-[280px] flex items-center justify-center mt-4">
                     <!-- Base glow -->
-                    <div id="voice-orb-glow" class="absolute inset-0 rounded-full bg-blue-400/20 dark:bg-blue-500/10 blur-[50px] transition-all duration-1000 scale-100"></div>
+                    <div id="voice-orb-glow" class="absolute inset-0 rounded-full bg-blue-400/30 dark:bg-blue-500/20 blur-[60px] transition-all duration-1000 scale-100"></div>
                     
-                    <!-- SVG Mesh lines -->
-                    <div id="voice-orb-mesh" class="relative w-full h-full transition-transform duration-[400ms] ease-out flex items-center justify-center" style="transform: scale(1);">
-                        <svg viewBox="0 0 200 200" class="w-full h-full overflow-visible" style="filter: drop-shadow(0 0 8px rgba(255,255,255,0.8));">
-                            <defs>
-                                <linearGradient id="mesh-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stop-color="rgba(255,255,255,1)" />
-                                    <stop offset="50%" stop-color="rgba(150,200,255,0.7)" />
-                                    <stop offset="100%" stop-color="rgba(255,255,255,1)" />
-                                </linearGradient>
-                                <linearGradient id="mesh-grad-dark" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stop-color="rgba(200,220,255,1)" />
-                                    <stop offset="50%" stop-color="rgba(100,150,255,0.6)" />
-                                    <stop offset="100%" stop-color="rgba(200,220,255,1)" />
-                                </linearGradient>
-                            </defs>
-                            <!-- Rotating groups -->
-                            <g id="orb-paths" fill="none" stroke="url(#mesh-grad)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="dark:stroke-[url(#mesh-grad-dark)]">
-                                <!-- Base Circle -->
-                                <circle cx="100" cy="100" r="95" stroke-width="2" stroke="rgba(255,255,255,0.9)" class="dark:stroke-white/80" />
-                                
-                                <g class="orb-rotator-1" style="transform-origin: center; transition: transform 0.5s ease-out;">
-                                    <path d="M 20 100 C 40 20, 160 20, 180 100 C 160 180, 40 180, 20 100" />
-                                </g>
-                                <g class="orb-rotator-2" style="transform-origin: center; transition: transform 0.6s ease-out;">
-                                    <path d="M 100 20 C 180 40, 180 160, 100 180 C 20 160, 20 40, 100 20" />
-                                </g>
-                                <g class="orb-rotator-3" style="transform-origin: center; transition: transform 0.7s ease-out;">
-                                    <path d="M 30 50 C 100 10, 170 150, 100 190 C 30 150, 10 100, 30 50" />
-                                </g>
-                                <g class="orb-rotator-4" style="transform-origin: center; transition: transform 0.8s ease-out;">
-                                    <ellipse cx="100" cy="100" rx="90" ry="30" transform="rotate(45 100 100)" stroke-width="1.2" />
-                                    <ellipse cx="100" cy="100" rx="90" ry="30" transform="rotate(-45 100 100)" stroke-width="1.2" />
-                                </g>
-                                
-                                <!-- Soft inner fill -->
-                                <circle cx="100" cy="100" r="80" fill="url(#mesh-grad)" fill-opacity="0.15" stroke="none" />
-                            </g>
-                        </svg>
+                    <!-- Clean CSS Waves -->
+                    <div id="voice-wave-container" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="voice-css-wave absolute w-[100px] h-[100px] rounded-full border-[1.5px] border-blue-500/40 dark:border-blue-400/40 transition-all duration-150 opacity-0 ease-out"></div>
+                        <div class="voice-css-wave absolute w-[140px] h-[140px] rounded-full border-[1.5px] border-blue-500/30 dark:border-blue-400/30 transition-all duration-[250ms] opacity-0 ease-out"></div>
+                        <div class="voice-css-wave absolute w-[190px] h-[190px] rounded-full border border-blue-500/20 dark:border-blue-400/20 transition-all duration-[400ms] opacity-0 ease-out"></div>
+                        <div class="voice-css-wave absolute w-[250px] h-[250px] rounded-full border border-blue-500/10 dark:border-blue-400/10 transition-all duration-[600ms] opacity-0 ease-out"></div>
+                    </div>
+                    
+                    <!-- Central Core -->
+                    <div id="voice-live-circle" class="relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-blue-300 to-blue-500 dark:from-blue-400 dark:to-blue-600 shadow-[0_0_50px_rgba(59,130,246,0.5)] flex items-center justify-center transition-all duration-500">
+                        <i id="voice-live-icon" data-lucide="sparkles" class="w-8 h-8 text-white/90 transition-colors duration-300"></i>
                     </div>
                 </div>
             </div>
 
             <!-- Transcript Area -->
-            <div class="w-full px-8 mt-6 flex flex-col flex-1 relative">
-                <div id="voice-live-ai-text" class="text-[26px] md:text-[32px] text-gray-800 dark:text-gray-100 min-h-[6rem] transition-all duration-300 leading-snug font-medium"></div>
-                <div id="voice-live-user-text" class="text-xl md:text-2xl text-gray-400 dark:text-gray-500 min-h-[2rem] transition-all duration-300 mt-2 font-medium"></div>
+            <div id="voice-transcript-panel" class="w-full px-8 mt-2 mb-4 flex flex-col flex-1 relative overflow-y-auto transition-all duration-500 transform translate-y-10 opacity-0 pointer-events-none" style="scrollbar-width: none;">
+                <div class="flex flex-col justify-end min-h-full pb-4">
+                    <div id="voice-live-ai-text" class="text-[28px] md:text-[34px] text-gray-800 dark:text-gray-100 transition-opacity duration-300 leading-snug font-medium mb-6"></div>
+                    <div id="voice-live-user-text" class="text-[18px] md:text-[22px] text-gray-500 dark:text-gray-400 transition-opacity duration-300 font-medium"></div>
+                </div>
             </div>
         </div>
 

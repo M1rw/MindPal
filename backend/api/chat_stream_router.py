@@ -23,7 +23,7 @@ from backend.api.chat_router import (
     _provider_label,
 )
 from backend.core.prompts import build_intent_context, build_system_prompt, infer_response_mode_for_preference
-from backend.models.chat import ChatRequest
+from backend.models.chat import ChatRequest, LLMMessage
 from backend.models.memory_v3 import MemoryGraph, summary_from_memory_graph
 from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
@@ -97,6 +97,22 @@ async def chat_stream(
 
         user_preference = payload.metadata.mode or ""
         clinical_mode = payload.metadata.model == "pro"
+        quota_exceeded = False
+
+        if clinical_mode and authenticated:
+            now_ts = time.time()
+            if now_ts - profile.usage.pro_last_reset_time > 5 * 3600:
+                profile.usage.pro_last_reset_time = now_ts
+                profile.usage.pro_messages_count = 0
+            
+            if profile.usage.pro_messages_count >= 40:
+                clinical_mode = False
+                quota_exceeded = True
+            else:
+                profile.usage.pro_messages_count += 1
+                # Save the profile asynchronously but don't await it here so we don't block
+                asyncio.create_task(services.db.save_user_profile(profile))
+
         response_mode = infer_response_mode_for_preference(
             preference=user_preference,
             safety_level=safety_decision.level.value,
@@ -199,6 +215,8 @@ async def chat_stream(
                     metadata['memory_graph_delta'] = response_memory_graph_delta.model_dump(mode="json")
                 if response_memory_graph_snapshot:
                     metadata['memory_graph_snapshot'] = response_memory_graph_snapshot.model_dump(mode="json")
+                if quota_exceeded:
+                    metadata['quota_exceeded'] = True
 
                 yield f"data: {json.dumps(metadata)}\n\n"
 
@@ -220,9 +238,11 @@ async def chat_stream(
                 # TRIGGER CLINICAL EXTRACTION IN BACKGROUND
                 if clinical_mode and authenticated:
                     async def run_extraction():
+                        # Extract from the full conversation window (history + current message)
+                        extraction_messages = list(llm_request.history) + [LLMMessage(role="user", content=payload.message)]
                         updated_profile = await extract_clinical_profile(
                             llm=services.llm,
-                            messages=request.messages,
+                            messages=extraction_messages,
                             current_profile=profile.clinical
                         )
                         profile.clinical = updated_profile

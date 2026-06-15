@@ -63,6 +63,7 @@ import {
   toggleTheme,
   updateProfileUI,
   updateMentalHealthUI,
+  updateUsageUI,
 } from "./ui_state.js?v=20260615-streaming-v7";
 
 import { initVoice } from "./voice.js?v=20260615-streaming-v7";
@@ -311,10 +312,15 @@ async function initFrontendAuth() {
         }
 
         const profile = await getCurrentUserProfile(token);
-        const storedProfile = await loadUserProfile(token).catch(() => null);
-        if (storedProfile) {
-          hydrateSettingsFromProfile(storedProfile);
-          updateMentalHealthUI(storedProfile);
+        try {
+          const profileRes = await loadUserProfile(token);
+          if (profileRes) {
+            hydrateSettingsFromProfile(profileRes);
+            updateMentalHealthUI(profileRes);
+            updateUsageUI(profileRes);
+          }
+        } catch (e) {
+          console.error("Failed to load cloud profile:", e);
         }
 
         currentCloudProfileContext = {
@@ -713,6 +719,7 @@ function bindProfileModal() {
       if (storedProfile) {
         hydrateSettingsFromProfile(storedProfile);
         updateMentalHealthUI(storedProfile);
+        updateUsageUI(storedProfile);
       }
 
       console.info("MindPal backend profile:", profile);
@@ -1463,6 +1470,11 @@ async function handleSend() {
       },
       onMetadata: (meta) => {
         backendMetaFinal = meta;
+        if (meta.quota_exceeded) {
+          showToast("MindPal Pro usage limit reached. Switched to Standard.", "warning");
+          const standardBtn = document.querySelector('.model-option[data-model="standard"]');
+          if (standardBtn) standardBtn.click();
+        }
       }
     });
 
