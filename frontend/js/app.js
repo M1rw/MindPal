@@ -65,6 +65,7 @@ import {
 } from "./ui_state.js?v=20260615-streaming-v7";
 
 import { initVoice } from "./voice.js?v=20260615-streaming-v7";
+import { initLiveVoice, startLiveVoice } from "./voice_live.js";
 
 import {
   formatMarkdown,
@@ -216,7 +217,49 @@ async function bootstrap() {
   bindMoodButtons();
   bindConversationActions();
 
-  voiceController = initVoice();
+  // Disable legacy voice controller
+  // voiceController = initVoice();
+
+  initLiveVoice({
+    onChatSync: (userText, aiText) => {
+      if (userText || aiText) {
+         // Fake a message cycle to save the conversation
+         if (userText) {
+             const userMsg = {
+                 role: "User",
+                 text: userText,
+                 messageId: "msg_" + Date.now() + Math.random().toString(36).substr(2, 9),
+                 createdAt: new Date().toISOString()
+             };
+             localChatMemory.push(userMsg);
+             appendMessage(userMsg);
+         }
+         
+         if (aiText) {
+             const aiMsg = {
+                 role: "MindPal",
+                 text: aiText,
+                 messageId: "msg_" + Date.now() + Math.random().toString(36).substr(2, 9),
+                 createdAt: new Date().toISOString(),
+                 providerUsed: "Gemini Live"
+             };
+             localChatMemory.push(aiMsg);
+             appendMessage(aiMsg);
+         }
+         
+         persistChatMemorySafe(localChatMemory);
+         scrollChatToBottom(true);
+      }
+    }
+  });
+
+  const mainVoiceBtn = document.getElementById("voice-btn");
+  if (mainVoiceBtn) {
+      mainVoiceBtn.addEventListener("click", () => {
+          if (isGenerating || isSessionLocked) return;
+          startLiveVoice();
+      });
+  }
 
   renderPersistedChat();
   updateProfileUI(getCurrentUser());
