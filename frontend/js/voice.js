@@ -143,7 +143,13 @@ export function initVoice({
   ensureVoiceSettingsSelect();
 
   addDomListener(document.getElementById("voice-inline-cancel-btn"), "click", cancelVoiceCapture);
-  addDomListener(document.getElementById("voice-inline-accept-btn"), "click", acceptVoiceCapture);
+  addDomListener(document.getElementById("voice-inline-accept-btn"), "click", () => {
+    if (phase === PHASE.LISTENING) {
+      stopVoiceRecognition();
+    } else {
+      acceptVoiceCapture();
+    }
+  });
   addDomListener(document.getElementById("voice-inline-retry-btn"), "click", retryVoiceCapture);
 
   addDomListener(voiceBtn, "click", () => {
@@ -600,7 +606,7 @@ export function initVoice({
     if (refs.status) refs.status.textContent = status;
 
     if (refs.acceptBtn) {
-      refs.acceptBtn.disabled = !hasTranscript();
+      refs.acceptBtn.disabled = phase !== PHASE.LISTENING && !hasTranscript();
     }
 
     setRetryVisible(RETRY_PHASES.has(nextPhase));
@@ -732,7 +738,7 @@ export function initVoice({
       refs.transcript.innerHTML = `<span class="text-gray-400 dark:text-[#c4c7c5]">${escapeText(placeholder)}</span>`;
 
       if (refs.acceptBtn) {
-        refs.acceptBtn.disabled = true;
+        refs.acceptBtn.disabled = phase !== PHASE.LISTENING;
       }
 
       return;
@@ -744,7 +750,7 @@ export function initVoice({
     ].join("");
 
     if (refs.acceptBtn) {
-      refs.acceptBtn.disabled = !hasTranscript();
+      refs.acceptBtn.disabled = phase !== PHASE.LISTENING && !hasTranscript();
     }
   }
 
