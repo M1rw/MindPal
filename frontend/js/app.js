@@ -1118,7 +1118,7 @@ function bindModeSelector() {
           div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
           div.innerHTML = `
             <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-            <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 font-medium tracking-wide uppercase">${text}</span>
+            <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 tracking-wide">${text}</span>
             <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
           `;
           chatHistory.appendChild(div);
@@ -1189,7 +1189,7 @@ function bindModelSelector() {
           div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
           div.innerHTML = `
             <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-            <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 font-medium tracking-wide uppercase">${text}</span>
+            <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 tracking-wide">${text}</span>
             <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
           `;
           chatHistory.appendChild(div);
