@@ -112,12 +112,35 @@
 
 <body class="bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">
     <!-- Global Loading Screen -->
-    <div id="global-loader" class="fixed inset-0 z-[999] flex items-center justify-center bg-gemini-bg dark:bg-gemini-darkBg transition-opacity duration-700 ease-in-out">
-        <div class="relative flex items-center justify-center">
-            <div class="absolute w-24 h-24 bg-[#4285f4] dark:bg-[#7baaf7] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-xl opacity-50 animate-pulse"></div>
-            <div class="absolute w-24 h-24 bg-[#9b72cb] dark:bg-[#c58af9] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-xl opacity-50 animate-pulse" style="animation-delay: 1s;"></div>
-            <div class="relative w-16 h-16 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl flex items-center justify-center overflow-hidden border border-gray-200 dark:border-gray-800 z-10">
-                <img src="/assets/brand/icon-32.png" alt="MindPal" class="w-8 h-8 animate-bounce">
+    <div id="global-loader" class="fixed inset-0 z-[999] bg-gemini-bg dark:bg-gemini-darkBg transition-opacity duration-700 ease-in-out flex flex-col pointer-events-none">
+        <!-- Header Skeleton -->
+        <div class="flex items-center justify-between px-6 py-4 flex-none w-full">
+            <div class="flex items-center gap-2">
+                <div class="w-24 h-6 bg-gray-200 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-800 animate-pulse"></div>
+                <div class="w-16 h-8 rounded-full bg-gray-200 dark:bg-zinc-800 animate-pulse"></div>
+                <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-800 animate-pulse"></div>
+            </div>
+        </div>
+
+        <!-- Main Content Skeleton -->
+        <div class="flex-1 flex flex-col items-center justify-center w-full px-4 gap-6 mt-[-8vh]">
+            <div class="flex flex-col items-center gap-4 mb-8 w-full max-w-2xl">
+                <div class="w-48 h-10 bg-gray-200 dark:bg-zinc-800 rounded-xl animate-pulse"></div>
+                <div class="w-72 h-8 bg-gray-200 dark:bg-zinc-800 rounded-lg animate-pulse"></div>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-3 mb-4 w-full max-w-2xl">
+                <div class="w-40 h-12 bg-gray-200 dark:bg-zinc-800 rounded-2xl animate-pulse"></div>
+                <div class="w-40 h-12 bg-gray-200 dark:bg-zinc-800 rounded-2xl animate-pulse"></div>
+                <div class="w-32 h-12 bg-gray-200 dark:bg-zinc-800 rounded-2xl animate-pulse"></div>
+            </div>
+
+            <div class="w-full max-w-4xl h-[60px] bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] flex items-center px-4">
+                <div class="flex-1 h-6 bg-gray-200 dark:bg-zinc-800 rounded animate-pulse opacity-50 mr-12 max-w-xs"></div>
+                <div class="w-10 h-10 bg-gray-200 dark:bg-zinc-800 rounded-full animate-pulse opacity-50 flex-shrink-0"></div>
             </div>
         </div>
     </div>
