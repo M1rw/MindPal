@@ -38,7 +38,7 @@ async def transcribe_audio(payload: TranscribeRequest) -> TranscribeResponse:
             detail="Gemini API key is not configured for audio transcription.",
         )
 
-    model = "gemini-1.5-flash"
+    model = getattr(settings, "GEMINI_MODEL", "gemini-1.5-flash-latest") or "gemini-1.5-flash-latest"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
     prompt = "Transcribe this audio precisely. Do not answer it. Do not add any text other than the transcription itself."
