@@ -37,6 +37,9 @@ class LLMProvider(Protocol):
     async def generate(self, request: LLMRequest) -> LLMResponse:
         ...
 
+    async def generate_stream(self, request: LLMRequest) -> Any:
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class LLMServiceResult:
@@ -72,6 +75,12 @@ class OfflineLLMProvider:
             model_name="deterministic_offline_v1",
             finish_reason="offline_fallback",
         )
+
+    async def generate_stream(self, request: LLMRequest) -> Any:
+        # For offline, we just yield the whole response at once for simplicity,
+        # or we could chunk it. Let's yield it as one chunk.
+        response = await self.generate(request)
+        yield response.text
 
     def _build_offline_reply(self, latest_user_message: str) -> str:
         lowered = latest_user_message.lower()
@@ -268,6 +277,84 @@ class LLMService:
     async def generate(self, request: LLMRequest) -> LLMResponse:
         result = await self.generate_with_trace(request)
         return result.response
+
+    async def generate_stream(self, request: LLMRequest) -> Any:
+        """
+        Attempts to stream from providers in order.
+        If a provider fails before yielding the first chunk, falls back to the next.
+        If it fails mid-stream, the stream breaks.
+        """
+        fallback_count = 0
+        attempted_remote = False
+
+        for provider in self._providers:
+            provider_name = _clean_provider_name(provider.name)
+            is_offline = provider_name == "offline"
+
+            if is_offline and not self._offline_allowed_for_current_environment():
+                fallback_count += 1
+                continue
+
+            if is_offline and self.require_remote_provider and not attempted_remote:
+                fallback_count += 1
+                continue
+
+            if not provider.is_configured:
+                fallback_count += 1
+                continue
+
+            if not is_offline:
+                attempted_remote = True
+
+            try:
+                # We wrap the generator to handle connection errors on the first chunk
+                stream_generator = provider.generate_stream(request)
+                
+                # Check if it has __aiter__ (is an async generator)
+                if hasattr(stream_generator, "__aiter__"):
+                    iterator = stream_generator.__aiter__()
+                    
+                    try:
+                        # Try to get the very first chunk with a timeout
+                        first_chunk = await asyncio.wait_for(
+                            iterator.__anext__(),
+                            timeout=self.timeout_seconds,
+                        )
+                        # If we succeed here, the connection is good, we yield and continue
+                        yield first_chunk
+                        
+                        # Yield the rest without the strict initial timeout
+                        async for chunk in iterator:
+                            yield chunk
+                            
+                        return # Stream finished successfully
+                        
+                    except StopAsyncIteration:
+                        return # Stream was empty
+                else:
+                    # Fallback if provider returns something else or doesn't support stream
+                    # (Though Protocol requires an async generator)
+                    pass
+
+            except asyncio.TimeoutError:
+                fallback_count += 1
+                if _is_last_provider(provider, self._providers):
+                    raise ProviderTimeoutError(
+                        "All enabled LLM providers timed out",
+                        code="llm_all_providers_timeout",
+                    )
+                continue
+            except ProviderError:
+                fallback_count += 1
+                continue
+            except Exception:
+                fallback_count += 1
+                continue
+
+        raise ProviderError(
+            "All enabled LLM providers failed to stream",
+            code="llm_all_providers_failed",
+        )
 
     async def generate_with_trace(self, request: LLMRequest) -> LLMServiceResult:
         traces: list[ProviderCallTrace] = []

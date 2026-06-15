@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Any
 from urllib.parse import quote
 
@@ -148,10 +149,68 @@ class GeminiProvider:
             if owns_client:
                 await client.aclose()
 
-    def _build_url(self) -> str:
+    async def generate_stream(self, request: LLMRequest) -> Any:
+        if not self.is_configured:
+            raise ProviderError(
+                "Gemini provider is not configured",
+                code="gemini_not_configured",
+                details={"provider": self.name},
+            )
+
+        payload = self._build_payload(request)
+        url = self._build_url(stream=True)
+
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self.config.api_key,
+        }
+
+        owns_client = self._client is None
+        client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
+
+        try:
+            async with client.stream("POST", url, headers=headers, json=payload) as response:
+                if response.status_code >= 400:
+                    await response.aread()
+                    raise self._provider_http_error(response)
+
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data_str = line[6:]
+                        if data_str.strip() == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            text = _extract_text(data)
+                            if text:
+                                yield text
+                        except json.JSONDecodeError:
+                            pass
+
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeoutError(
+                "Gemini request timed out",
+                code="gemini_timeout",
+                details={"provider": self.name},
+            ) from exc
+
+        except httpx.HTTPError as exc:
+            raise ProviderError(
+                "Gemini HTTP request failed",
+                code="gemini_http_error",
+                details={"provider": self.name, "error": _clean_error(str(exc))},
+            ) from exc
+
+        finally:
+            if owns_client:
+                await client.aclose()
+
+    def _build_url(self, stream: bool = False) -> str:
         base_url = self.config.base_url.rstrip("/")
         model_path = _normalize_model_path(self.config.model)
         encoded_model_path = "/".join(quote(part, safe="") for part in model_path.split("/"))
+        if stream:
+            return f"{base_url}/{encoded_model_path}:streamGenerateContent?alt=sse"
         return f"{base_url}/{encoded_model_path}:generateContent"
 
     def _build_payload(self, request: LLMRequest) -> dict[str, Any]:
