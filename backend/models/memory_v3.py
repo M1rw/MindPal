@@ -84,6 +84,7 @@ class MemoryAtom(BaseModel):
     last_seen_at: datetime = Field(default_factory=utcnow)
     evidence_count: int = Field(default=1, ge=0, le=10_000)
     aliases: list[str] = Field(default_factory=list, max_length=MAX_ALIASES)
+    vector: list[float] | None = Field(default=None)
     metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
 
     @field_validator("id", "key", "value", "normalized_value", "display_value", mode="before")
