@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import httpx
-from fastapi import APIRouter, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-import websockets
 import json
 import asyncio
 
@@ -119,9 +118,8 @@ async def transcribe_audio(payload: TranscribeRequest) -> TranscribeResponse:
                 detail=f"Error transcribing audio: {str(exc)}"
             )
 
-@router.websocket("/live")
-async def voice_live(websocket: WebSocket):
-    await websocket.accept()
+@router.get("/key")
+async def get_voice_key():
     settings = get_settings()
     api_key = getattr(settings, "GEMINI_API_KEY", None)
     
@@ -129,84 +127,9 @@ async def voice_live(websocket: WebSocket):
         api_key = api_key.get_secret_value()
 
     if not api_key:
-        await websocket.close(code=1008, reason="No API Key")
-        return
-
-    # Use gemini-2.0-flash-exp which natively supports Live API BidiGenerateContent
-    model = "models/gemini-2.0-flash-exp"
-    ws_url = f"wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key={api_key}"
-    
-    try:
-        async with websockets.connect(ws_url) as gemini_ws:
-            # Send setup message
-            setup_msg = {
-                "setup": {
-                    "model": model,
-                    "generationConfig": {
-                        "responseModalities": ["AUDIO", "TEXT"],
-                        "speechConfig": {
-                            "voiceConfig": {
-                                "prebuiltVoiceConfig": {
-                                    "voiceName": "Puck"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            await gemini_ws.send(json.dumps(setup_msg))
-            
-            async def receive_from_browser():
-                try:
-                    while True:
-                        data = await websocket.receive_text()
-                        payload = json.loads(data)
-                        
-                        if "realtimeInput" in payload:
-                            await gemini_ws.send(json.dumps({
-                                "realtimeInput": {
-                                    "mediaChunks": [{
-                                        "mimeType": "audio/pcm;rate=16000",
-                                        "data": payload["realtimeInput"]["data"]
-                                    }]
-                                }
-                            }))
-                        elif "clientContent" in payload:
-                            await gemini_ws.send(json.dumps({
-                                "clientContent": {
-                                    "turns": [{
-                                        "role": "user",
-                                        "parts": [{"text": payload["clientContent"]["text"]}]
-                                    }],
-                                    "turnComplete": True
-                                }
-                            }))
-                except WebSocketDisconnect:
-                    pass
-                except Exception as e:
-                    print(f"Browser to Gemini error: {e}")
-
-            async def receive_from_gemini():
-                try:
-                    async for message in gemini_ws:
-                        # Try to send it to the browser
-                        try:
-                            await websocket.send_text(message)
-                        except WebSocketDisconnect:
-                            break
-                except websockets.exceptions.ConnectionClosed:
-                    pass
-                except Exception as e:
-                    print(f"Gemini to Browser error: {e}")
-
-            await asyncio.gather(
-                receive_from_browser(),
-                receive_from_gemini()
-            )
-            
-    except Exception as e:
-        print(f"Gemini WebSocket Proxy Error: {e}")
-        try:
-            await websocket.close()
-        except:
-            pass
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Gemini API key is not configured."
+        )
+        
+    return {"key": api_key}

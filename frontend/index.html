@@ -463,36 +463,46 @@
     </div>
 
     <!-- IMMERSIVE VOICE MODE OVERLAY -->
-    <div id="voice-live-overlay" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-500 hidden">
+    <div id="voice-live-overlay" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-[64px] flex flex-col items-center justify-center opacity-0 pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] hidden">
+        <!-- Ambient Deep Space Glow -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div class="absolute -top-[20%] -left-[10%] w-[70vw] h-[70vw] rounded-full bg-cyan-900/30 blur-[120px] mix-blend-screen animate-pulse"></div>
+            <div class="absolute -bottom-[20%] -right-[10%] w-[60vw] h-[60vw] rounded-full bg-purple-900/20 blur-[100px] mix-blend-screen animate-pulse" style="animation-delay: 2s;"></div>
+        </div>
+
         <!-- Close Button -->
-        <button id="voice-live-close" class="absolute top-8 right-8 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors">
-            <i data-lucide="x" class="w-6 h-6"></i>
+        <button id="voice-live-close" class="absolute top-10 right-10 p-4 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white backdrop-blur-md transition-all duration-300 hover:scale-105 active:scale-95 group shadow-2xl">
+            <i data-lucide="x" class="w-6 h-6 transform group-hover:rotate-90 transition-transform duration-300"></i>
         </button>
 
-        <!-- Dynamic Waveform Circle -->
-        <div class="relative w-64 h-64 flex items-center justify-center">
-            <!-- Pulsing background glows -->
-            <div id="voice-live-glow" class="absolute inset-0 rounded-full bg-cyan-500/20 blur-3xl transition-all duration-300"></div>
-            <div id="voice-live-glow-core" class="absolute inset-8 rounded-full bg-cyan-400/40 blur-2xl transition-all duration-300"></div>
+        <!-- Premium Liquid Orb Visualizer -->
+        <div class="relative w-80 h-80 flex items-center justify-center transform scale-90 transition-transform duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)]" id="voice-orb-container">
+            <!-- Core Glow -->
+            <div id="voice-live-glow" class="absolute inset-0 rounded-full bg-cyan-400/20 blur-[60px] transition-all duration-700"></div>
             
-            <!-- The actual waveform lines will be injected via JS or SVG here -->
-            <div id="voice-live-circle" class="relative z-10 w-48 h-48 rounded-full border border-white/20 flex items-center justify-center shadow-[0_0_40px_rgba(34,211,238,0.3)] transition-all duration-300">
-                <i id="voice-live-icon" data-lucide="mic" class="w-16 h-16 text-cyan-300 drop-shadow-md transition-colors duration-300"></i>
+            <!-- Glass Sphere -->
+            <div id="voice-live-circle" class="relative z-10 w-48 h-48 rounded-full border border-white/10 bg-gradient-to-br from-white/5 to-transparent backdrop-blur-xl flex items-center justify-center shadow-[inset_0_0_40px_rgba(255,255,255,0.05),0_20px_60px_rgba(0,0,0,0.5)] transition-all duration-500 overflow-hidden">
+                <!-- Inner orb reflection -->
+                <div class="absolute top-0 left-1/4 w-1/2 h-1/4 bg-white/20 blur-xl rounded-full transform -translate-y-1/2"></div>
+                <i id="voice-live-icon" data-lucide="mic" class="w-12 h-12 text-cyan-200/90 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] transition-colors duration-500"></i>
             </div>
             
-            <!-- SVG Circle for audio reacting -->
-            <svg class="absolute inset-0 w-full h-full transform -rotate-90 pointer-events-none">
-                <circle id="voice-live-ring" cx="128" cy="128" r="100" fill="transparent" stroke="rgba(34,211,238,0.5)" stroke-width="4" stroke-dasharray="628" stroke-dashoffset="628" class="transition-all duration-100 ease-out" />
+            <!-- Multi-layered Waveform Rings -->
+            <svg class="absolute inset-0 w-full h-full transform -rotate-90 pointer-events-none drop-shadow-2xl overflow-visible">
+                <!-- Outer diffuse ring -->
+                <circle id="voice-live-ring-outer" cx="160" cy="160" r="115" fill="transparent" stroke="rgba(34,211,238,0.1)" stroke-width="20" stroke-dasharray="722" stroke-dashoffset="722" class="transition-all duration-300 ease-out blur-sm" />
+                <!-- Sharp inner ring -->
+                <circle id="voice-live-ring" cx="160" cy="160" r="100" fill="transparent" stroke="rgba(34,211,238,0.8)" stroke-width="3" stroke-dasharray="628" stroke-dashoffset="628" stroke-linecap="round" class="transition-all duration-150 ease-out drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
             </svg>
         </div>
 
-        <!-- Live Subtitles -->
-        <div class="absolute bottom-24 w-full max-w-3xl px-8 flex flex-col items-center gap-4 text-center">
-            <div id="voice-live-ai-text" class="text-xl md:text-2xl font-medium text-purple-300 min-h-[3rem] drop-shadow-md transition-all duration-300"></div>
-            <div id="voice-live-user-text" class="text-lg md:text-xl font-normal text-cyan-100/70 min-h-[2rem] transition-all duration-300"></div>
+        <!-- Elegant Typography Subtitles -->
+        <div class="absolute bottom-32 w-full max-w-4xl px-12 flex flex-col items-center gap-6 text-center transform translate-y-4 opacity-0 transition-all duration-700 delay-300" id="voice-text-container">
+            <div id="voice-live-ai-text" class="text-2xl md:text-4xl font-light tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-purple-200 to-purple-400 min-h-[4rem] drop-shadow-2xl transition-all duration-500 leading-tight"></div>
+            <div id="voice-live-user-text" class="text-lg md:text-xl font-normal text-cyan-100/60 min-h-[2rem] transition-all duration-500"></div>
         </div>
         
-        <div id="voice-live-status" class="absolute bottom-10 text-sm font-medium text-white/50 tracking-widest uppercase">Connecting...</div>
+        <div id="voice-live-status" class="absolute bottom-12 text-xs font-semibold text-white/30 tracking-[0.2em] uppercase transition-colors duration-500">Connecting...</div>
     </div>
 
     <script type="module" src="./js/app.js?v=20260615-streaming-v7"></script>
