@@ -377,6 +377,39 @@ export function updateProfileUI(user = null) {
   refreshIcons();
 }
 
+export function updateMentalHealthUI(profileResponse = null) {
+  const clinical = profileResponse?.profile?.clinical || null;
+
+  const phq9Display = document.getElementById("phq9-score-display");
+  const gad7Display = document.getElementById("gad7-score-display");
+  const problemsDisplay = document.getElementById("presenting-problems-display");
+  const diagnosesDisplay = document.getElementById("suspected-diagnoses-display");
+  const treatmentPlanDisplay = document.getElementById("treatment-plan-display");
+
+  if (phq9Display) phq9Display.textContent = clinical?.latest_phq9_score ?? "--";
+  if (gad7Display) gad7Display.textContent = clinical?.latest_gad7_score ?? "--";
+
+  if (problemsDisplay) {
+    if (clinical?.presenting_problems && clinical.presenting_problems.length > 0) {
+      problemsDisplay.innerHTML = "• " + clinical.presenting_problems.map(escapeHtml).join("<br>• ");
+    } else {
+      problemsDisplay.textContent = "None recorded.";
+    }
+  }
+
+  if (diagnosesDisplay) {
+    if (clinical?.suspected_diagnoses && clinical.suspected_diagnoses.length > 0) {
+      diagnosesDisplay.innerHTML = "• " + clinical.suspected_diagnoses.map(escapeHtml).join("<br>• ");
+    } else {
+      diagnosesDisplay.textContent = "None recorded.";
+    }
+  }
+
+  if (treatmentPlanDisplay) {
+    treatmentPlanDisplay.textContent = clinical?.treatment_plan || "None active.";
+  }
+}
+
 export function renderWeeklyTracker() {
   const snapshot = getStreakSnapshot();
 

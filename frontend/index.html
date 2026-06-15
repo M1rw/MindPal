@@ -314,6 +314,7 @@
                     <button class="settings-tab-btn active" data-settings-tab="general" type="button"><i data-lucide="settings" class="w-4 h-4"></i><span>General</span></button>
                     <button class="settings-tab-btn" data-settings-tab="notifications" type="button"><i data-lucide="bell" class="w-4 h-4"></i><span>Notifications</span></button>
                     <button class="settings-tab-btn" data-settings-tab="personalization" type="button"><i data-lucide="gauge" class="w-4 h-4"></i><span>Personalization</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="health" type="button"><i data-lucide="activity" class="w-4 h-4 text-purple-500"></i><span class="text-purple-600 dark:text-purple-400 font-medium">Mental Health</span></button>
                     <button class="settings-tab-btn" data-settings-tab="memory" type="button"><i data-lucide="database" class="w-4 h-4"></i><span>Memory</span></button>
                     <button class="settings-tab-btn" data-settings-tab="data" type="button"><i data-lucide="database-zap" class="w-4 h-4"></i><span>Data controls</span></button>
                     <button class="settings-tab-btn" data-settings-tab="security" type="button"><i data-lucide="shield-alert" class="w-4 h-4"></i><span>Security</span></button>
@@ -328,6 +329,7 @@
                         <option value="general">General</option>
                         <option value="notifications">Notifications</option>
                         <option value="personalization">Personalization</option>
+                        <option value="health">Mental Health</option>
                         <option value="memory">Memory</option>
                         <option value="data">Data controls</option>
                         <option value="security">Security</option>
@@ -373,6 +375,36 @@
                             <label class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Cognitive structure</span><span class="settings-row-copy">When Cognitive Tools is selected, show thought, distortion, evidence, reframe, and action.</span></span><span class="relative flex-shrink-0"><input type="checkbox" checked class="sr-only"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></span></label>
                             <label class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Fast answers</span><span class="settings-row-copy">Prioritize short, useful answers unless you ask for depth.</span></span><span class="relative flex-shrink-0"><input type="checkbox" checked class="sr-only"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></span></label>
                             <div class="settings-row settings-row-block"><span class="settings-row-main"><span class="settings-row-title">Custom instructions</span><span class="settings-row-copy">Current agent preference: senior technical partner, direct, production-ready, no fluff.</span></span><div class="settings-textbox">Senior technical partner. Max capacity.<br>Answer directly, preserve constraints, and prefer production-ready fixes.</div></div>
+                        </div>
+                    </div>
+
+                    <div class="settings-panel" data-settings-panel="health" hidden>
+                        <h2 class="settings-title">Mental Health Monitor</h2>
+                        <p class="settings-intro">MindPal Pro tracks your clinical progress over time. This data is private and injected as context during Pro sessions.</p>
+                        <div class="settings-section">
+                            <h3 class="settings-subtitle">Assessment Scores</h3>
+                            <div class="settings-row">
+                                <span class="settings-row-main"><span class="settings-row-title">PHQ-9 (Depression)</span><span class="settings-row-copy">Standardized depression severity score.</span></span>
+                                <span class="settings-row-action font-semibold text-lg" id="phq9-score-display">--</span>
+                            </div>
+                            <div class="settings-row">
+                                <span class="settings-row-main"><span class="settings-row-title">GAD-7 (Anxiety)</span><span class="settings-row-copy">Standardized anxiety severity score.</span></span>
+                                <span class="settings-row-action font-semibold text-lg" id="gad7-score-display">--</span>
+                            </div>
+                            
+                            <h3 class="settings-subtitle mt-6">Clinical Chart</h3>
+                            <div class="settings-row settings-row-block">
+                                <span class="settings-row-main"><span class="settings-row-title">Presenting Problems</span></span>
+                                <div class="settings-textbox text-[13px] min-h-[40px]" id="presenting-problems-display">None recorded.</div>
+                            </div>
+                            <div class="settings-row settings-row-block">
+                                <span class="settings-row-main"><span class="settings-row-title">Suspected Diagnoses</span></span>
+                                <div class="settings-textbox text-[13px] min-h-[40px]" id="suspected-diagnoses-display">None recorded.</div>
+                            </div>
+                            <div class="settings-row settings-row-block">
+                                <span class="settings-row-main"><span class="settings-row-title">Treatment Plan</span></span>
+                                <div class="settings-textbox text-[13px] min-h-[60px]" id="treatment-plan-display">None active.</div>
+                            </div>
                         </div>
                     </div>
 
@@ -493,31 +525,45 @@
     </div>
 
     <!-- IMMERSIVE VOICE MODE OVERLAY (GEMINI STYLE) -->
-    <div id="voice-live-overlay" class="fixed inset-0 z-[100] bg-white dark:bg-gemini-darkBg flex flex-col opacity-0 pointer-events-none transition-opacity duration-300 hidden">
-        <!-- Header area -->
-        <div class="flex justify-end p-6">
-            <button id="voice-live-close" class="p-3 rounded-full bg-gray-100 dark:bg-[#1e1f20] hover:bg-gray-200 dark:hover:bg-[#2f2f2f] text-gray-700 dark:text-gray-300 transition-colors">
+    <div id="voice-live-overlay" class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-300 hidden overflow-hidden">
+        <!-- Dynamic Background Gradient -->
+        <div id="voice-bg-gradient" class="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-white to-blue-100/50 dark:from-gemini-darkBg dark:via-[#1e1f20] dark:to-blue-900/10 transition-colors duration-1000"></div>
+
+        <!-- Header -->
+        <div class="relative z-10 flex justify-between items-center p-6 w-full max-w-7xl mx-auto">
+            <button id="voice-cc-btn" class="p-3 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors tooltip-target" data-tooltip="Toggle Transcript">
+                <i data-lucide="subtitles" class="w-6 h-6"></i>
+            </button>
+            <button id="voice-live-close" class="p-3 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors">
                 <i data-lucide="x" class="w-6 h-6"></i>
             </button>
         </div>
 
-        <!-- Text Display Area -->
-        <div class="flex-1 flex flex-col justify-end px-8 pb-12 w-full max-w-4xl mx-auto" id="voice-text-container">
-            <div id="voice-live-user-text" class="text-xl md:text-2xl font-normal text-gray-500 dark:text-gray-400 min-h-[3rem] transition-all duration-300 mb-6"></div>
-            <div id="voice-live-ai-text" class="text-3xl md:text-5xl font-medium text-gray-900 dark:text-white min-h-[5rem] transition-all duration-300 leading-tight"></div>
-        </div>
-
-        <!-- Visualization Area -->
-        <div class="h-48 w-full flex flex-col items-center justify-center relative pb-10" id="voice-orb-container">
-            <div id="voice-live-status" class="absolute top-0 text-sm font-medium text-gray-500 dark:text-gray-400 mb-8">Connecting...</div>
+        <!-- Main Content Area -->
+        <div class="relative z-10 flex-1 flex flex-col h-full w-full max-w-4xl mx-auto">
             
-            <div class="relative w-24 h-24 flex items-center justify-center mt-6">
-                <!-- Flat, minimal pulse ring -->
-                <div id="voice-live-glow" class="absolute inset-0 rounded-full bg-blue-500/20 scale-100 transition-all duration-300"></div>
+            <!-- Sliding Transcript Panel -->
+            <div id="voice-transcript-panel" class="flex-1 flex flex-col justify-end px-8 pb-12 overflow-y-auto transition-all duration-500 transform translate-y-10 opacity-0 pointer-events-none">
+                <div id="voice-live-user-text" class="text-xl md:text-2xl font-normal text-gray-500 dark:text-gray-400 min-h-[3rem] transition-all duration-300 mb-6 text-right"></div>
+                <div id="voice-live-ai-text" class="text-3xl md:text-5xl font-medium text-gray-900 dark:text-white min-h-[5rem] transition-all duration-300 leading-tight"></div>
+            </div>
+
+            <!-- Central Water Waves Visualizer -->
+            <div class="h-64 w-full flex flex-col items-center justify-center relative pb-10 flex-shrink-0" id="voice-orb-container">
+                <div id="voice-live-status" class="absolute top-0 text-sm font-medium text-gray-500 dark:text-gray-400 mb-8 transition-opacity duration-300">Connecting...</div>
                 
-                <!-- Main central circle -->
-                <div id="voice-live-circle" class="relative z-10 w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center shadow-lg transition-all duration-300">
-                    <i id="voice-live-icon" data-lucide="mic" class="w-8 h-8 text-white transition-colors duration-300"></i>
+                <div class="relative w-32 h-32 flex items-center justify-center mt-6">
+                    <!-- Water Waves (Multiple rings) -->
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none" id="voice-wave-rings">
+                        <div class="voice-wave-ring absolute w-full h-full rounded-full border-[3px] border-blue-500/30 dark:border-blue-400/30 opacity-0 transform scale-100 transition-all duration-150"></div>
+                        <div class="voice-wave-ring absolute w-full h-full rounded-full border-[2px] border-blue-500/20 dark:border-blue-400/20 opacity-0 transform scale-100 transition-all duration-300"></div>
+                        <div class="voice-wave-ring absolute w-full h-full rounded-full border border-blue-500/10 dark:border-blue-400/10 opacity-0 transform scale-100 transition-all duration-500"></div>
+                    </div>
+                    
+                    <!-- Main central circle -->
+                    <div id="voice-live-circle" class="relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.3)] transition-all duration-500">
+                        <i id="voice-live-icon" data-lucide="mic" class="w-10 h-10 text-white transition-colors duration-300"></i>
+                    </div>
                 </div>
             </div>
         </div>

@@ -131,6 +131,29 @@ class UserPreferences(BaseModel):
         return _clean_ui_settings(value)
 
 
+class ClinicalProfile(BaseModel):
+    """
+    Structured clinical data for MindPal Pro.
+    """
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    presenting_problems: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
+    suspected_diagnoses: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
+    treatment_plan: str = Field(default="", max_length=MAX_PROFILE_TEXT_CHARS)
+    latest_phq9_score: int | None = Field(default=None, ge=0, le=27)
+    latest_gad7_score: int | None = Field(default=None, ge=0, le=21)
+
+    @field_validator("presenting_problems", "suspected_diagnoses", mode="before")
+    @classmethod
+    def _clean_list_fields(cls, value: object) -> list[str]:
+        return _clean_profile_list(value)
+
+    @field_validator("treatment_plan", mode="before")
+    @classmethod
+    def _clean_treatment_plan(cls, value: object) -> str:
+        return _clean_profile_text(str(value or ""), MAX_PROFILE_TEXT_CHARS)
+
+
 class UserProfile(BaseModel):
     """
     Sanitized user profile stored by the backend.
@@ -145,6 +168,7 @@ class UserProfile(BaseModel):
     status: UserStatus = UserStatus.ACTIVE
     channel: UserChannel = UserChannel.WEB
     preferences: UserPreferences = Field(default_factory=UserPreferences)
+    clinical: ClinicalProfile = Field(default_factory=ClinicalProfile)
     notes: str = Field(default="", max_length=MAX_PROFILE_TEXT_CHARS)
     metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=_utcnow)
@@ -198,6 +222,7 @@ class UserProfileUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     preferences: UserPreferences | None = None
+    clinical: ClinicalProfile | None = None
     notes: str | None = Field(default=None, max_length=MAX_PROFILE_TEXT_CHARS)
     metadata: dict[str, str | int | float | bool | None] | None = None
 

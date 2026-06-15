@@ -24,6 +24,25 @@ export function initLiveVoice({ onChatSync } = {}) {
     if (closeBtn) {
         closeBtn.addEventListener("click", stopLiveVoice);
     }
+    
+    const ccBtn = document.getElementById("voice-cc-btn");
+    const transcriptPanel = document.getElementById("voice-transcript-panel");
+    if (ccBtn && transcriptPanel) {
+        ccBtn.addEventListener("click", () => {
+            const isHidden = transcriptPanel.classList.contains("opacity-0");
+            if (isHidden) {
+                transcriptPanel.classList.remove("opacity-0", "translate-y-10", "pointer-events-none");
+                transcriptPanel.classList.add("opacity-100", "translate-y-0", "pointer-events-auto");
+                ccBtn.classList.add("bg-blue-500/20", "text-blue-600", "dark:text-blue-400");
+                ccBtn.classList.remove("text-gray-700", "dark:text-gray-300");
+            } else {
+                transcriptPanel.classList.add("opacity-0", "translate-y-10", "pointer-events-none");
+                transcriptPanel.classList.remove("opacity-100", "translate-y-0", "pointer-events-auto");
+                ccBtn.classList.remove("bg-blue-500/20", "text-blue-600", "dark:text-blue-400");
+                ccBtn.classList.add("text-gray-700", "dark:text-gray-300");
+            }
+        });
+    }
 }
 
 export async function startLiveVoice() {
@@ -52,14 +71,19 @@ export async function startLiveVoice() {
     overlay.classList.add("pointer-events-auto");
     
     // Animate elements in
-    const textContainer = document.getElementById("voice-text-container");
+    const textContainer = document.getElementById("voice-transcript-panel");
     const orbContainer = document.getElementById("voice-orb-container");
-    setTimeout(() => {
-        if (textContainer) {
-            textContainer.classList.remove("translate-y-4", "opacity-0");
-            textContainer.classList.add("translate-y-0", "opacity-100");
-        }
-    }, 50);
+    const ccBtn = document.getElementById("voice-cc-btn");
+    
+    // Ensure CC is off by default when opening
+    if (textContainer) {
+        textContainer.classList.add("opacity-0", "translate-y-10", "pointer-events-none");
+        textContainer.classList.remove("opacity-100", "translate-y-0", "pointer-events-auto");
+    }
+    if (ccBtn) {
+        ccBtn.classList.remove("bg-blue-500/20", "text-blue-600", "dark:text-blue-400");
+        ccBtn.classList.add("text-gray-700", "dark:text-gray-300");
+    }
 
     try {
         // Fetch API Key directly
@@ -303,28 +327,51 @@ export function stopLiveVoice() {
 
 function setUIMode(mode) {
     const circle = document.getElementById("voice-live-circle");
-    const glow = document.getElementById("voice-live-glow");
+    const bgGradient = document.getElementById("voice-bg-gradient");
     const statusEl = document.getElementById("voice-live-status");
+    const rings = document.querySelectorAll(".voice-wave-ring");
     
-    if (!circle || !glow) return;
+    if (!circle) return;
     
     if (mode === "speaking") {
-        circle.className = "relative z-10 w-20 h-20 rounded-full bg-purple-500 flex items-center justify-center shadow-lg transition-colors duration-500";
-        glow.className = "absolute inset-0 rounded-full bg-purple-500/20 scale-100 transition-all duration-300";
+        circle.className = "relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 dark:from-purple-500 dark:to-purple-700 flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,0.4)] transition-all duration-500";
+        if (bgGradient) {
+            bgGradient.className = "absolute inset-0 bg-gradient-to-br from-purple-50/50 via-white to-purple-100/50 dark:from-[#1a1124] dark:via-[#1e1f20] dark:to-purple-900/10 transition-colors duration-1000";
+        }
+        rings.forEach(ring => {
+            ring.classList.remove("border-blue-500/30", "dark:border-blue-400/30", "border-blue-500/20", "dark:border-blue-400/20", "border-blue-500/10", "dark:border-blue-400/10");
+            ring.classList.add("border-purple-500/30", "dark:border-purple-400/30");
+        });
         if (statusEl) statusEl.textContent = "AI speaking...";
     } else {
-        circle.className = "relative z-10 w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center shadow-lg transition-colors duration-500";
-        glow.className = "absolute inset-0 rounded-full bg-blue-500/20 scale-100 transition-all duration-300";
+        circle.className = "relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-all duration-500";
+        if (bgGradient) {
+            bgGradient.className = "absolute inset-0 bg-gradient-to-br from-blue-50/50 via-white to-blue-100/50 dark:from-gemini-darkBg dark:via-[#1e1f20] dark:to-blue-900/10 transition-colors duration-1000";
+        }
+        rings.forEach((ring, i) => {
+            ring.classList.remove("border-purple-500/30", "dark:border-purple-400/30");
+            if(i===0) ring.classList.add("border-blue-500/30", "dark:border-blue-400/30");
+            if(i===1) ring.classList.add("border-blue-500/20", "dark:border-blue-400/20");
+            if(i===2) ring.classList.add("border-blue-500/10", "dark:border-blue-400/10");
+        });
         if (statusEl) statusEl.textContent = "Listening...";
     }
 }
 
 function updateWaveform(rms, source = "user") {
-    const glow = document.getElementById("voice-live-glow");
-    if (!glow) return;
+    const rings = document.querySelectorAll(".voice-wave-ring");
+    if (!rings.length) return;
     
     const level = Math.min(1, rms * 15);
-    // scale from 1 (base) up to 2 (expanded) based on volume
-    const scale = 1 + level;
-    glow.style.transform = `scale(${scale})`;
+    
+    rings.forEach((ring, index) => {
+        // Base scale starts at 1, expands outwardly more for the outer rings
+        const baseScale = 1;
+        const expander = (index + 1) * 0.5 * level;
+        const scale = baseScale + expander;
+        const opacity = level > 0.05 ? 1 - (index * 0.2) : 0;
+        
+        ring.style.transform = `scale(${scale})`;
+        ring.style.opacity = opacity.toString();
+    });
 }
