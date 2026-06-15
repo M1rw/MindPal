@@ -147,8 +147,8 @@ export async function startLiveVoice() {
         micSource.connect(scriptNode);
         scriptNode.connect(audioContext.destination);
 
-        // Connect directly to Google Gemini Live API
-        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${key}`;
+        // Connect directly to Google Gemini Live API using v1beta
+        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
         liveWebSocket = new WebSocket(wsUrl);
         
         liveWebSocket.onopen = () => {
@@ -161,7 +161,7 @@ export async function startLiveVoice() {
                     // This is the correct API string for the Gemini Native Audio Dialog model
                     model: "models/gemini-2.5-flash",
                     generationConfig: {
-                        responseModalities: ["AUDIO", "TEXT"],
+                        responseModalities: ["AUDIO"],
                         speechConfig: {
                             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
                         }
