@@ -1216,6 +1216,7 @@ async function handleSend() {
     let lastRenderTime = 0;
     let renderTimeout = null;
     const streamStartTime = performance.now();
+    let earlyAssistantMessage = null;
 
     // Send clean message only. Memory/context managed by backend via system prompt.
     await sendChatMessageStream({
@@ -1255,6 +1256,21 @@ async function handleSend() {
           });
         }
       },
+      onStatus: (status) => {
+        if (status === 'text_finished') {
+          isGenerating = false;
+          setInputState({ disabled: false, locked: isSessionLocked });
+          document.getElementById("chat-input")?.focus();
+          
+          earlyAssistantMessage = addMessage("MindPal", streamResponseStr.trim(), {
+            requestId: null,
+            providerUsed: null,
+            safety: null,
+            ragUsed: [],
+            memoryUpdated: false,
+          });
+        }
+      },
       onMetadata: (meta) => {
         backendMetaFinal = meta;
       }
@@ -1279,13 +1295,23 @@ async function handleSend() {
       voiceController?.setLocked(true);
     }
 
-    const assistantMessageRecord = addMessage("MindPal", reply, {
-      requestId: backendMetaFinal?.request_id || null,
-      providerUsed: backendMetaFinal?.provider_used || null,
-      safety: backendMetaFinal?.safety || null,
-      ragUsed: backendMetaFinal?.rag_used || [],
-      memoryUpdated: Boolean(backendMetaFinal?.memory_updated),
-    });
+    let assistantMessageRecord = earlyAssistantMessage;
+    if (assistantMessageRecord) {
+      assistantMessageRecord.text = reply;
+      assistantMessageRecord.requestId = backendMetaFinal?.request_id || null;
+      assistantMessageRecord.providerUsed = backendMetaFinal?.provider_used || null;
+      assistantMessageRecord.safety = backendMetaFinal?.safety || null;
+      assistantMessageRecord.ragUsed = backendMetaFinal?.rag_used || [];
+      assistantMessageRecord.memoryUpdated = Boolean(backendMetaFinal?.memory_updated);
+    } else {
+      assistantMessageRecord = addMessage("MindPal", reply, {
+        requestId: backendMetaFinal?.request_id || null,
+        providerUsed: backendMetaFinal?.provider_used || null,
+        safety: backendMetaFinal?.safety || null,
+        ragUsed: backendMetaFinal?.rag_used || [],
+        memoryUpdated: Boolean(backendMetaFinal?.memory_updated),
+      });
+    }
 
     scheduleCloudMessageSync(assistantMessageRecord);
 
@@ -1635,6 +1661,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     let lastRenderTime = 0;
     let renderTimeout = null;
     const streamStartTime = performance.now();
+    let earlyRegeneratedMessage = null;
 
     await sendChatMessageStream({
       message: userMessage,
@@ -1673,6 +1700,22 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
           });
         }
       },
+      onStatus: (status) => {
+        if (status === 'text_finished') {
+          isGenerating = false;
+          setInputState({ disabled: false, locked: isSessionLocked });
+          document.getElementById("chat-input")?.focus();
+          
+          earlyRegeneratedMessage = addMessage("MindPal", streamResponseStr.trim(), {
+            requestId: null,
+            providerUsed: null,
+            safety: null,
+            ragUsed: [],
+            memoryUpdated: false,
+            regenerated: true,
+          });
+        }
+      },
       onMetadata: (meta) => {
         backendMetaFinal = meta;
       }
@@ -1697,14 +1740,24 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       voiceController?.setLocked(true);
     }
 
-    const regeneratedRecord = addMessage("MindPal", reply, {
-      requestId: backendMetaFinal?.request_id || null,
-      providerUsed: backendMetaFinal?.provider_used || null,
-      safety: backendMetaFinal?.safety || null,
-      ragUsed: backendMetaFinal?.rag_used || [],
-      memoryUpdated: Boolean(backendMetaFinal?.memory_updated),
-      regenerated: true,
-    });
+    let regeneratedRecord = earlyRegeneratedMessage;
+    if (regeneratedRecord) {
+      regeneratedRecord.text = reply;
+      regeneratedRecord.requestId = backendMetaFinal?.request_id || null;
+      regeneratedRecord.providerUsed = backendMetaFinal?.provider_used || null;
+      regeneratedRecord.safety = backendMetaFinal?.safety || null;
+      regeneratedRecord.ragUsed = backendMetaFinal?.rag_used || [];
+      regeneratedRecord.memoryUpdated = Boolean(backendMetaFinal?.memory_updated);
+    } else {
+      regeneratedRecord = addMessage("MindPal", reply, {
+        requestId: backendMetaFinal?.request_id || null,
+        providerUsed: backendMetaFinal?.provider_used || null,
+        safety: backendMetaFinal?.safety || null,
+        ragUsed: backendMetaFinal?.rag_used || [],
+        memoryUpdated: Boolean(backendMetaFinal?.memory_updated),
+        regenerated: true,
+      });
+    }
 
     scheduleCloudMessageSync(regeneratedRecord);
 
