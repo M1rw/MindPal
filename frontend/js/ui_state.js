@@ -424,6 +424,7 @@ export function openModal(modalId, contentId) {
 
   modal?.classList.remove("opacity-0", "pointer-events-none");
   content?.classList.remove("scale-95");
+  document.body.classList.add("overflow-hidden");
 }
 
 export function closeModal(modalId, contentId) {
@@ -432,6 +433,13 @@ export function closeModal(modalId, contentId) {
 
   modal?.classList.add("opacity-0", "pointer-events-none");
   content?.classList.add("scale-95");
+  
+  // Only remove overflow-hidden if no other modals are open
+  // In a simple app, we can just remove it, but to be safe we should check
+  const anyModalOpen = document.querySelectorAll('.fixed.inset-0:not(.opacity-0)').length > 0;
+  if (!anyModalOpen) {
+    document.body.classList.remove("overflow-hidden");
+  }
 }
 
 export function setChatStarted(started) {
@@ -540,22 +548,92 @@ export function appendStatusIndicator(id) {
 
   if (!chatHistory) return;
 
+  // Inject the wave-dot keyframes once
+  if (!document.getElementById("mindpal-dot-style")) {
+    const style = document.createElement("style");
+    style.id = "mindpal-dot-style";
+    style.textContent = `
+      @keyframes mindpal-wave {
+        0%, 60%, 100% { transform: scaleY(0.5); opacity: 0.5; }
+        30% { transform: scaleY(1.15); opacity: 1; }
+      }
+      .mp-dot {
+        width: 5px;
+        height: 14px;
+        border-radius: 2px;
+        background: linear-gradient(180deg, #4285f4, #9b72cb);
+        display: inline-block;
+        animation: mindpal-wave 1.1s ease-in-out infinite;
+        transform-origin: center bottom;
+      }
+      .mp-dot:nth-child(1) { animation-delay: 0s; }
+      .mp-dot:nth-child(2) { animation-delay: 0.18s; }
+      .mp-dot:nth-child(3) { animation-delay: 0.36s; }
+      @media (prefers-color-scheme: dark) {
+        .mp-dot { background: linear-gradient(180deg, #7baaf7, #c58af9); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   const msgDiv = document.createElement("div");
   msgDiv.id = id;
-  msgDiv.className = "flex w-full animate-fade-in pl-10";
-  msgDiv.innerHTML = `<div class="text-[15px] font-medium shimmer-text">Thought for a few seconds...</div>`;
+  msgDiv.className = "flex w-full animate-fade-in pl-4 sm:pl-10 py-1";
+  msgDiv.innerHTML = `
+    <div class="flex items-center gap-3">
+      <div class="flex items-end gap-[3px]">
+        <span class="mp-dot"></span>
+        <span class="mp-dot"></span>
+        <span class="mp-dot"></span>
+      </div>
+      <span class="text-[14px] font-medium text-[#444746] dark:text-[#c4c7c5]">Thought for a few seconds...</span>
+    </div>
+  `;
 
   chatHistory.appendChild(msgDiv);
-  scrollChatToBottom("smooth");
+  scrollChatToBottom();
 }
 
 export function removeStatusIndicator(id) {
   document.getElementById(id)?.remove();
 }
 
-export function scrollChatToBottom(behavior = "smooth") {
-  const chatHistory = document.getElementById("chat-history");
-  chatHistory?.scrollTo({ top: chatHistory.scrollHeight, behavior });
+export function finalizeStatusIndicator(id, elapsedMs) {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  const seconds = (elapsedMs / 1000).toFixed(1);
+
+  // Stop the wave animation by swapping dots for a static checkmark-style icon
+  const inner = el.querySelector(".flex.items-center");
+  if (inner) {
+    inner.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+        class="text-[#4285f4] dark:text-[#7baaf7] flex-shrink-0 mr-1 opacity-80">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span class="text-[13px] text-[#5f6368] dark:text-[#9aa0a6] italic">
+        Thought for ${seconds}s
+      </span>
+    `;
+  }
+}
+
+export function scrollChatToBottom(behavior = "auto", force = false) {
+  requestAnimationFrame(() => {
+    const chatHistory = document.getElementById("chat-history");
+    if (chatHistory) {
+      // Only auto-scroll if we are near the bottom already, or if forced
+      const isNearBottom = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 150;
+      if (force || isNearBottom) {
+        chatHistory.scrollTo({
+          top: chatHistory.scrollHeight,
+          behavior: behavior === "smooth" ? "smooth" : "auto"
+        });
+      }
+    }
+  });
 }
 
 export function showToast(message) {
