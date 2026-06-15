@@ -812,25 +812,17 @@ details > summary::-webkit-details-marker { display: none; }
   display: none;
 }
 
+/* Voice overlay is always dark — no dark: variants needed */
 .voice-msg-ai {
   align-self: flex-start;
   background: transparent;
-  color: #1f1f1f;
+  color: rgba(255, 255, 255, 0.85);
   font-weight: 400;
-}
-
-.dark .voice-msg-ai {
-  color: #e3e3e3;
 }
 
 .voice-msg-user {
   align-self: flex-end;
-  background: #f0f4f9;
-  color: #1f1f1f;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
   border-radius: 24px;
-}
-
-.dark .voice-msg-user {
-  background: #1e1f20;
-  color: #e3e3e3;
 }
