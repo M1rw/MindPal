@@ -566,9 +566,6 @@
                  style="bottom:0%; background: linear-gradient(90deg, rgba(99,102,241,0.15), rgba(129,140,248,0.2), rgba(99,102,241,0.15)); filter: blur(100px);"></div>
         </div>
 
-        <!-- Audio visualizer bars — anchored to the very bottom -->
-        <canvas id="voice-viz-canvas" class="absolute bottom-0 left-0 right-0 h-[120px] z-[1] pointer-events-none"></canvas>
-
         <!-- ── Top bar ── -->
         <header class="relative z-20 flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top,12px),12px)] pb-2 w-full">
             <button id="voice-live-close"
@@ -602,10 +599,7 @@
             <div id="voice-transcript-panel"
                  class="flex-1 overflow-y-auto flex flex-col gap-3 py-4 transition-opacity duration-300"
                  style="scrollbar-width:none; -webkit-overflow-scrolling:touch;">
-                <!-- AI messages (left-aligned) injected here -->
-                <div id="voice-live-ai-text" class="voice-msg voice-msg-ai"></div>
-                <!-- User messages (right-aligned) injected here -->
-                <div id="voice-live-user-text" class="voice-msg voice-msg-user"></div>
+                <!-- Bubbles are dynamically injected here in chronological order -->
             </div>
         </div>
 
