@@ -203,7 +203,7 @@ async def chat_stream(
                 if hasattr(rag_result, "references"):
                     telemetry.log_rag_retrieval(
                         num_results=len(rag_result.references),
-                        top_score=rag_result.references[0].similarity_score if rag_result.references else 0.0,
+                        top_score=rag_result.references[0].score if rag_result.references else 0.0,
                         fallback_triggered=False
                     )
                 
