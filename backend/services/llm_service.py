@@ -40,6 +40,9 @@ class LLMProvider(Protocol):
     async def generate_stream(self, request: LLMRequest) -> Any:
         ...
 
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class LLMServiceResult:
@@ -72,15 +75,17 @@ class OfflineLLMProvider:
             provider_used=self.name,
             fallback_count=0,
             latency_ms=0.0,
-            model_name="deterministic_offline_v1",
-            finish_reason="offline_fallback",
+            model_name="offline-deterministic",
+            finish_reason="stop",
         )
 
     async def generate_stream(self, request: LLMRequest) -> Any:
-        # For offline, we just yield the whole response at once for simplicity,
-        # or we could chunk it. Let's yield it as one chunk.
-        response = await self.generate(request)
-        yield response.text
+        res = await self.generate(request)
+        yield res.text
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        # Offline mock embedding
+        return [[0.0] * 768 for _ in texts]
 
     def _build_offline_reply(self, latest_user_message: str) -> str:
         lowered = latest_user_message.lower()
@@ -552,6 +557,29 @@ class LLMService:
             return self.allow_offline_in_production
 
         return True
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+            
+        provider = next(
+            (p for p in self._providers if p.is_configured and _clean_provider_name(p.name) != "offline"), 
+            None
+        )
+        
+        if not provider:
+            provider = next(
+                (p for p in self._providers if p.is_configured and _clean_provider_name(p.name) == "offline"), 
+                None
+            )
+            
+        if not provider:
+            raise ProviderError(
+                "No configured provider available for embedding",
+                code="llm_no_provider",
+            )
+            
+        return await provider.embed(texts)
 
 
 def build_llm_request(

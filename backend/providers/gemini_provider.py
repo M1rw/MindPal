@@ -205,6 +205,55 @@ class GeminiProvider:
             if owns_client:
                 await client.aclose()
 
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        if not self.is_configured:
+            raise ProviderError(
+                "Gemini provider is not configured",
+                code="gemini_not_configured",
+                details={"provider": self.name},
+            )
+
+        base_url = self.config.base_url.rstrip("/")
+        url = f"{base_url}/models/text-embedding-004:embedContent?key={self.config.api_key}"
+
+        headers = {
+            "Content-Type": "application/json",
+        }
+
+        owns_client = self._client is None
+        client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
+
+        embeddings = []
+        try:
+            for text in texts:
+                payload = {
+                    "model": "models/text-embedding-004",
+                    "content": {
+                        "parts": [{"text": text}]
+                    }
+                }
+                response = await client.post(url, headers=headers, json=payload)
+                if response.status_code >= 400:
+                    print(f"Gemini API Error {response.status_code}: {response.text}")
+                    raise _provider_http_error(response)
+
+                data = response.json()
+                # embedContent returns {"embedding": {"values": [...]}}
+                val = data.get("embedding", {}).get("values", [])
+                embeddings.append(val)
+                
+            return embeddings
+
+        except Exception as exc:
+            raise ProviderError(
+                "Gemini embed request failed",
+                code="gemini_embed_error",
+                details={"provider": self.name, "error": str(exc)},
+            ) from exc
+        finally:
+            if owns_client:
+                await client.aclose()
+
     def _build_url(self, stream: bool = False) -> str:
         base_url = self.config.base_url.rstrip("/")
         model_path = _normalize_model_path(self.config.model)

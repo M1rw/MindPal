@@ -213,6 +213,59 @@ class CloudflareAIProvider:
                 details={"error": sanitize_text(str(exc), MAX_ERROR_CHARS)},
             ) from exc
 
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        if not self.is_configured:
+            raise ProviderError(
+                "Cloudflare Workers AI provider is not configured",
+                code="cloudflare_not_configured",
+            )
+
+        # Cloudflare text-embedding endpoint format
+        # https://developers.cloudflare.com/workers-ai/models/text-embeddings/
+        # Endpoint: POST /v1/{account_id}/ai/run/@cf/baai/bge-small-en-v1.5
+        # or via Gateway compat...
+        # Wait, if we use Gateway compat:
+        # POST /v1/{account_id}/{gateway_id}/workers-ai/@cf/baai/bge-small-en-v1.5
+        # Payload: {"text": texts}
+
+        model = "@cf/baai/bge-small-en-v1.5"
+        
+        # Always use the native workers-ai run endpoint for embeddings 
+        # as it's the most reliable across configurations
+        if self.config.explicit_url:
+            url = f"{self.config.explicit_url.rstrip('/')}/embeddings"
+        else:
+            url = f"{self.config.native_base_url.rstrip('/')}/accounts/{self.config.account_id}/ai/run/{model}"
+            
+        payload = {"text": texts}
+        
+        # Must use Authorization for native endpoints
+        headers = {
+            "Authorization": f"Bearer {self.config.token}",
+            "Content-Type": "application/json",
+        }
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.config.timeout_seconds) as client:
+                response = await client.post(url, headers=headers, json=payload)
+                
+            if response.status_code >= 400:
+                print(f"Cloudflare API Error {response.status_code}: {response.text}")
+                raise _cloudflare_http_error(response)
+                
+            data = response.json()
+            result = data.get("result", {})
+            embeddings = result.get("data", [])
+            
+            return embeddings
+            
+        except Exception as exc:
+            raise ProviderError(
+                "Cloudflare Workers AI embed request failed",
+                code="cloudflare_embed_error",
+                details={"error": str(exc)},
+            ) from exc
+
     def _endpoint_url(self) -> str:
         if self.config.explicit_url:
             return self.config.explicit_url.rstrip("/")
