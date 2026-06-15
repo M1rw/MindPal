@@ -25,22 +25,6 @@ let ccVisible = true;
 
 /* ═══════════════ Helpers ═══════════════ */
 
-/** Strip the model's internal thinking/reasoning markers from displayed text.
- *  Gemini Native Audio returns cognitive monologue as text — we only want
- *  the words the model actually *speaks* to the user. */
-function cleanAiText(raw) {
-    return raw
-        // Remove **bold markers** like "**Acknowledge Greeting**"
-        .replace(/\*\*[^*]+\*\*/g, "")
-        // Remove lines that are clearly internal reasoning
-        .replace(/^.*?\b(I can certainly|I'll respond|I'm processing|I am processing|I will|I am prioritizing|To continue|meaning I|reciprocate|optimal function|inform our|overture|cordially|I'll pose|straightforward)\b.*$/gim, "")
-        // Remove any remaining lines that start with "I " followed by cognitive verbs
-        .replace(/^I\s+(understand|need to|should|must|recognize|notice|sense|perceive|detect|observe|acknowledge|am going to|want to|plan to)\b.*$/gim, "")
-        // Collapse leftover whitespace
-        .replace(/\n{2,}/g, "\n")
-        .trim();
-}
-
 function scrollTranscript() {
     const panel = document.getElementById("voice-transcript-panel");
     if (panel) panel.scrollTop = panel.scrollHeight;
@@ -101,7 +85,8 @@ export async function startLiveVoice() {
     // Set listening colours
     applyPalette(PALETTE_LISTEN);
 
-    // Start animation
+    // Init wave canvas and start animation
+    initWaveCanvas();
     if (!animFrameId) tick();
 
     try {
@@ -190,9 +175,10 @@ export async function startLiveVoice() {
                             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
                         }
                     },
+                    outputAudioTranscription: {},
                     systemInstruction: {
                         parts: [{
-                            text: "You are MindPal, a warm and supportive AI companion. Speak naturally and conversationally. IMPORTANT: Any text you return must be ONLY the exact words you speak aloud. Do NOT include internal reasoning, cognitive notes, thinking steps, or meta-commentary about what you are doing. Never start sentences with 'I am processing' or 'I will respond' or similar."
+                            text: "You are MindPal, a warm and supportive AI companion for mental health. Be warm, empathetic, and conversational. Listen actively and respond thoughtfully."
                         }]
                     }
                 }
@@ -209,14 +195,13 @@ export async function startLiveVoice() {
 
             if (data.serverContent?.modelTurn) {
                 for (const part of data.serverContent.modelTurn.parts) {
-                    if (part.text) {
-                        aiTranscript += part.text;
-                        if (aiTextEl) aiTextEl.textContent = cleanAiText(aiTranscript);
+                    // part.text = model's internal thinking. Completely ignore it.
+                    // The real spoken transcript comes via outputTranscription below.
+
+                    if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
                         applyPalette(PALETTE_SPEAK);
                         if (statusEl) statusEl.textContent = "MindPal is speaking…";
-                        scrollTranscript();
-                    }
-                    if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
+
                         const audioData = atob(part.inlineData.data);
                         const pcmBuffer = new Int16Array(audioData.length / 2);
                         for (let i = 0; i < pcmBuffer.length; i++) {
@@ -226,7 +211,7 @@ export async function startLiveVoice() {
                         const floatBuffer = new Float32Array(pcmBuffer.length);
                         for (let i = 0; i < pcmBuffer.length; i++) floatBuffer[i] = pcmBuffer[i] / 32768.0;
 
-                        // Drive visualization from AI audio too
+                        // Drive visualization from AI audio
                         let aiSum = 0;
                         for (let i = 0; i < floatBuffer.length; i++) aiSum += floatBuffer[i] * floatBuffer[i];
                         feedVolume(Math.sqrt(aiSum / floatBuffer.length));
@@ -250,6 +235,20 @@ export async function startLiveVoice() {
                         };
                     }
                 }
+            }
+
+            // outputTranscription = the actual words the model speaks (from the API)
+            if (data.serverContent?.outputTranscription?.text) {
+                aiTranscript += data.serverContent.outputTranscription.text;
+                if (aiTextEl) aiTextEl.textContent = aiTranscript;
+                scrollTranscript();
+            }
+
+            // inputTranscription = what the user said (from the API)
+            if (data.serverContent?.inputTranscription?.text) {
+                userTranscript += data.serverContent.inputTranscription.text;
+                if (userTextEl) userTextEl.textContent = userTranscript;
+                scrollTranscript();
             }
         };
 
@@ -295,6 +294,7 @@ export function stopLiveVoice() {
     setTimeout(() => {
         overlay.classList.add("hidden");
         if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+        destroyWaveCanvas();
     }, 500);
 
     if (onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
@@ -302,14 +302,25 @@ export function stopLiveVoice() {
     }
 }
 
-/* ═══════════════ Palette ═══════════════ */
+/* ═══════════════ Wave State ═══════════════ */
+let currentPalette = "listen"; // "listen" | "speak"
+
+const WAVE_COLORS = {
+    listen: [
+        { r: 96, g: 165, b: 250 },   // blue-400
+        { r: 129, g: 140, b: 248 },   // indigo-400
+        { r: 167, g: 139, b: 250 },   // violet-400
+    ],
+    speak: [
+        { r: 249, g: 168, b: 212 },   // pink-300
+        { r: 192, g: 132, b: 252 },   // purple-400
+        { r: 251, g: 191, b: 36 },    // amber-400
+    ],
+};
+
 function applyPalette(p) {
-    const overlay = document.getElementById("voice-live-overlay");
-    if (!overlay) return;
-    overlay.style.setProperty("--blob1", p.blob1);
-    overlay.style.setProperty("--blob2", p.blob2);
-    overlay.style.setProperty("--blob3", p.blob3);
-    overlay.style.setProperty("--blob4", p.blob4);
+    // p is PALETTE_LISTEN or PALETTE_SPEAK — we just track the mode
+    currentPalette = (p === PALETTE_SPEAK) ? "speak" : "listen";
 }
 
 /* ═══════════════ Volume feeder ═══════════════ */
@@ -317,53 +328,117 @@ function feedVolume(rms) {
     smoothVolume = Math.max(smoothVolume, Math.min(1, rms * 14));
 }
 
+/* ═══════════════ Canvas Wave Renderer ═══════════════ */
+let waveCanvas = null;
+let waveCtx = null;
+
+function initWaveCanvas() {
+    waveCanvas = document.getElementById("voice-wave-canvas");
+    if (!waveCanvas) return;
+    waveCtx = waveCanvas.getContext("2d");
+    resizeWaveCanvas();
+    window.addEventListener("resize", resizeWaveCanvas);
+}
+
+function resizeWaveCanvas() {
+    if (!waveCanvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    waveCanvas.width = waveCanvas.clientWidth * dpr;
+    waveCanvas.height = waveCanvas.clientHeight * dpr;
+    waveCtx.scale(dpr, dpr);
+}
+
+function destroyWaveCanvas() {
+    window.removeEventListener("resize", resizeWaveCanvas);
+    waveCanvas = null;
+    waveCtx = null;
+}
+
 /* ═══════════════ Animation tick ═══════════════ */
 function tick() {
     if (!isLiveSessionActive) { animFrameId = null; return; }
 
-    blobPhase += 0.006;
-    smoothVolume *= 0.93;
+    blobPhase += 0.008;
+    smoothVolume *= 0.92;
     if (smoothVolume < 0.003) smoothVolume = 0;
 
     const v = smoothVolume;
 
-    // Move blobs — gentle sine orbit at edges
-    const b1 = document.getElementById("mp-blob-1");
-    const b2 = document.getElementById("mp-blob-2");
-    const b3 = document.getElementById("mp-blob-3");
-    const b4 = document.getElementById("mp-blob-4");
+    // Draw waves on canvas
+    if (waveCtx && waveCanvas) {
+        const W = waveCanvas.clientWidth;
+        const H = waveCanvas.clientHeight;
+        waveCtx.clearRect(0, 0, W, H);
 
-    const expand = v * 0.2;
+        const colors = WAVE_COLORS[currentPalette] || WAVE_COLORS.listen;
+        const baseY = H * 0.65; // wave center at 65% from top
+        const waveHeight = 30 + v * 80; // wave amplitude scales with volume
 
-    if (b1) {
-        b1.style.transform = `translate(${Math.sin(blobPhase * 1.1) * 30}px, ${Math.cos(blobPhase * 0.7) * 25}px) scale(${1 + expand})`;
-        b1.style.opacity = 0.15 + v * 0.15;
-    }
-    if (b2) {
-        b2.style.transform = `translate(${Math.cos(blobPhase * 0.8) * 25}px, ${Math.sin(blobPhase * 1.2) * 35}px) scale(${1 + expand * 1.1})`;
-        b2.style.opacity = 0.12 + v * 0.18;
-    }
-    if (b3) {
-        b3.style.transform = `translate(${Math.sin(blobPhase * 0.6) * 40}px, ${Math.cos(blobPhase * 0.9) * 28}px) scale(${1 + expand * 0.9})`;
-        b3.style.opacity = 0.12 + v * 0.12;
-    }
-    if (b4) {
-        b4.style.transform = `translate(${Math.cos(blobPhase * 1.3) * 22}px, ${Math.sin(blobPhase * 0.5) * 32}px) scale(${1 + expand * 1.2})`;
-        b4.style.opacity = 0.1 + v * 0.15;
+        // Draw 3 layered waves
+        for (let layer = 0; layer < 3; layer++) {
+            const c = colors[layer];
+            const alpha = (0.25 + v * 0.35) * (1 - layer * 0.2);
+            const freq = 0.003 + layer * 0.001;
+            const speed = blobPhase * (1.2 + layer * 0.4);
+            const amplitude = waveHeight * (1 - layer * 0.25);
+            const yOffset = layer * 8;
+
+            // Glow pass (wider, more transparent)
+            waveCtx.beginPath();
+            waveCtx.moveTo(0, H);
+            for (let x = 0; x <= W; x += 2) {
+                const y = baseY + yOffset
+                    + Math.sin(x * freq + speed) * amplitude
+                    + Math.sin(x * freq * 2.3 + speed * 0.7) * amplitude * 0.3
+                    + Math.sin(x * freq * 0.5 + speed * 1.3) * amplitude * 0.5;
+                waveCtx.lineTo(x, y);
+            }
+            waveCtx.lineTo(W, H);
+            waveCtx.closePath();
+
+            // Gradient fill from wave to bottom
+            const grad = waveCtx.createLinearGradient(0, baseY - amplitude, 0, H);
+            grad.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${alpha})`);
+            grad.addColorStop(0.4, `rgba(${c.r},${c.g},${c.b},${alpha * 0.5})`);
+            grad.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`);
+            waveCtx.fillStyle = grad;
+            waveCtx.fill();
+        }
+
+        // Top glow line (bright edge of the wave)
+        const mainC = colors[0];
+        const glowAlpha = 0.5 + v * 0.5;
+        waveCtx.beginPath();
+        for (let x = 0; x <= W; x += 2) {
+            const y = baseY
+                + Math.sin(x * 0.003 + blobPhase * 1.2) * waveHeight
+                + Math.sin(x * 0.007 + blobPhase * 0.7) * waveHeight * 0.3
+                + Math.sin(x * 0.0015 + blobPhase * 1.3) * waveHeight * 0.5;
+            if (x === 0) waveCtx.moveTo(x, y);
+            else waveCtx.lineTo(x, y);
+        }
+        waveCtx.strokeStyle = `rgba(${mainC.r},${mainC.g},${mainC.b},${glowAlpha})`;
+        waveCtx.lineWidth = 1.5;
+        waveCtx.shadowColor = `rgba(${mainC.r},${mainC.g},${mainC.b},${glowAlpha})`;
+        waveCtx.shadowBlur = 20 + v * 40;
+        waveCtx.stroke();
+        waveCtx.shadowBlur = 0;
     }
 
-    // Mic dot pulse
+    // Mic dot pulse — subtle border glow, no gradient
     const micDot = document.getElementById("voice-mic-dot");
     if (micDot) {
-        micDot.style.transform = `scale(${1 + v * 0.12})`;
-        micDot.style.boxShadow = `0 0 ${22 + v * 35}px rgba(59,130,246,${0.25 + v * 0.25})`;
+        micDot.style.transform = `scale(${1 + v * 0.08})`;
+        const borderAlpha = 0.2 + v * 0.4;
+        micDot.style.borderColor = `rgba(255,255,255,${borderAlpha})`;
+        micDot.style.backgroundColor = `rgba(255,255,255,${0.08 + v * 0.06})`;
     }
 
     // Mic ripples
     const r1 = document.getElementById("voice-mic-ripple-1");
     const r2 = document.getElementById("voice-mic-ripple-2");
-    if (r1) { r1.style.transform = `scale(${1 + v * 0.35})`; r1.style.opacity = v > 0.04 ? String(0.5 * v) : "0"; }
-    if (r2) { r2.style.transform = `scale(${1 + v * 0.6})`; r2.style.opacity = v > 0.04 ? String(0.25 * v) : "0"; }
+    if (r1) { r1.style.transform = `scale(${1 + v * 0.25})`; r1.style.opacity = v > 0.04 ? String(0.4 * v) : "0"; }
+    if (r2) { r2.style.transform = `scale(${1 + v * 0.45})`; r2.style.opacity = v > 0.04 ? String(0.2 * v) : "0"; }
 
     animFrameId = requestAnimationFrame(tick);
 }

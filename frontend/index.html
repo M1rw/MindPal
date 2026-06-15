@@ -548,39 +548,26 @@
     <!-- MINDPAL VOICE — Immersive voice overlay                      -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <div id="voice-live-overlay"
-         class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-500 hidden overflow-hidden font-sans"
-         style="--blob1:#60a5fa; --blob2:#818cf8; --blob3:#a78bfa; --blob4:#c4b5fd;">
+         class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-500 hidden overflow-hidden font-sans bg-[#0a0a0f]">
 
-        <!-- Solid base matching MindPal's core background -->
-        <div class="absolute inset-0 bg-gemini-bg dark:bg-gemini-darkBg transition-colors duration-500"></div>
-
-        <!-- Fluid ambient blobs — only visible at the edges -->
-        <div id="mp-blob-layer" class="absolute inset-0 pointer-events-none z-0">
-            <div id="mp-blob-1" class="absolute rounded-full will-change-transform"
-                 style="width:55vmax;height:55vmax;top:-18%;left:-22%;background:var(--blob1);filter:blur(100px);opacity:0.18;"></div>
-            <div id="mp-blob-2" class="absolute rounded-full will-change-transform"
-                 style="width:50vmax;height:50vmax;top:15%;right:-22%;background:var(--blob2);filter:blur(100px);opacity:0.15;"></div>
-            <div id="mp-blob-3" class="absolute rounded-full will-change-transform"
-                 style="width:60vmax;height:60vmax;bottom:-22%;left:5%;background:var(--blob3);filter:blur(110px);opacity:0.15;"></div>
-            <div id="mp-blob-4" class="absolute rounded-full will-change-transform"
-                 style="width:45vmax;height:45vmax;bottom:5%;right:-18%;background:var(--blob4);filter:blur(90px);opacity:0.12;"></div>
-        </div>
+        <!-- Wave canvas — fills entire overlay, drawn by JS -->
+        <canvas id="voice-wave-canvas" class="absolute inset-0 w-full h-full z-0 pointer-events-none"></canvas>
 
         <!-- ── Top bar ── -->
         <header class="relative z-20 flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top,12px),12px)] pb-2 w-full">
             <button id="voice-live-close"
-                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface text-gray-600 dark:text-gray-300 transition-colors active:scale-90"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 text-gray-300 transition-colors active:scale-90"
                     title="Close">
                 <i data-lucide="arrow-left" class="w-5 h-5"></i>
             </button>
 
-            <span class="text-[15px] font-medium tracking-tight text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+            <span class="text-[15px] font-medium tracking-tight text-gray-100 flex items-center gap-1.5">
                 MindPal
-                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-gemini-surface dark:bg-gemini-darkSurface text-gray-500 dark:text-gray-400">Voice</span>
+                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-white/10 text-gray-400">Voice</span>
             </span>
 
             <button id="voice-cc-toggle"
-                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface text-gray-600 dark:text-gray-300 transition-colors active:scale-90"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 text-gray-300 transition-colors active:scale-90"
                     title="Toggle captions">
                 <i data-lucide="captions" class="w-5 h-5"></i>
             </button>
@@ -589,7 +576,7 @@
         <!-- ── Status pill ── -->
         <div class="relative z-20 flex justify-center px-5 py-2">
             <div id="voice-live-status"
-                 class="px-4 py-1.5 rounded-full text-[12px] font-medium tracking-wide bg-gemini-surface dark:bg-gemini-darkSurface text-gemini-muted dark:text-gemini-darkMuted transition-all duration-300">
+                 class="px-4 py-1.5 rounded-full text-[12px] font-medium tracking-wide bg-white/10 text-gray-400 transition-all duration-300">
                 Connecting…
             </div>
         </div>
@@ -607,29 +594,32 @@
         </div>
 
         <!-- ── Bottom controls ── -->
-        <div class="relative z-20 w-full max-w-lg mx-auto px-6 pb-[max(env(safe-area-inset-bottom,20px),20px)] pt-4 flex items-center justify-center gap-5">
-            <!-- End call -->
-            <button id="voice-live-close-bottom"
-                    class="w-14 h-14 flex items-center justify-center rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all active:scale-90"
-                    title="End voice">
-                <i data-lucide="phone-off" class="w-6 h-6"></i>
-            </button>
-
-            <!-- Mic indicator -->
-            <div class="relative w-[72px] h-[72px] flex items-center justify-center">
-                <div id="voice-mic-ripple-1" class="absolute inset-0 rounded-full border border-blue-400/30 dark:border-blue-500/20 opacity-0 transition-all duration-300 ease-out"></div>
-                <div id="voice-mic-ripple-2" class="absolute inset-0 rounded-full border border-blue-300/20 dark:border-blue-500/10 opacity-0 transition-all duration-500 ease-out"></div>
+        <div class="relative z-20 w-full max-w-md mx-auto px-6 pb-[max(env(safe-area-inset-bottom,24px),24px)] pt-6 flex flex-col items-center gap-6">
+            <!-- Mic indicator — clean circle, no gradient -->
+            <div class="relative flex items-center justify-center">
+                <div id="voice-mic-ripple-1" class="absolute w-20 h-20 rounded-full border border-white/10 opacity-0 transition-all duration-300 ease-out"></div>
+                <div id="voice-mic-ripple-2" class="absolute w-24 h-24 rounded-full border border-white/5 opacity-0 transition-all duration-500 ease-out"></div>
                 <div id="voice-mic-dot"
-                     class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-[0_0_25px_rgba(59,130,246,0.35)] flex items-center justify-center transition-all duration-200">
-                    <i data-lucide="mic" class="w-7 h-7 text-white"></i>
+                     class="w-16 h-16 rounded-full bg-white/10 border border-white/20 flex items-center justify-center transition-all duration-200">
+                    <i data-lucide="mic" class="w-6 h-6 text-white/80"></i>
                 </div>
             </div>
 
-            <!-- Speaker toggle -->
-            <button class="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface text-gray-500 dark:text-gray-400 transition-all active:scale-90"
-                    title="Speaker">
-                <i data-lucide="volume-2" class="w-6 h-6"></i>
-            </button>
+            <!-- Action row -->
+            <div class="flex items-center gap-4">
+                <button id="voice-live-close-bottom"
+                        class="h-10 px-5 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 text-gray-300 text-[13px] font-medium hover:bg-white/10 transition-all active:scale-95"
+                        title="End voice">
+                    <i data-lucide="phone-off" class="w-4 h-4 text-red-400"></i>
+                    End
+                </button>
+
+                <button class="h-10 px-5 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 text-gray-300 text-[13px] font-medium hover:bg-white/10 transition-all active:scale-95"
+                        title="Speaker">
+                    <i data-lucide="volume-2" class="w-4 h-4"></i>
+                    Speaker
+                </button>
+            </div>
         </div>
     </div>
 
