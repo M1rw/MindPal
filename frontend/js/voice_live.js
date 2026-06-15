@@ -470,119 +470,121 @@ function destroyWaveCanvas() {
     waveCtx = null;
 }
 
-/* ═══════════════ Gemini-style wave drawing ═══════════════ */
-function drawGeminiWave(v) {
+/* ═══════════════ Fluid gradient wave drawing ═══════════════ */
+
+// Smooth color palette interpolation
+let colorBlend = 0; // 0 = listen, 1 = speak — smoothly animated
+
+const LISTEN_COLORS = [
+    [59, 130, 246],   // blue-500
+    [96, 165, 250],   // blue-400
+    [147, 197, 253],  // blue-300
+];
+const SPEAK_COLORS = [
+    [232, 121, 249],  // fuchsia-400
+    [251, 191, 36],   // amber-400
+    [52, 211, 153],   // emerald-400
+];
+
+function lerpColor(a, b, t) {
+    return [
+        Math.round(a[0] + (b[0] - a[0]) * t),
+        Math.round(a[1] + (b[1] - a[1]) * t),
+        Math.round(a[2] + (b[2] - a[2]) * t),
+    ];
+}
+
+function drawFluidWave(v) {
     if (!waveCtx || !waveCanvas) return;
 
     const W = waveCanvas.clientWidth;
     const H = waveCanvas.clientHeight;
     waveCtx.clearRect(0, 0, W, H);
 
-    const isSpeaking = currentPalette === "speak";
+    // Smoothly blend toward target palette
+    const target = currentPalette === "speak" ? 1 : 0;
+    colorBlend += (target - colorBlend) * 0.04;
+
     const t = blobPhase;
 
-    if (isSpeaking) {
-        // ── Speaking: multi-colored organic flowing wave ──
-        // Draw 3 layered organic blobs with different colors
-        const blobs = [
-            { cx: 0.25, cy: 0.55, color: [232, 121, 249], radius: 0.35 },  // pink/magenta
-            { cx: 0.45, cy: 0.5,  color: [251, 191, 36],  radius: 0.3 },   // gold/amber
-            { cx: 0.7,  cy: 0.55, color: [52, 211, 153],  radius: 0.35 },   // emerald/teal
-            { cx: 0.55, cy: 0.6,  color: [96, 165, 250],  radius: 0.25 },   // blue accent
-        ];
+    // Get interpolated colors for the 3 wave layers
+    const colors = [
+        lerpColor(LISTEN_COLORS[0], SPEAK_COLORS[0], colorBlend),
+        lerpColor(LISTEN_COLORS[1], SPEAK_COLORS[1], colorBlend),
+        lerpColor(LISTEN_COLORS[2], SPEAK_COLORS[2], colorBlend),
+    ];
 
-        for (let i = 0; i < blobs.length; i++) {
-            const b = blobs[i];
-            // Animate position organically
-            const ox = Math.sin(t * (0.8 + i * 0.3) + i * 1.7) * W * 0.08 * (1 + v * 1.5);
-            const oy = Math.sin(t * (0.6 + i * 0.2) + i * 2.1) * H * 0.06 * (1 + v * 2);
-            const cx = b.cx * W + ox;
-            const cy = b.cy * H + oy - v * H * 0.15;
-            const r = b.radius * W * (0.8 + v * 0.8);
+    // Wave parameters — each layer has different settings
+    const layers = [
+        { color: colors[0], alpha: 0.45 + v * 0.3, baseH: 0.15, amplitude: 0.06, freq: 1.8, speed: 1.0, phase: 0 },
+        { color: colors[1], alpha: 0.35 + v * 0.25, baseH: 0.12, amplitude: 0.05, freq: 2.2, speed: 0.7, phase: 2.0 },
+        { color: colors[2], alpha: 0.25 + v * 0.2,  baseH: 0.09, amplitude: 0.04, freq: 2.8, speed: 1.3, phase: 4.0 },
+    ];
 
-            const grad = waveCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
-            const [cr, cg, cb] = b.color;
-            const alpha = 0.4 + v * 0.45;
-            grad.addColorStop(0, `rgba(${cr},${cg},${cb},${alpha})`);
-            grad.addColorStop(0.5, `rgba(${cr},${cg},${cb},${alpha * 0.4})`);
-            grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+    // Volume pushes waves higher
+    const volumeLift = v * H * 0.25;
 
-            waveCtx.fillStyle = grad;
-            waveCtx.fillRect(0, 0, W, H);
-        }
+    for (let i = layers.length - 1; i >= 0; i--) {
+        const L = layers[i];
+        const [r, g, b] = L.color;
 
-        // Draw the organic wave edge using bezier curves
-        const waveHeight = 60 + v * 120;
-        const baseY = H * 0.35 - v * H * 0.12;
+        // Wave top edge position (from bottom)
+        const waveTop = H - (L.baseH * H) - volumeLift * (1 + i * 0.3);
 
+        // Build the wave path with smooth bezier curves
         waveCtx.beginPath();
-        waveCtx.moveTo(-10, H);
-        waveCtx.lineTo(-10, baseY + Math.sin(t * 1.2) * waveHeight * 0.3);
+        waveCtx.moveTo(0, H); // start bottom-left
 
-        // Smooth bezier curves across the width
-        const segments = 5;
-        const segW = (W + 20) / segments;
-        for (let i = 0; i < segments; i++) {
-            const x1 = -10 + i * segW;
-            const x2 = x1 + segW;
-            const midX = (x1 + x2) / 2;
-            const y1 = baseY
-                + Math.sin(t * 1.2 + i * 1.1) * waveHeight * 0.5
-                + Math.sin(t * 0.7 + i * 2.3) * waveHeight * 0.3;
-            const y2 = baseY
-                + Math.sin(t * 1.2 + (i + 1) * 1.1) * waveHeight * 0.5
-                + Math.sin(t * 0.7 + (i + 1) * 2.3) * waveHeight * 0.3;
-            const cpY = baseY
-                + Math.sin(t * 1.5 + i * 1.7) * waveHeight * 0.7
-                + Math.sin(t * 0.9 + i * 0.8) * waveHeight * 0.4;
+        const points = 80;
+        const waveAmp = L.amplitude * H * (1 + v * 3);
 
-            waveCtx.quadraticCurveTo(midX, cpY, x2, y2);
+        // First point
+        let startY = waveTop
+            + Math.sin(t * L.speed + L.phase) * waveAmp
+            + Math.sin(t * L.speed * 0.6 + L.phase + 1) * waveAmp * 0.5;
+        waveCtx.lineTo(0, startY);
+
+        // Draw smooth curve across width
+        for (let p = 1; p <= points; p++) {
+            const x = (p / points) * W;
+            const nx = x / W; // normalized x
+
+            const y = waveTop
+                + Math.sin(nx * Math.PI * L.freq + t * L.speed + L.phase) * waveAmp
+                + Math.sin(nx * Math.PI * L.freq * 1.7 + t * L.speed * 0.6 + L.phase + 1) * waveAmp * 0.5
+                + Math.sin(nx * Math.PI * L.freq * 0.5 + t * L.speed * 1.4 + L.phase + 3) * waveAmp * 0.3;
+
+            waveCtx.lineTo(x, y);
         }
-        waveCtx.lineTo(W + 10, H);
+
+        // Close path along bottom
+        waveCtx.lineTo(W, H);
         waveCtx.closePath();
 
-        // Fill with multi-color gradient
-        const fillGrad = waveCtx.createLinearGradient(0, baseY - waveHeight, W, H);
-        fillGrad.addColorStop(0, `rgba(232,121,249,${0.3 + v * 0.3})`);
-        fillGrad.addColorStop(0.3, `rgba(251,191,36,${0.25 + v * 0.25})`);
-        fillGrad.addColorStop(0.6, `rgba(52,211,153,${0.3 + v * 0.3})`);
-        fillGrad.addColorStop(1, `rgba(96,165,250,${0.2 + v * 0.2})`);
-        waveCtx.fillStyle = fillGrad;
+        // Fill with vertical gradient (bright at wave edge, fading to bottom)
+        const grad = waveCtx.createLinearGradient(0, waveTop - waveAmp, 0, H);
+        grad.addColorStop(0, `rgba(${r},${g},${b},${L.alpha * 0.9})`);
+        grad.addColorStop(0.15, `rgba(${r},${g},${b},${L.alpha})`);
+        grad.addColorStop(0.5, `rgba(${r},${g},${b},${L.alpha * 0.6})`);
+        grad.addColorStop(1, `rgba(${r},${g},${b},${L.alpha * 0.2})`);
+
+        waveCtx.fillStyle = grad;
         waveCtx.fill();
 
-    } else {
-        // ── Listening: calm blue horizontal glow at the bottom ──
-        const glowY = H * (0.6 - v * 0.15);
-        const glowH = H * (0.35 + v * 0.3);
+        // Glow at the wave edge
+        waveCtx.save();
+        waveCtx.globalCompositeOperation = "screen";
 
-        // Diffuse blue glow
-        const grad = waveCtx.createLinearGradient(0, glowY - glowH * 0.5, 0, H);
-        grad.addColorStop(0, `rgba(96,165,250,0)`);
-        grad.addColorStop(0.3, `rgba(96,165,250,${0.08 + v * 0.15})`);
-        grad.addColorStop(0.6, `rgba(59,130,246,${0.15 + v * 0.25})`);
-        grad.addColorStop(0.85, `rgba(37,99,235,${0.2 + v * 0.3})`);
-        grad.addColorStop(1, `rgba(29,78,216,${0.15 + v * 0.2})`);
-        waveCtx.fillStyle = grad;
-        waveCtx.fillRect(0, 0, W, H);
+        const edgeGrad = waveCtx.createLinearGradient(0, waveTop - waveAmp * 1.5, 0, waveTop + waveAmp * 2);
+        edgeGrad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+        edgeGrad.addColorStop(0.4, `rgba(${r},${g},${b},${0.1 + v * 0.2})`);
+        edgeGrad.addColorStop(0.5, `rgba(${Math.min(255, r + 60)},${Math.min(255, g + 60)},${Math.min(255, b + 60)},${0.15 + v * 0.25})`);
+        edgeGrad.addColorStop(0.6, `rgba(${r},${g},${b},${0.1 + v * 0.2})`);
+        edgeGrad.addColorStop(1, `rgba(${r},${g},${b},0)`);
 
-        // Bright horizon line
-        const lineY = glowY + Math.sin(t * 0.8) * 4;
-        const lineGrad = waveCtx.createLinearGradient(0, lineY - 2, 0, lineY + 2 + v * 15);
-        lineGrad.addColorStop(0, `rgba(147,197,253,0)`);
-        lineGrad.addColorStop(0.3, `rgba(147,197,253,${0.3 + v * 0.5})`);
-        lineGrad.addColorStop(0.5, `rgba(191,219,254,${0.5 + v * 0.4})`);
-        lineGrad.addColorStop(0.7, `rgba(147,197,253,${0.3 + v * 0.5})`);
-        lineGrad.addColorStop(1, `rgba(147,197,253,0)`);
-        waveCtx.fillStyle = lineGrad;
-        waveCtx.fillRect(0, lineY - 20, W, 40 + v * 30);
-
-        // Center glow spot for warmth
-        const spotGrad = waveCtx.createRadialGradient(W * 0.5, lineY, 0, W * 0.5, lineY, W * (0.3 + v * 0.2));
-        spotGrad.addColorStop(0, `rgba(191,219,254,${0.2 + v * 0.3})`);
-        spotGrad.addColorStop(0.5, `rgba(96,165,250,${0.1 + v * 0.15})`);
-        spotGrad.addColorStop(1, `rgba(96,165,250,0)`);
-        waveCtx.fillStyle = spotGrad;
-        waveCtx.fillRect(0, 0, W, H);
+        waveCtx.fillStyle = edgeGrad;
+        waveCtx.fillRect(0, waveTop - waveAmp * 1.5, W, waveAmp * 3.5);
+        waveCtx.restore();
     }
 }
 
@@ -596,8 +598,8 @@ function tick() {
 
     const v = smoothVolume;
 
-    // Draw the Gemini-style wave
-    drawGeminiWave(v);
+    // Draw the fluid gradient wave
+    drawFluidWave(v);
 
     // Mic dot pulse — theme-aware
     const isDark = document.documentElement.classList.contains("dark");
