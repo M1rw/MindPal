@@ -380,14 +380,45 @@ export function updateProfileUI(user = null) {
 export function updateMentalHealthUI(profileResponse = null) {
   const clinical = profileResponse?.profile?.clinical || null;
 
-  const phq9Display = document.getElementById("phq9-score-display");
-  const gad7Display = document.getElementById("gad7-score-display");
+  const phq9Chart = document.getElementById("phq9-chart");
+  const gad7Chart = document.getElementById("gad7-chart");
   const problemsDisplay = document.getElementById("presenting-problems-display");
   const diagnosesDisplay = document.getElementById("suspected-diagnoses-display");
   const treatmentPlanDisplay = document.getElementById("treatment-plan-display");
 
-  if (phq9Display) phq9Display.textContent = clinical?.latest_phq9_score ?? "--";
-  if (gad7Display) gad7Display.textContent = clinical?.latest_gad7_score ?? "--";
+  // Render CSS Bar Chart for PHQ-9 (Max score 27)
+  if (phq9Chart) {
+    if (clinical?.phq9_history && clinical.phq9_history.length > 0) {
+      phq9Chart.innerHTML = clinical.phq9_history.map(item => {
+        const heightPct = Math.max(5, (item.score / 27) * 100);
+        return `
+          <div class="flex flex-col items-center flex-1 h-full justify-end group relative cursor-pointer">
+            <div class="w-full bg-indigo-500/80 hover:bg-indigo-400 rounded-t-sm transition-all duration-300 min-w-[20px]" style="height: ${heightPct}%;"></div>
+            <div class="absolute -top-6 bg-black text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">${item.score} (${item.date})</div>
+          </div>
+        `;
+      }).join("");
+    } else {
+      phq9Chart.innerHTML = `<div class="w-full h-full flex items-center justify-center italic text-gray-400 dark:text-gray-600 bg-gray-50 dark:bg-white/5 rounded-md border border-dashed border-gray-200 dark:border-white/10">No data</div>`;
+    }
+  }
+
+  // Render CSS Bar Chart for GAD-7 (Max score 21)
+  if (gad7Chart) {
+    if (clinical?.gad7_history && clinical.gad7_history.length > 0) {
+      gad7Chart.innerHTML = clinical.gad7_history.map(item => {
+        const heightPct = Math.max(5, (item.score / 21) * 100);
+        return `
+          <div class="flex flex-col items-center flex-1 h-full justify-end group relative cursor-pointer">
+            <div class="w-full bg-purple-500/80 hover:bg-purple-400 rounded-t-sm transition-all duration-300 min-w-[20px]" style="height: ${heightPct}%;"></div>
+            <div class="absolute -top-6 bg-black text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">${item.score} (${item.date})</div>
+          </div>
+        `;
+      }).join("");
+    } else {
+      gad7Chart.innerHTML = `<div class="w-full h-full flex items-center justify-center italic text-gray-400 dark:text-gray-600 bg-gray-50 dark:bg-white/5 rounded-md border border-dashed border-gray-200 dark:border-white/10">No data</div>`;
+    }
+  }
 
   if (problemsDisplay) {
     if (clinical?.presenting_problems && clinical.presenting_problems.length > 0) {

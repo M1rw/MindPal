@@ -731,10 +731,12 @@ def _build_user_preferences_prompt(profile: UserProfile, metadata: Any | None = 
             parts.append("suspected_diagnoses=" + ", ".join(clinical.suspected_diagnoses))
         if clinical.treatment_plan:
             parts.append(f"treatment_plan={clinical.treatment_plan}")
-        if clinical.latest_phq9_score is not None:
-            parts.append(f"latest_phq9_score={clinical.latest_phq9_score}")
-        if clinical.latest_gad7_score is not None:
-            parts.append(f"latest_gad7_score={clinical.latest_gad7_score}")
+        if clinical.phq9_history:
+            scores = ", ".join(f"{item.score} ({item.date})" for item in clinical.phq9_history[-5:])
+            parts.append(f"phq9_history=[{scores}]")
+        if clinical.gad7_history:
+            scores = ", ".join(f"{item.score} ({item.date})" for item in clinical.gad7_history[-5:])
+            parts.append(f"gad7_history=[{scores}]")
 
     return sanitize_text("\n".join(parts), MAX_USER_PREFS_PROMPT_CHARS)
 

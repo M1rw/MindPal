@@ -131,6 +131,11 @@ class UserPreferences(BaseModel):
         return _clean_ui_settings(value)
 
 
+class ClinicalScore(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    date: str = Field(min_length=1, max_length=80)
+    score: int = Field(ge=0, le=30)
+
 class ClinicalProfile(BaseModel):
     """
     Structured clinical data for MindPal Pro.
@@ -140,8 +145,8 @@ class ClinicalProfile(BaseModel):
     presenting_problems: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
     suspected_diagnoses: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
     treatment_plan: str = Field(default="", max_length=MAX_PROFILE_TEXT_CHARS)
-    latest_phq9_score: int | None = Field(default=None, ge=0, le=27)
-    latest_gad7_score: int | None = Field(default=None, ge=0, le=21)
+    phq9_history: list[ClinicalScore] = Field(default_factory=list, max_length=50)
+    gad7_history: list[ClinicalScore] = Field(default_factory=list, max_length=50)
 
     @field_validator("presenting_problems", "suspected_diagnoses", mode="before")
     @classmethod

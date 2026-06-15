@@ -383,15 +383,18 @@
                         <p class="settings-intro">MindPal Pro tracks your clinical progress over time. This data is private and injected as context during Pro sessions.</p>
                         <div class="settings-section">
                             <h3 class="settings-subtitle">Assessment Scores</h3>
-                            <div class="settings-row">
-                                <span class="settings-row-main"><span class="settings-row-title">PHQ-9 (Depression)</span><span class="settings-row-copy">Standardized depression severity score.</span></span>
-                                <span class="settings-row-action font-semibold text-lg" id="phq9-score-display">--</span>
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main mb-3"><span class="settings-row-title">PHQ-9 (Depression)</span><span class="settings-row-copy">Depression severity score over time.</span></div>
+                                <div id="phq9-chart" class="flex items-end gap-[2px] h-24 w-full text-[10px] text-gray-500 font-medium">
+                                    <div class="w-full h-full flex items-center justify-center italic text-gray-400 dark:text-gray-600 bg-gray-50 dark:bg-white/5 rounded-md border border-dashed border-gray-200 dark:border-white/10">No data</div>
+                                </div>
                             </div>
-                            <div class="settings-row">
-                                <span class="settings-row-main"><span class="settings-row-title">GAD-7 (Anxiety)</span><span class="settings-row-copy">Standardized anxiety severity score.</span></span>
-                                <span class="settings-row-action font-semibold text-lg" id="gad7-score-display">--</span>
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main mb-3"><span class="settings-row-title">GAD-7 (Anxiety)</span><span class="settings-row-copy">Anxiety severity score over time.</span></div>
+                                <div id="gad7-chart" class="flex items-end gap-[2px] h-24 w-full text-[10px] text-gray-500 font-medium">
+                                    <div class="w-full h-full flex items-center justify-center italic text-gray-400 dark:text-gray-600 bg-gray-50 dark:bg-white/5 rounded-md border border-dashed border-gray-200 dark:border-white/10">No data</div>
+                                </div>
                             </div>
-                            
                             <h3 class="settings-subtitle mt-6">Clinical Chart</h3>
                             <div class="settings-row settings-row-block">
                                 <span class="settings-row-main"><span class="settings-row-title">Presenting Problems</span></span>
@@ -524,48 +527,107 @@
         </div>
     </div>
 
-    <!-- IMMERSIVE VOICE MODE OVERLAY (GEMINI STYLE) -->
-    <div id="voice-live-overlay" class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-300 hidden overflow-hidden">
+    <!-- IMMERSIVE VOICE MODE OVERLAY (GEMINI IOS REPLICA) -->
+    <div id="voice-live-overlay" class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-300 hidden overflow-hidden font-sans">
         <!-- Dynamic Background Gradient -->
-        <div id="voice-bg-gradient" class="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-white to-blue-100/50 dark:from-gemini-darkBg dark:via-[#1e1f20] dark:to-blue-900/10 transition-colors duration-1000"></div>
+        <div id="voice-bg-gradient" class="absolute inset-0 bg-gradient-to-b from-[#e4f0ff] via-[#f1f6ff] to-[#f9fbff] dark:from-[#0b1324] dark:via-[#111928] dark:to-[#1a2333] transition-colors duration-1000"></div>
 
         <!-- Header -->
-        <div class="relative z-10 flex justify-between items-center p-6 w-full max-w-7xl mx-auto">
-            <button id="voice-cc-btn" class="p-3 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors tooltip-target" data-tooltip="Toggle Transcript">
-                <i data-lucide="subtitles" class="w-6 h-6"></i>
+        <div class="relative z-10 flex justify-between items-center px-6 py-12 w-full max-w-lg mx-auto">
+            <!-- Left: Back Button -->
+            <button id="voice-live-close" class="w-12 h-12 flex items-center justify-center rounded-full border border-black/5 dark:border-white/10 bg-white/50 dark:bg-black/20 hover:bg-white dark:hover:bg-black/40 text-gray-700 dark:text-gray-300 transition-colors backdrop-blur-md shadow-sm">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
             </button>
-            <button id="voice-live-close" class="p-3 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
+            <!-- Center: Title -->
+            <div class="text-gray-800 dark:text-gray-200 font-medium tracking-wide text-lg">Voice</div>
+            <!-- Right: Menu -->
+            <button class="w-12 h-12 flex items-center justify-center rounded-full border border-black/5 dark:border-white/10 bg-white/50 dark:bg-black/20 hover:bg-white dark:hover:bg-black/40 text-gray-700 dark:text-gray-300 transition-colors backdrop-blur-md shadow-sm">
+                <i data-lucide="more-vertical" class="w-5 h-5"></i>
             </button>
         </div>
 
         <!-- Main Content Area -->
-        <div class="relative z-10 flex-1 flex flex-col h-full w-full max-w-4xl mx-auto">
+        <div class="relative z-10 flex-1 flex flex-col items-center justify-start pt-6 h-full w-full max-w-md mx-auto">
             
-            <!-- Sliding Transcript Panel -->
-            <div id="voice-transcript-panel" class="flex-1 flex flex-col justify-end px-8 pb-12 overflow-y-auto transition-all duration-500 transform translate-y-10 opacity-0 pointer-events-none">
-                <div id="voice-live-user-text" class="text-xl md:text-2xl font-normal text-gray-500 dark:text-gray-400 min-h-[3rem] transition-all duration-300 mb-6 text-right"></div>
-                <div id="voice-live-ai-text" class="text-3xl md:text-5xl font-medium text-gray-900 dark:text-white min-h-[5rem] transition-all duration-300 leading-tight"></div>
-            </div>
-
-            <!-- Central Water Waves Visualizer -->
-            <div class="h-64 w-full flex flex-col items-center justify-center relative pb-10 flex-shrink-0" id="voice-orb-container">
-                <div id="voice-live-status" class="absolute top-0 text-sm font-medium text-gray-500 dark:text-gray-400 mb-8 transition-opacity duration-300">Connecting...</div>
+            <!-- Ethereal Mesh Orb Visualizer -->
+            <div class="w-full flex justify-center items-center h-[320px]" id="voice-orb-container">
+                <div id="voice-live-status" class="absolute top-12 text-sm font-medium text-gray-500 dark:text-gray-400 transition-opacity duration-300 opacity-0 pointer-events-none">Connecting...</div>
                 
-                <div class="relative w-32 h-32 flex items-center justify-center mt-6">
-                    <!-- Water Waves (Multiple rings) -->
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none" id="voice-wave-rings">
-                        <div class="voice-wave-ring absolute w-full h-full rounded-full border-[3px] border-blue-500/30 dark:border-blue-400/30 opacity-0 transform scale-100 transition-all duration-150"></div>
-                        <div class="voice-wave-ring absolute w-full h-full rounded-full border-[2px] border-blue-500/20 dark:border-blue-400/20 opacity-0 transform scale-100 transition-all duration-300"></div>
-                        <div class="voice-wave-ring absolute w-full h-full rounded-full border border-blue-500/10 dark:border-blue-400/10 opacity-0 transform scale-100 transition-all duration-500"></div>
-                    </div>
+                <div class="relative w-[280px] h-[280px] flex items-center justify-center">
+                    <!-- Base glow -->
+                    <div id="voice-orb-glow" class="absolute inset-0 rounded-full bg-blue-400/20 dark:bg-blue-500/10 blur-[50px] transition-all duration-1000 scale-100"></div>
                     
-                    <!-- Main central circle -->
-                    <div id="voice-live-circle" class="relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 dark:from-blue-500 dark:to-blue-700 flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.3)] transition-all duration-500">
-                        <i id="voice-live-icon" data-lucide="mic" class="w-10 h-10 text-white transition-colors duration-300"></i>
+                    <!-- SVG Mesh lines -->
+                    <div id="voice-orb-mesh" class="relative w-full h-full transition-transform duration-[400ms] ease-out flex items-center justify-center" style="transform: scale(1);">
+                        <svg viewBox="0 0 200 200" class="w-full h-full overflow-visible" style="filter: drop-shadow(0 0 8px rgba(255,255,255,0.8));">
+                            <defs>
+                                <linearGradient id="mesh-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="rgba(255,255,255,1)" />
+                                    <stop offset="50%" stop-color="rgba(150,200,255,0.7)" />
+                                    <stop offset="100%" stop-color="rgba(255,255,255,1)" />
+                                </linearGradient>
+                                <linearGradient id="mesh-grad-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="rgba(200,220,255,1)" />
+                                    <stop offset="50%" stop-color="rgba(100,150,255,0.6)" />
+                                    <stop offset="100%" stop-color="rgba(200,220,255,1)" />
+                                </linearGradient>
+                            </defs>
+                            <!-- Rotating groups -->
+                            <g id="orb-paths" fill="none" stroke="url(#mesh-grad)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="dark:stroke-[url(#mesh-grad-dark)]">
+                                <!-- Base Circle -->
+                                <circle cx="100" cy="100" r="95" stroke-width="2" stroke="rgba(255,255,255,0.9)" class="dark:stroke-white/80" />
+                                
+                                <g class="orb-rotator-1" style="transform-origin: center; transition: transform 0.5s ease-out;">
+                                    <path d="M 20 100 C 40 20, 160 20, 180 100 C 160 180, 40 180, 20 100" />
+                                </g>
+                                <g class="orb-rotator-2" style="transform-origin: center; transition: transform 0.6s ease-out;">
+                                    <path d="M 100 20 C 180 40, 180 160, 100 180 C 20 160, 20 40, 100 20" />
+                                </g>
+                                <g class="orb-rotator-3" style="transform-origin: center; transition: transform 0.7s ease-out;">
+                                    <path d="M 30 50 C 100 10, 170 150, 100 190 C 30 150, 10 100, 30 50" />
+                                </g>
+                                <g class="orb-rotator-4" style="transform-origin: center; transition: transform 0.8s ease-out;">
+                                    <ellipse cx="100" cy="100" rx="90" ry="30" transform="rotate(45 100 100)" stroke-width="1.2" />
+                                    <ellipse cx="100" cy="100" rx="90" ry="30" transform="rotate(-45 100 100)" stroke-width="1.2" />
+                                </g>
+                                
+                                <!-- Soft inner fill -->
+                                <circle cx="100" cy="100" r="80" fill="url(#mesh-grad)" fill-opacity="0.15" stroke="none" />
+                            </g>
+                        </svg>
                     </div>
                 </div>
             </div>
+
+            <!-- Transcript Area -->
+            <div class="w-full px-8 mt-6 flex flex-col flex-1 relative">
+                <div id="voice-live-ai-text" class="text-[26px] md:text-[32px] text-gray-800 dark:text-gray-100 min-h-[6rem] transition-all duration-300 leading-snug font-medium"></div>
+                <div id="voice-live-user-text" class="text-xl md:text-2xl text-gray-400 dark:text-gray-500 min-h-[2rem] transition-all duration-300 mt-2 font-medium"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="relative z-10 w-full max-w-md mx-auto pb-12 pt-6 px-10 flex justify-between items-center">
+            <!-- Keyboard -->
+            <button class="w-14 h-14 flex items-center justify-center rounded-full bg-white dark:bg-[#252525] shadow-[0_4px_15px_rgba(0,0,0,0.05)] text-gray-600 dark:text-gray-300 transition-transform hover:scale-105 active:scale-95 border border-black/5 dark:border-white/5">
+                <i data-lucide="keyboard" class="w-6 h-6"></i>
+            </button>
+            
+            <!-- Mic (Main Action) -->
+            <div class="relative w-24 h-24 flex items-center justify-center">
+                <!-- Ripples -->
+                <div id="voice-mic-ripple-1" class="absolute inset-0 rounded-full border-[1.5px] border-blue-200 dark:border-blue-800 opacity-0 scale-50 transition-all duration-[400ms] ease-out"></div>
+                <div id="voice-mic-ripple-2" class="absolute inset-0 rounded-full border-[1.5px] border-blue-100 dark:border-blue-900 opacity-0 scale-50 transition-all duration-[600ms] ease-out"></div>
+                
+                <button id="voice-cc-btn" class="relative z-10 w-20 h-20 flex items-center justify-center rounded-full bg-[#1b73e8] shadow-[0_8px_30px_rgba(27,115,232,0.4)] text-white transition-transform hover:scale-105 active:scale-95">
+                    <i data-lucide="mic" class="w-8 h-8 fill-current"></i>
+                </button>
+            </div>
+
+            <!-- Close -->
+            <button id="voice-live-close-bottom" class="w-14 h-14 flex items-center justify-center rounded-full bg-white dark:bg-[#252525] shadow-[0_4px_15px_rgba(0,0,0,0.05)] text-gray-600 dark:text-gray-300 transition-transform hover:scale-105 active:scale-95 border border-black/5 dark:border-white/5">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
         </div>
     </div>
 

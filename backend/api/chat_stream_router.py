@@ -28,6 +28,7 @@ from backend.models.memory_v3 import MemoryGraph, summary_from_memory_graph
 from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
 from backend.services.telemetry_service import TelemetryService
+from backend.services.clinical_extractor import extract_clinical_profile
 import time
 
 router = APIRouter(prefix="/api", tags=["chat_stream"])
@@ -215,6 +216,19 @@ async def chat_stream(
                 comp_tokens_est = len(final_reply) // 4
                 telemetry.log_llm_usage(provider="streaming", prompt_tokens=prompt_tokens_est, completion_tokens=comp_tokens_est)
                 telemetry.log_latency("chat_stream_full", (time.perf_counter() - start_time) * 1000)
+
+                # TRIGGER CLINICAL EXTRACTION IN BACKGROUND
+                if clinical_mode and authenticated:
+                    async def run_extraction():
+                        updated_profile = await extract_clinical_profile(
+                            llm=services.llm,
+                            messages=request.messages,
+                            current_profile=profile.clinical
+                        )
+                        profile.clinical = updated_profile
+                        await services.db.save_user_profile(profile)
+
+                    asyncio.create_task(run_extraction())
 
             except Exception as exc:
                 yield f"data: {json.dumps({'error': str(exc)})}\n\n"
