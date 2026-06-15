@@ -85,8 +85,7 @@ export async function startLiveVoice() {
     // Set listening colours
     applyPalette(PALETTE_LISTEN);
 
-    // Init wave canvas and start animation
-    initWaveCanvas();
+    // Start animation
     if (!animFrameId) tick();
 
     try {
@@ -305,53 +304,32 @@ export function stopLiveVoice() {
 /* ═══════════════ Wave State ═══════════════ */
 let currentPalette = "listen"; // "listen" | "speak"
 
-const WAVE_COLORS = {
-    listen: [
-        { r: 96, g: 165, b: 250 },   // blue-400
-        { r: 129, g: 140, b: 248 },   // indigo-400
-        { r: 167, g: 139, b: 250 },   // violet-400
-    ],
-    speak: [
-        { r: 249, g: 168, b: 212 },   // pink-300
-        { r: 192, g: 132, b: 252 },   // purple-400
-        { r: 251, g: 191, b: 36 },    // amber-400
-    ],
-};
+// Speaking palette changes gradient hue (applied via JS style overrides)
+const SPEAK_GRADIENTS = [
+    "linear-gradient(90deg, rgba(249,168,212,0.4), rgba(192,132,252,0.55), rgba(249,168,212,0.4))",
+    "linear-gradient(90deg, rgba(251,191,36,0.2), rgba(249,168,212,0.35), rgba(192,132,252,0.2))",
+    "linear-gradient(90deg, rgba(253,224,71,0.15), rgba(255,255,255,0.35), rgba(253,224,71,0.15))",
+    "linear-gradient(90deg, rgba(232,121,249,0.15), rgba(192,132,252,0.2), rgba(232,121,249,0.15))",
+];
+const LISTEN_GRADIENTS = [
+    "linear-gradient(90deg, rgba(96,165,250,0.35), rgba(129,140,248,0.5), rgba(167,139,250,0.35))",
+    "linear-gradient(90deg, rgba(56,189,248,0.2), rgba(96,165,250,0.35), rgba(192,132,252,0.2))",
+    "linear-gradient(90deg, rgba(224,242,254,0.15), rgba(255,255,255,0.4), rgba(224,242,254,0.15))",
+    "linear-gradient(90deg, rgba(99,102,241,0.15), rgba(129,140,248,0.2), rgba(99,102,241,0.15))",
+];
 
 function applyPalette(p) {
-    // p is PALETTE_LISTEN or PALETTE_SPEAK — we just track the mode
     currentPalette = (p === PALETTE_SPEAK) ? "speak" : "listen";
+    const grads = (currentPalette === "speak") ? SPEAK_GRADIENTS : LISTEN_GRADIENTS;
+    for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`voice-glow-${i + 1}`);
+        if (el) el.style.background = grads[i];
+    }
 }
 
 /* ═══════════════ Volume feeder ═══════════════ */
 function feedVolume(rms) {
     smoothVolume = Math.max(smoothVolume, Math.min(1, rms * 14));
-}
-
-/* ═══════════════ Canvas Wave Renderer ═══════════════ */
-let waveCanvas = null;
-let waveCtx = null;
-
-function initWaveCanvas() {
-    waveCanvas = document.getElementById("voice-wave-canvas");
-    if (!waveCanvas) return;
-    waveCtx = waveCanvas.getContext("2d");
-    resizeWaveCanvas();
-    window.addEventListener("resize", resizeWaveCanvas);
-}
-
-function resizeWaveCanvas() {
-    if (!waveCanvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    waveCanvas.width = waveCanvas.clientWidth * dpr;
-    waveCanvas.height = waveCanvas.clientHeight * dpr;
-    waveCtx.scale(dpr, dpr);
-}
-
-function destroyWaveCanvas() {
-    window.removeEventListener("resize", resizeWaveCanvas);
-    waveCanvas = null;
-    waveCtx = null;
 }
 
 /* ═══════════════ Animation tick ═══════════════ */
@@ -364,74 +342,49 @@ function tick() {
 
     const v = smoothVolume;
 
-    // Draw waves on canvas
-    if (waveCtx && waveCanvas) {
-        const W = waveCanvas.clientWidth;
-        const H = waveCanvas.clientHeight;
-        waveCtx.clearRect(0, 0, W, H);
+    // Animate gradient wave bands — gentle vertical bob + volume scaling
+    const g1 = document.getElementById("voice-glow-1");
+    const g2 = document.getElementById("voice-glow-2");
+    const g3 = document.getElementById("voice-glow-3");
+    const g4 = document.getElementById("voice-glow-4");
 
-        const colors = WAVE_COLORS[currentPalette] || WAVE_COLORS.listen;
-        const baseY = H * 0.65; // wave center at 65% from top
-        const waveHeight = 30 + v * 80; // wave amplitude scales with volume
-
-        // Draw 3 layered waves
-        for (let layer = 0; layer < 3; layer++) {
-            const c = colors[layer];
-            const alpha = (0.25 + v * 0.35) * (1 - layer * 0.2);
-            const freq = 0.003 + layer * 0.001;
-            const speed = blobPhase * (1.2 + layer * 0.4);
-            const amplitude = waveHeight * (1 - layer * 0.25);
-            const yOffset = layer * 8;
-
-            // Glow pass (wider, more transparent)
-            waveCtx.beginPath();
-            waveCtx.moveTo(0, H);
-            for (let x = 0; x <= W; x += 2) {
-                const y = baseY + yOffset
-                    + Math.sin(x * freq + speed) * amplitude
-                    + Math.sin(x * freq * 2.3 + speed * 0.7) * amplitude * 0.3
-                    + Math.sin(x * freq * 0.5 + speed * 1.3) * amplitude * 0.5;
-                waveCtx.lineTo(x, y);
-            }
-            waveCtx.lineTo(W, H);
-            waveCtx.closePath();
-
-            // Gradient fill from wave to bottom
-            const grad = waveCtx.createLinearGradient(0, baseY - amplitude, 0, H);
-            grad.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${alpha})`);
-            grad.addColorStop(0.4, `rgba(${c.r},${c.g},${c.b},${alpha * 0.5})`);
-            grad.addColorStop(1, `rgba(${c.r},${c.g},${c.b},0)`);
-            waveCtx.fillStyle = grad;
-            waveCtx.fill();
-        }
-
-        // Top glow line (bright edge of the wave)
-        const mainC = colors[0];
-        const glowAlpha = 0.5 + v * 0.5;
-        waveCtx.beginPath();
-        for (let x = 0; x <= W; x += 2) {
-            const y = baseY
-                + Math.sin(x * 0.003 + blobPhase * 1.2) * waveHeight
-                + Math.sin(x * 0.007 + blobPhase * 0.7) * waveHeight * 0.3
-                + Math.sin(x * 0.0015 + blobPhase * 1.3) * waveHeight * 0.5;
-            if (x === 0) waveCtx.moveTo(x, y);
-            else waveCtx.lineTo(x, y);
-        }
-        waveCtx.strokeStyle = `rgba(${mainC.r},${mainC.g},${mainC.b},${glowAlpha})`;
-        waveCtx.lineWidth = 1.5;
-        waveCtx.shadowColor = `rgba(${mainC.r},${mainC.g},${mainC.b},${glowAlpha})`;
-        waveCtx.shadowBlur = 20 + v * 40;
-        waveCtx.stroke();
-        waveCtx.shadowBlur = 0;
+    if (g1) {
+        const yShift = Math.sin(blobPhase * 1.1) * 8 + v * -20;
+        const sc = 1 + v * 0.3;
+        g1.style.transform = `translateY(${yShift}px) scaleY(${sc})`;
+        g1.style.opacity = String(0.8 + v * 0.2);
+    }
+    if (g2) {
+        const yShift = Math.sin(blobPhase * 0.7 + 1) * 10 + v * -15;
+        const sc = 1 + v * 0.25;
+        g2.style.transform = `translateY(${yShift}px) scaleY(${sc})`;
+        g2.style.opacity = String(0.7 + v * 0.3);
+    }
+    if (g3) {
+        const yShift = Math.sin(blobPhase * 1.4 + 2) * 6 + v * -25;
+        const sc = 1 + v * 0.4;
+        g3.style.transform = `translateY(${yShift}px) scaleY(${sc})`;
+        g3.style.opacity = String(0.6 + v * 0.4);
+    }
+    if (g4) {
+        const yShift = Math.sin(blobPhase * 0.5 + 3) * 12 + v * -10;
+        const sc = 1 + v * 0.15;
+        g4.style.transform = `translateY(${yShift}px) scaleY(${sc})`;
+        g4.style.opacity = String(0.5 + v * 0.3);
     }
 
-    // Mic dot pulse — subtle border glow, no gradient
+    // Mic dot pulse — theme-aware
+    const isDark = document.documentElement.classList.contains("dark");
     const micDot = document.getElementById("voice-mic-dot");
     if (micDot) {
         micDot.style.transform = `scale(${1 + v * 0.08})`;
-        const borderAlpha = 0.2 + v * 0.4;
-        micDot.style.borderColor = `rgba(255,255,255,${borderAlpha})`;
-        micDot.style.backgroundColor = `rgba(255,255,255,${0.08 + v * 0.06})`;
+        if (isDark) {
+            micDot.style.borderColor = `rgba(255,255,255,${0.2 + v * 0.4})`;
+            micDot.style.backgroundColor = `rgba(255,255,255,${0.08 + v * 0.06})`;
+        } else {
+            micDot.style.borderColor = `rgba(0,0,0,${0.1 + v * 0.2})`;
+            micDot.style.backgroundColor = `rgba(0,0,0,${0.03 + v * 0.04})`;
+        }
     }
 
     // Mic ripples

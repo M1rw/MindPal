@@ -548,26 +548,39 @@
     <!-- MINDPAL VOICE — Immersive voice overlay                      -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <div id="voice-live-overlay"
-         class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-500 hidden overflow-hidden font-sans bg-[#0a0a0f]">
+         class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-500 hidden overflow-hidden font-sans bg-white dark:bg-[#0a0a0f]">
 
-        <!-- Wave canvas — fills entire overlay, drawn by JS -->
-        <canvas id="voice-wave-canvas" class="absolute inset-0 w-full h-full z-0 pointer-events-none"></canvas>
+        <!-- Gradient wave bands — horizontally stretched blurred layers -->
+        <div id="voice-wave-layer" class="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+            <!-- Primary glow band -->
+            <div id="voice-glow-1" class="absolute left-[-10%] right-[-10%] h-[180px] rounded-[100%] will-change-transform transition-all duration-200"
+                 style="bottom:28%; background: linear-gradient(90deg, rgba(96,165,250,0.35), rgba(129,140,248,0.5), rgba(167,139,250,0.35)); filter: blur(60px);"></div>
+            <!-- Secondary wider glow -->
+            <div id="voice-glow-2" class="absolute left-[-15%] right-[-15%] h-[140px] rounded-[100%] will-change-transform transition-all duration-300"
+                 style="bottom:24%; background: linear-gradient(90deg, rgba(56,189,248,0.2), rgba(96,165,250,0.35), rgba(192,132,252,0.2)); filter: blur(80px);"></div>
+            <!-- Bright center highlight -->
+            <div id="voice-glow-3" class="absolute left-[15%] right-[15%] h-[100px] rounded-[100%] will-change-transform transition-all duration-150"
+                 style="bottom:32%; background: linear-gradient(90deg, rgba(224,242,254,0.15), rgba(255,255,255,0.4), rgba(224,242,254,0.15)); filter: blur(40px);"></div>
+            <!-- Deep bottom wash -->
+            <div id="voice-glow-4" class="absolute left-[-5%] right-[-5%] h-[200px] rounded-[50%] will-change-transform transition-all duration-500"
+                 style="bottom:15%; background: linear-gradient(90deg, rgba(99,102,241,0.15), rgba(129,140,248,0.2), rgba(99,102,241,0.15)); filter: blur(100px);"></div>
+        </div>
 
         <!-- ── Top bar ── -->
         <header class="relative z-20 flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top,12px),12px)] pb-2 w-full">
             <button id="voice-live-close"
-                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 text-gray-300 transition-colors active:scale-90"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
                     title="Close">
                 <i data-lucide="arrow-left" class="w-5 h-5"></i>
             </button>
 
-            <span class="text-[15px] font-medium tracking-tight text-gray-100 flex items-center gap-1.5">
+            <span class="text-[15px] font-medium tracking-tight text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
                 MindPal
-                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-white/10 text-gray-400">Voice</span>
+                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400">Voice</span>
             </span>
 
             <button id="voice-cc-toggle"
-                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 text-gray-300 transition-colors active:scale-90"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
                     title="Toggle captions">
                 <i data-lucide="captions" class="w-5 h-5"></i>
             </button>
@@ -576,7 +589,7 @@
         <!-- ── Status pill ── -->
         <div class="relative z-20 flex justify-center px-5 py-2">
             <div id="voice-live-status"
-                 class="px-4 py-1.5 rounded-full text-[12px] font-medium tracking-wide bg-white/10 text-gray-400 transition-all duration-300">
+                 class="px-4 py-1.5 rounded-full text-[12px] font-medium tracking-wide bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 transition-all duration-300">
                 Connecting…
             </div>
         </div>
@@ -595,26 +608,26 @@
 
         <!-- ── Bottom controls ── -->
         <div class="relative z-20 w-full max-w-md mx-auto px-6 pb-[max(env(safe-area-inset-bottom,24px),24px)] pt-6 flex flex-col items-center gap-6">
-            <!-- Mic indicator — clean circle, no gradient -->
+            <!-- Mic indicator -->
             <div class="relative flex items-center justify-center">
-                <div id="voice-mic-ripple-1" class="absolute w-20 h-20 rounded-full border border-white/10 opacity-0 transition-all duration-300 ease-out"></div>
-                <div id="voice-mic-ripple-2" class="absolute w-24 h-24 rounded-full border border-white/5 opacity-0 transition-all duration-500 ease-out"></div>
+                <div id="voice-mic-ripple-1" class="absolute w-20 h-20 rounded-full border border-black/5 dark:border-white/10 opacity-0 transition-all duration-300 ease-out"></div>
+                <div id="voice-mic-ripple-2" class="absolute w-24 h-24 rounded-full border border-black/[0.03] dark:border-white/5 opacity-0 transition-all duration-500 ease-out"></div>
                 <div id="voice-mic-dot"
-                     class="w-16 h-16 rounded-full bg-white/10 border border-white/20 flex items-center justify-center transition-all duration-200">
-                    <i data-lucide="mic" class="w-6 h-6 text-white/80"></i>
+                     class="w-16 h-16 rounded-full bg-black/[0.04] dark:bg-white/10 border border-black/10 dark:border-white/20 flex items-center justify-center transition-all duration-200">
+                    <i data-lucide="mic" class="w-6 h-6 text-gray-600 dark:text-white/80"></i>
                 </div>
             </div>
 
             <!-- Action row -->
             <div class="flex items-center gap-4">
                 <button id="voice-live-close-bottom"
-                        class="h-10 px-5 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 text-gray-300 text-[13px] font-medium hover:bg-white/10 transition-all active:scale-95"
+                        class="h-10 px-5 flex items-center gap-2 rounded-full border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/5 text-gray-600 dark:text-gray-300 text-[13px] font-medium hover:bg-black/[0.06] dark:hover:bg-white/10 transition-all active:scale-95"
                         title="End voice">
-                    <i data-lucide="phone-off" class="w-4 h-4 text-red-400"></i>
+                    <i data-lucide="phone-off" class="w-4 h-4 text-red-500 dark:text-red-400"></i>
                     End
                 </button>
 
-                <button class="h-10 px-5 flex items-center gap-2 rounded-full border border-white/10 bg-white/5 text-gray-300 text-[13px] font-medium hover:bg-white/10 transition-all active:scale-95"
+                <button class="h-10 px-5 flex items-center gap-2 rounded-full border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/5 text-gray-600 dark:text-gray-300 text-[13px] font-medium hover:bg-black/[0.06] dark:hover:bg-white/10 transition-all active:scale-95"
                         title="Speaker">
                     <i data-lucide="volume-2" class="w-4 h-4"></i>
                     Speaker
