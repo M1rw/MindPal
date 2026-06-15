@@ -520,7 +520,7 @@ function updateBins(v) {
     }
 }
 
-/* ── Draw bezier curves through frequency bins ── */
+/* ── Draw organic gradient light from frequency data ── */
 function drawVisualizer(v) {
     if (!vizCtx || !vizCanvas || !smoothBins) return;
 
@@ -535,74 +535,89 @@ function drawVisualizer(v) {
     // Update frequency bins
     updateBins(v);
 
-    const maxH = H * 0.4;
+    // ── Extract energy from frequency bands ──
+    let bassEnergy = 0, midEnergy = 0, highEnergy = 0;
+    const third = Math.floor(BIN_COUNT / 3);
+    for (let i = 0; i < third; i++) bassEnergy += smoothBins[i];
+    for (let i = third; i < third * 2; i++) midEnergy += smoothBins[i];
+    for (let i = third * 2; i < BIN_COUNT; i++) highEnergy += smoothBins[i];
+    bassEnergy = Math.min(1, bassEnergy / third * 1.5);
+    midEnergy = Math.min(1, midEnergy / third * 1.8);
+    highEnergy = Math.min(1, highEnergy / third * 2.5);
 
-    // 3 layers: different height scales and alpha for depth
-    const layers = [
-        { scale: 1.0,  alpha: 0.35, offset: 0 },
-        { scale: 0.7,  alpha: 0.25, offset: 0.15 },
-        { scale: 0.45, alpha: 0.18, offset: 0.3 },
-    ];
+    const totalEnergy = (bassEnergy * 0.5 + midEnergy * 0.3 + highEnergy * 0.2);
 
-    // Blue base → pink accent
-    const br = 59, bg = 130, bb = 246;
-    const pr = 200, pg = 120, pb = 240;
-    const cr = Math.round(br + (pr - br) * colorBlend * 0.6);
-    const cg = Math.round(bg + (pg - bg) * colorBlend * 0.6);
-    const cb = Math.round(bb + (pb - bb) * colorBlend * 0.6);
+    // ── Colors ──
+    const br = 59, bg2 = 130, bb = 246;   // blue base
+    const pr = 200, pg = 120, pb = 240;    // pink accent
+    const bl = colorBlend * 0.6;
+    const r1 = Math.round(br + (pr - br) * bl);
+    const g1 = Math.round(bg2 + (pg - bg2) * bl);
+    const b1 = Math.round(bb + (pb - bb) * bl);
+    // Lighter version for glow center
+    const r2 = Math.min(255, r1 + 60);
+    const g2 = Math.min(255, g1 + 50);
+    const b2 = Math.min(255, b1 + 30);
 
-    // Draw layers back to front
-    for (let li = layers.length - 1; li >= 0; li--) {
-        const L = layers[li];
+    const cx = W / 2;
+    const cy = H + H * 0.05; // just below bottom edge
 
-        // Build smooth points from bins
-        const pts = [];
-        for (let i = 0; i < BIN_COUNT; i++) {
-            const x = (i / (BIN_COUNT - 1)) * W;
-            const phaseShift = Math.sin(blobPhase * (1 + li * 0.3) + i * L.offset) * 0.15;
-            const binVal = Math.min(1, smoothBins[i] + phaseShift) * L.scale;
-            pts.push({ x, y: H - binVal * maxH });
-        }
+    const t = blobPhase;
 
-        // Filled bezier path
-        vizCtx.beginPath();
-        vizCtx.moveTo(0, H);
-        vizCtx.lineTo(pts[0].x, pts[0].y);
+    // ── Layer 1: Deep ambient glow ──
+    const ambR = W * (0.7 + bassEnergy * 0.5);
+    const ambGrad = vizCtx.createRadialGradient(cx, cy, 0, cx, cy, ambR);
+    ambGrad.addColorStop(0, `rgba(${r1},${g1},${b1},${0.25 + totalEnergy * 0.2})`);
+    ambGrad.addColorStop(0.4, `rgba(${r1},${g1},${b1},${0.12 + totalEnergy * 0.12})`);
+    ambGrad.addColorStop(0.7, `rgba(${r1},${g1},${b1},${0.04 + totalEnergy * 0.05})`);
+    ambGrad.addColorStop(1, `rgba(${r1},${g1},${b1},0)`);
+    vizCtx.fillStyle = ambGrad;
+    vizCtx.fillRect(0, 0, W, H);
 
-        for (let i = 0; i < pts.length - 1; i++) {
-            const cpX = (pts[i].x + pts[i + 1].x) / 2;
-            vizCtx.bezierCurveTo(cpX, pts[i].y, cpX, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y);
-        }
+    // ── Layer 2: Mid-frequency reactive glow (offset left/right) ──
+    const midOx = Math.sin(t * 0.7) * W * 0.08 * (1 + midEnergy);
+    const midR = W * (0.4 + midEnergy * 0.35);
+    const midGrad = vizCtx.createRadialGradient(cx + midOx, cy - H * 0.1, 0, cx + midOx, cy - H * 0.1, midR);
+    const mr = Math.min(255, r1 + 30);
+    const mg = Math.min(255, g1 + 20);
+    const mb = Math.min(255, b1 + 15);
+    midGrad.addColorStop(0, `rgba(${mr},${mg},${mb},${0.2 + midEnergy * 0.25})`);
+    midGrad.addColorStop(0.5, `rgba(${mr},${mg},${mb},${0.08 + midEnergy * 0.1})`);
+    midGrad.addColorStop(1, `rgba(${mr},${mg},${mb},0)`);
+    vizCtx.fillStyle = midGrad;
+    vizCtx.fillRect(0, 0, W, H);
 
-        vizCtx.lineTo(W, H);
-        vizCtx.closePath();
+    // ── Layer 3: High-frequency shimmer (smaller, brighter) ──
+    const hiOx = Math.sin(t * 1.2 + 2) * W * 0.06;
+    const hiOy = Math.sin(t * 0.9 + 1) * H * 0.03;
+    const hiR = W * (0.2 + highEnergy * 0.25);
+    const hiGrad = vizCtx.createRadialGradient(cx + hiOx, cy - H * 0.15 + hiOy, 0, cx + hiOx, cy - H * 0.15 + hiOy, hiR);
+    hiGrad.addColorStop(0, `rgba(${r2},${g2},${b2},${0.15 + highEnergy * 0.3})`);
+    hiGrad.addColorStop(0.4, `rgba(${r2},${g2},${b2},${0.06 + highEnergy * 0.12})`);
+    hiGrad.addColorStop(1, `rgba(${r2},${g2},${b2},0)`);
+    vizCtx.fillStyle = hiGrad;
+    vizCtx.fillRect(0, 0, W, H);
 
-        // Gradient: wave edge → transparent bottom
-        const topY = Math.min(...pts.map(p => p.y));
-        const grad = vizCtx.createLinearGradient(0, topY, 0, H);
-        const lr = Math.min(255, cr + li * 20);
-        const lg = Math.min(255, cg + li * 15);
-        const lb = Math.min(255, cb + li * 5);
-        grad.addColorStop(0, `rgba(${lr},${lg},${lb},${L.alpha + v * 0.15})`);
-        grad.addColorStop(0.3, `rgba(${lr},${lg},${lb},${L.alpha * 0.7 + v * 0.1})`);
-        grad.addColorStop(1, `rgba(${lr},${lg},${lb},0.02)`);
+    // ── Layer 4: Bright core — the "light source" ──
+    const coreR = W * (0.15 + totalEnergy * 0.2);
+    const corePulse = 1 + Math.sin(t * 1.5) * 0.05 * (1 + totalEnergy * 3);
+    const coreGrad = vizCtx.createRadialGradient(cx, cy, 0, cx, cy, coreR * corePulse);
+    coreGrad.addColorStop(0, `rgba(${r2},${g2},${b2},${0.3 + totalEnergy * 0.35})`);
+    coreGrad.addColorStop(0.3, `rgba(${r1},${g1},${b1},${0.15 + totalEnergy * 0.2})`);
+    coreGrad.addColorStop(1, `rgba(${r1},${g1},${b1},0)`);
+    vizCtx.fillStyle = coreGrad;
+    vizCtx.fillRect(0, 0, W, H);
 
-        vizCtx.fillStyle = grad;
-        vizCtx.fill();
-
-        // Glowing edge stroke
-        vizCtx.beginPath();
-        vizCtx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 0; i < pts.length - 1; i++) {
-            const cpX = (pts[i].x + pts[i + 1].x) / 2;
-            vizCtx.bezierCurveTo(cpX, pts[i].y, cpX, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y);
-        }
-        vizCtx.strokeStyle = `rgba(${Math.min(255, lr + 40)},${Math.min(255, lg + 40)},${Math.min(255, lb + 20)},${0.15 + v * 0.3})`;
-        vizCtx.lineWidth = 1.5 + v * 1.5;
-        vizCtx.shadowColor = `rgba(${lr},${lg},${lb},${0.3 + v * 0.4})`;
-        vizCtx.shadowBlur = 12 + v * 20;
-        vizCtx.stroke();
-        vizCtx.shadowBlur = 0;
+    // ── Layer 5: Pink accent bloom (only when speaking) ──
+    if (colorBlend > 0.05) {
+        const pinkOx = Math.sin(t * 0.5 + 3) * W * 0.1;
+        const pinkR = W * (0.3 + bassEnergy * 0.2) * colorBlend;
+        const pinkGrad = vizCtx.createRadialGradient(cx + pinkOx, cy - H * 0.08, 0, cx + pinkOx, cy - H * 0.08, pinkR);
+        pinkGrad.addColorStop(0, `rgba(${pr},${pg},${pb},${0.12 * colorBlend + totalEnergy * 0.15})`);
+        pinkGrad.addColorStop(0.5, `rgba(${pr},${pg},${pb},${0.04 * colorBlend + totalEnergy * 0.05})`);
+        pinkGrad.addColorStop(1, `rgba(${pr},${pg},${pb},0)`);
+        vizCtx.fillStyle = pinkGrad;
+        vizCtx.fillRect(0, 0, W, H);
     }
 }
 
