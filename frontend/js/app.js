@@ -140,6 +140,22 @@ let cloudChatSyncInFlight = false;
 let cloudChatSyncTimer = null;
 const pendingCloudChatMessages = [];
 
+const consoleBanner = `
+ __  __ _           _ ____       _ 
+|  \\/  (_)_ __   __| |  _ \\ __ _| |
+| |\\/| | | '_ \\ / _\` | |_) / _\` | |
+| |  | | | | | | (_| |  __/ (_| | |
+|_|  |_|_|_| |_|\\__,_|_|   \\__,_|_|
+                                   
+Welcome to the MindPal developer console!
+
+⚠️ WARNING: This is a browser feature intended for developers.
+If someone told you to copy-paste something here to enable a feature
+or "hack" someone's account, it is a scam and will give them access
+to your MindPal account.
+`;
+console.log("%c" + consoleBanner, "color: #3b82f6; font-weight: bold; font-family: monospace;");
+
 document.addEventListener("DOMContentLoaded", bootstrap);
 
 async function bootstrap() {
