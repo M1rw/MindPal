@@ -1186,10 +1186,15 @@ async function handleSend() {
   const outboundMessage = text;
 
   const statusId = `status-${Date.now()}`;
-  appendStatusIndicator(statusId);
+
   // Create streaming container before try so catch can clean it up on failure
   const chatHistory = document.getElementById("chat-history");
-  let streamMsgDiv = null;
+  let streamMsgDiv = document.createElement("div");
+  streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
+  if (chatHistory) chatHistory.appendChild(streamMsgDiv);
+
+  appendStatusIndicator(statusId, streamMsgDiv);
+
   let contentBox = null;
   let streamResponseStr = "";
 
@@ -1199,17 +1204,12 @@ async function handleSend() {
     const state = getState();
     const token = await getIdToken();
     const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
-
-    // Build the streaming container
-    streamMsgDiv = document.createElement("div");
-    streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     contentBox = document.createElement("div");
     contentBox.className = "content-box";
     contentContainer.appendChild(contentBox);
     streamMsgDiv.appendChild(contentContainer);
-    if (chatHistory) chatHistory.appendChild(streamMsgDiv);
     scrollChatToBottom("auto", true);
     let backendMetaFinal = null;
 
@@ -1606,9 +1606,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
   setChatStarted(true);
 
   const statusId = `status-regenerate-${Date.now()}`;
-  appendStatusIndicator(statusId);
   let streamResponseStr = "";
-
   let streamMsgDiv = null;
   let firstChunkReceived = false;
 
@@ -1620,13 +1618,16 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     const chatHistory = document.getElementById("chat-history");
     streamMsgDiv = document.createElement("div");
     streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
+    if (chatHistory) chatHistory.appendChild(streamMsgDiv);
+
+    appendStatusIndicator(statusId, streamMsgDiv);
+
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     const contentBox = document.createElement("div");
     contentBox.className = "content-box";
     contentContainer.appendChild(contentBox);
     streamMsgDiv.appendChild(contentContainer);
-    if (chatHistory) chatHistory.appendChild(streamMsgDiv);
     scrollChatToBottom("auto", true);
 
     let backendMetaFinal = null;
