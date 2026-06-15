@@ -550,8 +550,8 @@
     <div id="voice-live-overlay"
          class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-500 hidden overflow-hidden font-sans bg-white dark:bg-[#0a0a0f]">
 
-        <!-- Gemini-style gradient wave canvas — covers bottom portion -->
-        <canvas id="voice-wave-canvas" class="absolute bottom-0 left-0 right-0 h-[45%] z-0 pointer-events-none"></canvas>
+        <!-- Fluid gradient wave canvas — full overlay, drawn from bottom -->
+        <canvas id="voice-wave-canvas" class="absolute inset-0 w-full h-full z-0 pointer-events-none"></canvas>
 
         <!-- ── Top bar ── -->
         <header class="relative z-20 flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top,12px),12px)] pb-2 w-full">
