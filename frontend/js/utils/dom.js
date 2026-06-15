@@ -1,7 +1,7 @@
-import { escapeHtml, scrollChatToBottom } from "../ui_state.js?v=20260615-streaming-v7";
+export { escapeHtml, scrollChatToBottom } from "../ui_state.js?v=20260615-streaming-v7";
 
 export function formatMarkdown(text) {
-  const escaped = escapeHtml(text);
+  const escaped = String(text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return escaped
     .replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-gray-100 font-semibold">$1</strong>')
     .replace(/\*(.*?)\*/g, "<em>$1</em>")
