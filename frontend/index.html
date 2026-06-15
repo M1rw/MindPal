@@ -37,7 +37,9 @@
             }
         }
         window.MINDPAL_CONFIG = {
-            API_BASE_URL: "https://mindpal-demo.vercel.app/api",
+            API_BASE_URL: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+                ? "http://127.0.0.1:8000/api" 
+                : "https://mindpal-demo.vercel.app/api",
 
             FIREBASE_CONFIG: {
                 apiKey: "AIzaSyCNyY5Dp7Umw0sLZYLgYc6-_DhNjVU7Chc",
@@ -230,6 +232,34 @@
                     ></textarea>
 
                     <div class="flex items-center gap-1 pr-1 h-11">
+                        <!-- Model Selector -->
+                        <div class="relative flex items-center h-full">
+                            <button id="model-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-semibold text-gray-800 dark:text-gray-200 transition-colors">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-blue-500" id="current-model-icon"></i>
+                                <span id="current-model-text">MindPal Standard</span>
+                                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                            </button>
+
+                            <div id="model-dropdown" class="absolute bottom-full right-0 mb-2 w-64 bg-white dark:bg-zinc-800 border border-gemini-border dark:border-gemini-darkBorder rounded-2xl shadow-xl p-2 hidden z-50">
+                                <div class="text-[10px] font-semibold text-gray-400 px-3 py-1.5 uppercase tracking-wider">Select Model</div>
+                                <button class="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option" data-model="standard">
+                                    <i data-lucide="user" class="w-4 h-4 text-blue-500 mt-0.5"></i>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">MindPal Standard</div>
+                                        <div class="text-[11px] text-gray-500 dark:text-gray-400">Warm peer support. Fast & safe.</div>
+                                    </div>
+                                </button>
+                                <button class="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option" data-model="pro">
+                                    <i data-lucide="stethoscope" class="w-4 h-4 text-purple-500 mt-0.5"></i>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">MindPal Pro <span class="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">Clinical</span></div>
+                                        <div class="text-[11px] text-gray-500 dark:text-gray-400">Deep analysis, diagnostic thinking.</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Mode Selector -->
                         <div class="relative flex items-center h-full">
                             <button id="mode-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-semibold text-gray-600 dark:text-[#c4c7c5] transition-colors">
                                 <span id="current-mode-text">Active Listen</span>

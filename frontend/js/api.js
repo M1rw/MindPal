@@ -226,6 +226,7 @@ export async function sendChatMessage({
   locale = "en",
   channel = "web",
   mode = "Active Listen",
+  model = "standard",
   token = null,
   profileContext = null,
 }) {
@@ -244,6 +245,7 @@ export async function sendChatMessage({
   const metadata = {
     locale,
     mode: backendPreference,  // Send as preference hint, not locked mode
+    model,
     ...(profileContext?.settingsMetadata || {}),
   };
 
@@ -437,6 +439,7 @@ export async function sendChatMessageStream({
   locale = "en",
   channel = "web",
   mode = "Active Listen",
+  model = "standard",
   token = null,
   profileContext = null,
   onChunk = (text) => {},
@@ -449,7 +452,7 @@ export async function sendChatMessageStream({
 
   const backendPreference = MODE_UI_TO_BACKEND[mode] || "active_listen";
   const normalizedHistory = normalizeChatHistory(history, 60, "content");
-  const metadata = { locale, mode: backendPreference, ...(profileContext?.settingsMetadata || {}) };
+  const metadata = { locale, mode: backendPreference, model, ...(profileContext?.settingsMetadata || {}) };
 
   const url = `${API_BASE_URL}/chat/stream`;
   const headers = { "Content-Type": "application/json" };

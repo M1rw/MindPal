@@ -126,6 +126,7 @@ async def chat(
 
         # Infer mode from semantic intake + safety + user's listening preference.
         user_preference = payload.metadata.mode or ""
+        clinical_mode = payload.metadata.model == "pro"
         response_mode = infer_response_mode_for_preference(
             preference=user_preference,
             safety_level=safety_decision.level.value,
@@ -150,6 +151,7 @@ async def chat(
             safety_level=safety_decision.level.value,
             channel=context.channel.value,
             user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
+            clinical_mode=clinical_mode,
         )
 
         llm_request = build_llm_request(

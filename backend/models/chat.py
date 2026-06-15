@@ -78,6 +78,7 @@ class ChatMetadata(BaseModel):
     channel: ChatChannel = ChatChannel.WEB
     voice: bool = False
     mode: str | None = Field(default=None, max_length=80)
+    model: str | None = Field(default="standard", max_length=80)
     client_request_id: str | None = Field(default=None, max_length=120)
     timezone: str | None = Field(default=None, max_length=80)
     ui_language: str | None = Field(default=None, max_length=20)
@@ -95,6 +96,7 @@ class ChatMetadata(BaseModel):
 
     @field_validator(
         "mode",
+        "model",
         "client_request_id",
         "timezone",
         "ui_language",
