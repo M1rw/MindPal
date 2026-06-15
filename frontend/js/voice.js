@@ -79,7 +79,7 @@ const PHASE_COPY = {
   [PHASE.IDLE]: ["Voice paused", "Try again or type your message."],
   [PHASE.CONFIRMING_LANGUAGE]: ["Confirm voice language", "Choose whether to continue recording."],
   [PHASE.PREPARING_MIC]: ["Preparing mic", "Allow microphone access if the browser asks."],
-  [PHASE.LISTENING]: ["Listening", "Speak naturally. Press check to use the transcript."],
+  [PHASE.LISTENING]: ["Recording audio", "Speak now. Transcript will appear after you click the check mark."],
   [PHASE.STOPPING]: ["Stopping", "Finishing the current voice capture."],
   [PHASE.REVIEW]: ["Review voice input", "Press check to place it in the message box."],
   [PHASE.NO_SPEECH]: ["No speech detected", "Press retry and speak closer to the mic."],
@@ -157,13 +157,13 @@ export function initVoice({
     startVoiceCapture();
   });
 
-  async function startVoiceCapture({ skipLanguageConfirmation = false } = {}) {
+  async function startVoiceCapture() {
     if (locked || generating || startInFlight) return false;
 
     const waitMs = RESTART_COOLDOWN_MS - (Date.now() - lastEndedAt);
 
     if (waitMs > 0) {
-      scheduleCooldownStart(waitMs, skipLanguageConfirmation);
+      scheduleCooldownStart(waitMs);
       return true;
     }
 
@@ -171,20 +171,6 @@ export function initVoice({
 
     try {
       clearTimers();
-
-      const selectedLanguage = loadVoiceLanguagePreference();
-      const effectiveLocale = resolveEffectiveSpeechLocale(selectedLanguage);
-
-      if (!skipLanguageConfirmation) {
-        enterPhase(PHASE.CONFIRMING_LANGUAGE);
-
-        const confirmed = await confirmLanguageOnce(selectedLanguage, effectiveLocale);
-
-        if (!confirmed) {
-          enterIdle({ closePanel: true });
-          return false;
-        }
-      }
 
       resetCaptureState({ clearTranscript: true });
       openVoicePanel();
@@ -211,7 +197,13 @@ export function initVoice({
           return false;
         }
       } else {
-        startSyntheticWaveform();
+        try {
+          await startMicMeter(true); // true = no analyser
+          startSyntheticWaveform();
+        } catch (error) {
+          endToTerminal(PHASE.DEVICE_ERROR, { runId });
+          return false;
+        }
       }
 
       if (!startMediaRecorder(runId)) {
@@ -231,7 +223,9 @@ export function initVoice({
     if (!mediaStream) return false;
 
     try {
-      mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
+      audioChunks = [];
+      const options = MediaRecorder.isTypeSupported('audio/webm') ? { mimeType: 'audio/webm' } : undefined;
+      mediaRecorder = new MediaRecorder(mediaStream, options);
     } catch (error) {
       console.warn("MediaRecorder creation failed:", error);
       return false;
@@ -285,8 +279,7 @@ export function initVoice({
 
       const refs = getRefs();
       if (refs.transcript) {
-        refs.transcript.innerHTML = `<span class="text-blue-500 dark:text-blue-400 font-medium tracking-wide flex items-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Transcribing with Gemini...</span>`;
-        if (window.lucide) window.lucide.createIcons();
+        refs.transcript.innerHTML = `<span class="text-blue-500 dark:text-blue-400 font-medium tracking-wide flex items-center gap-2">Transcribing with Gemini...</span>`;
       }
 
       try {
@@ -356,7 +349,7 @@ export function initVoice({
     draw();
   }
 
-  async function startMicMeter() {
+  async function startMicMeter(skipAnalyser = false) {
     stopMicMeter();
 
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -371,6 +364,8 @@ export function initVoice({
       },
       video: false,
     });
+
+    if (skipAnalyser) return;
 
     const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext;
 
@@ -542,7 +537,7 @@ export function initVoice({
     openVoicePanel();
 
     window.setTimeout(() => {
-      startVoiceCapture({ skipLanguageConfirmation: true });
+      startVoiceCapture();
     }, RESTART_COOLDOWN_MS);
   }
 
@@ -636,12 +631,12 @@ export function initVoice({
     }
   }
 
-  function scheduleCooldownStart(waitMs, skipLanguageConfirmation) {
+  function scheduleCooldownStart(waitMs) {
     if (cooldownTimer !== null) return;
 
     cooldownTimer = window.setTimeout(() => {
       cooldownTimer = null;
-      startVoiceCapture({ skipLanguageConfirmation });
+      startVoiceCapture();
     }, Math.max(0, waitMs));
   }
 
