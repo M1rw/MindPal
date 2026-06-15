@@ -14,7 +14,9 @@ let userTranscript = "";
 let aiTranscript = "";
 let nextPlaybackTime = 0;
 
-let siriWave = null;
+let blobAngles = [0, 120, 240];
+let blobAnimationFrame = null;
+let currentVolumeLevel = 0;
 
 // Connect to Chat UI to append messages
 let onChatSyncCallback = null;
@@ -87,18 +89,10 @@ export async function startLiveVoice() {
         ccBtn.classList.add("text-gray-700", "dark:text-gray-300");
     }
 
-    const siriContainer = document.getElementById("siri-container");
-    if (siriContainer && window.SiriWave) {
-        siriContainer.innerHTML = ""; // Clear existing
-        siriWave = new window.SiriWave({
-            container: siriContainer,
-            width: siriContainer.offsetWidth || 300,
-            height: 200,
-            style: "ios9",
-            amplitude: 0.1,
-            speed: 0.1,
-            autostart: true
-        });
+    // Start MindPal Fluid Edge Engine
+    currentVolumeLevel = 0;
+    if (!blobAnimationFrame) {
+        animateBlobs();
     }
 
     try {
@@ -333,12 +327,10 @@ export function stopLiveVoice() {
     overlay.classList.remove("pointer-events-auto");
     setTimeout(() => {
         overlay.classList.add("hidden");
-        if (siriWave) {
-            siriWave.stop();
-            siriWave = null;
+        if (blobAnimationFrame) {
+            cancelAnimationFrame(blobAnimationFrame);
+            blobAnimationFrame = null;
         }
-        const siriContainer = document.getElementById("siri-container");
-        if (siriContainer) siriContainer.innerHTML = "";
     }, 300);
 
     // Sync to chat
@@ -348,49 +340,66 @@ export function stopLiveVoice() {
 }
 
 function setUIMode(mode) {
-    const bgGradient = document.getElementById("voice-bg-gradient");
-    const statusEl = document.getElementById("voice-live-status");
-    const orbGlow = document.getElementById("voice-orb-glow");
     const ccBtn = document.getElementById("voice-cc-btn");
+    const statusEl = document.getElementById("voice-live-status");
+    
+    // MindPal Edge Blobs
+    const b1 = document.getElementById("mindpal-blob-1");
+    const b2 = document.getElementById("mindpal-blob-2");
+    const b3 = document.getElementById("mindpal-blob-3");
     
     if (mode === "speaking") {
-        if (bgGradient) {
-            bgGradient.className = "absolute inset-0 bg-gradient-to-b from-[#f0e4ff] via-[#f7f1ff] to-[#fcf9ff] dark:from-[#1b1124] dark:via-[#1e1128] dark:to-[#221a33] transition-colors duration-1000";
-        }
-        if (orbGlow) {
-            orbGlow.classList.remove("bg-blue-400/30", "dark:bg-blue-500/20");
-            orbGlow.classList.add("bg-purple-400/30", "dark:bg-purple-500/20");
-        }
+        if (b1) b1.className = "absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[500px] max-h-[500px] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-80 transition-colors duration-1000 ease-out bg-purple-500/50 dark:bg-purple-600/50";
+        if (b2) b2.className = "absolute top-[30%] -right-[10%] w-[45vw] h-[45vw] max-w-[450px] max-h-[450px] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-80 transition-colors duration-1000 ease-out bg-magenta-500/50 dark:bg-pink-500/50";
+        if (b3) b3.className = "absolute -bottom-[10%] left-[20%] w-[60vw] h-[60vw] max-w-[600px] max-h-[600px] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[120px] opacity-70 transition-colors duration-1000 ease-out bg-orange-400/40 dark:bg-red-500/40";
+        
         if (ccBtn) {
             ccBtn.className = "relative z-10 w-20 h-20 flex items-center justify-center rounded-full bg-[#9333ea] shadow-[0_8px_30px_rgba(147,51,234,0.4)] text-white transition-transform hover:scale-105 active:scale-95";
         }
         if (statusEl) statusEl.textContent = "AI speaking...";
-        if (siriWave) siriWave.setSpeed(0.25);
     } else {
-        if (bgGradient) {
-            bgGradient.className = "absolute inset-0 bg-gradient-to-b from-[#e4f0ff] via-[#f1f6ff] to-[#f9fbff] dark:from-[#0b1324] dark:via-[#111928] dark:to-[#1a2333] transition-colors duration-1000";
-        }
-        if (orbGlow) {
-            orbGlow.classList.remove("bg-purple-400/30", "dark:bg-purple-500/20");
-            orbGlow.classList.add("bg-blue-400/30", "dark:bg-blue-500/20");
-        }
+        if (b1) b1.className = "absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] max-w-[500px] max-h-[500px] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 transition-colors duration-1000 ease-out bg-cyan-400/50 dark:bg-cyan-500/50";
+        if (b2) b2.className = "absolute top-[30%] -right-[10%] w-[45vw] h-[45vw] max-w-[450px] max-h-[450px] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 transition-colors duration-1000 ease-out bg-blue-500/50 dark:bg-blue-600/50";
+        if (b3) b3.className = "absolute -bottom-[10%] left-[20%] w-[60vw] h-[60vw] max-w-[600px] max-h-[600px] rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[120px] opacity-60 transition-colors duration-1000 ease-out bg-indigo-500/40 dark:bg-purple-600/40";
+
         if (ccBtn) {
             ccBtn.className = "relative z-10 w-20 h-20 flex items-center justify-center rounded-full bg-[#1b73e8] shadow-[0_8px_30px_rgba(27,115,232,0.4)] text-white transition-transform hover:scale-105 active:scale-95";
         }
         if (statusEl) statusEl.textContent = "Listening...";
-        if (siriWave) siriWave.setSpeed(0.1);
     }
+}
+
+function animateBlobs() {
+    if (!isLiveSessionActive) return;
+    
+    // Slow resting orbit speeds
+    const speedMultiplier = 1 + (currentVolumeLevel * 2);
+    blobAngles[0] += 0.1 * speedMultiplier;
+    blobAngles[1] -= 0.15 * speedMultiplier;
+    blobAngles[2] += 0.12 * speedMultiplier;
+
+    const b1 = document.getElementById("mindpal-blob-1");
+    const b2 = document.getElementById("mindpal-blob-2");
+    const b3 = document.getElementById("mindpal-blob-3");
+    
+    // Smooth volume decay to 0
+    currentVolumeLevel = Math.max(0, currentVolumeLevel - 0.03);
+    
+    // Base scale is 1, expands outward with volume
+    const scale = 1 + (currentVolumeLevel * 0.35);
+
+    if (b1) b1.style.transform = `scale(${scale}) rotate(${blobAngles[0]}deg) translateX(30px)`;
+    if (b2) b2.style.transform = `scale(${scale * 1.1}) rotate(${blobAngles[1]}deg) translateY(40px)`;
+    if (b3) b3.style.transform = `scale(${scale * 0.9}) rotate(${blobAngles[2]}deg) translateX(-30px)`;
+    
+    blobAnimationFrame = requestAnimationFrame(animateBlobs);
 }
 
 function updateWaveform(rms, source = "user") {
     const level = Math.min(1, rms * 15);
     
-    // Update SiriWave Amplitude
-    if (siriWave) {
-        // SiriWave expects amplitude from 0.0 to ~3.0
-        // We set a base idle amplitude of 0.1 so the wave gently moves when silent
-        siriWave.setAmplitude(0.1 + (level * 2.5));
-    }
+    // Update the Blob engine volume (take the peak to prevent jagged drops)
+    currentVolumeLevel = Math.max(currentVolumeLevel, level);
     
     // Animate Mic Button ripples
     const micRipple1 = document.getElementById("voice-mic-ripple-1");
@@ -405,12 +414,5 @@ function updateWaveform(rms, source = "user") {
         
         micRipple2.style.transform = `scale(${expanded2})`;
         micRipple2.style.opacity = level > 0.05 ? 0.6 : 0;
-    }
-
-    // Animate the Glow
-    const orbGlow = document.getElementById("voice-orb-glow");
-    if (orbGlow) {
-        orbGlow.style.transform = `scale(${1 + level * 0.5})`;
-        orbGlow.style.opacity = 0.5 + (level * 0.5);
     }
 }
