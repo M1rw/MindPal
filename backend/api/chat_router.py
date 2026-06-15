@@ -30,7 +30,7 @@ from backend.models.user import UserProfile
 from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import (
     build_memory_graph_prompt,
-    extract_memory_graph_from_text,
+    extract_memory_graph_from_text_llm,
     memory_graph_delta_from_summary,
     merge_memory_graph,
 )
@@ -430,9 +430,10 @@ async def _persist_memory_graph_inline(
         return None
 
     try:
-        deterministic_delta = extract_memory_graph_from_text(
+        deterministic_delta = await extract_memory_graph_from_text_llm(
             payload.message,
             user_id_hash=context.session.user_id_hash,
+            llm_service=services.llm,
         )
 
         existing_summary = summary_from_memory_graph(existing_graph)

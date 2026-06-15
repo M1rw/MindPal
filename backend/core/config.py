@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     PERSPECTIVE_API_KEY: SecretStr | None = Field(default=None, repr=False)
     CAMB_API_KEY: SecretStr | None = Field(default=None, repr=False)
 
+    LLM_PROVIDER_ORDER: str = Field(default="gemini,cloudflare,openrouter,groq")
+
     # Firebase
     FIREBASE_CREDENTIALS_PATH: str | None = None
 
