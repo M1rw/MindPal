@@ -14,6 +14,8 @@ let userTranscript = "";
 let aiTranscript = "";
 let nextPlaybackTime = 0;
 
+let siriWave = null;
+
 // Connect to Chat UI to append messages
 let onChatSyncCallback = null;
 
@@ -83,6 +85,20 @@ export async function startLiveVoice() {
     if (ccBtn) {
         ccBtn.classList.remove("bg-blue-500/20", "text-blue-600", "dark:text-blue-400");
         ccBtn.classList.add("text-gray-700", "dark:text-gray-300");
+    }
+
+    const siriContainer = document.getElementById("siri-container");
+    if (siriContainer && window.SiriWave) {
+        siriContainer.innerHTML = ""; // Clear existing
+        siriWave = new window.SiriWave({
+            container: siriContainer,
+            width: siriContainer.offsetWidth || 300,
+            height: 200,
+            style: "ios9",
+            amplitude: 0.1,
+            speed: 0.1,
+            autostart: true
+        });
     }
 
     try {
@@ -317,11 +333,12 @@ export function stopLiveVoice() {
     overlay.classList.remove("pointer-events-auto");
     setTimeout(() => {
         overlay.classList.add("hidden");
-        // Reset rotators
-        for (let i=1; i<=4; i++) {
-            const rot = document.querySelector(`.orb-rotator-${i}`);
-            if(rot) rot.style.transform = `scale(1) rotate(0deg)`;
+        if (siriWave) {
+            siriWave.stop();
+            siriWave = null;
         }
+        const siriContainer = document.getElementById("siri-container");
+        if (siriContainer) siriContainer.innerHTML = "";
     }, 300);
 
     // Sync to chat
@@ -335,7 +352,6 @@ function setUIMode(mode) {
     const statusEl = document.getElementById("voice-live-status");
     const orbGlow = document.getElementById("voice-orb-glow");
     const ccBtn = document.getElementById("voice-cc-btn");
-    const waves = document.querySelectorAll(".voice-css-wave");
     
     if (mode === "speaking") {
         if (bgGradient) {
@@ -345,14 +361,11 @@ function setUIMode(mode) {
             orbGlow.classList.remove("bg-blue-400/30", "dark:bg-blue-500/20");
             orbGlow.classList.add("bg-purple-400/30", "dark:bg-purple-500/20");
         }
-        waves.forEach(w => {
-            w.classList.remove("border-blue-500/40", "dark:border-blue-400/40", "border-blue-500/30", "dark:border-blue-400/30", "border-blue-500/20", "dark:border-blue-400/20", "border-blue-500/10", "dark:border-blue-400/10");
-            w.classList.add("border-purple-500/30", "dark:border-purple-400/30");
-        });
         if (ccBtn) {
             ccBtn.className = "relative z-10 w-20 h-20 flex items-center justify-center rounded-full bg-[#9333ea] shadow-[0_8px_30px_rgba(147,51,234,0.4)] text-white transition-transform hover:scale-105 active:scale-95";
         }
         if (statusEl) statusEl.textContent = "AI speaking...";
+        if (siriWave) siriWave.setSpeed(0.25);
     } else {
         if (bgGradient) {
             bgGradient.className = "absolute inset-0 bg-gradient-to-b from-[#e4f0ff] via-[#f1f6ff] to-[#f9fbff] dark:from-[#0b1324] dark:via-[#111928] dark:to-[#1a2333] transition-colors duration-1000";
@@ -361,22 +374,23 @@ function setUIMode(mode) {
             orbGlow.classList.remove("bg-purple-400/30", "dark:bg-purple-500/20");
             orbGlow.classList.add("bg-blue-400/30", "dark:bg-blue-500/20");
         }
-        waves.forEach((w, i) => {
-            w.classList.remove("border-purple-500/30", "dark:border-purple-400/30");
-            if(i===0) w.classList.add("border-blue-500/40", "dark:border-blue-400/40");
-            if(i===1) w.classList.add("border-blue-500/30", "dark:border-blue-400/30");
-            if(i===2) w.classList.add("border-blue-500/20", "dark:border-blue-400/20");
-            if(i===3) w.classList.add("border-blue-500/10", "dark:border-blue-400/10");
-        });
         if (ccBtn) {
             ccBtn.className = "relative z-10 w-20 h-20 flex items-center justify-center rounded-full bg-[#1b73e8] shadow-[0_8px_30px_rgba(27,115,232,0.4)] text-white transition-transform hover:scale-105 active:scale-95";
         }
         if (statusEl) statusEl.textContent = "Listening...";
+        if (siriWave) siriWave.setSpeed(0.1);
     }
 }
 
 function updateWaveform(rms, source = "user") {
     const level = Math.min(1, rms * 15);
+    
+    // Update SiriWave Amplitude
+    if (siriWave) {
+        // SiriWave expects amplitude from 0.0 to ~3.0
+        // We set a base idle amplitude of 0.1 so the wave gently moves when silent
+        siriWave.setAmplitude(0.1 + (level * 2.5));
+    }
     
     // Animate Mic Button ripples
     const micRipple1 = document.getElementById("voice-mic-ripple-1");
@@ -399,16 +413,4 @@ function updateWaveform(rms, source = "user") {
         orbGlow.style.transform = `scale(${1 + level * 0.5})`;
         orbGlow.style.opacity = 0.5 + (level * 0.5);
     }
-    
-    // Animate CSS Waves
-    const waves = document.querySelectorAll(".voice-css-wave");
-    waves.forEach((w, index) => {
-        const baseScale = 1;
-        const expander = (index + 1) * 0.6 * level;
-        const scale = baseScale + expander;
-        const opacity = level > 0.05 ? Math.max(0, 1 - (index * 0.25)) : 0;
-        
-        w.style.transform = `scale(${scale})`;
-        w.style.opacity = opacity.toString();
-    });
 }
