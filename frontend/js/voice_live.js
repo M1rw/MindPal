@@ -52,9 +52,9 @@ function createBubble(type) {
 
 function appendToTranscript(type, text) {
     if (!text) return;
-    // Filter out noise markers
-    const cleaned = text.replace(/<noise>/gi, "").replace(/\s{2,}/g, " ").trim();
-    if (!cleaned) return;
+    // Filter out noise markers without collapsing natural spaces
+    const cleaned = text.replace(/<noise>/gi, "");
+    if (!cleaned || !cleaned.trim()) return;
 
     // New speaker → new bubble
     if (lastSpeaker !== type || !currentBubble) {
@@ -63,13 +63,7 @@ function appendToTranscript(type, text) {
     }
 
     if (currentBubble) {
-        // Add space between chunks if the bubble already has text
-        const existing = currentBubble.textContent;
-        if (existing && !existing.endsWith(" ") && !cleaned.startsWith(" ")) {
-            currentBubble.textContent += " " + cleaned;
-        } else {
-            currentBubble.textContent += cleaned;
-        }
+        currentBubble.textContent += cleaned;
     }
 
     // Track for chat sync
@@ -435,8 +429,10 @@ export function stopLiveVoice() {
 
 /* ═══════════════ Wave State ═══════════════ */
 let currentPalette = "listen"; // "listen" | "speak"
-let waveCanvas = null;
-let waveCtx = null;
+let gl = null;
+let glProgram = null;
+let glCanvas = null;
+let colorBlend = 0; // smooth 0→1 for listen→speak
 
 function applyPalette(p) {
     currentPalette = (p === PALETTE_SPEAK) ? "speak" : "listen";
@@ -447,145 +443,194 @@ function feedVolume(rms) {
     smoothVolume = Math.max(smoothVolume, Math.min(1, rms * 14));
 }
 
-/* ═══════════════ Canvas lifecycle ═══════════════ */
+/* ═══════════════ WebGL Wave ═══════════════ */
+const VERT_SRC = `attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0,1);}`;
+
+const FRAG_SRC = `
+precision highp float;
+uniform vec2 u_res;
+uniform float u_time;
+uniform float u_vol;
+uniform float u_blend;
+uniform float u_dark;
+
+// Smooth noise-like function from sine harmonics
+float wave(float x, float t, float freq, float speed, float phase) {
+    return sin(x * freq + t * speed + phase)
+         + 0.5 * sin(x * freq * 1.73 + t * speed * 0.67 + phase + 1.3)
+         + 0.3 * sin(x * freq * 0.51 + t * speed * 1.41 + phase + 2.7)
+         + 0.15 * sin(x * freq * 2.31 + t * speed * 0.83 + phase + 4.1);
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / u_res;
+    float x = uv.x;
+    float y = uv.y; // 0=bottom, 1=top
+
+    // Volume drives wave height
+    float vol = u_vol;
+    float t = u_time;
+
+    // 3 wave layers with different frequencies and phases
+    float baseH1 = 0.12 + vol * 0.22;
+    float baseH2 = 0.09 + vol * 0.17;
+    float baseH3 = 0.06 + vol * 0.12;
+
+    float amp = 0.03 + vol * 0.08;
+
+    float w1 = baseH1 + wave(x * 3.14159, t, 1.8, 1.0, 0.0) * amp;
+    float w2 = baseH2 + wave(x * 3.14159, t, 2.3, 0.7, 2.0) * amp * 0.8;
+    float w3 = baseH3 + wave(x * 3.14159, t, 2.9, 1.3, 4.0) * amp * 0.6;
+
+    // Blue colors
+    vec3 blue1 = vec3(0.23, 0.51, 0.97);   // blue-500
+    vec3 blue2 = vec3(0.38, 0.65, 0.98);   // blue-400
+    vec3 blue3 = vec3(0.58, 0.77, 0.99);   // blue-300
+
+    // Pink accent colors
+    vec3 pink1 = vec3(0.91, 0.47, 0.98);   // fuchsia-400
+    vec3 pink2 = vec3(0.82, 0.55, 0.95);   // purple-400
+    vec3 pink3 = vec3(0.72, 0.65, 0.99);   // violet-300
+
+    // Interpolate between blue and pink based on blend
+    vec3 c1 = mix(blue1, pink1, u_blend * 0.7);
+    vec3 c2 = mix(blue2, pink2, u_blend * 0.5);
+    vec3 c3 = mix(blue3, pink3, u_blend * 0.3);
+
+    float alpha = 0.0;
+    vec3 color = vec3(0.0);
+
+    // Layer 3 (back, widest, most transparent)
+    if (y < w3) {
+        float fade = smoothstep(w3, w3 * 0.3, y);
+        float edge = 1.0 - smoothstep(w3 - amp * 0.5, w3, y);
+        float a3 = fade * (0.15 + vol * 0.12) + edge * (0.08 + vol * 0.1);
+        color = mix(color, c3, a3);
+        alpha = max(alpha, a3);
+    }
+
+    // Layer 2 (middle)
+    if (y < w2) {
+        float fade = smoothstep(w2, w2 * 0.2, y);
+        float edge = 1.0 - smoothstep(w2 - amp * 0.4, w2, y);
+        float a2 = fade * (0.22 + vol * 0.18) + edge * (0.12 + vol * 0.15);
+        color = mix(color, c2, a2);
+        alpha = max(alpha, a2);
+    }
+
+    // Layer 1 (front, brightest)
+    if (y < w1) {
+        float fade = smoothstep(w1, w1 * 0.1, y);
+        float edge = 1.0 - smoothstep(w1 - amp * 0.3, w1, y);
+        float a1 = fade * (0.3 + vol * 0.25) + edge * (0.15 + vol * 0.2);
+        color = mix(color, c1, a1);
+        alpha = max(alpha, a1);
+    }
+
+    // Glow at wave edges — soft bright line
+    float glow = 0.0;
+    glow += (0.4 + vol * 0.5) * exp(-pow((y - w1) * (40.0 - vol * 15.0), 2.0));
+    glow += (0.25 + vol * 0.3) * exp(-pow((y - w2) * (35.0 - vol * 10.0), 2.0));
+    glow += (0.15 + vol * 0.2) * exp(-pow((y - w3) * (30.0 - vol * 8.0), 2.0));
+
+    // Glow color — brighter version
+    vec3 glowColor = mix(c1, vec3(1.0), 0.4);
+    color += glowColor * glow;
+    alpha = max(alpha, glow * 0.6);
+
+    // Subtle ambient fill for bottom
+    float ambientY = smoothstep(0.15 + vol * 0.1, 0.0, y);
+    color = mix(color, c1 * 0.5, ambientY * (0.08 + vol * 0.05));
+    alpha = max(alpha, ambientY * (0.06 + vol * 0.04));
+
+    gl_FragColor = vec4(color, alpha);
+}
+`;
+
 function initWaveCanvas() {
-    waveCanvas = document.getElementById("voice-wave-canvas");
-    if (!waveCanvas) return;
-    waveCtx = waveCanvas.getContext("2d");
+    glCanvas = document.getElementById("voice-wave-canvas");
+    if (!glCanvas) return;
+
+    gl = glCanvas.getContext("webgl", { alpha: true, premultipliedAlpha: false, antialias: true });
+    if (!gl) {
+        // Fallback: no WebGL — just leave canvas blank
+        console.warn("WebGL not available for voice wave");
+        return;
+    }
+
+    // Compile shaders
+    const vs = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vs, VERT_SRC);
+    gl.compileShader(vs);
+
+    const fs = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fs, FRAG_SRC);
+    gl.compileShader(fs);
+    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+        console.error("Fragment shader error:", gl.getShaderInfoLog(fs));
+        return;
+    }
+
+    glProgram = gl.createProgram();
+    gl.attachShader(glProgram, vs);
+    gl.attachShader(glProgram, fs);
+    gl.linkProgram(glProgram);
+    gl.useProgram(glProgram);
+
+    // Fullscreen quad
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+    const aPos = gl.getAttribLocation(glProgram, "a_pos");
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    // Enable blending for alpha
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
     resizeWaveCanvas();
     window.addEventListener("resize", resizeWaveCanvas);
 }
 
 function resizeWaveCanvas() {
-    if (!waveCanvas) return;
+    if (!glCanvas) return;
     const dpr = window.devicePixelRatio || 1;
-    waveCanvas.width = waveCanvas.clientWidth * dpr;
-    waveCanvas.height = waveCanvas.clientHeight * dpr;
-    waveCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    glCanvas.width = glCanvas.clientWidth * dpr;
+    glCanvas.height = glCanvas.clientHeight * dpr;
+    if (gl) gl.viewport(0, 0, glCanvas.width, glCanvas.height);
 }
 
 function destroyWaveCanvas() {
     window.removeEventListener("resize", resizeWaveCanvas);
-    waveCanvas = null;
-    waveCtx = null;
+    if (gl && glProgram) {
+        gl.deleteProgram(glProgram);
+    }
+    gl = null;
+    glProgram = null;
+    glCanvas = null;
 }
 
-/* ═══════════════ Fluid gradient wave drawing ═══════════════ */
-
-// Smooth color palette interpolation
-let colorBlend = 0; // 0 = listen, 1 = speak — smoothly animated
-
-const LISTEN_COLORS = [
-    [59, 130, 246],   // blue-500
-    [96, 165, 250],   // blue-400
-    [147, 197, 253],  // blue-300
-];
-const SPEAK_COLORS = [
-    [232, 121, 249],  // fuchsia-400
-    [251, 191, 36],   // amber-400
-    [52, 211, 153],   // emerald-400
-];
-
-function lerpColor(a, b, t) {
-    return [
-        Math.round(a[0] + (b[0] - a[0]) * t),
-        Math.round(a[1] + (b[1] - a[1]) * t),
-        Math.round(a[2] + (b[2] - a[2]) * t),
-    ];
-}
-
-function drawFluidWave(v) {
-    if (!waveCtx || !waveCanvas) return;
-
-    const W = waveCanvas.clientWidth;
-    const H = waveCanvas.clientHeight;
-    waveCtx.clearRect(0, 0, W, H);
+function drawWave(v) {
+    if (!gl || !glProgram || !glCanvas) return;
 
     // Smoothly blend toward target palette
     const target = currentPalette === "speak" ? 1 : 0;
     colorBlend += (target - colorBlend) * 0.04;
 
-    const t = blobPhase;
+    const isDark = document.documentElement.classList.contains("dark");
 
-    // Get interpolated colors for the 3 wave layers
-    const colors = [
-        lerpColor(LISTEN_COLORS[0], SPEAK_COLORS[0], colorBlend),
-        lerpColor(LISTEN_COLORS[1], SPEAK_COLORS[1], colorBlend),
-        lerpColor(LISTEN_COLORS[2], SPEAK_COLORS[2], colorBlend),
-    ];
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
 
-    // Wave parameters — each layer has different settings
-    const layers = [
-        { color: colors[0], alpha: 0.45 + v * 0.3, baseH: 0.15, amplitude: 0.06, freq: 1.8, speed: 1.0, phase: 0 },
-        { color: colors[1], alpha: 0.35 + v * 0.25, baseH: 0.12, amplitude: 0.05, freq: 2.2, speed: 0.7, phase: 2.0 },
-        { color: colors[2], alpha: 0.25 + v * 0.2,  baseH: 0.09, amplitude: 0.04, freq: 2.8, speed: 1.3, phase: 4.0 },
-    ];
+    gl.uniform2f(gl.getUniformLocation(glProgram, "u_res"), glCanvas.width, glCanvas.height);
+    gl.uniform1f(gl.getUniformLocation(glProgram, "u_time"), blobPhase);
+    gl.uniform1f(gl.getUniformLocation(glProgram, "u_vol"), v);
+    gl.uniform1f(gl.getUniformLocation(glProgram, "u_blend"), colorBlend);
+    gl.uniform1f(gl.getUniformLocation(glProgram, "u_dark"), isDark ? 1.0 : 0.0);
 
-    // Volume pushes waves higher
-    const volumeLift = v * H * 0.25;
-
-    for (let i = layers.length - 1; i >= 0; i--) {
-        const L = layers[i];
-        const [r, g, b] = L.color;
-
-        // Wave top edge position (from bottom)
-        const waveTop = H - (L.baseH * H) - volumeLift * (1 + i * 0.3);
-
-        // Build the wave path with smooth bezier curves
-        waveCtx.beginPath();
-        waveCtx.moveTo(0, H); // start bottom-left
-
-        const points = 80;
-        const waveAmp = L.amplitude * H * (1 + v * 3);
-
-        // First point
-        let startY = waveTop
-            + Math.sin(t * L.speed + L.phase) * waveAmp
-            + Math.sin(t * L.speed * 0.6 + L.phase + 1) * waveAmp * 0.5;
-        waveCtx.lineTo(0, startY);
-
-        // Draw smooth curve across width
-        for (let p = 1; p <= points; p++) {
-            const x = (p / points) * W;
-            const nx = x / W; // normalized x
-
-            const y = waveTop
-                + Math.sin(nx * Math.PI * L.freq + t * L.speed + L.phase) * waveAmp
-                + Math.sin(nx * Math.PI * L.freq * 1.7 + t * L.speed * 0.6 + L.phase + 1) * waveAmp * 0.5
-                + Math.sin(nx * Math.PI * L.freq * 0.5 + t * L.speed * 1.4 + L.phase + 3) * waveAmp * 0.3;
-
-            waveCtx.lineTo(x, y);
-        }
-
-        // Close path along bottom
-        waveCtx.lineTo(W, H);
-        waveCtx.closePath();
-
-        // Fill with vertical gradient (bright at wave edge, fading to bottom)
-        const grad = waveCtx.createLinearGradient(0, waveTop - waveAmp, 0, H);
-        grad.addColorStop(0, `rgba(${r},${g},${b},${L.alpha * 0.9})`);
-        grad.addColorStop(0.15, `rgba(${r},${g},${b},${L.alpha})`);
-        grad.addColorStop(0.5, `rgba(${r},${g},${b},${L.alpha * 0.6})`);
-        grad.addColorStop(1, `rgba(${r},${g},${b},${L.alpha * 0.2})`);
-
-        waveCtx.fillStyle = grad;
-        waveCtx.fill();
-
-        // Glow at the wave edge
-        waveCtx.save();
-        waveCtx.globalCompositeOperation = "screen";
-
-        const edgeGrad = waveCtx.createLinearGradient(0, waveTop - waveAmp * 1.5, 0, waveTop + waveAmp * 2);
-        edgeGrad.addColorStop(0, `rgba(${r},${g},${b},0)`);
-        edgeGrad.addColorStop(0.4, `rgba(${r},${g},${b},${0.1 + v * 0.2})`);
-        edgeGrad.addColorStop(0.5, `rgba(${Math.min(255, r + 60)},${Math.min(255, g + 60)},${Math.min(255, b + 60)},${0.15 + v * 0.25})`);
-        edgeGrad.addColorStop(0.6, `rgba(${r},${g},${b},${0.1 + v * 0.2})`);
-        edgeGrad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-
-        waveCtx.fillStyle = edgeGrad;
-        waveCtx.fillRect(0, waveTop - waveAmp * 1.5, W, waveAmp * 3.5);
-        waveCtx.restore();
-    }
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
 /* ═══════════════ Animation tick ═══════════════ */
@@ -598,8 +643,8 @@ function tick() {
 
     const v = smoothVolume;
 
-    // Draw the fluid gradient wave
-    drawFluidWave(v);
+    // Draw the WebGL fluid wave
+    drawWave(v);
 
     // Mic dot pulse — theme-aware
     const isDark = document.documentElement.classList.contains("dark");
