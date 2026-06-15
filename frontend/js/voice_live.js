@@ -23,13 +23,6 @@ let isMicMuted = false;
 let activeAudioSources = [];
 let isAiSpeaking = false;
 
-// Audio analyser for visualizer
-let analyser = null;
-let analyserData = null;
-let vizCanvas = null;
-let vizCtx = null;
-let smoothBars = []; // smoothed bar heights for interpolation
-
 // Colour palettes (used to differentiate listen vs speak state)
 const PALETTE_LISTEN = { id: "listen" };
 const PALETTE_SPEAK  = { id: "speak" };
@@ -42,6 +35,42 @@ let ccVisible = true;
 function scrollTranscript() {
     const panel = document.getElementById("voice-transcript-panel");
     if (panel) panel.scrollTop = panel.scrollHeight;
+}
+
+// Dynamic transcript bubble management
+let lastSpeaker = null; // "ai" | "user" | null
+let currentBubble = null; // the DOM element currently being appended to
+
+function createBubble(type) {
+    const panel = document.getElementById("voice-transcript-panel");
+    if (!panel) return null;
+    const div = document.createElement("div");
+    div.className = `voice-msg voice-msg-${type}`;
+    panel.appendChild(div);
+    return div;
+}
+
+function appendToTranscript(type, text) {
+    if (!text) return;
+    // Filter out noise markers
+    const cleaned = text.replace(/<noise>/gi, "").replace(/\s{2,}/g, " ").trim();
+    if (!cleaned) return;
+
+    // New speaker → new bubble
+    if (lastSpeaker !== type || !currentBubble) {
+        currentBubble = createBubble(type);
+        lastSpeaker = type;
+    }
+
+    if (currentBubble) {
+        currentBubble.textContent += cleaned;
+    }
+
+    // Track for chat sync
+    if (type === "ai") aiTranscript += cleaned;
+    else userTranscript += cleaned;
+
+    scrollTranscript();
 }
 
 /** Stop all queued and playing AI audio (barge-in) */
@@ -120,14 +149,13 @@ export async function startLiveVoice() {
 
     const overlay = document.getElementById("voice-live-overlay");
     const statusEl = document.getElementById("voice-live-status");
-    const userTextEl = document.getElementById("voice-live-user-text");
-    const aiTextEl = document.getElementById("voice-live-ai-text");
     const panel = document.getElementById("voice-transcript-panel");
 
-    if (userTextEl) userTextEl.textContent = "";
-    if (aiTextEl)   aiTextEl.textContent = "";
-    if (statusEl)   statusEl.textContent = "Connecting…";
-    if (panel) panel.style.opacity = "1";
+    // Clear previous transcript bubbles
+    if (panel) { panel.innerHTML = ""; panel.style.opacity = "1"; }
+    lastSpeaker = null;
+    currentBubble = null;
+    if (statusEl) statusEl.textContent = "Connecting…";
 
     // Reset CC toggle visual
     const ccBtn = document.getElementById("voice-cc-toggle");
@@ -229,15 +257,7 @@ export async function startLiveVoice() {
         micSource.connect(scriptNode);
         scriptNode.connect(audioContext.destination);
 
-        // AnalyserNode for frequency visualizer
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.75;
-        analyserData = new Uint8Array(analyser.frequencyBinCount);
-        micSource.connect(analyser);
 
-        // Init visualizer canvas
-        initVizCanvas();
 
         // WebSocket
         const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
@@ -345,16 +365,12 @@ MENTAL HEALTH SUPPORT:
 
             // outputTranscription = the actual words the model speaks (from the API)
             if (data.serverContent?.outputTranscription?.text) {
-                aiTranscript += data.serverContent.outputTranscription.text;
-                if (aiTextEl) aiTextEl.textContent = aiTranscript;
-                scrollTranscript();
+                appendToTranscript("ai", data.serverContent.outputTranscription.text);
             }
 
             // inputTranscription = what the user said (from the API)
             if (data.serverContent?.inputTranscription?.text) {
-                userTranscript += data.serverContent.inputTranscription.text;
-                if (userTextEl) userTextEl.textContent = userTranscript;
-                scrollTranscript();
+                appendToTranscript("user", data.serverContent.inputTranscription.text);
             }
         };
 
@@ -402,7 +418,6 @@ export function stopLiveVoice() {
     setTimeout(() => {
         overlay.classList.add("hidden");
         if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
-        destroyVizCanvas();
     }, 500);
 
     if (onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
@@ -441,161 +456,54 @@ function feedVolume(rms) {
     smoothVolume = Math.max(smoothVolume, Math.min(1, rms * 14));
 }
 
-/* ═══════════════ Visualizer Canvas ═══════════════ */
-function initVizCanvas() {
-    vizCanvas = document.getElementById("voice-viz-canvas");
-    if (!vizCanvas) return;
-    vizCtx = vizCanvas.getContext("2d");
-    resizeVizCanvas();
-    window.addEventListener("resize", resizeVizCanvas);
-}
-
-function resizeVizCanvas() {
-    if (!vizCanvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    vizCanvas.width = vizCanvas.clientWidth * dpr;
-    vizCanvas.height = vizCanvas.clientHeight * dpr;
-    vizCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-function destroyVizCanvas() {
-    window.removeEventListener("resize", resizeVizCanvas);
-    vizCanvas = null;
-    vizCtx = null;
-    smoothBars = [];
-}
-
-function drawVisualizer(v) {
-    if (!vizCtx || !vizCanvas) return;
-
-    const W = vizCanvas.clientWidth;
-    const H = vizCanvas.clientHeight;
-    vizCtx.clearRect(0, 0, W, H);
-
-    // Get frequency data from analyser (mic input)
-    if (analyser && analyserData) {
-        analyser.getByteFrequencyData(analyserData);
-    }
-
-    // When AI is speaking, use smoothVolume to generate synthetic bar data
-    // When user is speaking, use real frequency data from analyser
-    const barCount = 48;
-    const gap = 3;
-    const barWidth = (W - gap * (barCount - 1)) / barCount;
-    const maxBarH = H;
-
-    // Initialize smoothBars
-    if (smoothBars.length !== barCount) {
-        smoothBars = new Array(barCount).fill(0);
-    }
-
-    const isDark = document.documentElement.classList.contains("dark");
-    const isSpeak = currentPalette === "speak";
-
-    for (let i = 0; i < barCount; i++) {
-        let targetH;
-
-        if (isAiSpeaking) {
-            // Synthetic bars from volume + sine variation
-            const wave = Math.sin(blobPhase * 3 + i * 0.4) * 0.5 + 0.5;
-            targetH = v * wave * maxBarH * 0.8;
-        } else if (analyserData) {
-            // Real frequency data — map barCount bins from analyser
-            const binIndex = Math.floor((i / barCount) * analyserData.length * 0.6); // focus on lower freqs
-            const val = analyserData[binIndex] / 255;
-            targetH = val * maxBarH * 0.85;
-        } else {
-            targetH = 0;
-        }
-
-        // Smooth interpolation (rise fast, fall slow)
-        if (targetH > smoothBars[i]) {
-            smoothBars[i] += (targetH - smoothBars[i]) * 0.4;
-        } else {
-            smoothBars[i] += (targetH - smoothBars[i]) * 0.15;
-        }
-
-        const h = Math.max(2, smoothBars[i]);
-        const x = i * (barWidth + gap);
-        const y = H - h;
-
-        // Color: blue when listening, pink/purple when AI speaks
-        let r, g, b, a;
-        if (isSpeak) {
-            // Warm pink → purple gradient across bars
-            const t = i / barCount;
-            r = Math.round(249 - t * 57);
-            g = Math.round(168 - t * 36);
-            b = Math.round(212 + t * 40);
-            a = 0.5 + (h / maxBarH) * 0.5;
-        } else {
-            // Cool blue → indigo gradient
-            const t = i / barCount;
-            r = Math.round(96 + t * 33);
-            g = Math.round(165 - t * 25);
-            b = Math.round(250 - t * 2);
-            a = 0.4 + (h / maxBarH) * 0.5;
-        }
-
-        // Draw rounded bar
-        const radius = Math.min(barWidth / 2, 4);
-        vizCtx.beginPath();
-        vizCtx.moveTo(x + radius, y);
-        vizCtx.lineTo(x + barWidth - radius, y);
-        vizCtx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + radius);
-        vizCtx.lineTo(x + barWidth, H);
-        vizCtx.lineTo(x, H);
-        vizCtx.lineTo(x, y + radius);
-        vizCtx.quadraticCurveTo(x, y, x + radius, y);
-        vizCtx.closePath();
-        vizCtx.fillStyle = `rgba(${r},${g},${b},${a})`;
-        vizCtx.fill();
-    }
-}
-
 /* ═══════════════ Animation tick ═══════════════ */
 function tick() {
     if (!isLiveSessionActive) { animFrameId = null; return; }
 
-    blobPhase += 0.008;
-    smoothVolume *= 0.92;
+    blobPhase += 0.01;
+    smoothVolume *= 0.91;
     if (smoothVolume < 0.003) smoothVolume = 0;
 
     const v = smoothVolume;
 
-    // Animate gradient wave bands — gentle vertical bob + volume scaling
+    // Gradient light bands — react dramatically to voice
     const g1 = document.getElementById("voice-glow-1");
     const g2 = document.getElementById("voice-glow-2");
     const g3 = document.getElementById("voice-glow-3");
     const g4 = document.getElementById("voice-glow-4");
 
+    // g1: primary band — biggest reaction
     if (g1) {
-        const yShift = Math.sin(blobPhase * 1.1) * 8 + v * -30;
-        const sc = 1 + v * 0.4;
-        g1.style.transform = `translateY(${yShift}px) scaleY(${sc})`;
-        g1.style.opacity = String(0.8 + v * 0.2);
+        const bob = Math.sin(blobPhase * 1.1) * 10;
+        const lift = v * -60;
+        const sc = 1 + v * 1.2;
+        g1.style.transform = `translateY(${bob + lift}px) scaleY(${sc}) scaleX(${1 + v * 0.15})`;
+        g1.style.opacity = String(0.6 + v * 0.4);
     }
+    // g2: secondary — slightly delayed
     if (g2) {
-        const yShift = Math.sin(blobPhase * 0.7 + 1) * 10 + v * -25;
-        const sc = 1 + v * 0.35;
-        g2.style.transform = `translateY(${yShift}px) scaleY(${sc})`;
-        g2.style.opacity = String(0.7 + v * 0.3);
+        const bob = Math.sin(blobPhase * 0.7 + 1) * 12;
+        const lift = v * -45;
+        const sc = 1 + v * 0.9;
+        g2.style.transform = `translateY(${bob + lift}px) scaleY(${sc}) scaleX(${1 + v * 0.1})`;
+        g2.style.opacity = String(0.5 + v * 0.4);
     }
+    // g3: bright center highlight — most dramatic
     if (g3) {
-        const yShift = Math.sin(blobPhase * 1.4 + 2) * 6 + v * -35;
-        const sc = 1 + v * 0.5;
-        g3.style.transform = `translateY(${yShift}px) scaleY(${sc})`;
-        g3.style.opacity = String(0.6 + v * 0.4);
+        const bob = Math.sin(blobPhase * 1.5 + 2) * 8;
+        const lift = v * -80;
+        const sc = 1 + v * 1.8;
+        g3.style.transform = `translateY(${bob + lift}px) scaleY(${sc}) scaleX(${1 + v * 0.2})`;
+        g3.style.opacity = String(0.4 + v * 0.6);
     }
+    // g4: deep wash — slow, wide
     if (g4) {
-        const yShift = Math.sin(blobPhase * 0.5 + 3) * 12 + v * -15;
-        const sc = 1 + v * 0.2;
-        g4.style.transform = `translateY(${yShift}px) scaleY(${sc})`;
-        g4.style.opacity = String(0.5 + v * 0.3);
+        const bob = Math.sin(blobPhase * 0.4 + 3) * 14;
+        const lift = v * -30;
+        const sc = 1 + v * 0.6;
+        g4.style.transform = `translateY(${bob + lift}px) scaleY(${sc})`;
+        g4.style.opacity = String(0.4 + v * 0.35);
     }
-
-    // Draw audio visualizer bars from bottom
-    drawVisualizer(v);
 
     // Mic dot pulse — theme-aware
     const isDark = document.documentElement.classList.contains("dark");
