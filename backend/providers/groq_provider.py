@@ -107,7 +107,7 @@ class GroqProvider:
             )
 
             if response.status_code >= 400:
-                raise self._provider_http_error(response)
+                raise _provider_http_error(response)
 
             data = response.json()
             text = _extract_text(data)
@@ -150,6 +150,65 @@ class GroqProvider:
                 "Groq response was not valid JSON",
                 code="groq_invalid_json",
                 details={"provider": self.name},
+            ) from exc
+
+        finally:
+            if owns_client:
+                await client.aclose()
+
+    async def generate_stream(self, request: LLMRequest) -> Any:
+        if not self.is_configured:
+            raise ProviderError(
+                "Groq provider is not configured",
+                code="groq_not_configured",
+                details={"provider": self.name},
+            )
+
+        payload = self._build_payload(request)
+        payload["stream"] = True
+        headers = {
+            "Authorization": f"Bearer {self.config.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        owns_client = self._client is None
+        client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
+
+        try:
+            async with client.stream("POST", self._chat_completions_url(), headers=headers, json=payload) as response:
+                if response.status_code >= 400:
+                    await response.aread()
+                    raise _provider_http_error(response)
+
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data_str = line[6:]
+                        if data_str.strip() == "[DONE]":
+                            break
+                        import json
+                        try:
+                            data = json.loads(data_str)
+                            text = _extract_text(data)
+                            if text:
+                                yield text
+                        except json.JSONDecodeError:
+                            pass
+
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeoutError(
+                "Groq request timed out",
+                code="groq_timeout",
+                details={"provider": self.name},
+            ) from exc
+
+        except httpx.HTTPError as exc:
+            raise ProviderError(
+                "Groq HTTP request failed",
+                code="groq_http_error",
+                details={
+                    "provider": self.name,
+                    "error": _clean_error(str(exc)),
+                },
             ) from exc
 
         finally:
