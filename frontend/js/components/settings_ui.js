@@ -11,9 +11,12 @@ import {
 import { escapeHtml } from "../utils/dom.js";
 
 import {
-  getIdToken,
-  updateUserProfilePreferences
+  getIdToken
 } from "../auth.js?v=20260615-streaming-v7";
+
+import {
+  updateUserProfilePreferences
+} from "../api.js?v=20260615-streaming-v7";
 
 // We will attach dependencies that require app.js state via a registry
 const deps = {
