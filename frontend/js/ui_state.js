@@ -540,22 +540,63 @@ export function appendStatusIndicator(id) {
 
   if (!chatHistory) return;
 
+  // Inject the wave-dot keyframes once
+  if (!document.getElementById("mindpal-dot-style")) {
+    const style = document.createElement("style");
+    style.id = "mindpal-dot-style";
+    style.textContent = `
+      @keyframes mindpal-wave {
+        0%, 60%, 100% { transform: scaleY(0.5); opacity: 0.5; }
+        30% { transform: scaleY(1.15); opacity: 1; }
+      }
+      .mp-dot {
+        width: 5px;
+        height: 14px;
+        border-radius: 2px;
+        background: linear-gradient(180deg, #4285f4, #9b72cb);
+        display: inline-block;
+        animation: mindpal-wave 1.1s ease-in-out infinite;
+        transform-origin: center bottom;
+      }
+      .mp-dot:nth-child(1) { animation-delay: 0s; }
+      .mp-dot:nth-child(2) { animation-delay: 0.18s; }
+      .mp-dot:nth-child(3) { animation-delay: 0.36s; }
+      @media (prefers-color-scheme: dark) {
+        .mp-dot { background: linear-gradient(180deg, #7baaf7, #c58af9); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   const msgDiv = document.createElement("div");
   msgDiv.id = id;
-  msgDiv.className = "flex w-full animate-fade-in pl-10";
-  msgDiv.innerHTML = `<div class="text-[15px] font-medium shimmer-text">Thought for a few seconds...</div>`;
+  msgDiv.className = "flex w-full animate-fade-in pl-4 sm:pl-10 py-1";
+  msgDiv.innerHTML = `
+    <div class="flex items-center gap-3">
+      <div class="flex items-end gap-[3px]">
+        <span class="mp-dot"></span>
+        <span class="mp-dot"></span>
+        <span class="mp-dot"></span>
+      </div>
+      <span class="text-[14px] font-medium text-[#444746] dark:text-[#c4c7c5]">Thought for a few seconds...</span>
+    </div>
+  `;
 
   chatHistory.appendChild(msgDiv);
-  scrollChatToBottom("smooth");
+  scrollChatToBottom();
 }
 
 export function removeStatusIndicator(id) {
   document.getElementById(id)?.remove();
 }
 
-export function scrollChatToBottom(behavior = "smooth") {
-  const chatHistory = document.getElementById("chat-history");
-  chatHistory?.scrollTo({ top: chatHistory.scrollHeight, behavior });
+export function scrollChatToBottom(behavior = "auto") {
+  requestAnimationFrame(() => {
+    const chatHistory = document.getElementById("chat-history");
+    if (chatHistory) {
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+  });
 }
 
 export function showToast(message) {
