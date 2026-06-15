@@ -1269,6 +1269,8 @@ async function handleSend() {
             ragUsed: [],
             memoryUpdated: false,
           });
+
+          notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
         }
       },
       onMetadata: (meta) => {
@@ -1348,8 +1350,6 @@ async function handleSend() {
 
     bindAccordion(streamMsgDiv);
     refreshIcons();
-
-    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
   } catch (error) {
     console.error("handleSend error:", error);
     // Remove the orphan streaming div only if no content was received
@@ -1714,6 +1714,8 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
             memoryUpdated: false,
             regenerated: true,
           });
+
+          notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the regenerated response.");
         }
       },
       onMetadata: (meta) => {
@@ -1794,9 +1796,6 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
     bindAccordion(streamMsgDiv);
     refreshIcons();
-
-    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the regenerated response.");
-    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the regenerated response.");
   } catch (error) {
     console.error("regenerateLastUserMessage error:", error);
     
