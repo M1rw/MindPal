@@ -63,7 +63,13 @@ function appendToTranscript(type, text) {
     }
 
     if (currentBubble) {
-        currentBubble.textContent += cleaned;
+        // Add space between chunks if the bubble already has text
+        const existing = currentBubble.textContent;
+        if (existing && !existing.endsWith(" ") && !cleaned.startsWith(" ")) {
+            currentBubble.textContent += " " + cleaned;
+        } else {
+            currentBubble.textContent += cleaned;
+        }
     }
 
     // Track for chat sync
@@ -170,7 +176,8 @@ export async function startLiveVoice() {
     // Set listening colours
     applyPalette(PALETTE_LISTEN);
 
-    // Start animation
+    // Init wave canvas and start animation
+    initWaveCanvas();
     if (!animFrameId) tick();
 
     // Reset mic UI
@@ -418,6 +425,7 @@ export function stopLiveVoice() {
     setTimeout(() => {
         overlay.classList.add("hidden");
         if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+        destroyWaveCanvas();
     }, 500);
 
     if (onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
@@ -427,28 +435,11 @@ export function stopLiveVoice() {
 
 /* ═══════════════ Wave State ═══════════════ */
 let currentPalette = "listen"; // "listen" | "speak"
-
-// Speaking palette changes gradient hue (applied via JS style overrides)
-const SPEAK_GRADIENTS = [
-    "linear-gradient(90deg, rgba(249,168,212,0.4), rgba(192,132,252,0.55), rgba(249,168,212,0.4))",
-    "linear-gradient(90deg, rgba(251,191,36,0.2), rgba(249,168,212,0.35), rgba(192,132,252,0.2))",
-    "linear-gradient(90deg, rgba(253,224,71,0.15), rgba(255,255,255,0.35), rgba(253,224,71,0.15))",
-    "linear-gradient(90deg, rgba(232,121,249,0.15), rgba(192,132,252,0.2), rgba(232,121,249,0.15))",
-];
-const LISTEN_GRADIENTS = [
-    "linear-gradient(90deg, rgba(96,165,250,0.35), rgba(129,140,248,0.5), rgba(167,139,250,0.35))",
-    "linear-gradient(90deg, rgba(56,189,248,0.2), rgba(96,165,250,0.35), rgba(192,132,252,0.2))",
-    "linear-gradient(90deg, rgba(224,242,254,0.15), rgba(255,255,255,0.4), rgba(224,242,254,0.15))",
-    "linear-gradient(90deg, rgba(99,102,241,0.15), rgba(129,140,248,0.2), rgba(99,102,241,0.15))",
-];
+let waveCanvas = null;
+let waveCtx = null;
 
 function applyPalette(p) {
     currentPalette = (p === PALETTE_SPEAK) ? "speak" : "listen";
-    const grads = (currentPalette === "speak") ? SPEAK_GRADIENTS : LISTEN_GRADIENTS;
-    for (let i = 0; i < 4; i++) {
-        const el = document.getElementById(`voice-glow-${i + 1}`);
-        if (el) el.style.background = grads[i];
-    }
 }
 
 /* ═══════════════ Volume feeder ═══════════════ */
@@ -456,54 +447,157 @@ function feedVolume(rms) {
     smoothVolume = Math.max(smoothVolume, Math.min(1, rms * 14));
 }
 
+/* ═══════════════ Canvas lifecycle ═══════════════ */
+function initWaveCanvas() {
+    waveCanvas = document.getElementById("voice-wave-canvas");
+    if (!waveCanvas) return;
+    waveCtx = waveCanvas.getContext("2d");
+    resizeWaveCanvas();
+    window.addEventListener("resize", resizeWaveCanvas);
+}
+
+function resizeWaveCanvas() {
+    if (!waveCanvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    waveCanvas.width = waveCanvas.clientWidth * dpr;
+    waveCanvas.height = waveCanvas.clientHeight * dpr;
+    waveCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function destroyWaveCanvas() {
+    window.removeEventListener("resize", resizeWaveCanvas);
+    waveCanvas = null;
+    waveCtx = null;
+}
+
+/* ═══════════════ Gemini-style wave drawing ═══════════════ */
+function drawGeminiWave(v) {
+    if (!waveCtx || !waveCanvas) return;
+
+    const W = waveCanvas.clientWidth;
+    const H = waveCanvas.clientHeight;
+    waveCtx.clearRect(0, 0, W, H);
+
+    const isSpeaking = currentPalette === "speak";
+    const t = blobPhase;
+
+    if (isSpeaking) {
+        // ── Speaking: multi-colored organic flowing wave ──
+        // Draw 3 layered organic blobs with different colors
+        const blobs = [
+            { cx: 0.25, cy: 0.55, color: [232, 121, 249], radius: 0.35 },  // pink/magenta
+            { cx: 0.45, cy: 0.5,  color: [251, 191, 36],  radius: 0.3 },   // gold/amber
+            { cx: 0.7,  cy: 0.55, color: [52, 211, 153],  radius: 0.35 },   // emerald/teal
+            { cx: 0.55, cy: 0.6,  color: [96, 165, 250],  radius: 0.25 },   // blue accent
+        ];
+
+        for (let i = 0; i < blobs.length; i++) {
+            const b = blobs[i];
+            // Animate position organically
+            const ox = Math.sin(t * (0.8 + i * 0.3) + i * 1.7) * W * 0.08 * (1 + v * 1.5);
+            const oy = Math.sin(t * (0.6 + i * 0.2) + i * 2.1) * H * 0.06 * (1 + v * 2);
+            const cx = b.cx * W + ox;
+            const cy = b.cy * H + oy - v * H * 0.15;
+            const r = b.radius * W * (0.8 + v * 0.8);
+
+            const grad = waveCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
+            const [cr, cg, cb] = b.color;
+            const alpha = 0.4 + v * 0.45;
+            grad.addColorStop(0, `rgba(${cr},${cg},${cb},${alpha})`);
+            grad.addColorStop(0.5, `rgba(${cr},${cg},${cb},${alpha * 0.4})`);
+            grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+
+            waveCtx.fillStyle = grad;
+            waveCtx.fillRect(0, 0, W, H);
+        }
+
+        // Draw the organic wave edge using bezier curves
+        const waveHeight = 60 + v * 120;
+        const baseY = H * 0.35 - v * H * 0.12;
+
+        waveCtx.beginPath();
+        waveCtx.moveTo(-10, H);
+        waveCtx.lineTo(-10, baseY + Math.sin(t * 1.2) * waveHeight * 0.3);
+
+        // Smooth bezier curves across the width
+        const segments = 5;
+        const segW = (W + 20) / segments;
+        for (let i = 0; i < segments; i++) {
+            const x1 = -10 + i * segW;
+            const x2 = x1 + segW;
+            const midX = (x1 + x2) / 2;
+            const y1 = baseY
+                + Math.sin(t * 1.2 + i * 1.1) * waveHeight * 0.5
+                + Math.sin(t * 0.7 + i * 2.3) * waveHeight * 0.3;
+            const y2 = baseY
+                + Math.sin(t * 1.2 + (i + 1) * 1.1) * waveHeight * 0.5
+                + Math.sin(t * 0.7 + (i + 1) * 2.3) * waveHeight * 0.3;
+            const cpY = baseY
+                + Math.sin(t * 1.5 + i * 1.7) * waveHeight * 0.7
+                + Math.sin(t * 0.9 + i * 0.8) * waveHeight * 0.4;
+
+            waveCtx.quadraticCurveTo(midX, cpY, x2, y2);
+        }
+        waveCtx.lineTo(W + 10, H);
+        waveCtx.closePath();
+
+        // Fill with multi-color gradient
+        const fillGrad = waveCtx.createLinearGradient(0, baseY - waveHeight, W, H);
+        fillGrad.addColorStop(0, `rgba(232,121,249,${0.3 + v * 0.3})`);
+        fillGrad.addColorStop(0.3, `rgba(251,191,36,${0.25 + v * 0.25})`);
+        fillGrad.addColorStop(0.6, `rgba(52,211,153,${0.3 + v * 0.3})`);
+        fillGrad.addColorStop(1, `rgba(96,165,250,${0.2 + v * 0.2})`);
+        waveCtx.fillStyle = fillGrad;
+        waveCtx.fill();
+
+    } else {
+        // ── Listening: calm blue horizontal glow at the bottom ──
+        const glowY = H * (0.6 - v * 0.15);
+        const glowH = H * (0.35 + v * 0.3);
+
+        // Diffuse blue glow
+        const grad = waveCtx.createLinearGradient(0, glowY - glowH * 0.5, 0, H);
+        grad.addColorStop(0, `rgba(96,165,250,0)`);
+        grad.addColorStop(0.3, `rgba(96,165,250,${0.08 + v * 0.15})`);
+        grad.addColorStop(0.6, `rgba(59,130,246,${0.15 + v * 0.25})`);
+        grad.addColorStop(0.85, `rgba(37,99,235,${0.2 + v * 0.3})`);
+        grad.addColorStop(1, `rgba(29,78,216,${0.15 + v * 0.2})`);
+        waveCtx.fillStyle = grad;
+        waveCtx.fillRect(0, 0, W, H);
+
+        // Bright horizon line
+        const lineY = glowY + Math.sin(t * 0.8) * 4;
+        const lineGrad = waveCtx.createLinearGradient(0, lineY - 2, 0, lineY + 2 + v * 15);
+        lineGrad.addColorStop(0, `rgba(147,197,253,0)`);
+        lineGrad.addColorStop(0.3, `rgba(147,197,253,${0.3 + v * 0.5})`);
+        lineGrad.addColorStop(0.5, `rgba(191,219,254,${0.5 + v * 0.4})`);
+        lineGrad.addColorStop(0.7, `rgba(147,197,253,${0.3 + v * 0.5})`);
+        lineGrad.addColorStop(1, `rgba(147,197,253,0)`);
+        waveCtx.fillStyle = lineGrad;
+        waveCtx.fillRect(0, lineY - 20, W, 40 + v * 30);
+
+        // Center glow spot for warmth
+        const spotGrad = waveCtx.createRadialGradient(W * 0.5, lineY, 0, W * 0.5, lineY, W * (0.3 + v * 0.2));
+        spotGrad.addColorStop(0, `rgba(191,219,254,${0.2 + v * 0.3})`);
+        spotGrad.addColorStop(0.5, `rgba(96,165,250,${0.1 + v * 0.15})`);
+        spotGrad.addColorStop(1, `rgba(96,165,250,0)`);
+        waveCtx.fillStyle = spotGrad;
+        waveCtx.fillRect(0, 0, W, H);
+    }
+}
+
 /* ═══════════════ Animation tick ═══════════════ */
 function tick() {
     if (!isLiveSessionActive) { animFrameId = null; return; }
 
-    blobPhase += 0.01;
+    blobPhase += 0.012;
     smoothVolume *= 0.91;
     if (smoothVolume < 0.003) smoothVolume = 0;
 
     const v = smoothVolume;
 
-    // Gradient light bands — react dramatically to voice
-    const g1 = document.getElementById("voice-glow-1");
-    const g2 = document.getElementById("voice-glow-2");
-    const g3 = document.getElementById("voice-glow-3");
-    const g4 = document.getElementById("voice-glow-4");
-
-    // g1: primary band — biggest reaction
-    if (g1) {
-        const bob = Math.sin(blobPhase * 1.1) * 10;
-        const lift = v * -60;
-        const sc = 1 + v * 1.2;
-        g1.style.transform = `translateY(${bob + lift}px) scaleY(${sc}) scaleX(${1 + v * 0.15})`;
-        g1.style.opacity = String(0.6 + v * 0.4);
-    }
-    // g2: secondary — slightly delayed
-    if (g2) {
-        const bob = Math.sin(blobPhase * 0.7 + 1) * 12;
-        const lift = v * -45;
-        const sc = 1 + v * 0.9;
-        g2.style.transform = `translateY(${bob + lift}px) scaleY(${sc}) scaleX(${1 + v * 0.1})`;
-        g2.style.opacity = String(0.5 + v * 0.4);
-    }
-    // g3: bright center highlight — most dramatic
-    if (g3) {
-        const bob = Math.sin(blobPhase * 1.5 + 2) * 8;
-        const lift = v * -80;
-        const sc = 1 + v * 1.8;
-        g3.style.transform = `translateY(${bob + lift}px) scaleY(${sc}) scaleX(${1 + v * 0.2})`;
-        g3.style.opacity = String(0.4 + v * 0.6);
-    }
-    // g4: deep wash — slow, wide
-    if (g4) {
-        const bob = Math.sin(blobPhase * 0.4 + 3) * 14;
-        const lift = v * -30;
-        const sc = 1 + v * 0.6;
-        g4.style.transform = `translateY(${bob + lift}px) scaleY(${sc})`;
-        g4.style.opacity = String(0.4 + v * 0.35);
-    }
+    // Draw the Gemini-style wave
+    drawGeminiWave(v);
 
     // Mic dot pulse — theme-aware
     const isDark = document.documentElement.classList.contains("dark");
