@@ -1645,7 +1645,14 @@ async function handleSend() {
 
     // Build the streaming container
     streamMsgDiv = document.createElement("div");
-    streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
+    streamMsgDiv.className = "flex gap-4 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
+    streamMsgDiv.innerHTML = `
+      <div class="flex-none pt-1 shrink-0">
+        <div class="w-[30px] h-[30px] rounded-full overflow-hidden flex items-center justify-center bg-transparent shrink-0">
+          <img src="/assets/icons/mindpal_v2.png" alt="MindPal" class="w-full h-full object-cover">
+        </div>
+      </div>
+    `;
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     contentBox = document.createElement("div");
@@ -1771,10 +1778,16 @@ async function handleSend() {
 
     notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
   } catch (error) {
-    console.error(error);
-    // Remove the orphan streaming div so no blank bubble is left in the chat
-    streamMsgDiv?.remove();
-    removeStatusIndicator(statusId);
+    console.error("handleSend error:", error);
+    // Remove the orphan streaming div only if no content was received
+    if (!streamResponseStr.trim()) {
+      streamMsgDiv?.remove();
+    }
+    
+    // Check if the thought indicator is still waving, if so remove it since it failed
+    if (!firstChunkReceived) {
+      removeStatusIndicator(statusId);
+    }
 
     const fallback = buildClientFallbackReply(error);
 
@@ -1785,10 +1798,14 @@ async function handleSend() {
 
     scheduleCloudMessageSync(fallbackMessageRecord);
 
-    await appendMessageToUI(fallback, "bot", {
-      smoothScroll: true,
-      typewriter: true,
-    });
+    try {
+      await appendMessageToUI(fallback, "bot", {
+        smoothScroll: true,
+        typewriter: true,
+      });
+    } catch (renderError) {
+      console.error("Failed to render fallback message:", renderError);
+    }
     notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the fallback response.");
   } finally {
     isGenerating = false;
@@ -2048,17 +2065,24 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     const token = await getIdToken();
     const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
 
-    // Send clean message only. Memory/context managed by backend via system prompt.
+    // Create streaming container before try so catch can clean it up on failure
     const chatHistory = document.getElementById("chat-history");
-    const msgDiv = document.createElement("div");
-    msgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
+    let streamMsgDiv = document.createElement("div");
+    streamMsgDiv.className = "flex gap-4 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
+    streamMsgDiv.innerHTML = `
+      <div class="flex-none pt-1 shrink-0">
+        <div class="w-[30px] h-[30px] rounded-full overflow-hidden flex items-center justify-center bg-transparent shrink-0">
+          <img src="/assets/icons/mindpal_v2.png" alt="MindPal" class="w-full h-full object-cover">
+        </div>
+      </div>
+    `;
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     const contentBox = document.createElement("div");
     contentBox.className = "content-box";
     contentContainer.appendChild(contentBox);
-    msgDiv.appendChild(contentContainer);
-    if (chatHistory) chatHistory.appendChild(msgDiv);
+    streamMsgDiv.appendChild(contentContainer);
+    if (chatHistory) chatHistory.appendChild(streamMsgDiv);
 
     let streamResponseStr = "";
     let backendMetaFinal = null;
@@ -2172,13 +2196,23 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       if (metaEl) contentContainer.appendChild(metaEl);
     }
 
-    bindAccordion(msgDiv);
+    bindAccordion(streamMsgDiv);
     refreshIcons();
 
     notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the regenerated response.");
+    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the regenerated response.");
   } catch (error) {
-    console.error(error);
-    removeStatusIndicator(statusId);
+    console.error("regenerateLastUserMessage error:", error);
+    
+    // Remove the orphan streaming div only if no content was received
+    if (!streamResponseStr.trim()) {
+      streamMsgDiv?.remove();
+    }
+    
+    // Check if the thought indicator is still waving, if so remove it since it failed
+    if (!firstChunkReceived) {
+      removeStatusIndicator(statusId);
+    }
 
     const fallback = buildClientFallbackReply(error);
 
@@ -2190,10 +2224,14 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
     scheduleCloudMessageSync(regeneratedFallbackRecord);
 
-    await appendMessageToUI(fallback, "bot", {
-      smoothScroll: true,
-      typewriter: true,
-    });
+    try {
+      await appendMessageToUI(fallback, "bot", {
+        smoothScroll: true,
+        typewriter: true,
+      });
+    } catch (renderError) {
+      console.error("Failed to render regenerate fallback:", renderError);
+    }
     notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the fallback response.");
   } finally {
     isGenerating = false;
