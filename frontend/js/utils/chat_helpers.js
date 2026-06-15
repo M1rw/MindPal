@@ -22,6 +22,7 @@ export function parseCognitiveSections(text) {
     evidenceAgainst: "",
     reframe: "",
     action: "",
+    preamble: "",
   };
 
   const clean = String(text || "").replace(/\r\n/g, "\n").trim();
@@ -75,6 +76,10 @@ export function parseCognitiveSections(text) {
 
   matches.sort((a, b) => a.index - b.index);
 
+  if (matches.length > 0 && matches[0].index > 0) {
+    sections.preamble = clean.slice(0, matches[0].index).trim();
+  }
+
   for (let index = 0; index < matches.length; index += 1) {
     const current = matches[index];
     const next = matches[index + 1];
@@ -123,9 +128,16 @@ export function cognitiveSectionKey(label) {
 
 export function processStructuredResponse(text, elapsedMs = null) {
   const sections = parseCognitiveSections(text);
-  const hasCognitiveStructure =
-    Boolean(sections.reframe || sections.action) &&
-    Boolean(sections.thought || sections.distortion || sections.evidenceFor || sections.evidenceAgainst);
+  
+  // Looser check: if ANY cognitive section was found, we treat it as structured
+  const hasCognitiveStructure = Boolean(
+    sections.thought || 
+    sections.distortion || 
+    sections.evidenceFor || 
+    sections.evidenceAgainst || 
+    sections.reframe || 
+    sections.action
+  );
 
   if (!hasCognitiveStructure) {
     return {
@@ -138,15 +150,8 @@ export function processStructuredResponse(text, elapsedMs = null) {
   const distortion = sections.distortion;
   const evidenceFor = sections.evidenceFor;
   const evidenceAgainst = sections.evidenceAgainst;
-  const reframe = sections.reframe;
+  const reframe = sections.reframe || sections.preamble;
   const action = sections.action;
-
-  if (!reframe) {
-    return {
-      timelineHtml: "",
-      finalHtml: formatMarkdown(text),
-    };
-  }
 
   const timeText = elapsedMs 
     ? `Thought for ${(elapsedMs / 1000).toFixed(1)}s`
