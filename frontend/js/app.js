@@ -2610,10 +2610,9 @@ function resolveLocale() {
   if (configured === "ar-EG") return "ar";
   if (configured === "en") return "en";
 
-  const lang = document.documentElement.lang || navigator.language || "en";
-
-  if (lang.toLowerCase().startsWith("ar")) return "ar";
-  return "en";
+  // Default to 'auto' — let the LLM detect language from the user's message
+  // This prevents forcing English on Arabic-speaking users
+  return "auto";
 }
 
 // sleep moved to utils/dom.js
