@@ -142,7 +142,6 @@ export function initLiveVoice({ onChatSync } = {}) {
             ccVisible = !ccVisible;
             const panel = document.getElementById("voice-transcript-panel");
             if (panel) panel.style.opacity = ccVisible ? "1" : "0";
-            ccBtn.classList.toggle("bg-blue-500/15", ccVisible);
         });
     }
 
@@ -158,15 +157,8 @@ export function initLiveVoice({ onChatSync } = {}) {
                 icon.setAttribute("data-lucide", isIncognito ? "eye-off" : "eye");
             }
 
-            // Swap colors — remove old, add new (avoids dark: class conflicts)
-            if (isIncognito) {
-                incognitoBtn.classList.add("bg-purple-500/15");
-                incognitoBtn.classList.remove("text-gray-500", "dark:text-gray-300");
-                incognitoBtn.classList.add("text-purple-500", "dark:text-purple-400");
-            } else {
-                incognitoBtn.classList.remove("bg-purple-500/15", "text-purple-500", "dark:text-purple-400");
-                incognitoBtn.classList.add("text-gray-500", "dark:text-gray-300");
-            }
+            // Swap colors — no colored bg, just icon change is enough
+            // (icon swap already provides visual feedback)
 
             // Re-render lucide icon
             if (window.lucide) lucide.createIcons();
@@ -336,9 +328,7 @@ export async function startLiveVoice(contextProvider = null) {
     currentBubble = null;
     if (statusEl) statusEl.textContent = "Connecting…";
 
-    // Reset CC toggle visual
-    const ccBtn = document.getElementById("voice-cc-toggle");
-    if (ccBtn) ccBtn.classList.add("bg-blue-500/15");
+    // Reset CC toggle visual (no colored bg)
 
     // Show overlay
     overlay.classList.remove("hidden");
@@ -549,7 +539,11 @@ TOOLS:
 MENTAL HEALTH SUPPORT:
 - You're supportive but never clinical or robotic about it.
 - If someone is struggling, be present with them. Don't immediately jump to solutions.
-- Use grounding techniques only when appropriate, and frame them naturally.`
+- Use grounding techniques only when appropriate, and frame them naturally.
+
+LANGUAGE:
+- ALWAYS respond in the SAME language the user is speaking. If they speak Arabic, respond in Arabic. If they speak French, respond in French. If they mix languages, match their mix.
+- This is critical. Never default to English unless the user speaks English.`
                         }]
                     }
                 }
@@ -726,8 +720,6 @@ export function stopLiveVoice() {
     isIncognito = false;
     const incognitoBtn = document.getElementById("voice-incognito-toggle");
     if (incognitoBtn) {
-        incognitoBtn.classList.remove("bg-purple-500/15", "text-purple-500", "dark:text-purple-400");
-        incognitoBtn.classList.add("text-gray-500", "dark:text-gray-300");
         const icon = incognitoBtn.querySelector("[data-lucide]");
         if (icon) icon.setAttribute("data-lucide", "eye");
     }

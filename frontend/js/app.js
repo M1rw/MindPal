@@ -1731,7 +1731,7 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
       <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
     </div>
     <div class="call-summary-row flex items-start gap-1 mt-1.5 cursor-pointer select-none max-w-sm w-full justify-center">
-      <p id="${summaryId}" class="text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed text-center">${existingSummary ? escapeHtml(existingSummary) : '<span class="italic">Summarizing…</span>'}</p>
+      <p id="${summaryId}" class="text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed text-center">${(existingSummary && existingSummary.length <= 120) ? escapeHtml(existingSummary) : '<span class="italic">Summarizing…</span>'}</p>
       <svg class="w-2.5 h-2.5 text-gray-400 dark:text-gray-500 transition-transform duration-200 call-chevron mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="6 9 12 15 18 9"/>
       </svg>
@@ -1754,8 +1754,9 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
     chevron.style.transform = isOpen ? "" : "rotate(180deg)";
   });
 
-  // Generate LLM summary if not already provided
-  if (!existingSummary && (userTranscript || aiTranscript)) {
+  // Generate LLM summary if not already provided (or if existing is stale raw transcript)
+  const needsSummary = !existingSummary || existingSummary.length > 120;
+  if (needsSummary && (userTranscript || aiTranscript)) {
     summarizeCallTranscript(userTranscript, aiTranscript).then(summary => {
       const summaryEl = document.getElementById(summaryId);
       if (summaryEl) summaryEl.textContent = summary;
@@ -1775,31 +1776,34 @@ async function summarizeCallTranscript(userTranscript, aiTranscript) {
   try {
     const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
     const keyRes = await fetch(`${baseUrl}/voice/key`);
-    if (!keyRes.ok) throw new Error("No key");
+    if (!keyRes.ok) throw new Error("Failed to fetch key: " + keyRes.status);
     const { key } = await keyRes.json();
 
     const transcript = [
-      userTranscript ? `User said: ${userTranscript.slice(0, 2000)}` : "",
-      aiTranscript ? `MindPal said: ${aiTranscript.slice(0, 2000)}` : ""
-    ].filter(Boolean).join("\n\n");
+      userTranscript ? `User: ${userTranscript.slice(0, 2000)}` : "",
+      aiTranscript ? `AI: ${aiTranscript.slice(0, 2000)}` : ""
+    ].filter(Boolean).join("\n");
 
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `Summarize this voice call in 1-2 short sentences. Be concise and natural. Don't start with "The call was about" — just describe what was discussed:\n\n${transcript}` }] }],
-        generationConfig: { maxOutputTokens: 100, temperature: 0.3 }
+        contents: [{ parts: [{ text: `Write a 1-sentence summary of this voice call. Keep it under 15 words. Be natural and concise. Respond in the same language used in the conversation:\n\n${transcript}` }] }],
+        generationConfig: { maxOutputTokens: 60, temperature: 0.2 }
       })
     });
 
-    if (!res.ok) throw new Error("API error");
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`API ${res.status}: ${errText.slice(0, 100)}`);
+    }
     const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Voice call";
+    const summary = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!summary) throw new Error("Empty response from API");
+    return summary;
   } catch (e) {
     console.warn("[CALL_SUMMARY] Failed to generate:", e);
-    // Fallback: first 100 chars of transcript
-    const raw = [userTranscript, aiTranscript].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-    return raw.length > 100 ? raw.slice(0, 97) + "…" : raw || "Voice call";
+    return "Voice call";
   }
 }
 
