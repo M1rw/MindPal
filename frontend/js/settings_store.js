@@ -2,7 +2,7 @@ import { swapIconInline } from "./utils/icons.js";
 
 const SETTINGS_KEY = "mindpal_app_settings_v1";
 
-export const DEFAULT_APP_SETTINGS = Object.freeze({
+const DEFAULT_APP_SETTINGS = Object.freeze({
   appearance: "system",
   contrast: "system",
   accentColor: "blue",
@@ -45,7 +45,7 @@ export function setAppSetting(path, value) {
   return getAppSettings();
 }
 
-export function mergeAppSettings(patch) {
+function mergeAppSettings(patch) {
   appSettings = normalizeSettings(deepMerge(structuredCloneSafe(appSettings), patch || {}));
   saveRawSettings(appSettings);
   applyVisualSettings(appSettings);

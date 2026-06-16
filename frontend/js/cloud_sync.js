@@ -39,17 +39,20 @@ import {
 } from "./settings_store.js?v=20260615-streaming-v7";
 
 import {
-  loadMemoryContext,
   loadMemoryGraphContext,
   memoryGraphFromBackend,
   memoryGraphToBackend,
+  mergeMemoryGraphs,
+  saveMemoryGraphContext,
+} from "./memory_graph.js";
+
+import {
+  loadMemoryContext,
   memoryFromBackendSummary,
   memoryToBackendSummary,
-  mergeMemoryGraphs,
   saveMemoryContext,
-  saveMemoryGraphContext,
   mergeMemoryContexts,
-} from "./memory_engine.js?v=20260615-streaming-v7";
+} from "./memory_legacy.js";
 
 // ═══════════════════════════════════════════════════════════════
 // State
