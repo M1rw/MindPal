@@ -148,7 +148,7 @@ export function processStructuredResponse(text, elapsedMs = null) {
   const distortion = sections.distortion;
   const evidenceFor = sections.evidenceFor;
   const evidenceAgainst = sections.evidenceAgainst;
-  const reframe = sections.reframe || sections.preamble;
+  const reframe = sections.reframe || sections.preamble || "";
   const action = sections.action;
 
   const timeText = elapsedMs 
@@ -175,9 +175,14 @@ export function processStructuredResponse(text, elapsedMs = null) {
     </div>
   `;
 
-  let finalHtml = `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(reframe)}</div>`;
+  // Build the visible response body — fall back if reframe is empty
+  const visibleBody = reframe
+    || action
+    || "I've reflected on what you shared. Would you like to talk more about it?";
 
-  if (action) {
+  let finalHtml = `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(visibleBody)}</div>`;
+
+  if (action && reframe) {
     finalHtml += `<div class="mt-4"><strong class="text-gray-900 dark:text-white font-semibold">Next Action:</strong> ${formatMarkdown(action)}</div>`;
   }
 
