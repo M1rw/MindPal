@@ -29,75 +29,11 @@ input:checked ~ .toggle-bg { background-color: #3b82f6; }
 .dark input:checked ~ .toggle-bg { background-color: #a8c7fa; }
 input:checked ~ .toggle-dot { transform: translateX(100%); }
 
-/* Loading skeleton — gradient typewriter with progressive messages */
+/* Loading skeleton — typewriter text */
 .loader-hello {
     position: relative;
     display: inline;
-}
-
-.loader-hello::after {
-    content: "";
-    animation: typeSequence 12s steps(1) 0.3s both;
-}
-
-/* Phase 1: "Hello."  (0–2s)
-   Phase 2: pause      (2–3s)
-   Phase 3: "Getting things ready…" (3–7.5s)
-   Phase 4: pause      (7.5–8.5s)
-   Phase 5: "Almost there…"         (8.5–12s) */
-@keyframes typeSequence {
-    /* Phase 1 — Hello. */
-    0%    { content: "H"; }
-    3%    { content: "He"; }
-    6%    { content: "Hel"; }
-    9%    { content: "Hell"; }
-    12%   { content: "Hello"; }
-    15%   { content: "Hello."; }
-
-    /* Pause */
-    24%   { content: "Hello."; }
-
-    /* Phase 2 — Getting things ready… */
-    25%   { content: "G"; }
-    26.5% { content: "Ge"; }
-    28%   { content: "Get"; }
-    29.5% { content: "Gett"; }
-    31%   { content: "Getti"; }
-    32.5% { content: "Gettin"; }
-    34%   { content: "Getting"; }
-    35.5% { content: "Getting "; }
-    37%   { content: "Getting t"; }
-    38.5% { content: "Getting th"; }
-    40%   { content: "Getting thi"; }
-    41.5% { content: "Getting thin"; }
-    43%   { content: "Getting thing"; }
-    44.5% { content: "Getting things"; }
-    46%   { content: "Getting things "; }
-    47.5% { content: "Getting things r"; }
-    49%   { content: "Getting things re"; }
-    50.5% { content: "Getting things rea"; }
-    52%   { content: "Getting things read"; }
-    53.5% { content: "Getting things ready"; }
-    55%   { content: "Getting things ready…"; }
-
-    /* Pause */
-    70%   { content: "Getting things ready…"; }
-
-    /* Phase 3 — Almost there… */
-    71%   { content: "A"; }
-    73%   { content: "Al"; }
-    75%   { content: "Alm"; }
-    77%   { content: "Almo"; }
-    79%   { content: "Almos"; }
-    81%   { content: "Almost"; }
-    83%   { content: "Almost "; }
-    85%   { content: "Almost t"; }
-    87%   { content: "Almost th"; }
-    89%   { content: "Almost the"; }
-    91%   { content: "Almost ther"; }
-    93%   { content: "Almost there"; }
-    95%   { content: "Almost there…"; }
-    100%  { content: "Almost there…"; }
+    transition: opacity 0.4s ease;
 }
 
 .loader-hello::before {
