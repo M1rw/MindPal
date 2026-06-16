@@ -1,4 +1,4 @@
-// frontend/js/app.js
+// frontend/js/app.js — Bootstrap, event bindings, and orchestration
 
 import {
   API_BASE_URL,
@@ -7,27 +7,15 @@ import {
   deleteMemoryGraphItem,
   getCurrentUserProfile,
   loadUserProfile,
-  loadMemory,
-  loadMemoryGraph,
-  mergeMemoryGraph,
-  normalizeChatHistory,
-  saveMemory,
   saveMemoryGraph,
-  sendChatMessage,
   sendChatMessageStream,
   deleteCurrentCloudChat,
-  loadCurrentCloudChat,
-  replaceCurrentCloudChat,
-  upsertCloudChatMessages,
-  updateUserProfilePreferences,
 } from "./api.js?v=20260615-streaming-v7";
 
 import {
   authIsConfigured,
   getCurrentUser,
   getIdToken,
-  initAuth,
-  onAuthChange,
   signInWithGoogle,
   signOut,
 } from "./auth.js?v=20260615-streaming-v7";
@@ -67,30 +55,22 @@ import {
   updateUsageFromMeta,
 } from "./ui_state.js?v=20260615-streaming-v7";
 
-import { initVoice } from "./voice.js?v=20260615-streaming-v7";
 import { initLiveVoice, startLiveVoice } from "./voice_live.js";
 
 import {
-  formatMarkdown,
   stripMarkdown,
-  appendSectionLine,
-  sleep,
   typewriteHTML,
-  bindAccordion
+  bindAccordion,
 } from "./utils/dom.js";
 
-import {
-  processStructuredResponse
-} from "./utils/chat_helpers.js";
+import { processStructuredResponse } from "./utils/chat_helpers.js";
+import { speakText, fallbackCopy, isSafetyLock, isCrisisReply, resolveLocale } from "./utils/tts.js";
 
 import {
   applyVisualSettings,
   buildChatSettingsMetadata,
-  buildProfilePreferencesPatch,
   getAppSettings,
   hydrateSettingsFromProfile,
-  mergeAppSettings,
-  requestBrowserNotificationsIfNeeded,
   setAppSetting,
 } from "./settings_store.js?v=20260615-streaming-v7";
 
@@ -100,13 +80,38 @@ import {
   bindSettingsChoiceEvents,
   bindKeyboardShortcuts,
   persistAppSettingsToCloud,
-  notifyFromSetting
+  notifyFromSetting,
 } from "./components/settings_ui.js";
 
 import {
   initMemoryUI,
-  renderMemoryInspector
+  renderMemoryInspector,
 } from "./components/memory_inspector.js";
+
+import {
+  bindUnifiedSelector,
+  getCurrentModel,
+  getCurrentMode,
+} from "./components/model_selector.js";
+
+import {
+  initFrontendAuth,
+  cleanupAuth,
+  hydrateCloudMemory,
+  hydrateCloudChat,
+  scheduleCloudMessageSync,
+  replaceCloudChatSnapshotSafe,
+  persistMemoryContextSafe,
+  buildCloudProfileContext,
+  formatCloudConnectErrorSafe,
+  resetCloudState,
+  getMemoryContext,
+  setMemoryContext,
+  getMemoryGraphContext,
+  setMemoryGraphContext,
+  getCurrentCloudProfileContext,
+  setCurrentCloudProfileContext,
+} from "./cloud_sync.js";
 
 import {
   answerQuestionFromMemory,
@@ -115,34 +120,26 @@ import {
   classifyAndStoreMemoryGraphFromMessage,
   createEmptyMemory,
   createEmptyMemoryGraph,
-  getMemoryInspectorCards,
-  getMemoryInspectorRows,
-  loadMemoryGraphContext,
+  buildMemoryLines,
+  buildMemoryGraphLines,
   loadMemoryContext,
+  loadMemoryGraphContext,
   memoryGraphFromBackend,
   memoryGraphFromLegacyMemory,
   memoryGraphToBackend,
   memoryFromBackendSummary,
-  memoryToBackendSummary,
   mergeMemoryGraphs,
   saveMemoryContext,
   saveMemoryGraphContext,
   mergeMemoryContexts,
-  buildMemoryLines,
-  buildMemoryGraphLines,
 } from "./memory_engine.js?v=20260615-streaming-v7";
+
+// ═══════════════════════════════════════════════════════════════
+// App state
+// ═══════════════════════════════════════════════════════════════
 
 let isGenerating = false;
 let isSessionLocked = false;
-let voiceController = null;
-let authUnsubscribe = null;
-let cloudConnectInProgress = false;
-let memoryContext = loadMemoryContext();
-let memoryGraphContext = loadMemoryGraphContext();
-let currentCloudProfileContext = null;
-let cloudChatHydrated = false;
-let cloudChatSyncInFlight = false;
-let cloudChatSyncTimer = null;
 
 let globalLoaderRemoved = false;
 export function removeGlobalLoader() {
@@ -156,10 +153,14 @@ export function removeGlobalLoader() {
     }, 150);
   }
 }
-const pendingCloudChatMessages = [];
 
-/* ═══════════════ Voice Context Provider ═══════════════ */
+// ═══════════════════════════════════════════════════════════════
+// Voice context provider
+// ═══════════════════════════════════════════════════════════════
+
 function buildVoiceContextProvider() {
+  const memoryContext = getMemoryContext();
+  const memoryGraphContext = getMemoryGraphContext();
   return {
     getUserProfile() {
       const user = getCurrentUser?.() || {};
@@ -177,13 +178,12 @@ function buildVoiceContextProvider() {
           avoidedResponses: memoryContext?.avoidedResponses || [],
           emotionalTriggers: memoryContext?.emotionalTriggers || [],
           userGoals: memoryContext?.userGoals || [],
-        }
+        },
       };
     },
     getMemoryLines() {
       const legacy = buildMemoryLines(memoryContext);
       const graph = buildMemoryGraphLines(memoryGraphContext);
-      // Merge and deduplicate
       const seen = new Set();
       const all = [];
       for (const line of [...graph, ...legacy]) {
@@ -201,12 +201,14 @@ function buildVoiceContextProvider() {
     searchChat(query) {
       const messages = getState().chatMemory || [];
       const q = String(query).toLowerCase();
-      return messages.filter(m =>
-        String(m.text || "").toLowerCase().includes(q)
-      );
-    }
+      return messages.filter(m => String(m.text || "").toLowerCase().includes(q));
+    },
   };
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Console banner
+// ═══════════════════════════════════════════════════════════════
 
 const consoleBanner = `
  __  __ _           _ ____       _ 
@@ -224,6 +226,10 @@ to your MindPal account.
 `;
 console.log("%c" + consoleBanner, "color: #3b82f6; font-weight: bold; font-family: monospace;");
 
+// ═══════════════════════════════════════════════════════════════
+// Bootstrap
+// ═══════════════════════════════════════════════════════════════
+
 document.addEventListener("DOMContentLoaded", bootstrap);
 
 async function bootstrap() {
@@ -232,7 +238,11 @@ async function bootstrap() {
   applyVisualSettings();
   loadState();
 
-  await initFrontendAuth();
+  await initFrontendAuth({
+    removeGlobalLoader,
+    renderPersistedChat,
+    renderMemoryInspector,
+  });
 
   initSettingsUI({
     refreshIcons,
@@ -245,7 +255,7 @@ async function bootstrap() {
     updateProfileUI,
     get isGenerating() { return isGenerating; },
     get isSessionLocked() { return isSessionLocked; },
-    get currentCloudProfileContext() { return currentCloudProfileContext; }
+    get currentCloudProfileContext() { return getCurrentCloudProfileContext(); },
   });
 
   initMemoryUI({
@@ -255,7 +265,7 @@ async function bootstrap() {
     toggleMemoryPin,
     clearMemoryCategory,
     persistMemoryContextSafe,
-    getMemoryGraphContext: () => memoryGraphContext
+    getMemoryGraphContext,
   });
 
   bindTheme();
@@ -267,63 +277,40 @@ async function bootstrap() {
   bindStreakModal();
   bindSettings();
   bindInput();
-  bindModelSelector();
-  bindModeSelector();
-  bindUnifiedSelector();
+  bindUnifiedSelector({ isSessionLocked: () => isSessionLocked });
   bindMoodButtons();
   bindConversationActions();
-
-  // Disable legacy voice controller
-  // voiceController = initVoice();
 
   initLiveVoice({
     onChatSync: (callData) => {
       const { userTranscript, aiTranscript, startTime, endTime, durationMs } = callData;
       if (!userTranscript && !aiTranscript) return;
 
-      // Format duration string
       const totalSec = Math.round(durationMs / 1000);
       const mins = Math.floor(totalSec / 60);
       const secs = totalSec % 60;
       const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
-      // Build a concise summary of what was discussed
-      const fullTranscript = [
-        userTranscript ? `User: ${userTranscript}` : "",
-        aiTranscript ? `MindPal: ${aiTranscript}` : ""
-      ].filter(Boolean).join("\n");
-
-      // Save as a special "call" message in chat memory
       const callMsg = addMessage("MindPal", `[Voice Call] ${durationStr}`, {
         type: "voice_call",
-        voiceCall: {
-          startTime,
-          endTime,
-          durationMs,
-          durationStr,
-          userTranscript,
-          aiTranscript,
-        }
+        voiceCall: { startTime, endTime, durationMs, durationStr, userTranscript, aiTranscript },
       });
 
-      // Render the call card in chat UI
       if (callMsg) {
         setChatStarted(true);
-        insertCallCardUI({
-          startTime,
-          durationStr,
-          userTranscript,
-          aiTranscript,
-        });
+        insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript });
       }
 
-      // Feed transcript into memory engine for future recall
       if (userTranscript) {
+        let memoryGraphContext = getMemoryGraphContext();
+        let memoryContext = getMemoryContext();
+
         const graphResult = classifyAndStoreMemoryGraphFromMessage(userTranscript, {
           graphContext: memoryGraphContext,
           source: "voice_call",
         });
         memoryGraphContext = graphResult.graph;
+        setMemoryGraphContext(memoryGraphContext);
         saveMemoryGraphContext(memoryGraphContext);
 
         const memResult = classifyAndStoreMemoryFromMessage(userTranscript, {
@@ -332,27 +319,27 @@ async function bootstrap() {
         });
         if (memResult.saved.length) {
           memoryContext = memResult.memory;
+          setMemoryContext(memoryContext);
           saveMemoryContext(memoryContext);
         }
       }
 
       scrollChatToBottom("smooth", true);
-    }
+    },
   });
 
   const mainVoiceBtn = document.getElementById("voice-btn");
   if (mainVoiceBtn) {
-      mainVoiceBtn.addEventListener("click", () => {
-          if (isGenerating || isSessionLocked) return;
-          startLiveVoice(buildVoiceContextProvider());
-      });
+    mainVoiceBtn.addEventListener("click", () => {
+      if (isGenerating || isSessionLocked) return;
+      startLiveVoice(buildVoiceContextProvider());
+    });
   }
 
   renderPersistedChat();
   updateProfileUI(getCurrentUser());
   setGreeting();
   setInputState({ disabled: false, locked: false });
-
   refreshIcons();
 
   if (!authIsConfigured()) {
@@ -360,373 +347,9 @@ async function bootstrap() {
   }
 }
 
-async function initFrontendAuth() {
-  if (!authIsConfigured()) {
-    setCloudSyncEnabled(false);
-    return;
-  }
-
-  try {
-    await initAuth();
-
-    authUnsubscribe = onAuthChange(async (user) => {
-      if (!user) {
-        if (!cloudConnectInProgress) {
-          setCloudSyncEnabled(false);
-          updateProfileUI(null);
-        }
-        removeGlobalLoader();
-        return;
-      }
-
-      if (user.displayName) {
-        setUserName(user.displayName);
-      }
-
-      if (cloudConnectInProgress) {
-        updateProfileUI(user);
-        return;
-      }
-
-      try {
-        const token = await getIdToken();
-
-        if (!token) {
-          throw new Error("Firebase returned no ID token.");
-        }
-
-        const profile = await getCurrentUserProfile(token);
-        try {
-          const profileRes = await loadUserProfile(token);
-          if (profileRes) {
-            hydrateSettingsFromProfile(profileRes);
-            updateMentalHealthUI(profileRes);
-            updateUsageUI(profileRes);
-          }
-        } catch (e) {
-          console.error("Failed to load cloud profile:", e);
-        }
-
-        currentCloudProfileContext = {
-          ...buildCloudProfileContext(user, profile),
-          settingsMetadata: buildChatSettingsMetadata(),
-        };
-        await hydrateCloudMemory(token);
-        await hydrateCloudChat(token);
-
-        setCloudSyncEnabled(true);
-        updateProfileUI(user);
-      } catch (error) {
-        console.warn("Silent cloud profile verification failed:", error);
-        currentCloudProfileContext = null;
-        memoryContext = loadMemoryContext();
-        memoryGraphContext = loadMemoryGraphContext();
-        setCloudSyncEnabled(false);
-        updateProfileUI(null);
-      } finally {
-        removeGlobalLoader();
-      }
-    });
-  } catch (error) {
-    console.warn("Firebase frontend auth init failed:", error);
-    setCloudSyncEnabled(false);
-    removeGlobalLoader();
-  }
-}
-
-
-
-
-async function hydrateCloudMemory(token) {
-  if (!token) return;
-
-  try {
-    const localGraph = saveMemoryGraphContext(memoryGraphContext);
-    const response = await loadMemoryGraph(token);
-    if (response?.loaded && response.graph) {
-      const cloudGraph = memoryGraphFromBackend(response.graph);
-      const mergedGraph = mergeMemoryGraphs(cloudGraph, localGraph);
-      memoryGraphContext = saveMemoryGraphContext(mergedGraph);
-      if (mergedGraph.version !== cloudGraph.version || mergedGraph.atoms.length !== cloudGraph.atoms.length) {
-        await mergeMemoryGraph(memoryGraphToBackend(localGraph), token);
-      }
-    } else {
-      memoryGraphContext = saveMemoryGraphContext(localGraph);
-      await saveMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
-    }
-
-    const legacyResponse = await loadMemory(token).catch(() => null);
-    if (legacyResponse?.loaded && legacyResponse.summary) {
-      memoryContext = saveMemoryContext(mergeMemoryContexts(memoryContext, memoryFromBackendSummary(legacyResponse.summary)));
-    } else {
-      memoryContext = saveMemoryContext(memoryContext);
-      await saveMemory(memoryToBackendSummary(memoryContext), token);
-    }
-    renderMemoryInspector();
-  } catch (error) {
-    console.warn("Cloud memory load failed; using local memory.", error);
-    memoryContext = loadMemoryContext();
-    memoryGraphContext = loadMemoryGraphContext();
-    renderMemoryInspector();
-  }
-}
-
-
-async function hydrateCloudChat(token) {
-  if (!token || cloudChatHydrated) {
-    cloudChatHydrated = true;
-    return;
-  }
-
-  try {
-    const response = await loadCurrentCloudChat(token);
-    const cloudMessages = normalizeCloudMessages(response?.chat?.messages || []);
-    const localMessages = normalizeLocalMessages(getState().chatMemory || []);
-    const merged = mergeChatMessages(localMessages, cloudMessages);
-
-    if (merged.length) {
-      replaceChatMemory(merged);
-      renderPersistedChat();
-      setChatStarted(true);
-    }
-
-    cloudChatHydrated = true;
-
-    if (merged.length && merged.length !== cloudMessages.length) {
-      await replaceCurrentCloudChat(merged, token);
-    }
-
-    await flushPendingCloudChatMessages();
-  } catch (error) {
-    console.warn("Cloud chat hydration failed:", error);
-  }
-}
-
-function scheduleCloudMessageSync(message) {
-  if (!message || !getCurrentUser()) return;
-
-  pendingCloudChatMessages.push(normalizeLocalMessage(message));
-
-  if (cloudChatSyncTimer) {
-    window.clearTimeout(cloudChatSyncTimer);
-  }
-
-  cloudChatSyncTimer = window.setTimeout(() => {
-    flushPendingCloudChatMessages();
-  }, 250);
-}
-
-async function flushPendingCloudChatMessages() {
-  if (cloudChatSyncInFlight || pendingCloudChatMessages.length === 0) return;
-
-  const token = await getIdToken();
-  if (!token) return;
-
-  cloudChatSyncInFlight = true;
-
-  try {
-    const batch = pendingCloudChatMessages.splice(0, pendingCloudChatMessages.length);
-    const response = await upsertCloudChatMessages(batch, token);
-
-    if (response?.chat?.messages) {
-      const merged = mergeChatMessages(
-        normalizeLocalMessages(getState().chatMemory || []),
-        normalizeCloudMessages(response.chat.messages),
-      );
-
-      replaceChatMemory(merged);
-    }
-  } catch (error) {
-    console.warn("Cloud chat sync failed; will retry later:", error);
-  } finally {
-    cloudChatSyncInFlight = false;
-  }
-}
-
-async function replaceCloudChatSnapshotSafe(messages = null) {
-  const token = await getIdToken();
-  if (!token) return;
-
-  try {
-    await replaceCurrentCloudChat(normalizeLocalMessages(messages || getState().chatMemory || []), token);
-  } catch (error) {
-    console.warn("Cloud chat snapshot replace failed:", error);
-  }
-}
-
-async function persistMemoryContextSafe() {
-  try {
-    const token = await getIdToken();
-    memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
-
-    if (!token) {
-      saveMemoryContext(memoryContext);
-      return;
-    }
-
-    await mergeMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
-    await saveMemory(memoryToBackendSummary(memoryContext), token);
-  } catch (error) {
-    console.warn("Memory sync failed; local memory retained:", error);
-    saveMemoryGraphContext(memoryGraphContext);
-    saveMemoryContext(memoryContext);
-  }
-}
-
-function normalizeCloudMessages(messages) {
-  if (!Array.isArray(messages)) return [];
-
-  return messages
-    .map((message) => ({
-      role: message.role === "User" || message.role === "user" ? "User" : "MindPal",
-      text: String(message.text || message.content || "").trim(),
-      messageId: message.message_id || message.messageId || stableMessageId(message),
-      createdAt: message.created_at || message.createdAt || new Date().toISOString(),
-      providerUsed: message.provider_used || message.providerUsed || "",
-      requestId: message.request_id || message.requestId || "",
-      safety: message.metadata?.safety || message.safety || null,
-      ragUsed: message.metadata?.rag_used || message.metadata?.ragUsed || message.rag_used || message.ragUsed || [],
-      memoryUpdated: Boolean(message.metadata?.memory_updated || message.metadata?.memoryUpdated || message.memory_updated || message.memoryUpdated),
-      regenerated: Boolean(message.metadata?.regenerated || message.regenerated),
-      syncStatus: "cloud",
-      // Preserve voice call fields
-      ...(message.type ? { type: message.type } : {}),
-      ...(message.voiceCall ? { voiceCall: message.voiceCall } : {}),
-    }))
-    .filter((message) => message.text);
-}
-
-function normalizeLocalMessages(messages) {
-  if (!Array.isArray(messages)) return [];
-
-  return messages
-    .map(normalizeLocalMessage)
-    .filter((message) => message.text);
-}
-
-function normalizeLocalMessage(message) {
-  return {
-    ...message,
-    role: message?.role === "User" || message?.role === "user" ? "User" : "MindPal",
-    text: String(message?.text || message?.content || "").trim(),
-    messageId: message?.messageId || message?.message_id || stableMessageId(message),
-    createdAt: message?.createdAt || message?.created_at || new Date().toISOString(),
-  };
-}
-
-function mergeChatMessages(localMessages, cloudMessages) {
-  const byId = new Map();
-
-  for (const message of [...localMessages, ...cloudMessages]) {
-    const clean = normalizeLocalMessage(message);
-    if (!clean.text) continue;
-
-    byId.set(clean.messageId || stableMessageId(clean), clean);
-  }
-
-  return Array.from(byId.values()).sort((a, b) => {
-    const dateA = String(a.createdAt || "");
-    const dateB = String(b.createdAt || "");
-
-    if (dateA !== dateB) {
-      return dateA.localeCompare(dateB);
-    }
-
-    return String(a.messageId || "").localeCompare(String(b.messageId || ""));
-  });
-}
-
-function stableMessageId(message) {
-  const seed = `${message?.role || ""}|${message?.createdAt || message?.created_at || ""}|${message?.text || message?.content || ""}`;
-  let hash = 0;
-
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = ((hash << 5) - hash) + seed.charCodeAt(index);
-    hash |= 0;
-  }
-
-  return `msg_${Math.abs(hash).toString(36)}`;
-}
-
-
-function buildCloudProfileContext(user, profile = null) {
-  if (!user && !profile) return null;
-
-  const displayName =
-    profile?.display_name ||
-    profile?.displayName ||
-    profile?.name ||
-    user?.displayName ||
-    "";
-
-  const email =
-    profile?.email ||
-    user?.email ||
-    "";
-
-  const uid =
-    profile?.uid ||
-    profile?.firebase_uid ||
-    profile?.user_id ||
-    user?.uid ||
-    "";
-
-  if (!displayName && !email && !uid) return null;
-
-  return {
-    authenticated: true,
-    displayName,
-    email,
-    uid,
-  };
-}
-
-function formatCloudConnectErrorSafe(error) {
-  console.error("MindPal cloud profile error:", error);
-
-  const code = String(error?.code || "");
-  const status = Number(error?.status || 0);
-  const requestId = String(error?.requestId || "");
-  const message = String(error?.message || "");
-
-  if (code.includes("unauthorized-domain")) {
-    return "Firebase rejected this domain. Add mindpal-demo.vercel.app to Firebase Auth authorized domains.";
-  }
-
-  if (code.includes("popup-closed-by-user")) {
-    return "Sign-in popup was closed.";
-  }
-
-  if (code.includes("popup-blocked")) {
-    return "Browser blocked the sign-in popup.";
-  }
-
-  if (code.includes("cancelled-popup-request")) {
-    return "Another sign-in popup was already open.";
-  }
-
-  if (status === 401) {
-    return `Backend rejected the Firebase token: ${code || "401"}${requestId ? ` (${requestId})` : ""}.`;
-  }
-
-  if (status === 403) {
-    return `Backend blocked this profile request: ${code || "403"}${requestId ? ` (${requestId})` : ""}.`;
-  }
-
-  if (status === 404) {
-    return "Backend /api/user/me route was not found.";
-  }
-
-  if (status >= 500) {
-    return `Backend /api/user/me failed with ${status}${requestId ? ` (${requestId})` : ""}. Check Vercel logs.`;
-  }
-
-  if (code === "network_error" || message.toLowerCase().includes("failed to fetch")) {
-    return "Browser could not reach /api/user/me. Check API_BASE_URL and deployment routes.";
-  }
-
-  return `Cloud profile failed${code ? `: ${code}` : ""}${message ? ` — ${message}` : ""}.`;
-}
+// ═══════════════════════════════════════════════════════════════
+// Event bindings
+// ═══════════════════════════════════════════════════════════════
 
 function bindTheme() {
   document.getElementById("theme-toggle-btn")?.addEventListener("click", () => {
@@ -734,7 +357,6 @@ function bindTheme() {
     setAppSetting("appearance", isDark ? "light" : "dark");
     void persistAppSettingsToCloud();
   });
-
 }
 
 function bindProfileModal() {
@@ -753,18 +375,11 @@ function bindProfileModal() {
     openModal("profile-modal", "profile-content");
   });
 
-  closeProfileBtn?.addEventListener("click", () => {
-    closeModal("profile-modal", "profile-content");
-  });
-
-  closeProfileMobileBtn?.addEventListener("click", () => {
-    closeModal("profile-modal", "profile-content");
-  });
+  closeProfileBtn?.addEventListener("click", () => closeModal("profile-modal", "profile-content"));
+  closeProfileMobileBtn?.addEventListener("click", () => closeModal("profile-modal", "profile-content"));
 
   profileModal?.addEventListener("click", (event) => {
-    if (event.target === profileModal) {
-      closeProfileBtn?.click();
-    }
+    if (event.target === profileModal) closeProfileBtn?.click();
   });
 
   connectBtn?.addEventListener("click", async () => {
@@ -774,24 +389,14 @@ function bindProfileModal() {
     }
 
     setButtonBusy(connectBtn, true, "Connecting...");
-    cloudConnectInProgress = true;
 
     try {
       const user = await signInWithGoogle();
-
-      if (!user) {
-        throw new Error("Firebase sign-in returned no user.");
-      }
-
-      if (user.displayName) {
-        setUserName(user.displayName);
-      }
+      if (!user) throw new Error("Firebase sign-in returned no user.");
+      if (user.displayName) setUserName(user.displayName);
 
       const token = await getIdToken({ forceRefresh: true });
-
-      if (!token) {
-        throw new Error("Firebase returned no ID token.");
-      }
+      if (!token) throw new Error("Firebase returned no ID token.");
 
       const profile = await getCurrentUserProfile(token);
       const storedProfile = await loadUserProfile(token).catch(() => null);
@@ -801,41 +406,29 @@ function bindProfileModal() {
         updateUsageUI(storedProfile);
       }
 
-
-      currentCloudProfileContext = {
+      setCurrentCloudProfileContext({
         ...buildCloudProfileContext(user, profile),
         settingsMetadata: buildChatSettingsMetadata(),
-      };
+      });
       await persistAppSettingsToCloud();
-      await hydrateCloudMemory(token);
-      await hydrateCloudChat(token);
+      await hydrateCloudMemory(token, renderMemoryInspector);
+      await hydrateCloudChat(token, renderPersistedChat);
 
       setCloudSyncEnabled(true);
       updateProfileUI(user);
-
       showToast("Cloud profile connected.");
     } catch (error) {
       setCloudSyncEnabled(false);
       updateProfileUI(null);
       showToast(formatCloudConnectErrorSafe(error));
     } finally {
-      cloudConnectInProgress = false;
       setButtonBusy(connectBtn, false);
     }
   });
 
   disconnectBtn?.addEventListener("click", async () => {
-    try {
-      await signOut();
-    } catch {
-      // Continue local disconnect even if Firebase signout fails.
-    }
-
-    currentCloudProfileContext = null;
-    memoryContext = loadMemoryContext();
-    memoryGraphContext = loadMemoryGraphContext();
-    cloudChatHydrated = false;
-    pendingCloudChatMessages.length = 0;
+    try { await signOut(); } catch {}
+    resetCloudState();
     setCloudSyncEnabled(false);
     updateProfileUI(null);
     showToast("Signed out. Local mode enabled.");
@@ -843,11 +436,16 @@ function bindProfileModal() {
 
   userNameInput?.addEventListener("change", (event) => {
     const nextName = setUserName(event.target.value);
+    let memoryContext = getMemoryContext();
+    let memoryGraphContext = getMemoryGraphContext();
+
     memoryContext.preferredName = nextName === "Friend" ? "" : nextName;
     memoryContext.user.preferredName = memoryContext.preferredName;
     if (memoryContext.preferredName) {
       memoryGraphContext = mergeMemoryGraphs(memoryGraphContext, memoryGraphFromLegacyMemory(memoryContext));
+      setMemoryGraphContext(memoryGraphContext);
     }
+    setMemoryContext(memoryContext);
     saveMemoryGraphContext(memoryGraphContext);
     saveMemoryContext(memoryContext);
     void persistMemoryContextSafe();
@@ -858,10 +456,7 @@ function bindProfileModal() {
 
   document.getElementById("delete-account-btn")?.addEventListener("click", async () => {
     const user = getCurrentUser();
-    if (!user) {
-      showToast("No cloud account is connected.");
-      return;
-    }
+    if (!user) { showToast("No cloud account is connected."); return; }
 
     const confirmed = await showCustomDialog({
       title: "Delete account",
@@ -869,7 +464,6 @@ function bindProfileModal() {
       confirmText: "Delete account",
       danger: true,
     });
-
     if (!confirmed) return;
 
     try {
@@ -884,15 +478,13 @@ function bindProfileModal() {
       console.warn("Account deletion failed:", error);
     }
 
-    currentCloudProfileContext = null;
+    resetCloudState();
     clearChatMemory();
-    memoryContext = saveMemoryContext(createEmptyMemory());
-    memoryGraphContext = saveMemoryGraphContext(createEmptyMemoryGraph());
+    setMemoryContext(saveMemoryContext(createEmptyMemory()));
+    setMemoryGraphContext(saveMemoryGraphContext(createEmptyMemoryGraph()));
     renderMemoryInspector();
     document.getElementById("chat-history")?.replaceChildren();
     setChatStarted(false);
-    cloudChatHydrated = false;
-    pendingCloudChatMessages.length = 0;
     setCloudSyncEnabled(false);
     updateProfileUI(null);
     closeModal("profile-modal", "profile-content");
@@ -909,21 +501,16 @@ function bindStreakModal() {
     openModal("streak-modal", "streak-content");
   });
 
-  closeStreakBtn?.addEventListener("click", () => {
-    closeModal("streak-modal", "streak-content");
-  });
+  closeStreakBtn?.addEventListener("click", () => closeModal("streak-modal", "streak-content"));
 
   streakModal?.addEventListener("click", (event) => {
-    if (event.target === streakModal) {
-      closeStreakBtn?.click();
-    }
+    if (event.target === streakModal) closeStreakBtn?.click();
   });
 }
 
 function bindSettings() {
   document.getElementById("crisis-toggle")?.addEventListener("change", (event) => {
     setCrisisMode(event.target.checked);
-
     showToast(
       event.target.checked
         ? "Crisis UI interception enabled. Backend safety is always active."
@@ -934,19 +521,16 @@ function bindSettings() {
   document.getElementById("memory-refresh-btn")?.addEventListener("click", async () => {
     const token = await getIdToken();
     if (token) {
-      await hydrateCloudMemory(token);
+      await hydrateCloudMemory(token, renderMemoryInspector);
       showToast("Memory refreshed.");
       return;
     }
-
-    memoryContext = loadMemoryContext();
-    memoryGraphContext = loadMemoryGraphContext();
+    setMemoryContext(loadMemoryContext());
+    setMemoryGraphContext(loadMemoryGraphContext());
     renderMemoryInspector();
     showToast("Local memory refreshed.");
   });
 }
-
-// renderMemoryInspector moved to components/memory_inspector.js
 
 function bindSettingsTabs() {
   const buttons = Array.from(document.querySelectorAll("[data-settings-tab]"));
@@ -955,38 +539,20 @@ function bindSettingsTabs() {
 
   const activate = (tab) => {
     const nextTab = tab || "general";
-
-    buttons.forEach((button) => {
-      button.classList.toggle("active", button.getAttribute("data-settings-tab") === nextTab);
-    });
-
+    buttons.forEach((button) => button.classList.toggle("active", button.getAttribute("data-settings-tab") === nextTab));
     panels.forEach((panel) => {
       const isActive = panel.getAttribute("data-settings-panel") === nextTab;
       panel.classList.toggle("active", isActive);
       panel.hidden = !isActive;
     });
-
-    if (mobileSelect && mobileSelect.value !== nextTab) {
-      mobileSelect.value = nextTab;
-    }
-
-    if (nextTab === "memory") {
-      renderMemoryInspector();
-    }
+    if (mobileSelect && mobileSelect.value !== nextTab) mobileSelect.value = nextTab;
+    if (nextTab === "memory") renderMemoryInspector();
   };
 
-  buttons.forEach((button) => {
-    button.addEventListener("click", () => activate(button.getAttribute("data-settings-tab") || "general"));
-  });
-
-  mobileSelect?.addEventListener("change", (event) => {
-    activate(event.target.value);
-  });
-
+  buttons.forEach((button) => button.addEventListener("click", () => activate(button.getAttribute("data-settings-tab") || "general")));
+  mobileSelect?.addEventListener("change", (event) => activate(event.target.value));
   activate("general");
 }
-
-// Settings UI functions moved to components/settings_ui.js
 
 function startNewLocalChat() {
   if (isGenerating) {
@@ -998,140 +564,13 @@ function startNewLocalChat() {
   document.getElementById("chat-history")?.replaceChildren();
   clearInput();
   setChatStarted(false);
-  updateProfileUI(getCurrentUser());
-  showToast("New local chat started.");
-}
+  isSessionLocked = false;
+  setInputState({ disabled: false, locked: false });
+  showToast("New conversation started.");
 
-
-
-async function deleteMemoryEntry(atomId) {
-  const cleanId = String(atomId || "");
-  const now = new Date().toISOString();
-  memoryGraphContext.atoms = memoryGraphContext.atoms.map((atom) => (
-    atom.id === cleanId
-      ? { ...atom, status: "deleted", pinned: false, updated_at: now, metadata: { ...(atom.metadata || {}), deleted_by_user: true } }
-      : atom
-  ));
-
-  memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
-  const token = await getIdToken();
-  if (token) {
-    await deleteMemoryGraphItem(cleanId, token).catch((error) => console.warn("Cloud memory delete failed:", error));
+  if (getCurrentUser()) {
+    void replaceCloudChatSnapshotSafe([]);
   }
-  showToast("Memory deleted.");
-}
-
-function showCustomDialog({ title = "Confirm", message = "", input = false, defaultValue = "", confirmText = "Confirm", danger = false } = {}) {
-  return new Promise((resolve) => {
-    const dialog = document.getElementById("custom-dialog");
-    const content = document.getElementById("custom-dialog-content");
-    const titleEl = document.getElementById("custom-dialog-title");
-    const messageEl = document.getElementById("custom-dialog-message");
-    const inputWrap = document.getElementById("custom-dialog-input-wrap");
-    const inputEl = document.getElementById("custom-dialog-input");
-    const confirmBtn = document.getElementById("custom-dialog-confirm");
-    const cancelBtn = document.getElementById("custom-dialog-cancel");
-
-    if (!dialog || !content) { resolve(input ? null : false); return; }
-
-    if (titleEl) titleEl.textContent = title;
-    if (messageEl) messageEl.textContent = message;
-    if (confirmBtn) {
-      confirmBtn.textContent = confirmText;
-      confirmBtn.classList.toggle("dialog-danger", Boolean(danger));
-    }
-
-    if (input && inputWrap && inputEl) {
-      inputWrap.classList.remove("hidden");
-      inputEl.value = defaultValue;
-    } else if (inputWrap) {
-      inputWrap.classList.add("hidden");
-    }
-
-    dialog.classList.remove("opacity-0", "pointer-events-none");
-    content.classList.remove("scale-95");
-    document.body.classList.add("overflow-hidden");
-
-    if (input && inputEl) {
-      window.setTimeout(() => inputEl.focus(), 100);
-    }
-
-    const onConfirm = () => { cleanup(); resolve(input ? (inputEl?.value ?? "") : true); };
-    const onCancel = () => { cleanup(); resolve(input ? null : false); };
-    const onBackdrop = (e) => { if (e.target === dialog) onCancel(); };
-    const onInputKeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); onConfirm(); } };
-
-    if (input && inputEl) {
-      inputEl.addEventListener("keydown", onInputKeydown);
-    }
-
-    const cleanup = () => {
-      dialog.classList.add("opacity-0", "pointer-events-none");
-      content.classList.add("scale-95");
-      confirmBtn?.removeEventListener("click", onConfirm);
-      cancelBtn?.removeEventListener("click", onCancel);
-      dialog.removeEventListener("click", onBackdrop);
-      if (input && inputEl) {
-        inputEl.removeEventListener("keydown", onInputKeydown);
-      }
-      
-      const anyModalOpen = document.querySelectorAll('.fixed.inset-0:not(.opacity-0)').length > 0;
-      if (!anyModalOpen) {
-        document.body.classList.remove("overflow-hidden");
-      }
-    };
-
-    confirmBtn?.addEventListener("click", onConfirm);
-    cancelBtn?.addEventListener("click", onCancel);
-    dialog.addEventListener("click", onBackdrop);
-  });
-}
-
-async function editMemoryEntry(atomId) {
-  const atom = memoryGraphContext.atoms.find((item) => item.id === atomId);
-  if (!atom) return;
-
-  const next = await showCustomDialog({
-    title: "Edit memory",
-    message: "Update or clear this memory entry.",
-    input: true,
-    defaultValue: atom.value,
-    confirmText: "Save",
-  });
-  if (next === null) return;
-
-  const value = next.trim();
-  if (!value) {
-    void deleteMemoryEntry(atomId);
-    return;
-  }
-
-  memoryGraphContext.atoms = memoryGraphContext.atoms.map((item) => (
-    item.id === atomId
-      ? { ...item, value, display_value: value, source: "manual", confidence: Math.max(item.confidence || 0, 0.95), updated_at: new Date().toISOString() }
-      : item
-  ));
-
-  memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
-  showToast("Memory updated.");
-}
-
-function toggleMemoryPin(atomId) {
-  memoryGraphContext.atoms = memoryGraphContext.atoms.map((atom) => (
-    atom.id === atomId ? { ...atom, pinned: !atom.pinned, updated_at: new Date().toISOString() } : atom
-  ));
-  memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
-}
-
-function clearMemoryCategory(category) {
-  const now = new Date().toISOString();
-  memoryGraphContext.atoms = memoryGraphContext.atoms.map((atom) => (
-    atom.category === category
-      ? { ...atom, status: "deleted", pinned: false, updated_at: now, metadata: { ...(atom.metadata || {}), deleted_by_user: true } }
-      : atom
-  ));
-  memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
-  showToast("Memory category cleared.");
 }
 
 function bindInput() {
@@ -1146,312 +585,14 @@ function bindInput() {
   inputEl?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-
-      if (!isGenerating && !isSessionLocked) {
-        handleSend();
-      }
+      if (!isGenerating && !isSessionLocked) handleSend();
     }
   });
 
   sendBtn?.addEventListener("click", () => {
-    if (!isGenerating && !isSessionLocked) {
-      handleSend();
-    }
+    if (!isGenerating && !isSessionLocked) handleSend();
   });
 }
-
-function bindModeSelector() {
-  // Replaced by bindUnifiedSelector — kept as no-op for backward compat
-}
-
-function bindModelSelector() {
-  // Replaced by bindUnifiedSelector — kept as no-op for backward compat
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Unified Model + Mode Selector with persistence + a11y
-// ═══════════════════════════════════════════════════════════════════════════
-
-const STORAGE_KEY_MODEL = "mindpal_selected_model";
-const STORAGE_KEY_MODE = "mindpal_selected_mode";
-const VALID_MODELS = ["standard", "pro"];
-const VALID_MODES = ["Active Listen", "Guided Coach", "Cognitive Tools"];
-const MODEL_SPECS = {
-  standard: "Standard — Fast, warm peer-support model. Low latency, safety-first. Best for everyday check-ins and emotional support.",
-  pro: "Pro (Clinical) — Advanced clinical reasoning with 6-step agent chain. Deep pattern analysis, nervous system assessment, and self-review. 2x token budget.",
-};
-
-function _persistedModel() {
-  try {
-    const v = localStorage.getItem(STORAGE_KEY_MODEL);
-    return VALID_MODELS.includes(v) ? v : "standard";
-  } catch { return "standard"; }
-}
-
-function _persistedMode() {
-  try {
-    const v = localStorage.getItem(STORAGE_KEY_MODE);
-    return VALID_MODES.includes(v) ? v : "Active Listen";
-  } catch { return "Active Listen"; }
-}
-
-let _currentModel = "standard";
-let _currentMode = "Active Listen";
-
-function _updateUnifiedLabel() {
-  const label = document.getElementById("unified-selector-label");
-  if (label) {
-    const modelName = _currentModel === "pro" ? "Pro" : "Standard";
-    label.textContent = `${modelName} · ${_currentMode}`;
-  }
-}
-
-function _updateCheckmarks() {
-  document.querySelectorAll(".model-option").forEach(btn => {
-    const check = btn.querySelector(".model-check");
-    if (check) check.classList.toggle("hidden", btn.getAttribute("data-model") !== _currentModel);
-  });
-  document.querySelectorAll(".mode-option").forEach(btn => {
-    const check = btn.querySelector(".mode-check");
-    if (check) check.classList.toggle("hidden", btn.getAttribute("data-mode") !== _currentMode);
-  });
-}
-
-function _updateModelInfoPanel() {
-  const content = document.getElementById("model-info-content");
-  if (content) {
-    // XSS-safe: use textContent, not innerHTML
-    content.textContent = MODEL_SPECS[_currentModel] || MODEL_SPECS.standard;
-  }
-}
-
-function _emitSwitchIndicator(text) {
-  const chatHistory = document.getElementById("chat-history");
-  if (!chatHistory) return;
-  const lastChild = chatHistory.lastElementChild;
-  if (lastChild && lastChild.classList.contains("mode-switch-indicator")) {
-    const span = lastChild.querySelector('.indicator-text');
-    if (span) span.textContent = text;
-  } else {
-    const div = document.createElement("div");
-    div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
-    div.innerHTML = `
-      <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-      <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 tracking-wide">${escapeHtml(text)}</span>
-      <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-    `;
-    chatHistory.appendChild(div);
-    scrollChatToBottom("smooth");
-  }
-}
-
-function _selectModel(model, silent = false) {
-  if (!VALID_MODELS.includes(model)) return;
-
-  // Pro confirmation gate (once per session)
-  if (model === "pro" && !sessionStorage.getItem("mindpal_pro_confirmed")) {
-    _showProConfirmationDialog(() => {
-      sessionStorage.setItem("mindpal_pro_confirmed", "1");
-      _selectModel("pro", silent);
-    });
-    return;
-  }
-
-  _currentModel = model;
-  try { localStorage.setItem(STORAGE_KEY_MODEL, model); } catch {}
-  _updateUnifiedLabel();
-  _updateCheckmarks();
-  _updateModelInfoPanel();
-
-  if (!silent) {
-    const name = model === "pro" ? "Pro" : "Standard";
-    _emitSwitchIndicator(`Model switched to ${name}`);
-  }
-}
-
-function _selectMode(mode, silent = false) {
-  if (!VALID_MODES.includes(mode)) return;
-  _currentMode = mode;
-  try { localStorage.setItem(STORAGE_KEY_MODE, mode); } catch {}
-  _updateUnifiedLabel();
-  _updateCheckmarks();
-
-  if (!silent) {
-    _emitSwitchIndicator(`Mode switched to ${mode}`);
-  }
-}
-
-function bindUnifiedSelector() {
-  // Restore persisted state
-  _currentModel = _persistedModel();
-  _currentMode = _persistedMode();
-  _updateUnifiedLabel();
-  _updateCheckmarks();
-  _updateModelInfoPanel();
-
-  const btn = document.getElementById("unified-selector-btn");
-  const dropdown = document.getElementById("unified-dropdown");
-  const chevron = document.getElementById("unified-chevron");
-  const infoBtn = document.getElementById("model-info-btn");
-  const infoPanel = document.getElementById("model-info-panel");
-
-  function openDropdown() {
-    dropdown?.classList.remove("hidden");
-    btn?.setAttribute("aria-expanded", "true");
-    chevron?.classList.add("rotate-180");
-    // Focus first item for a11y
-    const first = dropdown?.querySelector('[role="menuitem"]');
-    first?.focus();
-  }
-
-  function closeDropdown() {
-    dropdown?.classList.add("hidden");
-    btn?.setAttribute("aria-expanded", "false");
-    chevron?.classList.remove("rotate-180");
-    infoPanel?.classList.add("hidden");
-  }
-
-  // Toggle dropdown
-  btn?.addEventListener("click", (e) => {
-    if (isSessionLocked) return;
-    e.stopPropagation();
-    if (dropdown?.classList.contains("hidden")) {
-      openDropdown();
-    } else {
-      closeDropdown();
-    }
-  });
-
-  // Close on outside click
-  document.addEventListener("click", (e) => {
-    if (!dropdown || !btn) return;
-    if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
-      closeDropdown();
-    }
-  });
-
-  // Info button toggle
-  infoBtn?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    infoPanel?.classList.toggle("hidden");
-  });
-
-  // Model options
-  document.querySelectorAll(".model-option").forEach(option => {
-    option.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const model = option.getAttribute("data-model");
-      _selectModel(model);
-      if (!isSessionLocked) document.getElementById("chat-input")?.focus();
-    });
-  });
-
-  // Mode options
-  document.querySelectorAll(".mode-option").forEach(option => {
-    option.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const mode = option.getAttribute("data-mode");
-      _selectMode(mode);
-      closeDropdown();
-      if (!isSessionLocked) document.getElementById("chat-input")?.focus();
-    });
-  });
-
-  // Keyboard navigation (a11y)
-  dropdown?.addEventListener("keydown", (e) => {
-    const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
-    const current = document.activeElement;
-    const idx = items.indexOf(current);
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      const next = items[(idx + 1) % items.length];
-      next?.focus();
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      const prev = items[(idx - 1 + items.length) % items.length];
-      prev?.focus();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      closeDropdown();
-      btn?.focus();
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      current?.click();
-    }
-  });
-}
-
-function _showProConfirmationDialog(onConfirm) {
-  document.getElementById("pro-confirm-overlay")?.remove();
-
-  const overlay = document.createElement("div");
-  overlay.id = "pro-confirm-overlay";
-  overlay.className = "fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm";
-  overlay.style.animation = "fadeIn 0.2s ease";
-  overlay.innerHTML = `
-    <div class="bg-white dark:bg-[#1e1f20] rounded-2xl shadow-2xl max-w-md w-[90%] p-6" style="animation: scaleIn 0.25s ease">
-      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Switch to MindPal Pro</h3>
-      <p class="text-xs text-gray-500 dark:text-gray-400 mb-5">Clinical AI Mode</p>
-
-      <div class="flex items-start gap-2.5 text-sm text-amber-600 dark:text-amber-400 mb-5 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/15">
-        <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
-        <span>This is an AI assistant, not a real doctor. It may make mistakes. Always consult a licensed professional for medical decisions.</span>
-      </div>
-
-      <label class="flex items-center justify-between cursor-pointer mb-5 select-none" id="pro-confirm-toggle-label">
-        <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">I understand the risks</span>
-        <div class="relative">
-          <input type="checkbox" id="pro-confirm-toggle" class="sr-only peer">
-          <div class="w-11 h-6 bg-gray-200 dark:bg-gray-700 rounded-full peer-checked:bg-red-500 transition-colors"></div>
-          <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5"></div>
-        </div>
-      </label>
-
-      <div class="flex gap-3">
-        <button id="pro-confirm-cancel" class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-          Cancel
-        </button>
-        <button id="pro-confirm-accept" disabled class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-400 rounded-xl transition-colors cursor-not-allowed opacity-60">
-          Confirm Switch
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-  refreshIcons();
-
-  const toggle = document.getElementById("pro-confirm-toggle");
-  const acceptBtn = document.getElementById("pro-confirm-accept");
-
-  toggle?.addEventListener("change", () => {
-    if (toggle.checked) {
-      acceptBtn.disabled = false;
-      acceptBtn.classList.remove("bg-red-400", "cursor-not-allowed", "opacity-60");
-      acceptBtn.classList.add("bg-red-600", "hover:bg-red-700", "shadow-lg", "shadow-red-500/20", "cursor-pointer");
-    } else {
-      acceptBtn.disabled = true;
-      acceptBtn.classList.add("bg-red-400", "cursor-not-allowed", "opacity-60");
-      acceptBtn.classList.remove("bg-red-600", "hover:bg-red-700", "shadow-lg", "shadow-red-500/20", "cursor-pointer");
-    }
-  });
-
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-
-  document.getElementById("pro-confirm-cancel").addEventListener("click", () => overlay.remove());
-
-  acceptBtn.addEventListener("click", () => {
-    if (acceptBtn.disabled) return;
-    overlay.remove();
-    onConfirm();
-  });
-}
-
-// Legacy compat — _applyModelSwitch no longer needed (handled by _selectModel)
-function _applyModelSwitch() {}
 
 function bindMoodButtons() {
   document.querySelectorAll(".mood-btn").forEach((button) => {
@@ -1460,21 +601,17 @@ function bindMoodButtons() {
 
       const mood = String(button.getAttribute("data-mood") || "").toLowerCase();
       const inputEl = document.getElementById("chat-input");
-
       if (!inputEl || !mood) return;
 
       inputEl.value = `I'm feeling ${mood} right now.`;
       inputEl.dispatchEvent(new Event("input"));
-
       handleSend();
     });
   });
 }
 
 function bindConversationActions() {
-  document.getElementById("export-chat-btn")?.addEventListener("click", () => {
-    exportConversationLog();
-  });
+  document.getElementById("export-chat-btn")?.addEventListener("click", () => exportConversationLog());
 
   document.getElementById("clear-chat-btn")?.addEventListener("click", async () => {
     const confirmed = await showCustomDialog({
@@ -1483,44 +620,153 @@ function bindConversationActions() {
       confirmText: "Delete all",
       danger: true,
     });
-
     if (!confirmed) return;
 
     try {
       const token = await getIdToken();
-
       if (token) {
         await deleteMemory(token);
         await saveMemoryGraph(createEmptyMemoryGraph(), token);
         await deleteCurrentCloudChat(token);
       }
-    } catch {
-      // Local clear should still happen.
-    }
+    } catch {}
 
     clearChatMemory();
-    memoryContext = saveMemoryContext(createEmptyMemory());
-    memoryGraphContext = saveMemoryGraphContext(createEmptyMemoryGraph());
+    setMemoryContext(saveMemoryContext(createEmptyMemory()));
+    setMemoryGraphContext(saveMemoryGraphContext(createEmptyMemoryGraph()));
     renderMemoryInspector();
-
-    const chatHistory = document.getElementById("chat-history");
-    if (chatHistory) {
-      chatHistory.innerHTML = "";
-    }
-
+    document.getElementById("chat-history")?.replaceChildren();
     setChatStarted(false);
     showToast("Memory cleared.");
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Memory helpers
+// ═══════════════════════════════════════════════════════════════
+
+async function deleteMemoryEntry(atomId) {
+  if (!atomId) return;
+  let memoryGraphContext = getMemoryGraphContext();
+  const now = new Date().toISOString();
+  memoryGraphContext.atoms = (memoryGraphContext.atoms || []).map((atom) =>
+    atom.id === atomId
+      ? { ...atom, status: "deleted", pinned: false, updated_at: now, metadata: { ...(atom.metadata || {}), deleted_by_user: true } }
+      : atom,
+  );
+  setMemoryGraphContext(memoryGraphContext);
+  saveMemoryGraphContext(memoryGraphContext);
+
+  const token = await getIdToken();
+  if (token) {
+    await deleteMemoryGraphItem(atomId, token).catch(() => {});
+  }
+
+  showToast("Memory entry deleted.");
+}
+
+function showCustomDialog({ title = "Confirm", message = "", input = false, defaultValue = "", confirmText = "Confirm", danger = false } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm";
+    overlay.style.animation = "fadeIn 0.2s ease";
+
+    const dangerClasses = danger
+      ? "bg-rose-600 hover:bg-rose-700 text-white"
+      : "bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100";
+
+    overlay.innerHTML = `
+      <div class="bg-white dark:bg-[#1e1f20] rounded-2xl shadow-2xl max-w-md w-[90%] p-6" style="animation: scaleIn 0.25s ease">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">${escapeHtml(title)}</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-5">${escapeHtml(message)}</p>
+        ${input ? `<input id="custom-dialog-input" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent text-gray-900 dark:text-white text-sm mb-5 focus:outline-none focus:ring-2 focus:ring-blue-500" value="${escapeHtml(defaultValue)}" autofocus>` : ""}
+        <div class="flex gap-3">
+          <button id="custom-dialog-cancel" class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Cancel</button>
+          <button id="custom-dialog-confirm" class="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl transition-colors ${dangerClasses}">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const close = (result) => {
+      overlay.remove();
+      resolve(result);
+    };
+
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(false); });
+    document.getElementById("custom-dialog-cancel")?.addEventListener("click", () => close(false));
+    document.getElementById("custom-dialog-confirm")?.addEventListener("click", () => {
+      if (input) {
+        close(document.getElementById("custom-dialog-input")?.value ?? defaultValue);
+      } else {
+        close(true);
+      }
+    });
+  });
+}
+
+async function editMemoryEntry(atomId) {
+  if (!atomId) return;
+  let memoryGraphContext = getMemoryGraphContext();
+  const atom = (memoryGraphContext.atoms || []).find((a) => a.id === atomId);
+  if (!atom) { showToast("Memory entry not found."); return; }
+
+  const newValue = await showCustomDialog({
+    title: "Edit memory",
+    message: `Editing: ${atom.value || ""}`,
+    input: true,
+    defaultValue: atom.value || "",
+    confirmText: "Save",
+  });
+
+  if (newValue === false || newValue === null) return;
+
+  const clean = String(newValue).trim();
+  if (!clean) { showToast("Cannot save empty memory."); return; }
+
+  memoryGraphContext.atoms = (memoryGraphContext.atoms || []).map((a) =>
+    a.id === atomId ? { ...a, value: clean, updated_at: new Date().toISOString() } : a,
+  );
+  setMemoryGraphContext(memoryGraphContext);
+  saveMemoryGraphContext(memoryGraphContext);
+  showToast("Memory updated.");
+}
+
+function toggleMemoryPin(atomId) {
+  if (!atomId) return;
+  let memoryGraphContext = getMemoryGraphContext();
+  memoryGraphContext.atoms = (memoryGraphContext.atoms || []).map((atom) =>
+    atom.id === atomId ? { ...atom, pinned: !atom.pinned, updated_at: new Date().toISOString() } : atom,
+  );
+  setMemoryGraphContext(memoryGraphContext);
+  saveMemoryGraphContext(memoryGraphContext);
+}
+
+function clearMemoryCategory(category) {
+  if (!category) return;
+  let memoryGraphContext = getMemoryGraphContext();
+  const now = new Date().toISOString();
+  memoryGraphContext.atoms = (memoryGraphContext.atoms || []).map((atom) =>
+    atom.category === category && atom.status !== "deleted"
+      ? { ...atom, status: "deleted", pinned: false, updated_at: now, metadata: { ...(atom.metadata || {}), deleted_by_user: true } }
+      : atom,
+  );
+  setMemoryGraphContext(memoryGraphContext);
+  saveMemoryGraphContext(memoryGraphContext);
+  showToast("Memory category cleared.");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// handleSend — main chat orchestrator
+// ═══════════════════════════════════════════════════════════════
+
 async function handleSend() {
   const inputEl = document.getElementById("chat-input");
   const text = inputEl?.value?.trim() || "";
-
   if (!text || isGenerating || isSessionLocked) return;
 
   isGenerating = true;
-  voiceController?.setGenerating(true);
   setInputState({ disabled: true, locked: false });
   setChatStarted(true);
 
@@ -1530,17 +776,18 @@ async function handleSend() {
   scheduleCloudMessageSync(userMessageRecord);
   clearInput();
 
+  let memoryContext = getMemoryContext();
+  let memoryGraphContext = getMemoryGraphContext();
+
   const recentMessages = getState().chatMemory.slice(-8);
-  const memoryResult = classifyAndStoreMemoryFromMessage(text, {
-    memoryContext,
-    recentMessages,
-  });
-  const graphResult = classifyAndStoreMemoryGraphFromMessage(text, {
-    graphContext: memoryGraphContext,
-  });
+  const memoryResult = classifyAndStoreMemoryFromMessage(text, { memoryContext, recentMessages });
+  const graphResult = classifyAndStoreMemoryGraphFromMessage(text, { graphContext: memoryGraphContext });
 
   memoryContext = memoryResult.memory;
   memoryGraphContext = graphResult.graph;
+  setMemoryContext(memoryContext);
+  setMemoryGraphContext(memoryGraphContext);
+
   if (memoryResult.saved.length || graphResult.saved.length) {
     renderMemoryInspector();
     void persistMemoryContextSafe();
@@ -1548,20 +795,10 @@ async function handleSend() {
 
   const localMemoryReply = graphResult.localReply || memoryResult.localReply;
   if ((graphResult.shouldIntercept || memoryResult.shouldIntercept) && localMemoryReply) {
-    const memoryReplyRecord = addMessage("MindPal", localMemoryReply, {
-      providerUsed: "local_memory",
-      memoryUpdated: true,
-    });
-
+    const memoryReplyRecord = addMessage("MindPal", localMemoryReply, { providerUsed: "local_memory", memoryUpdated: true });
     scheduleCloudMessageSync(memoryReplyRecord);
-
-    await appendMessageToUI(localMemoryReply, "bot", {
-      smoothScroll: true,
-      typewriter: true,
-    });
-
+    await appendMessageToUI(localMemoryReply, "bot", { smoothScroll: true, typewriter: true });
     isGenerating = false;
-    voiceController?.setGenerating(false);
     setInputState({ disabled: false, locked: isSessionLocked });
     updateProfileUI(getCurrentUser());
     document.getElementById("chat-input")?.focus();
@@ -1569,34 +806,18 @@ async function handleSend() {
   }
 
   const memoryDirectAnswer = answerQuestionFromMemoryGraph(text, memoryGraphContext) || answerQuestionFromMemory(text, memoryContext);
-
   if (memoryDirectAnswer) {
-    const memoryAnswerRecord = addMessage("MindPal", memoryDirectAnswer, {
-      providerUsed: "local_memory",
-      memoryUsed: true,
-    });
-
+    const memoryAnswerRecord = addMessage("MindPal", memoryDirectAnswer, { providerUsed: "local_memory", memoryUsed: true });
     scheduleCloudMessageSync(memoryAnswerRecord);
-
-    await appendMessageToUI(memoryDirectAnswer, "bot", {
-      smoothScroll: true,
-      typewriter: true,
-    });
-
+    await appendMessageToUI(memoryDirectAnswer, "bot", { smoothScroll: true, typewriter: true });
     isGenerating = false;
-    voiceController?.setGenerating(false);
     setInputState({ disabled: false, locked: isSessionLocked });
     updateProfileUI(getCurrentUser());
     document.getElementById("chat-input")?.focus();
     return;
   }
 
-  // Send clean user message only. Memory/context goes in system prompt via backend.
-  const outboundMessage = text;
-
   const statusId = `status-${Date.now()}`;
-
-  // Create streaming container before try so catch can clean it up on failure
   const chatHistory = document.getElementById("chat-history");
   let streamMsgDiv = document.createElement("div");
   streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
@@ -1606,14 +827,13 @@ async function handleSend() {
 
   let contentBox = null;
   let streamResponseStr = "";
-
   let firstChunkReceived = false;
 
   try {
     const state = getState();
     const token = await getIdToken();
-    const mode = _currentMode;
-    const model = _currentModel;
+    const mode = getCurrentMode();
+    const model = getCurrentModel();
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     contentBox = document.createElement("div");
@@ -1628,34 +848,28 @@ async function handleSend() {
     const streamStartTime = performance.now();
     let earlyAssistantMessage = null;
 
-    // Send clean message only. Memory/context managed by backend via system prompt.
     await sendChatMessageStream({
-      message: outboundMessage,
+      message: text,
       history: state.chatMemory,
-      locale: resolveLocale(),
+      locale: resolveLocale(getAppSettings),
       mode,
       model,
       token,
       profileContext: {
-        ...(currentCloudProfileContext || {}),
+        ...(getCurrentCloudProfileContext() || {}),
         settingsMetadata: buildChatSettingsMetadata(),
       },
-      onChunk: (text) => {
-        // Finalize the thinking indicator on the very first chunk (show elapsed time)
+      onChunk: (chunkText) => {
         if (!firstChunkReceived) {
           firstChunkReceived = true;
           finalizeStatusIndicator(statusId, performance.now() - streamStartTime);
         }
-        streamResponseStr += text;
+        streamResponseStr += chunkText;
 
         const now = performance.now();
         if (now - lastRenderTime > 150) {
           lastRenderTime = now;
-          if (renderTimeout) {
-            cancelAnimationFrame(renderTimeout);
-            renderTimeout = null;
-          }
-          // Render live markdown and strip any cognitive thought blocks until finished
+          if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
           contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
           scrollChatToBottom("auto");
         } else if (!renderTimeout) {
@@ -1668,38 +882,28 @@ async function handleSend() {
         }
       },
       onStatus: (status) => {
-        if (status === 'text_finished') {
-          if (renderTimeout) {
-            cancelAnimationFrame(renderTimeout);
-            renderTimeout = null;
-          }
+        if (status === "text_finished") {
+          if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
           const elapsedMs = performance.now() - streamStartTime;
           const finalParsed = processStructuredResponse(streamResponseStr, elapsedMs);
           contentBox.innerHTML = finalParsed.finalHtml;
-          
+
           if (finalParsed.timelineHtml) {
             const timelineDiv = document.createElement("div");
             timelineDiv.innerHTML = finalParsed.timelineHtml;
             contentContainer.insertBefore(timelineDiv, contentBox);
-            
-            // Remove the static status indicator since we have a rich timeline dropdown
-            const statusEl = document.getElementById(statusId);
-            if (statusEl) statusEl.remove();
+            document.getElementById(statusId)?.remove();
           }
-          
-          scrollChatToBottom("auto");
 
+          scrollChatToBottom("auto");
           isGenerating = false;
           setInputState({ disabled: false, locked: isSessionLocked });
           document.getElementById("chat-input")?.focus();
+
           const replyText = streamResponseStr.trim();
           earlyAssistantMessage = addMessage("MindPal", replyText, {
-            requestId: null,
-            providerUsed: null,
-            safety: null,
-            ragUsed: [],
-            memoryUpdated: false,
-            generationTimeMs: elapsedMs,
+            requestId: null, providerUsed: null, safety: null,
+            ragUsed: [], memoryUpdated: false, generationTimeMs: elapsedMs,
           });
 
           notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
@@ -1714,21 +918,17 @@ async function handleSend() {
         backendMetaFinal = meta;
         if (meta.quota_exceeded) {
           showToast("MindPal Pro usage limit reached. Switched to Standard.", "warning");
-          const standardBtn = document.querySelector('.model-option[data-model="standard"]');
-          if (standardBtn) standardBtn.click();
+          document.querySelector('.model-option[data-model="standard"]')?.click();
         }
         if (meta.pro_usage) updateUsageFromMeta(meta.pro_usage);
-      }
+      },
     });
 
     const reply = streamResponseStr.trim();
-    if (!reply) {
-      throw new Error("Backend returned empty reply.");
-    }
+    if (!reply) throw new Error("Backend returned empty reply.");
 
     if (isSafetyLock(backendMetaFinal)) {
       isSessionLocked = true;
-      voiceController?.setLocked(true);
     }
 
     let assistantMessageRecord = earlyAssistantMessage;
@@ -1750,31 +950,12 @@ async function handleSend() {
     }
 
     scheduleCloudMessageSync(assistantMessageRecord);
-
-    if (backendMetaFinal?.memory_summary) {
-      memoryContext = saveMemoryContext(
-        mergeMemoryContexts(memoryContext, memoryFromBackendSummary(backendMetaFinal.memory_summary)),
-      );
-    }
-
-    if (backendMetaFinal?.memory_graph_snapshot && backendMetaFinal?.memory_graph_full_snapshot) {
-      memoryGraphContext = saveMemoryGraphContext(memoryGraphFromBackend(backendMetaFinal.memory_graph_snapshot));
-    } else if (backendMetaFinal?.memory_graph_delta) {
-      memoryGraphContext = saveMemoryGraphContext(
-        mergeMemoryGraphs(memoryGraphContext, memoryGraphFromBackend(backendMetaFinal.memory_graph_delta)),
-      );
-    }
-
-    if (backendMetaFinal?.memory_summary || backendMetaFinal?.memory_graph_snapshot || backendMetaFinal?.memory_graph_delta) {
-      renderMemoryInspector();
-    }
+    handleBackendMemoryUpdates(backendMetaFinal);
 
     const safetyLevel = backendMetaFinal?.safety?.level || backendMetaFinal?.safety?.user_visible_category || "";
-    const isCrisis = isCrisisReply(reply, safetyLevel);
-    if (isCrisis) {
+    if (isCrisisReply(reply, safetyLevel)) {
       contentContainer.className = "flex flex-col text-[15px] text-rose-700 dark:text-rose-400 font-medium leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
-      const actionsEl = contentContainer.querySelector('.action-buttons');
-      if (actionsEl) actionsEl.remove();
+      contentContainer.querySelector(".action-buttons")?.remove();
     }
 
     if (window.MINDPAL_CONFIG?.SHOW_RESPONSE_DEBUG && backendMetaFinal) {
@@ -1786,65 +967,64 @@ async function handleSend() {
     refreshIcons();
   } catch (error) {
     console.error("handleSend error:", error);
-    // Remove the orphan streaming div only if no content was received
-    if (!streamResponseStr.trim() && streamMsgDiv) {
-      streamMsgDiv.remove();
-    }
-    
-    // Check if the thought indicator is still waving, if so remove it since it failed
-    if (!firstChunkReceived) {
-      removeStatusIndicator(statusId);
-    }
+    if (!streamResponseStr.trim() && streamMsgDiv) streamMsgDiv.remove();
+    if (!firstChunkReceived) removeStatusIndicator(statusId);
 
     const fallback = buildClientFallbackReply(error);
-
-    const fallbackMessageRecord = addMessage("MindPal", fallback, {
-      providerUsed: "client_fallback",
-      errorCode: error?.code || "frontend_error",
-    });
-
-    scheduleCloudMessageSync(fallbackMessageRecord);
+    const fallbackRecord = addMessage("MindPal", fallback, { providerUsed: "client_fallback", errorCode: error?.code || "frontend_error" });
+    scheduleCloudMessageSync(fallbackRecord);
 
     try {
-      await appendMessageToUI(fallback, "bot", {
-        smoothScroll: true,
-        typewriter: true,
-      });
+      await appendMessageToUI(fallback, "bot", { smoothScroll: true, typewriter: true });
     } catch (renderError) {
       console.error("Failed to render fallback message:", renderError);
     }
     notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the fallback response.");
   } finally {
     isGenerating = false;
-    voiceController?.setGenerating(false);
-
     setInputState({ disabled: false, locked: isSessionLocked });
-
-    if (!isSessionLocked) {
-      document.getElementById("chat-input")?.focus();
-    }
-
+    if (!isSessionLocked) document.getElementById("chat-input")?.focus();
     updateProfileUI(getCurrentUser());
   }
 }
 
-function renderPersistedChat() {
-  const state = getState();
+function handleBackendMemoryUpdates(meta) {
+  if (!meta) return;
+  let memoryContext = getMemoryContext();
+  let memoryGraphContext = getMemoryGraphContext();
 
-  if (!state.chatMemory.length) {
-    setChatStarted(false);
-    return;
+  if (meta.memory_summary) {
+    memoryContext = saveMemoryContext(mergeMemoryContexts(memoryContext, memoryFromBackendSummary(meta.memory_summary)));
+    setMemoryContext(memoryContext);
   }
 
-  setChatStarted(true);
+  if (meta.memory_graph_snapshot && meta.memory_graph_full_snapshot) {
+    memoryGraphContext = saveMemoryGraphContext(memoryGraphFromBackend(meta.memory_graph_snapshot));
+    setMemoryGraphContext(memoryGraphContext);
+  } else if (meta.memory_graph_delta) {
+    memoryGraphContext = saveMemoryGraphContext(mergeMemoryGraphs(memoryGraphContext, memoryGraphFromBackend(meta.memory_graph_delta)));
+    setMemoryGraphContext(memoryGraphContext);
+  }
 
+  if (meta.memory_summary || meta.memory_graph_snapshot || meta.memory_graph_delta) {
+    renderMemoryInspector();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Chat rendering
+// ═══════════════════════════════════════════════════════════════
+
+function renderPersistedChat() {
+  const state = getState();
+  if (!state.chatMemory.length) { setChatStarted(false); return; }
+
+  setChatStarted(true);
   const chatHistory = document.getElementById("chat-history");
   if (!chatHistory) return;
-
   chatHistory.innerHTML = "";
 
   for (const message of state.chatMemory) {
-    // Render voice call cards differently
     if (message.type === "voice_call" && message.voiceCall) {
       insertCallCardUI({
         startTime: message.voiceCall.startTime,
@@ -1855,13 +1035,11 @@ function renderPersistedChat() {
       });
       continue;
     }
-    // Skip old-format voice call messages — render as a card
     if (message.text && message.text.startsWith("[Voice Call]")) {
       const durationMatch = message.text.match(/\[Voice Call\]\s*(.+)/);
-      const durationStr = durationMatch ? durationMatch[1].trim() : "";
       insertCallCardUI({
         startTime: message.createdAt || new Date().toISOString(),
-        durationStr,
+        durationStr: durationMatch ? durationMatch[1].trim() : "",
         userTranscript: "",
         aiTranscript: "",
         summary: message.voiceCall?.summary || null,
@@ -1869,10 +1047,7 @@ function renderPersistedChat() {
       continue;
     }
     appendMessageToUI(message.text, message.role === "User" ? "user" : "bot", {
-      smoothScroll: false,
-      typewriter: false,
-      persist: false,
-      backendMeta: message,
+      smoothScroll: false, typewriter: false, backendMeta: message,
     });
   }
 
@@ -1886,7 +1061,6 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
   const callTime = new Date(startTime);
   const timeStr = callTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const dateStr = callTime.toLocaleDateString([], { month: "short", day: "numeric" });
-
   const cardId = "call-card-" + Date.now() + Math.random().toString(36).slice(2, 6);
   const summaryId = cardId + "-summary";
 
@@ -1916,7 +1090,6 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
 
   chatHistory.appendChild(card);
 
-  // Toggle dropdown on summary click
   const summaryRow = card.querySelector(".call-summary-row");
   const details = card.querySelector(`#${cardId}`);
   const chevron = card.querySelector(".call-chevron");
@@ -1927,14 +1100,11 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
     chevron.style.transform = isOpen ? "" : "rotate(180deg)";
   });
 
-  // Generate LLM summary if not already provided (or if existing is stale raw transcript)
   const needsSummary = !existingSummary || existingSummary.length > 120;
   if (needsSummary && (userTranscript || aiTranscript)) {
     summarizeCallTranscript(userTranscript, aiTranscript).then(summary => {
       const summaryEl = document.getElementById(summaryId);
       if (summaryEl) summaryEl.textContent = summary;
-
-      // Save summary back to chatMemory for persistence
       const state = getState();
       const callMsg = state.chatMemory.findLast?.(m => m.type === "voice_call" && m.voiceCall?.startTime === startTime);
       if (callMsg) {
@@ -1953,12 +1123,8 @@ async function summarizeCallTranscript(userTranscript, aiTranscript) {
     const res = await fetch(`${API_BASE_URL}/voice/summarize`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_transcript: userTranscript || "",
-        ai_transcript: aiTranscript || "",
-      })
+      body: JSON.stringify({ user_transcript: userTranscript || "", ai_transcript: aiTranscript || "" }),
     });
-
     if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
     return data.summary || "Voice call";
@@ -1967,11 +1133,7 @@ async function summarizeCallTranscript(userTranscript, aiTranscript) {
   }
 }
 
-async function appendMessageToUI(text, sender, {
-  smoothScroll = true,
-  typewriter = false,
-  backendMeta = null,
-} = {}) {
+async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter = false, backendMeta = null } = {}) {
   const chatHistory = document.getElementById("chat-history");
   if (!chatHistory) return;
 
@@ -1984,9 +1146,7 @@ async function appendMessageToUI(text, sender, {
         ${escapeHtml(text)}
       </div>
     `;
-
     chatHistory.appendChild(msgDiv);
-
     if (smoothScroll) scrollChatToBottom("auto", true);
     return;
   }
@@ -1998,11 +1158,7 @@ async function appendMessageToUI(text, sender, {
   msgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
 
   const contentContainer = document.createElement("div");
-  contentContainer.className = `flex flex-col text-[15px] ${
-    isCrisis
-      ? "text-rose-700 dark:text-rose-400 font-medium"
-      : "text-gemini-text dark:text-gemini-darkText"
-  } leading-relaxed max-w-3xl w-full pr-2 sm:pr-0`;
+  contentContainer.className = `flex flex-col text-[15px] ${isCrisis ? "text-rose-700 dark:text-rose-400 font-medium" : "text-gemini-text dark:text-gemini-darkText"} leading-relaxed max-w-3xl w-full pr-2 sm:pr-0`;
 
   if (parsed.timelineHtml) {
     const timelineDiv = document.createElement("div");
@@ -2015,32 +1171,23 @@ async function appendMessageToUI(text, sender, {
 
   if (!parsed.timelineHtml && backendMeta?.generationTimeMs) {
     const timeSec = (backendMeta.generationTimeMs / 1000).toFixed(1);
-    const staticThoughtHtml = `
+    const staticDiv = document.createElement("div");
+    staticDiv.innerHTML = `
       <div class="flex items-center gap-1 mb-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
           class="text-[#4285f4] dark:text-[#7baaf7] flex-shrink-0 opacity-80">
           <polyline points="20 6 9 17 4 12"/>
         </svg>
-        <span class="text-[13px] text-[#5f6368] dark:text-[#9aa0a6] italic">
-          Thought for ${timeSec}s
-        </span>
+        <span class="text-[13px] text-[#5f6368] dark:text-[#9aa0a6] italic">Thought for ${timeSec}s</span>
       </div>
     `;
-    const staticDiv = document.createElement("div");
-    staticDiv.innerHTML = staticThoughtHtml;
     contentContainer.appendChild(staticDiv);
   }
 
-  if (!typewriter) {
-    contentBox.innerHTML = parsed.finalHtml;
-  }
-
+  if (!typewriter) contentBox.innerHTML = parsed.finalHtml;
   contentContainer.appendChild(contentBox);
-
-  if (!isCrisis) {
-    contentContainer.appendChild(buildMessageActions(text));
-  }
+  if (!isCrisis) contentContainer.appendChild(buildMessageActions(text));
 
   if (window.MINDPAL_CONFIG?.SHOW_RESPONSE_DEBUG && backendMeta) {
     const metaEl = buildBackendMeta(backendMeta);
@@ -2049,20 +1196,15 @@ async function appendMessageToUI(text, sender, {
 
   msgDiv.appendChild(contentContainer);
   chatHistory.appendChild(msgDiv);
-
   bindAccordion(msgDiv);
   refreshIcons();
 
   if (typewriter) {
     await typewriteHTML(contentBox, parsed.finalHtml, chatHistory);
-
-    const actions = contentContainer.querySelector(".action-buttons");
-    actions?.classList.remove("opacity-0");
+    contentContainer.querySelector(".action-buttons")?.classList.remove("opacity-0");
   }
 
-  if (smoothScroll) {
-    scrollChatToBottom("auto");
-  }
+  if (smoothScroll) scrollChatToBottom("auto");
 }
 
 function buildMessageActions(text) {
@@ -2088,9 +1230,7 @@ function buildMessageActions(text) {
   `;
 
   const playBtn = actionDiv.querySelector(".action-play");
-  playBtn?.addEventListener("click", () => {
-    speakText(stripMarkdown(text), playBtn);
-  });
+  playBtn?.addEventListener("click", () => speakText(stripMarkdown(text), playBtn, { showToast }));
 
   actionDiv.querySelector(".action-copy")?.addEventListener("click", async () => {
     try {
@@ -2104,22 +1244,18 @@ function buildMessageActions(text) {
 
   const likeBtn = actionDiv.querySelector(".action-like");
   const dislikeBtn = actionDiv.querySelector(".action-dislike");
-
   likeBtn?.addEventListener("click", () => {
     likeBtn.classList.toggle("text-blue-600");
     likeBtn.classList.toggle("dark:text-blue-400");
     dislikeBtn?.classList.remove("text-red-600", "dark:text-red-400");
   });
-
   dislikeBtn?.addEventListener("click", () => {
     dislikeBtn.classList.toggle("text-red-600");
     dislikeBtn.classList.toggle("dark:text-red-400");
     likeBtn?.classList.remove("text-blue-600", "dark:text-blue-400");
   });
 
-  actionDiv.querySelector(".action-retry")?.addEventListener("click", () => {
-    regenerateLastUserMessage(text);
-  });
+  actionDiv.querySelector(".action-retry")?.addEventListener("click", () => regenerateLastUserMessage(text));
 
   return actionDiv;
 }
@@ -2129,70 +1265,39 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
   const state = getState();
   const messages = Array.isArray(state.chatMemory) ? state.chatMemory : [];
-
-  if (messages.length < 2) {
-    showToast("Nothing to regenerate.");
-    return;
-  }
+  if (messages.length < 2) { showToast("Nothing to regenerate."); return; }
 
   const cleanTarget = String(targetAssistantText || "").trim();
-
   let assistantIndex = -1;
 
   if (cleanTarget) {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-
-      if (
-        message?.role === "MindPal" &&
-        String(message?.text || "").trim() === cleanTarget
-      ) {
-        assistantIndex = index;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]?.role === "MindPal" && String(messages[i]?.text || "").trim() === cleanTarget) {
+        assistantIndex = i;
         break;
       }
     }
   }
-
   if (assistantIndex < 0) {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      if (messages[index]?.role === "MindPal") {
-        assistantIndex = index;
-        break;
-      }
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]?.role === "MindPal") { assistantIndex = i; break; }
     }
   }
-
-  if (assistantIndex < 0) {
-    showToast("No assistant response to regenerate.");
-    return;
-  }
+  if (assistantIndex < 0) { showToast("No assistant response to regenerate."); return; }
 
   let userIndex = assistantIndex - 1;
-
-  while (userIndex >= 0 && messages[userIndex]?.role !== "User") {
-    userIndex -= 1;
-  }
-
-  if (userIndex < 0) {
-    showToast("No matching user message found.");
-    return;
-  }
+  while (userIndex >= 0 && messages[userIndex]?.role !== "User") userIndex--;
+  if (userIndex < 0) { showToast("No matching user message found."); return; }
 
   const userMessage = String(messages[userIndex]?.text || "").trim();
-
-  if (!userMessage) {
-    showToast("No matching user message found.");
-    return;
-  }
+  if (!userMessage) { showToast("No matching user message found."); return; }
 
   const preservedMessages = messages.slice(0, assistantIndex);
-
   replaceChatMemory(preservedMessages);
   renderPersistedChat();
   void replaceCloudChatSnapshotSafe(preservedMessages);
 
   isGenerating = true;
-  voiceController?.setGenerating(true);
   setInputState({ disabled: true, locked: false });
   setChatStarted(true);
 
@@ -2203,9 +1308,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
   try {
     const token = await getIdToken();
-    const mode = _currentMode;
-
-    // Create streaming container before try so catch can clean it up on failure
+    const mode = getCurrentMode();
     const chatHistory = document.getElementById("chat-history");
     streamMsgDiv = document.createElement("div");
     streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
@@ -2222,7 +1325,6 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     scrollChatToBottom("auto", true);
 
     let backendMetaFinal = null;
-
     let lastRenderTime = 0;
     let renderTimeout = null;
     const streamStartTime = performance.now();
@@ -2231,29 +1333,23 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     await sendChatMessageStream({
       message: userMessage,
       history: messages.slice(0, userIndex),
-      locale: resolveLocale(),
+      locale: resolveLocale(getAppSettings),
       mode,
       token,
       profileContext: {
-        ...(currentCloudProfileContext || {}),
+        ...(getCurrentCloudProfileContext() || {}),
         settingsMetadata: buildChatSettingsMetadata(),
       },
-      onChunk: (text) => {
-        // Finalize the thinking indicator on the very first chunk (show elapsed time)
+      onChunk: (chunkText) => {
         if (!firstChunkReceived) {
           firstChunkReceived = true;
           finalizeStatusIndicator(statusId, performance.now() - streamStartTime);
         }
-        streamResponseStr += text;
-        
+        streamResponseStr += chunkText;
         const now = performance.now();
         if (now - lastRenderTime > 150) {
           lastRenderTime = now;
-          if (renderTimeout) {
-            cancelAnimationFrame(renderTimeout);
-            renderTimeout = null;
-          }
-          // Render live markdown and strip any cognitive thought blocks until finished
+          if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
           contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
           scrollChatToBottom("auto");
         } else if (!renderTimeout) {
@@ -2266,39 +1362,28 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
         }
       },
       onStatus: (status) => {
-        if (status === 'text_finished') {
-          if (renderTimeout) {
-            cancelAnimationFrame(renderTimeout);
-            renderTimeout = null;
-          }
+        if (status === "text_finished") {
+          if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
           const elapsedMs = performance.now() - streamStartTime;
           const finalParsed = processStructuredResponse(streamResponseStr, elapsedMs);
           contentBox.innerHTML = finalParsed.finalHtml;
-          
+
           if (finalParsed.timelineHtml) {
             const timelineDiv = document.createElement("div");
             timelineDiv.innerHTML = finalParsed.timelineHtml;
             contentContainer.insertBefore(timelineDiv, contentBox);
-            
-            // Remove the static status indicator since we have a rich timeline dropdown
-            const statusEl = document.getElementById(statusId);
-            if (statusEl) statusEl.remove();
+            document.getElementById(statusId)?.remove();
           }
-          
-          scrollChatToBottom("auto");
 
+          scrollChatToBottom("auto");
           isGenerating = false;
           setInputState({ disabled: false, locked: isSessionLocked });
           document.getElementById("chat-input")?.focus();
+
           const replyText = streamResponseStr.trim();
           earlyRegeneratedMessage = addMessage("MindPal", replyText, {
-            requestId: null,
-            providerUsed: null,
-            safety: null,
-            ragUsed: [],
-            memoryUpdated: false,
-            regenerated: true,
-            generationTimeMs: elapsedMs,
+            requestId: null, providerUsed: null, safety: null,
+            ragUsed: [], memoryUpdated: false, regenerated: true, generationTimeMs: elapsedMs,
           });
 
           notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the regenerated response.");
@@ -2312,18 +1397,13 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       onMetadata: (meta) => {
         backendMetaFinal = meta;
         if (meta.pro_usage) updateUsageFromMeta(meta.pro_usage);
-      }
+      },
     });
 
     const reply = streamResponseStr.trim();
-    if (!reply) {
-      throw new Error("Backend returned empty reply.");
-    }
+    if (!reply) throw new Error("Backend returned empty reply.");
 
-    if (isSafetyLock(backendMetaFinal)) {
-      isSessionLocked = true;
-      voiceController?.setLocked(true);
-    }
+    if (isSafetyLock(backendMetaFinal)) isSessionLocked = true;
 
     let regeneratedRecord = earlyRegeneratedMessage;
     if (regeneratedRecord) {
@@ -2345,31 +1425,12 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     }
 
     scheduleCloudMessageSync(regeneratedRecord);
-
-    if (backendMetaFinal?.memory_summary) {
-      memoryContext = saveMemoryContext(
-        mergeMemoryContexts(memoryContext, memoryFromBackendSummary(backendMetaFinal.memory_summary)),
-      );
-    }
-
-    if (backendMetaFinal?.memory_graph_snapshot && backendMetaFinal?.memory_graph_full_snapshot) {
-      memoryGraphContext = saveMemoryGraphContext(memoryGraphFromBackend(backendMetaFinal.memory_graph_snapshot));
-    } else if (backendMetaFinal?.memory_graph_delta) {
-      memoryGraphContext = saveMemoryGraphContext(
-        mergeMemoryGraphs(memoryGraphContext, memoryGraphFromBackend(backendMetaFinal.memory_graph_delta)),
-      );
-    }
-
-    if (backendMetaFinal?.memory_summary || backendMetaFinal?.memory_graph_snapshot || backendMetaFinal?.memory_graph_delta) {
-      renderMemoryInspector();
-    }
+    handleBackendMemoryUpdates(backendMetaFinal);
 
     const safetyLevel = backendMetaFinal?.safety?.level || backendMetaFinal?.safety?.user_visible_category || "";
-    const isCrisis = isCrisisReply(reply, safetyLevel);
-    if (isCrisis) {
+    if (isCrisisReply(reply, safetyLevel)) {
       contentContainer.className = "flex flex-col text-[15px] text-rose-700 dark:text-rose-400 font-medium leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
-      const actionsEl = contentContainer.querySelector('.action-buttons');
-      if (actionsEl) actionsEl.remove();
+      contentContainer.querySelector(".action-buttons")?.remove();
     }
 
     if (window.MINDPAL_CONFIG?.SHOW_RESPONSE_DEBUG && backendMetaFinal) {
@@ -2381,49 +1442,34 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     refreshIcons();
   } catch (error) {
     console.error("regenerateLastUserMessage error:", error);
-    
-    // Remove the orphan streaming div only if no content was received
-    if (!streamResponseStr.trim() && streamMsgDiv) {
-      streamMsgDiv.remove();
-    }
-    
-    // Check if the thought indicator is still waving, if so remove it since it failed
-    if (!firstChunkReceived) {
-      removeStatusIndicator(statusId);
-    }
+    if (!streamResponseStr.trim() && streamMsgDiv) streamMsgDiv.remove();
+    if (!firstChunkReceived) removeStatusIndicator(statusId);
 
     const fallback = buildClientFallbackReply(error);
-
-    const regeneratedFallbackRecord = addMessage("MindPal", fallback, {
+    const fallbackRecord = addMessage("MindPal", fallback, {
       providerUsed: "client_fallback",
       errorCode: error?.code || "frontend_regenerate_error",
       regenerated: true,
     });
-
-    scheduleCloudMessageSync(regeneratedFallbackRecord);
+    scheduleCloudMessageSync(fallbackRecord);
 
     try {
-      await appendMessageToUI(fallback, "bot", {
-        smoothScroll: true,
-        typewriter: true,
-      });
+      await appendMessageToUI(fallback, "bot", { smoothScroll: true, typewriter: true });
     } catch (renderError) {
       console.error("Failed to render regenerate fallback:", renderError);
     }
     notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the fallback response.");
   } finally {
     isGenerating = false;
-    voiceController?.setGenerating(false);
-
     setInputState({ disabled: false, locked: isSessionLocked });
-
-    if (!isSessionLocked) {
-      document.getElementById("chat-input")?.focus();
-    }
-
+    if (!isSessionLocked) document.getElementById("chat-input")?.focus();
     updateProfileUI(getCurrentUser());
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Debug metadata
+// ═══════════════════════════════════════════════════════════════
 
 function buildBackendMeta(meta) {
   const provider = meta.provider_used || meta.providerUsed;
@@ -2451,169 +1497,10 @@ function buildBackendMeta(meta) {
   return wrapper;
 }
 
-// DOM helpers moved to utils/dom.js
-
-let activeSpeechUtterance = null;
-let activeSpeechButton = null;
-const cancelledUtterances = new WeakSet();
-
-function speakText(text, button = null) {
-  if (!("speechSynthesis" in window)) {
-    showToast("Text-to-speech is not supported in this browser.");
-    return;
-  }
-
-  const clean = String(text || "").trim();
-  if (!clean) return;
-
-  const sameButton = activeSpeechButton === button;
-
-  if (window.speechSynthesis.speaking || activeSpeechUtterance) {
-    if (activeSpeechUtterance) {
-      cancelledUtterances.add(activeSpeechUtterance);
-    }
-
-    window.speechSynthesis.cancel();
-    resetPlayButton(activeSpeechButton);
-
-    activeSpeechUtterance = null;
-    activeSpeechButton = null;
-
-    if (sameButton) {
-      return;
-    }
-  }
-
-  const utterance = new SpeechSynthesisUtterance(clean);
-  
-  // Smart language detection
-  if (/[\u0600-\u06FF]/.test(clean)) {
-    utterance.lang = "ar-SA";
-  } else if (/[\u4E00-\u9FFF]/.test(clean)) {
-    utterance.lang = "zh-CN";
-  } else if (/[áéíóúñ¿¡]/i.test(clean)) {
-    utterance.lang = "es-ES";
-  } else if (/[\u0400-\u04FF]/.test(clean)) {
-    utterance.lang = "ru-RU";
-  } else if (/[\u3040-\u30FF]/.test(clean)) {
-    utterance.lang = "ja-JP";
-  } else if (/[\uAC00-\uD7AF]/.test(clean)) {
-    utterance.lang = "ko-KR";
-  } else if (/[\u0900-\u097F]/.test(clean)) {
-    utterance.lang = "hi-IN";
-  } else if (/[çãõáéíóú]/i.test(clean) && !/[ñ¿¡]/.test(clean)) {
-    utterance.lang = "pt-BR";
-  } else {
-    utterance.lang = "en-US";
-  }
-
-  utterance.rate = 0.95;
-  utterance.pitch = 1;
-
-  activeSpeechUtterance = utterance;
-  activeSpeechButton = button;
-
-  setPlayButtonActive(button);
-
-  utterance.onend = () => {
-    if (cancelledUtterances.has(utterance)) {
-      cancelledUtterances.delete(utterance);
-      return;
-    }
-
-    activeSpeechUtterance = null;
-    activeSpeechButton = null;
-    resetPlayButton(button);
-  };
-
-  utterance.onerror = () => {
-    if (cancelledUtterances.has(utterance)) {
-      cancelledUtterances.delete(utterance);
-      return;
-    }
-
-    activeSpeechUtterance = null;
-    activeSpeechButton = null;
-    resetPlayButton(button);
-    showToast("Could not read this response aloud.");
-  };
-
-  window.setTimeout(() => {
-    if (activeSpeechUtterance === utterance) {
-      window.speechSynthesis.speak(utterance);
-    }
-  }, 80);
-}
-
-function setPlayButtonActive(button) {
-  if (!button) return;
-
-  const icon = button.querySelector("[data-lucide]");
-  icon?.setAttribute("data-lucide", "square");
-  button.classList.add("text-blue-600", "dark:text-blue-400");
-  refreshIcons();
-}
-
-function resetPlayButton(button) {
-  if (!button) return;
-
-  const icon = button.querySelector("[data-lucide]");
-  icon?.setAttribute("data-lucide", "volume-2");
-  button.classList.remove("text-blue-600", "dark:text-blue-400");
-  refreshIcons();
-}
-
-function fallbackCopy(text) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  document.body.appendChild(textarea);
-  textarea.select();
-
-  try {
-    document.execCommand("copy");
-  } finally {
-    textarea.remove();
-  }
-}
-
-function isSafetyLock(response) {
-  const level = String(response?.safety?.level || "").toLowerCase();
-  const category = String(response?.safety?.user_visible_category || "").toLowerCase();
-
-  return Boolean(
-    response?.lock_session ||
-    level.includes("imminent") ||
-    level.includes("self_harm") ||
-    category.includes("crisis") ||
-    category.includes("emergency"),
-  );
-}
-
-function isCrisisReply(text, safetyLevel) {
-  const haystack = `${text || ""} ${safetyLevel || ""}`.toLowerCase();
-
-  return (
-    haystack.includes("emergency") ||
-    haystack.includes("988") ||
-    haystack.includes("nearest emergency") ||
-    haystack.includes("self_harm_imminent") ||
-    haystack.includes("اتصل") ||
-    haystack.includes("الإسعاف")
-  );
-}
-
-function resolveLocale() {
-  const configured = getAppSettings().language;
-  if (configured === "ar-EG") return "ar";
-  if (configured === "en") return "en";
-
-  // Default to 'auto' — let the LLM detect language from the user's message
-  // This prevents forcing English on Arabic-speaking users
-  return "auto";
-}
-
-// sleep moved to utils/dom.js
+// ═══════════════════════════════════════════════════════════════
+// Cleanup
+// ═══════════════════════════════════════════════════════════════
 
 window.addEventListener("beforeunload", () => {
-  authUnsubscribe?.();
+  cleanupAuth();
 });
