@@ -133,3 +133,52 @@ async def get_voice_key():
         )
         
     return {"key": api_key}
+
+
+class SummarizeRequest(BaseModel):
+    user_transcript: str = ""
+    ai_transcript: str = ""
+
+
+@router.post("/summarize")
+async def summarize_call(payload: SummarizeRequest):
+    settings = get_settings()
+    api_key = getattr(settings, "GEMINI_API_KEY", None)
+    if hasattr(api_key, "get_secret_value"):
+        api_key = api_key.get_secret_value()
+
+    if not api_key:
+        raise HTTPException(status_code=503, detail="No API key")
+
+    transcript_parts = []
+    if payload.user_transcript:
+        transcript_parts.append(f"User: {payload.user_transcript[:2000]}")
+    if payload.ai_transcript:
+        transcript_parts.append(f"AI: {payload.ai_transcript[:2000]}")
+    transcript = "\n".join(transcript_parts)
+
+    if not transcript.strip():
+        return {"summary": "Voice call"}
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+
+    gemini_payload = {
+        "contents": [{"parts": [{"text": f"Write a 1-sentence summary of this voice call. Keep it under 15 words. Be natural and concise. Respond in the same language used in the conversation:\n\n{transcript}"}]}],
+        "generationConfig": {"maxOutputTokens": 60, "temperature": 0.2}
+    }
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            response = await client.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload)
+            response.raise_for_status()
+            data = response.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                summary = "".join(p.get("text", "") for p in parts).strip()
+                if summary:
+                    return {"summary": summary}
+            return {"summary": "Voice call"}
+        except Exception as exc:
+            print(f"[VOICE_SUMMARIZE] Error: {exc}")
+            return {"summary": "Voice call"}
