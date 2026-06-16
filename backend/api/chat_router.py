@@ -159,8 +159,8 @@ async def chat(
             system_prompt=system_prompt,
             user_message=payload.message,
             history=_convert_history(payload),
-            temperature=0.4,
-            max_output_tokens=900,
+            temperature=0.3 if clinical_mode else 0.4,
+            max_output_tokens=1800 if clinical_mode else 900,
             metadata={
                 "route": "chat",
                 "locale": locale,
