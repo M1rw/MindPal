@@ -130,12 +130,43 @@
             </div>
         </div>
 
-        <!-- Center — gradient typewriter "Hello." -->
+        <!-- Center — gradient typewriter with smooth fades -->
         <div class="flex-1 flex items-center justify-center">
             <h1 class="text-5xl sm:text-6xl font-medium tracking-tight">
-                <span class="loader-hello bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]"></span>
+                <span id="loader-typer" class="loader-hello bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]"></span>
             </h1>
         </div>
+        <script>
+        (function(){
+            var el = document.getElementById('loader-typer');
+            if (!el) return;
+            var phrases = ['Hello.', 'Getting things ready…', 'Almost there…'];
+            var pi = 0, ci = 0, speed = 70, pauseAfter = 1800, fadeMs = 400;
+            function type() {
+                if (!document.getElementById('loader-typer')) return;
+                if (ci <= phrases[pi].length) {
+                    el.textContent = phrases[pi].slice(0, ci);
+                    ci++;
+                    setTimeout(type, speed);
+                } else {
+                    // Done typing this phrase — hold, then fade to next
+                    setTimeout(function(){
+                        if (pi < phrases.length - 1) {
+                            el.style.opacity = '0';
+                            setTimeout(function(){
+                                pi++; ci = 0;
+                                el.textContent = '';
+                                el.style.opacity = '1';
+                                setTimeout(type, 100);
+                            }, fadeMs);
+                        }
+                        // Last phrase just stays
+                    }, pauseAfter);
+                }
+            }
+            setTimeout(type, 300);
+        })();
+        </script>
 
         <!-- Input box skeleton — pinned bottom -->
         <div class="w-full pb-6 px-4 flex justify-center flex-none">
