@@ -846,3 +846,26 @@ details > summary::-webkit-details-marker { display: none; }
   from { opacity: 0; transform: scale(0.92); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* Unified selector dropdown animation */
+#unified-dropdown {
+  animation: scaleIn 0.15s ease;
+  transform-origin: bottom right;
+}
+
+/* Toggle switch (Pro confirmation) */
+#pro-confirm-toggle:checked ~ div:first-of-type {
+  background-color: #ef4444;
+}
+#pro-confirm-toggle:checked ~ div:last-of-type {
+  transform: translateX(1.25rem);
+}
+
+/* Focus styles for a11y */
+#unified-dropdown [role="menuitem"]:focus {
+  outline: none;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+.dark #unified-dropdown [role="menuitem"]:focus {
+  background-color: rgba(255, 255, 255, 0.08);
+}

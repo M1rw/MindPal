@@ -413,7 +413,7 @@ export function updateUsageUI(profileResponse = null) {
   if (proModelOption && proPct >= 100) {
     proModelOption.classList.add("opacity-50", "cursor-not-allowed", "pointer-events-none");
     const proDesc = proModelOption.querySelector('.text-\\[11px\\]');
-    if (proDesc) proDesc.textContent = "Rate limited. Available soon.";
+    if (proDesc) proDesc.textContent = "Rate limited. Resets soon.";
   } else if (proModelOption) {
     proModelOption.classList.remove("opacity-50", "cursor-not-allowed", "pointer-events-none");
     const proDesc = proModelOption.querySelector('.text-\\[11px\\]');
@@ -459,7 +459,7 @@ export function updateUsageFromMeta(proUsage) {
   if (proModelOption && pct >= 100) {
     proModelOption.classList.add("opacity-50", "cursor-not-allowed", "pointer-events-none");
     const proDesc = proModelOption.querySelector('.text-\\[11px\\]');
-    if (proDesc) proDesc.textContent = "Rate limited. Available soon.";
+    if (proDesc) proDesc.textContent = "Rate limited. Resets soon.";
   } else if (proModelOption) {
     proModelOption.classList.remove("opacity-50", "cursor-not-allowed", "pointer-events-none");
     const proDesc = proModelOption.querySelector('.text-\\[11px\\]');
