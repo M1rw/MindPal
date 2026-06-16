@@ -108,19 +108,20 @@ function flushAiAudio() {
     isAiSpeaking = false;
 }
 
-/** Update the mic dot UI to reflect mute state */
+/** Update the mute button UI to reflect mute state */
 function updateMicUI() {
-    const micDot = document.getElementById("voice-mic-dot");
-    const micIcon = micDot?.querySelector("[data-lucide]");
+    const muteBtn = document.getElementById("voice-mute-toggle");
+    const muteIcon = muteBtn?.querySelector("[data-lucide]");
+    const muteLabel = document.getElementById("voice-mute-label");
     const statusEl = document.getElementById("voice-live-status");
 
     if (isMicMuted) {
-        micDot?.classList.add("ring-2", "ring-red-400/40");
-        if (micIcon) micIcon.setAttribute("data-lucide", "mic-off");
+        if (muteIcon) muteIcon.setAttribute("data-lucide", "mic-off");
+        if (muteLabel) muteLabel.textContent = "Unmute";
         if (statusEl && !isAiSpeaking) statusEl.textContent = "Muted";
     } else {
-        micDot?.classList.remove("ring-2", "ring-red-400/40");
-        if (micIcon) micIcon.setAttribute("data-lucide", "mic");
+        if (muteIcon) muteIcon.setAttribute("data-lucide", "mic");
+        if (muteLabel) muteLabel.textContent = "Mute";
         if (statusEl && !isAiSpeaking) statusEl.textContent = "Listening…";
     }
 
@@ -174,10 +175,9 @@ export function initLiveVoice({ onChatSync } = {}) {
     }
 
     // Mic mute toggle
-    const micDot = document.getElementById("voice-mic-dot");
-    if (micDot) {
-        micDot.style.cursor = "pointer";
-        micDot.addEventListener("click", () => {
+    const muteBtn = document.getElementById("voice-mute-toggle");
+    if (muteBtn) {
+        muteBtn.addEventListener("click", () => {
             isMicMuted = !isMicMuted;
             updateMicUI();
         });
@@ -928,32 +928,7 @@ function tick() {
     const cg = Math.round(bg2 + (pg - bg2) * bl);
     const cb = Math.round(bb + (pb - bb) * bl);
 
-    // ── Mic dot — color-matched pulse ──
-    const micDot = document.getElementById("voice-mic-dot");
-    if (micDot) {
-        micDot.style.transform = `scale(${1 + energy * 0.1})`;
-        micDot.style.borderColor = `rgba(${cr},${cg},${cb},${0.2 + energy * 0.4})`;
-        micDot.style.backgroundColor = `rgba(${cr},${cg},${cb},${0.06 + energy * 0.08})`;
-    }
-
-    // ── Mic ripples — color-matched, analyser-driven ──
-    const rp1 = document.getElementById("voice-mic-ripple-1");
-    const rp2 = document.getElementById("voice-mic-ripple-2");
-    if (energy > 0.03) {
-        if (rp1) {
-            rp1.style.transform = `scale(${1 + energy * 0.3})`;
-            rp1.style.opacity = String(Math.min(0.5, energy * 0.5));
-            rp1.style.borderColor = `rgba(${cr},${cg},${cb},${0.3 + energy * 0.3})`;
-        }
-        if (rp2) {
-            rp2.style.transform = `scale(${1 + energy * 0.5})`;
-            rp2.style.opacity = String(Math.min(0.3, energy * 0.3));
-            rp2.style.borderColor = `rgba(${cr},${cg},${cb},${0.15 + energy * 0.2})`;
-        }
-    } else {
-        if (rp1) rp1.style.opacity = "0";
-        if (rp2) rp2.style.opacity = "0";
-    }
+    // (mic dot and ripples removed — mute button is in action row now)
 
     animFrameId = requestAnimationFrame(tick);
 }
