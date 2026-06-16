@@ -115,62 +115,34 @@
 
 <body class="bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">
     <!-- Global Loading Screen -->
-    <div id="global-loader" class="fixed inset-0 z-[999] bg-gemini-bg dark:bg-gemini-darkBg transition-opacity duration-700 ease-in-out flex flex-col pointer-events-none">
+    <div id="global-loader" class="fixed inset-0 z-[999] bg-gemini-bg dark:bg-gemini-darkBg transition-opacity duration-700 ease-in-out flex flex-col items-center justify-center pointer-events-none">
 
-        <!-- ── Header skeleton (matches real header) ── -->
-        <div class="flex items-center justify-between px-6 py-4 flex-none w-full">
-            <!-- Left: brand text + env tag -->
-            <div class="flex items-center gap-2">
-                <div class="w-[72px] h-6 bg-gray-200/70 dark:bg-zinc-800 rounded-md animate-pulse"></div>
-                <div class="w-10 h-5 bg-gemini-surface dark:bg-gemini-darkSurface rounded-md animate-pulse" style="animation-delay:80ms"></div>
-            </div>
-            <!-- Right: theme toggle + streak + avatar -->
-            <div class="flex items-center gap-2">
-                <div class="w-9 h-9 rounded-full bg-gray-100 dark:bg-zinc-800/60 animate-pulse" style="animation-delay:120ms"></div>
-                <div class="w-14 h-8 rounded-full bg-gray-100 dark:bg-zinc-800/60 animate-pulse" style="animation-delay:160ms"></div>
-                <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 animate-pulse border border-gray-300/50 dark:border-zinc-600/50" style="animation-delay:200ms"></div>
-            </div>
-        </div>
+        <div class="w-full max-w-4xl px-4 flex flex-col items-center gap-10">
 
-        <!-- ── Welcome area skeleton (matches #interaction-area) ── -->
-        <div class="flex-1 flex flex-col justify-center items-center px-4 pb-6 w-full">
-            <div class="w-full max-w-3xl md:text-center mt-[-8vh]">
-
-                <!-- Gradient heading shimmer -->
-                <div class="mb-3">
-                    <div class="h-12 sm:h-14 w-36 sm:w-44 rounded-lg bg-gradient-to-r from-blue-200/60 via-purple-200/60 to-pink-200/60 dark:from-blue-900/40 dark:via-purple-900/40 dark:to-pink-900/40 animate-pulse md:mx-auto"></div>
+            <!-- Header skeleton -->
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center gap-2">
+                    <div class="w-[72px] h-6 bg-gray-200/70 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+                    <div class="w-10 h-5 bg-gemini-surface dark:bg-gemini-darkSurface rounded-md animate-pulse" style="animation-delay:80ms"></div>
                 </div>
-
-                <!-- Subtitle -->
-                <div class="h-8 sm:h-9 w-72 sm:w-96 rounded-lg bg-gray-200/50 dark:bg-zinc-800/50 animate-pulse mb-8 md:mx-auto" style="animation-delay:100ms"></div>
-
-                <!-- Mood pill chips -->
-                <div class="flex flex-wrap justify-start md:justify-center gap-3 mb-2">
-                    <div class="h-[44px] w-44 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface animate-pulse" style="animation-delay:200ms"></div>
-                    <div class="h-[44px] w-40 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface animate-pulse" style="animation-delay:280ms"></div>
-                    <div class="h-[44px] w-32 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface animate-pulse" style="animation-delay:360ms"></div>
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-full bg-gray-100 dark:bg-zinc-800/60 animate-pulse" style="animation-delay:120ms"></div>
+                    <div class="w-14 h-8 rounded-full bg-gray-100 dark:bg-zinc-800/60 animate-pulse" style="animation-delay:160ms"></div>
+                    <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 animate-pulse border border-gray-300/50 dark:border-zinc-600/50" style="animation-delay:200ms"></div>
                 </div>
             </div>
 
-            <!-- ── Input box skeleton (matches real input bar) ── -->
-            <div class="w-full max-w-4xl mt-auto">
+            <!-- Input box skeleton -->
+            <div class="w-full">
                 <div class="bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] p-2 flex items-center w-full">
-                    <!-- Placeholder text -->
-                    <div class="flex-1 h-5 bg-gray-300/30 dark:bg-zinc-700/40 rounded-md animate-pulse ml-4 max-w-[140px] sm:max-w-[180px]" style="animation-delay:400ms"></div>
-
+                    <div class="flex-1 h-5 bg-gray-300/30 dark:bg-zinc-700/40 rounded-md animate-pulse ml-4 max-w-[140px] sm:max-w-[180px]" style="animation-delay:300ms"></div>
                     <div class="flex items-center gap-1.5 pr-1 ml-auto">
-                        <!-- Model selector pill -->
-                        <div class="w-36 h-8 rounded-xl bg-gray-200/40 dark:bg-zinc-700/30 animate-pulse" style="animation-delay:450ms"></div>
-                        <!-- Mic button -->
-                        <div class="w-10 h-10 rounded-full bg-gray-200/40 dark:bg-zinc-700/30 animate-pulse" style="animation-delay:500ms"></div>
+                        <div class="w-36 h-8 rounded-xl bg-gray-200/40 dark:bg-zinc-700/30 animate-pulse" style="animation-delay:350ms"></div>
+                        <div class="w-10 h-10 rounded-full bg-gray-200/40 dark:bg-zinc-700/30 animate-pulse" style="animation-delay:400ms"></div>
                     </div>
                 </div>
-
-                <!-- Disclaimer text -->
-                <div class="flex justify-center mt-3">
-                    <div class="h-3.5 w-80 rounded bg-gray-200/30 dark:bg-zinc-800/30 animate-pulse" style="animation-delay:550ms"></div>
-                </div>
             </div>
+
         </div>
     </div>
 
