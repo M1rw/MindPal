@@ -1,6 +1,7 @@
 // frontend/js/app.js
 
 import {
+  API_BASE_URL,
   buildClientFallbackReply,
   deleteMemory,
   deleteMemoryGraphItem,
@@ -1794,8 +1795,7 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
 
 async function summarizeCallTranscript(userTranscript, aiTranscript) {
   try {
-    const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
-    const res = await fetch(`${baseUrl}/voice/summarize`, {
+    const res = await fetch(`${API_BASE_URL}/voice/summarize`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
