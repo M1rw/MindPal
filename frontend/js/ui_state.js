@@ -259,18 +259,34 @@ export function applyTheme(isDark) {
   document.documentElement.classList.toggle("dark", Boolean(isDark));
   localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
 
+  // Swap icon inline — avoids full lucide.createIcons() DOM scan (~300ms)
   const themeIcon = document.getElementById("theme-icon");
-  const modalThemeToggle = document.getElementById("modal-theme-toggle");
-
   if (themeIcon) {
-    themeIcon.setAttribute("data-lucide", isDark ? "sun" : "moon");
+    const iconName = isDark ? "sun" : "moon";
+    themeIcon.setAttribute("data-lucide", iconName);
+
+    // Direct SVG swap: use lucide icon data if available
+    if (window.lucide?.icons?.[iconName]) {
+      const [, attrs, children] = window.lucide.icons[iconName];
+      const ns = "http://www.w3.org/2000/svg";
+      // Preserve existing classes/id but replace inner SVG content
+      themeIcon.innerHTML = "";
+      children.forEach(([tag, childAttrs]) => {
+        const el = document.createElementNS(ns, tag);
+        Object.entries(childAttrs).forEach(([k, v]) => el.setAttribute(k, v));
+        themeIcon.appendChild(el);
+      });
+    }
   }
 
+  const modalThemeToggle = document.getElementById("modal-theme-toggle");
   if (modalThemeToggle) {
     modalThemeToggle.checked = Boolean(isDark);
   }
 
-  refreshIcons();
+  // Defer full icon refresh to idle time (non-blocking)
+  const schedule = window.requestIdleCallback || ((cb) => setTimeout(cb, 150));
+  schedule(() => refreshIcons());
 }
 
 export function setGreeting() {
