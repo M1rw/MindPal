@@ -5,10 +5,9 @@ from __future__ import annotations
 import httpx
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-import json
-import asyncio
 
 from backend.core.config import get_settings
+from backend.core.llm_utils import quick_llm_generate
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 
@@ -23,14 +22,10 @@ class TranscribeResponse(BaseModel):
 
 
 @router.post("/transcribe", response_model=TranscribeResponse)
-async def transcribe_audio(payload: TranscribeRequest) -> TranscribeResponse:
-    """
-    Transcribes audio using Gemini 1.5 Flash's multimodal audio API.
-    This works for 100+ languages natively and handles heavy accents flawlessly.
-    """
+async def transcribe_audio(payload: TranscribeRequest):
     settings = get_settings()
     api_key = getattr(settings, "GEMINI_API_KEY", None)
-    
+
     if hasattr(api_key, "get_secret_value"):
         api_key = api_key.get_secret_value()
 
@@ -74,18 +69,17 @@ async def transcribe_audio(payload: TranscribeRequest) -> TranscribeResponse:
                     {
                         "inlineData": {
                             "mimeType": clean_mime_type,
-                            "data": payload.audio_base64
+                            "data": payload.audio_base64,
                         }
                     },
-                    {
-                        "text": prompt
-                    }
-                ]
+                    {"text": prompt},
+                ],
             }
         ],
         "generationConfig": {
-            "temperature": 0.0,
-        }
+            "temperature": 0.1,
+            "maxOutputTokens": 1024,
+        },
     }
 
     async with httpx.AsyncClient(timeout=45.0) as client:
@@ -118,6 +112,7 @@ async def transcribe_audio(payload: TranscribeRequest) -> TranscribeResponse:
                 detail=f"Error transcribing audio: {str(exc)}"
             )
 
+
 @router.get("/key")
 async def get_voice_key():
     settings = get_settings()
@@ -142,14 +137,6 @@ class SummarizeRequest(BaseModel):
 
 @router.post("/summarize")
 async def summarize_call(payload: SummarizeRequest):
-    settings = get_settings()
-    api_key = getattr(settings, "GEMINI_API_KEY", None)
-    if hasattr(api_key, "get_secret_value"):
-        api_key = api_key.get_secret_value()
-
-    if not api_key:
-        raise HTTPException(status_code=503, detail="No API key")
-
     transcript_parts = []
     if payload.user_transcript:
         transcript_parts.append(f"User: {payload.user_transcript[:2000]}")
@@ -160,39 +147,12 @@ async def summarize_call(payload: SummarizeRequest):
     if not transcript.strip():
         return {"summary": "Voice call"}
 
-    # Discover available models (same pattern as transcription)
-    models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        try:
-            models_response = await client.get(models_url)
-            models_response.raise_for_status()
-            available_models = models_response.json().get("models", [])
-            valid_models = [m["name"] for m in available_models if "generateContent" in m.get("supportedGenerationMethods", [])]
-        except Exception:
-            valid_models = ["models/gemini-1.5-flash"]
+    prompt = (
+        "Write a 1-sentence summary of this voice call. "
+        "Keep it under 15 words. Be natural and concise. "
+        "Respond in the same language used in the conversation:\n\n"
+        + transcript
+    )
 
-        # Prefer flash models
-        target_models = ["models/gemini-2.0-flash", "models/gemini-1.5-flash", "models/gemini-1.5-flash-latest"]
-        model_path = next((m for m in target_models if m in valid_models), valid_models[0] if valid_models else "models/gemini-1.5-flash")
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/{model_path}:generateContent?key={api_key}"
-
-        gemini_payload = {
-            "contents": [{"parts": [{"text": f"Write a 1-sentence summary of this voice call. Keep it under 15 words. Be natural and concise. Respond in the same language used in the conversation:\n\n{transcript}"}]}],
-            "generationConfig": {"maxOutputTokens": 60, "temperature": 0.2}
-        }
-
-        try:
-            response = await client.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload)
-            response.raise_for_status()
-            data = response.json()
-            candidates = data.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                summary = "".join(p.get("text", "") for p in parts).strip()
-                if summary:
-                    return {"summary": summary}
-            return {"summary": "Voice call"}
-        except Exception as exc:
-            print(f"[VOICE_SUMMARIZE] Error with {model_path}: {exc}")
-            return {"summary": "Voice call"}
+    summary = await quick_llm_generate(prompt, max_tokens=60, temperature=0.2)
+    return {"summary": summary or "Voice call"}

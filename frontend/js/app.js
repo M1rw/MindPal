@@ -1785,8 +1785,7 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
         callMsg.voiceCall.summary = summary;
         patchState({ chatMemory: state.chatMemory });
       }
-    }).catch(err => {
-      console.warn("[CALL_SUMMARY] Promise failed:", err);
+    }).catch(() => {
       const summaryEl = document.getElementById(summaryId);
       if (summaryEl) summaryEl.textContent = "Voice call";
     });
@@ -1807,8 +1806,7 @@ async function summarizeCallTranscript(userTranscript, aiTranscript) {
     if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
     return data.summary || "Voice call";
-  } catch (e) {
-    console.warn("[CALL_SUMMARY] Failed:", e);
+  } catch {
     return "Voice call";
   }
 }
