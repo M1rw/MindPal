@@ -132,7 +132,18 @@ export function normalizeChatHistory(chatMemory, maxMessages = 30, fieldName = "
     .slice(-maxMessages)
     .map((item) => {
       const role = item.role === "User" || item.role === "user" ? "user" : "assistant";
-      const value = String(item.text ?? item.content ?? item.message ?? "").trim();
+
+      // Expand voice call messages so the LLM knows what was discussed
+      let value;
+      if (item.type === "voice_call" && item.voiceCall) {
+        const parts = [`[Voice Call · ${item.voiceCall.durationStr || ""}]`];
+        if (item.voiceCall.summary) parts.push(`Summary: ${item.voiceCall.summary}`);
+        if (item.voiceCall.userTranscript) parts.push(`User said: ${item.voiceCall.userTranscript}`);
+        if (item.voiceCall.aiTranscript) parts.push(`AI said: ${item.voiceCall.aiTranscript}`);
+        value = parts.join("\n");
+      } else {
+        value = String(item.text ?? item.content ?? item.message ?? "").trim();
+      }
 
       if (!value) return null;
 
