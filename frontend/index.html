@@ -115,25 +115,31 @@
 
 <body class="bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText h-screen flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">
     <!-- Global Loading Screen -->
-    <div id="global-loader" class="fixed inset-0 z-[999] bg-gemini-bg dark:bg-gemini-darkBg transition-opacity duration-700 ease-in-out flex flex-col items-center justify-center pointer-events-none">
+    <div id="global-loader" class="fixed inset-0 z-[999] bg-gemini-bg dark:bg-gemini-darkBg transition-opacity duration-700 ease-in-out flex flex-col pointer-events-none">
 
-        <div class="w-full max-w-4xl px-4 flex flex-col items-center gap-10">
-
-            <!-- Header skeleton -->
-            <div class="flex items-center justify-between w-full">
-                <div class="flex items-center gap-2">
-                    <div class="w-[72px] h-6 bg-gray-200/70 dark:bg-zinc-800 rounded-md animate-pulse"></div>
-                    <div class="w-10 h-5 bg-gemini-surface dark:bg-gemini-darkSurface rounded-md animate-pulse" style="animation-delay:80ms"></div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-9 h-9 rounded-full bg-gray-100 dark:bg-zinc-800/60 animate-pulse" style="animation-delay:120ms"></div>
-                    <div class="w-14 h-8 rounded-full bg-gray-100 dark:bg-zinc-800/60 animate-pulse" style="animation-delay:160ms"></div>
-                    <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 animate-pulse border border-gray-300/50 dark:border-zinc-600/50" style="animation-delay:200ms"></div>
-                </div>
+        <!-- Header skeleton — pinned top -->
+        <div class="flex items-center justify-between px-6 py-4 flex-none w-full">
+            <div class="flex items-center gap-2">
+                <div class="w-[72px] h-6 bg-gray-200/70 dark:bg-zinc-800 rounded-md animate-pulse"></div>
+                <div class="w-10 h-5 bg-gemini-surface dark:bg-gemini-darkSurface rounded-md animate-pulse" style="animation-delay:80ms"></div>
             </div>
+            <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-full bg-gray-100 dark:bg-zinc-800/60 animate-pulse" style="animation-delay:120ms"></div>
+                <div class="w-14 h-8 rounded-full bg-gray-100 dark:bg-zinc-800/60 animate-pulse" style="animation-delay:160ms"></div>
+                <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 animate-pulse border border-gray-300/50 dark:border-zinc-600/50" style="animation-delay:200ms"></div>
+            </div>
+        </div>
 
-            <!-- Input box skeleton -->
-            <div class="w-full">
+        <!-- Center — gradient typewriter "Hello." -->
+        <div class="flex-1 flex items-center justify-center">
+            <h1 class="text-5xl sm:text-6xl font-medium tracking-tight">
+                <span class="loader-hello bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]"></span>
+            </h1>
+        </div>
+
+        <!-- Input box skeleton — pinned bottom -->
+        <div class="w-full pb-6 px-4 flex justify-center flex-none">
+            <div class="w-full max-w-4xl">
                 <div class="bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] p-2 flex items-center w-full">
                     <div class="flex-1 h-5 bg-gray-300/30 dark:bg-zinc-700/40 rounded-md animate-pulse ml-4 max-w-[140px] sm:max-w-[180px]" style="animation-delay:300ms"></div>
                     <div class="flex items-center gap-1.5 pr-1 ml-auto">
@@ -142,7 +148,6 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 

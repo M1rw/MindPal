@@ -29,6 +29,41 @@ input:checked ~ .toggle-bg { background-color: #3b82f6; }
 .dark input:checked ~ .toggle-bg { background-color: #a8c7fa; }
 input:checked ~ .toggle-dot { transform: translateX(100%); }
 
+/* Loading skeleton — gradient typewriter "Hello." */
+.loader-hello {
+    position: relative;
+}
+
+.loader-hello::after {
+    content: "";
+    animation: typeHello 2s steps(1) 0.3s forwards;
+}
+
+@keyframes typeHello {
+    0%   { content: "H"; }
+    16%  { content: "He"; }
+    32%  { content: "Hel"; }
+    48%  { content: "Hell"; }
+    64%  { content: "Hello"; }
+    80%  { content: "Hello."; }
+    100% { content: "Hello."; }
+}
+
+.loader-hello::before {
+    content: "";
+    position: absolute;
+    right: -4px;
+    top: 8%;
+    height: 80%;
+    border-right: 3px solid #9b72cb;
+    animation: blink-cursor 0.7s step-end infinite;
+}
+
+@keyframes blink-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
 /* Hide default details marker */
 details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
