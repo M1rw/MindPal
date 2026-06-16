@@ -1,4 +1,19 @@
 // frontend/js/ui_state.js
+// Orchestrates app state, theme, UI updates — delegates utils to dedicated modules.
+
+import { refreshIcons, swapIconInline } from "./utils/icons.js";
+import {
+  getLocalDateKey,
+  normalizeDayKeys,
+  normalizeDateKey,
+  computeCurrentStreak,
+  getMostRecentActiveDate,
+  getLast7Days,
+} from "./utils/dates.js";
+import { cryptoRandomId, normalizeName } from "./utils/helpers.js";
+
+// Re-export so existing consumers don't break
+export { refreshIcons } from "./utils/icons.js";
 
 const STATE_KEY = "mindpal_state_v2";
 const THEME_KEY = "mindpal_theme";
@@ -16,8 +31,11 @@ const DEFAULT_STATE = Object.freeze({
 });
 
 let state = createDefaultState();
-let iconRefreshFrame = null;
 let deferredStateSaveTimer = null;
+
+// ═══════════════════════════════════════════════════════════════
+// State CRUD
+// ═══════════════════════════════════════════════════════════════
 
 export function createDefaultState() {
   return {
@@ -112,6 +130,10 @@ export function setCrisisMode(enabled) {
   saveState();
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Chat memory
+// ═══════════════════════════════════════════════════════════════
+
 export function addMessage(role, text, extra = {}) {
   const normalizedRole = role === "User" || role === "user" ? "User" : "MindPal";
   const cleanText = String(text || "").trim();
@@ -163,6 +185,10 @@ export function clearChatMemory() {
   state.messageCount = 0;
   saveState();
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Streak & activity tracking
+// ═══════════════════════════════════════════════════════════════
 
 export function calculateStreak() {
   normalizeVisitHistory();
@@ -242,52 +268,57 @@ export function updateStreakUI(snapshot = null) {
   }
 }
 
+function normalizeVisitHistory() {
+  state.visitHistory = normalizeDayKeys(state.visitHistory);
+
+  if (state.lastVisitDate) {
+    const normalizedLastVisit = normalizeDateKey(state.lastVisitDate);
+
+    if (normalizedLastVisit) {
+      state.lastVisitDate = normalizedLastVisit;
+
+      if (!state.visitHistory.includes(normalizedLastVisit)) {
+        state.visitHistory.push(normalizedLastVisit);
+        state.visitHistory = normalizeDayKeys(state.visitHistory);
+      }
+    } else {
+      state.lastVisitDate = getMostRecentActiveDate(new Set(state.visitHistory));
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Theme
+// ═══════════════════════════════════════════════════════════════
+
 export function initializeTheme() {
   const saved = localStorage.getItem(THEME_KEY);
   const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
-
-  applyTheme(saved ? saved === "dark" : Boolean(prefersDark));
+  document.documentElement.classList.toggle("dark", saved ? saved === "dark" : Boolean(prefersDark));
 }
 
 export function toggleTheme() {
   const willBeDark = !document.documentElement.classList.contains("dark");
-  applyTheme(willBeDark);
-  return willBeDark;
-}
+  document.documentElement.classList.toggle("dark", willBeDark);
+  localStorage.setItem(THEME_KEY, willBeDark ? "dark" : "light");
 
-export function applyTheme(isDark) {
-  document.documentElement.classList.toggle("dark", Boolean(isDark));
-  localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
-
-  // Swap icon inline — avoids full lucide.createIcons() DOM scan (~300ms)
+  // Inline icon swap — no full DOM scan
   const themeIcon = document.getElementById("theme-icon");
   if (themeIcon) {
-    const iconName = isDark ? "sun" : "moon";
+    const iconName = willBeDark ? "sun" : "moon";
     themeIcon.setAttribute("data-lucide", iconName);
-
-    // Direct SVG swap: use lucide icon data if available
-    if (window.lucide?.icons?.[iconName]) {
-      const [, attrs, children] = window.lucide.icons[iconName];
-      const ns = "http://www.w3.org/2000/svg";
-      // Preserve existing classes/id but replace inner SVG content
-      themeIcon.innerHTML = "";
-      children.forEach(([tag, childAttrs]) => {
-        const el = document.createElementNS(ns, tag);
-        Object.entries(childAttrs).forEach(([k, v]) => el.setAttribute(k, v));
-        themeIcon.appendChild(el);
-      });
-    }
+    swapIconInline(themeIcon, iconName);
   }
 
   const modalThemeToggle = document.getElementById("modal-theme-toggle");
-  if (modalThemeToggle) {
-    modalThemeToggle.checked = Boolean(isDark);
-  }
+  if (modalThemeToggle) modalThemeToggle.checked = willBeDark;
 
-  // Defer full icon refresh to idle time (non-blocking)
-  const schedule = window.requestIdleCallback || ((cb) => setTimeout(cb, 150));
-  schedule(() => refreshIcons());
+  return willBeDark;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Greeting & Profile UI
+// ═══════════════════════════════════════════════════════════════
 
 export function setGreeting() {
   const greetingEl = document.getElementById("greeting-text");
@@ -400,7 +431,6 @@ export function updateUsageUI(profileResponse = null) {
   
   if (!usage) return;
 
-  // 40 messages limit for Pro
   const proCount = usage.pro_messages_count || 0;
   const proPct = Math.min(100, (proCount / 40) * 100);
   
@@ -424,7 +454,6 @@ export function updateUsageUI(profileResponse = null) {
     }
   }
 
-  // Disable Pro mode toggle if out of quota
   const proModelOption = document.querySelector('.model-option[data-model="pro"]');
   if (proModelOption && proPct >= 100) {
     proModelOption.classList.add("opacity-50", "cursor-not-allowed", "pointer-events-none");
@@ -437,9 +466,6 @@ export function updateUsageUI(profileResponse = null) {
   }
 }
 
-/**
- * Update Pro usage bar from stream metadata (real-time after each message).
- */
 export function updateUsageFromMeta(proUsage) {
   if (!proUsage) return;
 
@@ -470,7 +496,6 @@ export function updateUsageFromMeta(proUsage) {
     }
   }
 
-  // Disable/enable Pro model option
   const proModelOption = document.querySelector('.model-option[data-model="pro"]');
   if (proModelOption && pct >= 100) {
     proModelOption.classList.add("opacity-50", "cursor-not-allowed", "pointer-events-none");
@@ -492,7 +517,6 @@ export function updateMentalHealthUI(profileResponse = null) {
   const diagnosesDisplay = document.getElementById("suspected-diagnoses-display");
   const treatmentPlanDisplay = document.getElementById("treatment-plan-display");
 
-  // Render CSS Bar Chart for PHQ-9 (Max score 27)
   if (phq9Chart) {
     if (clinical?.phq9_history && clinical.phq9_history.length > 0) {
       phq9Chart.innerHTML = clinical.phq9_history.map(item => {
@@ -509,7 +533,6 @@ export function updateMentalHealthUI(profileResponse = null) {
     }
   }
 
-  // Render CSS Bar Chart for GAD-7 (Max score 21)
   if (gad7Chart) {
     if (clinical?.gad7_history && clinical.gad7_history.length > 0) {
       gad7Chart.innerHTML = clinical.gad7_history.map(item => {
@@ -546,6 +569,10 @@ export function updateMentalHealthUI(profileResponse = null) {
     treatmentPlanDisplay.textContent = clinical?.treatment_plan || "None active.";
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Weekly tracker
+// ═══════════════════════════════════════════════════════════════
 
 export function renderWeeklyTracker() {
   const snapshot = getStreakSnapshot();
@@ -588,6 +615,10 @@ export function renderWeeklyTracker() {
   refreshIcons();
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Modals
+// ═══════════════════════════════════════════════════════════════
+
 export function openModal(modalId, contentId) {
   const modal = document.getElementById(modalId);
   const content = document.getElementById(contentId);
@@ -604,13 +635,15 @@ export function closeModal(modalId, contentId) {
   modal?.classList.add("opacity-0", "pointer-events-none");
   content?.classList.add("scale-95");
   
-  // Only remove overflow-hidden if no other modals are open
-  // In a simple app, we can just remove it, but to be safe we should check
   const anyModalOpen = document.querySelectorAll('.fixed.inset-0:not(.opacity-0)').length > 0;
   if (!anyModalOpen) {
     document.body.classList.remove("overflow-hidden");
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Chat UI helpers
+// ═══════════════════════════════════════════════════════════════
 
 export function setChatStarted(started) {
   const welcomeScreen = document.getElementById("welcome-screen");
@@ -713,6 +746,10 @@ export function clearInput() {
   inputEl.dispatchEvent(new Event("input"));
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Status indicators (thinking dots)
+// ═══════════════════════════════════════════════════════════════
+
 export function appendStatusIndicator(id, parentContainer = null) {
   const container = parentContainer || document.getElementById("chat-history");
 
@@ -774,7 +811,6 @@ export function finalizeStatusIndicator(id, elapsedMs) {
 
   const seconds = (elapsedMs / 1000).toFixed(1);
 
-  // Stop the wave animation by swapping dots for a static checkmark-style icon
   const inner = el.querySelector(".flex.items-center");
   if (inner) {
     inner.innerHTML = `
@@ -794,7 +830,6 @@ export function scrollChatToBottom(behavior = "auto", force = false) {
   requestAnimationFrame(() => {
     const chatHistory = document.getElementById("chat-history");
     if (chatHistory) {
-      // Only auto-scroll if we are near the bottom already, or if forced
       const isNearBottom = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 150;
       if (force || isNearBottom) {
         chatHistory.scrollTo({
@@ -805,6 +840,10 @@ export function scrollChatToBottom(behavior = "auto", force = false) {
     }
   });
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Toast & misc UI
+// ═══════════════════════════════════════════════════════════════
 
 export function showToast(message) {
   const container = document.getElementById("toast-container");
@@ -887,64 +926,9 @@ export function exportConversationLog() {
   showToast("Log exported.");
 }
 
-function getLucideExportName(iconName) {
-  return String(iconName || "")
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join("");
-}
-
-function renderScopedIcons(root) {
-  const lucide = window.lucide;
-  const iconNodes = Array.from(root?.querySelectorAll?.("i[data-lucide]") || []);
-
-  if (!lucide?.icons || iconNodes.length === 0) return true;
-
-  let renderedCount = 0;
-
-  for (const node of iconNodes) {
-    const iconName = node.getAttribute("data-lucide");
-    const iconDefinition = lucide.icons[iconName] || lucide.icons[getLucideExportName(iconName)];
-    if (!iconDefinition) continue;
-
-    const attrs = {
-      class: node.getAttribute("class") || "",
-      "aria-hidden": "true",
-    };
-
-    let svg = null;
-    if (typeof iconDefinition.toSvg === "function") {
-      const template = document.createElement("template");
-      template.innerHTML = iconDefinition.toSvg(attrs).trim();
-      svg = template.content.firstElementChild;
-    } else if (typeof lucide.createElement === "function") {
-      svg = lucide.createElement(iconDefinition, attrs);
-    }
-
-    if (svg) {
-      node.replaceWith(svg);
-      renderedCount += 1;
-    }
-  }
-
-  return renderedCount === iconNodes.length;
-}
-
-export function refreshIcons(root = document) {
-  if (!window.lucide?.createIcons) return;
-
-  if (root !== document && renderScopedIcons(root)) {
-    return;
-  }
-
-  if (iconRefreshFrame !== null) return;
-
-  iconRefreshFrame = window.requestAnimationFrame(() => {
-    iconRefreshFrame = null;
-    window.lucide.createIcons();
-  });
-}
+// ═══════════════════════════════════════════════════════════════
+// escapeHtml — exported for consumers (app.js, etc.)
+// ═══════════════════════════════════════════════════════════════
 
 export function escapeHtml(value) {
   return String(value ?? "")
@@ -953,141 +937,4 @@ export function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-
-function normalizeVisitHistory() {
-  state.visitHistory = normalizeDayKeys(state.visitHistory);
-
-  if (state.lastVisitDate) {
-    const normalizedLastVisit = normalizeDateKey(state.lastVisitDate);
-
-    if (normalizedLastVisit) {
-      state.lastVisitDate = normalizedLastVisit;
-
-      if (!state.visitHistory.includes(normalizedLastVisit)) {
-        state.visitHistory.push(normalizedLastVisit);
-        state.visitHistory = normalizeDayKeys(state.visitHistory);
-      }
-    } else {
-      state.lastVisitDate = getMostRecentActiveDate(new Set(state.visitHistory));
-    }
-  }
-}
-
-function normalizeDayKeys(values) {
-  if (!Array.isArray(values)) return [];
-
-  const seen = new Set();
-  const output = [];
-
-  for (const value of values) {
-    const key = normalizeDateKey(value);
-
-    if (!key || seen.has(key)) continue;
-
-    seen.add(key);
-    output.push(key);
-  }
-
-  output.sort();
-  return output;
-}
-
-function normalizeDateKey(value) {
-  const raw = String(value || "").trim();
-
-  if (!raw) return "";
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    return raw;
-  }
-
-  const parsed = new Date(raw);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return "";
-  }
-
-  return getLocalDateKey(parsed);
-}
-
-function getLocalDateKey(date = new Date()) {
-  const value = date instanceof Date ? date : new Date(date);
-
-  if (Number.isNaN(value.getTime())) {
-    return "";
-  }
-
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function parseLocalDateKey(dateKey) {
-  const [year, month, day] = String(dateKey || "").split("-").map(Number);
-
-  if (!year || !month || !day) {
-    return new Date();
-  }
-
-  return new Date(year, month - 1, day);
-}
-
-function addDaysLocal(dateKey, deltaDays) {
-  const date = parseLocalDateKey(dateKey);
-  date.setDate(date.getDate() + Number(deltaDays || 0));
-  return getLocalDateKey(date);
-}
-
-function computeCurrentStreak(activeDays, todayKey = getLocalDateKey()) {
-  let cursor = todayKey;
-  let count = 0;
-
-  while (activeDays.has(cursor)) {
-    count += 1;
-    cursor = addDaysLocal(cursor, -1);
-  }
-
-  return count;
-}
-
-function getMostRecentActiveDate(activeDays) {
-  const values = Array.from(activeDays || []).filter(Boolean).sort();
-  return values.length ? values[values.length - 1] : null;
-}
-
-function getLast7Days(todayKey = getLocalDateKey()) {
-  const labels = ["S", "M", "T", "W", "T", "F", "S"];
-  const output = [];
-
-  for (let offset = 6; offset >= 0; offset -= 1) {
-    const key = addDaysLocal(todayKey, -offset);
-    const date = parseLocalDateKey(key);
-
-    output.push({
-      key,
-      label: labels[date.getDay()],
-    });
-  }
-
-  return output;
-}
-
-
-function normalizeName(value) {
-  const clean = String(value || "").trim();
-  return clean || "Friend";
-}
-
-function cryptoRandomId() {
-  if (window.crypto?.getRandomValues) {
-    const bytes = new Uint8Array(8);
-    window.crypto.getRandomValues(bytes);
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-
-  return Math.random().toString(36).slice(2, 12);
 }

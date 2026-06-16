@@ -734,7 +734,6 @@ function bindTheme() {
   document.getElementById("theme-toggle-btn")?.addEventListener("click", () => {
     const isDark = document.documentElement.classList.contains("dark");
     setAppSetting("appearance", isDark ? "light" : "dark");
-    renderSettingsControls(document.getElementById("profile-content") || document);
     void persistAppSettingsToCloud();
   });
 

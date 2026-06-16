@@ -201,7 +201,9 @@ export function renderSettingsControls(root) {
   }
 
   applyVisualSettings(settings);
-  deps.refreshIcons(document);
+  // Defer icon refresh — don't block interaction
+  const schedule = window.requestIdleCallback || ((cb) => setTimeout(cb, 120));
+  schedule(() => deps.refreshIcons(document));
 }
 
 function createSettingsSelect(title, config, settings) {
