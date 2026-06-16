@@ -588,6 +588,9 @@ function normalizeCloudMessages(messages) {
       memoryUpdated: Boolean(message.metadata?.memory_updated || message.metadata?.memoryUpdated || message.memory_updated || message.memoryUpdated),
       regenerated: Boolean(message.metadata?.regenerated || message.regenerated),
       syncStatus: "cloud",
+      // Preserve voice call fields
+      ...(message.type ? { type: message.type } : {}),
+      ...(message.voiceCall ? { voiceCall: message.voiceCall } : {}),
     }))
     .filter((message) => message.text);
 }
@@ -1695,8 +1698,17 @@ function renderPersistedChat() {
       });
       continue;
     }
-    // Skip old-format voice call messages (before card system)
+    // Skip old-format voice call messages — render as a card
     if (message.text && message.text.startsWith("[Voice Call]")) {
+      const durationMatch = message.text.match(/\[Voice Call\]\s*(.+)/);
+      const durationStr = durationMatch ? durationMatch[1].trim() : "";
+      insertCallCardUI({
+        startTime: message.createdAt || new Date().toISOString(),
+        durationStr,
+        userTranscript: "",
+        aiTranscript: "",
+        summary: message.voiceCall?.summary || null,
+      });
       continue;
     }
     appendMessageToUI(message.text, message.role === "User" ? "user" : "bot", {
