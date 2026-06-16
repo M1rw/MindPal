@@ -1,4 +1,4 @@
-import { getMemoryInspectorCards } from "../memory_engine.js?v=20260615-streaming-v7";
+import { getMemoryInspectorCards } from "../memory_graph.js";
 import { escapeHtml } from "../utils/dom.js";
 
 const deps = {

@@ -114,25 +114,28 @@ import {
 } from "./cloud_sync.js";
 
 import {
-  answerQuestionFromMemory,
   answerQuestionFromMemoryGraph,
-  classifyAndStoreMemoryFromMessage,
   classifyAndStoreMemoryGraphFromMessage,
-  createEmptyMemory,
   createEmptyMemoryGraph,
-  buildMemoryLines,
   buildMemoryGraphLines,
-  loadMemoryContext,
   loadMemoryGraphContext,
   memoryGraphFromBackend,
   memoryGraphFromLegacyMemory,
   memoryGraphToBackend,
-  memoryFromBackendSummary,
   mergeMemoryGraphs,
-  saveMemoryContext,
   saveMemoryGraphContext,
+} from "./memory_graph.js";
+
+import {
+  answerQuestionFromMemory,
+  classifyAndStoreMemoryFromMessage,
+  createEmptyMemory,
+  buildMemoryLines,
+  loadMemoryContext,
+  memoryFromBackendSummary,
+  saveMemoryContext,
   mergeMemoryContexts,
-} from "./memory_engine.js?v=20260615-streaming-v7";
+} from "./memory_legacy.js";
 
 // ═══════════════════════════════════════════════════════════════
 // App state
