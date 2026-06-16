@@ -271,6 +271,7 @@ async function bootstrap() {
   bindInput();
   bindModelSelector();
   bindModeSelector();
+  bindUnifiedSelector();
   bindMoodButtons();
   bindConversationActions();
 
@@ -1163,103 +1164,228 @@ function bindInput() {
 }
 
 function bindModeSelector() {
-  const modeBtn = document.getElementById("mode-selector-btn");
-  const dropdown = document.getElementById("mode-dropdown");
-
-  modeBtn?.addEventListener("click", (event) => {
-    if (isSessionLocked) return;
-
-    event.stopPropagation();
-    dropdown?.classList.toggle("hidden");
-  });
-
-  document.addEventListener("click", (event) => {
-    if (!dropdown || !modeBtn) return;
-
-    if (!dropdown.contains(event.target) && !modeBtn.contains(event.target)) {
-      dropdown.classList.add("hidden");
-    }
-  });
-
-  document.querySelectorAll(".mode-option").forEach((option) => {
-    option.addEventListener("click", () => {
-      const modeText = document.getElementById("current-mode-text");
-      const mode = option.getAttribute("data-mode") || "Active Listen";
-
-      if (modeText) {
-        modeText.textContent = mode;
-      }
-
-      dropdown?.classList.add("hidden");
-
-      if (!isSessionLocked) {
-        document.getElementById("chat-input")?.focus();
-      }
-
-      const chatHistory = document.getElementById("chat-history");
-      if (chatHistory) {
-        const lastChild = chatHistory.lastElementChild;
-        const text = `Mode switched to ${mode}`;
-        if (lastChild && lastChild.classList.contains("mode-switch-indicator")) {
-          const span = lastChild.querySelector('.indicator-text');
-          if (span) span.textContent = text;
-        } else {
-          const div = document.createElement("div");
-          div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
-          div.innerHTML = `
-            <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-            <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 tracking-wide">${text}</span>
-            <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-          `;
-          chatHistory.appendChild(div);
-          scrollChatToBottom("smooth");
-        }
-      }
-    });
-  });
+  // Replaced by bindUnifiedSelector — kept as no-op for backward compat
 }
 
 function bindModelSelector() {
-  const modelBtn = document.getElementById("model-selector-btn");
-  const dropdown = document.getElementById("model-dropdown");
+  // Replaced by bindUnifiedSelector — kept as no-op for backward compat
+}
 
-  modelBtn?.addEventListener("click", (event) => {
-    if (isSessionLocked) return;
+// ═══════════════════════════════════════════════════════════════════════════
+// Unified Model + Mode Selector with persistence + a11y
+// ═══════════════════════════════════════════════════════════════════════════
 
-    event.stopPropagation();
-    dropdown?.classList.toggle("hidden");
+const STORAGE_KEY_MODEL = "mindpal_selected_model";
+const STORAGE_KEY_MODE = "mindpal_selected_mode";
+const VALID_MODELS = ["standard", "pro"];
+const VALID_MODES = ["Active Listen", "Guided Coach", "Cognitive Tools"];
+const MODEL_SPECS = {
+  standard: "Standard — Fast, warm peer-support model. Low latency, safety-first. Best for everyday check-ins and emotional support.",
+  pro: "Pro (Clinical) — Advanced clinical reasoning with 6-step agent chain. Deep pattern analysis, nervous system assessment, and self-review. 2x token budget.",
+};
+
+function _persistedModel() {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY_MODEL);
+    return VALID_MODELS.includes(v) ? v : "standard";
+  } catch { return "standard"; }
+}
+
+function _persistedMode() {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY_MODE);
+    return VALID_MODES.includes(v) ? v : "Active Listen";
+  } catch { return "Active Listen"; }
+}
+
+let _currentModel = "standard";
+let _currentMode = "Active Listen";
+
+function _updateUnifiedLabel() {
+  const label = document.getElementById("unified-selector-label");
+  if (label) {
+    const modelName = _currentModel === "pro" ? "Pro" : "Standard";
+    label.textContent = `${modelName} · ${_currentMode}`;
+  }
+}
+
+function _updateCheckmarks() {
+  document.querySelectorAll(".model-option").forEach(btn => {
+    const check = btn.querySelector(".model-check");
+    if (check) check.classList.toggle("hidden", btn.getAttribute("data-model") !== _currentModel);
   });
+  document.querySelectorAll(".mode-option").forEach(btn => {
+    const check = btn.querySelector(".mode-check");
+    if (check) check.classList.toggle("hidden", btn.getAttribute("data-mode") !== _currentMode);
+  });
+}
 
-  document.addEventListener("click", (event) => {
-    if (!dropdown || !modelBtn) return;
+function _updateModelInfoPanel() {
+  const content = document.getElementById("model-info-content");
+  if (content) {
+    // XSS-safe: use textContent, not innerHTML
+    content.textContent = MODEL_SPECS[_currentModel] || MODEL_SPECS.standard;
+  }
+}
 
-    if (!dropdown.contains(event.target) && !modelBtn.contains(event.target)) {
-      dropdown.classList.add("hidden");
+function _emitSwitchIndicator(text) {
+  const chatHistory = document.getElementById("chat-history");
+  if (!chatHistory) return;
+  const lastChild = chatHistory.lastElementChild;
+  if (lastChild && lastChild.classList.contains("mode-switch-indicator")) {
+    const span = lastChild.querySelector('.indicator-text');
+    if (span) span.textContent = text;
+  } else {
+    const div = document.createElement("div");
+    div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
+    div.innerHTML = `
+      <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
+      <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 tracking-wide">${escapeHtml(text)}</span>
+      <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
+    `;
+    chatHistory.appendChild(div);
+    scrollChatToBottom("smooth");
+  }
+}
+
+function _selectModel(model, silent = false) {
+  if (!VALID_MODELS.includes(model)) return;
+
+  // Pro confirmation gate (once per session)
+  if (model === "pro" && !sessionStorage.getItem("mindpal_pro_confirmed")) {
+    _showProConfirmationDialog(() => {
+      sessionStorage.setItem("mindpal_pro_confirmed", "1");
+      _selectModel("pro", silent);
+    });
+    return;
+  }
+
+  _currentModel = model;
+  try { localStorage.setItem(STORAGE_KEY_MODEL, model); } catch {}
+  _updateUnifiedLabel();
+  _updateCheckmarks();
+  _updateModelInfoPanel();
+
+  if (!silent) {
+    const name = model === "pro" ? "Pro" : "Standard";
+    _emitSwitchIndicator(`Model switched to ${name}`);
+  }
+}
+
+function _selectMode(mode, silent = false) {
+  if (!VALID_MODES.includes(mode)) return;
+  _currentMode = mode;
+  try { localStorage.setItem(STORAGE_KEY_MODE, mode); } catch {}
+  _updateUnifiedLabel();
+  _updateCheckmarks();
+
+  if (!silent) {
+    _emitSwitchIndicator(`Mode switched to ${mode}`);
+  }
+}
+
+function bindUnifiedSelector() {
+  // Restore persisted state
+  _currentModel = _persistedModel();
+  _currentMode = _persistedMode();
+  _updateUnifiedLabel();
+  _updateCheckmarks();
+  _updateModelInfoPanel();
+
+  const btn = document.getElementById("unified-selector-btn");
+  const dropdown = document.getElementById("unified-dropdown");
+  const chevron = document.getElementById("unified-chevron");
+  const infoBtn = document.getElementById("model-info-btn");
+  const infoPanel = document.getElementById("model-info-panel");
+
+  function openDropdown() {
+    dropdown?.classList.remove("hidden");
+    btn?.setAttribute("aria-expanded", "true");
+    chevron?.classList.add("rotate-180");
+    // Focus first item for a11y
+    const first = dropdown?.querySelector('[role="menuitem"]');
+    first?.focus();
+  }
+
+  function closeDropdown() {
+    dropdown?.classList.add("hidden");
+    btn?.setAttribute("aria-expanded", "false");
+    chevron?.classList.remove("rotate-180");
+    infoPanel?.classList.add("hidden");
+  }
+
+  // Toggle dropdown
+  btn?.addEventListener("click", (e) => {
+    if (isSessionLocked) return;
+    e.stopPropagation();
+    if (dropdown?.classList.contains("hidden")) {
+      openDropdown();
+    } else {
+      closeDropdown();
     }
   });
 
-  document.querySelectorAll(".model-option").forEach((option) => {
-    option.addEventListener("click", () => {
-      const modelText = document.getElementById("current-model-text");
-      const modelValue = option.getAttribute("data-model");
-      
-      // If switching to Pro, show confirmation dialog (once per session)
-      if (modelValue === "pro" && !sessionStorage.getItem("mindpal_pro_confirmed")) {
-        dropdown?.classList.add("hidden");
-        _showProConfirmationDialog(() => {
-          sessionStorage.setItem("mindpal_pro_confirmed", "1");
-          _applyModelSwitch("pro", modelText, dropdown);
-        });
-        return;
-      }
+  // Close on outside click
+  document.addEventListener("click", (e) => {
+    if (!dropdown || !btn) return;
+    if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+      closeDropdown();
+    }
+  });
 
-      _applyModelSwitch(modelValue, modelText, dropdown);
+  // Info button toggle
+  infoBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    infoPanel?.classList.toggle("hidden");
+  });
+
+  // Model options
+  document.querySelectorAll(".model-option").forEach(option => {
+    option.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const model = option.getAttribute("data-model");
+      _selectModel(model);
+      if (!isSessionLocked) document.getElementById("chat-input")?.focus();
     });
+  });
+
+  // Mode options
+  document.querySelectorAll(".mode-option").forEach(option => {
+    option.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const mode = option.getAttribute("data-mode");
+      _selectMode(mode);
+      closeDropdown();
+      if (!isSessionLocked) document.getElementById("chat-input")?.focus();
+    });
+  });
+
+  // Keyboard navigation (a11y)
+  dropdown?.addEventListener("keydown", (e) => {
+    const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
+    const current = document.activeElement;
+    const idx = items.indexOf(current);
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = items[(idx + 1) % items.length];
+      next?.focus();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const prev = items[(idx - 1 + items.length) % items.length];
+      prev?.focus();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeDropdown();
+      btn?.focus();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      current?.click();
+    }
   });
 }
 
 function _showProConfirmationDialog(onConfirm) {
-  // Remove existing dialog if any
   document.getElementById("pro-confirm-overlay")?.remove();
 
   const overlay = document.createElement("div");
@@ -1267,38 +1393,30 @@ function _showProConfirmationDialog(onConfirm) {
   overlay.className = "fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm";
   overlay.style.animation = "fadeIn 0.2s ease";
   overlay.innerHTML = `
-    <div class="bg-white dark:bg-[#1e1f20] rounded-2xl shadow-2xl max-w-md w-[90%] p-6 border border-gray-200 dark:border-gray-700" style="animation: scaleIn 0.25s ease">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-          <i data-lucide="stethoscope" class="w-5 h-5 text-purple-600 dark:text-purple-400"></i>
-        </div>
-        <div>
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Switch to MindPal Pro</h3>
-          <p class="text-xs text-gray-500 dark:text-gray-400">Clinical AI Mode</p>
-        </div>
+    <div class="bg-white dark:bg-[#1e1f20] rounded-2xl shadow-2xl max-w-md w-[90%] p-6" style="animation: scaleIn 0.25s ease">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Switch to MindPal Pro</h3>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-5">Clinical AI Mode</p>
+
+      <div class="flex items-start gap-2.5 text-sm text-amber-600 dark:text-amber-400 mb-5 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/15">
+        <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+        <span>This is an AI assistant, not a real doctor. It may make mistakes. Always consult a licensed professional for medical decisions.</span>
       </div>
-      
-      <div class="space-y-3 mb-6">
-        <div class="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
-          <i data-lucide="brain" class="w-4 h-4 mt-0.5 text-purple-500 flex-shrink-0"></i>
-          <span>MindPal Pro uses advanced clinical reasoning with deep psychological analysis and pattern recognition.</span>
+
+      <label class="flex items-center justify-between cursor-pointer mb-5 select-none" id="pro-confirm-toggle-label">
+        <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">I understand the risks</span>
+        <div class="relative">
+          <input type="checkbox" id="pro-confirm-toggle" class="sr-only peer">
+          <div class="w-11 h-6 bg-gray-200 dark:bg-gray-700 rounded-full peer-checked:bg-red-500 transition-colors"></div>
+          <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5"></div>
         </div>
-        <div class="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
-          <i data-lucide="shield-check" class="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0"></i>
-          <span>Pro reviews its own responses through an internal thinking chain before answering, reducing errors.</span>
-        </div>
-        <div class="flex items-start gap-2.5 text-sm text-amber-600 dark:text-amber-400">
-          <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
-          <span>This is an AI assistant, not a real doctor. It may make mistakes. Always consult a licensed professional for medical decisions.</span>
-        </div>
-      </div>
+      </label>
 
       <div class="flex gap-3">
         <button id="pro-confirm-cancel" class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
           Cancel
         </button>
-        <button id="pro-confirm-accept" class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors shadow-lg shadow-purple-500/20">
-          I Understand, Switch
+        <button id="pro-confirm-accept" disabled class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-400 rounded-xl transition-colors cursor-not-allowed opacity-60">
+          Confirm Switch
         </button>
       </div>
     </div>
@@ -1307,64 +1425,36 @@ function _showProConfirmationDialog(onConfirm) {
   document.body.appendChild(overlay);
   if (window.lucide) window.lucide.createIcons();
 
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) {
-      overlay.remove();
+  const toggle = document.getElementById("pro-confirm-toggle");
+  const acceptBtn = document.getElementById("pro-confirm-accept");
+
+  toggle?.addEventListener("change", () => {
+    if (toggle.checked) {
+      acceptBtn.disabled = false;
+      acceptBtn.classList.remove("bg-red-400", "cursor-not-allowed", "opacity-60");
+      acceptBtn.classList.add("bg-red-600", "hover:bg-red-700", "shadow-lg", "shadow-red-500/20", "cursor-pointer");
+    } else {
+      acceptBtn.disabled = true;
+      acceptBtn.classList.add("bg-red-400", "cursor-not-allowed", "opacity-60");
+      acceptBtn.classList.remove("bg-red-600", "hover:bg-red-700", "shadow-lg", "shadow-red-500/20", "cursor-pointer");
     }
   });
 
-  document.getElementById("pro-confirm-cancel").addEventListener("click", () => {
-    overlay.remove();
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
   });
 
-  document.getElementById("pro-confirm-accept").addEventListener("click", () => {
+  document.getElementById("pro-confirm-cancel").addEventListener("click", () => overlay.remove());
+
+  acceptBtn.addEventListener("click", () => {
+    if (acceptBtn.disabled) return;
     overlay.remove();
     onConfirm();
   });
 }
 
-function _applyModelSwitch(modelValue, modelText, dropdown) {
-  if (modelText) {
-    if (modelValue === "pro") {
-      modelText.innerHTML = 'MindPal Pro <span class="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ml-1">Clinical</span>';
-      document.getElementById("current-model-icon")?.classList.replace("text-blue-500", "text-purple-500");
-      document.getElementById("current-model-icon")?.setAttribute("data-lucide", "stethoscope");
-    } else {
-      modelText.textContent = "MindPal Standard";
-      document.getElementById("current-model-icon")?.classList.replace("text-purple-500", "text-blue-500");
-      document.getElementById("current-model-icon")?.setAttribute("data-lucide", "sparkles");
-    }
-    
-    if (window.lucide) window.lucide.createIcons();
-  }
-
-  dropdown?.classList.add("hidden");
-
-  if (!isSessionLocked) {
-    document.getElementById("chat-input")?.focus();
-  }
-
-  const chatHistory = document.getElementById("chat-history");
-  if (chatHistory) {
-    const lastChild = chatHistory.lastElementChild;
-    const textName = modelValue === "pro" ? "MindPal Pro" : "MindPal Standard";
-    const text = `Model switched to ${textName}`;
-    if (lastChild && lastChild.classList.contains("mode-switch-indicator")) {
-      const span = lastChild.querySelector('.indicator-text');
-      if (span) span.textContent = text;
-    } else {
-      const div = document.createElement("div");
-      div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
-      div.innerHTML = `
-        <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-        <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 tracking-wide">${text}</span>
-        <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-      `;
-      chatHistory.appendChild(div);
-      scrollChatToBottom("smooth");
-    }
-  }
-}
+// Legacy compat — _applyModelSwitch no longer needed (handled by _selectModel)
+function _applyModelSwitch() {}
 
 function bindMoodButtons() {
   document.querySelectorAll(".mood-btn").forEach((button) => {
@@ -1525,9 +1615,8 @@ async function handleSend() {
   try {
     const state = getState();
     const token = await getIdToken();
-    const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
-    const modelRaw = document.getElementById("current-model-text")?.textContent || "MindPal Standard";
-    const model = modelRaw.includes("Pro") ? "pro" : "standard";
+    const mode = _currentMode;
+    const model = _currentModel;
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     contentBox = document.createElement("div");
@@ -2117,7 +2206,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
   try {
     const token = await getIdToken();
-    const mode = document.getElementById("current-mode-text")?.textContent || "Active Listen";
+    const mode = _currentMode;
 
     // Create streaming container before try so catch can clean it up on failure
     const chatHistory = document.getElementById("chat-history");

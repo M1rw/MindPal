@@ -233,53 +233,58 @@
                     ></textarea>
 
                     <div class="flex items-center gap-1 pr-1 h-11">
-                        <!-- Model Selector -->
-                        <div class="relative flex items-center h-full">
-                            <button id="model-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-semibold text-gray-800 dark:text-gray-200 transition-colors">
-                                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-blue-500" id="current-model-icon"></i>
-                                <span id="current-model-text">MindPal Standard</span>
-                                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                        <!-- Unified Model + Mode Selector -->
+                        <div class="relative flex items-center h-full" id="unified-selector-wrap">
+                            <button id="unified-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-semibold text-gray-800 dark:text-gray-200 transition-colors" aria-haspopup="true" aria-expanded="false">
+                                <span id="unified-selector-label">Standard · Active Listen</span>
+                                <i data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform duration-200" id="unified-chevron"></i>
                             </button>
 
-                            <div id="model-dropdown" class="absolute bottom-full right-0 mb-2 w-64 bg-white dark:bg-zinc-800 border border-gemini-border dark:border-gemini-darkBorder rounded-2xl shadow-xl p-2 hidden z-50">
-                                <div class="text-[10px] font-semibold text-gray-400 px-3 py-1.5 uppercase tracking-wider">Select Model</div>
-                                <button class="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option" data-model="standard">
-                                    <i data-lucide="user" class="w-4 h-4 text-blue-500 mt-0.5"></i>
+                            <div id="unified-dropdown" class="absolute bottom-full right-0 mb-2 w-72 bg-white dark:bg-zinc-800 border border-gemini-border dark:border-gemini-darkBorder rounded-2xl shadow-xl p-2 hidden z-50" role="menu" aria-label="Model and mode selection">
+
+                                <!-- Model Section -->
+                                <div class="text-[10px] font-semibold text-gray-400 px-3 py-1.5 uppercase tracking-wider flex items-center justify-between">
+                                    <span>Model</span>
+                                    <button id="model-info-btn" class="p-0.5 rounded-md hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors" aria-label="Model information" title="Model details">
+                                        <i data-lucide="info" class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Model info tooltip (hidden by default) -->
+                                <div id="model-info-panel" class="hidden mx-2 mb-2 p-3 rounded-xl bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 text-[12px] text-gray-600 dark:text-gray-300 leading-relaxed">
+                                    <div id="model-info-content">Select a model to see details.</div>
+                                </div>
+
+                                <button class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option" data-model="standard" role="menuitem">
                                     <div>
-                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">MindPal Standard</div>
-                                        <div class="text-[11px] text-gray-500 dark:text-gray-400">Warm peer support. Fast & safe.</div>
+                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Standard</div>
+                                        <div class="text-[11px] text-gray-500 dark:text-gray-400">Warm peer support. Fast &amp; safe.</div>
                                     </div>
+                                    <i data-lucide="check" class="w-4 h-4 text-blue-500 model-check hidden"></i>
                                 </button>
-                                <button class="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option" data-model="pro">
-                                    <i data-lucide="stethoscope" class="w-4 h-4 text-purple-500 mt-0.5"></i>
+                                <button class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option" data-model="pro" role="menuitem">
                                     <div>
-                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-2">MindPal Pro <span class="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">Clinical</span></div>
+                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Pro <span class="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ml-1">Clinical</span></div>
                                         <div class="text-[11px] text-gray-500 dark:text-gray-400">Deep analysis, diagnostic thinking.</div>
                                     </div>
+                                    <i data-lucide="check" class="w-4 h-4 text-purple-500 model-check hidden"></i>
                                 </button>
-                            </div>
-                        </div>
 
-                        <!-- Mode Selector -->
-                        <div class="relative flex items-center h-full">
-                            <button id="mode-selector-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-semibold text-gray-600 dark:text-[#c4c7c5] transition-colors">
-                                <span id="current-mode-text">Active Listen</span>
-                                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                            </button>
+                                <div class="h-px bg-gray-200 dark:bg-zinc-700 mx-2 my-1.5"></div>
 
-                            <div id="mode-dropdown" class="absolute bottom-full right-0 mb-2 w-56 bg-white dark:bg-zinc-800 border border-gemini-border dark:border-gemini-darkBorder rounded-2xl shadow-xl p-2 hidden z-50">
+                                <!-- Mode Section -->
                                 <div class="text-[10px] font-semibold text-gray-400 px-3 py-1.5 uppercase tracking-wider">Listening Style</div>
-                                <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left mode-option" data-mode="Active Listen">
-                                    <i data-lucide="message-square" class="w-4 h-4 text-blue-500"></i>
+                                <button class="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left mode-option" data-mode="Active Listen" role="menuitem">
                                     <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Active Listen</span>
+                                    <i data-lucide="check" class="w-4 h-4 text-blue-500 mode-check hidden"></i>
                                 </button>
-                                <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left mode-option" data-mode="Guided Coach">
-                                    <i data-lucide="compass" class="w-4 h-4 text-purple-500"></i>
+                                <button class="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left mode-option" data-mode="Guided Coach" role="menuitem">
                                     <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Guided Coach</span>
+                                    <i data-lucide="check" class="w-4 h-4 text-blue-500 mode-check hidden"></i>
                                 </button>
-                                <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left mode-option" data-mode="Cognitive Tools">
-                                    <i data-lucide="brain" class="w-4 h-4 text-emerald-500"></i>
+                                <button class="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left mode-option" data-mode="Cognitive Tools" role="menuitem">
                                     <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Cognitive Tools</span>
+                                    <i data-lucide="check" class="w-4 h-4 text-blue-500 mode-check hidden"></i>
                                 </button>
                             </div>
                         </div>
