@@ -10,6 +10,7 @@ let isLiveSessionActive = false;
 let userTranscript = "";
 let aiTranscript = "";
 let nextPlaybackTime = 0;
+let callStartTime = null;
 
 // Animation state
 let animFrameId = null;
@@ -216,6 +217,7 @@ export async function startLiveVoice(contextProvider = null) {
     isMicMuted = false;
     activeAudioSources = [];
     isAiSpeaking = false;
+    callStartTime = new Date();
 
     const overlay = document.getElementById("voice-live-overlay");
     const statusEl = document.getElementById("voice-live-status");
@@ -588,7 +590,15 @@ export function stopLiveVoice() {
     }, 500);
 
     if (onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
-        onChatSyncCallback(userTranscript.trim(), aiTranscript.trim());
+        const endTime = new Date();
+        const durationMs = callStartTime ? endTime - callStartTime : 0;
+        onChatSyncCallback({
+            userTranscript: userTranscript.trim(),
+            aiTranscript: aiTranscript.trim(),
+            startTime: callStartTime?.toISOString() || endTime.toISOString(),
+            endTime: endTime.toISOString(),
+            durationMs
+        });
     }
 }
 

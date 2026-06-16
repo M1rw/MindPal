@@ -276,35 +276,66 @@ async function bootstrap() {
   // voiceController = initVoice();
 
   initLiveVoice({
-    onChatSync: (userText, aiText) => {
-      if (userText || aiText) {
-         // Fake a message cycle to save the conversation
-         if (userText) {
-             const userMsg = {
-                 role: "User",
-                 text: userText,
-                 messageId: "msg_" + Date.now() + Math.random().toString(36).substr(2, 9),
-                 createdAt: new Date().toISOString()
-             };
-             localChatMemory.push(userMsg);
-             appendMessage(userMsg);
-         }
-         
-         if (aiText) {
-             const aiMsg = {
-                 role: "MindPal",
-                 text: aiText,
-                 messageId: "msg_" + Date.now() + Math.random().toString(36).substr(2, 9),
-                 createdAt: new Date().toISOString(),
-                 providerUsed: "Gemini Live"
-             };
-             localChatMemory.push(aiMsg);
-             appendMessage(aiMsg);
-         }
-         
-         persistChatMemorySafe(localChatMemory);
-         scrollChatToBottom(true);
+    onChatSync: (callData) => {
+      const { userTranscript, aiTranscript, startTime, endTime, durationMs } = callData;
+      if (!userTranscript && !aiTranscript) return;
+
+      // Format duration string
+      const totalSec = Math.round(durationMs / 1000);
+      const mins = Math.floor(totalSec / 60);
+      const secs = totalSec % 60;
+      const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+      // Build a concise summary of what was discussed
+      const fullTranscript = [
+        userTranscript ? `User: ${userTranscript}` : "",
+        aiTranscript ? `MindPal: ${aiTranscript}` : ""
+      ].filter(Boolean).join("\n");
+
+      // Save as a special "call" message in chat memory
+      const callMsg = addMessage("MindPal", `[Voice Call] ${durationStr}`, {
+        type: "voice_call",
+        voiceCall: {
+          startTime,
+          endTime,
+          durationMs,
+          durationStr,
+          userTranscript,
+          aiTranscript,
+        }
+      });
+
+      // Render the call card in chat UI
+      if (callMsg) {
+        setChatStarted(true);
+        insertCallCardUI({
+          startTime,
+          durationStr,
+          userTranscript,
+          aiTranscript,
+        });
       }
+
+      // Feed transcript into memory engine for future recall
+      if (userTranscript) {
+        const graphResult = classifyAndStoreMemoryGraphFromMessage(userTranscript, {
+          graphContext: memoryGraphContext,
+          source: "voice_call",
+        });
+        memoryGraphContext = graphResult.graph;
+        saveMemoryGraphContext(memoryGraphContext);
+
+        const memResult = classifyAndStoreMemoryFromMessage(userTranscript, {
+          memoryContext,
+          recentMessages: getState().chatMemory.slice(-8),
+        });
+        if (memResult.saved.length) {
+          memoryContext = memResult.memory;
+          saveMemoryContext(memoryContext);
+        }
+      }
+
+      scrollChatToBottom("smooth", true);
     }
   });
 
@@ -1653,6 +1684,16 @@ function renderPersistedChat() {
   chatHistory.innerHTML = "";
 
   for (const message of state.chatMemory) {
+    // Render voice call cards differently
+    if (message.type === "voice_call" && message.voiceCall) {
+      insertCallCardUI({
+        startTime: message.voiceCall.startTime,
+        durationStr: message.voiceCall.durationStr,
+        userTranscript: message.voiceCall.userTranscript,
+        aiTranscript: message.voiceCall.aiTranscript,
+      });
+      continue;
+    }
     appendMessageToUI(message.text, message.role === "User" ? "user" : "bot", {
       smoothScroll: false,
       typewriter: false,
@@ -1662,6 +1703,78 @@ function renderPersistedChat() {
   }
 
   scrollChatToBottom("auto", true);
+}
+
+function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript }) {
+  const chatHistory = document.getElementById("chat-history");
+  if (!chatHistory) return;
+
+  const callTime = new Date(startTime);
+  const timeStr = callTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const dateStr = callTime.toLocaleDateString([], { month: "short", day: "numeric" });
+
+  // Build a brief summary from transcripts (first ~150 chars)
+  const summaryParts = [];
+  if (userTranscript) summaryParts.push(userTranscript);
+  if (aiTranscript) summaryParts.push(aiTranscript);
+  const rawSummary = summaryParts.join(" ").replace(/\s+/g, " ").trim();
+  const briefSummary = rawSummary.length > 150
+    ? rawSummary.slice(0, 147) + "…"
+    : rawSummary || "No transcript available";
+
+  const cardId = "call-card-" + Date.now() + Math.random().toString(36).slice(2, 6);
+
+  const card = document.createElement("div");
+  card.className = "call-card-container w-full flex flex-col items-center my-4 animate-fade-in";
+  card.innerHTML = `
+    <div class="call-card-divider flex items-center gap-3 w-full max-w-md cursor-pointer select-none group" data-card-id="${cardId}">
+      <div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#2a2a2a] border border-gray-200 dark:border-gray-700 group-hover:bg-gray-200 dark:group-hover:bg-[#333] transition-colors">
+        <svg class="w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </svg>
+        <span class="text-xs font-medium text-gray-600 dark:text-gray-300">Call ended</span>
+        <span class="text-xs text-gray-400 dark:text-gray-500">${durationStr}</span>
+        <svg class="w-3 h-3 text-gray-400 dark:text-gray-500 transition-transform duration-200 call-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+      <div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
+    </div>
+    <div id="${cardId}" class="call-card-details hidden w-full max-w-md mt-2 px-4 py-3 rounded-2xl bg-gray-50 dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 text-sm transition-all duration-200">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-gray-500 dark:text-gray-400">${dateStr} at ${timeStr}</span>
+        </div>
+        <span class="text-xs text-gray-400 dark:text-gray-500">${durationStr}</span>
+      </div>
+      <div class="text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed">
+        <p class="font-medium text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider mb-1">Summary</p>
+        <p>${escapeHtml(briefSummary)}</p>
+      </div>
+      ${userTranscript ? `
+      <details class="mt-2">
+        <summary class="text-[11px] text-gray-400 dark:text-gray-500 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors">View full transcript</summary>
+        <div class="mt-1.5 space-y-1.5 text-[12px] leading-relaxed max-h-48 overflow-y-auto">
+          ${userTranscript ? `<div class="text-gray-500 dark:text-gray-400"><span class="font-medium text-gray-600 dark:text-gray-300">You:</span> ${escapeHtml(userTranscript.slice(0, 1000))}</div>` : ""}
+          ${aiTranscript ? `<div class="text-gray-500 dark:text-gray-400"><span class="font-medium text-blue-500">MindPal:</span> ${escapeHtml(aiTranscript.slice(0, 1000))}</div>` : ""}
+        </div>
+      </details>` : ""}
+    </div>
+  `;
+
+  chatHistory.appendChild(card);
+
+  // Toggle dropdown
+  const divider = card.querySelector(".call-card-divider");
+  const details = card.querySelector(`#${cardId}`);
+  const chevron = card.querySelector(".call-chevron");
+
+  divider.addEventListener("click", () => {
+    const isOpen = !details.classList.contains("hidden");
+    details.classList.toggle("hidden");
+    chevron.style.transform = isOpen ? "" : "rotate(180deg)";
+  });
 }
 
 async function appendMessageToUI(text, sender, {
