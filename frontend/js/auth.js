@@ -7,7 +7,6 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   setPersistence,
-  signInAnonymously,
   signInWithPopup,
   signOut as firebaseSignOut,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -19,7 +18,7 @@ let firebaseAuth = null;
 let authReadyPromise = null;
 let currentAuthUser = null;
 
-export class MindPalAuthError extends Error {
+class MindPalAuthError extends Error {
   constructor(message, { code = "auth_error", cause = null } = {}) {
     super(message);
     this.name = "MindPalAuthError";
@@ -28,7 +27,7 @@ export class MindPalAuthError extends Error {
   }
 }
 
-export function getFirebaseConfig() {
+function getFirebaseConfig() {
   const config = window.MINDPAL_CONFIG?.FIREBASE_CONFIG;
 
   if (!config || typeof config !== "object") {
@@ -81,7 +80,7 @@ export async function initAuth() {
   return firebaseAuth;
 }
 
-export async function waitForAuthReady() {
+async function waitForAuthReady() {
   if (!authReadyPromise) {
     await initAuth();
   }
@@ -149,27 +148,6 @@ export async function signInWithGoogle() {
   }
 }
 
-export async function signInGuestCloud() {
-  const auth = await initAuth();
-
-  if (!auth) {
-    throw new MindPalAuthError("Firebase is not configured", {
-      code: "firebase_not_configured",
-    });
-  }
-
-  try {
-    const credential = await signInAnonymously(auth);
-    currentAuthUser = credential.user;
-    return toPublicUser(credential.user);
-  } catch (error) {
-    throw new MindPalAuthError("Anonymous Firebase sign-in failed", {
-      code: error?.code || "anonymous_sign_in_failed",
-      cause: error,
-    });
-  }
-}
-
 export async function signOut() {
   await waitForAuthReady();
 
@@ -193,7 +171,7 @@ export function authIsConfigured() {
   return Boolean(window.MINDPAL_CONFIG?.FIREBASE_CONFIG);
 }
 
-export function toPublicUser(user) {
+function toPublicUser(user) {
   if (!user) {
     return null;
   }

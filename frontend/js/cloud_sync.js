@@ -29,17 +29,14 @@ import {
   setCloudSyncEnabled,
   setUserName,
   updateProfileUI,
+  updateMentalHealthUI,
+  updateUsageUI,
 } from "./ui_state.js?v=20260615-streaming-v7";
 
 import {
   hydrateSettingsFromProfile,
   buildChatSettingsMetadata,
 } from "./settings_store.js?v=20260615-streaming-v7";
-
-import {
-  updateMentalHealthUI,
-  updateUsageUI,
-} from "./ui_state.js?v=20260615-streaming-v7";
 
 import {
   loadMemoryContext,
