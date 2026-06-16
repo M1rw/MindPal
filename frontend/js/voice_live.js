@@ -151,15 +151,32 @@ export function initLiveVoice({ onChatSync } = {}) {
     if (incognitoBtn) {
         incognitoBtn.addEventListener("click", () => {
             isIncognito = !isIncognito;
-            incognitoBtn.classList.toggle("bg-purple-500/15", isIncognito);
-            incognitoBtn.classList.toggle("text-purple-500", isIncognito);
-            incognitoBtn.classList.toggle("dark:text-purple-400", isIncognito);
 
+            // Swap icon
+            const icon = incognitoBtn.querySelector("[data-lucide]");
+            if (icon) {
+                icon.setAttribute("data-lucide", isIncognito ? "eye-off" : "eye");
+            }
+
+            // Swap colors — remove old, add new (avoids dark: class conflicts)
+            if (isIncognito) {
+                incognitoBtn.classList.add("bg-purple-500/15");
+                incognitoBtn.classList.remove("text-gray-500", "dark:text-gray-300");
+                incognitoBtn.classList.add("text-purple-500", "dark:text-purple-400");
+            } else {
+                incognitoBtn.classList.remove("bg-purple-500/15", "text-purple-500", "dark:text-purple-400");
+                incognitoBtn.classList.add("text-gray-500", "dark:text-gray-300");
+            }
+
+            // Re-render lucide icon
+            if (window.lucide) lucide.createIcons();
+
+            // Flash status
             const statusEl = document.getElementById("voice-live-status");
-            if (isIncognito && statusEl) {
+            if (statusEl) {
                 const prev = statusEl.textContent;
-                statusEl.textContent = "Incognito on";
-                setTimeout(() => { if (statusEl.textContent === "Incognito on") statusEl.textContent = prev; }, 1500);
+                statusEl.textContent = isIncognito ? "Incognito on" : "Incognito off";
+                setTimeout(() => { if (statusEl.textContent.startsWith("Incognito")) statusEl.textContent = prev; }, 1500);
             }
         });
     }
@@ -710,6 +727,9 @@ export function stopLiveVoice() {
     const incognitoBtn = document.getElementById("voice-incognito-toggle");
     if (incognitoBtn) {
         incognitoBtn.classList.remove("bg-purple-500/15", "text-purple-500", "dark:text-purple-400");
+        incognitoBtn.classList.add("text-gray-500", "dark:text-gray-300");
+        const icon = incognitoBtn.querySelector("[data-lucide]");
+        if (icon) icon.setAttribute("data-lucide", "eye");
     }
 }
 
