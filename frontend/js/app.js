@@ -1695,6 +1695,10 @@ function renderPersistedChat() {
       });
       continue;
     }
+    // Skip old-format voice call messages (before card system)
+    if (message.text && message.text.startsWith("[Voice Call]")) {
+      continue;
+    }
     appendMessageToUI(message.text, message.role === "User" ? "user" : "bot", {
       smoothScroll: false,
       typewriter: false,
@@ -1768,6 +1772,10 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
         callMsg.voiceCall.summary = summary;
         patchState({ chatMemory: state.chatMemory });
       }
+    }).catch(err => {
+      console.warn("[CALL_SUMMARY] Promise failed:", err);
+      const summaryEl = document.getElementById(summaryId);
+      if (summaryEl) summaryEl.textContent = "Voice call";
     });
   }
 }
