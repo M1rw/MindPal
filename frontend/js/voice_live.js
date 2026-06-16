@@ -1,6 +1,8 @@
 // frontend/js/voice_live.js
 // ─── MindPal Voice — real-time voice with Gemini Live ───
 
+import { refreshIcons } from "./utils/icons.js";
+
 let liveWebSocket = null;
 let audioContext = null;
 let micSource = null;
@@ -125,8 +127,7 @@ function updateMicUI() {
         if (statusEl && !isAiSpeaking) statusEl.textContent = "Listening…";
     }
 
-    // Re-render lucide icons
-    if (window.lucide) lucide.createIcons();
+    refreshIcons();
 }
 
 /* ═══════════════ Init ═══════════════ */
@@ -161,8 +162,7 @@ export function initLiveVoice({ onChatSync } = {}) {
             // Swap colors — no colored bg, just icon change is enough
             // (icon swap already provides visual feedback)
 
-            // Re-render lucide icon
-            if (window.lucide) lucide.createIcons();
+            refreshIcons();
 
             // Flash status
             const statusEl = document.getElementById("voice-live-status");

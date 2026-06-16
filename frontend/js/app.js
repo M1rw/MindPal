@@ -61,7 +61,6 @@ import {
   setUserName,
   showToast,
   syncInputButtons,
-  toggleTheme,
   updateProfileUI,
   updateMentalHealthUI,
   updateUsageUI,
@@ -101,7 +100,6 @@ import {
   bindSettingsChoiceEvents,
   bindKeyboardShortcuts,
   persistAppSettingsToCloud,
-  renderSettingsControls,
   notifyFromSetting
 } from "./components/settings_ui.js";
 
@@ -1422,7 +1420,7 @@ function _showProConfirmationDialog(onConfirm) {
   `;
 
   document.body.appendChild(overlay);
-  if (window.lucide) window.lucide.createIcons();
+  refreshIcons();
 
   const toggle = document.getElementById("pro-confirm-toggle");
   const acceptBtn = document.getElementById("pro-confirm-accept");

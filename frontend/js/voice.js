@@ -5,7 +5,7 @@ import {
   refreshIcons,
   showToast,
   syncInputButtons,
-} from "./ui_state.js";
+} from "./ui_state.js?v=20260615-streaming-v7";
 
 import {
   VOICE_LANGUAGE_OPTIONS,
