@@ -12,18 +12,35 @@ from backend.services.llm_service import LLMService, build_llm_request
 
 logger = logging.getLogger(__name__)
 
-CLINICAL_EXTRACTION_PROMPT = """You are an expert clinical data extractor. Your task is to analyze the recent conversation between an AI therapist (MindPal Pro) and a patient, and update the patient's clinical chart.
-Output ONLY a valid JSON object matching this schema. Do NOT wrap it in ```json blocks or include any markdown formatting.
+# Minimum total chars of user+assistant content to trigger extraction
+MIN_EXTRACTION_CONTENT_LENGTH = 80
+
+CLINICAL_EXTRACTION_PROMPT = """You are an expert clinical data extractor. Analyze the conversation between an AI therapist (MindPal Pro) and a patient, then update the patient's clinical chart.
+
+Output ONLY a valid JSON object matching this schema. Do NOT wrap it in ```json blocks or markdown.
 
 {
-    "presenting_problems": ["string", "string"], // Up to 10 current presenting problems identified.
-    "suspected_diagnoses": ["string"], // Up to 10 suspected diagnoses.
-    "treatment_plan": "string", // A short 1-2 sentence treatment plan or current strategy.
-    "phq9_score": number, // Estimated PHQ-9 depression severity score (0-27) based on conversation. 0 if none.
-    "gad7_score": number // Estimated GAD-7 anxiety severity score (0-21) based on conversation. 0 if none.
+    "presenting_problems": ["string"],
+    "suspected_diagnoses": ["string"],
+    "treatment_plan": "string",
+    "phq9_score": number,
+    "gad7_score": number,
+    "risk_level": "none|low|moderate|high",
+    "therapeutic_progress": "string",
+    "key_patterns": ["string"]
 }
 
-If no clinical symptoms are present, return empty arrays and 0 for the scores.
+Field descriptions:
+- presenting_problems: Up to 10 current presenting problems. Merge with existing, don't duplicate.
+- suspected_diagnoses: Up to 10 suspected diagnoses based on DSM-5 criteria observed.
+- treatment_plan: 1-2 sentence current treatment strategy.
+- phq9_score: Estimated PHQ-9 (0-27) based on conversation indicators. 0 if no depression indicators.
+- gad7_score: Estimated GAD-7 (0-21) based on conversation indicators. 0 if no anxiety indicators.
+- risk_level: Overall risk assessment from this session.
+- therapeutic_progress: Brief note on progress or regression observed.
+- key_patterns: Up to 5 recurring behavioral/cognitive patterns identified.
+
+If no clinical symptoms present, return empty arrays, 0 scores, and "none" risk level.
 """
 
 async def extract_clinical_profile(
@@ -33,13 +50,23 @@ async def extract_clinical_profile(
 ) -> ClinicalProfile:
     """
     Analyzes the conversation and returns an updated ClinicalProfile.
+
+    Skips extraction for trivially short exchanges to save LLM calls.
+    Deduplicates PHQ-9/GAD-7 scores to avoid redundant entries on the same day.
     """
     if not messages:
         return current_profile
 
-    # Build the prompt
+    # Only analyze last 10 messages
+    recent_messages = list(messages[-10:])
+
+    # Skip extraction if total content is too short (e.g. "ok", "thanks", etc.)
+    total_content = sum(len(msg.content or "") for msg in recent_messages)
+    if total_content < MIN_EXTRACTION_CONTENT_LENGTH:
+        return current_profile
+
     history_text = "\n".join(
-        f"{msg.role}: {msg.content}" for msg in messages[-10:]  # Only analyze last 10 messages
+        f"{msg.role.value}: {msg.content}" for msg in recent_messages
     )
     
     user_prompt = f"Current Profile:\n{current_profile.model_dump_json()}\n\nRecent Conversation:\n{history_text}"
@@ -49,14 +76,14 @@ async def extract_clinical_profile(
         system_prompt=CLINICAL_EXTRACTION_PROMPT,
         user_message=user_prompt,
         temperature=0.0,
-        max_output_tokens=500,
+        max_output_tokens=600,
     )
 
     try:
         response = await llm.generate(request)
         raw_text = response.text.strip()
         
-        # Clean up any potential markdown formatting
+        # Clean up markdown formatting
         if raw_text.startswith("```json"):
             raw_text = raw_text[7:]
         if raw_text.startswith("```"):
@@ -66,32 +93,54 @@ async def extract_clinical_profile(
             
         data = json.loads(raw_text.strip())
         
-        # Update current profile
-        if "presenting_problems" in data:
-            current_profile.presenting_problems = data["presenting_problems"][:10]
-        if "suspected_diagnoses" in data:
-            current_profile.suspected_diagnoses = data["suspected_diagnoses"][:10]
-        if "treatment_plan" in data:
-            current_profile.treatment_plan = data["treatment_plan"]
-            
+        # Update presenting problems (merge, dedup)
+        if "presenting_problems" in data and isinstance(data["presenting_problems"], list):
+            existing = set(current_profile.presenting_problems)
+            for prob in data["presenting_problems"][:10]:
+                if isinstance(prob, str) and prob.strip():
+                    existing.add(prob.strip())
+            current_profile.presenting_problems = list(existing)[:10]
+
+        # Update suspected diagnoses (merge, dedup)
+        if "suspected_diagnoses" in data and isinstance(data["suspected_diagnoses"], list):
+            existing = set(current_profile.suspected_diagnoses)
+            for diag in data["suspected_diagnoses"][:10]:
+                if isinstance(diag, str) and diag.strip():
+                    existing.add(diag.strip())
+            current_profile.suspected_diagnoses = list(existing)[:10]
+
+        if "treatment_plan" in data and isinstance(data["treatment_plan"], str):
+            current_profile.treatment_plan = data["treatment_plan"][:500]
+
         today_str = datetime.now(UTC).strftime("%Y-%m-%d")
-        
+
+        # PHQ-9: only append if date changed or score differs from last entry
         if "phq9_score" in data and isinstance(data["phq9_score"], (int, float)):
-            score = int(data["phq9_score"])
-            if score > 0 or not current_profile.phq9_history:
-                current_profile.phq9_history.append(ClinicalScore(date=today_str, score=score))
-                
+            score = max(0, min(27, int(data["phq9_score"])))
+            last_phq9 = current_profile.phq9_history[-1] if current_profile.phq9_history else None
+            if not last_phq9 or last_phq9.date != today_str or last_phq9.score != score:
+                if last_phq9 and last_phq9.date == today_str:
+                    # Same day — update in place instead of appending duplicate
+                    current_profile.phq9_history[-1] = ClinicalScore(date=today_str, score=score)
+                elif score > 0 or not current_profile.phq9_history:
+                    current_profile.phq9_history.append(ClinicalScore(date=today_str, score=score))
+
+        # GAD-7: same dedup logic
         if "gad7_score" in data and isinstance(data["gad7_score"], (int, float)):
-            score = int(data["gad7_score"])
-            if score > 0 or not current_profile.gad7_history:
-                current_profile.gad7_history.append(ClinicalScore(date=today_str, score=score))
+            score = max(0, min(21, int(data["gad7_score"])))
+            last_gad7 = current_profile.gad7_history[-1] if current_profile.gad7_history else None
+            if not last_gad7 or last_gad7.date != today_str or last_gad7.score != score:
+                if last_gad7 and last_gad7.date == today_str:
+                    current_profile.gad7_history[-1] = ClinicalScore(date=today_str, score=score)
+                elif score > 0 or not current_profile.gad7_history:
+                    current_profile.gad7_history.append(ClinicalScore(date=today_str, score=score))
                 
         # Keep history length manageable
-        current_profile.phq9_history = current_profile.phq9_history[-10:]
-        current_profile.gad7_history = current_profile.gad7_history[-10:]
+        current_profile.phq9_history = current_profile.phq9_history[-20:]
+        current_profile.gad7_history = current_profile.gad7_history[-20:]
         
         return current_profile
         
     except Exception as e:
-        logger.error(f"Failed to extract clinical profile: {e}")
+        logger.error("Failed to extract clinical profile: %s", e)
         return current_profile
