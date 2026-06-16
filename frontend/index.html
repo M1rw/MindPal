@@ -599,16 +599,6 @@
 
         <!-- ── Bottom controls ── -->
         <div class="relative z-20 w-full max-w-md mx-auto px-6 pb-[max(env(safe-area-inset-bottom,24px),24px)] pt-6 flex flex-col items-center gap-5" style="background:transparent;">
-            <!-- Mic indicator -->
-            <div class="relative flex items-center justify-center">
-                <div id="voice-mic-ripple-1" class="absolute w-20 h-20 rounded-full border border-black/5 dark:border-white/10 opacity-0 transition-all duration-300 ease-out"></div>
-                <div id="voice-mic-ripple-2" class="absolute w-24 h-24 rounded-full border border-black/[0.03] dark:border-white/5 opacity-0 transition-all duration-500 ease-out"></div>
-                <div id="voice-mic-dot"
-                     class="w-16 h-16 rounded-full bg-black/[0.04] dark:bg-white/10 border border-black/10 dark:border-white/20 flex items-center justify-center transition-all duration-200">
-                    <i data-lucide="mic" class="w-6 h-6 text-gray-600 dark:text-white/80"></i>
-                </div>
-            </div>
-
             <!-- Action row — frosted glass buttons -->
             <div class="flex items-center gap-3 p-1.5 rounded-2xl bg-white/70 dark:bg-white/[0.07] backdrop-blur-xl border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
                 <button id="voice-live-close-bottom"
@@ -616,6 +606,13 @@
                         title="End voice">
                     <i data-lucide="phone-off" class="w-4 h-4"></i>
                     End
+                </button>
+
+                <button id="voice-mute-toggle"
+                        class="h-11 px-5 flex items-center gap-2 rounded-xl bg-black/[0.04] dark:bg-white/10 text-gray-700 dark:text-gray-200 text-[13px] font-semibold hover:bg-black/[0.08] dark:hover:bg-white/15 transition-all active:scale-95"
+                        title="Mute/Unmute microphone">
+                    <i data-lucide="mic" class="w-4 h-4"></i>
+                    <span id="voice-mute-label">Mute</span>
                 </button>
 
                 <button class="h-11 px-5 flex items-center gap-2 rounded-xl bg-black/[0.04] dark:bg-white/10 text-gray-700 dark:text-gray-200 text-[13px] font-semibold hover:bg-black/[0.08] dark:hover:bg-white/15 transition-all active:scale-95"

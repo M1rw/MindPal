@@ -160,14 +160,28 @@ async def summarize_call(payload: SummarizeRequest):
     if not transcript.strip():
         return {"summary": "Voice call"}
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-
-    gemini_payload = {
-        "contents": [{"parts": [{"text": f"Write a 1-sentence summary of this voice call. Keep it under 15 words. Be natural and concise. Respond in the same language used in the conversation:\n\n{transcript}"}]}],
-        "generationConfig": {"maxOutputTokens": 60, "temperature": 0.2}
-    }
-
+    # Discover available models (same pattern as transcription)
+    models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
     async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            models_response = await client.get(models_url)
+            models_response.raise_for_status()
+            available_models = models_response.json().get("models", [])
+            valid_models = [m["name"] for m in available_models if "generateContent" in m.get("supportedGenerationMethods", [])]
+        except Exception:
+            valid_models = ["models/gemini-1.5-flash"]
+
+        # Prefer flash models
+        target_models = ["models/gemini-2.0-flash", "models/gemini-1.5-flash", "models/gemini-1.5-flash-latest"]
+        model_path = next((m for m in target_models if m in valid_models), valid_models[0] if valid_models else "models/gemini-1.5-flash")
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/{model_path}:generateContent?key={api_key}"
+
+        gemini_payload = {
+            "contents": [{"parts": [{"text": f"Write a 1-sentence summary of this voice call. Keep it under 15 words. Be natural and concise. Respond in the same language used in the conversation:\n\n{transcript}"}]}],
+            "generationConfig": {"maxOutputTokens": 60, "temperature": 0.2}
+        }
+
         try:
             response = await client.post(url, headers={"Content-Type": "application/json"}, json=gemini_payload)
             response.raise_for_status()
@@ -180,5 +194,5 @@ async def summarize_call(payload: SummarizeRequest):
                     return {"summary": summary}
             return {"summary": "Voice call"}
         except Exception as exc:
-            print(f"[VOICE_SUMMARIZE] Error: {exc}")
+            print(f"[VOICE_SUMMARIZE] Error with {model_path}: {exc}")
             return {"summary": "Voice call"}
