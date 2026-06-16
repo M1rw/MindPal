@@ -128,6 +128,8 @@ import {
   saveMemoryContext,
   saveMemoryGraphContext,
   mergeMemoryContexts,
+  buildMemoryLines,
+  buildMemoryGraphLines,
 } from "./memory_engine.js?v=20260615-streaming-v7";
 
 let isGenerating = false;
@@ -155,6 +157,56 @@ export function removeGlobalLoader() {
   }
 }
 const pendingCloudChatMessages = [];
+
+/* ═══════════════ Voice Context Provider ═══════════════ */
+function buildVoiceContextProvider() {
+  return {
+    getUserProfile() {
+      const user = getCurrentUser?.() || {};
+      const name = user?.displayName || user?.name || memoryContext?.preferredName || memoryContext?.user?.preferredName || "";
+      const comm = memoryContext?.communicationPreferences || {};
+      return {
+        name,
+        preferences: {
+          tone: comm.tone || "",
+          language: comm.language || "",
+          responseStyle: comm.responseStyle || [],
+          avoid: comm.avoid || [],
+        },
+        communication: {
+          avoidedResponses: memoryContext?.avoidedResponses || [],
+          emotionalTriggers: memoryContext?.emotionalTriggers || [],
+          userGoals: memoryContext?.userGoals || [],
+        }
+      };
+    },
+    getMemoryLines() {
+      const legacy = buildMemoryLines(memoryContext);
+      const graph = buildMemoryGraphLines(memoryGraphContext);
+      // Merge and deduplicate
+      const seen = new Set();
+      const all = [];
+      for (const line of [...graph, ...legacy]) {
+        const key = line.toLowerCase().trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        all.push(line);
+      }
+      return all.slice(0, 30);
+    },
+    getRecentChat(count = 10) {
+      const messages = getState().chatMemory || [];
+      return messages.slice(-Math.min(count, 20));
+    },
+    searchChat(query) {
+      const messages = getState().chatMemory || [];
+      const q = String(query).toLowerCase();
+      return messages.filter(m =>
+        String(m.text || "").toLowerCase().includes(q)
+      );
+    }
+  };
+}
 
 const consoleBanner = `
  __  __ _           _ ____       _ 
@@ -260,7 +312,7 @@ async function bootstrap() {
   if (mainVoiceBtn) {
       mainVoiceBtn.addEventListener("click", () => {
           if (isGenerating || isSessionLocked) return;
-          startLiveVoice();
+          startLiveVoice(buildVoiceContextProvider());
       });
   }
 

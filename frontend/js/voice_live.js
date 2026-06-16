@@ -38,6 +38,9 @@ const PALETTE_SPEAK  = { id: "speak" };
 let onChatSyncCallback = null;
 let ccVisible = true;
 
+// Context provider for tool calls (injected by app.js)
+let _contextProvider = null;
+
 /* ═══════════════ Helpers ═══════════════ */
 
 function scrollTranscript() {
@@ -140,8 +143,67 @@ export function initLiveVoice({ onChatSync } = {}) {
     }
 }
 
+/* ═══════════════ Tool Call Execution ═══════════════ */
+function executeToolCall(name, args) {
+    if (!_contextProvider) {
+        return { error: "No context available" };
+    }
+
+    switch (name) {
+        case "get_user_profile": {
+            const profile = _contextProvider.getUserProfile?.() || {};
+            return {
+                name: profile.name || "unknown",
+                preferences: profile.preferences || {},
+                communication: profile.communication || {}
+            };
+        }
+        case "search_memory": {
+            const query = String(args.query || "").toLowerCase();
+            const allLines = _contextProvider.getMemoryLines?.() || [];
+            if (!query) return { facts: allLines.slice(0, 15) };
+            const matching = allLines.filter(line =>
+                line.toLowerCase().includes(query)
+            );
+            return {
+                query,
+                facts: matching.length ? matching.slice(0, 15) : allLines.slice(0, 10),
+                matchCount: matching.length
+            };
+        }
+        case "get_recent_chat": {
+            const count = Math.min(Math.max(1, args.count || 10), 20);
+            const messages = _contextProvider.getRecentChat?.(count) || [];
+            return {
+                messages: messages.map(m => ({
+                    from: m.role === "User" ? "user" : "mindpal",
+                    text: String(m.text || "").slice(0, 300),
+                    time: m.createdAt || ""
+                }))
+            };
+        }
+        case "search_chat_history": {
+            const query = String(args.query || "").toLowerCase();
+            if (!query) return { results: [], query };
+            const all = _contextProvider.searchChat?.(query) || [];
+            return {
+                query,
+                results: all.slice(0, 10).map(m => ({
+                    from: m.role === "User" ? "user" : "mindpal",
+                    text: String(m.text || "").slice(0, 300),
+                    time: m.createdAt || ""
+                })),
+                totalMatches: all.length
+            };
+        }
+        default:
+            return { error: `Unknown tool: ${name}` };
+    }
+}
+
 /* ═══════════════ Start ═══════════════ */
-export async function startLiveVoice() {
+export async function startLiveVoice(contextProvider = null) {
+    _contextProvider = contextProvider;
     if (isLiveSessionActive) return;
     isLiveSessionActive = true;
 
@@ -290,6 +352,10 @@ export async function startLiveVoice() {
             if (statusEl) statusEl.textContent = "Listening…";
             applyPalette(PALETTE_LISTEN);
 
+            // Get user name for system instruction (minimal context)
+            const userName = _contextProvider?.getUserProfile?.()?.name || "";
+            const nameContext = userName ? `\nThe person you are talking to is called ${userName}. Use their name naturally.` : "";
+
             liveWebSocket.send(JSON.stringify({
                 setup: {
                     model: "models/gemini-2.5-flash-native-audio-latest",
@@ -301,10 +367,51 @@ export async function startLiveVoice() {
                     },
                     outputAudioTranscription: {},
                     inputAudioTranscription: {},
+                    tools: [{
+                        functionDeclarations: [
+                            {
+                                name: "get_user_profile",
+                                description: "Get the current user's profile including their name, communication preferences, tone, language, and response style preferences. Call this when you need to know who you're talking to or how they prefer to be spoken to.",
+                                parameters: { type: "OBJECT", properties: {} }
+                            },
+                            {
+                                name: "search_memory",
+                                description: "Search the user's saved memory for personal facts, relationships, important people (like girlfriend, family), preferences, emotional triggers, goals, coping tools, and past context. Use this when the user asks about something you should remember, or to personalize your response.",
+                                parameters: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        query: { type: "STRING", description: "What to search for — e.g. 'girlfriend', 'triggers', 'goals', 'preferences', 'name'" }
+                                    },
+                                    required: ["query"]
+                                }
+                            },
+                            {
+                                name: "get_recent_chat",
+                                description: "Get the most recent text chat messages between the user and MindPal. Use this to understand what they were just talking about before starting the voice call, or to continue a previous conversation.",
+                                parameters: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        count: { type: "INTEGER", description: "Number of recent messages to get (default 10, max 20)" }
+                                    }
+                                }
+                            },
+                            {
+                                name: "search_chat_history",
+                                description: "Search through the user's full chat history for messages matching a specific topic or keyword. Use this when the user references a past conversation.",
+                                parameters: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        query: { type: "STRING", description: "Text or topic to search for in past messages" }
+                                    },
+                                    required: ["query"]
+                                }
+                            }
+                        ]
+                    }],
                     systemInstruction: {
                         parts: [{
                             text: `You are MindPal — a real, warm human companion. NOT a robot, NOT an assistant.
-
+${nameContext}
 PERSONALITY:
 - You speak like a close friend who genuinely cares. You're warm, witty, and emotionally intelligent.
 - You use natural speech patterns — "hmm", "yeah", "you know what", "honestly", brief pauses, gentle laughter when appropriate.
@@ -317,7 +424,13 @@ CONVERSATION RULES:
 - Don't over-explain or list things. Just talk naturally.
 - If someone says "hey" or "how are you", respond like a human — brief, warm, genuine.
 - React emotionally to what they share. "That sounds really tough" not "I understand you're experiencing difficulty".
-- Use their name if they tell you. Remember details from the conversation.
+- Use their name when appropriate. Remember details from the conversation.
+
+TOOLS:
+- You have tools to search the user's memory and chat history. USE THEM proactively.
+- When the user asks "do you remember...", "what's my name", "what were we talking about" — ALWAYS call the relevant tool first.
+- When greeting the user, you may call get_user_profile to personalize.
+- Don't say "I don't have access to that" — you DO have access, use your tools.
 
 MENTAL HEALTH SUPPORT:
 - You're supportive but never clinical or robotic about it.
@@ -401,6 +514,27 @@ MENTAL HEALTH SUPPORT:
             if (data.serverContent?.inputTranscription?.text) {
                 console.log("[INPUT_TRANSCRIPT]", JSON.stringify(data.serverContent.inputTranscription.text));
                 appendToTranscript("user", data.serverContent.inputTranscription.text);
+            }
+
+            // ── Handle tool calls from the model ──
+            if (data.toolCall?.functionCalls) {
+                const responses = [];
+                for (const call of data.toolCall.functionCalls) {
+                    console.log(`[TOOL_CALL] ${call.name}`, call.args);
+                    const result = executeToolCall(call.name, call.args || {});
+                    responses.push({
+                        id: call.id,
+                        name: call.name,
+                        response: { result }
+                    });
+                }
+                // Send tool responses back to the model
+                if (liveWebSocket && liveWebSocket.readyState === WebSocket.OPEN) {
+                    liveWebSocket.send(JSON.stringify({
+                        toolResponse: { functionResponses: responses }
+                    }));
+                    console.log("[TOOL_RESPONSE] Sent", responses.length, "responses");
+                }
             }
         };
 
