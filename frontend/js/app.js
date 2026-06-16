@@ -1691,6 +1691,7 @@ function renderPersistedChat() {
         durationStr: message.voiceCall.durationStr,
         userTranscript: message.voiceCall.userTranscript,
         aiTranscript: message.voiceCall.aiTranscript,
+        summary: message.voiceCall.summary || null,
       });
       continue;
     }
@@ -1705,7 +1706,7 @@ function renderPersistedChat() {
   scrollChatToBottom("auto", true);
 }
 
-function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript }) {
+function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript, summary: existingSummary }) {
   const chatHistory = document.getElementById("chat-history");
   if (!chatHistory) return;
 
@@ -1713,68 +1714,93 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
   const timeStr = callTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const dateStr = callTime.toLocaleDateString([], { month: "short", day: "numeric" });
 
-  // Build a brief summary from transcripts (first ~150 chars)
-  const summaryParts = [];
-  if (userTranscript) summaryParts.push(userTranscript);
-  if (aiTranscript) summaryParts.push(aiTranscript);
-  const rawSummary = summaryParts.join(" ").replace(/\s+/g, " ").trim();
-  const briefSummary = rawSummary.length > 150
-    ? rawSummary.slice(0, 147) + "…"
-    : rawSummary || "No transcript available";
-
   const cardId = "call-card-" + Date.now() + Math.random().toString(36).slice(2, 6);
+  const summaryId = cardId + "-summary";
 
   const card = document.createElement("div");
-  card.className = "call-card-container w-full flex flex-col items-center my-4 animate-fade-in";
+  card.className = "call-card-container w-full flex flex-col items-center my-4 opacity-70";
   card.innerHTML = `
-    <div class="call-card-divider flex items-center gap-3 w-full max-w-md cursor-pointer select-none group" data-card-id="${cardId}">
-      <div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
-      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full group-hover:bg-gray-100 dark:group-hover:bg-[#2a2a2a] transition-colors">
-        <svg class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div class="flex items-center justify-center w-full">
+      <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
+      <span class="text-xs text-gray-500 dark:text-gray-400 px-3 tracking-wide flex items-center gap-1.5">
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
         </svg>
-        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Call ended</span>
-        <span class="text-xs text-gray-400 dark:text-gray-500">${durationStr}</span>
-        <svg class="w-3 h-3 text-gray-400 dark:text-gray-500 transition-transform duration-200 call-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </div>
-      <div class="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
+        Call ended · ${durationStr}
+      </span>
+      <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
     </div>
-    <div id="${cardId}" class="call-card-details hidden w-full max-w-md mt-2 px-4 py-3 rounded-2xl bg-gray-50 dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 text-sm transition-all duration-200">
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-medium text-gray-500 dark:text-gray-400">${dateStr} at ${timeStr}</span>
-        </div>
-        <span class="text-xs text-gray-400 dark:text-gray-500">${durationStr}</span>
-      </div>
-      <div class="text-[13px] text-gray-600 dark:text-gray-300 leading-relaxed">
-        <p class="font-medium text-gray-500 dark:text-gray-400 text-[11px] uppercase tracking-wider mb-1">Summary</p>
-        <p>${escapeHtml(briefSummary)}</p>
-      </div>
-      ${userTranscript ? `
-      <details class="mt-2">
-        <summary class="text-[11px] text-gray-400 dark:text-gray-500 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors">View full transcript</summary>
-        <div class="mt-1.5 space-y-1.5 text-[12px] leading-relaxed max-h-48 overflow-y-auto">
-          ${userTranscript ? `<div class="text-gray-500 dark:text-gray-400"><span class="font-medium text-gray-600 dark:text-gray-300">You:</span> ${escapeHtml(userTranscript.slice(0, 1000))}</div>` : ""}
-          ${aiTranscript ? `<div class="text-gray-500 dark:text-gray-400"><span class="font-medium text-blue-500">MindPal:</span> ${escapeHtml(aiTranscript.slice(0, 1000))}</div>` : ""}
-        </div>
-      </details>` : ""}
+    <div class="call-summary-row flex items-start gap-1 mt-1.5 cursor-pointer select-none max-w-sm w-full justify-center">
+      <p id="${summaryId}" class="text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed text-center">${existingSummary ? escapeHtml(existingSummary) : '<span class="italic">Summarizing…</span>'}</p>
+      <svg class="w-2.5 h-2.5 text-gray-400 dark:text-gray-500 transition-transform duration-200 call-chevron mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </div>
+    <div id="${cardId}" class="call-card-details hidden mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+      ${dateStr}, ${timeStr} · ${durationStr}
     </div>
   `;
 
   chatHistory.appendChild(card);
 
-  // Toggle dropdown
-  const divider = card.querySelector(".call-card-divider");
+  // Toggle dropdown on summary click
+  const summaryRow = card.querySelector(".call-summary-row");
   const details = card.querySelector(`#${cardId}`);
   const chevron = card.querySelector(".call-chevron");
 
-  divider.addEventListener("click", () => {
+  summaryRow.addEventListener("click", () => {
     const isOpen = !details.classList.contains("hidden");
     details.classList.toggle("hidden");
     chevron.style.transform = isOpen ? "" : "rotate(180deg)";
   });
+
+  // Generate LLM summary if not already provided
+  if (!existingSummary && (userTranscript || aiTranscript)) {
+    summarizeCallTranscript(userTranscript, aiTranscript).then(summary => {
+      const summaryEl = document.getElementById(summaryId);
+      if (summaryEl) summaryEl.textContent = summary;
+
+      // Save summary back to chatMemory for persistence
+      const state = getState();
+      const callMsg = state.chatMemory.findLast?.(m => m.type === "voice_call" && m.voiceCall?.startTime === startTime);
+      if (callMsg) {
+        callMsg.voiceCall.summary = summary;
+        patchState({ chatMemory: state.chatMemory });
+      }
+    });
+  }
+}
+
+async function summarizeCallTranscript(userTranscript, aiTranscript) {
+  try {
+    const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
+    const keyRes = await fetch(`${baseUrl}/voice/key`);
+    if (!keyRes.ok) throw new Error("No key");
+    const { key } = await keyRes.json();
+
+    const transcript = [
+      userTranscript ? `User said: ${userTranscript.slice(0, 2000)}` : "",
+      aiTranscript ? `MindPal said: ${aiTranscript.slice(0, 2000)}` : ""
+    ].filter(Boolean).join("\n\n");
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `Summarize this voice call in 1-2 short sentences. Be concise and natural. Don't start with "The call was about" — just describe what was discussed:\n\n${transcript}` }] }],
+        generationConfig: { maxOutputTokens: 100, temperature: 0.3 }
+      })
+    });
+
+    if (!res.ok) throw new Error("API error");
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Voice call";
+  } catch (e) {
+    console.warn("[CALL_SUMMARY] Failed to generate:", e);
+    // Fallback: first 100 chars of transcript
+    const raw = [userTranscript, aiTranscript].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    return raw.length > 100 ? raw.slice(0, 97) + "…" : raw || "Voice call";
+  }
 }
 
 async function appendMessageToUI(text, sender, {
