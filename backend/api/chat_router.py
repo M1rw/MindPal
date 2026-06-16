@@ -651,7 +651,7 @@ def _asks_assistant_message_count(lowered: str, original: str) -> bool:
 
 
 def _contains_arabic_text(value: str) -> bool:
-    return any("\\u0600" <= char <= "\\u06ff" for char in value)
+    return any("\u0600" <= char <= "\u06ff" for char in value)
 
 
 def _convert_history(payload: ChatRequest) -> list[LLMMessage]:

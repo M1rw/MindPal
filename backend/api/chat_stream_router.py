@@ -30,7 +30,10 @@ from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
 from backend.services.telemetry_service import TelemetryService
 from backend.services.clinical_extractor import extract_clinical_profile
+import logging
 import time
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["chat_stream"])
 
@@ -216,6 +219,12 @@ async def chat_stream(
                     metadata['memory_graph_snapshot'] = response_memory_graph_snapshot.model_dump(mode="json")
                 if quota_exceeded:
                     metadata['quota_exceeded'] = True
+                if clinical_mode or quota_exceeded:
+                    metadata['pro_usage'] = {
+                        'count': profile.usage.pro_messages_count,
+                        'limit': 40,
+                        'reset_in_seconds': max(0, int((profile.usage.pro_last_reset_time + 5 * 3600) - time.time())),
+                    }
 
                 yield f"data: {json.dumps(metadata)}\n\n"
 
@@ -250,13 +259,16 @@ async def chat_stream(
                         _clinical=clinical_snapshot,
                         _req_id=req_id,
                     ):
-                        updated_clinical = await extract_clinical_profile(
-                            llm=services.llm,
-                            messages=_msgs,
-                            current_profile=_clinical,
-                        )
-                        profile.clinical = updated_clinical
-                        await services.db.save_user_profile(profile)
+                        try:
+                            updated_clinical = await extract_clinical_profile(
+                                llm=services.llm,
+                                messages=_msgs,
+                                current_profile=_clinical,
+                            )
+                            profile.clinical = updated_clinical
+                            await services.db.save_user_profile(profile)
+                        except Exception as ext_exc:
+                            logger.error("Clinical extraction failed for %s: %s", _req_id, ext_exc)
 
                     asyncio.create_task(run_extraction())
                 else:

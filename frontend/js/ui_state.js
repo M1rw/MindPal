@@ -412,7 +412,52 @@ export function updateUsageUI(profileResponse = null) {
   const proModelOption = document.querySelector('.model-option[data-model="pro"]');
   if (proModelOption && proPct >= 100) {
     proModelOption.classList.add("opacity-50", "cursor-not-allowed", "pointer-events-none");
-    // Change internal text to show it's rate limited
+    const proDesc = proModelOption.querySelector('.text-\\[11px\\]');
+    if (proDesc) proDesc.textContent = "Rate limited. Available soon.";
+  } else if (proModelOption) {
+    proModelOption.classList.remove("opacity-50", "cursor-not-allowed", "pointer-events-none");
+    const proDesc = proModelOption.querySelector('.text-\\[11px\\]');
+    if (proDesc) proDesc.textContent = "Deep analysis, diagnostic thinking.";
+  }
+}
+
+/**
+ * Update Pro usage bar from stream metadata (real-time after each message).
+ */
+export function updateUsageFromMeta(proUsage) {
+  if (!proUsage) return;
+
+  const proBar = document.getElementById("usage-pro-bar");
+  const proText = document.getElementById("usage-pro-text");
+  const count = proUsage.count || 0;
+  const limit = proUsage.limit || 40;
+  const pct = Math.min(100, (count / limit) * 100);
+
+  if (proBar) {
+    proBar.style.width = `${pct}%`;
+    proBar.style.transition = "width 0.5s ease";
+    if (pct >= 100) {
+      proBar.classList.remove("bg-indigo-600", "dark:bg-indigo-500");
+      proBar.classList.add("bg-rose-500");
+    } else {
+      proBar.classList.add("bg-indigo-600", "dark:bg-indigo-500");
+      proBar.classList.remove("bg-rose-500");
+    }
+  }
+
+  if (proText) {
+    proText.textContent = `${count} / ${limit} Used`;
+    if (pct >= 100) {
+      proText.classList.add("text-rose-500");
+    } else {
+      proText.classList.remove("text-rose-500");
+    }
+  }
+
+  // Disable/enable Pro model option
+  const proModelOption = document.querySelector('.model-option[data-model="pro"]');
+  if (proModelOption && pct >= 100) {
+    proModelOption.classList.add("opacity-50", "cursor-not-allowed", "pointer-events-none");
     const proDesc = proModelOption.querySelector('.text-\\[11px\\]');
     if (proDesc) proDesc.textContent = "Rate limited. Available soon.";
   } else if (proModelOption) {

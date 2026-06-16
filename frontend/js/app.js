@@ -65,6 +65,7 @@ import {
   updateProfileUI,
   updateMentalHealthUI,
   updateUsageUI,
+  updateUsageFromMeta,
 } from "./ui_state.js?v=20260615-streaming-v7";
 
 import { initVoice } from "./voice.js?v=20260615-streaming-v7";
@@ -794,13 +795,6 @@ function bindProfileModal() {
         throw new Error("Firebase returned no ID token.");
       }
 
-      console.info("MindPal auth debug:", {
-        uid: user.uid,
-        email: user.email,
-        providerId: user.providerId,
-        tokenPrefix: token.slice(0, 16),
-      });
-
       const profile = await getCurrentUserProfile(token);
       const storedProfile = await loadUserProfile(token).catch(() => null);
       if (storedProfile) {
@@ -809,7 +803,6 @@ function bindProfileModal() {
         updateUsageUI(storedProfile);
       }
 
-      console.info("MindPal backend profile:", profile);
 
       currentCloudProfileContext = {
         ...buildCloudProfileContext(user, profile),
@@ -1250,51 +1243,127 @@ function bindModelSelector() {
       const modelText = document.getElementById("current-model-text");
       const modelValue = option.getAttribute("data-model");
       
-      if (modelText) {
-        if (modelValue === "pro") {
-          modelText.innerHTML = 'MindPal Pro <span class="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ml-1">Clinical</span>';
-          document.getElementById("current-model-icon")?.classList.replace("text-blue-500", "text-purple-500");
-          document.getElementById("current-model-icon")?.setAttribute("data-lucide", "stethoscope");
-        } else {
-          modelText.textContent = "MindPal Standard";
-          document.getElementById("current-model-icon")?.classList.replace("text-purple-500", "text-blue-500");
-          document.getElementById("current-model-icon")?.setAttribute("data-lucide", "sparkles");
-        }
-        
-        // Re-init lucide icons for the new icon
-        if (window.lucide) {
-          window.lucide.createIcons();
-        }
+      // If switching to Pro, show confirmation dialog (once per session)
+      if (modelValue === "pro" && !sessionStorage.getItem("mindpal_pro_confirmed")) {
+        dropdown?.classList.add("hidden");
+        _showProConfirmationDialog(() => {
+          sessionStorage.setItem("mindpal_pro_confirmed", "1");
+          _applyModelSwitch("pro", modelText, dropdown);
+        });
+        return;
       }
 
-      dropdown?.classList.add("hidden");
-
-      if (!isSessionLocked) {
-        document.getElementById("chat-input")?.focus();
-      }
-
-      const chatHistory = document.getElementById("chat-history");
-      if (chatHistory) {
-        const lastChild = chatHistory.lastElementChild;
-        const textName = modelValue === "pro" ? "MindPal Pro" : "MindPal Standard";
-        const text = `Model switched to ${textName}`;
-        if (lastChild && lastChild.classList.contains("mode-switch-indicator")) {
-          const span = lastChild.querySelector('.indicator-text');
-          if (span) span.textContent = text;
-        } else {
-          const div = document.createElement("div");
-          div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
-          div.innerHTML = `
-            <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-            <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 tracking-wide">${text}</span>
-            <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
-          `;
-          chatHistory.appendChild(div);
-          scrollChatToBottom("smooth");
-        }
-      }
+      _applyModelSwitch(modelValue, modelText, dropdown);
     });
   });
+}
+
+function _showProConfirmationDialog(onConfirm) {
+  // Remove existing dialog if any
+  document.getElementById("pro-confirm-overlay")?.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "pro-confirm-overlay";
+  overlay.className = "fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm";
+  overlay.style.animation = "fadeIn 0.2s ease";
+  overlay.innerHTML = `
+    <div class="bg-white dark:bg-[#1e1f20] rounded-2xl shadow-2xl max-w-md w-[90%] p-6 border border-gray-200 dark:border-gray-700" style="animation: scaleIn 0.25s ease">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+          <i data-lucide="stethoscope" class="w-5 h-5 text-purple-600 dark:text-purple-400"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Switch to MindPal Pro</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Clinical AI Mode</p>
+        </div>
+      </div>
+      
+      <div class="space-y-3 mb-6">
+        <div class="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+          <i data-lucide="brain" class="w-4 h-4 mt-0.5 text-purple-500 flex-shrink-0"></i>
+          <span>MindPal Pro uses advanced clinical reasoning with deep psychological analysis and pattern recognition.</span>
+        </div>
+        <div class="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+          <i data-lucide="shield-check" class="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0"></i>
+          <span>Pro reviews its own responses through an internal thinking chain before answering, reducing errors.</span>
+        </div>
+        <div class="flex items-start gap-2.5 text-sm text-amber-600 dark:text-amber-400">
+          <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+          <span>This is an AI assistant, not a real doctor. It may make mistakes. Always consult a licensed professional for medical decisions.</span>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button id="pro-confirm-cancel" class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+          Cancel
+        </button>
+        <button id="pro-confirm-accept" class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors shadow-lg shadow-purple-500/20">
+          I Understand, Switch
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  if (window.lucide) window.lucide.createIcons();
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+    }
+  });
+
+  document.getElementById("pro-confirm-cancel").addEventListener("click", () => {
+    overlay.remove();
+  });
+
+  document.getElementById("pro-confirm-accept").addEventListener("click", () => {
+    overlay.remove();
+    onConfirm();
+  });
+}
+
+function _applyModelSwitch(modelValue, modelText, dropdown) {
+  if (modelText) {
+    if (modelValue === "pro") {
+      modelText.innerHTML = 'MindPal Pro <span class="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ml-1">Clinical</span>';
+      document.getElementById("current-model-icon")?.classList.replace("text-blue-500", "text-purple-500");
+      document.getElementById("current-model-icon")?.setAttribute("data-lucide", "stethoscope");
+    } else {
+      modelText.textContent = "MindPal Standard";
+      document.getElementById("current-model-icon")?.classList.replace("text-purple-500", "text-blue-500");
+      document.getElementById("current-model-icon")?.setAttribute("data-lucide", "sparkles");
+    }
+    
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  dropdown?.classList.add("hidden");
+
+  if (!isSessionLocked) {
+    document.getElementById("chat-input")?.focus();
+  }
+
+  const chatHistory = document.getElementById("chat-history");
+  if (chatHistory) {
+    const lastChild = chatHistory.lastElementChild;
+    const textName = modelValue === "pro" ? "MindPal Pro" : "MindPal Standard";
+    const text = `Model switched to ${textName}`;
+    if (lastChild && lastChild.classList.contains("mode-switch-indicator")) {
+      const span = lastChild.querySelector('.indicator-text');
+      if (span) span.textContent = text;
+    } else {
+      const div = document.createElement("div");
+      div.className = "mode-switch-indicator flex items-center justify-center w-full my-4 opacity-70";
+      div.innerHTML = `
+        <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
+        <span class="indicator-text text-xs text-gray-500 dark:text-gray-400 px-3 tracking-wide">${text}</span>
+        <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
+      `;
+      chatHistory.appendChild(div);
+      scrollChatToBottom("smooth");
+    }
+  }
 }
 
 function bindMoodButtons() {
@@ -1562,6 +1631,7 @@ async function handleSend() {
           const standardBtn = document.querySelector('.model-option[data-model="standard"]');
           if (standardBtn) standardBtn.click();
         }
+        if (meta.pro_usage) updateUsageFromMeta(meta.pro_usage);
       }
     });
 
@@ -2155,6 +2225,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       },
       onMetadata: (meta) => {
         backendMetaFinal = meta;
+        if (meta.pro_usage) updateUsageFromMeta(meta.pro_usage);
       }
     });
 
