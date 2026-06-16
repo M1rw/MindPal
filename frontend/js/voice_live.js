@@ -501,9 +501,17 @@ function destroyWaveCanvas() {
 function updateBins(v) {
     if (!smoothBins) return;
 
-    // Pick the right analyser: AI output when speaking, mic when listening
-    const activeAnalyser = (isAiSpeaking && aiAnalyser && aiFreqData) ? aiAnalyser : analyser;
-    const activeFreqData = (isAiSpeaking && aiAnalyser && aiFreqData) ? aiFreqData : freqData;
+    // Pick the right analyser: AI output when speaking, mic when listening (but not when muted)
+    let activeAnalyser = null;
+    let activeFreqData = null;
+
+    if (isAiSpeaking && aiAnalyser && aiFreqData) {
+        activeAnalyser = aiAnalyser;
+        activeFreqData = aiFreqData;
+    } else if (!isMicMuted && analyser && freqData) {
+        activeAnalyser = analyser;
+        activeFreqData = freqData;
+    }
 
     if (activeAnalyser && activeFreqData) {
         activeAnalyser.getByteFrequencyData(activeFreqData);
@@ -514,12 +522,17 @@ function updateBins(v) {
                 sum += activeFreqData[i * binSize + j];
             }
             const target = (sum / binSize) / 255;
-            // Lerp: rise fast, fall slow
             if (target > smoothBins[i]) {
                 smoothBins[i] += (target - smoothBins[i]) * 0.35;
             } else {
                 smoothBins[i] += (target - smoothBins[i]) * 0.12;
             }
+        }
+    } else {
+        // No active analyser (muted & not AI speaking) — decay all bins to 0
+        for (let i = 0; i < BIN_COUNT; i++) {
+            smoothBins[i] *= 0.9;
+            if (smoothBins[i] < 0.001) smoothBins[i] = 0;
         }
     }
 }
