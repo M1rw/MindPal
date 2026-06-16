@@ -39,6 +39,19 @@ const PALETTE_SPEAK  = { id: "speak" };
 let onChatSyncCallback = null;
 let ccVisible = true;
 
+// Incognito mode — don't save call to memory/chat
+let isIncognito = false;
+
+// Silence detection
+let lastActivityTime = 0;
+let silenceCheckInterval = null;
+let silenceAskedOnce = false;   // already sent "are you still there?"
+let silenceWarnedOnce = false;  // already warned about auto-end
+
+const SILENCE_ASK_MS      = 30_000;  // 30s — ask if still there
+const SILENCE_WARN_MS     = 60_000;  // 60s — warn call will end
+const SILENCE_AUTO_END_MS = 90_000;  // 90s — auto-end
+
 // Context provider for tool calls (injected by app.js)
 let _contextProvider = null;
 
@@ -133,6 +146,24 @@ export function initLiveVoice({ onChatSync } = {}) {
         });
     }
 
+    // Incognito toggle — don't save call
+    const incognitoBtn = document.getElementById("voice-incognito-toggle");
+    if (incognitoBtn) {
+        incognitoBtn.addEventListener("click", () => {
+            isIncognito = !isIncognito;
+            incognitoBtn.classList.toggle("bg-purple-500/15", isIncognito);
+            incognitoBtn.classList.toggle("text-purple-500", isIncognito);
+            incognitoBtn.classList.toggle("dark:text-purple-400", isIncognito);
+
+            const statusEl = document.getElementById("voice-live-status");
+            if (isIncognito && statusEl) {
+                const prev = statusEl.textContent;
+                statusEl.textContent = "Incognito on";
+                setTimeout(() => { if (statusEl.textContent === "Incognito on") statusEl.textContent = prev; }, 1500);
+            }
+        });
+    }
+
     // Mic mute toggle
     const micDot = document.getElementById("voice-mic-dot");
     if (micDot) {
@@ -142,6 +173,65 @@ export function initLiveVoice({ onChatSync } = {}) {
             updateMicUI();
         });
     }
+}
+
+/* ═══════════════ Silence Detection ═══════════════ */
+function touchActivity() {
+    lastActivityTime = Date.now();
+    silenceAskedOnce = false;
+    silenceWarnedOnce = false;
+}
+
+function startSilenceChecker() {
+    stopSilenceChecker();
+    lastActivityTime = Date.now();
+    silenceAskedOnce = false;
+    silenceWarnedOnce = false;
+
+    silenceCheckInterval = setInterval(() => {
+        if (!isLiveSessionActive || !liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
+
+        const elapsed = Date.now() - lastActivityTime;
+        const statusEl = document.getElementById("voice-live-status");
+
+        // 90s — auto-end
+        if (elapsed >= SILENCE_AUTO_END_MS) {
+            console.log("[SILENCE] Auto-ending call after", Math.round(elapsed / 1000), "s of silence");
+            stopLiveVoice();
+            return;
+        }
+
+        // 60s — warn about auto-end
+        if (elapsed >= SILENCE_WARN_MS && !silenceWarnedOnce) {
+            silenceWarnedOnce = true;
+            if (statusEl) statusEl.textContent = "Ending soon…";
+            sendTextToModel("The user has been silent for a while now. Gently let them know that the call will end soon if they don't respond. Say something brief like 'I'll let you go if you're busy, just say something if you want to keep talking.'");
+            return;
+        }
+
+        // 30s — ask if still there
+        if (elapsed >= SILENCE_ASK_MS && !silenceAskedOnce) {
+            silenceAskedOnce = true;
+            sendTextToModel("The user has been silent for 30 seconds. Gently check if they're still there. Say something brief and natural like 'Hey, you still there?' or 'I'm here whenever you're ready.'");
+        }
+    }, 5000); // check every 5 seconds
+}
+
+function stopSilenceChecker() {
+    if (silenceCheckInterval) {
+        clearInterval(silenceCheckInterval);
+        silenceCheckInterval = null;
+    }
+}
+
+function sendTextToModel(text) {
+    if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
+    liveWebSocket.send(JSON.stringify({
+        clientContent: {
+            turns: [{ role: "user", parts: [{ text }] }],
+            turnComplete: true
+        }
+    }));
 }
 
 /* ═══════════════ Tool Call Execution ═══════════════ */
@@ -308,6 +398,11 @@ export async function startLiveVoice(contextProvider = null) {
                 if (statusEl) statusEl.textContent = "Listening…";
             }
 
+            // Reset silence timer when user is actually speaking
+            if (!isMicMuted && rms > 0.015) {
+                touchActivity();
+            }
+
             if (!isMicMuted) {
                 feedVolume(rms);
 
@@ -442,6 +537,10 @@ MENTAL HEALTH SUPPORT:
                     }
                 }
             }));
+
+            // Start silence detection after connection
+            startSilenceChecker();
+            touchActivity();
         };
 
         liveWebSocket.onmessage = async (event) => {
@@ -510,12 +609,14 @@ MENTAL HEALTH SUPPORT:
             // outputTranscription = the actual words the model speaks (from the API)
             if (data.serverContent?.outputTranscription?.text) {
                 appendToTranscript("ai", data.serverContent.outputTranscription.text);
+                touchActivity();
             }
 
             // inputTranscription = what the user said (from the API)
             if (data.serverContent?.inputTranscription?.text) {
                 console.log("[INPUT_TRANSCRIPT]", JSON.stringify(data.serverContent.inputTranscription.text));
                 appendToTranscript("user", data.serverContent.inputTranscription.text);
+                touchActivity();
             }
 
             // ── Handle tool calls from the model ──
@@ -571,6 +672,7 @@ export function stopLiveVoice() {
     isLiveSessionActive = false;
 
     flushAiAudio();
+    stopSilenceChecker();
 
     if (scriptNode)  { scriptNode.disconnect(); scriptNode = null; }
     if (analyser)    { analyser.disconnect(); analyser = null; freqData = null; smoothBins = null; }
@@ -589,7 +691,8 @@ export function stopLiveVoice() {
         destroyWaveCanvas();
     }, 500);
 
-    if (onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
+    // Only save to chat/memory if NOT incognito
+    if (!isIncognito && onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
         const endTime = new Date();
         const durationMs = callStartTime ? endTime - callStartTime : 0;
         onChatSyncCallback({
@@ -597,8 +700,16 @@ export function stopLiveVoice() {
             aiTranscript: aiTranscript.trim(),
             startTime: callStartTime?.toISOString() || endTime.toISOString(),
             endTime: endTime.toISOString(),
-            durationMs
+            durationMs,
+            incognito: false
         });
+    }
+
+    // Reset incognito for next call
+    isIncognito = false;
+    const incognitoBtn = document.getElementById("voice-incognito-toggle");
+    if (incognitoBtn) {
+        incognitoBtn.classList.remove("bg-purple-500/15", "text-purple-500", "dark:text-purple-400");
     }
 }
 

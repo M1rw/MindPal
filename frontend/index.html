@@ -566,11 +566,18 @@
                 <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400">Voice</span>
             </span>
 
-            <button id="voice-cc-toggle"
-                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
-                    title="Toggle captions">
-                <i data-lucide="captions" class="w-5 h-5"></i>
-            </button>
+            <div class="flex items-center gap-1">
+                <button id="voice-incognito-toggle"
+                        class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
+                        title="Incognito mode — don't save this call">
+                    <i data-lucide="eye-off" class="w-5 h-5"></i>
+                </button>
+                <button id="voice-cc-toggle"
+                        class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
+                        title="Toggle captions">
+                    <i data-lucide="captions" class="w-5 h-5"></i>
+                </button>
+            </div>
         </header>
 
         <!-- ── Status pill ── -->
