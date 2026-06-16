@@ -1783,34 +1783,20 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
 async function summarizeCallTranscript(userTranscript, aiTranscript) {
   try {
     const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
-    const keyRes = await fetch(`${baseUrl}/voice/key`);
-    if (!keyRes.ok) throw new Error("Failed to fetch key: " + keyRes.status);
-    const { key } = await keyRes.json();
-
-    const transcript = [
-      userTranscript ? `User: ${userTranscript.slice(0, 2000)}` : "",
-      aiTranscript ? `AI: ${aiTranscript.slice(0, 2000)}` : ""
-    ].filter(Boolean).join("\n");
-
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+    const res = await fetch(`${baseUrl}/voice/summarize`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `Write a 1-sentence summary of this voice call. Keep it under 15 words. Be natural and concise. Respond in the same language used in the conversation:\n\n${transcript}` }] }],
-        generationConfig: { maxOutputTokens: 60, temperature: 0.2 }
+        user_transcript: userTranscript || "",
+        ai_transcript: aiTranscript || "",
       })
     });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`API ${res.status}: ${errText.slice(0, 100)}`);
-    }
+    if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
-    const summary = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if (!summary) throw new Error("Empty response from API");
-    return summary;
+    return data.summary || "Voice call";
   } catch (e) {
-    console.warn("[CALL_SUMMARY] Failed to generate:", e);
+    console.warn("[CALL_SUMMARY] Failed:", e);
     return "Voice call";
   }
 }
