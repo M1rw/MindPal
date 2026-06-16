@@ -26,6 +26,8 @@ let isAiSpeaking = false;
 // AnalyserNode for real frequency visualizer
 let analyser = null;
 let freqData = null;
+let aiAnalyser = null;
+let aiFreqData = null;
 let smoothBins = null;
 const BIN_COUNT = 64;
 
@@ -264,13 +266,19 @@ export async function startLiveVoice() {
         micSource.connect(scriptNode);
         scriptNode.connect(audioContext.destination);
 
-        // AnalyserNode for frequency visualizer
+        // AnalyserNode for mic frequency visualizer
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 2048;
         analyser.smoothingTimeConstant = 0.8;
         freqData = new Uint8Array(analyser.frequencyBinCount);
         smoothBins = new Float32Array(BIN_COUNT).fill(0);
         micSource.connect(analyser);
+
+        // AnalyserNode for AI audio output
+        aiAnalyser = audioContext.createAnalyser();
+        aiAnalyser.fftSize = 2048;
+        aiAnalyser.smoothingTimeConstant = 0.75;
+        aiFreqData = new Uint8Array(aiAnalyser.frequencyBinCount);
 
 
 
@@ -358,7 +366,13 @@ MENTAL HEALTH SUPPORT:
 
                         const source = audioContext.createBufferSource();
                         source.buffer = audioBuffer;
-                        source.connect(audioContext.destination);
+                        // Route through AI analyser for visualizer
+                        if (aiAnalyser) {
+                            source.connect(aiAnalyser);
+                            aiAnalyser.connect(audioContext.destination);
+                        } else {
+                            source.connect(audioContext.destination);
+                        }
 
                         if (nextPlaybackTime < audioContext.currentTime) nextPlaybackTime = audioContext.currentTime;
                         source.start(nextPlaybackTime);
@@ -424,6 +438,7 @@ export function stopLiveVoice() {
 
     if (scriptNode)  { scriptNode.disconnect(); scriptNode = null; }
     if (analyser)    { analyser.disconnect(); analyser = null; freqData = null; smoothBins = null; }
+    if (aiAnalyser)  { aiAnalyser.disconnect(); aiAnalyser = null; aiFreqData = null; }
     if (micSource)   { micSource.disconnect(); micSource = null; }
     if (audioContext && audioContext.state !== "closed") { audioContext.close(); audioContext = null; }
     if (liveWebSocket) { liveWebSocket.close(); liveWebSocket = null; }
@@ -486,14 +501,17 @@ function destroyWaveCanvas() {
 function updateBins(v) {
     if (!smoothBins) return;
 
-    if (analyser && freqData && !isAiSpeaking) {
-        // Real frequency data from mic
-        analyser.getByteFrequencyData(freqData);
-        const binSize = Math.floor(freqData.length * 0.6 / BIN_COUNT);
+    // Pick the right analyser: AI output when speaking, mic when listening
+    const activeAnalyser = (isAiSpeaking && aiAnalyser && aiFreqData) ? aiAnalyser : analyser;
+    const activeFreqData = (isAiSpeaking && aiAnalyser && aiFreqData) ? aiFreqData : freqData;
+
+    if (activeAnalyser && activeFreqData) {
+        activeAnalyser.getByteFrequencyData(activeFreqData);
+        const binSize = Math.floor(activeFreqData.length * 0.6 / BIN_COUNT);
         for (let i = 0; i < BIN_COUNT; i++) {
             let sum = 0;
             for (let j = 0; j < binSize; j++) {
-                sum += freqData[i * binSize + j];
+                sum += activeFreqData[i * binSize + j];
             }
             const target = (sum / binSize) / 255;
             // Lerp: rise fast, fall slow
@@ -501,20 +519,6 @@ function updateBins(v) {
                 smoothBins[i] += (target - smoothBins[i]) * 0.35;
             } else {
                 smoothBins[i] += (target - smoothBins[i]) * 0.12;
-            }
-        }
-    } else {
-        // AI speaking: synthetic frequency curve from volume
-        for (let i = 0; i < BIN_COUNT; i++) {
-            const nx = i / BIN_COUNT;
-            const speechCurve = Math.exp(-Math.pow((nx - 0.25) * 3, 2)) * 0.8
-                              + Math.exp(-Math.pow((nx - 0.5) * 4, 2)) * 0.4;
-            const variation = Math.sin(blobPhase * 3 + i * 0.4) * 0.3 + 0.7;
-            const target = v * speechCurve * variation;
-            if (target > smoothBins[i]) {
-                smoothBins[i] += (target - smoothBins[i]) * 0.3;
-            } else {
-                smoothBins[i] += (target - smoothBins[i]) * 0.1;
             }
         }
     }
@@ -545,12 +549,14 @@ function drawVisualizer(v) {
 
     const t = blobPhase;
 
-    // ── Draw gradient bars ──
-    // Use 32 visible bars, centered horizontally
-    const barCount = 32;
-    const barSpacing = W * 0.6 / barCount; // bars occupy 60% of width
-    const startX = W * 0.2; // 20% margin on each side
-    const maxBarH = H * 0.35;
+    // ── Draw gradient bars — responsive count ──
+    const isPhone = W < 500;
+    const isTablet = W >= 500 && W < 900;
+    const barCount = isPhone ? 16 : isTablet ? 24 : 32;
+    const barWidthPct = isPhone ? 0.85 : isTablet ? 0.75 : 0.6;
+    const barSpacing = W * barWidthPct / barCount;
+    const startX = W * (1 - barWidthPct) / 2;
+    const maxBarH = H * (isPhone ? 0.25 : 0.35);
 
     // Map 64 bins down to 32 bars
     for (let i = 0; i < barCount; i++) {
