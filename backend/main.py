@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        await runner.stop(drain=True, timeout_seconds=5.0)
+        pass  # Graceful shutdown — providers handle their own cleanup
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -424,7 +424,7 @@ _mindpal_configure_frontend_static()
 # Frontend brand / social / PWA assets
 # ---------------------------------------------------------------------------
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+# Reuse existing FRONTEND_DIR from module scope (line 30)
 BRAND_ASSETS_DIR = FRONTEND_DIR / "assets" / "brand"
 
 
