@@ -1,4 +1,13 @@
-export { escapeHtml, scrollChatToBottom } from "../ui_state.js?v=20260615-streaming-v7";
+export { scrollChatToBottom } from "../ui_state.js?v=20260615-streaming-v7";
+
+export function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
 export function formatMarkdown(text) {
   const escaped = String(text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

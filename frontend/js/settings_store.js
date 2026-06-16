@@ -1,3 +1,5 @@
+import { swapIconInline } from "./utils/icons.js";
+
 const SETTINGS_KEY = "mindpal_app_settings_v1";
 
 export const DEFAULT_APP_SETTINGS = Object.freeze({
@@ -116,16 +118,9 @@ export function applyVisualSettings(settings = appSettings) {
 
   const themeIcon = document.getElementById("theme-icon");
   if (themeIcon) {
-    const nextIcon = dark ? "moon" : "sun";
-    if (themeIcon.tagName.toLowerCase() === "svg") {
-      const i = document.createElement("i");
-      i.id = "theme-icon";
-      i.className = "w-5 h-5";
-      i.setAttribute("data-lucide", nextIcon);
-      themeIcon.replaceWith(i);
-    } else {
-      themeIcon.setAttribute("data-lucide", nextIcon);
-    }
+    const nextIcon = dark ? "sun" : "moon";
+    themeIcon.setAttribute("data-lucide", nextIcon);
+    swapIconInline(themeIcon, nextIcon);
   }
 
   const modalThemeToggle = document.getElementById("modal-theme-toggle");
