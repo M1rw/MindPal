@@ -243,6 +243,10 @@ async def chat_stream(
                 telemetry.log_llm_usage(provider="streaming", prompt_tokens=prompt_tokens_est, completion_tokens=comp_tokens_est)
                 telemetry.log_latency("chat_stream_full", (time.perf_counter() - start_time) * 1000)
 
+                # Save profile now (captures quota increment) regardless of extraction
+                if authenticated:
+                    await services.db.save_user_profile(profile)
+
                 # TRIGGER CLINICAL EXTRACTION IN BACKGROUND
                 if clinical_mode and authenticated:
                     # Deep-copy clinical data to avoid race conditions
@@ -253,11 +257,13 @@ async def chat_stream(
                         if msg.role != LLMRole.SYSTEM
                     ]
                     req_id = context.request_id
+                    user_id_hash = context.session.user_id_hash
 
                     async def run_extraction(
                         _msgs=extraction_messages,
                         _clinical=clinical_snapshot,
                         _req_id=req_id,
+                        _uid=user_id_hash,
                     ):
                         try:
                             updated_clinical = await extract_clinical_profile(
@@ -265,16 +271,18 @@ async def chat_stream(
                                 messages=_msgs,
                                 current_profile=_clinical,
                             )
-                            profile.clinical = updated_clinical
-                            await services.db.save_user_profile(profile)
+                            # Re-load profile to avoid overwriting newer quota counts
+                            fresh_resp = await services.db.load_user_profile(_uid)
+                            if fresh_resp and fresh_resp.profile:
+                                fresh_resp.profile.clinical = updated_clinical
+                                await services.db.save_user_profile(fresh_resp.profile)
+                            else:
+                                profile.clinical = updated_clinical
+                                await services.db.save_user_profile(profile)
                         except Exception as ext_exc:
                             logger.error("Clinical extraction failed for %s: %s", _req_id, ext_exc)
 
                     asyncio.create_task(run_extraction())
-                else:
-                    # Save quota increment even if not running extraction
-                    if authenticated and not quota_exceeded:
-                        asyncio.create_task(services.db.save_user_profile(profile))
 
             except Exception as exc:
                 yield f"data: {json.dumps({'error': str(exc)})}\n\n"
