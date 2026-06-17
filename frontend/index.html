@@ -661,6 +661,22 @@
         </div>
     </div>
 
-    <script type="module" src="./js/app.js"></script>
+    <!-- Safety-net: remove loading screen if bootstrap fails or takes too long -->
+    <script>
+    (function(){
+        var SAFETY_TIMEOUT_MS = 12000;
+        var timer = setTimeout(function(){
+            var loader = document.getElementById('global-loader');
+            if (loader) {
+                console.warn('[MindPal] Safety-net: removing loading screen after timeout');
+                loader.style.opacity = '0';
+                setTimeout(function(){ loader.remove(); }, 700);
+            }
+        }, SAFETY_TIMEOUT_MS);
+        // Allow bootstrap to cancel this timer
+        window.__mindpalLoaderTimer = timer;
+    })();
+    </script>
+    <script type="module" src="./js/app.js" onerror="console.error('[MindPal] app.js failed to load');var l=document.getElementById('global-loader');if(l){l.style.opacity='0';setTimeout(function(){l.remove()},700)}"></script>
 </body>
 </html>
