@@ -13,6 +13,14 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   },
   memoryEnabled: true,
   improveProduct: false,
+  personalization: {
+    baseTone: "balanced",
+    directness: "high",
+    egyptianArabic: "auto",
+    cognitiveStructure: false,
+    fastAnswers: false,
+    customInstructions: "",
+  },
 });
 
 let appSettings = normalizeSettings(loadRawSettings());
@@ -80,8 +88,8 @@ export function buildProfilePreferencesPatch() {
 
   return {
     locale: settings.language,
-    communication_style: settings.personalization.baseTone,
-    custom_instructions: settings.personalization.customInstructions,
+    communication_style: settings.personalization?.baseTone || "balanced",
+    custom_instructions: settings.personalization?.customInstructions || "",
     ui_settings: settings,
   };
 }
@@ -144,8 +152,16 @@ function normalizeSettings(value) {
   merged.improveProduct = Boolean(merged.improveProduct);
   merged.locationEnabled = Boolean(merged.locationEnabled);
 
+  if (!merged.notifications || typeof merged.notifications !== "object") {
+    merged.notifications = {};
+  }
+
   for (const key of Object.keys(DEFAULT_APP_SETTINGS.notifications)) {
     merged.notifications[key] = oneOf(merged.notifications[key], ["off", "in_app", "push"], DEFAULT_APP_SETTINGS.notifications[key]);
+  }
+
+  if (!merged.personalization || typeof merged.personalization !== "object") {
+    merged.personalization = {};
   }
 
   merged.personalization.baseTone = oneOf(merged.personalization.baseTone, ["concise", "balanced", "detailed"], "balanced");
