@@ -504,10 +504,10 @@ def render_system_prompt(policy: PromptPolicy) -> str:
     locale_instruction = f"Language instruction: {_LOCALE_INSTRUCTIONS[policy.locale]}"
 
     if policy.clinical_mode:
-        final_block = (
-            f"{locale_instruction}\n\n"
-            f"{detected_lang}\n\n" if detected_lang else f"{locale_instruction}\n\n"
-        )
+        if detected_lang:
+            final_block = f"{locale_instruction}\n\n{detected_lang}\n\n"
+        else:
+            final_block = f"{locale_instruction}\n\n"
         final_block += (
             "ABSOLUTE FINAL RULE — LANGUAGE: You MUST respond in the EXACT same language and dialect "
             "the user writes in. If they write Arabic, respond in Arabic. If Egyptian dialect, "
@@ -524,10 +524,10 @@ def render_system_prompt(policy: PromptPolicy) -> str:
         )
         sections.append(final_block)
     else:
-        final_block = (
-            f"{locale_instruction}\n\n"
-            f"{detected_lang}\n\n" if detected_lang else f"{locale_instruction}\n\n"
-        )
+        if detected_lang:
+            final_block = f"{locale_instruction}\n\n{detected_lang}\n\n"
+        else:
+            final_block = f"{locale_instruction}\n\n"
         final_block += (
             "ABSOLUTE FINAL RULE — LANGUAGE: You MUST respond in the EXACT same language and dialect "
             "the user writes in. If they write Arabic, respond in Arabic. If Egyptian dialect, "

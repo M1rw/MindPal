@@ -170,11 +170,11 @@ async def chat(
             user_id_hash=context.session.user_id_hash,
             authenticated=authenticated,
             locale=locale,
-            timezone=payload.metadata.timezone or "UTC" if hasattr(payload.metadata, "timezone") else "UTC",
+            timezone=payload.metadata.timezone or "UTC",
             request_id=context.request_id,
             services=services,
             chat_history=[
-                {"role": m.role.value if hasattr(m.role, "value") else str(m.role), "content": m.text}
+                {"role": m.role.value if hasattr(m.role, "value") else str(m.role), "content": m.content}
                 for m in (payload.history or [])
             ],
         )
@@ -193,7 +193,7 @@ async def chat(
             intent_context=intent_context,
             clinical_mode=clinical_mode,
             tool_descriptions=tool_descriptions,
-            user_timezone=payload.metadata.timezone if hasattr(payload.metadata, "timezone") else "UTC",
+            user_timezone=payload.metadata.timezone or "UTC",
         )
 
         # If tools pre-executed, prepend results to user message for context
