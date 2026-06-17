@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
+import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -12,7 +12,10 @@ from typing import Any, Protocol
 from backend.core.config import Settings, get_settings
 from backend.core.errors import AuthError
 from backend.core.security import hash_user_id, normalize_locale, sanitize_text
+from backend.core.settings_helpers import setting_bool, setting_str, setting_secret_str
 from backend.models.user import UserChannel, UserSession
+
+logger = logging.getLogger(__name__)
 
 
 MAX_AUTH_HEADER_CHARS = 8_000
@@ -76,8 +79,8 @@ class FirebaseAuthProvider:
     def __init__(self, *, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
         self.project_id = _firebase_project_id(self.settings)
-        self.app_name = _setting_str(self.settings, "FIREBASE_APP_NAME", "mindpal") or "mindpal"
-        self.check_revoked = _setting_bool(
+        self.app_name = setting_str(self.settings, "FIREBASE_APP_NAME", "mindpal") or "mindpal"
+        self.check_revoked = setting_bool(
             self.settings,
             "FIREBASE_CHECK_REVOKED_TOKENS",
             default=False,
@@ -500,63 +503,29 @@ def _sanitize_metadata(
 
 
 def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return os.getenv(name, default)
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value()
-
-    return value
-
-
-def _setting_str(settings: Settings, name: str, default: str = "") -> str:
-    value = _setting_value(settings, name, default)
-    return sanitize_text(str(value or ""), 1_000)
-
-
-def _setting_secret_str(settings, name, default=""):
-    value = _setting_value(settings, name, default)
-
-    if value is None:
-        return default
-
-    if hasattr(value, "get_secret_value"):
-        value = value.get_secret_value()
-
-    return str(value or default).strip()
-
-def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
-    value = _setting_value(settings, name, None)
-
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+    """Thin wrapper kept for _firebase_* helpers that still need it."""
+    from backend.core.settings_helpers import setting_value
+    return setting_value(settings, name, default)
 
 
 def _firebase_project_id(settings: Settings) -> str:
     return (
-        _setting_str(settings, "FIREBASE_PROJECT_ID")
-        or _setting_str(settings, "GOOGLE_CLOUD_PROJECT")
+        setting_str(settings, "FIREBASE_PROJECT_ID")
+        or setting_str(settings, "GOOGLE_CLOUD_PROJECT")
     )
 
 
 def _firebase_env_present(settings: Settings) -> bool:
     return bool(
-        _setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
-        or _setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
-        or _setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
-        or _setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
+        setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+        or setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
+        or setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
     )
 
 
 def _allow_anonymous_sessions(settings: Settings) -> bool:
-    return _setting_bool(settings, "ALLOW_ANONYMOUS_SESSIONS", default=True)
+    return getattr(settings, "ALLOW_ANONYMOUS_SESSIONS", True)
 
 
 def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> Any:
@@ -565,12 +534,12 @@ def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> An
     except Exception as exc:
         raise RuntimeError("firebase-admin credentials module is unavailable") from exc
 
-    raw_json = _setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
+    raw_json = setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
     credentials_path = (
-        _setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
-        or _setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
+        setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
     )
-    use_adc = _setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
+    use_adc = setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
 
     if raw_json:
         try:

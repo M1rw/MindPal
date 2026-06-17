@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
+import logging
 from collections import defaultdict
 from copy import deepcopy
 from datetime import UTC, datetime
@@ -14,6 +14,7 @@ from typing import Any, Protocol
 from backend.core.config import Settings, get_settings
 from backend.core.errors import DatabaseError
 from backend.core.security import redact_basic_pii, sanitize_text
+from backend.core.settings_helpers import is_production, setting_bool, setting_secret_str, setting_str, setting_value
 from backend.models.memory import (
     MemoryGraph,
     MemoryGraphLoadResult,
@@ -29,6 +30,8 @@ from backend.models.user import (
     UserProfileResponse,
     UserProfileUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 
 MAX_DOCUMENT_KEY_CHARS = 180
@@ -220,7 +223,7 @@ class FirebaseDBProvider:
         if not self.project_id:
             raise RuntimeError("Missing FIREBASE_PROJECT_ID or GOOGLE_CLOUD_PROJECT")
 
-        app_name = _setting_str(self.settings, "FIREBASE_APP_NAME", "mindpal") or "mindpal"
+        app_name = setting_str(self.settings, "FIREBASE_APP_NAME", "mindpal") or "mindpal"
 
         if app_name in firebase_admin._apps:
             app = firebase_admin.get_app(app_name)
@@ -318,7 +321,7 @@ class DBService:
         settings: Settings | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.production_mode = _is_production(self.settings)
+        self.production_mode = is_production(self.settings)
         self.firebase_init_error: str | None = None
 
         if provider is not None and provider.is_configured:
@@ -635,68 +638,23 @@ class DBService:
         }
 
 
-def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return os.getenv(name, default)
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value()
-
-    return value
-
-
-def _setting_str(settings: Settings, name: str, default: str = "") -> str:
-    value = _setting_value(settings, name, default)
-    return sanitize_text(str(value or ""), 1_000)
-
-
-def _setting_secret_str(settings, name, default=""):
-    value = _setting_value(settings, name, default)
-
-    if value is None:
-        return default
-
-    if hasattr(value, "get_secret_value"):
-        value = value.get_secret_value()
-
-    return str(value or default).strip()
-
-def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
-    value = _setting_value(settings, name, None)
-
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _is_production(settings: Settings) -> bool:
-    environment = _setting_str(settings, "ENVIRONMENT", "development").lower()
-    return environment in {"production", "prod"}
-
-
 def _firebase_project_id(settings: Settings) -> str:
     return (
-        _setting_str(settings, "FIREBASE_PROJECT_ID")
-        or _setting_str(settings, "GOOGLE_CLOUD_PROJECT")
+        setting_str(settings, "FIREBASE_PROJECT_ID")
+        or setting_str(settings, "GOOGLE_CLOUD_PROJECT")
     )
 
 
 def _firestore_database_id(settings: Settings) -> str:
-    return _setting_str(settings, "FIRESTORE_DATABASE_ID", "default") or "default"
+    return setting_str(settings, "FIRESTORE_DATABASE_ID", "default") or "default"
 
 
 def _firebase_env_present(settings: Settings) -> bool:
     return bool(
-        _setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
-        or _setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
-        or _setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
-        or _setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
+        setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+        or setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
+        or setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
     )
 
 
@@ -706,12 +664,12 @@ def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> An
     except Exception as exc:
         raise RuntimeError("firebase-admin credentials module is unavailable") from exc
 
-    raw_json = _setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
+    raw_json = setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
     credentials_path = (
-        _setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
-        or _setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
+        setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
     )
-    use_adc = _setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
+    use_adc = setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
 
     if raw_json:
         try:
@@ -819,3 +777,4 @@ def _clean_key(value: str) -> str:
 
 def _utcnow_iso() -> str:
     return datetime.now(UTC).isoformat()
+

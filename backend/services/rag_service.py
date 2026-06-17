@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import math
-import os
+import logging
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -16,8 +16,11 @@ from backend.core.config import Settings, get_settings
 from backend.core.errors import RAGError
 from backend.core.prompts import VALID_RAG_TAGS
 from backend.core.security import normalize_locale, safe_truncate, sanitize_text
+from backend.core.settings_helpers import is_production, setting_bool, setting_value
 from backend.models.chat import RagReference
 from backend.services.llm_service import LLMService, build_llm_request
+
+logger = logging.getLogger(__name__)
 
 
 MAX_QUERY_CHARS = 2_000
@@ -202,14 +205,14 @@ class RAGService:
         allow_offline_llm_planner: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.production_mode = _is_production(self.settings)
+        self.production_mode = is_production(self.settings)
 
         self.corpus_dir = corpus_dir or DEFAULT_CORPUS_DIR
         self.corpus_dirs = _unique_paths((self.corpus_dir, CLINICAL_FRAMEWORKS_DIR))
         self.llm_service = llm_service
 
         self.enable_llm_planning = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ENABLE_LLM_RAG_PLANNING",
                 default=True,
@@ -219,7 +222,7 @@ class RAGService:
         )
 
         self.use_builtin_fallback = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ENABLE_BUILTIN_RAG_FALLBACK",
                 default=not self.production_mode,
@@ -229,7 +232,7 @@ class RAGService:
         )
 
         self.allow_builtin_fallback_in_production = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ALLOW_BUILTIN_RAG_FALLBACK_IN_PRODUCTION",
                 default=False,
@@ -239,7 +242,7 @@ class RAGService:
         )
 
         self.allow_offline_llm_planner = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ALLOW_OFFLINE_LLM_RAG_PLANNER",
                 default=False,
@@ -982,36 +985,6 @@ class RAGService:
             seen.add(unit.grounding_id)
 
 
-def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return os.getenv(name, default)
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value()
-
-    return value
-
-
-def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
-    value = _setting_value(settings, name, None)
-
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _is_production(settings: Settings) -> bool:
-    value = _setting_value(settings, "ENVIRONMENT", "development")
-    environment = sanitize_text(str(value or "development"), 80).lower()
-    return environment in {"production", "prod"}
-
-
 def _clean_provider_name(value: str) -> str:
     return sanitize_text(str(value or ""), 80).lower() or "unknown"
 
@@ -1408,3 +1381,4 @@ def _builtin_units() -> tuple[GroundingUnit, ...]:
             tags=("emotion_labeling", "emotion_regulation", "reflection"),
         ),
     )
+

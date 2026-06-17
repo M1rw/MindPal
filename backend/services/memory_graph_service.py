@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+import json
+import logging
 import re
 from datetime import UTC, datetime
 from typing import Any
 
-from backend.services.llm_service import LLMService, build_llm_request
-import json
-
-
 from backend.core.security import sanitize_text
+from backend.services.llm_service import LLMService, build_llm_request
 from backend.models.memory import (
     MemoryAtom,
     MemoryCategory,
@@ -24,6 +23,8 @@ from backend.models.memory import (
     normalize_memory_value,
     summary_from_memory_graph,
 )
+
+logger = logging.getLogger(__name__)
 
 
 TOMBSTONE_RECREATE_HOURS = 24

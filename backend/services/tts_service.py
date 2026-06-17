@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
-import os
+import logging
 from dataclasses import asdict, dataclass
 from typing import Any, Protocol
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError, ValidationAppError
 from backend.core.security import normalize_locale, sanitize_text
+from backend.core.settings_helpers import is_production, setting_bool, setting_float, setting_value
 from backend.models.schemas import TTSFormat, TTSRequest, TTSResponse
+
+logger = logging.getLogger(__name__)
 
 
 MAX_TTS_TEXT_CHARS = 4_000
@@ -118,11 +121,11 @@ class TTSService:
         allow_browser_fallback_in_production: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.production_mode = _is_production(self.settings)
+        self.production_mode = is_production(self.settings)
         self.timeout_seconds = float(
             timeout_seconds
             if timeout_seconds is not None
-            else _setting_float(
+            else setting_float(
                 self.settings,
                 "TTS_TIMEOUT_SECONDS",
                 default=DEFAULT_TIMEOUT_SECONDS,
@@ -130,7 +133,7 @@ class TTSService:
         )
 
         self.require_external_provider = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "REQUIRE_EXTERNAL_TTS_PROVIDER",
                 default=False,
@@ -140,7 +143,7 @@ class TTSService:
         )
 
         self.allow_browser_fallback_in_production = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ALLOW_BROWSER_TTS_IN_PRODUCTION",
                 default=True,
@@ -150,7 +153,7 @@ class TTSService:
         )
 
         should_include_browser_fallback = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ENABLE_BROWSER_TTS_FALLBACK",
                 default=True,
@@ -576,41 +579,3 @@ def _clean_provider_name(value: str) -> str:
 def _is_last_provider(provider: TTSProvider, providers: tuple[TTSProvider, ...]) -> bool:
     return provider is providers[-1]
 
-
-def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return os.getenv(name, default)
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value()
-
-    return value
-
-
-def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
-    value = _setting_value(settings, name, None)
-
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _setting_float(settings: Settings, name: str, *, default: float) -> float:
-    value = _setting_value(settings, name, default)
-
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _is_production(settings: Settings) -> bool:
-    value = _setting_value(settings, "ENVIRONMENT", "development")
-    environment = sanitize_text(str(value or "development"), 80).lower()
-    return environment in {"production", "prod"}

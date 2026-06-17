@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +15,10 @@ import yaml
 from backend.core.config import Settings, get_settings
 from backend.core.errors import SafetyError
 from backend.core.security import Locale, normalize_locale, safe_truncate, sanitize_text
+from backend.core.settings_helpers import is_production, setting_bool, setting_value
 from backend.services.llm_service import LLMService, build_llm_request
+
+logger = logging.getLogger(__name__)
 
 
 MAX_OUTPUT_TEXT_CHARS = 12_000
@@ -157,13 +160,13 @@ class OutputGuardService:
         allow_offline_llm_rewrite: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.production_mode = _is_production(self.settings)
+        self.production_mode = is_production(self.settings)
 
         self.safety_dir = safety_dir or Path(__file__).resolve().parents[1] / "safety"
         self.llm_service = llm_service
 
         self.enable_llm_rewrite = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ENABLE_LLM_OUTPUT_REWRITE",
                 default=True,
@@ -173,7 +176,7 @@ class OutputGuardService:
         )
 
         self.allow_offline_llm_rewrite = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ALLOW_OFFLINE_LLM_OUTPUT_REWRITE",
                 default=False,
@@ -927,36 +930,6 @@ class OutputGuardService:
         return action  # type: ignore[return-value]
 
 
-def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return os.getenv(name, default)
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value()
-
-    return value
-
-
-def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
-    value = _setting_value(settings, name, None)
-
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _is_production(settings: Settings) -> bool:
-    value = _setting_value(settings, "ENVIRONMENT", "development")
-    environment = sanitize_text(str(value or "development"), 80).lower()
-    return environment in {"production", "prod"}
-
-
 def _clean_provider_name(value: str) -> str:
     return sanitize_text(str(value or ""), 80).lower() or "unknown"
 
@@ -1056,3 +1029,4 @@ def _extract_json_object(text: str) -> str:
         "Output guard rewrite JSON object was incomplete",
         code="output_guard_rewrite_invalid_json",
     )
+
