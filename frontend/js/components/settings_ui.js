@@ -44,7 +44,7 @@ const SETTINGS_SELECTS = {
   },
   Language: {
     path: "language",
-    options: [["auto", "Auto-detect"], ["en", "English"], ["ar-EG", "Egyptian Arabic"]],
+    options: [["auto", "Auto-detect"], ["en", "English"], ["ar-EG", "Arabic"]],
   },
   "Response complete": {
     path: "notifications.responseComplete",
