@@ -8,6 +8,9 @@ Security:
 - API keys sent via headers, never in URL query strings
 - Authentication required on all endpoints that consume LLM quota
 - Error messages are sanitized (no raw exception text)
+
+Business logic lives in backend/tools/voice_tools.py.
+This router is a thin HTTP wrapper.
 """
 
 from __future__ import annotations
@@ -15,14 +18,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import httpx
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api.dependencies import RequestContextDep, ServicesDep
 from backend.core.config import get_settings
-from backend.core.llm_utils import quick_llm_generate
 from backend.core.security import sanitize_text
+from backend.tools import ToolContext
+from backend.tools.voice_tools import VoiceSummarizeTool, VoiceTranscribeTool
 
 
 logger = logging.getLogger(__name__)
@@ -33,13 +36,9 @@ MAX_AUDIO_BASE64_CHARS = 15_000_000  # ~10MB of audio after base64 encoding
 MAX_TRANSCRIPT_CHARS = 4_000
 MAX_MIME_TYPE_CHARS = 80
 
-# Preferred Gemini models for audio transcription (ordered by preference).
-_TRANSCRIPTION_MODELS = [
-    "models/gemini-2.0-flash",
-    "models/gemini-1.5-flash",
-    "models/gemini-1.5-flash-latest",
-    "models/gemini-1.5-pro",
-]
+# Lazy singleton tool instances
+_summarize_tool = VoiceSummarizeTool()
+_transcribe_tool = VoiceTranscribeTool()
 
 
 class TranscribeRequest(BaseModel):
@@ -102,96 +101,32 @@ async def transcribe_audio(
     """
     _require_authenticated(context)
 
-    settings = get_settings()
-    api_key = _get_gemini_key(settings)
+    tool_context = ToolContext(
+        user_id_hash=context.session.user_id_hash,
+        authenticated=context.session.authenticated,
+        locale=context.locale,
+        request_id=context.request_id,
+        services=services,
+    )
 
-    if not api_key:
+    result = await _transcribe_tool.execute(
+        {"audio_base64": payload.audio_base64, "mime_type": payload.mime_type},
+        tool_context,
+    )
+
+    if not result.ok:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=status.HTTP_502_BAD_GATEWAY,
             detail={
-                "code": "gemini_not_configured",
-                "message": "Audio transcription service is not available",
+                "code": "transcription_failed",
+                "message": result.error or "Audio transcription failed. Please try again.",
                 "request_id": context.request_id,
             },
         )
 
-    prompt = (
-        "Transcribe this audio precisely in the exact original language(s) spoken. "
-        "CRITICAL: DO NOT translate the audio to English. If the user speaks in Arabic, transcribe in Arabic. "
-        "If multiple languages are spoken, transcribe each part in its respective language. "
-        "Do not answer the audio. Do not add any text other than the transcription itself."
-    )
-
-    gemini_payload = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "inlineData": {
-                            "mimeType": payload.mime_type,
-                            "data": payload.audio_base64,
-                        }
-                    },
-                    {"text": prompt},
-                ],
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.1,
-            "maxOutputTokens": 1024,
-        },
-    }
-
-    async with httpx.AsyncClient(timeout=45.0) as client:
-        for model in _TRANSCRIPTION_MODELS:
-            url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent"
-            try:
-                response = await client.post(
-                    url,
-                    headers={
-                        "Content-Type": "application/json",
-                        "x-goog-api-key": api_key,
-                    },
-                    json=gemini_payload,
-                )
-                if response.status_code == 404:
-                    continue
-                response.raise_for_status()
-
-                data = response.json()
-                candidates = data.get("candidates")
-                if not candidates:
-                    return TranscribeResponse(text="", request_id=context.request_id)
-
-                parts = candidates[0].get("content", {}).get("parts", [])
-                text = "".join(part.get("text", "") for part in parts).strip()
-
-                return TranscribeResponse(text=text, request_id=context.request_id)
-
-            except httpx.HTTPStatusError as exc:
-                logger.warning(
-                    "Gemini transcription model %s returned HTTP %d",
-                    model,
-                    exc.response.status_code,
-                )
-                continue
-            except Exception as exc:
-                logger.debug(
-                    "Gemini transcription model %s failed: %s",
-                    model,
-                    type(exc).__name__,
-                )
-                continue
-
-    # All models failed
-    logger.error("All Gemini transcription models failed for request %s", context.request_id)
-    raise HTTPException(
-        status_code=status.HTTP_502_BAD_GATEWAY,
-        detail={
-            "code": "transcription_failed",
-            "message": "Audio transcription failed. Please try again.",
-            "request_id": context.request_id,
-        },
+    return TranscribeResponse(
+        text=result.data.get("text", ""),
+        request_id=context.request_id,
     )
 
 
@@ -208,35 +143,23 @@ async def summarize_call(
     """
     _require_authenticated(context)
 
-    transcript_parts: list[str] = []
-    if payload.user_transcript:
-        transcript_parts.append(f"User: {payload.user_transcript}")
-    if payload.ai_transcript:
-        transcript_parts.append(f"AI: {payload.ai_transcript}")
-    transcript = "\n".join(transcript_parts)
-
-    if not transcript.strip():
-        return {"summary": "Voice call", "request_id": context.request_id}
-
-    prompt = (
-        "Write a 1-sentence summary of this voice call. "
-        "Keep it under 15 words. Be natural and concise. "
-        "Respond in the same language used in the conversation:\n\n"
-        + transcript
+    tool_context = ToolContext(
+        user_id_hash=context.session.user_id_hash,
+        authenticated=context.session.authenticated,
+        locale=context.locale,
+        request_id=context.request_id,
+        services=services,
     )
 
-    try:
-        summary = await quick_llm_generate(prompt, max_tokens=60, temperature=0.2)
-        return {
-            "summary": summary or "Voice call",
-            "request_id": context.request_id,
-        }
-    except Exception:
-        logger.exception("Voice call summarization failed for request %s", context.request_id)
-        return {
-            "summary": "Voice call",
-            "request_id": context.request_id,
-        }
+    result = await _summarize_tool.execute(
+        {"user_transcript": payload.user_transcript, "ai_transcript": payload.ai_transcript},
+        tool_context,
+    )
+
+    return {
+        "summary": result.data.get("summary", "Voice call"),
+        "request_id": context.request_id,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════

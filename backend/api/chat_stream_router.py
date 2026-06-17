@@ -39,6 +39,8 @@ from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
 from backend.services.telemetry_service import TelemetryService
 from backend.services.clinical_extractor import extract_clinical_profile
+from backend.tools import ToolContext, build_default_registry
+from backend.api.chat_router import _pre_execute_tools
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["chat_stream"])
 
 CLINICAL_EXTRACTION_TIMEOUT_SECONDS = 30.0
+
+# Lazy singleton tool registry
+_tool_registry = None
+
+
+def _get_tool_registry():
+    global _tool_registry
+    if _tool_registry is None:
+        _tool_registry = build_default_registry()
+    return _tool_registry
 
 
 @router.post("/chat/stream")
@@ -142,6 +154,24 @@ async def chat_stream(
             max_results=4,
         )
 
+        # ─── Tool context + pre-execution ───
+        registry = _get_tool_registry()
+        tool_descriptions = registry.get_tool_descriptions_prompt()
+        tool_context = ToolContext(
+            user_id_hash=context.session.user_id_hash,
+            authenticated=authenticated,
+            locale=locale,
+            timezone=payload.metadata.timezone or "UTC" if hasattr(payload.metadata, "timezone") else "UTC",
+            request_id=context.request_id,
+            services=services,
+            chat_history=[
+                {"role": m.role.value if hasattr(m.role, "value") else str(m.role), "content": m.text}
+                for m in (payload.history or [])
+            ],
+        )
+
+        tool_results_text = await _pre_execute_tools(payload.message, registry, tool_context)
+
         system_prompt = build_system_prompt(
             memory_prompt,
             list(rag_result.prompt_grounding),
@@ -150,16 +180,28 @@ async def chat_stream(
             safety_level=safety_decision.level.value,
             channel=context.channel.value,
             user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
+            intent_context=intent_context,
             clinical_mode=clinical_mode,
+            tool_descriptions=tool_descriptions,
+            user_timezone=payload.metadata.timezone if hasattr(payload.metadata, "timezone") else "UTC",
         )
+
+        effective_message = payload.message
+        if tool_results_text:
+            effective_message = (
+                f"[Tool results for your reference — do not expose this block to the user]\n"
+                f"{tool_results_text}\n"
+                f"[End tool results]\n\n"
+                f"{payload.message}"
+            )
 
         llm_request = build_llm_request(
             request_id=context.request_id,
             system_prompt=system_prompt,
-            user_message=payload.message,
+            user_message=effective_message,
             history=_convert_history(payload),
             temperature=0.3 if clinical_mode else 0.4,
-            max_output_tokens=1800 if clinical_mode else 900,
+            max_output_tokens=1800 if clinical_mode else 1200,
             metadata={
                 "route": "chat_stream",
                 "locale": locale,
@@ -170,6 +212,7 @@ async def chat_stream(
                 "history_count": len(payload.history or []),
                 "mode_preference": user_preference,
                 "intent_situation_type": intent_context.get("situation_type"),
+                "tools_pre_executed": bool(tool_results_text),
             },
         )
 
