@@ -1,5 +1,38 @@
 import { formatMarkdown } from "./dom.js";
 import { escapeHtml } from "../ui_state.js";
+
+/**
+ * Detect and truncate LLM repetition loops.
+ * Splits text on sentence boundaries and allows each unique sentence at most
+ * twice. This catches the common LLM failure mode of repeating the same
+ * phrase dozens of times (especially in Arabic/RTL text).
+ */
+export function truncateRepetition(text) {
+  if (!text || text.length < 80) return text;
+
+  // Split on sentence-ending punctuation (., ?, !, ؟) while keeping the delimiter
+  const sentences = text.split(/(?<=[.\n\u061F?!])\s*/);
+  if (sentences.length < 4) return text;
+
+  const seen = new Map();
+  const out = [];
+
+  for (const sentence of sentences) {
+    const key = sentence.trim().toLowerCase();
+    if (!key) { out.push(sentence); continue; }
+
+    const count = (seen.get(key) || 0) + 1;
+    seen.set(key, count);
+
+    // Allow up to 2 occurrences, drop the rest
+    if (count <= 2) {
+      out.push(sentence);
+    }
+  }
+
+  return out.join(" ");
+}
+
 export function timelineItem(title, body, icon, bodyIsHtml = false) {
   return `
     <div class="relative">
@@ -164,14 +197,17 @@ function parseAgentChainResponse(text) {
 }
 
 export function processStructuredResponse(text, elapsedMs = null) {
+  // Truncate any LLM repetition loops before processing
+  const cleanText = truncateRepetition(text) || text;
+
   // First, try the agent chain format: **Thought:** ... **Response:**/**Balanced Reframe:**
-  const agentChain = parseAgentChainResponse(text);
+  const agentChain = parseAgentChainResponse(cleanText);
   if (agentChain && agentChain.thoughtContent) {
-    return buildAgentChainResult(agentChain, elapsedMs, text);
+    return buildAgentChainResult(agentChain, elapsedMs, cleanText);
   }
 
   // Fall back to cognitive sections parser (Thought/Distortion/Evidence/Reframe/Action)
-  const sections = parseCognitiveSections(text);
+  const sections = parseCognitiveSections(cleanText);
 
   // Only build a timeline dropdown if we actually have thinking logic to show
   const hasTimelineItems = Boolean(
@@ -184,7 +220,7 @@ export function processStructuredResponse(text, elapsedMs = null) {
   if (!hasTimelineItems) {
     return {
       timelineHtml: "",
-      finalHtml: formatMarkdown(text),
+      finalHtml: formatMarkdown(cleanText),
     };
   }
 

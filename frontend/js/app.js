@@ -66,7 +66,7 @@ import {
   bindAccordion,
 } from "./utils/dom.js";
 
-import { processStructuredResponse } from "./utils/chat_helpers.js";
+import { processStructuredResponse, truncateRepetition } from "./utils/chat_helpers.js";
 import { speakText, fallbackCopy, isSafetyLock, isCrisisReply, resolveLocale } from "./utils/tts.js";
 
 import {
@@ -1003,7 +1003,7 @@ async function handleSend() {
       },
     });
 
-    const reply = streamResponseStr.trim();
+    const reply = truncateRepetition(streamResponseStr.trim()) || streamResponseStr.trim();
     if (!reply) throw new Error("Backend returned empty reply.");
 
     // Record message credit (client-side tracking for guests)
@@ -1500,7 +1500,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       },
     });
 
-    const reply = streamResponseStr.trim();
+    const reply = truncateRepetition(streamResponseStr.trim()) || streamResponseStr.trim();
     if (!reply) throw new Error("Backend returned empty reply.");
 
     if (isSafetyLock(backendMetaFinal)) isSessionLocked = true;
