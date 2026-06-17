@@ -898,8 +898,8 @@ async function handleSend() {
 
         // Finalize the "Thinking..." indicator when the response delimiter appears
         if (!firstChunkReceived) {
-          const hasDelimiter = /\*{2}\s*(?:Response|Balanced\s+Reframe)\s*:?\s*\*{2}/i.test(streamResponseStr)
-            || /\n\s*(?:Response|Balanced\s+Reframe)\s*:\s*/i.test(streamResponseStr);
+          const hasDelimiter = /\*{2}\s*(?:Response|Balanced\s*Reframe)\s*:?\s*\*{2}/i.test(streamResponseStr)
+            || /(?:\n|^)\s*(?:Response|Balanced\s*Reframe)\s*:\s*/i.test(streamResponseStr);
           if (hasDelimiter) {
             firstChunkReceived = true;
             finalizeStatusIndicator(statusId, performance.now() - streamStartTime);
@@ -1415,8 +1415,8 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
         // Finalize the "Thinking..." indicator when the response delimiter appears
         if (!firstChunkReceived) {
-          const hasDelimiter = /\*{2}\s*(?:Response|Balanced\s+Reframe)\s*:?\s*\*{2}/i.test(streamResponseStr)
-            || /\n\s*(?:Response|Balanced\s+Reframe)\s*:\s*/i.test(streamResponseStr);
+          const hasDelimiter = /\*{2}\s*(?:Response|Balanced\s*Reframe)\s*:?\s*\*{2}/i.test(streamResponseStr)
+            || /(?:\n|^)\s*(?:Response|Balanced\s*Reframe)\s*:\s*/i.test(streamResponseStr);
           if (hasDelimiter) {
             firstChunkReceived = true;
             finalizeStatusIndicator(statusId, performance.now() - streamStartTime);
