@@ -214,6 +214,9 @@ class GroqProvider:
             "temperature": max(0.0, min(float(request.temperature), 2.0)),
             "max_tokens": max(1, min(int(request.max_output_tokens), 8192)),
             "stream": False,
+            # Prevent LLM repetition loops — especially critical for non-English text
+            "frequency_penalty": 0.3,
+            "presence_penalty": 0.1,
         }
 
         stop_sequences = request.metadata.get("stop_sequences") if request.metadata else None
