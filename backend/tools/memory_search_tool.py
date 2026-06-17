@@ -14,7 +14,7 @@ import logging
 from typing import Any
 
 from backend.core.security import sanitize_text
-from backend.models.memory import MemoryGraph, summary_from_memory_graph
+from backend.models.memory import MemoryGraph
 from backend.tools import BaseTool, ToolContext, ToolResult
 
 logger = logging.getLogger(__name__)
