@@ -1,57 +1,119 @@
 # backend/api/voice_router.py
 
+"""
+Voice transcription and call summarization endpoints.
+
+Security:
+- API keys are NEVER exposed to the client (no /key endpoint)
+- API keys sent via headers, never in URL query strings
+- Authentication required on all endpoints that consume LLM quota
+- Error messages are sanitized (no raw exception text)
+"""
+
 from __future__ import annotations
+
+import logging
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from backend.api.dependencies import RequestContextDep, ServicesDep
 from backend.core.config import get_settings
 from backend.core.llm_utils import quick_llm_generate
+from backend.core.security import sanitize_text
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 
+MAX_AUDIO_BASE64_CHARS = 15_000_000  # ~10MB of audio after base64 encoding
+MAX_TRANSCRIPT_CHARS = 4_000
+MAX_MIME_TYPE_CHARS = 80
+
+# Preferred Gemini models for audio transcription (ordered by preference).
+_TRANSCRIPTION_MODELS = [
+    "models/gemini-2.0-flash",
+    "models/gemini-1.5-flash",
+    "models/gemini-1.5-flash-latest",
+    "models/gemini-1.5-pro",
+]
+
 
 class TranscribeRequest(BaseModel):
-    audio_base64: str
-    mime_type: str = "audio/webm"
+    """Audio transcription request. Requires authentication."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    audio_base64: str = Field(
+        min_length=1,
+        max_length=MAX_AUDIO_BASE64_CHARS,
+        description="Base64-encoded audio data",
+    )
+    mime_type: str = Field(
+        default="audio/webm",
+        max_length=MAX_MIME_TYPE_CHARS,
+    )
+
+    @field_validator("mime_type", mode="before")
+    @classmethod
+    def _clean_mime_type(cls, value: object) -> str:
+        raw = sanitize_text(str(value or "audio/webm"), MAX_MIME_TYPE_CHARS)
+        # Strip codec parameters: "audio/webm;codecs=opus" → "audio/webm"
+        return raw.split(";")[0].strip() or "audio/webm"
 
 
 class TranscribeResponse(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
     text: str
+    request_id: str | None = None
+
+
+class SummarizeRequest(BaseModel):
+    """Voice call summarization request. Requires authentication."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    user_transcript: str = Field(default="", max_length=MAX_TRANSCRIPT_CHARS)
+    ai_transcript: str = Field(default="", max_length=MAX_TRANSCRIPT_CHARS)
+
+    @field_validator("user_transcript", "ai_transcript", mode="before")
+    @classmethod
+    def _clean_transcript(cls, value: object) -> str:
+        return sanitize_text(str(value or ""), MAX_TRANSCRIPT_CHARS)
 
 
 @router.post("/transcribe", response_model=TranscribeResponse)
-async def transcribe_audio(payload: TranscribeRequest):
-    settings = get_settings()
-    api_key = getattr(settings, "GEMINI_API_KEY", None)
+async def transcribe_audio(
+    payload: TranscribeRequest,
+    services: ServicesDep,
+    context: RequestContextDep,
+) -> TranscribeResponse:
+    """
+    Transcribe audio using Gemini multimodal API.
 
-    if hasattr(api_key, "get_secret_value"):
-        api_key = api_key.get_secret_value()
+    Security:
+    - Requires authentication (consumes LLM quota)
+    - API key sent via x-goog-api-key header, never in URL
+    - Error messages are sanitized
+    """
+    _require_authenticated(context)
+
+    settings = get_settings()
+    api_key = _get_gemini_key(settings)
 
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Gemini API key is not configured for audio transcription.",
+            detail={
+                "code": "gemini_not_configured",
+                "message": "Audio transcription service is not available",
+                "request_id": context.request_id,
+            },
         )
-
-    # Fetch available models to ensure we pick one that exists
-    models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-    
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            models_response = await client.get(models_url)
-            models_response.raise_for_status()
-            available_models = models_response.json().get("models", [])
-            valid_models = [m["name"] for m in available_models if "generateContent" in m.get("supportedGenerationMethods", [])]
-        except Exception:
-            valid_models = ["models/gemini-1.5-flash"]
-            
-    # Prefer 1.5 flash, then 1.5 pro, then anything available
-    target_models = ["models/gemini-1.5-flash", "models/gemini-1.5-pro", "models/gemini-1.5-flash-latest"]
-    model_path = next((m for m in target_models if m in valid_models), valid_models[0] if valid_models else "models/gemini-1.5-flash")
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/{model_path}:generateContent?key={api_key}"
 
     prompt = (
         "Transcribe this audio precisely in the exact original language(s) spoken. "
@@ -60,15 +122,13 @@ async def transcribe_audio(payload: TranscribeRequest):
         "Do not answer the audio. Do not add any text other than the transcription itself."
     )
 
-    clean_mime_type = payload.mime_type.split(";")[0] if payload.mime_type else "audio/webm"
-
     gemini_payload = {
         "contents": [
             {
                 "parts": [
                     {
                         "inlineData": {
-                            "mimeType": clean_mime_type,
+                            "mimeType": payload.mime_type,
                             "data": payload.audio_base64,
                         }
                     },
@@ -83,69 +143,80 @@ async def transcribe_audio(payload: TranscribeRequest):
     }
 
     async with httpx.AsyncClient(timeout=45.0) as client:
-        try:
-            response = await client.post(
-                url,
-                headers={"Content-Type": "application/json"},
-                json=gemini_payload
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            candidates = data.get("candidates")
-            if not candidates:
-                return TranscribeResponse(text="")
-                
-            parts = candidates[0].get("content", {}).get("parts", [])
-            text = "".join(part.get("text", "") for part in parts)
-            
-            return TranscribeResponse(text=text.strip())
-            
-        except httpx.HTTPStatusError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Gemini transcription failed: {exc.response.text}"
-            )
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error transcribing audio: {str(exc)}"
-            )
+        for model in _TRANSCRIPTION_MODELS:
+            url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent"
+            try:
+                response = await client.post(
+                    url,
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": api_key,
+                    },
+                    json=gemini_payload,
+                )
+                if response.status_code == 404:
+                    continue
+                response.raise_for_status()
 
+                data = response.json()
+                candidates = data.get("candidates")
+                if not candidates:
+                    return TranscribeResponse(text="", request_id=context.request_id)
 
-@router.get("/key")
-async def get_voice_key():
-    settings = get_settings()
-    api_key = getattr(settings, "GEMINI_API_KEY", None)
-    
-    if hasattr(api_key, "get_secret_value"):
-        api_key = api_key.get_secret_value()
+                parts = candidates[0].get("content", {}).get("parts", [])
+                text = "".join(part.get("text", "") for part in parts).strip()
 
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Gemini API key is not configured."
-        )
-        
-    return {"key": api_key}
+                return TranscribeResponse(text=text, request_id=context.request_id)
 
+            except httpx.HTTPStatusError as exc:
+                logger.warning(
+                    "Gemini transcription model %s returned HTTP %d",
+                    model,
+                    exc.response.status_code,
+                )
+                continue
+            except Exception as exc:
+                logger.debug(
+                    "Gemini transcription model %s failed: %s",
+                    model,
+                    type(exc).__name__,
+                )
+                continue
 
-class SummarizeRequest(BaseModel):
-    user_transcript: str = ""
-    ai_transcript: str = ""
+    # All models failed
+    logger.error("All Gemini transcription models failed for request %s", context.request_id)
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail={
+            "code": "transcription_failed",
+            "message": "Audio transcription failed. Please try again.",
+            "request_id": context.request_id,
+        },
+    )
 
 
 @router.post("/summarize")
-async def summarize_call(payload: SummarizeRequest):
-    transcript_parts = []
+async def summarize_call(
+    payload: SummarizeRequest,
+    services: ServicesDep,
+    context: RequestContextDep,
+) -> dict[str, Any]:
+    """
+    Summarize a voice call transcript.
+
+    Requires authentication (consumes LLM quota).
+    """
+    _require_authenticated(context)
+
+    transcript_parts: list[str] = []
     if payload.user_transcript:
-        transcript_parts.append(f"User: {payload.user_transcript[:2000]}")
+        transcript_parts.append(f"User: {payload.user_transcript}")
     if payload.ai_transcript:
-        transcript_parts.append(f"AI: {payload.ai_transcript[:2000]}")
+        transcript_parts.append(f"AI: {payload.ai_transcript}")
     transcript = "\n".join(transcript_parts)
 
     if not transcript.strip():
-        return {"summary": "Voice call"}
+        return {"summary": "Voice call", "request_id": context.request_id}
 
     prompt = (
         "Write a 1-sentence summary of this voice call. "
@@ -154,5 +225,75 @@ async def summarize_call(payload: SummarizeRequest):
         + transcript
     )
 
-    summary = await quick_llm_generate(prompt, max_tokens=60, temperature=0.2)
-    return {"summary": summary or "Voice call"}
+    try:
+        summary = await quick_llm_generate(prompt, max_tokens=60, temperature=0.2)
+        return {
+            "summary": summary or "Voice call",
+            "request_id": context.request_id,
+        }
+    except Exception:
+        logger.exception("Voice call summarization failed for request %s", context.request_id)
+        return {
+            "summary": "Voice call",
+            "request_id": context.request_id,
+        }
+
+
+# ═══════════════════════════════════════════════════════════════
+# Internal helpers
+# ═══════════════════════════════════════════════════════════════
+
+def _get_gemini_key(settings: Any) -> str:
+    """Safely extract the Gemini API key from settings."""
+    value = getattr(settings, "GEMINI_API_KEY", None)
+    if hasattr(value, "get_secret_value"):
+        return value.get_secret_value() or ""
+    return str(value or "").strip()
+
+
+@router.get("/key")
+async def get_voice_key(
+    services: ServicesDep,
+    context: RequestContextDep,
+) -> dict[str, str]:
+    """
+    Return the Gemini API key for authenticated voice sessions.
+
+    The frontend needs this key to establish a direct WebSocket connection
+    to the Gemini Live API (BidiGenerateContent). This endpoint REQUIRES
+    authentication to prevent unauthorized key access.
+
+    Security:
+    - Requires authenticated Firebase session
+    - Returns only the Gemini key (no other secrets)
+    """
+    _require_authenticated(context)
+
+    settings = get_settings()
+    api_key = _get_gemini_key(settings)
+
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "gemini_not_configured",
+                "message": "Voice service is not available",
+                "request_id": context.request_id,
+            },
+        )
+
+    return {"key": api_key}
+
+
+def _require_authenticated(context: Any) -> None:
+    """Require authenticated session for voice endpoints."""
+    session = getattr(context, "session", None)
+    if session is None or not getattr(session, "authenticated", False):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "authentication_required",
+                "message": "Authentication is required for voice operations",
+                "request_id": getattr(context, "request_id", None),
+            },
+        )

@@ -1,10 +1,19 @@
 # backend/api/chat_stream_router.py
 
+"""
+SSE streaming chat endpoint.
+
+Reuses shared logic from chat_router for safety, memory, profile loading.
+Streams LLM tokens as Server-Sent Events, then sends metadata as a final event.
+"""
+
 from __future__ import annotations
 
 import asyncio
 import copy
 import json
+import logging
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
@@ -30,12 +39,14 @@ from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
 from backend.services.telemetry_service import TelemetryService
 from backend.services.clinical_extractor import extract_clinical_profile
-import logging
-import time
+
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["chat_stream"])
+
+CLINICAL_EXTRACTION_TIMEOUT_SECONDS = 30.0
+
 
 @router.post("/chat/stream")
 async def chat_stream(
@@ -150,7 +161,7 @@ async def chat_stream(
             temperature=0.3 if clinical_mode else 0.4,
             max_output_tokens=1800 if clinical_mode else 900,
             metadata={
-                "route": "chat",
+                "route": "chat_stream",
                 "locale": locale,
                 "channel": context.channel.value,
                 "authenticated": authenticated,
@@ -165,8 +176,6 @@ async def chat_stream(
         async def stream_generator():
             full_text = []
             try:
-                # We skip output guard rewriting here for streaming,
-                # because we are streaming tokens directly.
                 async for chunk in services.llm.generate_stream(llm_request):
                     full_text.append(chunk)
                     yield f"data: {json.dumps({'text': chunk})}\n\n"
@@ -179,6 +188,7 @@ async def chat_stream(
                 response_memory_graph_snapshot = None
 
                 yield f"data: {json.dumps({'type': 'status', 'status': 'text_finished'})}\n\n"
+
                 if memory_allowed:
                     graph_update = await _persist_memory_graph_inline(
                         payload=payload,
@@ -203,7 +213,7 @@ async def chat_stream(
                     )
 
                 # Final metadata chunk
-                metadata = {
+                metadata: dict[str, Any] = {
                     'type': 'metadata',
                     'provider_used': 'streaming',
                     'fallback_count': 0,
@@ -228,7 +238,7 @@ async def chat_stream(
 
                 yield f"data: {json.dumps(metadata)}\n\n"
 
-                # Telemetry Tracking (Component 4)
+                # Telemetry
                 telemetry = TelemetryService(context.session, profile)
                 if hasattr(rag_result, "references"):
                     telemetry.log_rag_retrieval(
@@ -237,21 +247,18 @@ async def chat_stream(
                         fallback_triggered=False
                     )
                 
-                # We do not have token count for stream currently, so we use string length approximations
                 prompt_tokens_est = len(system_prompt + payload.message) // 4
                 comp_tokens_est = len(final_reply) // 4
                 telemetry.log_llm_usage(provider="streaming", prompt_tokens=prompt_tokens_est, completion_tokens=comp_tokens_est)
                 telemetry.log_latency("chat_stream_full", (time.perf_counter() - start_time) * 1000)
 
-                # Save profile now (captures quota increment) regardless of extraction
+                # Save profile (captures quota increment)
                 if authenticated:
                     await services.db.save_user_profile(profile)
 
-                # TRIGGER CLINICAL EXTRACTION IN BACKGROUND
+                # Clinical extraction in background (with timeout guard)
                 if clinical_mode and authenticated:
-                    # Deep-copy clinical data to avoid race conditions
                     clinical_snapshot = copy.deepcopy(profile.clinical)
-                    # Filter to only user/assistant messages (skip system prompt)
                     extraction_messages = [
                         msg for msg in llm_request.messages
                         if msg.role != LLMRole.SYSTEM
@@ -266,10 +273,13 @@ async def chat_stream(
                         _uid=user_id_hash,
                     ):
                         try:
-                            updated_clinical = await extract_clinical_profile(
-                                llm=services.llm,
-                                messages=_msgs,
-                                current_profile=_clinical,
+                            updated_clinical = await asyncio.wait_for(
+                                extract_clinical_profile(
+                                    llm=services.llm,
+                                    messages=_msgs,
+                                    current_profile=_clinical,
+                                ),
+                                timeout=CLINICAL_EXTRACTION_TIMEOUT_SECONDS,
                             )
                             # Re-load profile to avoid overwriting newer quota counts
                             fresh_resp = await services.db.load_user_profile(_uid)
@@ -280,16 +290,19 @@ async def chat_stream(
                                 profile.clinical = updated_clinical
                                 await services.db.save_user_profile(profile)
                         except Exception as ext_exc:
-                            logger.error("Clinical extraction failed for %s: %s", _req_id, ext_exc)
+                            logger.error("Clinical extraction failed for %s: %s", _req_id, type(ext_exc).__name__)
 
                     asyncio.create_task(run_extraction())
 
-            except Exception as exc:
-                yield f"data: {json.dumps({'error': str(exc)})}\n\n"
+            except Exception:
+                # SECURITY: Never send raw exception text to the client.
+                logger.exception("Stream generation failed for %s", context.request_id)
+                yield f"data: {json.dumps({'error': 'Stream generation failed. Please try again.'})}\n\n"
 
         return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
     except Exception as exc:
+        logger.exception("Chat stream setup failed for %s", context.request_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={

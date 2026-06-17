@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 
-from backend.api.dependencies import RequestContextDep, ServicesDep
+from backend.api.dependencies import RequestContextDep, ServicesDep, assert_authenticated
 from backend.core.security import sanitize_text
 
 
@@ -29,7 +29,7 @@ async def get_current_chat(
     services: ServicesDep,
     context: RequestContextDep,
 ) -> dict[str, Any]:
-    _require_authenticated(context)
+    assert_authenticated(context)
 
     doc = await _load_chat_doc(services, context.session.user_id_hash)
 
@@ -47,7 +47,7 @@ async def replace_current_chat(
     services: ServicesDep,
     context: RequestContextDep,
 ) -> dict[str, Any]:
-    _require_authenticated(context)
+    assert_authenticated(context)
 
     messages = _sanitize_messages(
         payload.get("messages") or [],
@@ -86,7 +86,7 @@ async def append_current_chat_messages(
     services: ServicesDep,
     context: RequestContextDep,
 ) -> dict[str, Any]:
-    _require_authenticated(context)
+    assert_authenticated(context)
 
     incoming = _sanitize_messages(
         payload.get("messages") or [],
@@ -125,7 +125,7 @@ async def delete_current_chat(
     services: ServicesDep,
     context: RequestContextDep,
 ) -> dict[str, Any]:
-    _require_authenticated(context)
+    assert_authenticated(context)
 
     await services.db.provider.delete_document(
         CHAT_COLLECTION,
@@ -140,17 +140,6 @@ async def delete_current_chat(
     }
 
 
-def _require_authenticated(context: Any) -> None:
-    if not bool(context.session.authenticated):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": "auth_required",
-                "message": "Cloud chat sync requires sign-in.",
-                "details": {},
-                "request_id": context.request_id,
-            },
-        )
 
 
 async def _load_chat_doc(services: Any, user_id_hash: str) -> dict[str, Any]:
