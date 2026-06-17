@@ -46,6 +46,18 @@ const SETTINGS_SELECTS = {
     path: "language",
     options: [["auto", "Auto-detect"], ["en", "English"], ["ar-EG", "Egyptian Arabic"]],
   },
+  "Response complete": {
+    path: "notifications.responseComplete",
+    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
+  },
+  "Streak reminders": {
+    path: "notifications.streakReminders",
+    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
+  },
+  "Mood check-in": {
+    path: "notifications.moodCheckIn",
+    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
+  },
 };
 
 const SETTINGS_TOGGLES = {

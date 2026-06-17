@@ -54,6 +54,7 @@ import {
   updateUsageUI,
   updateUsageFromMeta,
   registerSettingsStore,
+  getStreakSnapshot,
 } from "./ui_state.js?v=20260615-streaming-v7";
 
 import { initLiveVoice, startLiveVoice } from "./voice_live.js";
@@ -95,6 +96,11 @@ import {
   getCurrentModel,
   getCurrentMode,
 } from "./components/model_selector.js";
+
+import {
+  initNotifications,
+  notifyResponseComplete,
+} from "./components/notifications.js";
 
 import {
   initFrontendAuth,
@@ -286,6 +292,8 @@ async function bootstrap() {
   bindUnifiedSelector({ isSessionLocked: () => isSessionLocked });
   bindMoodButtons();
   bindConversationActions();
+
+  initNotifications({ showToast, getStreakSnapshot });
 
   initLiveVoice({
     onChatSync: (callData) => {
@@ -905,6 +913,7 @@ async function handleSend() {
 
           scrollChatToBottom("auto");
           isGenerating = false;
+          notifyResponseComplete();
           setInputState({ disabled: false, locked: isSessionLocked });
           document.getElementById("chat-input")?.focus();
 
@@ -1388,6 +1397,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
 
           scrollChatToBottom("auto");
           isGenerating = false;
+          notifyResponseComplete();
           setInputState({ disabled: false, locked: isSessionLocked });
           document.getElementById("chat-input")?.focus();
 

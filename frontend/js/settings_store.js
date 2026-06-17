@@ -6,6 +6,11 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   appearance: "system",
   language: "auto",
   dictationEnabled: true,
+  notifications: {
+    responseComplete: "in_app",
+    streakReminders: "off",
+    moodCheckIn: "off",
+  },
   memoryEnabled: true,
   improveProduct: false,
 });
