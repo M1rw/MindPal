@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+
+from datetime import datetime
 from enum import Enum
 from typing import Literal
 
@@ -12,9 +12,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from backend.core.security import (
     Locale,
     normalize_locale,
-    redact_basic_pii,
-    safe_truncate,
     sanitize_text,
+)
+from backend.models._helpers import (
+    sanitize_metadata,
+    sanitize_pii_text,
+    sanitize_string_list as _sanitize_string_list_helper,
+    utcnow,
 )
 from backend.models.safety import SafetyLevel
 
@@ -62,8 +66,8 @@ class MemoryInteractionRole(str, Enum):
     ASSISTANT = "assistant"
 
 
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
+_utcnow = utcnow
+_sanitize_memory_text = sanitize_pii_text
 
 
 class MemoryItem(BaseModel):
@@ -112,7 +116,7 @@ class MemoryItem(BaseModel):
     @field_validator("metadata", mode="before")
     @classmethod
     def _clean_metadata(cls, value: object) -> dict[str, str | int | float | bool | None]:
-        return _sanitize_metadata(value)
+        return sanitize_metadata(value)
 
     @model_validator(mode="after")
     def _validate_expiry(self) -> MemoryItem:
@@ -217,12 +221,17 @@ class MemorySummary(BaseModel):
     relationship_facts: list[RelationshipFact] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
     communication_preferences: CommunicationPreferences = Field(default_factory=CommunicationPreferences)
     emotional_triggers: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    # NOTE: user_goals duplicates goals — both fields store user goals.
+    # Kept for backwards compatibility with existing DB data.
     user_goals: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
     avoided_responses: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
     summary: str = Field(default="", max_length=MAX_MEMORY_SUMMARY_CHARS)
+    # NOTE: known_triggers duplicates emotional_triggers — kept for backwards compat.
     known_triggers: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
     preferred_coping_tools: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    # NOTE: goals duplicates user_goals — kept for backwards compat.
     goals: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
+    # NOTE: preferences list overlaps with communication_preferences — kept for backwards compat.
     preferences: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
     safety_flags: list[str] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
     items: list[MemoryItem] = Field(default_factory=list, max_length=MAX_MEMORY_LIST_ITEMS)
@@ -397,54 +406,20 @@ class MemoryWriteResult(BaseModel):
         return cleaned or None
 
 
-def _sanitize_memory_text(text: str, max_chars: int) -> str:
-    cleaned = sanitize_text(text, max_chars)
-    cleaned = redact_basic_pii(cleaned)
-    return safe_truncate(cleaned, max_chars)
-
-
 def _sanitize_string_list(value: object, *, max_items: int) -> list[str]:
-    if value is None:
-        return []
-
-    if isinstance(value, str):
-        raw_items: Sequence[object] = [value]
-    elif isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
-        raw_items = value
-    else:
-        raw_items = [value]
-
-    seen: set[str] = set()
-    cleaned_items: list[str] = []
-
-    for item in raw_items:
-        cleaned = _sanitize_memory_text(str(item or ""), MAX_MEMORY_LIST_ITEM_CHARS)
-        if not cleaned or cleaned in seen:
-            continue
-        seen.add(cleaned)
-        cleaned_items.append(cleaned)
-        if len(cleaned_items) >= max_items:
-            break
-
-    return cleaned_items
+    """Thin wrapper around shared helper with memory-specific defaults."""
+    return _sanitize_string_list_helper(
+        value,
+        max_items=max_items,
+        max_item_chars=MAX_MEMORY_LIST_ITEM_CHARS,
+        redact_pii=True,
+    )
 
 
 def _sanitize_metadata(value: object) -> dict[str, str | int | float | bool | None]:
-    if value is None:
-        return {}
-    if not isinstance(value, Mapping):
-        raise TypeError("metadata must be a mapping")
-
-    cleaned: dict[str, str | int | float | bool | None] = {}
-
-    for raw_key, raw_value in list(value.items())[:MAX_METADATA_ITEMS]:
-        key = sanitize_text(str(raw_key or ""), 80)
-        if not key:
-            continue
-
-        if raw_value is None or isinstance(raw_value, (bool, int, float)):
-            cleaned[key] = raw_value
-        else:
-            cleaned[key] = _sanitize_memory_text(str(raw_value), MAX_METADATA_VALUE_CHARS)
-
-    return cleaned
+    """Thin wrapper around shared helper."""
+    return sanitize_metadata(
+        value,
+        max_items=MAX_METADATA_ITEMS,
+        max_value_chars=MAX_METADATA_VALUE_CHARS,
+    )

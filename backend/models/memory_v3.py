@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend.core.security import sanitize_text
+from backend.models._helpers import utcnow
 from backend.models.memory import (
     CommunicationPreferences,
     ImportantPerson,
@@ -61,8 +62,7 @@ class MemorySensitivity(str, Enum):
     HIGH = "high"
 
 
-def utcnow() -> datetime:
-    return datetime.now(UTC)
+
 
 
 class MemoryAtom(BaseModel):
@@ -417,8 +417,8 @@ def summary_from_memory_graph(graph: MemoryGraph) -> MemorySummary:
         important_people=people,
         relationship_facts=relationship_facts,
         communication_preferences=CommunicationPreferences(
-            tone="direct" if any("direct" in atom.normalized_value for atom in active_atoms if atom.category == MemoryCategory.PREFERENCES) else "",
-            language=next((atom.value for atom in active_atoms if atom.category == MemoryCategory.PREFERENCES and "arabic" in atom.normalized_value), ""),
+            tone=_extract_preference_tone(active_atoms),
+            language=_extract_preference_language(active_atoms),
             response_style=preferences,
             avoid=avoid,
         ),
@@ -555,3 +555,45 @@ def _clean_string_list(value: object, *, max_items: int) -> list[str]:
         seen.add(key)
         output.append(cleaned)
     return output
+
+
+def _extract_preference_tone(atoms: list[MemoryAtom]) -> str:
+    """Extract tone preference from atoms — looks for tone-tagged atoms first,
+    then falls back to keyword matching in PREFERENCES atoms."""
+    for atom in atoms:
+        if atom.category != MemoryCategory.PREFERENCES:
+            continue
+        # Prefer atoms with explicit "field": "tone" metadata
+        if atom.metadata.get("field") == "tone":
+            return atom.value
+    # Fallback: look for common tone keywords in normalized values
+    tone_keywords = ("direct", "gentle", "casual", "formal", "warm", "empathetic")
+    for atom in atoms:
+        if atom.category != MemoryCategory.PREFERENCES:
+            continue
+        normalized = atom.normalized_value.lower()
+        for keyword in tone_keywords:
+            if keyword in normalized:
+                return keyword
+    return ""
+
+
+def _extract_preference_language(atoms: list[MemoryAtom]) -> str:
+    """Extract preferred language from atoms — looks for language-tagged atoms first,
+    then falls back to keyword matching in PREFERENCES atoms."""
+    for atom in atoms:
+        if atom.category != MemoryCategory.PREFERENCES:
+            continue
+        # Prefer atoms with explicit "field": "language" metadata
+        if atom.metadata.get("field") == "language":
+            return atom.value
+    # Fallback: look for common language keywords
+    language_keywords = ("arabic", "english", "french", "spanish", "german", "turkish", "hebrew")
+    for atom in atoms:
+        if atom.category != MemoryCategory.PREFERENCES:
+            continue
+        normalized = atom.normalized_value.lower()
+        for keyword in language_keywords:
+            if keyword in normalized:
+                return atom.value
+    return ""

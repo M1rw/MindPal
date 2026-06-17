@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -13,9 +12,14 @@ from backend.core.security import (
     Locale,
     hash_user_id,
     normalize_locale,
-    redact_basic_pii,
-    safe_truncate,
     sanitize_text,
+)
+from backend.models._helpers import (
+    sanitize_metadata,
+    sanitize_pii_text,
+    sanitize_string_list,
+    sanitize_ui_settings,
+    utcnow,
 )
 
 
@@ -32,8 +36,8 @@ MAX_UI_SETTINGS_ITEMS = 80
 MAX_UI_SETTINGS_VALUE_CHARS = 800
 
 
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
+_utcnow = utcnow
+_clean_profile_text = sanitize_pii_text
 
 
 class UserStatus(str, Enum):
@@ -76,7 +80,7 @@ class UserSafetyPreference(BaseModel):
     def _clean_country_hint(cls, value: object) -> str | None:
         if value is None:
             return None
-        cleaned = _clean_profile_text(str(value), 80)
+        cleaned = sanitize_pii_text(str(value), 80)
         return cleaned or None
 
 
@@ -104,7 +108,7 @@ class UserPreferences(BaseModel):
     def _clean_timezone(cls, value: object) -> str | None:
         if value is None:
             return None
-        cleaned = _clean_profile_text(str(value), MAX_TIMEZONE_CHARS)
+        cleaned = sanitize_pii_text(str(value), MAX_TIMEZONE_CHARS)
         return cleaned or None
 
     @field_validator("preferred_name", mode="before")
@@ -112,23 +116,23 @@ class UserPreferences(BaseModel):
     def _clean_preferred_name(cls, value: object) -> str | None:
         if value is None:
             return None
-        cleaned = _clean_profile_text(str(value), MAX_DISPLAY_NAME_CHARS)
+        cleaned = sanitize_pii_text(str(value), MAX_DISPLAY_NAME_CHARS)
         return cleaned or None
 
     @field_validator("preferred_coping_tools", "wellness_goals", "avoided_topics", mode="before")
     @classmethod
     def _clean_list_fields(cls, value: object) -> list[str]:
-        return _clean_profile_list(value)
+        return sanitize_string_list(value, max_items=MAX_PROFILE_LIST_ITEMS, max_item_chars=MAX_PROFILE_LIST_ITEM_CHARS)
 
     @field_validator("custom_instructions", mode="before")
     @classmethod
     def _clean_custom_instructions(cls, value: object) -> str:
-        return _clean_profile_text(str(value or ""), MAX_CUSTOM_INSTRUCTIONS_CHARS)
+        return sanitize_pii_text(str(value or ""), MAX_CUSTOM_INSTRUCTIONS_CHARS)
 
     @field_validator("ui_settings", mode="before")
     @classmethod
     def _clean_ui_settings(cls, value: object) -> dict[str, Any]:
-        return _clean_ui_settings(value)
+        return sanitize_ui_settings(value)
 
 
 class ClinicalScore(BaseModel):
@@ -151,12 +155,12 @@ class ClinicalProfile(BaseModel):
     @field_validator("presenting_problems", "suspected_diagnoses", mode="before")
     @classmethod
     def _clean_list_fields(cls, value: object) -> list[str]:
-        return _clean_profile_list(value)
+        return sanitize_string_list(value, max_items=MAX_PROFILE_LIST_ITEMS, max_item_chars=MAX_PROFILE_LIST_ITEM_CHARS)
 
     @field_validator("treatment_plan", mode="before")
     @classmethod
     def _clean_treatment_plan(cls, value: object) -> str:
-        return _clean_profile_text(str(value or ""), MAX_PROFILE_TEXT_CHARS)
+        return sanitize_pii_text(str(value or ""), MAX_PROFILE_TEXT_CHARS)
 
 
 class UsageProfile(BaseModel):
@@ -200,12 +204,12 @@ class UserProfile(BaseModel):
     @field_validator("notes", mode="before")
     @classmethod
     def _clean_notes(cls, value: object) -> str:
-        return _clean_profile_text(str(value or ""), MAX_PROFILE_TEXT_CHARS)
+        return sanitize_pii_text(str(value or ""), MAX_PROFILE_TEXT_CHARS)
 
     @field_validator("metadata", mode="before")
     @classmethod
     def _clean_metadata(cls, value: object) -> dict[str, str | int | float | bool | None]:
-        return _clean_metadata(value)
+        return sanitize_metadata(value)
 
     @model_validator(mode="after")
     def _validate_timestamps(self) -> UserProfile:
@@ -246,7 +250,7 @@ class UserProfileUpdate(BaseModel):
     def _clean_optional_notes(cls, value: object) -> str | None:
         if value is None:
             return None
-        cleaned = _clean_profile_text(str(value), MAX_PROFILE_TEXT_CHARS)
+        cleaned = sanitize_pii_text(str(value), MAX_PROFILE_TEXT_CHARS)
         return cleaned or None
 
     @field_validator("metadata", mode="before")
@@ -257,7 +261,7 @@ class UserProfileUpdate(BaseModel):
     ) -> dict[str, str | int | float | bool | None] | None:
         if value is None:
             return None
-        return _clean_metadata(value)
+        return sanitize_metadata(value)
 
 
 class UserProfileResponse(BaseModel):
@@ -310,7 +314,7 @@ class UserSession(BaseModel):
     @field_validator("metadata", mode="before")
     @classmethod
     def _clean_metadata(cls, value: object) -> dict[str, str | int | float | bool | None]:
-        return _clean_metadata(value)
+        return sanitize_metadata(value)
 
     @classmethod
     def anonymous(
@@ -330,105 +334,5 @@ class UserSession(BaseModel):
         )
 
 
-def _clean_profile_text(text: str, max_chars: int) -> str:
-    cleaned = sanitize_text(text, max_chars)
-    cleaned = redact_basic_pii(cleaned)
-    return safe_truncate(cleaned, max_chars)
-
-
-def _clean_profile_list(value: object) -> list[str]:
-    if value is None:
-        return []
-
-    if isinstance(value, str):
-        raw_items: Sequence[object] = [value]
-    elif isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
-        raw_items = value
-    else:
-        raw_items = [value]
-
-    seen: set[str] = set()
-    cleaned_items: list[str] = []
-
-    for item in raw_items:
-        cleaned = _clean_profile_text(str(item or ""), MAX_PROFILE_LIST_ITEM_CHARS)
-        if not cleaned or cleaned in seen:
-            continue
-        seen.add(cleaned)
-        cleaned_items.append(cleaned)
-
-        if len(cleaned_items) >= MAX_PROFILE_LIST_ITEMS:
-            break
-
-    return cleaned_items
-
-
-def _clean_metadata(value: object) -> dict[str, str | int | float | bool | None]:
-    if value is None:
-        return {}
-
-    if not isinstance(value, Mapping):
-        raise TypeError("metadata must be a mapping")
-
-    cleaned: dict[str, str | int | float | bool | None] = {}
-
-    for raw_key, raw_value in list(value.items())[:MAX_METADATA_ITEMS]:
-        key = sanitize_text(str(raw_key or ""), 80)
-        if not key:
-            continue
-
-        if raw_value is None or isinstance(raw_value, (bool, int, float)):
-            cleaned[key] = raw_value
-        else:
-            cleaned[key] = _clean_profile_text(str(raw_value), MAX_METADATA_VALUE_CHARS)
-
-    return cleaned
-
-
-def _clean_ui_settings(value: object) -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        return {}
-
-    cleaned: dict[str, Any] = {}
-
-    for raw_key, raw_value in value.items():
-        if len(cleaned) >= MAX_UI_SETTINGS_ITEMS:
-            break
-
-        key = _clean_profile_text(str(raw_key or ""), MAX_METADATA_VALUE_CHARS)
-        if not key:
-            continue
-
-        cleaned[key] = _clean_ui_setting_value(raw_value, depth=0)
-
-    return cleaned
-
-
-def _clean_ui_setting_value(value: object, *, depth: int) -> Any:
-    if depth >= 4:
-        return _clean_profile_text(str(value or ""), MAX_UI_SETTINGS_VALUE_CHARS)
-
-    if value is None or isinstance(value, bool):
-        return value
-
-    if isinstance(value, int | float):
-        return value
-
-    if isinstance(value, str):
-        return _clean_profile_text(value, MAX_UI_SETTINGS_VALUE_CHARS)
-
-    if isinstance(value, Mapping):
-        output: dict[str, Any] = {}
-        for raw_key, raw_value in list(value.items())[:MAX_UI_SETTINGS_ITEMS]:
-            key = _clean_profile_text(str(raw_key or ""), MAX_METADATA_VALUE_CHARS)
-            if key:
-                output[key] = _clean_ui_setting_value(raw_value, depth=depth + 1)
-        return output
-
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [
-            _clean_ui_setting_value(item, depth=depth + 1)
-            for item in list(value)[:MAX_PROFILE_LIST_ITEMS]
-        ]
-
-    return _clean_profile_text(str(value or ""), MAX_UI_SETTINGS_VALUE_CHARS)
+# Helpers moved to _helpers.py: sanitize_pii_text, sanitize_string_list,
+# sanitize_metadata, sanitize_ui_settings

@@ -2,19 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from datetime import UTC, datetime
+
+from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from backend.core.security import (
-    Locale,
-    normalize_locale,
-    redact_basic_pii,
-    safe_truncate,
-    sanitize_text,
-)
+from backend.core.security import Locale, normalize_locale, sanitize_text
+from backend.models._helpers import sanitize_metadata, utcnow
 
 
 MAX_ERROR_MESSAGE_CHARS = 500
@@ -27,8 +22,7 @@ MAX_METADATA_ITEMS = 50
 MAX_METADATA_VALUE_CHARS = 300
 
 
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
+_utcnow = utcnow
 
 
 class ApiStatus(str, Enum):
@@ -89,7 +83,7 @@ class ApiErrorDetail(BaseModel):
     @field_validator("details", mode="before")
     @classmethod
     def _clean_details(cls, value: object) -> dict[str, str | int | float | bool | None]:
-        return _sanitize_metadata(value)
+        return sanitize_metadata(value)
 
 
 class ApiErrorResponse(BaseModel):
@@ -324,26 +318,4 @@ class ValidationIssue(BaseModel):
         return cleaned
 
 
-def _sanitize_metadata(value: object) -> dict[str, str | int | float | bool | None]:
-    if value is None:
-        return {}
-
-    if not isinstance(value, Mapping):
-        raise TypeError("details must be a mapping")
-
-    cleaned: dict[str, str | int | float | bool | None] = {}
-
-    for raw_key, raw_value in list(value.items())[:MAX_METADATA_ITEMS]:
-        key = sanitize_text(str(raw_key or ""), 80)
-        if not key:
-            continue
-
-        if raw_value is None or isinstance(raw_value, (bool, int, float)):
-            cleaned[key] = raw_value
-            continue
-
-        text_value = sanitize_text(str(raw_value), MAX_METADATA_VALUE_CHARS)
-        text_value = redact_basic_pii(text_value)
-        cleaned[key] = safe_truncate(text_value, MAX_METADATA_VALUE_CHARS)
-
-    return cleaned
+# _sanitize_metadata moved to _helpers.sanitize_metadata
