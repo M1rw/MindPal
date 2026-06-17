@@ -122,11 +122,6 @@ export function applyVisualSettings(settings = appSettings) {
     themeIcon.setAttribute("data-lucide", nextIcon);
     swapIconInline(themeIcon, nextIcon);
   }
-
-  const modalThemeToggle = document.getElementById("modal-theme-toggle");
-  if (modalThemeToggle) {
-    modalThemeToggle.checked = dark;
-  }
 }
 
 export async function requestBrowserNotificationsIfNeeded(value) {

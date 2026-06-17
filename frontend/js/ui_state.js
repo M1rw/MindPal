@@ -16,7 +16,6 @@ import { cryptoRandomId, normalizeName } from "./utils/helpers.js";
 export { refreshIcons } from "./utils/icons.js";
 
 const STATE_KEY = "mindpal_state_v2";
-const THEME_KEY = "mindpal_theme";
 
 const DEFAULT_STATE = Object.freeze({
   sessionId: "",
@@ -292,28 +291,46 @@ function normalizeVisitHistory() {
 // ═══════════════════════════════════════════════════════════════
 
 export function initializeTheme() {
-  const saved = localStorage.getItem(THEME_KEY);
-  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
-  document.documentElement.classList.toggle("dark", saved ? saved === "dark" : Boolean(prefersDark));
+  // Read from the unified settings store; fall back to system preference.
+  try {
+    const raw = localStorage.getItem("mindpal_app_settings_v1");
+    const parsed = raw ? JSON.parse(raw) : null;
+    const appearance = parsed?.appearance || "system";
+    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+    const dark = appearance === "dark" || (appearance === "system" && prefersDark);
+    document.documentElement.classList.toggle("dark", dark);
+
+    // Migrate old theme key if present
+    const oldKey = localStorage.getItem("mindpal_theme");
+    if (oldKey) localStorage.removeItem("mindpal_theme");
+  } catch {
+    // Graceful fallback — don't crash boot
+    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+    document.documentElement.classList.toggle("dark", Boolean(prefersDark));
+  }
 }
 
 export function toggleTheme() {
+  // Delegate to settings store so icon, dropdown, and localStorage all stay in sync.
+  const { setAppSetting } = _getSettingsStore();
   const willBeDark = !document.documentElement.classList.contains("dark");
-  document.documentElement.classList.toggle("dark", willBeDark);
-  localStorage.setItem(THEME_KEY, willBeDark ? "dark" : "light");
-
-  // Inline icon swap — no full DOM scan
-  const themeIcon = document.getElementById("theme-icon");
-  if (themeIcon) {
-    const iconName = willBeDark ? "sun" : "moon";
-    themeIcon.setAttribute("data-lucide", iconName);
-    swapIconInline(themeIcon, iconName);
-  }
-
-  const modalThemeToggle = document.getElementById("modal-theme-toggle");
-  if (modalThemeToggle) modalThemeToggle.checked = willBeDark;
-
+  setAppSetting("appearance", willBeDark ? "dark" : "light");
   return willBeDark;
+}
+
+// Lazy import to avoid circular dependency at module load time
+let _settingsStoreCache = null;
+function _getSettingsStore() {
+  if (!_settingsStoreCache) {
+    // Dynamic import is async; we use a sync cache since settings_store
+    // is always loaded before toggleTheme is ever called.
+    _settingsStoreCache = { setAppSetting: () => {} };
+  }
+  return _settingsStoreCache;
+}
+
+export function registerSettingsStore(store) {
+  _settingsStoreCache = store;
 }
 
 // ═══════════════════════════════════════════════════════════════
