@@ -7,7 +7,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.api.dependencies import AuthenticatedRequestContextDep, ServicesDep
+from backend.api.dependencies import (
+    AuthenticatedRequestContextDep,
+    ServicesDep,
+    assert_authenticated,
+    http_error_from_app_error,
+)
 from backend.core.errors import AppError
 from backend.core.security import sanitize_text
 from backend.models.user import (
@@ -76,7 +81,7 @@ async def current_user(
 
     Requires Firebase authentication.
     """
-    _assert_authenticated(context)
+    assert_authenticated(context)
 
     provider = sanitize_text(
         str(context.session.metadata.get("provider", "firebase")),
@@ -108,13 +113,13 @@ async def load_profile(
     Does not accept arbitrary user IDs.
     Anonymous sessions are not allowed.
     """
-    _assert_authenticated(context)
+    assert_authenticated(context)
 
     try:
         return await services.db.load_user_profile(context.session.user_id_hash)
 
     except AppError as exc:
-        raise _http_error_from_app_error(exc) from exc
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -137,7 +142,7 @@ async def update_profile(
 
     The target profile is always context.session.user_id_hash.
     """
-    _assert_authenticated(context)
+    assert_authenticated(context)
 
     try:
         return await services.db.update_user_profile(
@@ -146,7 +151,7 @@ async def update_profile(
         )
 
     except AppError as exc:
-        raise _http_error_from_app_error(exc) from exc
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -169,7 +174,7 @@ async def replace_profile(
 
     Client-submitted user_id_hash is ignored to prevent spoofing.
     """
-    _assert_authenticated(context)
+    assert_authenticated(context)
 
     try:
         profile = _profile_for_session(
@@ -180,7 +185,7 @@ async def replace_profile(
         return await services.db.save_user_profile(profile)
 
     except AppError as exc:
-        raise _http_error_from_app_error(exc) from exc
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -202,7 +207,7 @@ async def reset_profile(
 
     This preserves the verified session user_id_hash and does not delete memory.
     """
-    _assert_authenticated(context)
+    assert_authenticated(context)
 
     try:
         profile = UserProfile(
@@ -212,7 +217,7 @@ async def reset_profile(
         return await services.db.save_user_profile(profile)
 
     except AppError as exc:
-        raise _http_error_from_app_error(exc) from exc
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -235,7 +240,7 @@ async def user_health(
     Requires authentication because this route belongs to the user surface.
     Does not expose profile contents.
     """
-    _assert_authenticated(context)
+    assert_authenticated(context)
 
     auth_health = services.auth.health()
     db_health = await services.db.health()
@@ -291,32 +296,4 @@ def _profile_for_session(
         }
     )
 
-
-def _assert_authenticated(context: Any) -> None:
-    session = getattr(context, "session", None)
-
-    if session is None or not getattr(session, "authenticated", False):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": "authentication_required",
-                "message": "Authentication is required for user operations",
-                "request_id": getattr(context, "request_id", None),
-            },
-        )
-
-
-def _http_error_from_app_error(exc: AppError) -> HTTPException:
-    status_code = getattr(exc, "status_code", None) or status.HTTP_500_INTERNAL_SERVER_ERROR
-    code = getattr(exc, "code", None) or exc.__class__.__name__
-    message = sanitize_text(str(exc), 500) or "Application error"
-    details = getattr(exc, "details", None) or {}
-
-    return HTTPException(
-        status_code=status_code,
-        detail={
-            "code": code,
-            "message": message,
-            "details": details,
-        },
-    )
+

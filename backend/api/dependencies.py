@@ -1,15 +1,29 @@
 # backend/api/dependencies.py
 
+"""
+FastAPI dependency injection layer.
+
+This module provides:
+- ServiceContainer: singleton composition root for all backend services
+- RequestContext: per-request metadata (request_id, locale, channel, session)
+- Header extraction dependencies (locale, channel, request_id, session)
+- Shared API helpers (error conversion, auth assertion)
+
+Design rules:
+- All configuration reads come from Settings (no os.getenv)
+- Importing this module must not call external APIs or verify auth tokens
+- Service construction is lazy (on first request)
+"""
+
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Annotated, Any
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header, HTTPException, Request, status
 
 from backend.core.config import Settings, get_settings
+from backend.core.errors import AppError
 from backend.core.security import generate_request_id, normalize_locale, sanitize_text
 from backend.models.user import UserChannel, UserSession
 from backend.providers import (
@@ -34,6 +48,10 @@ MAX_CHANNEL_HEADER_CHARS = 80
 MAX_LOCALE_HEADER_CHARS = 40
 MAX_ANONYMOUS_USER_HEADER_CHARS = 160
 
+
+# ═══════════════════════════════════════════════════════════════
+# Service Container
+# ═══════════════════════════════════════════════════════════════
 
 @dataclass(slots=True)
 class ServiceContainer:
@@ -62,8 +80,8 @@ class ServiceContainer:
 
         return {
             "settings_loaded": True,
-            "environment": _environment(self.settings),
-            "production_mode": _is_production(self.settings),
+            "environment": self.settings.ENVIRONMENT,
+            "production_mode": self.settings.is_production,
             "auth": self.auth.health(),
             "db": db_health,
             "llm": self.llm.health(),
@@ -83,7 +101,13 @@ class RequestContext:
     session: UserSession
 
 
-@lru_cache(maxsize=1)
+# ═══════════════════════════════════════════════════════════════
+# Service Container Singleton
+# ═══════════════════════════════════════════════════════════════
+
+_service_container: ServiceContainer | None = None
+
+
 def get_service_container() -> ServiceContainer:
     """
     Return singleton service container for the FastAPI process.
@@ -94,26 +118,22 @@ def get_service_container() -> ServiceContainer:
     - Anonymous sessions are env-driven, not hardcoded.
     - Offline/browser fallbacks are env-driven, not hidden.
     """
+    global _service_container
+    if _service_container is not None:
+        return _service_container
+
     settings = get_settings()
 
     llm_providers = build_llm_providers(settings)
     llm = LLMService(
         providers=llm_providers,
         settings=settings,
-        include_offline_provider=_settings_bool(
-            settings,
-            "ENABLE_OFFLINE_LLM_FALLBACK",
-            default=True,
-        ),
+        include_offline_provider=settings.ENABLE_OFFLINE_LLM_FALLBACK,
     )
 
     auth = AuthService(
         settings=settings,
-        allow_anonymous=_settings_bool(
-            settings,
-            "ALLOW_ANONYMOUS_SESSIONS",
-            default=True,
-        ),
+        allow_anonymous=settings.ALLOW_ANONYMOUS_SESSIONS,
     )
 
     db = DBService(settings=settings)
@@ -122,51 +142,31 @@ def get_service_container() -> ServiceContainer:
     tts = TTSService(
         providers=tts_providers,
         settings=settings,
-        include_browser_fallback=_settings_bool(
-            settings,
-            "ENABLE_BROWSER_TTS_FALLBACK",
-            default=True,
-        ),
+        include_browser_fallback=settings.ENABLE_BROWSER_TTS_FALLBACK,
     )
 
     memory = MemoryService(
         settings=settings,
         llm_service=llm,
-        enable_llm_summarization=_settings_bool(
-            settings,
-            "ENABLE_LLM_MEMORY_SUMMARIZATION",
-            default=True,
-        ),
+        enable_llm_summarization=settings.ENABLE_LLM_MEMORY_SUMMARIZATION,
     )
 
     output_guard = OutputGuardService(
         llm_service=llm,
-        enable_llm_rewrite=_settings_bool(
-            settings,
-            "ENABLE_LLM_OUTPUT_REWRITE",
-            default=True,
-        ),
+        enable_llm_rewrite=settings.ENABLE_LLM_OUTPUT_REWRITE,
     )
 
     rag = RAGService(
         llm_service=llm,
-        enable_llm_planning=_settings_bool(
-            settings,
-            "ENABLE_LLM_RAG_PLANNING",
-            default=True,
-        ),
+        enable_llm_planning=settings.ENABLE_LLM_RAG_PLANNING,
     )
 
     safety = SafetyService(
         llm_service=llm,
-        enable_llm_ambiguity_classifier=_settings_bool(
-            settings,
-            "ENABLE_LLM_SAFETY_CLASSIFIER",
-            default=True,
-        ),
+        enable_llm_ambiguity_classifier=settings.ENABLE_LLM_SAFETY_CLASSIFIER,
     )
 
-    return ServiceContainer(
+    _service_container = ServiceContainer(
         settings=settings,
         auth=auth,
         db=db,
@@ -178,9 +178,13 @@ def get_service_container() -> ServiceContainer:
         tts=tts,
     )
 
+    return _service_container
+
 
 def reset_service_container_for_tests() -> None:
-    get_service_container.cache_clear()
+    """Clear the cached service container for test isolation."""
+    global _service_container
+    _service_container = None
 
 
 def get_services() -> ServiceContainer:
@@ -189,6 +193,10 @@ def get_services() -> ServiceContainer:
 
 ServicesDep = Annotated[ServiceContainer, Depends(get_services)]
 
+
+# ═══════════════════════════════════════════════════════════════
+# Header Extraction Dependencies
+# ═══════════════════════════════════════════════════════════════
 
 def get_request_id(
     x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
@@ -235,6 +243,10 @@ def get_anonymous_user_id(
     )
     return cleaned or "anonymous"
 
+
+# ═══════════════════════════════════════════════════════════════
+# Session Resolution Dependencies
+# ═══════════════════════════════════════════════════════════════
 
 async def get_current_session(
     services: ServicesDep,
@@ -283,6 +295,10 @@ RequestIdDep = Annotated[str, Depends(get_request_id)]
 LocaleDep = Annotated[str, Depends(get_locale)]
 ChannelDep = Annotated[UserChannel, Depends(get_channel)]
 
+
+# ═══════════════════════════════════════════════════════════════
+# Request Context Dependencies
+# ═══════════════════════════════════════════════════════════════
 
 async def get_request_context(
     request: Request,
@@ -333,34 +349,54 @@ AuthenticatedRequestContextDep = Annotated[
 ]
 
 
-def _settings_value(settings: Settings, name: str, default: Any = None) -> Any:
-    value = getattr(settings, name, None)
+# ═══════════════════════════════════════════════════════════════
+# Shared API Helpers (used by all routers)
+# ═══════════════════════════════════════════════════════════════
 
-    if value is None:
-        return os.getenv(name, default)
+def assert_authenticated(context: Any) -> None:
+    """
+    Raise 401 if the request context does not have an authenticated session.
 
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value()
+    Use this in any router that requires Firebase authentication.
+    """
+    session = getattr(context, "session", None)
 
-    return value
-
-
-def _settings_bool(settings: Settings, name: str, *, default: bool) -> bool:
-    value = _settings_value(settings, name, None)
-
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _environment(settings: Settings) -> str:
-    value = _settings_value(settings, "ENVIRONMENT", "development")
-    return sanitize_text(str(value or "development"), 80).lower()
+    if session is None or not getattr(session, "authenticated", False):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "authentication_required",
+                "message": "Authentication is required for this operation",
+                "request_id": getattr(context, "request_id", None),
+            },
+        )
 
 
-def _is_production(settings: Settings) -> bool:
-    return _environment(settings) in {"production", "prod"}
+def http_error_from_app_error(
+    exc: AppError,
+    *,
+    request_id: str | None = None,
+) -> HTTPException:
+    """
+    Convert an AppError into a FastAPI HTTPException.
+
+    Extracts status_code, error code, and sanitized message from the exception.
+    Use this in router except blocks to convert AppError → HTTP response.
+    """
+    status_code = getattr(exc, "status_code", None) or status.HTTP_500_INTERNAL_SERVER_ERROR
+    code = getattr(exc, "code", None) or exc.__class__.__name__
+    message = sanitize_text(str(exc), 500) or "Application error"
+    details = getattr(exc, "details", None) or {}
+
+    detail: dict[str, Any] = {
+        "code": code,
+        "message": message,
+        "details": details,
+    }
+    if request_id:
+        detail["request_id"] = request_id
+
+    return HTTPException(
+        status_code=status_code,
+        detail=detail,
+    )

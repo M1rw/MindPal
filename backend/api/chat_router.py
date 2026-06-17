@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 
-from backend.api.dependencies import RequestContextDep, ServiceContainer, ServicesDep
+from backend.api.dependencies import (
+    RequestContextDep,
+    ServiceContainer,
+    ServicesDep,
+    http_error_from_app_error,
+)
 from backend.core.errors import AppError
+
+logger = logging.getLogger(__name__)
 from backend.core.prompts import build_intent_context, build_system_prompt, infer_response_mode_for_preference
 from backend.core.security import sanitize_text
 from backend.models.chat import (
@@ -232,8 +240,9 @@ async def chat(
     except HTTPException:
         raise
     except AppError as exc:
-        raise _http_error_from_app_error(exc) from exc
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
+        logger.exception("Chat request failed for %s", context.request_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -312,7 +321,7 @@ async def _persist_safety_event_inline(
     context: Any,
     decision: SafetyDecision,
     locale: str,
-) -> MemorySummary | None:
+) -> bool:
     """
     Persist safety event metadata inline best-effort.
 
@@ -334,65 +343,10 @@ async def _persist_safety_event_inline(
         return True
 
     except Exception:
+        logger.debug("Safety event persistence failed for %s", context.request_id)
         return False
 
 
-async def _persist_memory_compaction_inline(
-    *,
-    payload: ChatRequest,
-    reply: str,
-    services: ServiceContainer,
-    context: Any,
-    existing_summary: Any,
-    locale: str,
-) -> bool:
-    """
-    Compact and save memory inline best-effort for authenticated users only.
-
-    This replaces the old in-process background queue. On Vercel/serverless,
-    queued jobs are not durable after the response returns.
-    """
-    if not bool(context.session.authenticated):
-        return None
-
-    try:
-        interactions = build_memory_interactions(
-            user_messages=[payload.message],
-            assistant_messages=[reply],
-        )
-
-        compaction = await asyncio.wait_for(
-            services.memory.compact(
-                MemoryCompactionRequest(
-                    request_id=context.request_id,
-                    user_id_hash=context.session.user_id_hash,
-                    existing_summary=existing_summary,
-                    interactions=interactions,
-                    locale=locale,
-                    force=False,
-                )
-            ),
-            timeout=MEMORY_COMPACTION_TIMEOUT_SECONDS,
-        )
-
-        if not compaction.changed:
-            return None
-
-        safe_summary = compaction.summary.model_copy(
-            update={
-                "user_id_hash": context.session.user_id_hash,
-            }
-        )
-
-        await asyncio.wait_for(
-            services.db.save_memory(safe_summary),
-            timeout=MEMORY_COMPACTION_TIMEOUT_SECONDS,
-        )
-
-        return safe_summary
-
-    except Exception:
-        return None
 
 
 async def _load_or_migrate_memory_graph_inline(
@@ -575,10 +529,10 @@ def _history_role(item: Any) -> str:
     value = getattr(role, "value", role)
     raw = sanitize_text(str(value or ""), 80).lower()
 
-    if raw in {"user", "human", "User".lower()}:
+    if raw in {"user", "human"}:
         return "user"
 
-    if raw in {"assistant", "mindpal", "bot", "MindPal".lower()}:
+    if raw in {"assistant", "mindpal", "bot"}:
         return "assistant"
 
     return raw
@@ -752,17 +706,3 @@ def _provider_label(provider_used: str, *, rewrite_provider: str | None) -> str:
     return base
 
 
-def _http_error_from_app_error(exc: AppError) -> HTTPException:
-    status_code = getattr(exc, "status_code", None) or status.HTTP_500_INTERNAL_SERVER_ERROR
-    code = getattr(exc, "code", None) or exc.__class__.__name__
-    message = sanitize_text(str(exc), 500) or "Application error"
-    details = getattr(exc, "details", None) or {}
-
-    return HTTPException(
-        status_code=status_code,
-        detail={
-            "code": code,
-            "message": message,
-            "details": details,
-        },
-    )

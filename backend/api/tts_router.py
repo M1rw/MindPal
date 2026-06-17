@@ -11,6 +11,8 @@ from backend.api.dependencies import (
     AuthenticatedRequestContextDep,
     RequestContextDep,
     ServicesDep,
+    assert_authenticated,
+    http_error_from_app_error,
 )
 from backend.core.errors import AppError
 from backend.core.security import normalize_locale, sanitize_text
@@ -111,7 +113,7 @@ async def synthesize_tts(
     - browser fallback may be returned explicitly when no backend audio is used
     - no provider credentials or internal payloads are exposed
     """
-    _assert_authenticated(context)
+    assert_authenticated(context)
 
     try:
         return await services.tts.synthesize_text(
@@ -126,7 +128,7 @@ async def synthesize_tts(
         )
 
     except AppError as exc:
-        raise _http_error_from_app_error(exc, request_id=context.request_id) from exc
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -174,7 +176,7 @@ async def tts_policy(
         )
 
     except AppError as exc:
-        raise _http_error_from_app_error(exc, request_id=context.request_id) from exc
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -204,33 +206,4 @@ async def tts_health(
         "tts": health,
     }
 
-
-def _assert_authenticated(context: Any) -> None:
-    session = getattr(context, "session", None)
-
-    if session is None or not getattr(session, "authenticated", False):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": "authentication_required",
-                "message": "Authentication is required for backend TTS synthesis",
-                "request_id": getattr(context, "request_id", None),
-            },
-        )
-
-
-def _http_error_from_app_error(exc: AppError, *, request_id: str | None = None) -> HTTPException:
-    status_code = getattr(exc, "status_code", None) or status.HTTP_500_INTERNAL_SERVER_ERROR
-    code = getattr(exc, "code", None) or exc.__class__.__name__
-    message = sanitize_text(str(exc), 500) or "Application error"
-    details = getattr(exc, "details", None) or {}
-
-    return HTTPException(
-        status_code=status_code,
-        detail={
-            "code": code,
-            "message": message,
-            "details": details,
-            "request_id": request_id,
-        },
-    )
+

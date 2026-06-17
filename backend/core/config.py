@@ -103,6 +103,15 @@ class Settings(BaseSettings):
     ENABLE_PERSPECTIVE: bool = False
     ENABLE_TTS: bool = False
 
+    # Service-level feature flags (previously read via os.getenv in dependencies.py)
+    ALLOW_ANONYMOUS_SESSIONS: bool = True
+    ENABLE_OFFLINE_LLM_FALLBACK: bool = True
+    ENABLE_BROWSER_TTS_FALLBACK: bool = True
+    ENABLE_LLM_MEMORY_SUMMARIZATION: bool = True
+    ENABLE_LLM_OUTPUT_REWRITE: bool = True
+    ENABLE_LLM_RAG_PLANNING: bool = True
+    ENABLE_LLM_SAFETY_CLASSIFIER: bool = True
+
     # ── Privacy / Logging ────────────────────────────────────────
     LOG_RAW_MESSAGES: bool = False
 

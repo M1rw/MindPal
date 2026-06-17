@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.api.dependencies import RequestContextDep, ServicesDep
+from backend.api.dependencies import RequestContextDep, ServicesDep, http_error_from_app_error
 from backend.core.errors import AppError
 from backend.core.security import normalize_locale, sanitize_text
 from backend.models.safety import SafetyAction, SafetyDecision, SafetyLevel
@@ -150,7 +150,7 @@ async def classify_safety(
         )
 
     except AppError as exc:
-        raise _http_error_from_app_error(exc) from exc
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -189,7 +189,7 @@ async def render_crisis_response(
         )
 
     except AppError as exc:
-        raise _http_error_from_app_error(exc) from exc
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -254,18 +254,4 @@ def _classification_response(
         classifier_meta=classifier_meta,
     )
 
-
-def _http_error_from_app_error(exc: AppError) -> HTTPException:
-    status_code = getattr(exc, "status_code", None) or status.HTTP_500_INTERNAL_SERVER_ERROR
-    code = getattr(exc, "code", None) or exc.__class__.__name__
-    message = sanitize_text(str(exc), 500) or "Application error"
-    details = getattr(exc, "details", None) or {}
-
-    return HTTPException(
-        status_code=status_code,
-        detail={
-            "code": code,
-            "message": message,
-            "details": details,
-        },
-    )
+
