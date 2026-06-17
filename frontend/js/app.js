@@ -103,6 +103,14 @@ import {
 } from "./components/notifications.js";
 
 import {
+  initUsageTracker,
+  canSendMessage,
+  recordMessage,
+  syncFromBackend as syncUsageFromBackend,
+  renderUsagePanel,
+} from "./components/usage_tracker.js";
+
+import {
   initFrontendAuth,
   cleanupAuth,
   hydrateCloudMemory,
@@ -294,6 +302,7 @@ async function bootstrap() {
   bindConversationActions();
 
   initNotifications({ showToast, getStreakSnapshot });
+  initUsageTracker({ showToast });
 
   initLiveVoice({
     onChatSync: (callData) => {
@@ -563,6 +572,7 @@ function bindSettingsTabs() {
     });
     if (mobileSelect && mobileSelect.value !== nextTab) mobileSelect.value = nextTab;
     if (nextTab === "memory") renderMemoryInspector();
+    if (nextTab === "usage") renderUsagePanel();
   };
 
   buttons.forEach((button) => button.addEventListener("click", () => activate(button.getAttribute("data-settings-tab") || "general")));
@@ -782,6 +792,13 @@ async function handleSend() {
   const text = inputEl?.value?.trim() || "";
   if (!text || isGenerating || isSessionLocked) return;
 
+  // ── Pre-flight usage check — block BEFORE any API call ──
+  const currentModel = getCurrentModel();
+  if (!canSendMessage(currentModel)) {
+    showToast("You've reached your usage limit. Please wait for it to reset.", "warning");
+    return;
+  }
+
   isGenerating = true;
   setInputState({ disabled: true, locked: false });
   setChatStarted(true);
@@ -938,11 +955,15 @@ async function handleSend() {
           document.querySelector('.model-option[data-model="standard"]')?.click();
         }
         if (meta.pro_usage) updateUsageFromMeta(meta.pro_usage);
+        if (meta.usage) syncUsageFromBackend(meta.usage);
       },
     });
 
     const reply = streamResponseStr.trim();
     if (!reply) throw new Error("Backend returned empty reply.");
+
+    // Record message credit (client-side tracking for guests)
+    recordMessage(getCurrentModel());
 
     if (isSafetyLock(backendMetaFinal)) {
       isSessionLocked = true;
@@ -1418,6 +1439,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       onMetadata: (meta) => {
         backendMetaFinal = meta;
         if (meta.pro_usage) updateUsageFromMeta(meta.pro_usage);
+        if (meta.usage) syncUsageFromBackend(meta.usage);
       },
     });
 

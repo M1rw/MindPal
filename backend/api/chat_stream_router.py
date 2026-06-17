@@ -125,18 +125,40 @@ async def chat_stream(
         user_preference = payload.metadata.mode or ""
         clinical_mode = payload.metadata.model == "pro"
         quota_exceeded = False
+        credit_cost = 2 if clinical_mode else 1
 
-        if clinical_mode and authenticated:
+        # ── Unified dual-window credit check ──
+        if authenticated:
             now_ts = time.time()
-            if now_ts - profile.usage.pro_last_reset_time > 5 * 3600:
+
+            # Reset 5-hour window if expired
+            if now_ts - profile.usage.credits_5h_reset_time > 5 * 3600:
+                profile.usage.credits_5h_reset_time = now_ts
+                profile.usage.total_credits_5h = 0
+                # Also reset legacy pro counter
                 profile.usage.pro_last_reset_time = now_ts
                 profile.usage.pro_messages_count = 0
-            
-            if profile.usage.pro_messages_count >= 40:
-                clinical_mode = False
+
+            # Reset 1-week window if expired
+            if now_ts - profile.usage.credits_week_reset_time > 7 * 24 * 3600:
+                profile.usage.credits_week_reset_time = now_ts
+                profile.usage.total_credits_week = 0
+
+            # Check both windows
+            limit_5h = 50
+            limit_week = 500
+            if (profile.usage.total_credits_5h + credit_cost > limit_5h or
+                    profile.usage.total_credits_week + credit_cost > limit_week):
+                if clinical_mode:
+                    clinical_mode = False  # Downgrade to standard
                 quota_exceeded = True
             else:
-                profile.usage.pro_messages_count += 1
+                profile.usage.total_credits_5h += credit_cost
+                profile.usage.total_credits_week += credit_cost
+                profile.usage.total_messages_count += 1
+                # Legacy compat
+                if clinical_mode:
+                    profile.usage.pro_messages_count += 1
 
         response_mode = infer_response_mode_for_preference(
             preference=user_preference,
@@ -272,11 +294,24 @@ async def chat_stream(
                     metadata['memory_graph_snapshot'] = response_memory_graph_snapshot.model_dump(mode="json")
                 if quota_exceeded:
                     metadata['quota_exceeded'] = True
-                if clinical_mode or quota_exceeded:
+
+                # Always emit usage so frontend can display quota info
+                if authenticated:
+                    now_ts_meta = time.time()
+                    metadata['usage'] = {
+                        'credits_5h': profile.usage.total_credits_5h,
+                        'limit_5h': 50,
+                        'reset_5h_seconds': max(0, int((profile.usage.credits_5h_reset_time + 5 * 3600) - now_ts_meta)),
+                        'credits_week': profile.usage.total_credits_week,
+                        'limit_week': 500,
+                        'reset_week_seconds': max(0, int((profile.usage.credits_week_reset_time + 7 * 24 * 3600) - now_ts_meta)),
+                        'total_messages': profile.usage.total_messages_count,
+                    }
+                    # Legacy compat
                     metadata['pro_usage'] = {
                         'count': profile.usage.pro_messages_count,
                         'limit': 40,
-                        'reset_in_seconds': max(0, int((profile.usage.pro_last_reset_time + 5 * 3600) - time.time())),
+                        'reset_in_seconds': max(0, int((profile.usage.pro_last_reset_time + 5 * 3600) - now_ts_meta)),
                     }
 
                 yield f"data: {json.dumps(metadata)}\n\n"
