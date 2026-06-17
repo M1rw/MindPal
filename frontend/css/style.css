@@ -314,6 +314,12 @@ details > summary::-webkit-details-marker { display: none; }
 .dark .settings-row {
   border-bottom-color: #303030;
 }
+.settings-row:last-child {
+  border-bottom: none;
+}
+.settings-row-block {
+  border-bottom: none;
+}
 
 .settings-row-main {
   display: flex;
