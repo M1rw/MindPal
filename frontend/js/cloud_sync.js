@@ -91,13 +91,18 @@ export function getCurrentCloudProfileContext() { return currentCloudProfileCont
 export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat, renderMemoryInspector }) {
   if (!authIsConfigured()) {
     setCloudSyncEnabled(false);
+    removeGlobalLoader();
     return;
   }
+
+  let loaderRemovedByCallback = false;
 
   try {
     await initAuth();
 
     authUnsubscribe = onAuthChange(async (user) => {
+      loaderRemovedByCallback = true;
+
       if (!user) {
         if (!cloudConnectInProgress) {
           setCloudSyncEnabled(false);
@@ -113,6 +118,7 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
 
       if (cloudConnectInProgress) {
         updateProfileUI(user);
+        removeGlobalLoader();
         return;
       }
 
@@ -155,6 +161,18 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
         removeGlobalLoader();
       }
     });
+
+    // Safety: if onAuthChange callback hasn't fired after a short delay,
+    // the user is not logged in and Firebase didn't re-fire the listener.
+    // Remove the loader to prevent infinite loading screen.
+    setTimeout(() => {
+      if (!loaderRemovedByCallback) {
+        console.warn("[MindPal] Auth callback did not fire — removing loader (not logged in)");
+        setCloudSyncEnabled(false);
+        removeGlobalLoader();
+      }
+    }, 2000);
+
   } catch (error) {
     console.warn("Firebase frontend auth init failed:", error);
     setCloudSyncEnabled(false);

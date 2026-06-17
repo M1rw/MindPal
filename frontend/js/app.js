@@ -165,6 +165,11 @@ let globalLoaderRemoved = false;
 export function removeGlobalLoader() {
   if (globalLoaderRemoved) return;
   globalLoaderRemoved = true;
+  // Cancel the HTML safety-net timer
+  if (window.__mindpalLoaderTimer) {
+    clearTimeout(window.__mindpalLoaderTimer);
+    window.__mindpalLoaderTimer = null;
+  }
   const loader = document.getElementById("global-loader");
   if (loader) {
     setTimeout(() => {
@@ -253,120 +258,125 @@ console.log("%c" + consoleBanner, "color: #3b82f6; font-weight: bold; font-famil
 document.addEventListener("DOMContentLoaded", bootstrap);
 
 async function bootstrap() {
-  refreshIcons();
-  initializeTheme();
-  registerSettingsStore({ setAppSetting });
-  applyVisualSettings();
-  loadState();
+  try {
+    refreshIcons();
+    initializeTheme();
+    registerSettingsStore({ setAppSetting });
+    applyVisualSettings();
+    loadState();
 
-  await initFrontendAuth({
-    removeGlobalLoader,
-    renderPersistedChat,
-    renderMemoryInspector,
-  });
-
-  initSettingsUI({
-    refreshIcons,
-    showToast,
-    openModal,
-    closeModal,
-    startNewLocalChat,
-    handleSend: () => handleSend(),
-    getCurrentUser,
-    updateProfileUI,
-    get isGenerating() { return isGenerating; },
-    get isSessionLocked() { return isSessionLocked; },
-    get currentCloudProfileContext() { return getCurrentCloudProfileContext(); },
-  });
-
-  initMemoryUI({
-    refreshIcons,
-    deleteMemoryEntry,
-    editMemoryEntry,
-    toggleMemoryPin,
-    clearMemoryCategory,
-    persistMemoryContextSafe,
-    getMemoryGraphContext,
-  });
-
-  bindTheme();
-  bindProfileModal();
-  bindSettingsTabs();
-  bindSettingsControls();
-  bindSettingsChoiceEvents();
-  bindKeyboardShortcuts();
-  bindStreakModal();
-  bindSettings();
-  bindInput();
-  bindUnifiedSelector({ isSessionLocked: () => isSessionLocked });
-  bindMoodButtons();
-  bindConversationActions();
-
-  initNotifications({ showToast, getStreakSnapshot });
-  initUsageTracker({ showToast });
-
-  initLiveVoice({
-    onChatSync: (callData) => {
-      const { userTranscript, aiTranscript, startTime, endTime, durationMs } = callData;
-      if (!userTranscript && !aiTranscript) return;
-
-      const totalSec = Math.round(durationMs / 1000);
-      const mins = Math.floor(totalSec / 60);
-      const secs = totalSec % 60;
-      const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-
-      const callMsg = addMessage("MindPal", `[Voice Call] ${durationStr}`, {
-        type: "voice_call",
-        voiceCall: { startTime, endTime, durationMs, durationStr, userTranscript, aiTranscript },
-      });
-
-      if (callMsg) {
-        setChatStarted(true);
-        insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript });
-      }
-
-      if (userTranscript) {
-        let memoryGraphContext = getMemoryGraphContext();
-        let memoryContext = getMemoryContext();
-
-        const graphResult = classifyAndStoreMemoryGraphFromMessage(userTranscript, {
-          graphContext: memoryGraphContext,
-          source: "voice_call",
-        });
-        memoryGraphContext = graphResult.graph;
-        setMemoryGraphContext(memoryGraphContext);
-        saveMemoryGraphContext(memoryGraphContext);
-
-        const memResult = classifyAndStoreMemoryFromMessage(userTranscript, {
-          memoryContext,
-          recentMessages: getState().chatMemory.slice(-8),
-        });
-        if (memResult.saved.length) {
-          memoryContext = memResult.memory;
-          setMemoryContext(memoryContext);
-          saveMemoryContext(memoryContext);
-        }
-      }
-
-      scrollChatToBottom("smooth", true);
-    },
-  });
-
-  const mainVoiceBtn = document.getElementById("voice-btn");
-  if (mainVoiceBtn) {
-    mainVoiceBtn.addEventListener("click", () => {
-      if (isGenerating || isSessionLocked) return;
-      startLiveVoice(buildVoiceContextProvider());
+    await initFrontendAuth({
+      removeGlobalLoader,
+      renderPersistedChat,
+      renderMemoryInspector,
     });
-  }
 
-  renderPersistedChat();
-  updateProfileUI(getCurrentUser());
-  setGreeting();
-  setInputState({ disabled: false, locked: false });
-  refreshIcons();
+    initSettingsUI({
+      refreshIcons,
+      showToast,
+      openModal,
+      closeModal,
+      startNewLocalChat,
+      handleSend: () => handleSend(),
+      getCurrentUser,
+      updateProfileUI,
+      get isGenerating() { return isGenerating; },
+      get isSessionLocked() { return isSessionLocked; },
+      get currentCloudProfileContext() { return getCurrentCloudProfileContext(); },
+    });
 
-  if (!authIsConfigured()) {
+    initMemoryUI({
+      refreshIcons,
+      deleteMemoryEntry,
+      editMemoryEntry,
+      toggleMemoryPin,
+      clearMemoryCategory,
+      persistMemoryContextSafe,
+      getMemoryGraphContext,
+    });
+
+    bindTheme();
+    bindProfileModal();
+    bindSettingsTabs();
+    bindSettingsControls();
+    bindSettingsChoiceEvents();
+    bindKeyboardShortcuts();
+    bindStreakModal();
+    bindSettings();
+    bindInput();
+    bindUnifiedSelector({ isSessionLocked: () => isSessionLocked });
+    bindMoodButtons();
+    bindConversationActions();
+
+    initNotifications({ showToast, getStreakSnapshot });
+    initUsageTracker({ showToast });
+
+    initLiveVoice({
+      onChatSync: (callData) => {
+        const { userTranscript, aiTranscript, startTime, endTime, durationMs } = callData;
+        if (!userTranscript && !aiTranscript) return;
+
+        const totalSec = Math.round(durationMs / 1000);
+        const mins = Math.floor(totalSec / 60);
+        const secs = totalSec % 60;
+        const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+        const callMsg = addMessage("MindPal", `[Voice Call] ${durationStr}`, {
+          type: "voice_call",
+          voiceCall: { startTime, endTime, durationMs, durationStr, userTranscript, aiTranscript },
+        });
+
+        if (callMsg) {
+          setChatStarted(true);
+          insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript });
+        }
+
+        if (userTranscript) {
+          let memoryGraphContext = getMemoryGraphContext();
+          let memoryContext = getMemoryContext();
+
+          const graphResult = classifyAndStoreMemoryGraphFromMessage(userTranscript, {
+            graphContext: memoryGraphContext,
+            source: "voice_call",
+          });
+          memoryGraphContext = graphResult.graph;
+          setMemoryGraphContext(memoryGraphContext);
+          saveMemoryGraphContext(memoryGraphContext);
+
+          const memResult = classifyAndStoreMemoryFromMessage(userTranscript, {
+            memoryContext,
+            recentMessages: getState().chatMemory.slice(-8),
+          });
+          if (memResult.saved.length) {
+            memoryContext = memResult.memory;
+            setMemoryContext(memoryContext);
+            saveMemoryContext(memoryContext);
+          }
+        }
+
+        scrollChatToBottom("smooth", true);
+      },
+    });
+
+    const mainVoiceBtn = document.getElementById("voice-btn");
+    if (mainVoiceBtn) {
+      mainVoiceBtn.addEventListener("click", () => {
+        if (isGenerating || isSessionLocked) return;
+        startLiveVoice(buildVoiceContextProvider());
+      });
+    }
+
+    renderPersistedChat();
+    updateProfileUI(getCurrentUser());
+    setGreeting();
+    setInputState({ disabled: false, locked: false });
+    refreshIcons();
+
+    if (!authIsConfigured()) {
+      removeGlobalLoader();
+    }
+  } catch (error) {
+    console.error("[MindPal] Bootstrap failed:", error);
     removeGlobalLoader();
   }
 }
