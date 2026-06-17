@@ -9,14 +9,14 @@ import json
 
 
 from backend.core.security import sanitize_text
-from backend.models.memory import MemorySummary
-from backend.models.memory_v3 import (
+from backend.models.memory import (
     MemoryAtom,
     MemoryCategory,
     MemoryGraph,
     MemorySensitivity,
     MemorySource,
     MemoryStatus,
+    MemorySummary,
     build_memory_prompt_from_graph,
     canonical_memory_key,
     make_memory_atom,

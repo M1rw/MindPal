@@ -135,7 +135,7 @@ import {
   memoryFromBackendSummary,
   saveMemoryContext,
   mergeMemoryContexts,
-} from "./memory_legacy.js";
+} from "./memory_graph.js";
 
 // ═══════════════════════════════════════════════════════════════
 // App state

@@ -15,15 +15,13 @@ from backend.core.config import Settings, get_settings
 from backend.core.errors import DatabaseError
 from backend.core.security import redact_basic_pii, sanitize_text
 from backend.models.memory import (
+    MemoryGraph,
+    MemoryGraphLoadResult,
+    MemoryGraphWriteResult,
     MemoryLoadResult,
     MemorySource,
     MemorySummary,
     MemoryWriteResult,
-)
-from backend.models.memory_v3 import (
-    MemoryGraph,
-    MemoryGraphLoadResult,
-    MemoryGraphWriteResult,
 )
 from backend.models.safety import SafetyEvent
 from backend.models.user import (

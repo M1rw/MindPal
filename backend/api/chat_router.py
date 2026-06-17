@@ -18,10 +18,11 @@ from backend.models.chat import (
     LLMMessage,
     LLMRole,
 )
-from backend.models.memory import MemoryCompactionRequest, MemorySummary
-from backend.models.memory_v3 import (
+from backend.models.memory import (
+    MemoryCompactionRequest,
     MemoryGraph,
-    MemorySource as MemoryGraphSource,
+    MemorySource,
+    MemorySummary,
     memory_graph_from_summary,
     summary_from_memory_graph,
 )
@@ -461,7 +462,7 @@ async def _persist_memory_graph_inline(
         if compaction.changed:
             compacted_delta = memory_graph_delta_from_summary(
                 compaction.summary,
-                source=MemoryGraphSource.BACKEND_COMPACTION,
+                source=MemorySource.BACKEND_COMPACTION,
             )
             delta = merge_memory_graph(deterministic_delta, compacted_delta)
             delta.full_snapshot = False

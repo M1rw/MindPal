@@ -25,7 +25,7 @@ from backend.api.chat_router import (
 )
 from backend.core.prompts import build_intent_context, build_system_prompt, infer_response_mode_for_preference
 from backend.models.chat import ChatRequest, LLMMessage, LLMRole
-from backend.models.memory_v3 import MemoryGraph, summary_from_memory_graph
+from backend.models.memory import MemoryGraph, summary_from_memory_graph
 from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
 from backend.services.telemetry_service import TelemetryService
