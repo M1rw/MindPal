@@ -147,11 +147,14 @@ function parseAgentChainResponse(text) {
   if (!thoughtMatch) return null;
 
   // Find the response delimiter — try multiple formats
+  // Uses \s* (not \s+) so it matches both "Balanced Reframe" and "BalancedReframe"
   const responseDelimiters = [
-    /\n\s*\*{2}\s*Balanced\s+Reframe\s*:?\s*\*{2}\s*/i,
+    /\n\s*\*{2}\s*Balanced\s*Reframe\s*:?\s*\*{2}\s*/i,
     /\n\s*\*{2}\s*Response\s*:?\s*\*{2}\s*/i,
-    /\n\s*Balanced\s+Reframe\s*:\s*/i,
+    /\n\s*Balanced\s*Reframe\s*:\s*/i,
     /\n\s*Response\s*:\s*/i,
+    // Also match inline without newline (when entire output is one line)
+    /\*{2}\s*Balanced\s*Reframe\s*:?\s*\*{2}\s*/i,
   ];
 
   let splitIndex = -1;
