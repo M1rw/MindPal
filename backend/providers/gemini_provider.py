@@ -11,8 +11,13 @@ import httpx
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
-from backend.core.security import redact_basic_pii, sanitize_text
+from backend.core.security import sanitize_text
 from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
+from backend.providers._shared import (
+    clean_error,
+    setting_secret,
+    iter_sse_text,
+)
 
 
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
@@ -36,7 +41,7 @@ class GeminiProviderConfig:
         settings = settings or get_settings()
 
         return cls(
-            api_key=sanitize_text(_setting_secret(settings, "GEMINI_API_KEY"), 4_000),
+            api_key=sanitize_text(setting_secret(settings, "GEMINI_API_KEY"), 4_000),
             model=sanitize_text(
                 str(getattr(settings, "GEMINI_MODEL", DEFAULT_GEMINI_MODEL) or DEFAULT_GEMINI_MODEL),
                 MAX_MODEL_NAME_CHARS,
@@ -86,21 +91,13 @@ class GeminiProvider:
 
         payload = self._build_payload(request)
         url = self._build_url()
-
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": self.config.api_key,
-        }
+        headers = self._auth_headers()
 
         owns_client = self._client is None
         client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
 
         try:
-            response = await client.post(
-                url,
-                headers=headers,
-                json=payload,
-            )
+            response = await client.post(url, headers=headers, json=payload)
 
             if response.status_code >= 400:
                 raise _provider_http_error(response)
@@ -135,7 +132,7 @@ class GeminiProvider:
             raise ProviderError(
                 "Gemini HTTP request failed",
                 code="gemini_http_error",
-                details={"provider": self.name, "error": _clean_error(str(exc))},
+                details={"provider": self.name, "error": clean_error(str(exc))},
             ) from exc
 
         except ValueError as exc:
@@ -159,11 +156,7 @@ class GeminiProvider:
 
         payload = self._build_payload(request)
         url = self._build_url(stream=True)
-
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": self.config.api_key,
-        }
+        headers = self._auth_headers()
 
         owns_client = self._client is None
         client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
@@ -174,18 +167,8 @@ class GeminiProvider:
                     await response.aread()
                     raise _provider_http_error(response)
 
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        data_str = line[6:]
-                        if data_str.strip() == "[DONE]":
-                            break
-                        try:
-                            data = json.loads(data_str)
-                            text = _extract_text(data)
-                            if text:
-                                yield text
-                        except json.JSONDecodeError:
-                            pass
+                async for text in iter_sse_text(response, _extract_text):
+                    yield text
 
         except httpx.TimeoutException as exc:
             raise ProviderTimeoutError(
@@ -198,7 +181,7 @@ class GeminiProvider:
             raise ProviderError(
                 "Gemini HTTP request failed",
                 code="gemini_http_error",
-                details={"provider": self.name, "error": _clean_error(str(exc))},
+                details={"provider": self.name, "error": clean_error(str(exc))},
             ) from exc
 
         finally:
@@ -213,12 +196,10 @@ class GeminiProvider:
                 details={"provider": self.name},
             )
 
+        # Use header-based auth (not query param) to avoid key leakage in logs
         base_url = self.config.base_url.rstrip("/")
-        url = f"{base_url}/models/text-embedding-004:embedContent?key={self.config.api_key}"
-
-        headers = {
-            "Content-Type": "application/json",
-        }
+        url = f"{base_url}/models/text-embedding-004:embedContent"
+        headers = self._auth_headers()
 
         owns_client = self._client is None
         client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
@@ -234,25 +215,34 @@ class GeminiProvider:
                 }
                 response = await client.post(url, headers=headers, json=payload)
                 if response.status_code >= 400:
-                    print(f"Gemini API Error {response.status_code}: {response.text}")
                     raise _provider_http_error(response)
 
                 data = response.json()
-                # embedContent returns {"embedding": {"values": [...]}}
                 val = data.get("embedding", {}).get("values", [])
                 embeddings.append(val)
-                
+
             return embeddings
+
+        except ProviderError:
+            raise
 
         except Exception as exc:
             raise ProviderError(
                 "Gemini embed request failed",
                 code="gemini_embed_error",
-                details={"provider": self.name, "error": str(exc)},
+                details={"provider": self.name, "error": clean_error(str(exc))},
             ) from exc
+
         finally:
             if owns_client:
                 await client.aclose()
+
+    def _auth_headers(self) -> dict[str, str]:
+        """Standard Gemini auth headers — key in header, never in URL."""
+        return {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self.config.api_key,
+        }
 
     def _build_url(self, stream: bool = False) -> str:
         base_url = self.config.base_url.rstrip("/")
@@ -272,20 +262,18 @@ class GeminiProvider:
 
         if system_text:
             payload["systemInstruction"] = {
-                "parts": [
-                    {
-                        "text": system_text,
-                    }
-                ]
+                "parts": [{"text": system_text}]
             }
 
         # Ask Gemini not to store request/response when supported by the API.
-        # Unsupported fields are ignored by compatible gateways less often than
-        # rejected by strict Google endpoints, so keep this only on native path.
         payload["store"] = False
 
         return payload
 
+
+# ═══════════════════════════════════════════════════════════════
+# Gemini-specific helpers (not shared — Gemini uses a different format)
+# ═══════════════════════════════════════════════════════════════
 
 def _convert_messages(messages: list[LLMMessage]) -> tuple[str, list[dict[str, Any]]]:
     system_parts: list[str] = []
@@ -293,7 +281,6 @@ def _convert_messages(messages: list[LLMMessage]) -> tuple[str, list[dict[str, A
 
     for message in messages:
         content = sanitize_text(message.content, MAX_TEXT_CHARS)
-
         if not content:
             continue
 
@@ -302,29 +289,10 @@ def _convert_messages(messages: list[LLMMessage]) -> tuple[str, list[dict[str, A
             continue
 
         role = "model" if message.role == LLMRole.ASSISTANT else "user"
-
-        contents.append(
-            {
-                "role": role,
-                "parts": [
-                    {
-                        "text": content,
-                    }
-                ],
-            }
-        )
+        contents.append({"role": role, "parts": [{"text": content}]})
 
     if not contents:
-        contents.append(
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "text": "Continue.",
-                    }
-                ],
-            }
-        )
+        contents.append({"role": "user", "parts": [{"text": "Continue."}]})
 
     system_text = "\n\n".join(system_parts)
     return system_text, contents
@@ -355,7 +323,6 @@ def _build_generation_config(request: LLMRequest) -> dict[str, Any]:
 
 def _extract_text(data: dict[str, Any]) -> str:
     candidates = data.get("candidates")
-
     if not isinstance(candidates, list) or not candidates:
         return ""
 
@@ -372,11 +339,9 @@ def _extract_text(data: dict[str, Any]) -> str:
         return ""
 
     text_parts: list[str] = []
-
     for part in parts:
         if not isinstance(part, dict):
             continue
-
         text = part.get("text")
         if isinstance(text, str) and text.strip():
             text_parts.append(text)
@@ -386,7 +351,6 @@ def _extract_text(data: dict[str, Any]) -> str:
 
 def _extract_finish_reason(data: dict[str, Any]) -> str:
     candidates = data.get("candidates")
-
     if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict):
         return sanitize_text(str(candidates[0].get("finishReason") or "unknown"), 80)
 
@@ -401,7 +365,6 @@ def _extract_model_name(data: dict[str, Any], fallback_model: str) -> str:
     model_version = data.get("modelVersion")
     if model_version:
         return sanitize_text(str(model_version), MAX_MODEL_NAME_CHARS)
-
     return sanitize_text(fallback_model, MAX_MODEL_NAME_CHARS)
 
 
@@ -435,11 +398,6 @@ def _normalize_model_path(model: str) -> str:
     return f"models/{cleaned}"
 
 
-def _clean_error(value: str) -> str:
-    cleaned = redact_basic_pii(sanitize_text(value, MAX_PROVIDER_ERROR_CHARS))
-    return cleaned or "provider_error"
-
-
 def _provider_http_error(response: httpx.Response) -> ProviderError:
     status_code = response.status_code
     code = "gemini_http_error"
@@ -462,7 +420,7 @@ def _provider_http_error(response: httpx.Response) -> ProviderError:
     if not message:
         message = sanitize_text(response.text, MAX_PROVIDER_ERROR_CHARS)
 
-    message = _clean_error(message)
+    message = clean_error(message)
 
     return ProviderError(
         "Gemini provider returned an error",
@@ -473,15 +431,3 @@ def _provider_http_error(response: httpx.Response) -> ProviderError:
             "message": message,
         },
     )
-
-def _setting_secret(settings: Settings, name: str, default: str = "") -> str:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return default
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value() or default
-
-    return str(value or default)
-

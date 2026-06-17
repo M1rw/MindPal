@@ -13,6 +13,11 @@ from typing import Any
 from backend.core.config import Settings, get_settings
 from backend.core.errors import AuthError, DatabaseError
 from backend.core.security import redact_basic_pii, sanitize_text
+from backend.providers._shared import (
+    clean_error as _clean_error_raw,
+    setting_bool as _setting_bool,
+    setting_value as _setting_value,
+)
 from backend.services.auth_service import AuthIdentity
 
 
@@ -487,28 +492,7 @@ def _clean_key(value: str) -> str:
     return cleaned
 
 
-def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
-    value = getattr(settings, name, None)
 
-    if value is None:
-        return os.getenv(name, default)
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value()
-
-    return value
-
-
-def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
-    value = _setting_value(settings, name, None)
-
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _optional_text(value: object, max_chars: int) -> str | None:
@@ -609,5 +593,4 @@ def _validate_credentials_payload(
 
 
 def _clean_error(value: str) -> str:
-    cleaned = redact_basic_pii(sanitize_text(value, MAX_ERROR_CHARS))
-    return cleaned or "firebase_error"
+    return _clean_error_raw(value, 500)
