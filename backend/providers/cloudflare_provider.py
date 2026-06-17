@@ -337,4 +337,7 @@ class CloudflareAIProvider:
             "messages": convert_openai_messages(list(request.messages), MAX_MESSAGE_CHARS),
             "temperature": float(request.temperature),
             "max_tokens": int(request.max_output_tokens),
+            # Prevent LLM repetition loops — especially critical for non-English text
+            "frequency_penalty": 0.3,
+            "presence_penalty": 0.1,
         }

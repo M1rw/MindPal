@@ -302,6 +302,9 @@ def _build_generation_config(request: LLMRequest) -> dict[str, Any]:
     config: dict[str, Any] = {
         "temperature": max(0.0, min(float(request.temperature), 2.0)),
         "maxOutputTokens": max(1, min(int(request.max_output_tokens), 8192)),
+        # Prevent LLM repetition loops — especially critical for non-English text
+        "frequencyPenalty": 0.3,
+        "presencePenalty": 0.1,
     }
 
     response_mime_type = request.metadata.get("response_mime_type") if request.metadata else None
