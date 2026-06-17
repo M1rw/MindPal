@@ -131,36 +131,6 @@ export function renderSettingsControls(root) {
     }
   });
 
-  const customBox = root.querySelector(".settings-textbox");
-  if (customBox && !customBox.matches("textarea")) {
-    const textarea = document.createElement("textarea");
-    textarea.className = "settings-textbox settings-textarea";
-    textarea.value = settings.personalization.customInstructions;
-    textarea.setAttribute("data-setting-text", "personalization.customInstructions");
-    textarea.setAttribute("rows", "6");
-    customBox.replaceWith(textarea);
-  }
-
-  const ciTextarea = root.querySelector("textarea[data-setting-text='personalization.customInstructions']");
-  if (ciTextarea) {
-    let counter = ciTextarea.parentElement?.querySelector(".settings-char-counter");
-    if (!counter) {
-      counter = document.createElement("span");
-      counter.className = "settings-char-counter";
-      ciTextarea.insertAdjacentElement("afterend", counter);
-      ciTextarea.addEventListener("input", () => {
-        const l = ciTextarea.value.length;
-        counter.textContent = `${l} / 800`;
-        counter.classList.toggle("near-limit", l > 640 && l <= 780);
-        counter.classList.toggle("at-limit", l > 780);
-      });
-    }
-    const len = ciTextarea.value.length;
-    counter.textContent = `${len} / 800`;
-    counter.classList.toggle("near-limit", len > 640 && len <= 780);
-    counter.classList.toggle("at-limit", len > 780);
-  }
-
   applyVisualSettings(settings);
   // Defer icon refresh — don't block interaction
   const schedule = window.requestIdleCallback || ((cb) => setTimeout(cb, 120));
