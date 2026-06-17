@@ -4,30 +4,10 @@ const SETTINGS_KEY = "mindpal_app_settings_v1";
 
 const DEFAULT_APP_SETTINGS = Object.freeze({
   appearance: "system",
-  contrast: "system",
-  accentColor: "blue",
   language: "auto",
   dictationEnabled: true,
-  spokenLanguage: "auto",
-  voicePreview: "browser",
-  notifications: {
-    streakReminders: "off",
-    responseComplete: "in_app",
-    moodCheckIn: "off",
-    memoryUpdates: "in_app",
-    safetyFollowUp: "in_app",
-  },
-  personalization: {
-    baseTone: "balanced",
-    directness: "high",
-    egyptianArabic: "auto",
-    cognitiveStructure: true,
-    fastAnswers: true,
-    customInstructions: "Senior technical partner. Max capacity.\nAnswer directly, preserve constraints, and prefer production-ready fixes.",
-  },
   memoryEnabled: true,
   improveProduct: false,
-  locationEnabled: false,
 });
 
 let appSettings = normalizeSettings(loadRawSettings());
@@ -106,12 +86,6 @@ export function buildChatSettingsMetadata() {
   return {
     locale: settings.language,
     ui_language: settings.language,
-    communication_style: settings.personalization.baseTone,
-    directness: settings.personalization.directness,
-    egyptian_arabic_style: settings.personalization.egyptianArabic,
-    cognitive_structure: settings.personalization.cognitiveStructure,
-    fast_answers: settings.personalization.fastAnswers,
-    custom_instructions: settings.personalization.customInstructions,
   };
 }
 
@@ -122,8 +96,6 @@ export function applyVisualSettings(settings = appSettings) {
   const dark = normalized.appearance === "dark" || (normalized.appearance === "system" && prefersDark);
 
   root.classList.toggle("dark", Boolean(dark));
-  root.dataset.accent = normalized.accentColor;
-  root.dataset.contrast = normalized.contrast;
   // Theme icon handled purely by CSS: moon = block dark:hidden, sun = hidden dark:block
 }
 
