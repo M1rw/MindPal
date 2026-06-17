@@ -167,7 +167,7 @@ class GeminiProvider:
                     await response.aread()
                     raise _provider_http_error(response)
 
-                async for text in iter_sse_text(response, _extract_text):
+                async for text in iter_sse_text(response, _extract_delta_text):
                     yield text
 
         except httpx.TimeoutException as exc:
@@ -347,6 +347,35 @@ def _extract_text(data: dict[str, Any]) -> str:
             text_parts.append(text)
 
     return sanitize_text("\n".join(text_parts), MAX_TEXT_CHARS)
+
+
+def _extract_delta_text(data: dict[str, Any]) -> str:
+    """Streaming-safe: extract text without sanitize_text to preserve spaces."""
+    candidates = data.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        return ""
+
+    first = candidates[0]
+    if not isinstance(first, dict):
+        return ""
+
+    content = first.get("content")
+    if not isinstance(content, dict):
+        return ""
+
+    parts = content.get("parts")
+    if not isinstance(parts, list):
+        return ""
+
+    text_parts: list[str] = []
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        text = part.get("text")
+        if isinstance(text, str):
+            text_parts.append(text)
+
+    return "\n".join(text_parts) if text_parts else ""
 
 
 def _extract_finish_reason(data: dict[str, Any]) -> str:
