@@ -19,6 +19,7 @@ from backend.core.errors import AppError
 logger = logging.getLogger(__name__)
 from backend.core.prompts import build_intent_context, build_system_prompt, infer_response_mode_for_preference
 from backend.core.security import sanitize_text
+from backend.tools import ToolContext, build_default_registry
 from backend.models.chat import (
     ChatRequest,
     ChatResponse,
@@ -52,6 +53,16 @@ MAX_HISTORY_FOR_LLM = 30
 MAX_USER_PREFS_PROMPT_CHARS = 1_200
 MEMORY_COMPACTION_TIMEOUT_SECONDS = 8.0
 SAFETY_EVENT_TIMEOUT_SECONDS = 4.0
+
+# Lazy singleton tool registry
+_tool_registry = None
+
+
+def _get_tool_registry():
+    global _tool_registry
+    if _tool_registry is None:
+        _tool_registry = build_default_registry()
+    return _tool_registry
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -152,6 +163,25 @@ async def chat(
             max_results=4,
         )
 
+        # ─── Tool context + pre-execution ───
+        registry = _get_tool_registry()
+        tool_descriptions = registry.get_tool_descriptions_prompt()
+        tool_context = ToolContext(
+            user_id_hash=context.session.user_id_hash,
+            authenticated=authenticated,
+            locale=locale,
+            timezone=payload.metadata.timezone or "UTC" if hasattr(payload.metadata, "timezone") else "UTC",
+            request_id=context.request_id,
+            services=services,
+            chat_history=[
+                {"role": m.role.value if hasattr(m.role, "value") else str(m.role), "content": m.text}
+                for m in (payload.history or [])
+            ],
+        )
+
+        # Pre-execute tools for obvious cases and inject results into context
+        tool_results_text = await _pre_execute_tools(payload.message, registry, tool_context)
+
         system_prompt = build_system_prompt(
             memory_prompt,
             list(rag_result.prompt_grounding),
@@ -160,16 +190,29 @@ async def chat(
             safety_level=safety_decision.level.value,
             channel=context.channel.value,
             user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
+            intent_context=intent_context,
             clinical_mode=clinical_mode,
+            tool_descriptions=tool_descriptions,
+            user_timezone=payload.metadata.timezone if hasattr(payload.metadata, "timezone") else "UTC",
         )
+
+        # If tools pre-executed, prepend results to user message for context
+        effective_message = payload.message
+        if tool_results_text:
+            effective_message = (
+                f"[Tool results for your reference — do not expose this block to the user]\n"
+                f"{tool_results_text}\n"
+                f"[End tool results]\n\n"
+                f"{payload.message}"
+            )
 
         llm_request = build_llm_request(
             request_id=context.request_id,
             system_prompt=system_prompt,
-            user_message=payload.message,
+            user_message=effective_message,
             history=_convert_history(payload),
             temperature=0.3 if clinical_mode else 0.4,
-            max_output_tokens=1800 if clinical_mode else 900,
+            max_output_tokens=1800 if clinical_mode else 1200,
             metadata={
                 "route": "chat",
                 "locale": locale,
@@ -706,3 +749,110 @@ def _provider_label(provider_used: str, *, rewrite_provider: str | None) -> str:
     return base
 
 
+# ═══════════════════════════════════════════════════════════════
+# Tool Pre-Execution
+# ═══════════════════════════════════════════════════════════════
+
+_TIME_TRIGGERS = (
+    "what time", "what's the time", "what date", "what day", "what's the date",
+    "الساعة كام", "الساعة", "اليوم ايه", "النهاردة", "كام الساعة",
+    "current time", "current date", "today's date",
+)
+
+_MEMORY_TRIGGERS = (
+    "do you remember", "what do you know about me", "what did i tell you",
+    "my name", "who am i", "فاكر", "تفتكر", "بتعرف ايه عني",
+    "remember when", "you know about",
+)
+
+_WEB_SEARCH_TRIGGERS = (
+    "search for", "look up", "what's happening", "current news",
+    "latest", "who is", "what is", "دور على", "ابحث عن",
+)
+
+
+async def _pre_execute_tools(
+    user_message: str,
+    registry: Any,
+    tool_context: Any,
+) -> str:
+    """
+    Pre-execute tools when the user's message clearly needs them.
+
+    Returns formatted tool results text to prepend to the user message,
+    or empty string if no pre-execution was needed.
+    """
+    if not user_message:
+        return ""
+
+    lowered = user_message.lower()
+    results_parts: list[str] = []
+
+    # Always inject current time for time-related queries
+    if any(trigger in lowered for trigger in _TIME_TRIGGERS):
+        try:
+            time_result = await registry.execute("current_time", {}, tool_context)
+            if time_result.ok:
+                local_info = time_result.data.get("local", {})
+                utc_info = time_result.data.get("utc", {})
+                results_parts.append(
+                    f"Current time: {local_info.get('datetime', utc_info.get('datetime', 'unknown'))} "
+                    f"({local_info.get('day_of_week', utc_info.get('day_of_week', ''))}) "
+                    f"[{local_info.get('timezone', 'UTC')}]"
+                )
+        except Exception:
+            pass
+
+    # Memory search for "do you remember" type queries
+    if any(trigger in lowered for trigger in _MEMORY_TRIGGERS):
+        try:
+            # Extract the search query from the user's message
+            query_part = lowered
+            for trigger in _MEMORY_TRIGGERS:
+                if trigger in lowered:
+                    idx = lowered.index(trigger) + len(trigger)
+                    query_part = user_message[idx:].strip().rstrip("?").strip()
+                    break
+
+            memory_result = await registry.execute(
+                "search_memory",
+                {"query": query_part or user_message[:100]},
+                tool_context,
+            )
+            if memory_result.ok and memory_result.data.get("facts"):
+                facts = memory_result.data["facts"][:5]
+                results_parts.append(
+                    f"Memory search results for '{query_part or 'general'}':\n"
+                    + "\n".join(f"- {fact}" for fact in facts)
+                )
+        except Exception:
+            pass
+
+    # Web search for current information queries
+    if any(trigger in lowered for trigger in _WEB_SEARCH_TRIGGERS):
+        try:
+            # Extract search query
+            query_part = user_message
+            for trigger in _WEB_SEARCH_TRIGGERS:
+                if trigger in lowered:
+                    idx = lowered.index(trigger) + len(trigger)
+                    extracted = user_message[idx:].strip().rstrip("?").strip()
+                    if extracted:
+                        query_part = extracted
+                    break
+
+            search_result = await registry.execute(
+                "web_search",
+                {"query": query_part[:150]},
+                tool_context,
+            )
+            if search_result.ok and search_result.data.get("results"):
+                web_results = search_result.data["results"][:3]
+                lines = [f"Web search results for '{query_part[:80]}':"]
+                for r in web_results:
+                    lines.append(f"- {r.get('title', '')}: {r.get('snippet', '')} [{r.get('url', '')}]")
+                results_parts.append("\n".join(lines))
+        except Exception:
+            pass
+
+    return "\n\n".join(results_parts)

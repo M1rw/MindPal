@@ -460,18 +460,65 @@ function playAiAudioChunk(base64Data) {
 
 function handleToolCalls(functionCalls) {
   const responses = [];
-  for (const call of functionCalls) {
-    console.log(`[TOOL_CALL] ${call.name}`, call.args);
-    const result = executeToolCall(call.name, call.args || {});
-    responses.push({ id: call.id, name: call.name, response: { result } });
-  }
 
-  if (liveWebSocket?.readyState === WebSocket.OPEN) {
-    liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));
+  // Execute all tool calls concurrently via backend
+  Promise.all(
+    functionCalls.map(async (call) => {
+      console.log(`[TOOL_CALL] ${call.name}`, call.args);
+      const result = await executeToolCall(call.name, call.args || {});
+      return { id: call.id, name: call.name, response: { result } };
+    })
+  ).then((resolvedResponses) => {
+    if (liveWebSocket?.readyState === WebSocket.OPEN) {
+      liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: resolvedResponses } }));
+    }
+  }).catch((err) => {
+    console.error("[TOOL_CALL] Batch execution failed:", err);
+    // Send error responses so Gemini doesn't hang
+    const errorResponses = functionCalls.map((call) => ({
+      id: call.id,
+      name: call.name,
+      response: { result: { error: "Tool execution failed" } },
+    }));
+    if (liveWebSocket?.readyState === WebSocket.OPEN) {
+      liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: errorResponses } }));
+    }
+  });
+}
+
+async function executeToolCall(name, args) {
+  // Call backend /api/tools/execute endpoint for server-side tool execution
+  const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
+  const token = _contextProvider?.getAuthToken?.();
+
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  try {
+    const response = await fetch(`${baseUrl}/tools/execute`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ tool: name, args }),
+    });
+
+    if (!response.ok) {
+      console.warn(`[TOOL_CALL] ${name} returned HTTP ${response.status}`);
+      // Fall back to client-side execution for resilience
+      return _executeToolClientSide(name, args);
+    }
+
+    const data = await response.json();
+    return data.result || data;
+  } catch (err) {
+    console.warn(`[TOOL_CALL] Backend call failed for ${name}:`, err.message);
+    // Fall back to client-side execution for resilience
+    return _executeToolClientSide(name, args);
   }
 }
 
-function executeToolCall(name, args) {
+function _executeToolClientSide(name, args) {
+  // Client-side fallback using _contextProvider (original logic)
+  // Used when backend is unreachable
   if (!_contextProvider) return { error: "No context available" };
 
   switch (name) {
