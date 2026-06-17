@@ -398,10 +398,8 @@ details > summary::-webkit-details-marker { display: none; }
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  min-width: 132px;
+  gap: 6px;
   max-width: 260px;
-  min-height: 38px;
   background: #ffffff;
   color: #172033;
   border: 1px solid rgba(15, 23, 42, 0.12);
