@@ -269,7 +269,7 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
   // If we have no visible content yet:
   // - During streaming (no elapsedMs): show empty — "Thinking…" indicator handles it
   // - After streaming is done (elapsedMs set): the LLM never wrote a response delimiter,
-  //   so treat the thought content as the visible response instead of showing nothing
+  //   so extract the actual response from the thought content
   if (!visibleContent) {
     if (!elapsedMs) {
       return {
@@ -277,13 +277,57 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
         finalHtml: "",
       };
     }
-    // Fallback: show thought content as the response (strip any Self:/REVIEW: prefixes)
+
+    // Fallback: extract the actual response from the thought block
     let fallbackContent = (thoughtContent || rawText || "").trim();
+
+    // Strategy 1: Try to find content after the last numbered clinical step
+    // Works for both newline-separated and single-line outputs
+    // Matches: "6. QUALITY CHECK: ...", "6.SELF-REVIEW:...", etc.
+    const lastStepPatterns = [
+      // With newlines
+      /(?:^|\n)\s*6[\.\)]\s*(?:QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW)\s*:[^\n]*(?:\n)([\s\S]*)/i,
+      // Without newlines (inline) — match step 6 and grab everything after the step content
+      /6[\.\)]\s*(?:QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW)\s*:[^.]*\.\s*([\s\S]*)/i,
+      // Match step 5 (INTERVENTION PLAN) and grab everything after
+      /(?:^|\n)\s*5[\.\)]\s*[A-Z][A-Z\s]*:[^\n]*(?:\n)([\s\S]*)/i,
+      /5[\.\)]\s*(?:INTERVENTION\s*PLAN|PLAN)\s*:[^.]*\.\s*([\s\S]*)/i,
+    ];
+
+    let extracted = false;
+    for (const pattern of lastStepPatterns) {
+      const m = fallbackContent.match(pattern);
+      if (m && m[1].trim().length > 20) {
+        fallbackContent = m[1].trim();
+        extracted = true;
+        break;
+      }
+    }
+
+    // Strategy 2: If no step was matched, strip ALL numbered step patterns
+    if (!extracted) {
+      // Remove step markers like "1.INTAKE:", "2.MEMORY SCAN:", etc.
+      // Handles both "1. INTAKE:" (with space) and "1.INTAKE:" (no space)
+      fallbackContent = fallbackContent
+        .replace(/[1-6][\.\)]\s*(?:INTAKE|MEMORY\s*SCAN|PATTERN\s*ANALYSIS|NERVOUS\s*SYSTEM\s*READ|INTERVENTION\s*PLAN|QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW|CONTEXT|PLAN)\s*:/gi, "")
+        .trim();
+    }
+
+    // Strip leaked prefixes
     fallbackContent = fallbackContent
       .replace(/^\s*Self\s*:\s*/i, "")
       .replace(/^\s*REVIEW\s*:\s*/i, "")
       .replace(/^\s*SELF[- ]?REVIEW\s*:\s*/i, "")
+      .replace(/^\s*Before\s+proceeding[^.]*\.\s*/i, "")
       .trim();
+
+    // If still looks like step content (starts with a number), strip all steps
+    if (/^\s*[1-6][\.\)]/.test(fallbackContent)) {
+      fallbackContent = fallbackContent
+        .replace(/(?:^|\n)\s*[1-6][\.\)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "")
+        .trim();
+    }
+
     return {
       timelineHtml: "",
       finalHtml: fallbackContent
