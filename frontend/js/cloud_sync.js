@@ -44,15 +44,12 @@ import {
   memoryGraphToBackend,
   mergeMemoryGraphs,
   saveMemoryGraphContext,
-} from "./memory_graph.js";
-
-import {
   loadMemoryContext,
   memoryFromBackendSummary,
   memoryToBackendSummary,
   saveMemoryContext,
   mergeMemoryContexts,
-} from "./memory_legacy.js";
+} from "./memory_graph.js";
 
 // ═══════════════════════════════════════════════════════════════
 // State

@@ -518,3 +518,282 @@ function clampNumber(value, min, max, fallback) {
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(min, Math.min(max, parsed));
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Legacy Bridge Functions
+// ═══════════════════════════════════════════════════════════════
+// These aliases let code that previously imported from memory_legacy.js
+// switch to memory_graph.js without any call-site changes.
+
+/**
+ * Legacy alias for createEmptyMemoryGraph().
+ * Creates an empty graph (v3 format) instead of the old flat v2 format.
+ */
+export function createEmptyMemory() {
+  return createEmptyMemoryGraph();
+}
+
+/**
+ * Legacy alias for loadMemoryGraphContext().
+ * Loads graph from localStorage, auto-migrating legacy v2 data if present.
+ */
+export function loadMemoryContext() {
+  const graph = loadMemoryGraphContext();
+  // Auto-migrate legacy v2 → graph if graph is empty but v2 exists
+  if (!graph.atoms || graph.atoms.length === 0) {
+    const legacyRaw = localStorage.getItem("mindpal_memory_engine_v2");
+    if (legacyRaw) {
+      try {
+        const legacyData = JSON.parse(legacyRaw);
+        if (legacyData && typeof legacyData === "object") {
+          const migrated = memoryGraphFromLegacyMemory(legacyData);
+          saveMemoryGraphContext(migrated);
+          return migrated;
+        }
+      } catch {
+        // Corrupted legacy data — ignore
+      }
+    }
+  }
+  return graph;
+}
+
+/**
+ * Legacy alias for saveMemoryGraphContext(graph).
+ */
+export function saveMemoryContext(graph) {
+  return saveMemoryGraphContext(graph);
+}
+
+/**
+ * Legacy alias for mergeMemoryGraphs(existing, incoming).
+ */
+export function mergeMemoryContexts(existing, incoming) {
+  return mergeMemoryGraphs(existing, incoming);
+}
+
+/**
+ * Legacy alias for buildMemoryGraphLines(graph).
+ */
+export function buildMemoryLines(graph) {
+  return buildMemoryGraphLines(graph);
+}
+
+/**
+ * Convert a backend MemorySummary (flat format) to a MemoryGraph.
+ * This replaces the old memoryFromBackendSummary() which returned flat memory.
+ * Now it converts the summary to graph atoms on the fly.
+ */
+export function memoryFromBackendSummary(summary) {
+  if (!summary || typeof summary !== "object") return createEmptyMemoryGraph();
+
+  const now = new Date().toISOString();
+  const atoms = [];
+
+  // Preferred name
+  if (summary.preferred_name) {
+    atoms.push(makeAtomFromLegacy("profile", summary.preferred_name,
+      `Preferred name: ${summary.preferred_name}`, 0.9, { field: "preferred_name" }));
+  }
+
+  // Important people
+  for (const person of (summary.important_people || [])) {
+    const name = person.canonical_name || "";
+    if (!name) continue;
+    const aliases = (person.aliases || []).filter(Boolean);
+    let label = aliases.length ? aliases.join(" / ") : name;
+    if (person.relationship) label += ` - ${person.relationship}`;
+    atoms.push(makeAtomFromLegacy("people", name, label,
+      person.confidence || 0.7, { relationship: person.relationship || "" }));
+  }
+
+  // Relationship facts
+  for (const fact of (summary.relationship_facts || [])) {
+    if (fact.summary) {
+      atoms.push(makeAtomFromLegacy("relationship_context", fact.summary,
+        fact.summary, fact.confidence || 0.65));
+    }
+  }
+
+  // Preferences
+  const prefs = summary.communication_preferences || {};
+  for (const style of (prefs.response_style || [])) {
+    atoms.push(makeAtomFromLegacy("preferences", style, style, 0.78));
+  }
+  if (prefs.tone) {
+    atoms.push(makeAtomFromLegacy("preferences", `${prefs.tone} tone`,
+      `${prefs.tone} tone`, 0.78));
+  }
+  if (prefs.language) {
+    atoms.push(makeAtomFromLegacy("preferences", prefs.language,
+      prefs.language, 0.82));
+  }
+
+  // Avoidances
+  const avoidList = [...new Set([...(prefs.avoid || []), ...(summary.avoided_responses || [])])];
+  for (const value of avoidList) {
+    atoms.push(makeAtomFromLegacy("avoid", value, value, 0.82));
+  }
+
+  // Patterns/triggers
+  const triggers = [...new Set([...(summary.emotional_triggers || []), ...(summary.known_triggers || [])])];
+  for (const value of triggers) {
+    atoms.push(makeAtomFromLegacy("patterns", value, value, 0.65));
+  }
+
+  // Goals
+  const goals = [...new Set([...(summary.user_goals || []), ...(summary.goals || [])])];
+  for (const value of goals) {
+    atoms.push(makeAtomFromLegacy("goals", value, value, 0.7));
+  }
+
+  // Coping tools
+  for (const value of (summary.preferred_coping_tools || [])) {
+    atoms.push(makeAtomFromLegacy("coping_tools", value, value, 0.7));
+  }
+
+  // Safety flags
+  for (const value of (summary.safety_flags || [])) {
+    atoms.push(makeAtomFromLegacy("safety_context", value, value, 0.7));
+  }
+
+  return normalizeMemoryGraph({
+    user_id_hash: summary.user_id_hash || "client",
+    atoms,
+    version: summary.version || 1,
+    source: "backend_compaction",
+    full_snapshot: true,
+    created_at: now,
+    updated_at: now,
+  });
+}
+
+/**
+ * Convert a MemoryGraph back to a backend MemorySummary (flat format).
+ * Used by cloud sync to write legacy-format summaries.
+ */
+export function memoryToBackendSummary(graph) {
+  if (!graph || !graph.atoms) {
+    return { user_id_hash: "client", version: 1 };
+  }
+
+  const active = graph.atoms.filter((a) => a.status !== "deleted" && a.status !== "archived");
+  const byCategory = {};
+  for (const atom of active) {
+    (byCategory[atom.category] = byCategory[atom.category] || []).push(atom);
+  }
+
+  const preferredNameAtom = (byCategory["profile"] || [])
+    .find((a) => a.metadata?.field === "preferred_name");
+
+  return {
+    user_id_hash: graph.user_id_hash || "client",
+    preferred_name: preferredNameAtom?.value || null,
+    important_people: (byCategory["people"] || []).map((a) => ({
+      canonical_name: a.value,
+      aliases: a.aliases || [a.value],
+      relationship: a.metadata?.relationship || "",
+      confidence: a.confidence,
+      updated_at: a.updated_at,
+    })),
+    relationship_facts: (byCategory["relationship_context"] || []).map((a) => ({
+      summary: a.value,
+      people: a.aliases || [],
+      confidence: a.confidence,
+      updated_at: a.updated_at,
+    })),
+    communication_preferences: {
+      tone: extractToneFromAtoms(byCategory["preferences"] || []),
+      language: extractLanguageFromAtoms(byCategory["preferences"] || []),
+      response_style: (byCategory["preferences"] || []).map((a) => a.value),
+      avoid: (byCategory["avoid"] || []).map((a) => a.value),
+    },
+    emotional_triggers: (byCategory["patterns"] || []).map((a) => a.value),
+    known_triggers: (byCategory["patterns"] || []).map((a) => a.value),
+    user_goals: (byCategory["goals"] || []).map((a) => a.value),
+    goals: (byCategory["goals"] || []).map((a) => a.value),
+    avoided_responses: (byCategory["avoid"] || []).map((a) => a.value),
+    preferred_coping_tools: (byCategory["coping_tools"] || []).map((a) => a.value),
+    safety_flags: (byCategory["safety_context"] || []).map((a) => a.value),
+    preferences: (byCategory["preferences"] || []).map((a) => a.value),
+    items: [],
+    version: graph.version || 1,
+  };
+}
+
+/**
+ * Legacy alias for answerQuestionFromMemoryGraph().
+ */
+export function answerQuestionFromMemory(text, context) {
+  return answerQuestionFromMemoryGraph(text, context || createEmptyMemoryGraph());
+}
+
+/**
+ * Legacy alias for classifyAndStoreMemoryGraphFromMessage().
+ */
+export function classifyAndStoreMemoryFromMessage(text, options = {}) {
+  // Map legacy option names to graph option names
+  return classifyAndStoreMemoryGraphFromMessage(text, {
+    graphContext: options.graphContext || options.memoryContext || createEmptyMemoryGraph(),
+    recentMessages: options.recentMessages || [],
+    silent: options.silent || false,
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// Internal bridge helpers
+// ═══════════════════════════════════════════════════════════════
+
+function makeAtomFromLegacy(category, value, displayValue, confidence, metadata = {}) {
+  const normalized = normalizeGraphValue(value);
+  const key = `${category}:${hashString(category + "|" + normalized)}`;
+  const atomId = `mem_${hashString("client|" + key)}`;
+  const now = new Date().toISOString();
+  return {
+    id: atomId,
+    category,
+    key,
+    value: value || "",
+    normalized_value: normalized,
+    display_value: displayValue || value || "",
+    confidence: clampNumber(confidence, 0, 1, 0.6),
+    sensitivity: "medium",
+    source: "backend_compaction",
+    status: "active",
+    pinned: false,
+    created_at: now,
+    updated_at: now,
+    last_seen_at: now,
+    evidence_count: 1,
+    aliases: [],
+    vector: null,
+    metadata: metadata || {},
+  };
+}
+
+function extractToneFromAtoms(atoms) {
+  const toneAtom = atoms.find((a) => a.metadata?.field === "tone");
+  if (toneAtom) return toneAtom.value;
+  const keywords = ["direct", "gentle", "casual", "formal", "warm", "empathetic"];
+  for (const atom of atoms) {
+    const lower = (atom.normalized_value || atom.value || "").toLowerCase();
+    for (const kw of keywords) {
+      if (lower.includes(kw)) return kw;
+    }
+  }
+  return "";
+}
+
+function extractLanguageFromAtoms(atoms) {
+  const langAtom = atoms.find((a) => a.metadata?.field === "language");
+  if (langAtom) return langAtom.value;
+  const keywords = ["arabic", "english", "french", "spanish", "german", "turkish", "hebrew"];
+  for (const atom of atoms) {
+    const lower = (atom.normalized_value || atom.value || "").toLowerCase();
+    for (const kw of keywords) {
+      if (lower.includes(kw)) return atom.value;
+    }
+  }
+  return "";
+}

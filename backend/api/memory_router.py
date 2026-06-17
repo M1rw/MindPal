@@ -11,19 +11,17 @@ from backend.api.dependencies import AuthenticatedRequestContextDep, ServicesDep
 from backend.core.errors import AppError
 from backend.core.security import normalize_locale, sanitize_text
 from backend.models.memory import (
+    MemoryAtom,
     MemoryCompactionRequest,
     MemoryCompactionResult,
-    MemoryInteraction,
-    MemoryLoadResult,
-    MemorySummary,
-    MemoryWriteResult,
-)
-from backend.models.memory_v3 import (
-    MemoryAtom,
     MemoryGraph,
     MemoryGraphLoadResult,
     MemoryGraphPatch,
     MemoryGraphWriteResult,
+    MemoryInteraction,
+    MemoryLoadResult,
+    MemorySummary,
+    MemoryWriteResult,
     memory_graph_from_summary,
     summary_from_memory_graph,
 )
