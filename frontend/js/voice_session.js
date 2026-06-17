@@ -97,6 +97,7 @@ export async function startSession({
   onAudioState = null,
   onSessionEnd = null,
   onVolume = null,
+  token = null,
 } = {}) {
   if (isSessionActive) return;
 
@@ -114,7 +115,9 @@ export async function startSession({
   gateOpenUntil = 0;
 
   const baseUrl = window.MINDPAL_CONFIG.API_BASE_URL;
-  const keyRes = await fetch(`${baseUrl}/voice/key`);
+  const keyHeaders = {};
+  if (token) keyHeaders.Authorization = `Bearer ${token}`;
+  const keyRes = await fetch(`${baseUrl}/voice/key`, { headers: keyHeaders });
   if (!keyRes.ok) throw new Error("Failed to fetch API key");
   const { key } = await keyRes.json();
 
