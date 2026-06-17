@@ -10,7 +10,8 @@ import httpx
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
-from backend.core.security import redact_basic_pii, sanitize_text
+from backend.core.security import sanitize_text
+from backend.providers._shared import clean_error as _clean_error, setting_secret as _setting_secret
 from backend.models.schemas import TTSFormat, TTSRequest, TTSResponse
 
 
@@ -406,18 +407,4 @@ def _optional_bool(value: object) -> bool | None:
     return None
 
 
-def _clean_error(value: str) -> str:
-    cleaned = redact_basic_pii(sanitize_text(value, MAX_ERROR_CHARS))
-    return cleaned or "camb_error"
-
-def _setting_secret(settings: Settings, name: str, default: str = "") -> str:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return default
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value() or default
-
-    return str(value or default)
 

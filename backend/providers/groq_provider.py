@@ -9,17 +9,27 @@ import httpx
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
-from backend.core.security import redact_basic_pii, sanitize_text
-from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
+from backend.core.security import sanitize_text
+from backend.models.chat import LLMRequest, LLMResponse
+from backend.providers._shared import (
+    build_provider_http_error,
+    clean_error,
+    convert_openai_messages,
+    extract_openai_finish_reason,
+    extract_openai_metadata,
+    extract_openai_model,
+    extract_openai_text,
+    iter_sse_text,
+    sanitize_jsonish,
+    setting_secret,
+)
 
 
 DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"
 DEFAULT_TIMEOUT_SECONDS = 30.0
 
-MAX_BASE_URL_CHARS = 300
 MAX_MODEL_NAME_CHARS = 160
-MAX_PROVIDER_ERROR_CHARS = 600
 MAX_TEXT_CHARS = 80_000
 
 
@@ -35,17 +45,14 @@ class GroqProviderConfig:
         settings = settings or get_settings()
 
         return cls(
-            api_key=sanitize_text(
-                _setting_secret(settings, "GROQ_API_KEY"),
-                4_000,
-            ),
+            api_key=sanitize_text(setting_secret(settings, "GROQ_API_KEY"), 4_000),
             model=sanitize_text(
                 str(getattr(settings, "GROQ_MODEL", DEFAULT_GROQ_MODEL) or DEFAULT_GROQ_MODEL),
                 MAX_MODEL_NAME_CHARS,
             ),
             base_url=sanitize_text(
                 str(getattr(settings, "GROQ_BASE_URL", DEFAULT_GROQ_BASE_URL) or DEFAULT_GROQ_BASE_URL),
-                MAX_BASE_URL_CHARS,
+                300,
             ).rstrip("/"),
             timeout_seconds=float(
                 getattr(settings, "GROQ_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
@@ -64,7 +71,6 @@ class GroqProvider:
     - API key is sent in Authorization header only
     - provider errors are redacted before surfacing
     - raw HTTP payload is not exposed in exceptions
-    - non-streaming only
     """
 
     name = "groq"
@@ -91,10 +97,7 @@ class GroqProvider:
             )
 
         payload = self._build_payload(request)
-        headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
-            "Content-Type": "application/json",
-        }
+        headers = self._auth_headers()
 
         owns_client = self._client is None
         client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
@@ -107,16 +110,16 @@ class GroqProvider:
             )
 
             if response.status_code >= 400:
-                raise _provider_http_error(response)
+                raise build_provider_http_error(response, provider_name="groq")
 
             data = response.json()
-            text = _extract_text(data)
+            text = extract_openai_text(data, MAX_TEXT_CHARS)
 
             if not text:
                 raise ProviderError(
                     "Groq returned an empty response",
                     code="groq_empty_response",
-                    details=_extract_safe_response_metadata(data),
+                    details=extract_openai_metadata(data),
                 )
 
             return LLMResponse(
@@ -124,8 +127,8 @@ class GroqProvider:
                 provider_used=self.name,
                 fallback_count=0,
                 latency_ms=0.0,
-                model_name=_extract_model_name(data, self.config.model),
-                finish_reason=_extract_finish_reason(data),
+                model_name=extract_openai_model(data, self.config.model),
+                finish_reason=extract_openai_finish_reason(data),
             )
 
         except httpx.TimeoutException as exc:
@@ -139,10 +142,7 @@ class GroqProvider:
             raise ProviderError(
                 "Groq HTTP request failed",
                 code="groq_http_error",
-                details={
-                    "provider": self.name,
-                    "error": _clean_error(str(exc)),
-                },
+                details={"provider": self.name, "error": clean_error(str(exc))},
             ) from exc
 
         except ValueError as exc:
@@ -166,10 +166,7 @@ class GroqProvider:
 
         payload = self._build_payload(request)
         payload["stream"] = True
-        headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
-            "Content-Type": "application/json",
-        }
+        headers = self._auth_headers()
 
         owns_client = self._client is None
         client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
@@ -178,21 +175,10 @@ class GroqProvider:
             async with client.stream("POST", self._chat_completions_url(), headers=headers, json=payload) as response:
                 if response.status_code >= 400:
                     await response.aread()
-                    raise _provider_http_error(response)
+                    raise build_provider_http_error(response, provider_name="groq")
 
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        data_str = line[6:]
-                        if data_str.strip() == "[DONE]":
-                            break
-                        import json
-                        try:
-                            data = json.loads(data_str)
-                            text = _extract_text(data)
-                            if text:
-                                yield text
-                        except json.JSONDecodeError:
-                            pass
+                async for text in iter_sse_text(response):
+                    yield text
 
         except httpx.TimeoutException as exc:
             raise ProviderTimeoutError(
@@ -205,15 +191,18 @@ class GroqProvider:
             raise ProviderError(
                 "Groq HTTP request failed",
                 code="groq_http_error",
-                details={
-                    "provider": self.name,
-                    "error": _clean_error(str(exc)),
-                },
+                details={"provider": self.name, "error": clean_error(str(exc))},
             ) from exc
 
         finally:
             if owns_client:
                 await client.aclose()
+
+    def _auth_headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.config.api_key}",
+            "Content-Type": "application/json",
+        }
 
     def _chat_completions_url(self) -> str:
         return f"{self.config.base_url.rstrip('/')}/chat/completions"
@@ -221,7 +210,7 @@ class GroqProvider:
     def _build_payload(self, request: LLMRequest) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": sanitize_text(self.config.model, MAX_MODEL_NAME_CHARS),
-            "messages": _convert_messages(request.messages),
+            "messages": convert_openai_messages(list(request.messages), MAX_TEXT_CHARS),
             "temperature": max(0.0, min(float(request.temperature), 2.0)),
             "max_tokens": max(1, min(int(request.max_output_tokens), 8192)),
             "stream": False,
@@ -239,9 +228,9 @@ class GroqProvider:
 
         response_format = request.metadata.get("response_format") if request.metadata else None
         if isinstance(response_format, dict):
-            payload["response_format"] = _sanitize_jsonish(response_format)
+            payload["response_format"] = sanitize_jsonish(response_format)
 
-        # Groq-specific optional knobs. Only pass if explicitly requested.
+        # Groq-specific optional knobs
         reasoning_format = request.metadata.get("reasoning_format") if request.metadata else None
         if isinstance(reasoning_format, str) and reasoning_format:
             payload["reasoning_format"] = sanitize_text(reasoning_format, 80)
@@ -262,222 +251,3 @@ class GroqProvider:
             }
 
         return payload
-
-
-def _convert_messages(messages: list[LLMMessage]) -> list[dict[str, str]]:
-    converted: list[dict[str, str]] = []
-
-    for message in messages:
-        content = sanitize_text(message.content, MAX_TEXT_CHARS)
-
-        if not content:
-            continue
-
-        converted.append(
-            {
-                "role": _convert_role(message.role),
-                "content": content,
-            }
-        )
-
-    if not converted:
-        converted.append(
-            {
-                "role": "user",
-                "content": "Continue.",
-            }
-        )
-
-    return converted
-
-
-def _convert_role(role: LLMRole) -> str:
-    if role == LLMRole.SYSTEM:
-        return "system"
-
-    if role == LLMRole.ASSISTANT:
-        return "assistant"
-
-    return "user"
-
-
-def _extract_text(data: dict[str, Any]) -> str:
-    choices = data.get("choices")
-
-    if not isinstance(choices, list) or not choices:
-        return ""
-
-    first = choices[0]
-
-    if not isinstance(first, dict):
-        return ""
-
-    message = first.get("message")
-
-    if isinstance(message, dict):
-        content = message.get("content")
-
-        if isinstance(content, str):
-            return sanitize_text(content, MAX_TEXT_CHARS)
-
-        if isinstance(content, list):
-            return sanitize_text(_extract_content_list_text(content), MAX_TEXT_CHARS)
-
-    text = first.get("text")
-
-    if isinstance(text, str):
-        return sanitize_text(text, MAX_TEXT_CHARS)
-
-    delta = first.get("delta")
-
-    if isinstance(delta, dict) and isinstance(delta.get("content"), str):
-        return sanitize_text(str(delta["content"]), MAX_TEXT_CHARS)
-
-    return ""
-
-
-def _extract_content_list_text(content: list[Any]) -> str:
-    parts: list[str] = []
-
-    for item in content:
-        if isinstance(item, str):
-            parts.append(item)
-            continue
-
-        if not isinstance(item, dict):
-            continue
-
-        text = item.get("text")
-        if isinstance(text, str):
-            parts.append(text)
-
-    return "\n".join(parts)
-
-
-def _extract_finish_reason(data: dict[str, Any]) -> str:
-    choices = data.get("choices")
-
-    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
-        return sanitize_text(str(choices[0].get("finish_reason") or "unknown"), 80)
-
-    return "unknown"
-
-
-def _extract_model_name(data: dict[str, Any], fallback_model: str) -> str:
-    model = data.get("model")
-
-    if model:
-        return sanitize_text(str(model), MAX_MODEL_NAME_CHARS)
-
-    return sanitize_text(fallback_model, MAX_MODEL_NAME_CHARS)
-
-
-def _extract_safe_response_metadata(data: dict[str, Any]) -> dict[str, str]:
-    metadata: dict[str, str] = {}
-
-    if data.get("id"):
-        metadata["response_id_present"] = "true"
-
-    if data.get("model"):
-        metadata["model"] = sanitize_text(str(data["model"]), MAX_MODEL_NAME_CHARS)
-
-    if data.get("system_fingerprint"):
-        metadata["system_fingerprint_present"] = "true"
-
-    if data.get("service_tier"):
-        metadata["service_tier"] = sanitize_text(str(data["service_tier"]), 80)
-
-    choices = data.get("choices")
-    if isinstance(choices, list):
-        metadata["choices_count"] = str(len(choices))
-
-        if choices and isinstance(choices[0], dict):
-            metadata["finish_reason"] = sanitize_text(
-                str(choices[0].get("finish_reason") or ""),
-                80,
-            )
-
-    usage = data.get("usage")
-    if usage is not None:
-        metadata["usage_present"] = "true"
-
-    return metadata
-
-
-def _provider_http_error(response: httpx.Response) -> ProviderError:
-    status_code = response.status_code
-    code = "groq_http_error"
-
-    try:
-        data = response.json()
-    except ValueError:
-        data = {}
-
-    message = ""
-
-    if isinstance(data, dict):
-        error = data.get("error")
-
-        if isinstance(error, dict):
-            message = sanitize_text(str(error.get("message") or ""), MAX_PROVIDER_ERROR_CHARS)
-            api_code = sanitize_text(str(error.get("code") or error.get("type") or ""), 120)
-            if api_code:
-                code = f"groq_{api_code.lower().replace(' ', '_')}"
-
-        elif isinstance(error, str):
-            message = sanitize_text(error, MAX_PROVIDER_ERROR_CHARS)
-
-    if not message:
-        message = sanitize_text(response.text, MAX_PROVIDER_ERROR_CHARS)
-
-    message = _clean_error(message)
-
-    return ProviderError(
-        "Groq provider returned an error",
-        code=code,
-        details={
-            "provider": "groq",
-            "status_code": str(status_code),
-            "message": message,
-        },
-    )
-
-
-def _sanitize_jsonish(value: Any, *, depth: int = 3) -> Any:
-    if value is None or isinstance(value, (bool, int, float)):
-        return value
-
-    if isinstance(value, str):
-        return sanitize_text(value, 300)
-
-    if depth <= 0:
-        return sanitize_text(str(value), 300)
-
-    if isinstance(value, dict):
-        return {
-            sanitize_text(str(key), 120): _sanitize_jsonish(item, depth=depth - 1)
-            for key, item in list(value.items())[:40]
-            if sanitize_text(str(key), 120)
-        }
-
-    if isinstance(value, list):
-        return [_sanitize_jsonish(item, depth=depth - 1) for item in value[:40]]
-
-    return sanitize_text(str(value), 300)
-
-
-def _clean_error(value: str) -> str:
-    cleaned = redact_basic_pii(sanitize_text(value, MAX_PROVIDER_ERROR_CHARS))
-    return cleaned or "provider_error"
-
-def _setting_secret(settings: Settings, name: str, default: str = "") -> str:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return default
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value() or default
-
-    return str(value or default)
-
