@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
+import logging
 import re
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -17,6 +17,7 @@ from backend.core.security import (
     safe_truncate,
     sanitize_text,
 )
+from backend.core.settings_helpers import is_production, setting_bool, setting_value
 from backend.models.memory import (
     CommunicationPreferences,
     ImportantPerson,
@@ -32,6 +33,8 @@ from backend.models.memory import (
     RelationshipFact,
 )
 from backend.services.llm_service import LLMService, build_llm_request
+
+logger = logging.getLogger(__name__)
 
 
 MAX_COMPACTED_SUMMARY_CHARS = 4_000
@@ -243,11 +246,11 @@ class MemoryService:
         allow_offline_llm_summarization: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.production_mode = _is_production(self.settings)
+        self.production_mode = is_production(self.settings)
         self.llm_service = llm_service
 
         self.enable_llm_summarization = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ENABLE_LLM_MEMORY_SUMMARIZATION",
                 default=True,
@@ -257,7 +260,7 @@ class MemoryService:
         )
 
         self.allow_offline_llm_summarization = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ALLOW_OFFLINE_LLM_MEMORY_SUMMARIZATION",
                 default=False,
@@ -1242,36 +1245,6 @@ class MemoryService:
         )
 
 
-def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return os.getenv(name, default)
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value()
-
-    return value
-
-
-def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
-    value = _setting_value(settings, name, None)
-
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _is_production(settings: Settings) -> bool:
-    value = _setting_value(settings, "ENVIRONMENT", "development")
-    environment = sanitize_text(str(value or "development"), 80).lower()
-    return environment in {"production", "prod"}
-
-
 def _clean_provider_name(value: str) -> str:
     return sanitize_text(str(value or ""), 80).lower() or "unknown"
 
@@ -1718,3 +1691,4 @@ def _contains_egyptian_arabic(text: str) -> bool:
             "بيتحكم",
         )
     )
+

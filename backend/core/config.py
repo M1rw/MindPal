@@ -112,6 +112,13 @@ class Settings(BaseSettings):
     ENABLE_LLM_RAG_PLANNING: bool = True
     ENABLE_LLM_SAFETY_CLASSIFIER: bool = True
 
+    # LLM policy flags (previously read via os.getenv in llm_service.py)
+    REQUIRE_REMOTE_LLM_PROVIDER: bool = False
+    ALLOW_OFFLINE_LLM_IN_PRODUCTION: bool = False
+
+    # Firebase auth flags (previously read via os.getenv in auth_service.py)
+    FIREBASE_CHECK_REVOKED_TOKENS: bool = False
+
     # ── Privacy / Logging ────────────────────────────────────────
     LOG_RAW_MESSAGES: bool = False
 

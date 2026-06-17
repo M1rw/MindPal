@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from time import perf_counter
@@ -12,8 +12,11 @@ from typing import Any, Protocol
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
 from backend.core.security import sanitize_text
+from backend.core.settings_helpers import is_production, setting_bool, setting_float, setting_value
 from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
 from backend.models.schemas import ProviderCallTrace, ProviderChainTrace
+
+logger = logging.getLogger(__name__)
 
 
 MAX_PROVIDER_NAME_CHARS = 80
@@ -193,15 +196,15 @@ class LLMService:
         allow_offline_in_production: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.production_mode = _is_production(self.settings)
-        self.timeout_seconds = float(timeout_seconds or _setting_float(
+        self.production_mode = is_production(self.settings)
+        self.timeout_seconds = float(timeout_seconds or setting_float(
             self.settings,
             "LLM_TIMEOUT_SECONDS",
             default=45.0,
         ))
 
         self.require_remote_provider = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "REQUIRE_REMOTE_LLM_PROVIDER",
                 default=self.production_mode,
@@ -211,7 +214,7 @@ class LLMService:
         )
 
         self.allow_offline_in_production = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ALLOW_OFFLINE_LLM_IN_PRODUCTION",
                 default=False,
@@ -221,7 +224,7 @@ class LLMService:
         )
 
         should_include_offline = (
-            _setting_bool(
+            setting_bool(
                 self.settings,
                 "ENABLE_OFFLINE_LLM_FALLBACK",
                 default=not self.production_mode,
@@ -675,41 +678,3 @@ def _elapsed_ms(started: float) -> float:
 def _clamp_fallback_count(value: int) -> int:
     return max(0, min(int(value), 10))
 
-
-def _setting_value(settings: Settings, name: str, default: Any = None) -> Any:
-    value = getattr(settings, name, None)
-
-    if value is None:
-        return os.getenv(name, default)
-
-    if hasattr(value, "get_secret_value"):
-        return value.get_secret_value()
-
-    return value
-
-
-def _setting_bool(settings: Settings, name: str, *, default: bool) -> bool:
-    value = _setting_value(settings, name, None)
-
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _setting_float(settings: Settings, name: str, *, default: float) -> float:
-    value = _setting_value(settings, name, default)
-
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _is_production(settings: Settings) -> bool:
-    value = _setting_value(settings, "ENVIRONMENT", "development")
-    environment = sanitize_text(str(value or "development"), 80).lower()
-    return environment in {"production", "prod"}
