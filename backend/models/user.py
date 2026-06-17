@@ -165,11 +165,24 @@ class ClinicalProfile(BaseModel):
 
 class UsageProfile(BaseModel):
     """
-    Usage metrics for the 5-hour rolling limit window.
+    Usage metrics with dual rolling-window credit tracking.
+
+    Credit costs:  standard message = 1 credit, pro message = 2 credits.
+    Windows:       5-hour (50 credits), 1-week (500 credits).
+    The more restrictive window applies.
     """
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    # Legacy pro-only fields (kept for backward compatibility)
     pro_messages_count: int = Field(default=0, ge=0)
     pro_last_reset_time: float = Field(default=0.0, ge=0.0)
+
+    # Unified credit system
+    total_credits_5h: int = Field(default=0, ge=0)
+    credits_5h_reset_time: float = Field(default=0.0, ge=0.0)
+    total_credits_week: int = Field(default=0, ge=0)
+    credits_week_reset_time: float = Field(default=0.0, ge=0.0)
+    total_messages_count: int = Field(default=0, ge=0)
 
 
 class UserProfile(BaseModel):

@@ -342,6 +342,8 @@
                     <button class="settings-tab-btn" data-settings-tab="memory" type="button"><i data-lucide="database" class="w-4 h-4"></i><span>Memory</span></button>
                     <button class="settings-tab-btn" data-settings-tab="data" type="button"><i data-lucide="database-zap" class="w-4 h-4"></i><span>Data controls</span></button>
                     <button class="settings-tab-btn" data-settings-tab="security" type="button"><i data-lucide="shield-alert" class="w-4 h-4"></i><span>Security</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="mental-health" type="button"><i data-lucide="heart-pulse" class="w-4 h-4"></i><span>Mental health</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="usage" type="button"><i data-lucide="gauge" class="w-4 h-4"></i><span>Usage</span></button>
                     <button class="settings-tab-btn" data-settings-tab="account" type="button"><i data-lucide="circle-user-round" class="w-4 h-4"></i><span>Account</span></button>
                 </nav>
             </aside>
@@ -353,6 +355,8 @@
                         <option value="memory">Memory</option>
                         <option value="data">Data controls</option>
                         <option value="security">Security</option>
+                        <option value="mental-health">Mental health</option>
+                        <option value="usage">Usage</option>
                         <option value="account">Account</option>
                     </select>
                     <button id="close-profile-mobile-btn" class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#333333] text-gray-600 dark:text-gray-300 transition-colors" title="Close settings" type="button">
@@ -417,6 +421,114 @@
                             </div>
                             <div class="settings-row" id="account-email-row"><span class="settings-row-main"><span class="settings-row-title">Email</span><span class="settings-row-copy" id="account-email-copy">Sign in to connect your cloud identity.</span></span><span class="settings-row-action" id="account-email-status">Not connected</span></div>
                             <button class="settings-row text-left w-full" id="delete-account-btn" type="button"><span class="settings-row-main"><span class="settings-row-title text-rose-600 dark:text-rose-400">Delete account</span><span class="settings-row-copy">Remove cloud identity and synced data after confirmation.</span></span><span class="settings-danger-pill">Delete</span></button>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════ MENTAL HEALTH ═══════════════ -->
+                    <div class="settings-panel" data-settings-panel="mental-health" hidden>
+                        <h2 class="settings-title">Mental health</h2>
+
+                        <div class="settings-section">
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main">
+                                    <span class="settings-row-title">Depression screen (PHQ-9)</span>
+                                    <span class="settings-row-copy">Tracks depressive symptom severity over time. Higher scores indicate more symptoms.</span>
+                                </div>
+                            </div>
+                            <div id="phq9-chart" class="flex items-end gap-1 h-24 px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+                                <div class="w-full h-full flex items-center justify-center italic text-gray-400 dark:text-gray-600 text-[13px]">No data yet</div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section mt-4">
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main">
+                                    <span class="settings-row-title">Anxiety screen (GAD-7)</span>
+                                    <span class="settings-row-copy">Tracks anxiety symptom severity over time. Higher scores indicate more symptoms.</span>
+                                </div>
+                            </div>
+                            <div id="gad7-chart" class="flex items-end gap-1 h-24 px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+                                <div class="w-full h-full flex items-center justify-center italic text-gray-400 dark:text-gray-600 text-[13px]">No data yet</div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section mt-4">
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main">
+                                    <span class="settings-row-title">Presenting problems</span>
+                                    <span class="settings-row-copy">Key concerns identified through conversations with MindPal Pro.</span>
+                                </div>
+                            </div>
+                            <div id="presenting-problems-display" class="text-[13px] text-gray-700 dark:text-gray-300 px-3 py-2">None recorded.</div>
+                        </div>
+
+                        <div class="settings-section mt-4">
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main">
+                                    <span class="settings-row-title">Suspected diagnoses</span>
+                                    <span class="settings-row-copy">Preliminary observations — not a clinical diagnosis.</span>
+                                </div>
+                            </div>
+                            <div id="suspected-diagnoses-display" class="text-[13px] text-gray-700 dark:text-gray-300 px-3 py-2">None recorded.</div>
+                        </div>
+
+                        <div class="settings-section mt-4">
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main">
+                                    <span class="settings-row-title">Treatment plan</span>
+                                    <span class="settings-row-copy">Active plan recommended through conversations.</span>
+                                </div>
+                            </div>
+                            <div id="treatment-plan-display" class="text-[13px] text-gray-700 dark:text-gray-300 px-3 py-2">None active.</div>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════ USAGE & QUOTA ═══════════════ -->
+                    <div class="settings-panel" data-settings-panel="usage" hidden>
+                        <h2 class="settings-title">Usage & Quota</h2>
+
+                        <div class="settings-section">
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main">
+                                    <span class="settings-row-title">5-hour window</span>
+                                    <span class="settings-row-copy">Credits used in the current 5-hour rolling window. Standard messages cost 1 credit, Pro costs 2×.</span>
+                                </div>
+                                <span class="text-[13px] font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap" id="usage-5h-text">0 / 50</span>
+                            </div>
+                            <div class="px-1 py-1">
+                                <div class="usage-bar-track"><div class="usage-bar-fill" id="usage-5h-bar" style="width: 0%"></div></div>
+                            </div>
+                            <div class="text-[11px] text-gray-400 dark:text-gray-500 px-1 mt-1" id="usage-5h-reset">Resets in —</div>
+                        </div>
+
+                        <div class="settings-section mt-5">
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main">
+                                    <span class="settings-row-title">Weekly window</span>
+                                    <span class="settings-row-copy">Credits used in the current 7-day rolling window.</span>
+                                </div>
+                                <span class="text-[13px] font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap" id="usage-week-text">0 / 500</span>
+                            </div>
+                            <div class="px-1 py-1">
+                                <div class="usage-bar-track"><div class="usage-bar-fill" id="usage-week-bar" style="width: 0%"></div></div>
+                            </div>
+                            <div class="text-[11px] text-gray-400 dark:text-gray-500 px-1 mt-1" id="usage-week-reset">Resets in —</div>
+                        </div>
+
+                        <div class="settings-section mt-5">
+                            <div class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">How credits work</span>
+                                    <span class="settings-row-copy">Each Standard message costs 1 credit. Pro messages cost 2 credits. Limits ensure fair usage for everyone.</span>
+                                </span>
+                            </div>
+                            <div class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Total messages sent</span>
+                                    <span class="settings-row-copy">Lifetime total across all models.</span>
+                                </span>
+                                <span class="text-[13px] font-medium text-gray-600 dark:text-gray-400" id="usage-total-messages">0</span>
+                            </div>
                         </div>
                     </div>
 
