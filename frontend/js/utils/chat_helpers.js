@@ -134,8 +134,11 @@ export function cognitiveSectionKey(label) {
  * Returns { thoughtContent, visibleContent } or null if no pattern found.
  */
 function parseAgentChainResponse(text) {
-  const clean = String(text || "").replace(/\r\n/g, "\n").trim();
+  let clean = String(text || "").replace(/\r\n/g, "\n").trim();
   if (!clean) return null;
+
+  // Strip leading "Self:" prefix the LLM sometimes adds before **Thought:**
+  clean = clean.replace(/^\s*Self\s*:\s*/i, "").trim();
 
   // Match **Thought:** ... followed by **Response:** or **Balanced Reframe:**
   const thoughtMatch = clean.match(
@@ -174,7 +177,15 @@ function parseAgentChainResponse(text) {
   }
 
   const thoughtContent = clean.slice(thoughtMatch[0].length, splitIndex).trim();
-  const visibleContent = clean.slice(splitIndex + matchLength).trim();
+  let visibleContent = clean.slice(splitIndex + matchLength).trim();
+
+  // Strip leaked internal reasoning prefixes from the visible response
+  // e.g. "Self: REVIEW: Before proceeding..." or "REVIEW: I want to ensure..."
+  visibleContent = visibleContent
+    .replace(/^\s*Self\s*:\s*/i, "")
+    .replace(/^\s*REVIEW\s*:\s*/i, "")
+    .replace(/^\s*SELF[- ]?REVIEW\s*:\s*/i, "")
+    .trim();
 
   return { thoughtContent, visibleContent };
 }

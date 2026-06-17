@@ -893,11 +893,17 @@ async function handleSend() {
         settingsMetadata: buildChatSettingsMetadata(),
       },
       onChunk: (chunkText) => {
-        if (!firstChunkReceived) {
-          firstChunkReceived = true;
-          finalizeStatusIndicator(statusId, performance.now() - streamStartTime);
-        }
         streamResponseStr += chunkText;
+
+        // Finalize the "Thinking..." indicator when the response delimiter appears
+        if (!firstChunkReceived) {
+          const hasDelimiter = /\*{2}\s*(?:Response|Balanced\s+Reframe)\s*:?\s*\*{2}/i.test(streamResponseStr)
+            || /\n\s*(?:Response|Balanced\s+Reframe)\s*:\s*/i.test(streamResponseStr);
+          if (hasDelimiter) {
+            firstChunkReceived = true;
+            finalizeStatusIndicator(statusId, performance.now() - streamStartTime);
+          }
+        }
 
         const now = performance.now();
         if (now - lastRenderTime > 150) {
@@ -926,6 +932,11 @@ async function handleSend() {
             timelineDiv.innerHTML = finalParsed.timelineHtml;
             contentContainer.insertBefore(timelineDiv, contentBox);
             document.getElementById(statusId)?.remove();
+          } else {
+            // No thought accordion — finalize indicator as "Thought for Xs" or remove it
+            if (!firstChunkReceived) {
+              finalizeStatusIndicator(statusId, elapsedMs);
+            }
           }
 
           scrollChatToBottom("auto");
@@ -1382,11 +1393,18 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
         settingsMetadata: buildChatSettingsMetadata(),
       },
       onChunk: (chunkText) => {
-        if (!firstChunkReceived) {
-          firstChunkReceived = true;
-          finalizeStatusIndicator(statusId, performance.now() - streamStartTime);
-        }
         streamResponseStr += chunkText;
+
+        // Finalize the "Thinking..." indicator when the response delimiter appears
+        if (!firstChunkReceived) {
+          const hasDelimiter = /\*{2}\s*(?:Response|Balanced\s+Reframe)\s*:?\s*\*{2}/i.test(streamResponseStr)
+            || /\n\s*(?:Response|Balanced\s+Reframe)\s*:\s*/i.test(streamResponseStr);
+          if (hasDelimiter) {
+            firstChunkReceived = true;
+            finalizeStatusIndicator(statusId, performance.now() - streamStartTime);
+          }
+        }
+
         const now = performance.now();
         if (now - lastRenderTime > 150) {
           lastRenderTime = now;
@@ -1414,6 +1432,10 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
             timelineDiv.innerHTML = finalParsed.timelineHtml;
             contentContainer.insertBefore(timelineDiv, contentBox);
             document.getElementById(statusId)?.remove();
+          } else {
+            if (!firstChunkReceived) {
+              finalizeStatusIndicator(statusId, elapsedMs);
+            }
           }
 
           scrollChatToBottom("auto");
