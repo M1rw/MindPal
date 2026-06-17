@@ -74,6 +74,12 @@ class ValidationAppError(AppError):
     code = "validation_error"
 
 
+class InputTooLongError(ValidationAppError):
+    """User input exceeds the maximum allowed length."""
+
+    code = "input_too_long"
+
+
 class ProviderError(AppError):
     status_code = 502
     code = "provider_error"
@@ -82,6 +88,13 @@ class ProviderError(AppError):
 class ProviderTimeoutError(ProviderError):
     status_code = 504
     code = "provider_timeout"
+
+
+class RateLimitError(ProviderError):
+    """Provider returned 429 Too Many Requests."""
+
+    status_code = 429
+    code = "rate_limit_exceeded"
 
 
 class LLMServiceError(ProviderError):
@@ -111,7 +124,10 @@ class MemoryAppError(AppError):
     code = "memory_error"
 
 
-# Backward-compatible name. This shadows built-in MemoryError only inside this module.
+# DEPRECATED: This alias shadows the Python built-in MemoryError.
+# It exists only for backward compatibility with older code that imports it.
+# New code should use MemoryAppError directly.
+# TODO: Remove this alias once all consumers are migrated to MemoryAppError.
 MemoryError = MemoryAppError
 
 
@@ -153,6 +169,7 @@ __all__ = [
     "ConfigError",
     "DatabaseError",
     "DatabaseServiceError",
+    "InputTooLongError",
     "LLMServiceError",
     "MemoryAppError",
     "MemoryError",
@@ -165,6 +182,7 @@ __all__ = [
     "ProviderTimeoutError",
     "RAGError",
     "RAGServiceError",
+    "RateLimitError",
     "SafetyError",
     "SafetyServiceError",
     "SecurityError",

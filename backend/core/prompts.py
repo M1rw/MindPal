@@ -1,5 +1,15 @@
 # backend/core/prompts.py
 
+"""
+Prompt templates, intent analysis, and response mode inference for MindPal.
+
+This module contains:
+- Static prompt templates (product boundary, safety, wellness, clinical pro)
+- Deterministic intent analysis (build_intent_context)
+- Response mode inference (infer_response_mode, infer_response_mode_for_preference)
+- System prompt assembly (build_system_prompt, render_system_prompt)
+"""
+
 from __future__ import annotations
 
 import json
@@ -8,6 +18,32 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from .security import Locale, normalize_locale, safe_truncate, sanitize_text
+
+
+__all__ = [
+    # Prompt constants
+    "CLINICAL_PRO_PROMPT",
+    "PRODUCT_BOUNDARY_PROMPT",
+    "SAFETY_STYLE_PROMPT",
+    "WELLNESS_ASSISTANT_PROMPT",
+    # Routing constants
+    "ALLOWED_RESPONSE_MODES",
+    "PREFERENCE_MODE_FAMILIES",
+    "SAFETY_OVERRIDE_MODES",
+    "VALID_RAG_TAGS",
+    # Types
+    "Channel",
+    "PromptPolicy",
+    "ResponseMode",
+    # Builders
+    "build_intent_context",
+    "build_prompt_policy",
+    "build_system_prompt",
+    "infer_response_mode",
+    "infer_response_mode_for_preference",
+    "render_system_prompt",
+    "resolve_response_mode",
+]
 
 
 ResponseMode = Literal[
