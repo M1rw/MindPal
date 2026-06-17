@@ -53,6 +53,7 @@ import {
   updateMentalHealthUI,
   updateUsageUI,
   updateUsageFromMeta,
+  registerSettingsStore,
 } from "./ui_state.js?v=20260615-streaming-v7";
 
 import { initLiveVoice, startLiveVoice } from "./voice_live.js";
@@ -81,6 +82,7 @@ import {
   bindKeyboardShortcuts,
   persistAppSettingsToCloud,
   notifyFromSetting,
+  renderSettingsControls,
 } from "./components/settings_ui.js";
 
 import {
@@ -238,6 +240,7 @@ document.addEventListener("DOMContentLoaded", bootstrap);
 async function bootstrap() {
   refreshIcons();
   initializeTheme();
+  registerSettingsStore({ setAppSetting });
   applyVisualSettings();
   loadState();
 
@@ -372,6 +375,8 @@ function bindProfileModal() {
 
   document.getElementById("profile-btn")?.addEventListener("click", () => {
     updateProfileUI(getCurrentUser());
+    // Re-render settings controls so dropdowns reflect changes made outside the panel
+    renderSettingsControls(document.getElementById("profile-content") || document);
     if (document.querySelector('[data-settings-panel="memory"]')?.classList.contains("active")) {
       renderMemoryInspector();
     }
