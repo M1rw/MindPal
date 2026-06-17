@@ -32,6 +32,15 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
 
 let appSettings = normalizeSettings(loadRawSettings());
 
+// Auto-sync theme icon when OS preference changes while appearance = "system"
+try {
+  window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener("change", () => {
+    if (appSettings.appearance === "system") {
+      applyVisualSettings(appSettings);
+    }
+  });
+} catch { /* older browsers */ }
+
 export function getAppSettings() {
   return structuredCloneSafe(appSettings);
 }
@@ -116,11 +125,23 @@ export function applyVisualSettings(settings = appSettings) {
   root.dataset.accent = normalized.accentColor;
   root.dataset.contrast = normalized.contrast;
 
-  const themeIcon = document.getElementById("theme-icon");
+  // Update header theme icon — works for both <i> (pre-render) and <svg> (post-render)
+  const themeIcon = document.getElementById("theme-icon")
+    || document.querySelector("#theme-toggle-btn svg")
+    || document.querySelector("#theme-toggle-btn i[data-lucide]");
+
   if (themeIcon) {
     const nextIcon = dark ? "sun" : "moon";
     themeIcon.setAttribute("data-lucide", nextIcon);
-    swapIconInline(themeIcon, nextIcon);
+
+    if (themeIcon.tagName.toLowerCase() === "svg") {
+      swapIconInline(themeIcon, nextIcon);
+    } else {
+      // <i> tag — needs full Lucide render for this element
+      if (window.lucide?.createIcons) {
+        window.lucide.createIcons({ nodes: [themeIcon] });
+      }
+    }
   }
 }
 
