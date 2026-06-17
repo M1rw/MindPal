@@ -96,36 +96,6 @@ export function parseCognitiveSections(text) {
   return sections;
 }
 
-export function cognitiveSectionKey(label) {
-  const normalized = String(label || "")
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  switch (normalized) {
-    case "thought":
-    case "core thought":
-      return "thought";
-    case "distortion":
-    case "distortion detected":
-      return "distortion";
-    case "evidence for":
-      return "evidenceFor";
-    case "evidence against":
-      return "evidenceAgainst";
-    case "reframe":
-    case "balanced reframe":
-      return "reframe";
-    case "action":
-    case "next action":
-    case "next tiny action":
-      return "action";
-    default:
-      return "unknown";
-  }
-}
-
 /**
  * Parse agent chain output format:
  *   **Thought:** [internal reasoning]
