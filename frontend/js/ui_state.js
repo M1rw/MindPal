@@ -534,43 +534,51 @@ export function updateMentalHealthUI(profileResponse = null) {
   const diagnosesDisplay = document.getElementById("suspected-diagnoses-display");
   const treatmentPlanDisplay = document.getElementById("treatment-plan-display");
 
+  // Mock data for empty states (grey, sample pattern)
+  const mockPHQ9 = [
+    { score: 8, date: "Sample" }, { score: 12, date: "Sample" }, { score: 14, date: "Sample" },
+    { score: 11, date: "Sample" }, { score: 9, date: "Sample" }, { score: 7, date: "Sample" }, { score: 5, date: "Sample" },
+  ];
+  const mockGAD7 = [
+    { score: 6, date: "Sample" }, { score: 9, date: "Sample" }, { score: 12, date: "Sample" },
+    { score: 10, date: "Sample" }, { score: 8, date: "Sample" }, { score: 6, date: "Sample" }, { score: 4, date: "Sample" },
+  ];
+
+  const renderBars = (data, maxScore, colorClass, isMock) => {
+    const barColor = isMock
+      ? "bg-gray-300/60 dark:bg-gray-600/40"
+      : colorClass;
+    const hoverColor = isMock
+      ? ""
+      : colorClass.replace("/80", "").replace("bg-", "hover:bg-").replace("500", "400");
+    return data.map(item => {
+      const heightPct = Math.max(5, (item.score / maxScore) * 100);
+      return `
+        <div class="flex flex-col items-center flex-1 h-full justify-end group relative${isMock ? "" : " cursor-pointer"}">
+          <div class="w-full ${barColor} ${hoverColor} rounded-t-sm transition-all duration-300 min-w-[20px]" style="height: ${heightPct}%;"></div>
+          <div class="absolute -top-6 bg-black text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">${isMock ? "Sample" : `${item.score} (${item.date})`}</div>
+        </div>
+      `;
+    }).join("");
+  };
+
   if (phq9Chart) {
-    if (clinical?.phq9_history && clinical.phq9_history.length > 0) {
-      phq9Chart.innerHTML = clinical.phq9_history.map(item => {
-        const heightPct = Math.max(5, (item.score / 27) * 100);
-        return `
-          <div class="flex flex-col items-center flex-1 h-full justify-end group relative cursor-pointer">
-            <div class="w-full bg-indigo-500/80 hover:bg-indigo-400 rounded-t-sm transition-all duration-300 min-w-[20px]" style="height: ${heightPct}%;"></div>
-            <div class="absolute -top-6 bg-black text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">${item.score} (${item.date})</div>
-          </div>
-        `;
-      }).join("");
-    } else {
-      phq9Chart.innerHTML = `<div class="w-full h-full flex items-center justify-center italic text-gray-400 dark:text-gray-600 bg-gray-50 dark:bg-white/5 rounded-md border border-dashed border-gray-200 dark:border-white/10">No data</div>`;
-    }
+    const hasData = clinical?.phq9_history && clinical.phq9_history.length > 0;
+    const data = hasData ? clinical.phq9_history : mockPHQ9;
+    phq9Chart.innerHTML = renderBars(data, 27, "bg-indigo-500/80", !hasData);
   }
 
   if (gad7Chart) {
-    if (clinical?.gad7_history && clinical.gad7_history.length > 0) {
-      gad7Chart.innerHTML = clinical.gad7_history.map(item => {
-        const heightPct = Math.max(5, (item.score / 21) * 100);
-        return `
-          <div class="flex flex-col items-center flex-1 h-full justify-end group relative cursor-pointer">
-            <div class="w-full bg-purple-500/80 hover:bg-purple-400 rounded-t-sm transition-all duration-300 min-w-[20px]" style="height: ${heightPct}%;"></div>
-            <div class="absolute -top-6 bg-black text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap pointer-events-none">${item.score} (${item.date})</div>
-          </div>
-        `;
-      }).join("");
-    } else {
-      gad7Chart.innerHTML = `<div class="w-full h-full flex items-center justify-center italic text-gray-400 dark:text-gray-600 bg-gray-50 dark:bg-white/5 rounded-md border border-dashed border-gray-200 dark:border-white/10">No data</div>`;
-    }
+    const hasData = clinical?.gad7_history && clinical.gad7_history.length > 0;
+    const data = hasData ? clinical.gad7_history : mockGAD7;
+    gad7Chart.innerHTML = renderBars(data, 21, "bg-purple-500/80", !hasData);
   }
 
   if (problemsDisplay) {
     if (clinical?.presenting_problems && clinical.presenting_problems.length > 0) {
       problemsDisplay.innerHTML = "• " + clinical.presenting_problems.map(escapeHtml).join("<br>• ");
     } else {
-      problemsDisplay.textContent = "None recorded.";
+      problemsDisplay.innerHTML = `<span class="text-gray-400 dark:text-gray-600 italic">• Stress management &nbsp; • Sleep difficulties &nbsp; • Mood regulation</span>`;
     }
   }
 
@@ -578,12 +586,17 @@ export function updateMentalHealthUI(profileResponse = null) {
     if (clinical?.suspected_diagnoses && clinical.suspected_diagnoses.length > 0) {
       diagnosesDisplay.innerHTML = "• " + clinical.suspected_diagnoses.map(escapeHtml).join("<br>• ");
     } else {
-      diagnosesDisplay.textContent = "None recorded.";
+      diagnosesDisplay.innerHTML = `<span class="text-gray-400 dark:text-gray-600 italic">No observations yet — continue chatting with MindPal Pro.</span>`;
     }
   }
 
   if (treatmentPlanDisplay) {
-    treatmentPlanDisplay.textContent = clinical?.treatment_plan || "None active.";
+    treatmentPlanDisplay.textContent = clinical?.treatment_plan || "No active plan — insights build over time through conversations.";
+    if (!clinical?.treatment_plan) {
+      treatmentPlanDisplay.classList.add("text-gray-400", "dark:text-gray-600", "italic");
+    } else {
+      treatmentPlanDisplay.classList.remove("text-gray-400", "dark:text-gray-600", "italic");
+    }
   }
 }
 
