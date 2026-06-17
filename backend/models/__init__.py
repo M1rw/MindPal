@@ -49,11 +49,11 @@ from .memory import (
 )
 from .memory_v3 import (
     MemoryAtom,
+    MemoryCategory as MemoryGraphCategory,
     MemoryGraph,
     MemoryGraphLoadResult,
     MemoryGraphPatch,
     MemoryGraphWriteResult,
-    MemoryCategory as MemoryGraphCategory,
     MemorySensitivity as MemoryGraphSensitivity,
     MemorySource as MemoryGraphSource,
     MemoryStatus,
@@ -97,11 +97,13 @@ from .user import (
 )
 
 __all__ = [
+    # API
     "ApiErrorDetail",
     "ApiErrorResponse",
     "ApiMessageResponse",
     "ApiMeta",
     "ApiStatus",
+    # Chat
     "ChatChannel",
     "ChatMessage",
     "ChatMetadata",
@@ -109,16 +111,21 @@ __all__ = [
     "ChatResponse",
     "ChatRole",
     "ChatSafetyView",
+    # Communication
+    "CommunicationPreferences",
     "CommunicationStyle",
+    # Crisis
     "CrisisResponseTemplate",
+    # Health
     "DependencyHealth",
     "HealthResponse",
     "HealthState",
+    # LLM
     "LLMMessage",
     "LLMRequest",
     "LLMResponse",
     "LLMRole",
-    "CommunicationPreferences",
+    # Memory (v1/v2 — flat summary format)
     "ImportantPerson",
     "MemoryCategory",
     "MemoryCompactionRequest",
@@ -131,6 +138,8 @@ __all__ = [
     "MemorySource",
     "MemorySummary",
     "MemoryWriteResult",
+    "RelationshipFact",
+    # Memory (v3 — graph/atom format)
     "MemoryAtom",
     "MemoryGraph",
     "MemoryGraphCategory",
@@ -140,10 +149,12 @@ __all__ = [
     "MemoryGraphSource",
     "MemoryGraphWriteResult",
     "MemoryStatus",
-    "RelationshipFact",
+    # Provider
     "ProviderCallTrace",
     "ProviderChainTrace",
+    # RAG
     "RagReference",
+    # Safety
     "SafetyAction",
     "SafetyDecision",
     "SafetyEvent",
@@ -151,9 +162,11 @@ __all__ = [
     "SafetyMatchedRule",
     "SafetyPingResponse",
     "SafetySource",
+    # TTS
     "TTSFormat",
     "TTSRequest",
     "TTSResponse",
+    # User
     "UserChannel",
     "UserPreferences",
     "UserProfile",
@@ -162,5 +175,6 @@ __all__ = [
     "UserSafetyPreference",
     "UserSession",
     "UserStatus",
+    # Validation
     "ValidationIssue",
 ]
