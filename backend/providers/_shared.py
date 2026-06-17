@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 import httpx
@@ -365,13 +366,44 @@ def sanitize_jsonish(value: Any, *, depth: int = 3) -> Any:
 # SSE streaming
 # ═══════════════════════════════════════════════════════════════
 
+def extract_openai_delta_text(data: dict[str, Any], max_chars: int = MAX_TEXT_CHARS) -> str:
+    """
+    Extract text from an OpenAI-compatible streaming SSE chunk.
+
+    IMPORTANT: Unlike extract_openai_text, this does NOT call sanitize_text
+    because sanitize_text strips leading/trailing whitespace from each line.
+    LLM tokenizers encode spaces as part of the token (e.g. " hello"), and
+    stripping them destroys word boundaries when chunks are concatenated.
+
+    Only removes dangerous control characters — preserves all whitespace.
+    """
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return ""
+
+    first = choices[0]
+    if not isinstance(first, dict):
+        return ""
+
+    delta = first.get("delta")
+    if isinstance(delta, dict):
+        content = delta.get("content")
+        if isinstance(content, str):
+            # Only strip control chars, NOT whitespace
+            cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", content)
+            return cleaned[:max_chars] if len(cleaned) > max_chars else cleaned
+
+    return ""
+
+
 async def iter_sse_text(response: httpx.Response, extract_text_fn=None):
     """
     Iterate SSE lines from an HTTP streaming response, yielding extracted text.
 
-    Uses extract_openai_text by default if no custom extractor is provided.
+    Uses extract_openai_delta_text by default (preserves inter-token spaces).
+    Pass extract_text_fn to override for providers with non-standard formats.
     """
-    extractor = extract_text_fn or extract_openai_text
+    extractor = extract_text_fn or extract_openai_delta_text
 
     async for line in response.aiter_lines():
         if line.startswith("data: "):
@@ -385,3 +417,4 @@ async def iter_sse_text(response: httpx.Response, extract_text_fn=None):
                     yield text
             except json.JSONDecodeError:
                 pass
+
