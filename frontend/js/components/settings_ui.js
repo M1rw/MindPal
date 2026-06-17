@@ -55,14 +55,6 @@ const SETTINGS_SELECTS = {
     path: "language",
     options: [["auto", "Auto-detect"], ["en", "English"], ["ar-EG", "Egyptian Arabic"]],
   },
-  "Spoken language": {
-    path: "spokenLanguage",
-    options: [["auto", "Auto / Browser default"], ["en-US", "English (US)"], ["ar-EG", "Egyptian Arabic"]],
-  },
-  Voice: {
-    path: "voicePreview",
-    options: [["browser", "Preview"], ["off", "Off"]],
-  },
   "Streak reminders": {
     path: "notifications.streakReminders",
     options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
@@ -261,7 +253,24 @@ export async function updateSettingFromControl(path, value, control) {
     }
   }
 
-  renderSettingsControls(document.getElementById("profile-content") || document);
+  // Only re-render the specific dropdown that changed, not the whole panel
+  const updatedSettings = getAppSettings();
+  const choiceWrapper = document.querySelector(`[data-settings-choice="${path}"]`);
+  if (choiceWrapper) {
+    // Find matching SETTINGS_SELECTS entry
+    const matchEntry = Object.entries(SETTINGS_SELECTS).find(([, cfg]) => cfg.path === path);
+    if (matchEntry) {
+      const [title, config] = matchEntry;
+      const newChoice = createSettingsSelect(title, config, updatedSettings);
+      choiceWrapper.replaceWith(newChoice);
+      // Immediately render icons for the new dropdown only
+      deps.refreshIcons(newChoice);
+    }
+  }
+
+  // Sync the header theme icon immediately
+  applyVisualSettings(updatedSettings);
+
   await persistAppSettingsToCloud();
 }
 

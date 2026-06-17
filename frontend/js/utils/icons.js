@@ -35,6 +35,10 @@ function renderScopedIcons(root) {
       "aria-hidden": "true",
     };
 
+    // Preserve id attribute so getElementById still works after icon render
+    const nodeId = node.getAttribute("id");
+    if (nodeId) attrs.id = nodeId;
+
     let svg = null;
     if (typeof iconDefinition.toSvg === "function") {
       const template = document.createElement("template");
