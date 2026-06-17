@@ -29,6 +29,53 @@ input:checked ~ .toggle-bg { background-color: #3b82f6; }
 .dark input:checked ~ .toggle-bg { background-color: #a8c7fa; }
 input:checked ~ .toggle-dot { transform: translateX(100%); }
 
+/* Model info tooltip — shown on hover of the ⓘ icon next to model names */
+.model-tooltip-wrap { display: inline-flex; align-items: center; }
+.model-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 220px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #e3e3e3;
+  background: #1e1f20;
+  border: 1px solid #333;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  z-index: 100;
+  pointer-events: none;
+  animation: tooltipFadeIn 0.15s ease-out;
+}
+.model-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1e1f20;
+}
+.model-tooltip-wrap:hover .model-tooltip { display: block; }
+
+/* Light mode tooltip */
+:root:not(.dark) .model-tooltip {
+  color: #374151;
+  background: #fff;
+  border-color: #e5e7eb;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+:root:not(.dark) .model-tooltip::after { border-top-color: #fff; }
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* Loading skeleton — typewriter text */
 .loader-hello {
     position: relative;

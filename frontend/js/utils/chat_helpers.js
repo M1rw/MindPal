@@ -126,14 +126,74 @@ export function cognitiveSectionKey(label) {
   }
 }
 
+/**
+ * Parse agent chain output format:
+ *   **Thought:** [internal reasoning]
+ *   **Response:** or **Balanced Reframe:** [visible content]
+ *
+ * Returns { thoughtContent, visibleContent } or null if no pattern found.
+ */
+function parseAgentChainResponse(text) {
+  const clean = String(text || "").replace(/\r\n/g, "\n").trim();
+  if (!clean) return null;
+
+  // Match **Thought:** ... followed by **Response:** or **Balanced Reframe:**
+  const thoughtMatch = clean.match(
+    /^\s*\*{0,2}\s*Thought\s*:?\s*\*{0,2}\s*/i
+  );
+  if (!thoughtMatch) return null;
+
+  // Find the response delimiter — try multiple formats
+  const responseDelimiters = [
+    /\n\s*\*{2}\s*Balanced\s+Reframe\s*:?\s*\*{2}\s*/i,
+    /\n\s*\*{2}\s*Response\s*:?\s*\*{2}\s*/i,
+    /\n\s*Balanced\s+Reframe\s*:\s*/i,
+    /\n\s*Response\s*:\s*/i,
+  ];
+
+  let splitIndex = -1;
+  let matchLength = 0;
+
+  for (const regex of responseDelimiters) {
+    const m = clean.match(regex);
+    if (m && m.index !== undefined) {
+      if (splitIndex === -1 || m.index < splitIndex) {
+        splitIndex = m.index;
+        matchLength = m[0].length;
+      }
+    }
+  }
+
+  if (splitIndex === -1) {
+    // No response delimiter found — the whole thing after **Thought:** is the thought
+    // This can happen during streaming before the response section arrives
+    return {
+      thoughtContent: clean.slice(thoughtMatch[0].length).trim(),
+      visibleContent: "",
+    };
+  }
+
+  const thoughtContent = clean.slice(thoughtMatch[0].length, splitIndex).trim();
+  const visibleContent = clean.slice(splitIndex + matchLength).trim();
+
+  return { thoughtContent, visibleContent };
+}
+
 export function processStructuredResponse(text, elapsedMs = null) {
+  // First, try the agent chain format: **Thought:** ... **Response:**/**Balanced Reframe:**
+  const agentChain = parseAgentChainResponse(text);
+  if (agentChain && agentChain.thoughtContent) {
+    return buildAgentChainResult(agentChain, elapsedMs, text);
+  }
+
+  // Fall back to cognitive sections parser (Thought/Distortion/Evidence/Reframe/Action)
   const sections = parseCognitiveSections(text);
-  
+
   // Only build a timeline dropdown if we actually have thinking logic to show
   const hasTimelineItems = Boolean(
-    sections.thought || 
-    sections.distortion || 
-    sections.evidenceFor || 
+    sections.thought ||
+    sections.distortion ||
+    sections.evidenceFor ||
     sections.evidenceAgainst
   );
 
@@ -151,9 +211,9 @@ export function processStructuredResponse(text, elapsedMs = null) {
   const reframe = sections.reframe || sections.preamble || "";
   const action = sections.action;
 
-  const timeText = elapsedMs 
+  const timeText = elapsedMs
     ? `Thought for ${(elapsedMs / 1000).toFixed(1)}s`
-    : "Thought for a few seconds";
+    : "Thinking\u2026";
 
   const timelineHtml = `
     <div class="thought-accordion group mb-5">
@@ -187,4 +247,100 @@ export function processStructuredResponse(text, elapsedMs = null) {
   }
 
   return { timelineHtml, finalHtml };
+}
+
+/**
+ * Build the timeline accordion + visible response from agent chain format.
+ */
+function buildAgentChainResult(agentChain, elapsedMs, rawText) {
+  const { thoughtContent, visibleContent } = agentChain;
+
+  // If we have no visible content yet (still streaming thought block),
+  // show empty content — the status indicator above handles "Thinking…"
+  if (!visibleContent) {
+    return {
+      timelineHtml: "",
+      finalHtml: "",
+    };
+  }
+
+  const timeText = elapsedMs
+    ? `Thought for ${(elapsedMs / 1000).toFixed(1)}s`
+    : "Thinking\u2026";
+
+  // Parse thought content into numbered steps for a nice timeline
+  const steps = parseThoughtSteps(thoughtContent);
+
+  let timelineItems = "";
+  if (steps.length > 0) {
+    timelineItems = steps
+      .map((step) => timelineItem(step.label, step.content, "circle-minus"))
+      .join("");
+  } else {
+    // Fallback: show the entire thought as a single block
+    timelineItems = timelineItem("Thought", thoughtContent, "circle-minus");
+  }
+  timelineItems += timelineItem("Done", "", "check-circle-2");
+
+  const timelineHtml = `
+    <div class="thought-accordion group mb-5">
+      <div class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-fit">
+        <span class="collapsed-text">${timeText}</span>
+        <span class="expanded-text hidden">Analyzed cognitive patterns</span>
+        <i data-lucide="chevron-right" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
+      </div>
+
+      <div class="accordion-content max-h-0 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+          <div class="mt-4 ml-[7px] pl-6 border-l border-gray-200 dark:border-[#444746] space-y-5 text-[15px] text-gray-700 dark:text-gray-300 relative pb-4">
+            ${timelineItems}
+          </div>
+      </div>
+    </div>
+  `;
+
+  const finalHtml = `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(visibleContent)}</div>`;
+
+  return { timelineHtml, finalHtml };
+}
+
+/**
+ * Parse numbered thought steps like:
+ *   1. INTAKE: ...
+ *   2. MEMORY SCAN: ...
+ * into [{label, content}]
+ */
+function parseThoughtSteps(text) {
+  const clean = String(text || "").trim();
+  if (!clean) return [];
+
+  // Match numbered steps: "1. LABEL: content" or "1. LABEL — content"
+  const stepRegex = /(?:^|\n)\s*(\d+)\.\s*([A-Z][A-Z\s]+?)(?::|—|–|-)\s*/g;
+  const steps = [];
+  let match;
+  const matchPositions = [];
+
+  while ((match = stepRegex.exec(clean)) !== null) {
+    matchPositions.push({
+      label: match[2].trim(),
+      contentStart: stepRegex.lastIndex,
+      index: match.index,
+    });
+  }
+
+  for (let i = 0; i < matchPositions.length; i++) {
+    const current = matchPositions[i];
+    const next = matchPositions[i + 1];
+    const content = clean
+      .slice(current.contentStart, next ? next.index : clean.length)
+      .trim();
+
+    // Clean up the label to title case
+    const label = current.label
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    steps.push({ label, content });
+  }
+
+  return steps;
 }
