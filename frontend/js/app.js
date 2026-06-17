@@ -887,6 +887,7 @@ async function handleSend() {
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     contentBox = document.createElement("div");
     contentBox.className = "content-box";
+    contentBox.setAttribute("dir", "auto");
     contentContainer.appendChild(contentBox);
     streamMsgDiv.appendChild(contentContainer);
     scrollChatToBottom("auto", true);
@@ -953,7 +954,7 @@ async function handleSend() {
             // Strip numbered step lines (1. INTAKE: ..., etc.)
             raw = raw.replace(/(?:^|\n)\s*[1-6][\.\)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "").trim();
             contentBox.innerHTML = raw
-              ? `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(raw)}</div>`
+              ? `<div class="text-[15px] leading-relaxed mb-4" dir="auto">${formatMarkdown(raw)}</div>`
               : `<div class="text-[15px] leading-relaxed mb-4 text-gray-400 italic">Response could not be parsed. Please try again.</div>`;
           } else {
             contentBox.innerHTML = finalParsed.finalHtml;
@@ -1226,7 +1227,7 @@ async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter
   if (sender === "user") {
     msgDiv.className = "flex justify-end w-full animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
     msgDiv.innerHTML = `
-      <div class="bg-gemini-surface dark:bg-gemini-darkSurface text-gemini-text dark:text-gemini-darkText px-5 py-3 rounded-[24px] max-w-[80%] text-[15px] leading-relaxed">
+      <div class="bg-gemini-surface dark:bg-gemini-darkSurface text-gemini-text dark:text-gemini-darkText px-5 py-3 rounded-[24px] max-w-[80%] text-[15px] leading-relaxed" dir="auto">
         ${escapeHtml(text)}
       </div>
     `;
@@ -1252,6 +1253,7 @@ async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter
 
   const contentBox = document.createElement("div");
   contentBox.className = "content-box";
+  contentBox.setAttribute("dir", "auto");
 
   // Static "Thought for Xs" fallback when no accordion but timing data exists
   if (!parsed.timelineHtml && backendMeta?.generationTimeMs) {
