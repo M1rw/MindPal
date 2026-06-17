@@ -1,4 +1,4 @@
-import { swapIconInline } from "./utils/icons.js";
+// frontend/js/settings_store.js — App settings state, persistence, and visual application
 
 const SETTINGS_KEY = "mindpal_app_settings_v1";
 
@@ -124,25 +124,7 @@ export function applyVisualSettings(settings = appSettings) {
   root.classList.toggle("dark", Boolean(dark));
   root.dataset.accent = normalized.accentColor;
   root.dataset.contrast = normalized.contrast;
-
-  // Update header theme icon — works for both <i> (pre-render) and <svg> (post-render)
-  const themeIcon = document.getElementById("theme-icon")
-    || document.querySelector("#theme-toggle-btn svg")
-    || document.querySelector("#theme-toggle-btn i[data-lucide]");
-
-  if (themeIcon) {
-    const nextIcon = dark ? "sun" : "moon";
-    themeIcon.setAttribute("data-lucide", nextIcon);
-
-    if (themeIcon.tagName.toLowerCase() === "svg") {
-      swapIconInline(themeIcon, nextIcon);
-    } else {
-      // <i> tag — needs full Lucide render for this element
-      if (window.lucide?.createIcons) {
-        window.lucide.createIcons({ nodes: [themeIcon] });
-      }
-    }
-  }
+  // Theme icon handled purely by CSS: moon = block dark:hidden, sun = hidden dark:block
 }
 
 export async function requestBrowserNotificationsIfNeeded(value) {
