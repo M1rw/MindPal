@@ -370,6 +370,11 @@ async function bootstrap() {
     updateProfileUI(getCurrentUser());
     setGreeting();
     setInputState({ disabled: false, locked: false });
+
+    // Populate settings panels with demo/mock data for guest mode
+    updateMentalHealthUI();
+    renderWeeklyTracker();
+
     refreshIcons();
 
     if (!authIsConfigured()) {
