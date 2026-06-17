@@ -1,7 +1,7 @@
 // frontend/js/ui_state.js
 // Orchestrates app state, theme, UI updates — delegates utils to dedicated modules.
 
-import { refreshIcons, swapIconInline } from "./utils/icons.js";
+import { refreshIcons } from "./utils/icons.js";
 import {
   getLocalDateKey,
   normalizeDayKeys,

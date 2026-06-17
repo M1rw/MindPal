@@ -154,13 +154,7 @@ export function normalizeChatHistory(chatMemory, maxMessages = 30, fieldName = "
     .filter(Boolean);
 }
 
-function isValidationError(error) {
-  return error instanceof MindPalApiError && error.status === 422;
-}
 
-export async function healthLive() {
-  return requestJson("/health/live", { method: "GET", timeoutMs: 10_000 });
-}
 
 export async function health() {
   return requestJson("/health", { method: "GET", timeoutMs: 20_000 });
@@ -231,90 +225,7 @@ const MODE_UI_TO_BACKEND = {
   "Cognitive Tools": "cognitive_tools",
 };
 
-export async function sendChatMessage({
-  message,
-  history = [],
-  locale = "en",
-  channel = "web",
-  mode = "Active Listen",
-  model = "standard",
-  token = null,
-  profileContext = null,
-}) {
-  const cleanMessage = String(message || "").trim();
 
-  if (!cleanMessage) {
-    throw new MindPalApiError("Message cannot be empty", {
-      code: "empty_message",
-    });
-  }
-
-  // Map UI mode name to backend preference ID
-  const backendPreference = MODE_UI_TO_BACKEND[mode] || "active_listen";
-  const normalizedHistory = normalizeChatHistory(history, 60, "content");
-
-  const metadata = {
-    locale,
-    mode: backendPreference,  // Send as preference hint, not locked mode
-    model,
-    ...(profileContext?.settingsMetadata || {}),
-  };
-
-  return requestJson("/chat", {
-    method: "POST",
-    token,
-    timeoutMs: 60_000,
-    body: {
-      // Send clean message only. Authenticated context goes in system prompt via backend.
-      message: cleanMessage,
-      history: normalizedHistory,
-      metadata,
-    },
-  });
-}
-
-export async function getTtsPolicy({
-  text,
-  locale = "en",
-  responseMode = "normal_support",
-  safetyLevel = "safe",
-  token = null,
-}) {
-  return requestJson("/tts/policy", {
-    method: "POST",
-    token,
-    timeoutMs: 15_000,
-    body: {
-      text,
-      locale,
-      response_mode: responseMode,
-      safety_level: safetyLevel,
-    },
-  });
-}
-
-export async function synthesizeTts({
-  text,
-  locale = "en",
-  responseMode = "normal_support",
-  safetyLevel = "safe",
-  voiceId = null,
-  token,
-}) {
-  return requestJson("/tts/synthesize", {
-    method: "POST",
-    token,
-    timeoutMs: 45_000,
-    body: {
-      text,
-      locale,
-      response_mode: responseMode,
-      safety_level: safetyLevel,
-      voice_id: voiceId,
-      format: "mp3",
-    },
-  });
-}
 
 export async function deleteMemory(token) {
   return requestJson("/memory", {

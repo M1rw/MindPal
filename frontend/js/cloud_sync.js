@@ -67,16 +67,6 @@ let memoryGraphContext = loadMemoryGraphContext();
 let authUnsubscribe = null;
 
 // Expose for app.js orchestration
-export function getCloudState() {
-  return {
-    get currentCloudProfileContext() { return currentCloudProfileContext; },
-    get memoryContext() { return memoryContext; },
-    get memoryGraphContext() { return memoryGraphContext; },
-    get cloudConnectInProgress() { return cloudConnectInProgress; },
-    get cloudChatHydrated() { return cloudChatHydrated; },
-  };
-}
-
 export function setMemoryContext(ctx) { memoryContext = ctx; }
 export function setMemoryGraphContext(ctx) { memoryGraphContext = ctx; }
 export function setCurrentCloudProfileContext(ctx) { currentCloudProfileContext = ctx; }

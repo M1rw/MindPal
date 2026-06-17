@@ -24,11 +24,6 @@ export function stripMarkdown(text) {
     .replace(/\*(.*?)\*/g, "$1");
 }
 
-export function appendSectionLine(currentValue, line) {
-  const clean = String(line || "").trim();
-  if (!clean) return currentValue;
-  return currentValue ? `${currentValue}\n${clean}` : clean;
-}
 
 export function sleep(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));

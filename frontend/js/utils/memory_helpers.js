@@ -25,11 +25,7 @@ export function normalizeStringList(value) {
   return mergeUnique(raw.map((item) => String(item || "").trim()).filter(Boolean));
 }
 
-export function titleCase(value) {
-  return String(value || "Memory")
-    .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
+
 
 // ═══════════════════════════════════════════════════════════════
 // Deduplication
@@ -56,18 +52,6 @@ export function mergeUnique(values) {
 // Hashing
 // ═══════════════════════════════════════════════════════════════
 
-export function hashText(text) {
-  let hash = 0;
-  const value = String(text || "");
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash = ((hash << 5) - hash) + value.charCodeAt(index);
-    hash |= 0;
-  }
-
-  return Math.abs(hash).toString(36);
-}
-
 export function hashString(value) {
   let hash = 2166136261;
   const text = String(value || "");
@@ -78,20 +62,7 @@ export function hashString(value) {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Backend category mapping
-// ═══════════════════════════════════════════════════════════════
 
-export function categoryToBackend(category) {
-  const value = String(category || "").toLowerCase();
-
-  if (value.includes("trigger")) return "trigger";
-  if (value.includes("goal")) return "goal";
-  if (value.includes("preference") || value.includes("style")) return "preference";
-  if (value.includes("relationship")) return "support_context";
-  if (value.includes("safety")) return "safety_flag";
-  return "other";
-}
 
 // ═══════════════════════════════════════════════════════════════
 // Memory command detection
@@ -156,16 +127,6 @@ export function extractGirlfriendNameAndAliases(message) {
   }
 
   return result;
-}
-
-export function extractContinuationAlias(message) {
-  const match =
-    message.match(/^or\s+[""]?([^""\n]+)[""]?\.?$/i) ||
-    message.match(/^او\s+[""]?([^""\n]+)[""]?\.?$/i) ||
-    message.match(/^أو\s+[""]?([^""\n]+)[""]?\.?$/i);
-
-  if (!match) return "";
-  return normalizeName(match[1]);
 }
 
 export function extractProject(message) {
