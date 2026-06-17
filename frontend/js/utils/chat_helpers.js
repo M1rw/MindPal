@@ -266,12 +266,29 @@ export function processStructuredResponse(text, elapsedMs = null) {
 function buildAgentChainResult(agentChain, elapsedMs, rawText) {
   const { thoughtContent, visibleContent } = agentChain;
 
-  // If we have no visible content yet (still streaming thought block),
-  // show empty content — the status indicator above handles "Thinking…"
+  // If we have no visible content yet:
+  // - During streaming (no elapsedMs): show empty — "Thinking…" indicator handles it
+  // - After streaming is done (elapsedMs set): the LLM never wrote a response delimiter,
+  //   so treat the thought content as the visible response instead of showing nothing
   if (!visibleContent) {
+    if (!elapsedMs) {
+      return {
+        timelineHtml: "",
+        finalHtml: "",
+      };
+    }
+    // Fallback: show thought content as the response (strip any Self:/REVIEW: prefixes)
+    let fallbackContent = (thoughtContent || rawText || "").trim();
+    fallbackContent = fallbackContent
+      .replace(/^\s*Self\s*:\s*/i, "")
+      .replace(/^\s*REVIEW\s*:\s*/i, "")
+      .replace(/^\s*SELF[- ]?REVIEW\s*:\s*/i, "")
+      .trim();
     return {
       timelineHtml: "",
-      finalHtml: "",
+      finalHtml: fallbackContent
+        ? `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(fallbackContent)}</div>`
+        : "",
     };
   }
 
