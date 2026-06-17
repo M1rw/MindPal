@@ -13,14 +13,6 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   },
   memoryEnabled: true,
   improveProduct: false,
-  personalization: {
-    baseTone: "balanced",
-    directness: "high",
-    egyptianArabic: "auto",
-    cognitiveStructure: false,
-    fastAnswers: false,
-    customInstructions: "",
-  },
 });
 
 let appSettings = normalizeSettings(loadRawSettings());
@@ -56,29 +48,18 @@ function mergeAppSettings(patch) {
 
 export function hydrateSettingsFromProfile(profileResponse) {
   const uiSettings = profileResponse?.profile?.preferences?.ui_settings;
-  const customInstructions = profileResponse?.profile?.preferences?.custom_instructions;
-  const communicationStyle = profileResponse?.profile?.preferences?.communication_style;
   const locale = profileResponse?.profile?.preferences?.locale;
 
   const patch = {};
   if (uiSettings && typeof uiSettings === "object") {
     Object.assign(patch, uiSettings);
   }
-  if (customInstructions) {
-    patch.personalization = {
-      ...(patch.personalization || {}),
-      customInstructions,
-    };
-  }
-  if (communicationStyle) {
-    patch.personalization = {
-      ...(patch.personalization || {}),
-      baseTone: communicationStyle,
-    };
-  }
   if (locale) {
     patch.language = locale;
   }
+
+  // Strip any stale personalization key from cloud data
+  delete patch.personalization;
 
   return mergeAppSettings(patch);
 }
@@ -88,8 +69,6 @@ export function buildProfilePreferencesPatch() {
 
   return {
     locale: settings.language,
-    communication_style: settings.personalization?.baseTone || "balanced",
-    custom_instructions: settings.personalization?.customInstructions || "",
     ui_settings: settings,
   };
 }
@@ -160,16 +139,8 @@ function normalizeSettings(value) {
     merged.notifications[key] = oneOf(merged.notifications[key], ["off", "in_app", "push"], DEFAULT_APP_SETTINGS.notifications[key]);
   }
 
-  if (!merged.personalization || typeof merged.personalization !== "object") {
-    merged.personalization = {};
-  }
-
-  merged.personalization.baseTone = oneOf(merged.personalization.baseTone, ["concise", "balanced", "detailed"], "balanced");
-  merged.personalization.directness = oneOf(merged.personalization.directness, ["low", "medium", "high"], "high");
-  merged.personalization.egyptianArabic = oneOf(merged.personalization.egyptianArabic, ["auto", "always", "off"], "auto");
-  merged.personalization.cognitiveStructure = Boolean(merged.personalization.cognitiveStructure);
-  merged.personalization.fastAnswers = Boolean(merged.personalization.fastAnswers);
-  merged.personalization.customInstructions = String(merged.personalization.customInstructions || "").slice(0, 800);
+  // Strip stale personalization key if present from old localStorage data
+  delete merged.personalization;
 
   return merged;
 }
