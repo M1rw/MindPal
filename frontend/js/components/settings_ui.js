@@ -42,57 +42,14 @@ const SETTINGS_SELECTS = {
     path: "appearance",
     options: [["system", "System"], ["light", "Light"], ["dark", "Dark"]],
   },
-  Contrast: {
-    path: "contrast",
-    options: [["system", "System"], ["standard", "Standard"], ["high", "High"]],
-  },
-  "Accent color": {
-    path: "accentColor",
-    options: [["blue", "MindPal blue"], ["orange", "Orange"], ["green", "Green"]],
-    accent: true,
-  },
   Language: {
     path: "language",
     options: [["auto", "Auto-detect"], ["en", "English"], ["ar-EG", "Egyptian Arabic"]],
-  },
-  "Streak reminders": {
-    path: "notifications.streakReminders",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Response complete": {
-    path: "notifications.responseComplete",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Mood check-in": {
-    path: "notifications.moodCheckIn",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Memory updates": {
-    path: "notifications.memoryUpdates",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Safety follow-up": {
-    path: "notifications.safetyFollowUp",
-    options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
-  },
-  "Base style and tone": {
-    path: "personalization.baseTone",
-    options: [["concise", "Concise"], ["balanced", "Balanced"], ["detailed", "Detailed"]],
-  },
-  Directness: {
-    path: "personalization.directness",
-    options: [["low", "Low"], ["medium", "Medium"], ["high", "High"]],
-  },
-  "Egyptian Arabic style": {
-    path: "personalization.egyptianArabic",
-    options: [["auto", "Auto"], ["always", "Always"], ["off", "Off"]],
   },
 };
 
 const SETTINGS_TOGGLES = {
   "Enable dictation": "dictationEnabled",
-  "Fast answers": "personalization.fastAnswers",
-  "Cognitive structure": "personalization.cognitiveStructure",
   "Enable memory": "memoryEnabled",
   "Improve MindPal for everyone": "improveProduct",
 };
