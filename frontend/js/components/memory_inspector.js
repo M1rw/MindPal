@@ -33,7 +33,7 @@ function generateMemorySummary(cards) {
         const nameItem = values.find((v) => /preferred name/i.test(v) || !/\s/.test(v));
         if (nameItem) {
           const clean = nameItem.replace(/^preferred name:\s*/i, "").trim();
-          parts.push(`Your name is <strong>${escapeHtml(clean)}</strong>.`);
+          parts.push(`Your name is ${escapeHtml(clean)}.`);
         }
         const others = values.filter((v) => v !== nameItem);
         if (others.length) parts.push(others.map(escapeHtml).join(". ") + ".");
@@ -42,13 +42,13 @@ function generateMemorySummary(cards) {
       case "people": {
         const people = values.slice(0, 4);
         const more = values.length > 4 ? ` and ${values.length - 4} more` : "";
-        parts.push(`You've told me about <strong>${escapeHtml(people.join(", "))}${more}</strong>.`);
+        parts.push(`You've told me about ${escapeHtml(people.join(", "))}${more}.`);
         break;
       }
       case "projects": {
         const projects = values.slice(0, 3);
         const more = values.length > 3 ? ` (+${values.length - 3} more)` : "";
-        parts.push(`You're working on <strong>${escapeHtml(projects.join(", "))}${more}</strong>.`);
+        parts.push(`You're working on ${escapeHtml(projects.join(", "))}${more}.`);
         break;
       }
       case "preferences": {
