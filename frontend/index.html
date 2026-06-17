@@ -259,31 +259,35 @@
                             <div id="unified-dropdown" class="absolute bottom-full right-0 mb-2 w-72 bg-white dark:bg-zinc-800 border border-gemini-border dark:border-gemini-darkBorder rounded-2xl shadow-xl p-2 hidden z-50" role="menu" aria-label="Model and mode selection">
 
                                 <!-- Model Section -->
-                                <div class="text-[10px] font-semibold text-gray-400 px-3 py-1.5 uppercase tracking-wider flex items-center justify-between">
-                                    <span>Model</span>
-                                    <button id="model-info-btn" class="p-0.5 rounded-md hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors" aria-label="Model information" title="Model details">
-                                        <i data-lucide="info" class="w-3.5 h-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"></i>
-                                    </button>
-                                </div>
+                                <div class="text-[10px] font-semibold text-gray-400 px-3 py-1.5 uppercase tracking-wider">Model</div>
 
-                                <!-- Model info tooltip (hidden by default) -->
-                                <div id="model-info-panel" class="hidden mx-2 mb-2 p-3 rounded-xl bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 text-[12px] text-gray-600 dark:text-gray-300 leading-relaxed">
-                                    <div id="model-info-content">Select a model to see details.</div>
-                                </div>
-
-                                <button class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option" data-model="standard" role="menuitem">
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Standard</div>
-                                        <div class="text-[11px] text-gray-500 dark:text-gray-400">Warm peer support. Fast &amp; safe.</div>
+                                <button class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option group/model" data-model="standard" role="menuitem">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Standard</span>
+                                            <div class="model-tooltip-wrap relative">
+                                                <i data-lucide="info" class="w-3 h-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help flex-shrink-0"></i>
+                                                <div class="model-tooltip">Fast, warm peer-support model. Safety-first with low latency. Best for everyday check-ins and emotional support.</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Warm peer support. Fast &amp; safe.</div>
                                     </div>
-                                    <i data-lucide="check" class="w-4 h-4 text-blue-500 model-check hidden"></i>
+                                    <i data-lucide="check" class="w-4 h-4 text-blue-500 model-check hidden flex-shrink-0"></i>
                                 </button>
-                                <button class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option" data-model="pro" role="menuitem">
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200">Pro <span class="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ml-1">Clinical</span></div>
-                                        <div class="text-[11px] text-gray-500 dark:text-gray-400">Deep analysis, diagnostic thinking.</div>
+                                <button class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left model-option group/model" data-model="pro" role="menuitem">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Pro</span>
+                                            <span class="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">Clinical</span>
+                                            <span class="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">2× usage</span>
+                                            <div class="model-tooltip-wrap relative">
+                                                <i data-lucide="info" class="w-3 h-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help flex-shrink-0"></i>
+                                                <div class="model-tooltip">Advanced clinical reasoning with 6-step agent chain. Deep pattern analysis, nervous system assessment, and self-review. Uses 2× message quota.</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Deep analysis, diagnostic thinking.</div>
                                     </div>
-                                    <i data-lucide="check" class="w-4 h-4 text-purple-500 model-check hidden"></i>
+                                    <i data-lucide="check" class="w-4 h-4 text-purple-500 model-check hidden flex-shrink-0"></i>
                                 </button>
 
                                 <div class="h-px bg-gray-200 dark:bg-zinc-700 mx-2 my-1.5"></div>

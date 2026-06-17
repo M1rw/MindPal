@@ -12,8 +12,8 @@ const STORAGE_KEY_MODE = "mindpal_selected_mode";
 const VALID_MODELS = ["standard", "pro"];
 const VALID_MODES = ["Active Listen", "Guided Coach", "Cognitive Tools"];
 const MODEL_SPECS = {
-  standard: "Standard — Fast, warm peer-support model. Low latency, safety-first. Best for everyday check-ins and emotional support.",
-  pro: "Pro (Clinical) — Advanced clinical reasoning with 6-step agent chain. Deep pattern analysis, nervous system assessment, and self-review. 2x token budget.",
+  standard: "Fast, warm peer-support model. Safety-first with low latency. Best for everyday check-ins and emotional support.",
+  pro: "Advanced clinical reasoning with 6-step agent chain. Deep pattern analysis, nervous system assessment, and self-review. Uses 2× message quota.",
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -67,13 +67,6 @@ function _updateCheckmarks() {
   });
 }
 
-function _updateModelInfoPanel() {
-  const content = document.getElementById("model-info-content");
-  if (content) {
-    content.textContent = MODEL_SPECS[_currentModel] || MODEL_SPECS.standard;
-  }
-}
-
 function _emitSwitchIndicator(text) {
   const chatHistory = document.getElementById("chat-history");
   if (!chatHistory) return;
@@ -113,7 +106,6 @@ function _selectModel(model, silent = false) {
   try { localStorage.setItem(STORAGE_KEY_MODEL, model); } catch {}
   _updateUnifiedLabel();
   _updateCheckmarks();
-  _updateModelInfoPanel();
 
   if (!silent) {
     const name = model === "pro" ? "Pro" : "Standard";
@@ -214,13 +206,10 @@ export function bindUnifiedSelector({ isSessionLocked } = {}) {
   _currentMode = _persistedMode();
   _updateUnifiedLabel();
   _updateCheckmarks();
-  _updateModelInfoPanel();
 
   const btn = document.getElementById("unified-selector-btn");
   const dropdown = document.getElementById("unified-dropdown");
   const chevron = document.getElementById("unified-chevron");
-  const infoBtn = document.getElementById("model-info-btn");
-  const infoPanel = document.getElementById("model-info-panel");
 
   function openDropdown() {
     dropdown?.classList.remove("hidden");
@@ -234,7 +223,6 @@ export function bindUnifiedSelector({ isSessionLocked } = {}) {
     dropdown?.classList.add("hidden");
     btn?.setAttribute("aria-expanded", "false");
     chevron?.classList.remove("rotate-180");
-    infoPanel?.classList.add("hidden");
   }
 
   btn?.addEventListener("click", (e) => {
@@ -254,11 +242,6 @@ export function bindUnifiedSelector({ isSessionLocked } = {}) {
     }
   });
 
-  infoBtn?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    infoPanel?.classList.toggle("hidden");
-  });
-
   document.querySelectorAll(".model-option").forEach(option => {
     option.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -266,6 +249,11 @@ export function bindUnifiedSelector({ isSessionLocked } = {}) {
       _selectModel(model);
       if (!isSessionLocked?.()) document.getElementById("chat-input")?.focus();
     });
+  });
+
+  // Prevent tooltip icon clicks from selecting the model
+  document.querySelectorAll(".model-tooltip-wrap").forEach(wrap => {
+    wrap.addEventListener("click", (e) => e.stopPropagation());
   });
 
   document.querySelectorAll(".mode-option").forEach(option => {
