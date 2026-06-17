@@ -10,7 +10,7 @@ import {
   saveMemoryGraph,
   sendChatMessageStream,
   deleteCurrentCloudChat,
-} from "./api.js?v=20260615-streaming-v7";
+} from "./api.js";
 
 import {
   authIsConfigured,
@@ -18,7 +18,7 @@ import {
   getIdToken,
   signInWithGoogle,
   signOut,
-} from "./auth.js?v=20260615-streaming-v7";
+} from "./auth.js";
 
 import {
   addMessage,
@@ -55,7 +55,7 @@ import {
   updateUsageFromMeta,
   registerSettingsStore,
   getStreakSnapshot,
-} from "./ui_state.js?v=20260615-streaming-v7";
+} from "./ui_state.js";
 
 import { initLiveVoice, startLiveVoice } from "./voice_live.js";
 
@@ -74,7 +74,7 @@ import {
   getAppSettings,
   hydrateSettingsFromProfile,
   setAppSetting,
-} from "./settings_store.js?v=20260615-streaming-v7";
+} from "./settings_store.js";
 
 import {
   initSettingsUI,
@@ -925,7 +925,28 @@ async function handleSend() {
           if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
           const elapsedMs = performance.now() - streamStartTime;
           const finalParsed = processStructuredResponse(streamResponseStr, elapsedMs);
-          contentBox.innerHTML = finalParsed.finalHtml;
+
+          // Safety net: if parser produced empty HTML but we have streamed text, show it raw
+          if (!finalParsed.finalHtml && streamResponseStr.trim()) {
+            // Strip thought markers and Self:/REVIEW: prefixes for display
+            let rawDisplay = streamResponseStr.trim()
+              .replace(/^\s*\*{0,2}\s*Thought\s*:?\s*\*{0,2}\s*/i, "")
+              .replace(/\n\s*\*{2}\s*(?:Balanced\s+Reframe|Response)\s*:?\s*\*{2}\s*/i, "\n")
+              .replace(/^\s*Self\s*:\s*/i, "")
+              .replace(/^\s*REVIEW\s*:\s*/i, "")
+              .trim();
+            // Try to find the actual response after numbered steps
+            const responseMatch = rawDisplay.match(/\n\s*(?:[^\n]*(?:QUALITY CHECK|SELF[- ]?REVIEW|INTERVENTION)[^\n]*\n)([\s\S]+)/i);
+            if (responseMatch && responseMatch[1].trim()) {
+              rawDisplay = responseMatch[1].trim()
+                .replace(/^\s*Self\s*:\s*/i, "")
+                .replace(/^\s*REVIEW\s*:\s*/i, "")
+                .trim();
+            }
+            contentBox.innerHTML = `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(rawDisplay)}</div>`;
+          } else {
+            contentBox.innerHTML = finalParsed.finalHtml;
+          }
 
           if (finalParsed.timelineHtml) {
             const timelineDiv = document.createElement("div");

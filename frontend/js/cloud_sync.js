@@ -12,7 +12,7 @@ import {
   loadCurrentCloudChat,
   replaceCurrentCloudChat,
   upsertCloudChatMessages,
-} from "./api.js?v=20260615-streaming-v7";
+} from "./api.js";
 
 import {
   authIsConfigured,
@@ -20,7 +20,7 @@ import {
   getIdToken,
   initAuth,
   onAuthChange,
-} from "./auth.js?v=20260615-streaming-v7";
+} from "./auth.js";
 
 import {
   getState,
@@ -31,12 +31,12 @@ import {
   updateProfileUI,
   updateMentalHealthUI,
   updateUsageUI,
-} from "./ui_state.js?v=20260615-streaming-v7";
+} from "./ui_state.js";
 
 import {
   hydrateSettingsFromProfile,
   buildChatSettingsMetadata,
-} from "./settings_store.js?v=20260615-streaming-v7";
+} from "./settings_store.js";
 
 import {
   loadMemoryGraphContext,
