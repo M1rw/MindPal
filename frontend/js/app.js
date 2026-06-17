@@ -1205,7 +1205,7 @@ async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter
 
   const safetyLevel = backendMeta?.safety?.level || backendMeta?.safety?.user_visible_category || "";
   const isCrisis = isCrisisReply(text, safetyLevel);
-  const parsed = processStructuredResponse(text);
+  const parsed = processStructuredResponse(text, backendMeta?.generationTimeMs || null);
 
   msgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
 
@@ -1221,6 +1221,7 @@ async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter
   const contentBox = document.createElement("div");
   contentBox.className = "content-box";
 
+  // Static "Thought for Xs" fallback when no accordion but timing data exists
   if (!parsed.timelineHtml && backendMeta?.generationTimeMs) {
     const timeSec = (backendMeta.generationTimeMs / 1000).toFixed(1);
     const staticDiv = document.createElement("div");
