@@ -1,7 +1,7 @@
 // frontend/js/components/model_selector.js — Unified Model + Mode selector
 
 import { refreshIcons } from "../utils/icons.js";
-import { escapeHtml, scrollChatToBottom } from "../ui_state.js?v=20260615-streaming-v7";
+import { escapeHtml, scrollChatToBottom } from "../ui_state.js";
 
 // ═══════════════════════════════════════════════════════════════
 // Constants

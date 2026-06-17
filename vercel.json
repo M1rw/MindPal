@@ -9,6 +9,20 @@
     "FIREBASE_USE_APPLICATION_DEFAULT": "false",
     "PYTHONUNBUFFERED": "1"
   },
+  "headers": [
+    {
+      "source": "/frontend/(.*)\\.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    },
+    {
+      "source": "/frontend/(.*)\\.css",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
+  ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.py" },
     { "src": "/app/(.*)", "dest": "/api/index.py" },

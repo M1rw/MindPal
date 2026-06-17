@@ -5,7 +5,7 @@
 //   2. streakReminders   — periodic check: if user has a streak > 0 and hasn't chatted today
 //   3. moodCheckIn       — gentle evening prompt (7–9 PM local) once per day
 
-import { getAppSettings } from "../settings_store.js?v=20260615-streaming-v7";
+import { getAppSettings } from "../settings_store.js";
 
 // ═══════════════════════════════════════════════════════════════
 // Internal state

@@ -6,17 +6,17 @@ import {
   hydrateSettingsFromProfile,
   requestBrowserNotificationsIfNeeded,
   setAppSetting,
-} from "../settings_store.js?v=20260615-streaming-v7";
+} from "../settings_store.js";
 
 import { escapeHtml } from "../utils/dom.js";
 
 import {
   getIdToken
-} from "../auth.js?v=20260615-streaming-v7";
+} from "../auth.js";
 
 import {
   updateUserProfilePreferences
-} from "../api.js?v=20260615-streaming-v7";
+} from "../api.js";
 
 // We will attach dependencies that require app.js state via a registry
 const deps = {

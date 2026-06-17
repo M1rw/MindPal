@@ -1,4 +1,4 @@
-export { scrollChatToBottom } from "../ui_state.js?v=20260615-streaming-v7";
+export { scrollChatToBottom } from "../ui_state.js";
 
 export function escapeHtml(value) {
   return String(value ?? "")
