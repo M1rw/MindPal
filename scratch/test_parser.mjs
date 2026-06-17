@@ -1,166 +1,91 @@
-// Test script for chat_helpers parser
-// Run with: node scratch/test_parser.mjs
+// Test the exact scenario from the screenshot
+function buildFallback(thoughtContent, rawText) {
+  let fallbackContent = (thoughtContent || rawText || "").trim();
 
-// Inline the parser functions for testing (can't import ES modules easily)
-
-function parseAgentChainResponse(text) {
-  let clean = String(text || "").replace(/\r\n/g, "\n").trim();
-  if (!clean) return null;
-
-  // Strip leading "Self:" prefix
-  clean = clean.replace(/^\s*Self\s*:\s*/i, "").trim();
-
-  const thoughtMatch = clean.match(
-    /^\s*\*{0,2}\s*Thought\s*:?\s*\*{0,2}\s*/i
-  );
-  if (!thoughtMatch) return null;
-
-  const responseDelimiters = [
-    /\n\s*\*{2}\s*Balanced\s+Reframe\s*:?\s*\*{2}\s*/i,
-    /\n\s*\*{2}\s*Response\s*:?\s*\*{2}\s*/i,
-    /\n\s*Balanced\s+Reframe\s*:\s*/i,
-    /\n\s*Response\s*:\s*/i,
+  const lastStepPatterns = [
+    /(?:^|\n)\s*6[\.\)]\s*(?:QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW)\s*:[^\n]*(?:\n)([\s\S]*)/i,
+    /6[\.\)]\s*(?:QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW)\s*:[^.]*\.\s*([\s\S]*)/i,
+    /(?:^|\n)\s*5[\.\)]\s*[A-Z][A-Z\s]*:[^\n]*(?:\n)([\s\S]*)/i,
+    /5[\.\)]\s*(?:INTERVENTION\s*PLAN|PLAN)\s*:[^.]*\.\s*([\s\S]*)/i,
   ];
 
-  let splitIndex = -1;
-  let matchLength = 0;
-
-  for (const regex of responseDelimiters) {
-    const m = clean.match(regex);
-    if (m && m.index !== undefined) {
-      if (splitIndex === -1 || m.index < splitIndex) {
-        splitIndex = m.index;
-        matchLength = m[0].length;
-      }
+  let extracted = false;
+  for (const pattern of lastStepPatterns) {
+    const m = fallbackContent.match(pattern);
+    if (m && m[1].trim().length > 20) {
+      fallbackContent = m[1].trim();
+      extracted = true;
+      break;
     }
   }
 
-  if (splitIndex === -1) {
-    return {
-      thoughtContent: clean.slice(thoughtMatch[0].length).trim(),
-      visibleContent: "",
-    };
+  if (!extracted) {
+    fallbackContent = fallbackContent
+      .replace(/[1-6][\.\)]\s*(?:INTAKE|MEMORY\s*SCAN|PATTERN\s*ANALYSIS|NERVOUS\s*SYSTEM\s*READ|INTERVENTION\s*PLAN|QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW|CONTEXT|PLAN)\s*:/gi, "")
+      .trim();
   }
 
-  const thoughtContent = clean.slice(thoughtMatch[0].length, splitIndex).trim();
-  let visibleContent = clean.slice(splitIndex + matchLength).trim();
-
-  visibleContent = visibleContent
+  fallbackContent = fallbackContent
     .replace(/^\s*Self\s*:\s*/i, "")
     .replace(/^\s*REVIEW\s*:\s*/i, "")
     .replace(/^\s*SELF[- ]?REVIEW\s*:\s*/i, "")
+    .replace(/^\s*Before\s+proceeding[^.]*\.\s*/i, "")
     .trim();
 
-  return { thoughtContent, visibleContent };
+  if (/^\s*[1-6][\.\)]/.test(fallbackContent)) {
+    fallbackContent = fallbackContent
+      .replace(/(?:^|\n)\s*[1-6][\.\)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "")
+      .trim();
+  }
+
+  return fallbackContent;
 }
 
-// Test cases
-const tests = [
-  {
-    name: "Normal Pro response with Balanced Reframe",
-    input: `**Thought:** 1. INTAKE: User is asking about relationships
-2. MEMORY SCAN: No prior context
-3. PLAN: Validate and explore
+// Test 1: No spaces, no newlines (exact screenshot scenario)
+const noSpaces = `1.INTAKE:You'reexpressingfeelingsofrejectiona` +
+  `ndabandonmentbyFadi,whichisexacerbatingyouremotionaldistress.2.M` +
+  `EMORYSCAN:Checkingcontext.3.PATTERNANALYSIS:Anxietypattern.4.NERVOUSSYSTEMREAD:Isense` +
+  `thatyournervousystemishighlyactivated.5.INTERVENTIONPLAN:Validationfirst.6.SELF-` +
+  `REVIEW:Beforeproceeding,Iwanttoensure` +
+  `thatmyresponseistailoredtoyourspecificneedsandthatI'mnotrushingtoprovidesolutions.` +
+  `Whataresomethingsthatyou'reproudofaccomplishing?` +
+  `Remember,yourworthandvaluecomefromwithin.Youdon'tneedanyoneelse'svalidationtofeelgoodaboutyourself.`;
 
-**Balanced Reframe:** أنا فاهم إنك بتحس بضغط كبير دلوقتي...`,
-    expectThought: true,
-    expectVisible: true,
-  },
-  {
-    name: "Normal Standard response with Response",
-    input: `**Thought:** User wants advice about stress
-1. UNDERSTAND: They feel overwhelmed
-2. CONTEXT: No prior data
-3. PLAN: Ground them
+console.log("=== Test 1: No spaces, no newlines ===");
+const result1 = buildFallback(noSpaces, noSpaces);
+console.log("Result:", JSON.stringify(result1.substring(0, 200)));
+console.log("Length:", result1.length);
+console.log("Has content:", result1.length > 0 ? "✅" : "❌");
 
-**Response:** I hear you — let's take a step back and look at this together.`,
-    expectThought: true,
-    expectVisible: true,
-  },
-  {
-    name: "Self: REVIEW: leaked in visible content",
-    input: `**Thought:** 1. INTAKE: Arabic message about relationship issue
-
-**Balanced Reframe:** Self: REVIEW: Before proceeding, I want to ensure my response is tailored.`,
-    expectThought: true,
-    expectVisible: true,
-  },
-  {
-    name: "No response delimiter — everything in thought block",
-    input: `**Thought:** 1. INTAKE: The user is expressing frustration
+// Test 2: Normal with newlines 
+const normal = `1. INTAKE: User expressing feelings of rejection
 2. MEMORY SCAN: Checking context
 3. PATTERN ANALYSIS: Anxiety pattern
 4. NERVOUS SYSTEM READ: Sympathetic activation
 5. INTERVENTION PLAN: Validation first
-6. QUALITY CHECK: Response looks good
-
-Self: REVIEW: Before proceeding, I want to ensure that my response is tailored to your specific needs and that I'm not rushing to provide solutions.
-
-أنا فاهم إنك بتحس بضغط كبير دلوقتي. اللي بتوصفه ده طبيعي جداً...`,
-    expectThought: true,
-    expectVisible: false,  // No delimiter — visibleContent will be empty
-  },
-  {
-    name: "Self: before Thought",
-    input: `Self: **Thought:** Quick reasoning here
-
-**Response:** Here's my actual response.`,
-    expectThought: true,
-    expectVisible: true,
-  },
-  {
-    name: "No Thought at all — plain text",
-    input: `أنا فاهم إنك بتحس بضغط. خلينا نتكلم عن ده.`,
-    expectThought: false,
-    expectVisible: false,
-  },
-];
-
-console.log("=== Parser Test Results ===\n");
-
-for (const t of tests) {
-  const result = parseAgentChainResponse(t.input);
-  const hasThought = result && result.thoughtContent;
-  const hasVisible = result && result.visibleContent;
-
-  const thoughtOK = !!hasThought === t.expectThought;
-  const visibleOK = !!hasVisible === t.expectVisible;
-  const passed = thoughtOK && visibleOK;
-
-  console.log(`${passed ? "✅" : "❌"} ${t.name}`);
-  if (result) {
-    console.log(`   thoughtContent: "${(result.thoughtContent || "").substring(0, 80)}..."`);
-    console.log(`   visibleContent: "${(result.visibleContent || "").substring(0, 80)}..."`);
-  } else {
-    console.log(`   result: null (no agent chain detected)`);
-  }
-  if (!passed) {
-    console.log(`   EXPECTED: thought=${t.expectThought}, visible=${t.expectVisible}`);
-    console.log(`   GOT:      thought=${!!hasThought}, visible=${!!hasVisible}`);
-  }
-  console.log();
-}
-
-// Test the fallback in buildAgentChainResult
-console.log("=== Fallback Test (no delimiter) ===\n");
-const noDelimiterInput = `**Thought:** 1. INTAKE: User expressing frustration about Fadi
-
-Self: REVIEW: Before proceeding, I want to ensure my response is tailored.
+6. QUALITY CHECK: Response looks tailored
 
 أنا فاهم إنك بتحس بضغط كبير. فادي بيكرهك مش معناه إنك وحش.`;
 
-const parsed = parseAgentChainResponse(noDelimiterInput);
-console.log("Parsed result:", JSON.stringify(parsed, null, 2));
+console.log("\n=== Test 2: Normal with newlines ===");
+const result2 = buildFallback(normal, normal);
+console.log("Result:", JSON.stringify(result2.substring(0, 200)));
+console.log("Has Arabic:", /[\u0600-\u06FF]/.test(result2) ? "✅" : "❌");
 
-if (parsed && !parsed.visibleContent) {
-  console.log("\n→ visibleContent is EMPTY — fallback should kick in");
-  console.log("→ thoughtContent (would be used as fallback):");
-  let fallback = (parsed.thoughtContent || "").trim();
-  fallback = fallback
-    .replace(/^\s*Self\s*:\s*/i, "")
-    .replace(/^\s*REVIEW\s*:\s*/i, "")
-    .replace(/^\s*SELF[- ]?REVIEW\s*:\s*/i, "")
-    .trim();
-  console.log(`   "${fallback.substring(0, 200)}"`);
-  console.log(`   Length: ${fallback.length} chars`);
-}
+// Test 3: With Self: REVIEW: prefix after step 6
+const withSelfReview = `1. INTAKE: Test
+2. MEMORY SCAN: Test
+3. PATTERN ANALYSIS: Test
+4. NERVOUS SYSTEM READ: Test
+5. INTERVENTION PLAN: Test
+6. QUALITY CHECK: Checking quality
+
+Self: REVIEW: Before proceeding, let me verify.
+
+أنا فاهم إنك بتمر بوقت صعب وبتحس إن حد بيكرهك.`;
+
+console.log("\n=== Test 3: Self: REVIEW: after step 6 ===");
+const result3 = buildFallback(withSelfReview, withSelfReview);
+console.log("Result:", JSON.stringify(result3.substring(0, 200)));
+console.log("Has Arabic:", /[\u0600-\u06FF]/.test(result3) ? "✅" : "❌");
+console.log("No REVIEW:", !result3.includes("REVIEW") ? "✅" : "❌");

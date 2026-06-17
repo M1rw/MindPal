@@ -62,7 +62,7 @@ export function notifyResponseComplete() {
   if (setting === "off") return;
 
   const title = "MindPal";
-  const body = "Your response is ready ✨";
+  const body = "Your response is ready";
 
   if (setting === "push") {
     _sendPush(title, body);

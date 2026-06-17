@@ -60,6 +60,7 @@ import {
 import { initLiveVoice, startLiveVoice } from "./voice_live.js";
 
 import {
+  formatMarkdown,
   stripMarkdown,
   typewriteHTML,
   bindAccordion,
@@ -926,24 +927,19 @@ async function handleSend() {
           const elapsedMs = performance.now() - streamStartTime;
           const finalParsed = processStructuredResponse(streamResponseStr, elapsedMs);
 
-          // Safety net: if parser produced empty HTML but we have streamed text, show it raw
+          // Safety net: never show empty content box when we have text
           if (!finalParsed.finalHtml && streamResponseStr.trim()) {
-            // Strip thought markers and Self:/REVIEW: prefixes for display
-            let rawDisplay = streamResponseStr.trim()
+            // Parser couldn't extract anything — show raw text stripped of internal markers
+            let raw = streamResponseStr.trim()
               .replace(/^\s*\*{0,2}\s*Thought\s*:?\s*\*{0,2}\s*/i, "")
-              .replace(/\n\s*\*{2}\s*(?:Balanced\s+Reframe|Response)\s*:?\s*\*{2}\s*/i, "\n")
               .replace(/^\s*Self\s*:\s*/i, "")
               .replace(/^\s*REVIEW\s*:\s*/i, "")
               .trim();
-            // Try to find the actual response after numbered steps
-            const responseMatch = rawDisplay.match(/\n\s*(?:[^\n]*(?:QUALITY CHECK|SELF[- ]?REVIEW|INTERVENTION)[^\n]*\n)([\s\S]+)/i);
-            if (responseMatch && responseMatch[1].trim()) {
-              rawDisplay = responseMatch[1].trim()
-                .replace(/^\s*Self\s*:\s*/i, "")
-                .replace(/^\s*REVIEW\s*:\s*/i, "")
-                .trim();
-            }
-            contentBox.innerHTML = `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(rawDisplay)}</div>`;
+            // Strip numbered step lines (1. INTAKE: ..., etc.)
+            raw = raw.replace(/(?:^|\n)\s*[1-6][\.\)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "").trim();
+            contentBox.innerHTML = raw
+              ? `<div class="text-[15px] leading-relaxed mb-4">${formatMarkdown(raw)}</div>`
+              : `<div class="text-[15px] leading-relaxed mb-4 text-gray-400 italic">Response could not be parsed. Please try again.</div>`;
           } else {
             contentBox.innerHTML = finalParsed.finalHtml;
           }
