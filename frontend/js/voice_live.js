@@ -1,6 +1,7 @@
 // frontend/js/voice_live.js — UI orchestrator for voice calls
 
 import { refreshIcons } from "./utils/icons.js";
+import { getIdToken } from "./auth.js";
 import {
   startSession,
   stopSession,
@@ -116,6 +117,9 @@ export async function startLiveVoice(contextProvider = null) {
   updateMicUI(false);
 
   try {
+    // Get auth token for authenticated API calls
+    const token = await getIdToken().catch(() => null);
+
     // Start audio session
     await startSession({
       contextProvider,
@@ -123,6 +127,7 @@ export async function startLiveVoice(contextProvider = null) {
       onAudioState: handleAudioState,
       onSessionEnd: handleSessionEnd,
       onVolume: feedVolume,
+      token,
     });
 
     // Wire up visualizer with session analysers

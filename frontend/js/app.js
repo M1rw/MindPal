@@ -1123,9 +1123,12 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
 
 async function summarizeCallTranscript(userTranscript, aiTranscript) {
   try {
+    const token = await getIdToken().catch(() => null);
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(`${API_BASE_URL}/voice/summarize`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ user_transcript: userTranscript || "", ai_transcript: aiTranscript || "" }),
     });
     if (!res.ok) throw new Error(`API ${res.status}`);
