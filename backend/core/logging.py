@@ -1,5 +1,16 @@
 # backend/core/logging.py
 
+"""
+Structured JSON-lines logging for MindPal.
+
+Design goals:
+- Emit machine-readable JSON lines to stdout
+- Redact sensitive field names (messages, tokens, credentials)
+- Never log raw user text by default
+- Safe against malformed log values (bytes, None, exceptions)
+- Idempotent configuration (repeated calls are safe)
+"""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +22,9 @@ from typing import Any, Mapping
 
 
 MAX_LOG_VALUE_CHARS = 500
+
+# Valid Python log level names (used to whitelist _resolve_log_level input).
+_VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
 
 SENSITIVE_FIELD_NAMES = frozenset(
     {
@@ -138,9 +152,21 @@ def log_event(logger: _logging.Logger, event_name: str, **fields: Any) -> None:
     )
 
 
+# ═══════════════════════════════════════════════════════════════
+# Internal helpers
+# ═══════════════════════════════════════════════════════════════
+
 def _resolve_log_level(log_level: str) -> int:
+    """
+    Resolve a log level string to the corresponding logging constant.
+
+    Only accepts known level names (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+    Falls back to INFO for unrecognized values to prevent silent misconfiguration.
+    """
     value = str(log_level or "INFO").strip().upper()
-    return int(getattr(_logging, value, _logging.INFO))
+    if value in _VALID_LOG_LEVELS:
+        return int(getattr(_logging, value))
+    return _logging.INFO
 
 
 def _sanitize_log_fields(fields: Mapping[str, Any]) -> dict[str, Any]:
@@ -161,11 +187,15 @@ def _sanitize_log_fields(fields: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _sanitize_log_value(value: Any) -> Any:
-    if value is None or isinstance(value, bool | int | float):
+    if value is None or isinstance(value, (bool, int, float)):
         return value
 
     if isinstance(value, Enum):
         return _safe_string(value.value, max_chars=MAX_LOG_VALUE_CHARS)
+
+    if isinstance(value, bytes):
+        # Binary data in logs — show type and length only, never raw bytes.
+        return f"<bytes len={len(value)}>"
 
     if isinstance(value, Mapping):
         return _sanitize_log_fields(value)
@@ -187,7 +217,12 @@ def _is_sensitive_key(key: str) -> bool:
 
 
 def _safe_string(value: Any, *, max_chars: int) -> str:
-    text = str(value).replace("\r", " ").replace("\n", " ").strip()
+    """
+    Convert a value to a safe, single-line log string.
+
+    Strips null bytes, carriage returns, and newlines to prevent log injection.
+    """
+    text = str(value).replace("\x00", "").replace("\r", " ").replace("\n", " ").strip()
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 1].rstrip() + "…"

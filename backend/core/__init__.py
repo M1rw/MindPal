@@ -17,7 +17,7 @@ Importing this package must not:
 
 from __future__ import annotations
 
-from .config import Settings, get_settings
+from .config import Settings, get_settings, reset_settings
 from .errors import (
     AppError,
     AuthError,
@@ -25,6 +25,7 @@ from .errors import (
     ConfigError,
     DatabaseError,
     DatabaseServiceError,
+    InputTooLongError,
     LLMServiceError,
     MemoryAppError,
     MemoryError,
@@ -37,6 +38,7 @@ from .errors import (
     ProviderTimeoutError,
     RAGError,
     RAGServiceError,
+    RateLimitError,
     SafetyError,
     SafetyServiceError,
     SecurityError,
@@ -47,10 +49,15 @@ from .errors import (
 )
 from .logging import configure_logging, get_logger, log_event
 from .prompts import (
+    CLINICAL_PRO_PROMPT,
     PRODUCT_BOUNDARY_PROMPT,
     SAFETY_STYLE_PROMPT,
+    VALID_RAG_TAGS,
     WELLNESS_ASSISTANT_PROMPT,
+    build_intent_context,
     build_system_prompt,
+    infer_response_mode,
+    infer_response_mode_for_preference,
 )
 from .security import (
     Locale,
@@ -60,15 +67,23 @@ from .security import (
     redact_basic_pii,
     safe_truncate,
     sanitize_text,
+    strip_invisible_chars,
+    validate_url,
 )
 
 __all__ = [
+    # Config
+    "Settings",
+    "get_settings",
+    "reset_settings",
+    # Errors
     "AppError",
     "AuthError",
     "AuthServiceError",
     "ConfigError",
     "DatabaseError",
     "DatabaseServiceError",
+    "InputTooLongError",
     "LLMServiceError",
     "MemoryAppError",
     "MemoryError",
@@ -81,6 +96,7 @@ __all__ = [
     "ProviderTimeoutError",
     "RAGError",
     "RAGServiceError",
+    "RateLimitError",
     "SafetyError",
     "SafetyServiceError",
     "SecurityError",
@@ -88,11 +104,21 @@ __all__ = [
     "TTSError",
     "TTSServiceError",
     "ValidationAppError",
-    "get_settings",
-    "Settings",
+    # Logging
     "configure_logging",
     "get_logger",
     "log_event",
+    # Prompts
+    "CLINICAL_PRO_PROMPT",
+    "PRODUCT_BOUNDARY_PROMPT",
+    "SAFETY_STYLE_PROMPT",
+    "VALID_RAG_TAGS",
+    "WELLNESS_ASSISTANT_PROMPT",
+    "build_intent_context",
+    "build_system_prompt",
+    "infer_response_mode",
+    "infer_response_mode_for_preference",
+    # Security
     "Locale",
     "generate_request_id",
     "hash_user_id",
@@ -100,6 +126,8 @@ __all__ = [
     "redact_basic_pii",
     "safe_truncate",
     "sanitize_text",
+    "strip_invisible_chars",
+    "validate_url",
 ]
 
 # Backward compatibility aliases for incorrect casing
