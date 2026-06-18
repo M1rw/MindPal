@@ -5,7 +5,7 @@ from backend.models.memory import (
     ImportantPerson,
     MemorySummary,
 )
-from backend.models.memory_v3 import (
+from backend.models.memory import (
     MemoryCategory,
     MemoryGraph,
     MemorySource,

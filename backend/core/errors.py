@@ -124,12 +124,6 @@ class MemoryAppError(AppError):
     code = "memory_error"
 
 
-# DEPRECATED: This alias shadows the Python built-in MemoryError.
-# It exists only for backward compatibility with older code that imports it.
-# New code should use MemoryAppError directly.
-# TODO: Remove this alias once all consumers are migrated to MemoryAppError.
-MemoryError = MemoryAppError
-
 
 class MemoryServiceError(MemoryAppError):
     code = "memory_service_error"

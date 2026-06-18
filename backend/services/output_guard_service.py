@@ -434,6 +434,7 @@ class OutputGuardService:
         try:
             health = self.llm_service.health()
         except Exception:
+            logger.warning("LLM service health check failed for output guard rewrite", exc_info=True)
             return {
                 "remote_provider_available": False,
                 "offline_available": False,

@@ -401,6 +401,7 @@ class RAGService:
                         if query_vector_res:
                             query_vector = query_vector_res[0]
                     except Exception:
+                        logger.warning("Failed to generate embedding for RAG query", exc_info=True)
                         pass
                 
                 result = self._result_from_plan(
@@ -591,6 +592,7 @@ class RAGService:
         try:
             health = self.llm_service.health()
         except Exception:
+            logger.warning("LLM service health check failed for RAG planner", exc_info=True)
             return {
                 "remote_provider_available": False,
                 "offline_available": False,

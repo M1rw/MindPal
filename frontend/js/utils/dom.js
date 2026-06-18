@@ -61,22 +61,45 @@ export function bindAccordion(root) {
   if (!header) return;
 
   header.addEventListener("click", () => {
-    const content = header.nextElementSibling;
+    const grid = header.nextElementSibling;
+    const content = grid?.classList.contains("accordion-grid") ? grid.querySelector(".accordion-content") : grid;
     const chevron = header.querySelector(".chevron-icon");
     const collapsedText = header.querySelector(".collapsed-text");
     const expandedText = header.querySelector(".expanded-text");
 
-    const isOpen = !content?.classList.contains("max-h-0");
+    const isExpanded = header.getAttribute("aria-expanded") === "true";
 
-    if (isOpen) {
-      content.classList.remove("max-h-screen", "opacity-100");
-      content.classList.add("max-h-0", "opacity-0");
+    if (isExpanded) {
+      header.setAttribute("aria-expanded", "false");
+      if (grid?.classList.contains("accordion-grid")) {
+        grid.style.gridTemplateRows = "0fr";
+      } else if (content) {
+        content.classList.remove("max-h-screen", "opacity-100");
+        content.classList.add("max-h-0", "opacity-0");
+      }
+      
+      if (content && grid?.classList.contains("accordion-grid")) {
+        content.classList.remove("opacity-100");
+        content.classList.add("opacity-0");
+      }
+      
       chevron?.classList.remove("rotate-90");
       collapsedText?.classList.remove("hidden");
       expandedText?.classList.add("hidden");
     } else {
-      content?.classList.remove("max-h-0", "opacity-0");
-      content?.classList.add("max-h-screen", "opacity-100");
+      header.setAttribute("aria-expanded", "true");
+      if (grid?.classList.contains("accordion-grid")) {
+        grid.style.gridTemplateRows = "1fr";
+      } else if (content) {
+        content.classList.remove("max-h-0", "opacity-0");
+        content.classList.add("max-h-screen", "opacity-100");
+      }
+
+      if (content && grid?.classList.contains("accordion-grid")) {
+        content.classList.remove("opacity-0");
+        content.classList.add("opacity-100");
+      }
+      
       chevron?.classList.add("rotate-90");
       collapsedText?.classList.add("hidden");
       expandedText?.classList.remove("hidden");

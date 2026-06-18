@@ -123,7 +123,7 @@ class GetUserProfileTool(BaseTool):
             prefs = profile.preferences
 
             return ToolResult(data={
-                "name": profile.display_name or prefs.preferred_name or "unknown",
+                "name": prefs.preferred_name or "unknown",
                 "preferred_name": prefs.preferred_name or "",
                 "communication_style": prefs.communication_style.value if prefs.communication_style else "balanced",
                 "custom_instructions": prefs.custom_instructions or "",

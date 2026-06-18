@@ -308,6 +308,7 @@ class TTSService:
                 raise
 
             except Exception:
+                logger.warning("TTS provider %s raised unexpected error", provider_name, exc_info=True)
                 fallback_count += 1
                 last_error_code = "provider_unhandled_error"
                 continue

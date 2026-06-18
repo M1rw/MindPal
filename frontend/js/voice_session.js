@@ -238,7 +238,7 @@ export async function startSession({
   };
 
   liveWebSocket.onclose = (event) => {
-    console.log("Live WebSocket Closed", event.code, event.reason);
+    // WebSocket close is expected during stopSession — no debug log needed.
     if (isSessionActive) {
       stopSession();
     }
@@ -469,7 +469,7 @@ function handleToolCalls(functionCalls) {
   // Execute all tool calls concurrently via backend
   Promise.all(
     functionCalls.map(async (call) => {
-      console.log(`[TOOL_CALL] ${call.name}`, call.args);
+      // Tool call debug logging removed for production cleanliness.
       const result = await executeToolCall(call.name, call.args || {});
       return { id: call.id, name: call.name, response: { result } };
     })
