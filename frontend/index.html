@@ -219,27 +219,30 @@
         <!-- Interaction Area -->
         <div id="interaction-area" class="w-full flex flex-col flex-1 items-center px-4 pb-6 pb-safe transition-all duration-500">
             
-            <div id="welcome-screen" class="text-left sm:text-center my-auto w-full max-w-3xl animate-fade-in">
-                <h1 class="text-4xl sm:text-5xl font-medium tracking-tight mb-2">
-                    <span id="greeting-text" class="bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]">Hello.</span>
-                </h1>
-                <p class="text-2xl sm:text-3xl text-[#444746] dark:text-[#c4c7c5] font-medium tracking-tight mb-8">What's on your mind today?</p>
-                
-                <div class="flex flex-wrap justify-start sm:justify-center gap-3 mb-2">
-                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Overwhelmed">
-                        <i data-lucide="waves" class="w-4 h-4 text-blue-500"></i> I feel overwhelmed
-                    </button>
-                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Anxious">
-                        <i data-lucide="wind" class="w-4 h-4 text-purple-500"></i> I'm feeling anxious
-                    </button>
-                    <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Stuck">
-                        <i data-lucide="anchor" class="w-4 h-4 text-rose-500"></i> I feel stuck
-                    </button>
+            <!-- Welcome wrapper — takes all space above input and centers greeting vertically -->
+            <div class="flex-1 flex items-center justify-center w-full">
+                <div id="welcome-screen" class="text-left sm:text-center w-full max-w-3xl animate-fade-in">
+                    <h1 class="text-4xl sm:text-5xl font-medium tracking-tight mb-2">
+                        <span id="greeting-text" class="bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]">Hello.</span>
+                    </h1>
+                    <p class="text-2xl sm:text-3xl text-[#444746] dark:text-[#c4c7c5] font-medium tracking-tight mb-8">What's on your mind today?</p>
+                    
+                    <div class="flex flex-wrap justify-start sm:justify-center gap-3 mb-2">
+                        <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Overwhelmed">
+                            <i data-lucide="waves" class="w-4 h-4 text-blue-500"></i> I feel overwhelmed
+                        </button>
+                        <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Anxious">
+                            <i data-lucide="wind" class="w-4 h-4 text-purple-500"></i> I'm feeling anxious
+                        </button>
+                        <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2" data-mood="Stuck">
+                            <i data-lucide="anchor" class="w-4 h-4 text-rose-500"></i> I feel stuck
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <!-- The Input Box Container -->
-            <div class="w-full max-w-4xl relative z-10">
+            <div class="w-full max-w-4xl relative z-10 mt-10">
                 <div class="bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] p-2 flex items-end relative transition-shadow w-full">
                     <textarea 
                         id="chat-input"
