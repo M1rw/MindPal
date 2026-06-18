@@ -405,7 +405,8 @@ function parseThoughtSteps(text) {
   if (!clean) return [];
 
   // Match numbered steps: "1. LABEL: content" or "1. LABEL — content"
-  const stepRegex = /(?:^|\n)\s*(\d+)\.\s*([A-Z][A-Z\s]+?)(?::|—|–|-)\s*/g;
+  // Allow both newline-separated and inline steps (LLM sometimes puts all on one line)
+  const stepRegex = /(?:^|\n|(?<=\.\s))\s*(\d+)\.\s*([A-Z][A-Z\s]+?)(?::|—|–|-)\s*/g;
   const steps = [];
   let match;
   const matchPositions = [];
@@ -416,6 +417,18 @@ function parseThoughtSteps(text) {
       contentStart: stepRegex.lastIndex,
       index: match.index,
     });
+  }
+
+  // If regex didn't find steps (e.g. lookbehind not supported), try simpler inline split
+  if (matchPositions.length === 0) {
+    const simpleRegex = /(\d+)\.\s*([A-Z][A-Z\s]+?)(?::|—|–|-)\s*/g;
+    while ((match = simpleRegex.exec(clean)) !== null) {
+      matchPositions.push({
+        label: match[2].trim(),
+        contentStart: simpleRegex.lastIndex,
+        index: match.index,
+      });
+    }
   }
 
   for (let i = 0; i < matchPositions.length; i++) {
@@ -434,4 +447,32 @@ function parseThoughtSteps(text) {
   }
 
   return steps;
+}
+
+/**
+ * Extract only the user-visible portion of an LLM response,
+ * stripping chain-of-thought / internal reasoning.
+ * Used for copy-to-clipboard and read-aloud.
+ */
+export function extractVisibleText(rawText) {
+  const clean = String(rawText || "").trim();
+  if (!clean) return "";
+
+  // Try agent chain format first: Thought + Response/Balanced Reframe
+  const agentChain = parseAgentChainResponse(clean);
+  if (agentChain) {
+    if (agentChain.visibleContent) return agentChain.visibleContent;
+    // If no visible content delimiter was found, fall through to cognitive sections
+  }
+
+  // Try cognitive sections: Thought/Distortion/Evidence/Reframe/Action
+  const sections = parseCognitiveSections(clean);
+  if (sections.reframe) {
+    let result = sections.reframe;
+    if (sections.action) result += "\n\n" + sections.action;
+    return result;
+  }
+
+  // No structured format detected — return the full text as-is
+  return clean;
 }
