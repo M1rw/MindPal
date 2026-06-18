@@ -201,7 +201,7 @@ function _showProConfirmationDialog(onConfirm) {
 // Bind (called from bootstrap)
 // ═══════════════════════════════════════════════════════════════
 
-export function bindUnifiedSelector({ isSessionLocked } = {}) {
+export function bindUnifiedSelector({ isSessionLocked, isGenerating } = {}) {
   _currentModel = _persistedModel();
   _currentMode = _persistedMode();
   _updateUnifiedLabel();
@@ -226,7 +226,7 @@ export function bindUnifiedSelector({ isSessionLocked } = {}) {
   }
 
   btn?.addEventListener("click", (e) => {
-    if (isSessionLocked?.()) return;
+    if (isSessionLocked?.() || isGenerating?.()) return;
     e.stopPropagation();
     if (dropdown?.classList.contains("hidden")) {
       openDropdown();
@@ -245,6 +245,7 @@ export function bindUnifiedSelector({ isSessionLocked } = {}) {
   document.querySelectorAll(".model-option").forEach(option => {
     option.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (isGenerating?.()) return;
       const model = option.getAttribute("data-model");
       _selectModel(model);
       if (!isSessionLocked?.()) document.getElementById("chat-input")?.focus();
@@ -259,6 +260,7 @@ export function bindUnifiedSelector({ isSessionLocked } = {}) {
   document.querySelectorAll(".mode-option").forEach(option => {
     option.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (isGenerating?.()) return;
       const mode = option.getAttribute("data-mode");
       _selectMode(mode);
       closeDropdown();

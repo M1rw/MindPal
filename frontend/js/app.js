@@ -306,7 +306,7 @@ async function bootstrap() {
     bindStreakModal();
     bindSettings();
     bindInput();
-    bindUnifiedSelector({ isSessionLocked: () => isSessionLocked });
+    bindUnifiedSelector({ isSessionLocked: () => isSessionLocked, isGenerating: () => isGenerating });
     bindMoodButtons();
     bindConversationActions();
 
