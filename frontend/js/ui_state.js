@@ -679,25 +679,26 @@ export function closeModal(modalId, contentId) {
 
 export function setChatStarted(started) {
   const welcomeScreen = document.getElementById("welcome-screen");
+  const welcomeWrapper = welcomeScreen?.parentElement;
   const chatHistory = document.getElementById("chat-history");
   const interactionArea = document.getElementById("interaction-area");
 
   if (started) {
-    welcomeScreen?.classList.add("hidden");
+    welcomeWrapper?.classList.add("hidden");
 
     chatHistory?.classList.remove("hidden");
     chatHistory?.classList.add("flex");
 
-    interactionArea?.classList.remove("flex-1", "justify-center");
-    interactionArea?.classList.add("flex-none", "justify-end", "pt-0");
+    interactionArea?.classList.remove("flex-1");
+    interactionArea?.classList.add("flex-none", "pt-0");
   } else {
-    welcomeScreen?.classList.remove("hidden");
+    welcomeWrapper?.classList.remove("hidden");
 
     chatHistory?.classList.add("hidden");
     chatHistory?.classList.remove("flex");
 
-    interactionArea?.classList.add("flex-1", "justify-center");
-    interactionArea?.classList.remove("flex-none", "justify-end", "pt-0");
+    interactionArea?.classList.add("flex-1");
+    interactionArea?.classList.remove("flex-none", "pt-0");
   }
 }
 
