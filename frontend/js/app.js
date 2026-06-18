@@ -628,12 +628,12 @@ function bindInput() {
   inputEl?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      if (!isGenerating && !isSessionLocked) handleSend();
+      if (!isGenerating && !isSessionLocked) handleSend().catch(console.error);
     }
   });
 
   sendBtn?.addEventListener("click", () => {
-    if (!isGenerating && !isSessionLocked) handleSend();
+    if (!isGenerating && !isSessionLocked) handleSend().catch(console.error);
   });
 }
 
@@ -648,7 +648,7 @@ function bindMoodButtons() {
 
       inputEl.value = `I'm feeling ${mood} right now.`;
       inputEl.dispatchEvent(new Event("input"));
-      handleSend();
+      handleSend().catch(console.error);
     });
   });
 }
@@ -829,66 +829,59 @@ async function handleSend() {
   setInputState({ disabled: true, locked: false });
   setChatStarted(true);
 
-  await appendMessageToUI(text, "user", { smoothScroll: true });
-
-  const userMessageRecord = addMessage("User", text);
-  scheduleCloudMessageSync(userMessageRecord);
-  clearInput();
-
-  let memoryContext = getMemoryContext();
-  let memoryGraphContext = getMemoryGraphContext();
-
-  const recentMessages = getState().chatMemory.slice(-8);
-  const memoryResult = classifyAndStoreMemoryFromMessage(text, { memoryContext, recentMessages });
-  const graphResult = classifyAndStoreMemoryGraphFromMessage(text, { graphContext: memoryGraphContext });
-
-  memoryContext = memoryResult.memory;
-  memoryGraphContext = graphResult.graph;
-  setMemoryContext(memoryContext);
-  setMemoryGraphContext(memoryGraphContext);
-
-  if (memoryResult.saved.length || graphResult.saved.length) {
-    renderMemoryInspector();
-    void persistMemoryContextSafe();
-  }
-
-  const localMemoryReply = graphResult.localReply || memoryResult.localReply;
-  if ((graphResult.shouldIntercept || memoryResult.shouldIntercept) && localMemoryReply) {
-    const memoryReplyRecord = addMessage("MindPal", localMemoryReply, { providerUsed: "local_memory", memoryUpdated: true });
-    scheduleCloudMessageSync(memoryReplyRecord);
-    await appendMessageToUI(localMemoryReply, "bot", { smoothScroll: true, typewriter: true });
-    isGenerating = false;
-    setInputState({ disabled: false, locked: isSessionLocked });
-    updateProfileUI(getCurrentUser());
-    document.getElementById("chat-input")?.focus();
-    return;
-  }
-
-  const memoryDirectAnswer = answerQuestionFromMemoryGraph(text, memoryGraphContext) || answerQuestionFromMemory(text, memoryContext);
-  if (memoryDirectAnswer) {
-    const memoryAnswerRecord = addMessage("MindPal", memoryDirectAnswer, { providerUsed: "local_memory", memoryUsed: true });
-    scheduleCloudMessageSync(memoryAnswerRecord);
-    await appendMessageToUI(memoryDirectAnswer, "bot", { smoothScroll: true, typewriter: true });
-    isGenerating = false;
-    setInputState({ disabled: false, locked: isSessionLocked });
-    updateProfileUI(getCurrentUser());
-    document.getElementById("chat-input")?.focus();
-    return;
-  }
-
+  let streamMsgDiv = null;
   const statusId = `status-${Date.now()}`;
-  const chatHistory = document.getElementById("chat-history");
-  let streamMsgDiv = document.createElement("div");
-  streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
-  if (chatHistory) chatHistory.appendChild(streamMsgDiv);
-
-  appendStatusIndicator(statusId, streamMsgDiv);
-
-  let contentBox = null;
   let streamResponseStr = "";
   let firstChunkReceived = false;
 
   try {
+    await appendMessageToUI(text, "user", { smoothScroll: true });
+
+    const userMessageRecord = addMessage("User", text);
+    scheduleCloudMessageSync(userMessageRecord);
+    clearInput();
+
+    let memoryContext = getMemoryContext();
+    let memoryGraphContext = getMemoryGraphContext();
+
+    const recentMessages = getState().chatMemory.slice(-8);
+    const memoryResult = classifyAndStoreMemoryFromMessage(text, { memoryContext, recentMessages });
+    const graphResult = classifyAndStoreMemoryGraphFromMessage(text, { graphContext: memoryGraphContext });
+
+    memoryContext = memoryResult.memory;
+    memoryGraphContext = graphResult.graph;
+    setMemoryContext(memoryContext);
+    setMemoryGraphContext(memoryGraphContext);
+
+    if (memoryResult.saved.length || graphResult.saved.length) {
+      renderMemoryInspector();
+      void persistMemoryContextSafe();
+    }
+
+    const localMemoryReply = graphResult.localReply || memoryResult.localReply;
+    if ((graphResult.shouldIntercept || memoryResult.shouldIntercept) && localMemoryReply) {
+      const memoryReplyRecord = addMessage("MindPal", localMemoryReply, { providerUsed: "local_memory", memoryUpdated: true });
+      scheduleCloudMessageSync(memoryReplyRecord);
+      await appendMessageToUI(localMemoryReply, "bot", { smoothScroll: true, typewriter: true });
+      return;
+    }
+
+    const memoryDirectAnswer = answerQuestionFromMemoryGraph(text, memoryGraphContext) || answerQuestionFromMemory(text, memoryContext);
+    if (memoryDirectAnswer) {
+      const memoryAnswerRecord = addMessage("MindPal", memoryDirectAnswer, { providerUsed: "local_memory", memoryUsed: true });
+      scheduleCloudMessageSync(memoryAnswerRecord);
+      await appendMessageToUI(memoryDirectAnswer, "bot", { smoothScroll: true, typewriter: true });
+      return;
+    }
+
+    const chatHistory = document.getElementById("chat-history");
+    streamMsgDiv = document.createElement("div");
+    streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
+    if (chatHistory) chatHistory.appendChild(streamMsgDiv);
+
+    appendStatusIndicator(statusId, streamMsgDiv);
+
+    let contentBox = null;
     const state = getState();
     const token = await getIdToken();
     const mode = getCurrentMode();
@@ -1362,7 +1355,7 @@ function buildMessageActions(text) {
     likeBtn?.classList.remove("text-blue-600", "dark:text-blue-400");
   });
 
-  actionDiv.querySelector(".action-retry")?.addEventListener("click", () => regenerateLastUserMessage(text));
+  actionDiv.querySelector(".action-retry")?.addEventListener("click", () => regenerateLastUserMessage(text).catch(console.error));
 
   return actionDiv;
 }
@@ -1399,11 +1392,6 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
   const userMessage = String(messages[userIndex]?.text || "").trim();
   if (!userMessage) { showToast("No matching user message found."); return; }
 
-  const preservedMessages = messages.slice(0, assistantIndex);
-  replaceChatMemory(preservedMessages);
-  renderPersistedChat();
-  void replaceCloudChatSnapshotSafe(preservedMessages);
-
   isGenerating = true;
   setInputState({ disabled: true, locked: false });
   setChatStarted(true);
@@ -1414,6 +1402,10 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
   let firstChunkReceived = false;
 
   try {
+    const preservedMessages = messages.slice(0, assistantIndex);
+    replaceChatMemory(preservedMessages);
+    renderPersistedChat();
+    void replaceCloudChatSnapshotSafe(preservedMessages);
     const token = await getIdToken();
     const mode = getCurrentMode();
     const chatHistory = document.getElementById("chat-history");

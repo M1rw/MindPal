@@ -25,6 +25,7 @@ const ACTIVITY_THRESHOLD = 0.03;
 let liveWebSocket = null;
 let audioContext = null;
 let micSource = null;
+let mediaStream = null;
 let workletNode = null;
 
 let isSessionActive = false;
@@ -126,8 +127,8 @@ export async function startSession({
   audioContext = new AudioContextCtor({ sampleRate: 16000 });
 
   // Mic stream
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  micSource = audioContext.createMediaStreamSource(stream);
+  mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  micSource = audioContext.createMediaStreamSource(mediaStream);
 
   // AudioWorklet for PCM capture
   const workletCode = `
@@ -255,6 +256,10 @@ export function stopSession() {
   if (micAnalyser) { micAnalyser.disconnect(); micAnalyser = null; }
   if (aiAnalyser) { aiAnalyser.disconnect(); aiAnalyser = null; }
   if (micSource) { micSource.disconnect(); micSource = null; }
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+    mediaStream = null;
+  }
   if (audioContext && audioContext.state !== "closed") { audioContext.close(); audioContext = null; }
   if (liveWebSocket) { liveWebSocket.close(); liveWebSocket = null; }
 
