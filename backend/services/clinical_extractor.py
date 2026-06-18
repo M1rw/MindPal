@@ -83,15 +83,16 @@ async def extract_clinical_profile(
         response = await llm.generate(request)
         raw_text = response.text.strip()
         
-        # Clean up markdown formatting
-        if raw_text.startswith("```json"):
-            raw_text = raw_text[7:]
-        if raw_text.startswith("```"):
-            raw_text = raw_text[3:]
-        if raw_text.endswith("```"):
-            raw_text = raw_text[:-3]
+        import re
+        
+        # Clean up markdown formatting and preamble
+        match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+        if match:
+            clean_json = match.group(0)
+        else:
+            clean_json = "{}"
             
-        data = json.loads(raw_text.strip())
+        data = json.loads(clean_json)
         
         # Update presenting problems (merge, dedup)
         if "presenting_problems" in data and isinstance(data["presenting_problems"], list):
