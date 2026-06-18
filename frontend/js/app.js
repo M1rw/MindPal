@@ -36,6 +36,7 @@ import {
   loadState,
   openModal,
   patchState,
+  saveState,
   refreshIcons,
   removeStatusIndicator,
   renderWeeklyTracker,
@@ -1224,7 +1225,6 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
 
 function _persistCallSummary(startTime, summary) {
   const state = getState();
-  // Find by type + startTime, or by text pattern as fallback
   const callMsg = state.chatMemory.findLast?.(m =>
     (m.type === "voice_call" && m.voiceCall?.startTime === startTime) ||
     (m.text?.startsWith("[Voice Call]") && m.voiceCall?.startTime === startTime)
@@ -1233,9 +1233,11 @@ function _persistCallSummary(startTime, summary) {
     if (!callMsg.voiceCall) callMsg.voiceCall = {};
     callMsg.voiceCall.summary = summary;
     patchState({ chatMemory: state.chatMemory });
-    saveState({ defer: false }); // Force immediate save
+    // patchState calls saveState internally — force immediate write as well
+    saveState({ defer: false });
+    console.log("[Voice] Summary persisted:", summary);
   } else {
-    console.warn("[Voice] Could not find call message in chatMemory to persist summary");
+    console.warn("[Voice] Could not find call message to persist summary. chatMemory length:", state.chatMemory.length);
   }
 }
 
