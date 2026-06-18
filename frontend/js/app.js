@@ -382,6 +382,9 @@ async function bootstrap() {
     }
   } catch (error) {
     console.error("[MindPal] Bootstrap failed:", error);
+    if (typeof showToast === 'function') {
+      showToast("Critical error during startup. Please refresh the page.");
+    }
     removeGlobalLoader();
   }
 }
