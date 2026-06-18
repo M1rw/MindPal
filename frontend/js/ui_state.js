@@ -683,7 +683,16 @@ export function setChatStarted(started) {
   const interactionArea = document.getElementById("interaction-area");
 
   if (started) {
-    welcomeScreen?.classList.add("hidden");
+    // Fade out welcome, then show chat
+    if (welcomeScreen) {
+      welcomeScreen.style.opacity = "0";
+      welcomeScreen.style.transform = "translateY(-12px)";
+      setTimeout(() => {
+        welcomeScreen.classList.add("hidden");
+        welcomeScreen.style.opacity = "";
+        welcomeScreen.style.transform = "";
+      }, 300);
+    }
 
     chatHistory?.classList.remove("hidden");
     chatHistory?.classList.add("flex");
