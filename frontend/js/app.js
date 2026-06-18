@@ -966,8 +966,8 @@ async function handleSend() {
             // Strip numbered step lines (1. INTAKE: ..., etc.)
             raw = raw.replace(/(?:^|\n)\s*[1-6][\.\)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "").trim();
             contentBox.innerHTML = raw
-              ? `<div class="text-[15px] leading-relaxed mb-4" dir="auto">${formatMarkdown(raw)}</div>`
-              : `<div class="text-[15px] leading-relaxed mb-4 text-gray-400 italic">Response could not be parsed. Please try again.</div>`;
+              ? `<div class="text-[15px] leading-relaxed" dir="auto">${formatMarkdown(raw)}</div>`
+              : `<div class="text-[15px] leading-relaxed text-gray-400 italic">Response could not be parsed. Please try again.</div>`;
           } else {
             contentBox.innerHTML = finalParsed.finalHtml;
           }
