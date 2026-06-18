@@ -191,6 +191,55 @@ details > summary::-webkit-details-marker { display: none; }
 .bg-gemini-bg { background-color: #ffffff; }
 .bg-gemini-surface { background-color: #f0f4f9; }
 .text-gemini-text { color: #1f1f1f; }
+/* Shimmer text for AI loading state */
+.shimmer-text {
+    background: linear-gradient(90deg, #4285f4 0%, #9b72cb 50%, #4285f4 100%);
+    background-size: 200% auto;
+    color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: shimmer 2s linear infinite;
+}
+.dark .shimmer-text {
+    background: linear-gradient(90deg, #a8c7fa 0%, #d3bcfa 50%, #a8c7fa 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+}
+@keyframes shimmer { to { background-position: 200% center; } }
+
+/* Voice Recording Pulse */
+@keyframes pulse-ring {
+    0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+.recording-pulse {
+    animation: pulse-ring 2s infinite;
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444 !important;
+}
+
+/* MindPal design tokens extracted from the prototype Tailwind config. */
+.bg-gemini-bg { background-color: #ffffff; }
+.bg-gemini-surface { background-color: #f0f4f9; }
+.text-gemini-text { color: #1f1f1f; }
+.text-gemini-muted { color: #444746; }
+.border-gemini-border { border-color: #e0e0e0; }
+.hover\:bg-gemini-surface:hover { background-color: #f0f4f9; }
+
+.dark .dark\:bg-gemini-darkBg { background-color: #131314; }
+.dark .dark\:bg-gemini-darkSurface { background-color: #1e1f20; }
+.dark .dark\:text-gemini-darkText { color: #e3e3e3; }
+.dark .dark\:text-gemini-darkMuted { color: #c4c7c5; }
+.dark .dark\:border-gemini-darkBorder { border-color: #444746; }
+.dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #1e1f20; }
+
+/* MindPal custom utility fallbacks.
+   These preserve the prototype colors if Tailwind CDN config is delayed. */
+
+.bg-gemini-bg { background-color: #ffffff; }
+.bg-gemini-surface { background-color: #f0f4f9; }
+.text-gemini-text { color: #1f1f1f; }
 .text-gemini-muted { color: #444746; }
 .border-gemini-border { border-color: #e0e0e0; }
 
@@ -212,6 +261,64 @@ details > summary::-webkit-details-marker { display: none; }
   .content-box {
     padding-right: 4px;
   }
+}
+
+/* ── Code blocks & inline code ── */
+.code-block-wrap {
+  position: relative;
+  margin: 12px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #1e1f20;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.code-lang-label {
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  width: 100%;
+}
+
+.code-block {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e5e7eb;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.code-block code {
+  font-family: inherit;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.inline-code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 0.88em;
+  background: rgba(0, 0, 0, 0.06);
+  color: #1f2937;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dark .inline-code {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Settings modal */
