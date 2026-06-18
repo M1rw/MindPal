@@ -34,6 +34,16 @@ textarea:focus::-webkit-scrollbar { width: 6px; }
 }
 .animate-fade-in { animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
+/* Welcome → Chat smooth transition */
+#welcome-screen {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+#welcome-screen.fade-out {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
 @keyframes slideUpFade {
     from { opacity: 0; transform: translateY(1rem); }
     to { opacity: 1; transform: translateY(0); }

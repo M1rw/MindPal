@@ -683,43 +683,20 @@ export function setChatStarted(started) {
   const interactionArea = document.getElementById("interaction-area");
 
   if (started) {
-    // ─── Phase 1: fade-out + slide-down the welcome screen ───
     if (welcomeScreen && !welcomeScreen.classList.contains("hidden")) {
-      welcomeScreen.style.transition = "opacity 0.4s ease, transform 0.4s ease";
-      welcomeScreen.style.opacity = "0";
-      welcomeScreen.style.transform = "translateY(24px)";
+      welcomeScreen.classList.add("fade-out");
 
       setTimeout(() => {
         welcomeScreen.classList.add("hidden");
-        welcomeScreen.style.transition = "";
-        welcomeScreen.style.opacity = "";
-        welcomeScreen.style.transform = "";
+        welcomeScreen.classList.remove("fade-out");
 
-        // ─── Phase 2: swap layout classes ───
-        interactionArea?.classList.remove("flex-1", "justify-center");
-        interactionArea?.classList.add("flex-none", "justify-end", "pt-0");
-
-        // ─── Phase 3: fade-in chat history from below ───
         chatHistory?.classList.remove("hidden");
         chatHistory?.classList.add("flex");
-        chatHistory.style.opacity = "0";
-        chatHistory.style.transform = "translateY(16px)";
 
-        // Force reflow so the browser registers the initial state
-        void chatHistory.offsetHeight;
-
-        chatHistory.style.transition = "opacity 0.35s ease, transform 0.35s ease";
-        chatHistory.style.opacity = "1";
-        chatHistory.style.transform = "translateY(0)";
-
-        setTimeout(() => {
-          chatHistory.style.transition = "";
-          chatHistory.style.opacity = "";
-          chatHistory.style.transform = "";
-        }, 360);
-      }, 420);
+        interactionArea?.classList.remove("flex-1", "justify-center");
+        interactionArea?.classList.add("flex-none", "justify-end", "pt-0");
+      }, 400);
     } else {
-      // Already hidden (e.g. restoring from saved state) — instant switch
       welcomeScreen?.classList.add("hidden");
       chatHistory?.classList.remove("hidden");
       chatHistory?.classList.add("flex");
@@ -727,7 +704,6 @@ export function setChatStarted(started) {
       interactionArea?.classList.add("flex-none", "justify-end", "pt-0");
     }
   } else {
-    // ─── Restore welcome screen (instant, no animation needed) ───
     chatHistory?.classList.add("hidden");
     chatHistory?.classList.remove("flex");
 
