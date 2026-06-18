@@ -1,9 +1,18 @@
 /* ═══ Safari / Mobile Viewport Safety ═══ */
-/* 100dvh accounts for Safari's dynamic toolbar (URL bar + bottom bar).
-   Falls back to 100vh for browsers that don't support dvh. */
+/* Uses a JS-set --app-height (most reliable for standalone/PWA on iOS),
+   falls back to 100dvh then 100vh. */
+:root {
+  --app-height: 100vh;
+}
 .h-dvh-safe {
   height: 100vh;
   height: 100dvh;
+  height: var(--app-height);
+}
+
+/* Standalone PWA: pad the top for the status bar */
+body.standalone {
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* Safe area padding for devices with notch/home indicator (iPhone X+).

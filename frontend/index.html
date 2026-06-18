@@ -652,6 +652,26 @@
         </div>
     </div>
 
+    <!-- Viewport height fix for iOS standalone / PWA mode -->
+    <script>
+    (function(){
+        // Set --app-height to actual window height (fixes iOS standalone 100vh bug)
+        function setAppHeight() {
+            document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+        }
+        setAppHeight();
+        window.addEventListener('resize', setAppHeight);
+        window.addEventListener('orientationchange', function(){ setTimeout(setAppHeight, 150); });
+
+        // Detect standalone mode (added to home screen)
+        var isStandalone = window.navigator.standalone === true
+            || window.matchMedia('(display-mode: standalone)').matches;
+        if (isStandalone) {
+            document.body.classList.add('standalone');
+        }
+    })();
+    </script>
+
     <!-- Safety-net: remove loading screen if bootstrap fails or takes too long -->
     <script>
     (function(){
