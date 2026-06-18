@@ -1,65 +1,90 @@
-# Prompt Engineering
+# Prompt Engineering — Safety, Memory & Response Quality
 
-System prompt construction for both Standard and Pro modes.
-All prompt logic lives in `backend/core/prompts.py`.
+## System Prompt Architecture
 
-## Standard Mode — Agent Chain
+The system prompt is constructed by `backend/core/prompts.py` → `render_system_prompt()`. It assembles sections dynamically based on the current model, mode, language, and safety state.
 
-Uses `STANDARD_AGENT_CHAIN_PROMPT` with structured reasoning:
-
-```
-**Thought:** [Brief internal reasoning — hidden, collapsible]
-1. UNDERSTAND: What is the user really saying?
-2. CONTEXT CHECK: Memory, chat history, past conversations
-3. PLAN: Validate, guide, problem-solve, or ground?
-
-**Response:** [Actual response to user]
-```
-
-The frontend parses `**Thought:**` blocks into collapsible sections
-(cognitive tools dropdown).
-
-## Pro Mode — Clinical Chain
-
-Uses `PRO_CLINICAL_CHAIN_PROMPT` with deeper clinical reasoning
-through CBT/DBT/ACT/MI frameworks. Includes risk assessment
-and safety routing.
-
-## Dynamic Injections
-
-### Time Context
-
-`build_time_context()` adds current UTC + user local time:
-```
-Current time: 2026-06-17T20:50:24 UTC
-User local time: 2026-06-17 23:50 (Africa/Cairo)
-```
-
-Injected into every prompt so the LLM always knows the current time.
-
-### Tool Instructions
-
-`build_tool_instructions()` dynamically generates tool-use rules
-from the `ToolRegistry`, telling the LLM exactly when to use each tool.
-
-### Language Detection
-
-Language instructions are placed at the **absolute END** of the system prompt
-(fixes recency bias — LLM pays more attention to the end).
+### Prompt Structure
 
 ```
-Detected user language: Arabic
-→ Respond in Arabic
+┌──────────────────────────────────────┐
+│ BASE PERSONA                          │  ← Core identity, tone, ethics
+├──────────────────────────────────────┤
+│ MODE-SPECIFIC BLOCK                   │  ← Active Listen / Guided Coach / Cognitive Tools
+├──────────────────────────────────────┤
+│ SAFETY_STYLE_PROMPT                   │  ← Clinical safety guidelines
+├──────────────────────────────────────┤
+│ PRODUCT_BOUNDARY_PROMPT               │  ← Scope enforcement (stay on-topic)
+├──────────────────────────────────────┤
+│ MEMORY CONTEXT                        │  ← User's durable memory (with staleness warning)
+├──────────────────────────────────────┤
+│ THOUGHT CHAIN GUIDELINES (Pro)        │  ← How to structure internal reasoning
+├──────────────────────────────────────┤
+│ LANGUAGE DIRECTIVE                    │  ← Auto-detected or explicit language instructions
+└──────────────────────────────────────┘
 ```
 
-Arabic gets specific instructions: "Use natural Arabic expressions."
+## Key Safety Prompts
 
-**Important**: Language was renamed from "Egyptian Arabic" to "Arabic" in
-the settings UI (`settings_ui.js`) per user request.
+### SAFETY_STYLE_PROMPT
+Injected into ALL modes (including Pro clinical mode):
+- Never diagnose, prescribe, or claim to replace professional care
+- Always recommend professional help for serious concerns
+- Use evidence-based frameworks as guidance, not treatment
+- Maintain emotional safety throughout conversations
 
-## Token Limits
+### PRODUCT_BOUNDARY_PROMPT
+Keeps MindPal focused on its purpose:
+- Declines off-topic requests (coding, math, general knowledge)
+- Gently redirects to mental health / emotional support topics
+- Does not generate creative fiction, code, or technical content
+- Responds with: "I'm designed to support your emotional well-being..."
 
-| Mode | `max_output_tokens` |
-|------|-------------------|
-| Standard | 1200 (increased from 900 to accommodate agent chain) |
-| Pro | 2000 |
+## Memory Integration
+
+### Staleness Warning
+Memory context includes a freshness indicator:
+```
+⚠️ This memory may be outdated. Verify key facts with the user
+if the conversation contradicts stored information.
+```
+
+### Memory Structure in Prompt
+```
+You know the following about this user:
+- Name: [preferred_name]
+- Key people: [relationships]
+- Emotional patterns: [triggers, coping strategies]
+- Goals: [user goals]
+- Preferences: [communication style, avoided topics]
+```
+
+## Thought Chain (Pro Model)
+
+### Guidelines Injected
+- Maximum ~200 words for Standard, unlimited for Pro
+- Must maintain continuity — reference prior reasoning
+- **Core Belief label** used instead of "Thought:" to avoid parser collision
+- Self-review step at the end of the chain
+
+### Frontend Label Mapping
+The `chat_helpers.js` parser recognizes:
+```javascript
+labelPattern: /\*\*(emotion|insight|reflection|core belief|...\*\*)/i
+```
+`"core belief"` was added to prevent collision with the thought accordion's `**Thought:**` label.
+
+## Language Handling
+
+- Auto-detected from user input
+- Arabic input → Arabic response (unless user requests otherwise)
+- Mixed language → follows the dominant language of the message
+- Language directive is the LAST section in the prompt (highest priority)
+
+## Response Quality Rules
+
+1. **No repetitive openers** — avoid starting every response with "I hear you" / "That sounds..."
+2. **Vary acknowledgment patterns** — mix direct, reflective, and action-oriented responses
+3. **Natural conversation flow** — respond as a caring friend, not a script
+4. **Progressive depth** — short responses for simple check-ins, deeper for complex issues
+5. **Don't over-validate** — balance empathy with gentle challenges when appropriate
