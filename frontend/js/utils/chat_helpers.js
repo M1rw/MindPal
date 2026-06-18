@@ -242,7 +242,7 @@ export function processStructuredResponse(text, elapsedMs = null) {
     : "Thinking\u2026";
 
   const timelineHtml = `
-    <div class="thought-accordion group mb-5">
+    <div class="thought-accordion group mb-2">
       <div class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-fit">
         <span class="collapsed-text">${timeText}</span>
         <span class="expanded-text hidden">Analyzed cognitive patterns</span>
@@ -370,7 +370,7 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
   timelineItems += timelineItem("Done", "", "check-circle-2");
 
   const timelineHtml = `
-    <div class="thought-accordion group mb-5">
+    <div class="thought-accordion group mb-2">
       <div class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-fit">
         <span class="collapsed-text">${timeText}</span>
         <span class="expanded-text hidden">Analyzed cognitive patterns</span>
