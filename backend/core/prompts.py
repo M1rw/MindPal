@@ -127,6 +127,7 @@ Agent chain protocol — you MUST use this exact output format for EVERY respons
 CRITICAL FORMAT RULES:
 - You MUST start your response with "**Thought:**" followed by your internal reasoning.
 - You MUST then write "**Balanced Reframe:**" followed by your clinical response.
+- ALWAYS use the ENGLISH labels "**Thought:**" and "**Balanced Reframe:**" — even if the rest of your output is in Arabic or any other language. NEVER translate these labels. The system relies on them for parsing.
 - Do NOT skip the Thought block. Do NOT merge them. Do NOT use other heading formats.
 - The Thought block should be 150-400 words of genuine clinical reasoning, NOT filler.
 - The Balanced Reframe should be 200-600 words of deep, personalized clinical response.
@@ -218,6 +219,7 @@ Agent protocol — reason before responding:
 CRITICAL FORMAT RULES:
 - You MUST start with "**Thought:**" followed by your brief reasoning (50-200 words — scale depth to match message complexity).
 - You MUST then write "**Response:**" followed by your response.
+- ALWAYS use the ENGLISH labels "**Thought:**" and "**Response:**" — even if the rest of your output is in Arabic, French, or any other language. NEVER translate these labels. The system relies on them for parsing.
 - Do NOT skip the Thought block. Do NOT merge them.
 - The Response should be warm, specific, and actionable — not generic.
 - NEVER start the Response with labels like "Self:", "REVIEW:", or any internal reasoning prefix. The Response must start directly with your response to the user.

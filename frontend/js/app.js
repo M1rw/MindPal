@@ -938,10 +938,16 @@ async function handleSend() {
         // Finalize the "Thinking..." indicator when the response delimiter appears
         if (!firstChunkReceived) {
           const hasDelimiter = /\*{2}\s*(?:Response|Balanced\s*Reframe)\s*:?\s*\*{2}/i.test(streamResponseStr)
-            || /(?:\n|^)\s*(?:Response|Balanced\s*Reframe)\s*:\s*/i.test(streamResponseStr);
-          if (hasDelimiter) {
+            || /(?:\n|^)\s*(?:Response|Balanced\s*Reframe)\s*:\s*/i.test(streamResponseStr)
+            // Arabic labels: الرد (response), إعادة صياغة (reframe), الاستجابة (response)
+            || /\*{2}\s*(?:الرد|الاستجابة|إعادة\s*صياغة)\s*:?\s*\*{2}/.test(streamResponseStr)
+            || /(?:\n|^)\s*(?:الرد|الاستجابة|إعادة\s*صياغة)\s*:\s*/.test(streamResponseStr);
+          
+          // Time-based fallback: if 8+ seconds and enough content, assume thinking is done
+          const elapsed = performance.now() - streamStartTime;
+          if (hasDelimiter || (elapsed > 8000 && streamResponseStr.length > 200)) {
             firstChunkReceived = true;
-            finalizeStatusIndicator(statusId, performance.now() - streamStartTime);
+            finalizeStatusIndicator(statusId, elapsed);
           }
         }
 
