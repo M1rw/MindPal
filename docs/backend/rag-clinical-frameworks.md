@@ -1,150 +1,80 @@
-# RAG Clinical Frameworks
+# RAG — Clinical Framework Grounding
 
-Purpose: make MindPal use controlled safe technique guidance instead of relying only on prompt instructions and model behavior.
+## Overview
 
-Current corpus sources:
+MindPal uses Retrieval-Augmented Generation (RAG) to ground AI responses in evidence-based clinical frameworks. This ensures responses follow established therapeutic techniques rather than relying solely on LLM "vibes."
 
-```txt
-backend/rag/corpus
-data/clinical_frameworks
+## RAG Architecture
+
+```mermaid
+flowchart TD
+    MSG["User Message"] --> INTAKE["Semantic Intake"]
+    INTAKE --> TOPIC["Topic Classification"]
+    
+    TOPIC --> RETRIEVE["RAG Retrieval Engine"]
+    
+    subgraph "Corpus Sources"
+        CORE["backend/rag/corpus/<br/>Core response frameworks"]
+        CLINICAL["data/clinical_frameworks/<br/>CBT, DBT, grounding techniques"]
+    end
+    
+    CORE --> RETRIEVE
+    CLINICAL --> RETRIEVE
+    
+    RETRIEVE --> SCORE["Relevance Scoring"]
+    SCORE --> TOP_K["Top-K Documents"]
+    TOP_K --> PROMPT["Injected into System Prompt"]
+    PROMPT --> LLM["LLM Generation"]
+
+    style RETRIEVE fill:#34a853,color:white
+    style LLM fill:#9b72cb,color:white
 ```
 
-`RAGService` loads YAML units from both locations. The original backend corpus remains supported. The clinical framework corpus adds focused units for high-frequency MindPal situations.
+## Corpus Structure
 
-Core topics:
+### Core Corpus (`backend/rag/corpus/`)
+Response framework templates for common scenarios:
+- Panic attacks → Grounding sequences (5-4-3-2-1)
+- Anxiety → Box breathing, cognitive restructuring
+- Anger → De-escalation, emotion naming
+- Study stress → Pomodoro, prioritization
+- Relationship distress → Pattern naming, safety questions
 
-```txt
-panic grounding
-DBT STOP
-5-4-3-2-1 grounding
-cognitive reframe
-anger delay
-study triage
-relationship boundary
-relationship safety
+### Clinical Frameworks (`data/clinical_frameworks/`)
+Evidence-based therapeutic technique YAML files:
+- **CBT** (Cognitive Behavioral Therapy) — thought records, cognitive distortions
+- **DBT** (Dialectical Behavior Therapy) — distress tolerance, emotion regulation
+- **Grounding** — sensory awareness, breathing exercises
+- **Behavioral Activation** — activity scheduling, pleasure/mastery tracking
+
+## Retrieval Flow
+
+```mermaid
+sequenceDiagram
+    participant Pipeline
+    participant RAGService
+    participant Corpus
+    participant Scorer
+
+    Pipeline->>RAGService: retrieve(topic, context)
+    RAGService->>Corpus: Load candidate documents
+    Corpus-->>RAGService: Matching YAML units
+    RAGService->>Scorer: Score relevance
+    Scorer-->>RAGService: Ranked results
+    RAGService-->>Pipeline: Top-K grounding context
+    
+    Note over Pipeline: Grounding context injected<br/>between mode block and<br/>memory context in prompt
 ```
 
-Valid tags are controlled by `VALID_RAG_TAGS` in `backend/core/prompts.py`. New curated clinical units should use only those tags.
+## What RAG Is NOT
 
-Current important tags:
+| RAG Is | RAG Is NOT |
+|--------|-----------|
+| Technique guidance | User-specific memory |
+| Curated clinical content | LLM-generated advice |
+| Evidence-based frameworks | Diagnosis or treatment |
+| Deterministic retrieval | Hallucinated techniques |
 
-```txt
-panic_grounding
-grounding_54321
-box_breathing
-orienting_to_room
-anxiety
-anger
-impulse
-dbt_stop
-study_stress
-exam_anxiety
-relationship
-relationship_distress
-grief
-emotion_labeling
-cognitive_reframe
-safety
-self_harm
-abuse_or_violence
-sleep
-breathing
-journaling
-```
+## Health Endpoint
 
-YAML shape:
-
-```yaml
-schema_version: 1
-domain: clinical_frameworks
-units:
-  - id: clinical_panic_grounding_54321
-    category: anxiety
-    technique: panic grounding with 5-4-3-2-1
-    trigger_terms:
-      - panic
-      - panic attack
-      - can't breathe
-      - نوبة هلع
-    instructions:
-      - Start with one immediate sensory step, not an explanation.
-      - Ask for 5 things the user can see, then pause.
-    contraindications:
-      - Do not claim the user is medically safe.
-      - Do not present grounding as treatment.
-    response_style:
-      - short
-      - calm
-      - concrete
-    tags:
-      - panic_grounding
-      - grounding_54321
-      - anxiety
-```
-
-Health endpoint:
-
-```txt
-GET /api/rag/health
-```
-
-Expected fields:
-
-```json
-{
-  "units_loaded": 58,
-  "tags": ["anxiety", "panic_grounding", "relationship_distress"],
-  "invalid_tags": [],
-  "corpus_dirs": [".../backend/rag/corpus", ".../data/clinical_frameworks"],
-  "loaded_files": ["..."],
-  "failed_files": []
-}
-```
-
-Notes:
-
-```txt
-loaded_units vs units_loaded:
-  Current service field is units_loaded.
-  If a frontend/debug panel needs loaded_units, add it as an alias without removing units_loaded.
-
-invalid_tags:
-  Existing legacy corpus may still contain older tags.
-  New clinical framework units should stay aligned with VALID_RAG_TAGS.
-```
-
-Retrieval expectations:
-
-```txt
-"I am having a panic attack and cannot breathe"
-  -> clinical_panic_grounding_54321
-
-"I am furious and about to explode"
-  -> clinical_dbt_stop_anger_delay
-
-"I am overthinking everything and catastrophizing"
-  -> clinical_cognitive_reframe_overthinking
-
-"مش عارفة اكمل العلاقة هو بيقلل مني وبيتحكم فيا"
-  -> clinical_relationship_boundary
-
-"خايفة منه وبيهددني ومش سايبني اخرج"
-  -> clinical_relationship_safety
-```
-
-Failure modes:
-
-```txt
-Malformed YAML:
-  should appear in failed_files.
-
-Duplicate unit id:
-  should fail startup/reload because duplicate grounding ids create ambiguous retrieval.
-
-Wrong tags:
-  should appear in invalid_tags and fail tests for new clinical framework units.
-
-Overbroad trigger terms:
-  can cause unrelated queries to retrieve safety/relationship units.
-```
-
+`GET /api/rag/health` — Verifies corpus is loaded and retrieval is functional.
