@@ -183,7 +183,7 @@
     </div>
 
     <!-- Header / Navbar -->
-    <header class="flex items-center justify-between px-6 py-4 pt-safe transition-all duration-300 flex-none z-10 bg-transparent absolute top-0 w-full" id="header">
+    <header class="flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top,12px),12px)] pb-3 transition-all duration-300 flex-none z-10 bg-transparent absolute top-0 w-full" id="header">
         <div class="flex items-center gap-2">
             <span class="text-xl font-medium tracking-tight text-gray-800 dark:text-gray-200">MindPal</span>
             <div id="env-tag" class="px-2 py-0.5 rounded-md bg-gemini-surface dark:bg-gemini-darkSurface text-[10px] font-medium text-gray-500 dark:text-gray-400 transition-colors">Local</div>
@@ -643,10 +643,11 @@
                     <span id="voice-mute-label">Mute</span>
                 </button>
 
-                <button class="h-11 px-5 flex items-center gap-2 rounded-xl bg-black/[0.04] dark:bg-white/10 text-gray-700 dark:text-gray-200 text-[13px] font-semibold hover:bg-black/[0.08] dark:hover:bg-white/15 transition-all active:scale-95"
-                        title="Speaker">
+                <button id="voice-speaker-toggle"
+                        class="h-11 px-5 flex items-center gap-2 rounded-xl bg-black/[0.04] dark:bg-white/10 text-gray-700 dark:text-gray-200 text-[13px] font-semibold hover:bg-black/[0.08] dark:hover:bg-white/15 transition-all active:scale-95"
+                        title="Toggle speaker">
                     <i data-lucide="volume-2" class="w-4 h-4"></i>
-                    Speaker
+                    <span id="voice-speaker-label">Speaker</span>
                 </button>
             </div>
         </div>

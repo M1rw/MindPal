@@ -9,6 +9,8 @@ import {
   getMicMuted,
   getAiSpeaking,
   getSessionState,
+  setSpeakerMuted,
+  getSpeakerMuted,
 } from "./voice_session.js";
 import {
   startVisualizer,
@@ -81,6 +83,16 @@ export function initLiveVoice({ onChatSync } = {}) {
       const next = !getMicMuted();
       setMuted(next);
       updateMicUI(next);
+    });
+  }
+
+  // Speaker toggle
+  const speakerBtn = document.getElementById("voice-speaker-toggle");
+  if (speakerBtn) {
+    speakerBtn.addEventListener("click", () => {
+      const next = !getSpeakerMuted();
+      setSpeakerMuted(next);
+      updateSpeakerUI(next);
     });
   }
 }
@@ -254,6 +266,17 @@ function updateMicUI(muted) {
 
   if (muteIcon) muteIcon.setAttribute("data-lucide", muted ? "mic-off" : "mic");
   if (muteLabel) muteLabel.textContent = muted ? "Unmute" : "Mute";
+
+  refreshIcons();
+}
+
+function updateSpeakerUI(muted) {
+  const btn = document.getElementById("voice-speaker-toggle");
+  const icon = btn?.querySelector("[data-lucide]");
+  const label = document.getElementById("voice-speaker-label");
+
+  if (icon) icon.setAttribute("data-lucide", muted ? "volume-x" : "volume-2");
+  if (label) label.textContent = muted ? "Unmuted" : "Speaker";
 
   refreshIcons();
 }

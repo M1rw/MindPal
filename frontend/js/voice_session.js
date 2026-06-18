@@ -30,9 +30,11 @@ let workletNode = null;
 
 let isSessionActive = false;
 let isMicMuted = false;
+let isSpeakerMuted = false;
 let isAiSpeaking = false;
 let nextPlaybackTime = 0;
 let activeAudioSources = [];
+let outputGainNode = null;
 
 // Noise gate
 let gateOpenUntil = 0;
@@ -72,18 +74,22 @@ export function getSessionState() {
 
 export function getMicMuted() { return isMicMuted; }
 export function getAiSpeaking() { return isAiSpeaking; }
+export function getSpeakerMuted() { return isSpeakerMuted; }
+
+export function setSpeakerMuted(muted) {
+  isSpeakerMuted = muted;
+  if (outputGainNode) {
+    outputGainNode.gain.setValueAtTime(muted ? 0 : 1, audioContext?.currentTime || 0);
+  }
+}
 
 export function setMuted(muted) {
   isMicMuted = muted;
 
-  // CRITICAL FIX: When user mutes mid-sentence, signal Gemini to
-  // process whatever audio it received so far (turnComplete).
-  // Without this, partial speech is silently dropped.
-  if (muted && liveWebSocket?.readyState === WebSocket.OPEN) {
-    liveWebSocket.send(JSON.stringify({
-      clientContent: { turnComplete: true }
-    }));
-  }
+  // When muting, we simply stop sending audio frames (handled by the noise gate
+  // check `if (!isMicMuted)` in the worklet callback). We do NOT send turnComplete
+  // because it can cause Gemini to process incomplete speech and potentially
+  // end the session.
 
   _onAudioState?.({
     isAiSpeaking,
@@ -110,6 +116,7 @@ export async function startSession({
 
   isSessionActive = true;
   isMicMuted = false;
+  isSpeakerMuted = false;
   isAiSpeaking = false;
   nextPlaybackTime = 0;
   activeAudioSources = [];
@@ -210,6 +217,11 @@ export async function startSession({
   aiAnalyser.fftSize = 2048;
   aiAnalyser.smoothingTimeConstant = 0.75;
 
+  // Output gain node (for speaker mute)
+  outputGainNode = audioContext.createGain();
+  outputGainNode.gain.value = 1.0;
+  outputGainNode.connect(audioContext.destination);
+
   // WebSocket to Gemini
   const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
   liveWebSocket = new WebSocket(wsUrl);
@@ -255,6 +267,7 @@ export function stopSession() {
   if (workletNode) { workletNode.disconnect(); workletNode = null; }
   if (micAnalyser) { micAnalyser.disconnect(); micAnalyser = null; }
   if (aiAnalyser) { aiAnalyser.disconnect(); aiAnalyser = null; }
+  if (outputGainNode) { outputGainNode.disconnect(); outputGainNode = null; }
   if (micSource) { micSource.disconnect(); micSource = null; }
   if (mediaStream) {
     mediaStream.getTracks().forEach(track => track.stop());
@@ -438,9 +451,9 @@ function playAiAudioChunk(base64Data) {
 
   if (aiAnalyser) {
     source.connect(aiAnalyser);
-    aiAnalyser.connect(audioContext.destination);
+    aiAnalyser.connect(outputGainNode || audioContext.destination);
   } else {
-    source.connect(audioContext.destination);
+    source.connect(outputGainNode || audioContext.destination);
   }
 
   if (nextPlaybackTime < audioContext.currentTime) {
