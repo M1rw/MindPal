@@ -683,30 +683,58 @@ export function setChatStarted(started) {
   const interactionArea = document.getElementById("interaction-area");
 
   if (started) {
-    // Fade out welcome, then show chat
-    if (welcomeScreen) {
+    // ─── Phase 1: fade-out + slide-down the welcome screen ───
+    if (welcomeScreen && !welcomeScreen.classList.contains("hidden")) {
+      welcomeScreen.style.transition = "opacity 0.4s ease, transform 0.4s ease";
       welcomeScreen.style.opacity = "0";
-      welcomeScreen.style.transform = "translateY(-12px)";
+      welcomeScreen.style.transform = "translateY(24px)";
+
       setTimeout(() => {
         welcomeScreen.classList.add("hidden");
+        welcomeScreen.style.transition = "";
         welcomeScreen.style.opacity = "";
         welcomeScreen.style.transform = "";
-      }, 300);
+
+        // ─── Phase 2: swap layout classes ───
+        interactionArea?.classList.remove("flex-1", "justify-center");
+        interactionArea?.classList.add("flex-none", "justify-end", "pt-0");
+
+        // ─── Phase 3: fade-in chat history from below ───
+        chatHistory?.classList.remove("hidden");
+        chatHistory?.classList.add("flex");
+        chatHistory.style.opacity = "0";
+        chatHistory.style.transform = "translateY(16px)";
+
+        // Force reflow so the browser registers the initial state
+        void chatHistory.offsetHeight;
+
+        chatHistory.style.transition = "opacity 0.35s ease, transform 0.35s ease";
+        chatHistory.style.opacity = "1";
+        chatHistory.style.transform = "translateY(0)";
+
+        setTimeout(() => {
+          chatHistory.style.transition = "";
+          chatHistory.style.opacity = "";
+          chatHistory.style.transform = "";
+        }, 360);
+      }, 420);
+    } else {
+      // Already hidden (e.g. restoring from saved state) — instant switch
+      welcomeScreen?.classList.add("hidden");
+      chatHistory?.classList.remove("hidden");
+      chatHistory?.classList.add("flex");
+      interactionArea?.classList.remove("flex-1", "justify-center");
+      interactionArea?.classList.add("flex-none", "justify-end", "pt-0");
     }
-
-    chatHistory?.classList.remove("hidden");
-    chatHistory?.classList.add("flex");
-
-    interactionArea?.classList.remove("flex-1", "justify-center");
-    interactionArea?.classList.add("flex-none", "justify-end", "pt-0");
   } else {
-    welcomeScreen?.classList.remove("hidden");
-
+    // ─── Restore welcome screen (instant, no animation needed) ───
     chatHistory?.classList.add("hidden");
     chatHistory?.classList.remove("flex");
 
     interactionArea?.classList.add("flex-1", "justify-center");
     interactionArea?.classList.remove("flex-none", "justify-end", "pt-0");
+
+    welcomeScreen?.classList.remove("hidden");
   }
 }
 
