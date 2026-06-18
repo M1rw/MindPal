@@ -52,6 +52,9 @@ CLINICAL_EXTRACTION_TIMEOUT_SECONDS = 30.0
 # Lazy singleton tool registry
 _tool_registry = None
 
+# Background task tracker — prevents GC of in-flight tasks
+_background_tasks: set[asyncio.Task] = set()
+
 
 def _get_tool_registry():
     global _tool_registry
@@ -396,7 +399,9 @@ async def chat_stream(
                         except Exception as ext_exc:
                             logger.error("Clinical extraction failed for %s: %s", _req_id, type(ext_exc).__name__)
 
-                    asyncio.create_task(run_extraction())
+                    task = asyncio.create_task(run_extraction())
+                    _background_tasks.add(task)
+                    task.add_done_callback(_background_tasks.discard)
 
             except Exception:
                 # SECURITY: Never send raw exception text to the client.
