@@ -238,7 +238,7 @@ class LLMRequest(BaseModel):
 
 
 class LLMResponse(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid", protected_namespaces=())
 
     text: str = Field(min_length=1, max_length=MAX_ASSISTANT_REPLY_CHARS)
     provider_used: str = Field(min_length=1, max_length=MAX_PROVIDER_NAME_CHARS)

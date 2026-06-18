@@ -102,9 +102,11 @@ async function requestJson(path, {
 }
 
 function safeJsonParse(text) {
+  if (!text) return null;
   try {
     return JSON.parse(text);
-  } catch {
+  } catch (err) {
+    console.warn("safeJsonParse failed to parse JSON:", err.message, "Raw text:", String(text).slice(0, 200));
     return { raw: text };
   }
 }
@@ -364,6 +366,7 @@ export async function sendChatMessageStream({
   model = "standard",
   token = null,
   profileContext = null,
+  signal = null,
   onChunk = (text) => {},
   onStatus = (status) => {},
   onMetadata = (meta) => {},
@@ -385,10 +388,12 @@ export async function sendChatMessageStream({
       method: "POST",
       headers,
       body: JSON.stringify({ message: cleanMessage, history: normalizedHistory, metadata, stream: true }),
+      signal,
     });
 
     if (!response.ok) {
-      throw new Error(`Stream error: ${response.status}`);
+      const errText = await response.text().catch(() => "");
+      throw new Error(`Stream error HTTP ${response.status}: ${errText}`);
     }
 
     const reader = response.body.getReader();
@@ -400,13 +405,17 @@ export async function sendChatMessageStream({
       if (done) break;
       
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const dataStr = line.slice(6).trim();
-          if (dataStr) {
+      
+      let boundary = buffer.indexOf("\n\n");
+      while (boundary !== -1) {
+        const chunk = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 2);
+        
+        if (chunk.startsWith("data: ")) {
+          const dataStr = chunk.slice(6).trim();
+          if (dataStr === "[DONE]") {
+             // End of stream indicator
+          } else if (dataStr) {
             try {
               const data = JSON.parse(dataStr);
               if (data.error) {
@@ -419,13 +428,17 @@ export async function sendChatMessageStream({
                 onMetadata(data);
               }
             } catch (e) {
-              console.warn("Failed to parse SSE chunk", dataStr);
+              console.warn("Failed to parse SSE JSON payload", e, dataStr);
             }
           }
         }
+        boundary = buffer.indexOf("\n\n");
       }
     }
   } catch (error) {
+    if (error.name === "AbortError") {
+      return; // Canceled intentionally
+    }
     onError(error);
     throw error;
   }

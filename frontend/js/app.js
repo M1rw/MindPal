@@ -160,6 +160,7 @@ import {
 
 let isGenerating = false;
 let isSessionLocked = false;
+let activeStreamController = null;
 
 let globalLoaderRemoved = false;
 export function removeGlobalLoader() {
@@ -596,10 +597,11 @@ function bindSettingsTabs() {
 }
 
 function startNewLocalChat() {
-  if (isGenerating) {
-    showToast("Wait for the current response before starting a new chat.");
-    return;
+  if (activeStreamController) {
+    activeStreamController.abort();
+    activeStreamController = null;
   }
+  isGenerating = false;
 
   clearChatMemory();
   document.getElementById("chat-history")?.replaceChildren();
@@ -906,6 +908,11 @@ async function handleSend() {
     const streamStartTime = performance.now();
     let earlyAssistantMessage = null;
 
+    if (activeStreamController) {
+      activeStreamController.abort();
+    }
+    activeStreamController = new AbortController();
+
     await sendChatMessageStream({
       message: text,
       history: state.chatMemory,
@@ -913,6 +920,7 @@ async function handleSend() {
       mode,
       model,
       token,
+      signal: activeStreamController.signal,
       profileContext: {
         ...(getCurrentCloudProfileContext() || {}),
         settingsMetadata: buildChatSettingsMetadata(),
@@ -1056,6 +1064,10 @@ async function handleSend() {
     bindAccordion(streamMsgDiv);
     refreshIcons();
   } catch (error) {
+    if (error?.name === "AbortError") {
+      if (streamMsgDiv) streamMsgDiv.remove();
+      return;
+    }
     console.error("handleSend error:", error);
     if (!streamResponseStr.trim() && streamMsgDiv) streamMsgDiv.remove();
     if (!firstChunkReceived) removeStatusIndicator(statusId);
@@ -1425,12 +1437,18 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     const streamStartTime = performance.now();
     let earlyRegeneratedMessage = null;
 
+    if (activeStreamController) {
+      activeStreamController.abort();
+    }
+    activeStreamController = new AbortController();
+
     await sendChatMessageStream({
       message: userMessage,
       history: messages.slice(0, userIndex),
       locale: resolveLocale(getAppSettings),
       mode,
       token,
+      signal: activeStreamController.signal,
       profileContext: {
         ...(getCurrentCloudProfileContext() || {}),
         settingsMetadata: buildChatSettingsMetadata(),
@@ -1549,6 +1567,10 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     bindAccordion(streamMsgDiv);
     refreshIcons();
   } catch (error) {
+    if (error?.name === "AbortError") {
+      if (streamMsgDiv) streamMsgDiv.remove();
+      return;
+    }
     console.error("regenerateLastUserMessage error:", error);
     if (!streamResponseStr.trim() && streamMsgDiv) streamMsgDiv.remove();
     if (!firstChunkReceived) removeStatusIndicator(statusId);
