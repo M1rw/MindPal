@@ -761,6 +761,12 @@ export function setInputState({ disabled, locked = false }) {
     modeBtn.classList.toggle("pointer-events-none", isDisabled);
   }
 
+  const unifiedBtn = document.getElementById("unified-selector-btn");
+  if (unifiedBtn) {
+    unifiedBtn.classList.toggle("opacity-40", isDisabled);
+    unifiedBtn.classList.toggle("pointer-events-none", isDisabled);
+  }
+
   if (voiceBtn) {
     voiceBtn.classList.toggle("opacity-30", isDisabled);
     voiceBtn.classList.toggle("pointer-events-none", isDisabled);
