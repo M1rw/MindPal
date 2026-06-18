@@ -10,6 +10,7 @@ import {
   saveMemoryGraph,
   sendChatMessageStream,
   deleteCurrentCloudChat,
+  updateUserProfilePreferences,
 } from "./api.js";
 
 import {
@@ -493,6 +494,15 @@ function bindProfileModal() {
     saveMemoryGraphContext(memoryGraphContext);
     saveMemoryContext(memoryContext);
     void persistMemoryContextSafe();
+    
+    getIdToken().then(token => {
+      if (token) {
+        updateUserProfilePreferences({ preferred_name: nextName === "Friend" ? "" : nextName }, token).catch(e => {
+          console.warn("Failed to sync profile name:", e);
+        });
+      }
+    }).catch(() => {});
+
     renderMemoryInspector();
     updateProfileUI(getCurrentUser());
     showToast(nextName === "Friend" ? "Profile name cleared." : "Profile updated.");

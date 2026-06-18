@@ -1,3 +1,19 @@
+/* ═══ Safari / Mobile Viewport Safety ═══ */
+/* 100dvh accounts for Safari's dynamic toolbar (URL bar + bottom bar).
+   Falls back to 100vh for browsers that don't support dvh. */
+.h-dvh-safe {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Safe area padding for devices with notch/home indicator (iPhone X+).
+   Uses !important so it adds on top of Tailwind utility pb-* values. */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom)) !important;
+  }
+}
+
 /* Sleek Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -325,7 +341,9 @@ details > summary::-webkit-details-marker { display: none; }
 #profile-content {
   width: min(860px, calc(100vw - 24px));
   height: min(760px, calc(100vh - 32px));
+  height: min(760px, calc(100dvh - 32px));
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   background: #fbfcfe;
 }
 
@@ -881,6 +899,7 @@ details > summary::-webkit-details-marker { display: none; }
   #profile-content {
     width: calc(100vw - 16px);
     height: calc(100vh - 20px);
+    height: calc(100dvh - 20px);
     border-radius: 14px;
     flex-direction: column;
   }

@@ -440,6 +440,7 @@ async def delete_memory(
     assert_authenticated(context)
 
     try:
+        await services.db.delete_memory_graph(context.session.user_id_hash)
         return await services.db.delete_memory(context.session.user_id_hash)
 
     except AppError as exc:
