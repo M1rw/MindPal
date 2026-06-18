@@ -138,6 +138,7 @@ export async function startLiveVoice(contextProvider = null) {
       onTranscript: handleTranscript,
       onAudioState: handleAudioState,
       onSessionEnd: handleSessionEnd,
+      onTurnComplete: handleTurnComplete,
       onVolume: feedVolume,
       token,
     });
@@ -241,6 +242,11 @@ function handleSessionEnd() {
   if (isLiveActive) stopLiveVoice();
 }
 
+function handleTurnComplete() {
+  // Force a new bubble for the next transcript message
+  currentBubble = null;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // DOM helpers
 // ═══════════════════════════════════════════════════════════════
@@ -275,8 +281,8 @@ function updateSpeakerUI(muted) {
   const icon = btn?.querySelector("[data-lucide]");
   const label = document.getElementById("voice-speaker-label");
 
-  if (icon) icon.setAttribute("data-lucide", muted ? "volume-x" : "volume-2");
-  if (label) label.textContent = muted ? "Unmuted" : "Speaker";
+  if (icon) icon.setAttribute("data-lucide", muted ? "phone" : "volume-2");
+  if (label) label.textContent = muted ? "Phone" : "Speaker";
 
   refreshIcons();
 }

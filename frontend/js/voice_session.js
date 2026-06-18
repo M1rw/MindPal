@@ -57,6 +57,7 @@ let _onTranscript = null;   // (type: "user"|"ai", text: string) => void
 let _onAudioState = null;   // (state: { isAiSpeaking, isMicMuted, palette }) => void
 let _onSessionEnd = null;   // () => void
 let _onVolume = null;       // (rms: number) => void
+let _onTurnComplete = null; // () => void
 
 // ═══════════════════════════════════════════════════════════════
 // Public API
@@ -104,6 +105,7 @@ export async function startSession({
   onAudioState = null,
   onSessionEnd = null,
   onVolume = null,
+  onTurnComplete = null,
   token = null,
 } = {}) {
   if (isSessionActive) return;
@@ -113,6 +115,7 @@ export async function startSession({
   _onAudioState = onAudioState;
   _onSessionEnd = onSessionEnd;
   _onVolume = onVolume;
+  _onTurnComplete = onTurnComplete || null;
 
   isSessionActive = true;
   isMicMuted = false;
@@ -428,6 +431,11 @@ function handleServerMessage(data) {
   if (data.serverContent?.inputTranscription?.text) {
     _onTranscript?.("user", data.serverContent.inputTranscription.text);
     touchActivity();
+  }
+
+  // Turn complete — AI finished speaking a full turn
+  if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
+    _onTurnComplete?.();
   }
 
   // Tool calls
