@@ -317,6 +317,7 @@ class LLMService:
             try:
                 # We wrap the generator to handle connection errors on the first chunk
                 stream_generator = provider.generate_stream(request)
+                has_yielded = False
                 
                 # Check if it has __aiter__ (is an async generator)
                 if hasattr(stream_generator, "__aiter__"):
@@ -330,6 +331,7 @@ class LLMService:
                         )
                         # If we succeed here, the connection is good, we yield and continue
                         yield first_chunk
+                        has_yielded = True
                         
                         # Yield the rest without the strict initial timeout
                         async for chunk in iterator:
@@ -345,6 +347,8 @@ class LLMService:
                     pass
 
             except asyncio.TimeoutError:
+                if has_yielded:
+                    raise
                 fallback_count += 1
                 if _is_last_provider(provider, self._providers):
                     raise ProviderTimeoutError(
@@ -353,9 +357,13 @@ class LLMService:
                     )
                 continue
             except ProviderError:
+                if has_yielded:
+                    raise
                 fallback_count += 1
                 continue
             except Exception:
+                if has_yielded:
+                    raise
                 fallback_count += 1
                 continue
 

@@ -9,7 +9,7 @@ from collections import defaultdict
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import DatabaseError
@@ -66,6 +66,14 @@ class DBProvider(Protocol):
         ...
 
     async def append_event(self, collection: str, payload: dict[str, Any]) -> str:
+        ...
+
+    async def atomic_update_document(
+        self,
+        collection: str,
+        key: str,
+        update_fn: Callable[[dict[str, Any]], dict[str, Any]]
+    ) -> dict[str, Any]:
         ...
 
 
@@ -139,6 +147,21 @@ class InMemoryDBProvider:
         async with self._lock:
             return deepcopy(self._events.get(collection, []))
 
+    async def atomic_update_document(
+        self,
+        collection: str,
+        key: str,
+        update_fn: Callable[[dict[str, Any]], dict[str, Any]]
+    ) -> dict[str, Any]:
+        collection = _clean_collection(collection)
+        key = _clean_key(key)
+
+        async with self._lock:
+            payload = self._documents.get(collection, {}).get(key, {})
+            updated = update_fn(deepcopy(payload))
+            self._documents[collection][key] = deepcopy(updated)
+            return deepcopy(updated)
+
 
 class UnavailableDBProvider:
     """
@@ -168,6 +191,14 @@ class UnavailableDBProvider:
 
     async def append_event(self, collection: str, payload: dict[str, Any]) -> str:
         raise self._error("append_event")
+
+    async def atomic_update_document(
+        self,
+        collection: str,
+        key: str,
+        update_fn: Callable[[dict[str, Any]], dict[str, Any]]
+    ) -> dict[str, Any]:
+        raise self._error("atomic_update_document")
 
     def _error(self, operation: str) -> DatabaseError:
         return DatabaseError(
@@ -287,6 +318,35 @@ class FirebaseDBProvider:
             return event_id
 
         return await asyncio.to_thread(_append)
+
+    async def atomic_update_document(
+        self,
+        collection: str,
+        key: str,
+        update_fn: Callable[[dict[str, Any]], dict[str, Any]]
+    ) -> dict[str, Any]:
+        collection = _clean_collection(collection)
+        key = _clean_key(key)
+
+        def _tx() -> dict[str, Any]:
+            assert self._client is not None
+            from firebase_admin import firestore
+            transaction = self._client.transaction()
+            doc_ref = self._client.collection(collection).document(key)
+
+            @firestore.transactional
+            def update_in_transaction(transaction: Any, doc_ref: Any) -> dict[str, Any]:
+                snapshot = doc_ref.get(transaction=transaction)
+                data = snapshot.to_dict() or {} if snapshot.exists else {}
+                
+                updated_data = update_fn(deepcopy(data))
+                clean_payload = deepcopy(updated_data)
+                transaction.set(doc_ref, clean_payload)
+                return updated_data
+                
+            return update_in_transaction(transaction, doc_ref)
+            
+        return await asyncio.to_thread(_tx)
 
 
 class DBService:
@@ -598,6 +658,43 @@ class DBService:
         )
 
         return await self.save_user_profile(updated)
+
+    async def atomic_update_user_profile(
+        self,
+        user_id_hash: str,
+        update_fn: Callable[[UserProfile], UserProfile],
+    ) -> UserProfileResponse:
+        user_id_hash = _clean_key(user_id_hash)
+
+        try:
+            def dict_updater(data: dict[str, Any]) -> dict[str, Any]:
+                if not data:
+                    profile = UserProfile(user_id_hash=user_id_hash)
+                else:
+                    profile = UserProfile.model_validate(data)
+                
+                updated_profile = update_fn(profile)
+                updated_profile = _sanitize_user_profile(updated_profile)
+                return updated_profile.model_dump(mode="json")
+
+            updated_data = await self.provider.atomic_update_document(
+                self.USER_COLLECTION,
+                user_id_hash,
+                dict_updater
+            )
+            return UserProfileResponse(
+                profile=UserProfile.model_validate(updated_data),
+                loaded=True,
+                provider=self.provider.name,
+            )
+        except DatabaseError:
+            raise
+        except Exception as exc:
+            raise DatabaseError(
+                "Failed to atomically update user profile",
+                code="db_user_profile_atomic_update_failed",
+                details={"provider": self.provider.name, "user_id_hash": user_id_hash},
+            ) from exc
 
     async def append_safety_event(self, event: SafetyEvent) -> str:
         """
