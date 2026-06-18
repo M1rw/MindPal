@@ -266,7 +266,7 @@ export function processStructuredResponse(text, elapsedMs = null) {
     || action
     || "I've reflected on what you shared. Would you like to talk more about it?";
 
-  let finalHtml = `<div class="text-[15px] leading-relaxed mb-4" dir="auto">${formatMarkdown(visibleBody)}</div>`;
+  let finalHtml = `<div class="text-[15px] leading-relaxed" dir="auto">${formatMarkdown(visibleBody)}</div>`;
 
   if (action && reframe) {
     finalHtml += `<div class="mt-4"><strong class="text-gray-900 dark:text-white font-semibold">Next Action:</strong> ${formatMarkdown(action)}</div>`;
@@ -346,7 +346,7 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
     return {
       timelineHtml: "",
       finalHtml: fallbackContent
-        ? `<div class="text-[15px] leading-relaxed mb-4" dir="auto">${formatMarkdown(fallbackContent)}</div>`
+        ? `<div class="text-[15px] leading-relaxed" dir="auto">${formatMarkdown(fallbackContent)}</div>`
         : "",
     };
   }
@@ -385,7 +385,7 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
     </div>
   `;
 
-  const finalHtml = `<div class="text-[15px] leading-relaxed mb-4" dir="auto">${formatMarkdown(visibleContent)}</div>`;
+  const finalHtml = `<div class="text-[15px] leading-relaxed" dir="auto">${formatMarkdown(visibleContent)}</div>`;
 
   return { timelineHtml, finalHtml };
 }
