@@ -589,6 +589,8 @@ class DBService:
             status=profile.status,
             channel=profile.channel,
             preferences=update.preferences or profile.preferences,
+            clinical=update.clinical or profile.clinical,
+            usage=profile.usage,
             notes=update.notes if update.notes is not None else profile.notes,
             metadata=update.metadata if update.metadata is not None else profile.metadata,
             created_at=profile.created_at,

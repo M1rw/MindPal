@@ -38,6 +38,7 @@ import {
   refreshIcons,
   removeStatusIndicator,
   renderWeeklyTracker,
+  updateMentalHealthUI,
   replaceChatMemory,
   scrollChatToBottom,
   setButtonBusy,
@@ -371,7 +372,6 @@ async function bootstrap() {
     setGreeting();
     setInputState({ disabled: false, locked: false });
 
-    // Populate settings panels with demo/mock data for guest mode
     updateMentalHealthUI();
     renderWeeklyTracker();
 
@@ -689,6 +689,15 @@ function bindConversationActions() {
 
 async function deleteMemoryEntry(atomId) {
   if (!atomId) return;
+
+  const confirmed = await showCustomDialog({
+    title: "Delete memory",
+    message: "Are you sure you want to delete this memory? This cannot be undone.",
+    confirmText: "Delete",
+    danger: true,
+  });
+  if (!confirmed) return;
+
   let memoryGraphContext = getMemoryGraphContext();
   const now = new Date().toISOString();
   memoryGraphContext.atoms = (memoryGraphContext.atoms || []).map((atom) =>
