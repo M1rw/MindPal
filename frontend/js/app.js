@@ -66,7 +66,7 @@ import {
   bindAccordion,
 } from "./utils/dom.js";
 
-import { processStructuredResponse, truncateRepetition } from "./utils/chat_helpers.js";
+import { processStructuredResponse, truncateRepetition, extractVisibleText } from "./utils/chat_helpers.js";
 import { speakText, fallbackCopy, isSafetyLock, isCrisisReply, resolveLocale } from "./utils/tts.js";
 
 import {
@@ -1314,6 +1314,9 @@ function buildMessageActions(text) {
   const actionDiv = document.createElement("div");
   actionDiv.className = "flex items-center gap-1 mt-3 text-gray-500 dark:text-[#c4c7c5] action-buttons transition-opacity duration-300 opacity-100";
 
+  // Extract only the user-visible portion (strip chain-of-thought)
+  const visibleText = extractVisibleText(text);
+
   actionDiv.innerHTML = `
     <button class="action-play p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Read aloud">
       <i data-lucide="volume-2" class="w-[15px] h-[15px]"></i>
@@ -1333,14 +1336,14 @@ function buildMessageActions(text) {
   `;
 
   const playBtn = actionDiv.querySelector(".action-play");
-  playBtn?.addEventListener("click", () => speakText(stripMarkdown(text), playBtn, { showToast }));
+  playBtn?.addEventListener("click", () => speakText(stripMarkdown(visibleText), playBtn, { showToast }));
 
   actionDiv.querySelector(".action-copy")?.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(stripMarkdown(text));
+      await navigator.clipboard.writeText(stripMarkdown(visibleText));
       showToast("Copied to clipboard.");
     } catch {
-      fallbackCopy(stripMarkdown(text));
+      fallbackCopy(stripMarkdown(visibleText));
       showToast("Copied to clipboard.");
     }
   });
