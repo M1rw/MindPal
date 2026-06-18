@@ -10,9 +10,15 @@
   height: var(--app-height);
 }
 
-/* Standalone PWA: pad the top for the status bar */
-body.standalone {
-  padding-top: env(safe-area-inset-top, 0px);
+/* Standalone PWA: safe-area-inset-top for status bar overlap */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top) !important;
+  }
+  /* Offset main content to account for taller header in standalone mode */
+  #main-content {
+    padding-top: calc(72px + env(safe-area-inset-top)) !important;
+  }
 }
 
 /* Safe area padding for devices with notch/home indicator (iPhone X+).
