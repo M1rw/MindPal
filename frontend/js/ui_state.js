@@ -683,26 +683,46 @@ export function setChatStarted(started) {
   const interactionArea = document.getElementById("interaction-area");
 
   if (started) {
-    if (welcomeScreen && !welcomeScreen.classList.contains("hidden")) {
-      welcomeScreen.classList.add("fade-out");
+    // Capture the input bar's current position before layout change
+    const inputBox = interactionArea?.querySelector(".max-w-4xl");
+    const firstRect = inputBox?.getBoundingClientRect();
 
-      setTimeout(() => {
-        welcomeScreen.classList.add("hidden");
-        welcomeScreen.classList.remove("fade-out");
+    // Fade out welcome
+    welcomeScreen?.classList.add("fade-out");
 
-        chatHistory?.classList.remove("hidden");
-        chatHistory?.classList.add("flex");
-
-        interactionArea?.classList.remove("flex-1", "justify-center");
-        interactionArea?.classList.add("flex-none", "justify-end", "pt-0");
-      }, 400);
-    } else {
+    setTimeout(() => {
       welcomeScreen?.classList.add("hidden");
-      chatHistory?.classList.remove("hidden");
-      chatHistory?.classList.add("flex");
+      welcomeScreen?.classList.remove("fade-out");
+
+      // Swap layout (input jumps to bottom instantly)
       interactionArea?.classList.remove("flex-1", "justify-center");
       interactionArea?.classList.add("flex-none", "justify-end", "pt-0");
-    }
+
+      chatHistory?.classList.remove("hidden");
+      chatHistory?.classList.add("flex");
+
+      // FLIP: animate input from old position to new position
+      if (inputBox && firstRect) {
+        const lastRect = inputBox.getBoundingClientRect();
+        const deltaY = firstRect.top - lastRect.top;
+
+        if (Math.abs(deltaY) > 2) {
+          inputBox.style.transform = `translateY(${deltaY}px)`;
+          inputBox.style.transition = "none";
+
+          // Force reflow
+          void inputBox.offsetHeight;
+
+          inputBox.style.transition = "transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)";
+          inputBox.style.transform = "translateY(0)";
+
+          inputBox.addEventListener("transitionend", () => {
+            inputBox.style.transition = "";
+            inputBox.style.transform = "";
+          }, { once: true });
+        }
+      }
+    }, 400);
   } else {
     chatHistory?.classList.add("hidden");
     chatHistory?.classList.remove("flex");
