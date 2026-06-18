@@ -239,14 +239,13 @@ export function processStructuredResponse(text, elapsedMs = null) {
 
   const timeText = elapsedMs
     ? `Thought for ${(elapsedMs / 1000).toFixed(1)}s`
-    : "Thinking\u2026";
+    : "Thought process";
 
   const timelineHtml = `
     <div class="thought-accordion group mb-2">
       <button class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-full text-left" aria-expanded="false">
-        <span class="collapsed-text">${timeText}</span>
-        <span class="expanded-text hidden">Analyzed cognitive patterns</span>
-        <i data-lucide="chevron-right" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
+        <span>${timeText}</span>
+        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
       </button>
 
       <div class="accordion-grid grid transition-[grid-template-rows] duration-300 ease-out" style="grid-template-rows: 0fr;">
@@ -355,7 +354,7 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
 
   const timeText = elapsedMs
     ? `Thought for ${(elapsedMs / 1000).toFixed(1)}s`
-    : "Thinking\u2026";
+    : "Thought process";
 
   // Parse thought content into numbered steps for a nice timeline
   const steps = parseThoughtSteps(thoughtContent);
@@ -374,9 +373,8 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
   const timelineHtml = `
     <div class="thought-accordion group mb-2">
       <button class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-full text-left" aria-expanded="false">
-        <span class="collapsed-text">${timeText}</span>
-        <span class="expanded-text hidden">Analyzed cognitive patterns</span>
-        <i data-lucide="chevron-right" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
+        <span>${timeText}</span>
+        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
       </button>
 
       <div class="accordion-grid grid transition-[grid-template-rows] duration-300 ease-out" style="grid-template-rows: 0fr;">

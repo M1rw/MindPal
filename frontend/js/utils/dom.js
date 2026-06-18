@@ -100,16 +100,19 @@ export function bindAccordion(root) {
   const header = root.querySelector(".accordion-header");
   if (!header) return;
 
+  // Start collapsed: rotate chevron-down to point right (-90°)
+  const chevronInit = header.querySelector(".chevron-icon");
+  if (chevronInit) chevronInit.classList.add("-rotate-90");
+
   header.addEventListener("click", () => {
     const grid = header.nextElementSibling;
     const content = grid?.classList.contains("accordion-grid") ? grid.querySelector(".accordion-content") : grid;
     const chevron = header.querySelector(".chevron-icon");
-    const collapsedText = header.querySelector(".collapsed-text");
-    const expandedText = header.querySelector(".expanded-text");
 
     const isExpanded = header.getAttribute("aria-expanded") === "true";
 
     if (isExpanded) {
+      // Collapse
       header.setAttribute("aria-expanded", "false");
       if (grid?.classList.contains("accordion-grid")) {
         grid.style.gridTemplateRows = "0fr";
@@ -123,10 +126,9 @@ export function bindAccordion(root) {
         content.classList.add("opacity-0");
       }
       
-      chevron?.classList.remove("rotate-90");
-      collapsedText?.classList.remove("hidden");
-      expandedText?.classList.add("hidden");
+      chevron?.classList.add("-rotate-90");
     } else {
+      // Expand
       header.setAttribute("aria-expanded", "true");
       if (grid?.classList.contains("accordion-grid")) {
         grid.style.gridTemplateRows = "1fr";
@@ -140,9 +142,7 @@ export function bindAccordion(root) {
         content.classList.add("opacity-100");
       }
       
-      chevron?.classList.add("rotate-90");
-      collapsedText?.classList.add("hidden");
-      expandedText?.classList.remove("hidden");
+      chevron?.classList.remove("-rotate-90");
     }
   });
 }
