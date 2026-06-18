@@ -65,6 +65,7 @@ export function parseCognitiveSections(text) {
   const labelToKey = {
     thought: "thought",
     "core thought": "thought",
+    "core belief": "thought",
     distortion: "distortion",
     "distortion detected": "distortion",
     "evidence for": "evidenceFor",
@@ -81,6 +82,7 @@ export function parseCognitiveSections(text) {
     "Next Tiny Action",
     "Distortion Detected",
     "Core Thought",
+    "Core Belief",
     "Next Action",
     "Distortion",
     "Thought",
