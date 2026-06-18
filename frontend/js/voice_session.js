@@ -227,6 +227,7 @@ export async function startSession({
   liveWebSocket = new WebSocket(wsUrl);
 
   liveWebSocket.onopen = () => {
+    console.log("[Voice] WebSocket connected. Sending setup…");
     emitAudioState("listen");
     sendSetupMessage();
     startSilenceChecker();
@@ -245,12 +246,12 @@ export async function startSession({
   };
 
   liveWebSocket.onerror = (err) => {
-    console.error("Live WebSocket Error", err);
+    console.error("[Voice] WebSocket error:", err);
     stopSession();
   };
 
   liveWebSocket.onclose = (event) => {
-    // WebSocket close is expected during stopSession — no debug log needed.
+    console.warn(`[Voice] WebSocket closed — code: ${event.code}, reason: "${event.reason}", wasClean: ${event.wasClean}`);
     if (isSessionActive) {
       stopSession();
     }
@@ -396,6 +397,18 @@ LANGUAGE:
 // ═══════════════════════════════════════════════════════════════
 
 function handleServerMessage(data) {
+  // Setup confirmation from Gemini
+  if (data.setupComplete) {
+    console.log("[Voice] Gemini setup complete — ready to receive audio");
+    return;
+  }
+
+  // Server error
+  if (data.error) {
+    console.error("[Voice] Server error:", data.error);
+    return;
+  }
+
   // AI audio chunks
   if (data.serverContent?.modelTurn) {
     for (const part of data.serverContent.modelTurn.parts) {
