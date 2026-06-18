@@ -9,14 +9,14 @@ const SILENCE_WARN_MS = 60_000;
 const SILENCE_AUTO_END_MS = 90_000;
 
 // Noise gate: prevents ambient noise from being sent to Gemini
-const NOISE_GATE_THRESHOLD = 0.025;
-const NOISE_GATE_HOLD_MS = 200;
+const NOISE_GATE_THRESHOLD = 0.008;
+const NOISE_GATE_HOLD_MS = 300;
 
 // Barge-in: user must be louder than this to interrupt AI
-const BARGE_IN_THRESHOLD = 0.04;
+const BARGE_IN_THRESHOLD = 0.025;
 
 // Activity detection: user must be louder than this to reset silence timer
-const ACTIVITY_THRESHOLD = 0.03;
+const ACTIVITY_THRESHOLD = 0.012;
 
 // ═══════════════════════════════════════════════════════════════
 // State
@@ -395,6 +395,31 @@ LANGUAGE:
 - This is critical. Never default to English unless the user speaks English.`;
 }
 
+function _sendInitialGreeting() {
+  if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
+
+  const hour = new Date().getHours();
+  let timeContext;
+  if (hour >= 5 && hour < 12) timeContext = "morning";
+  else if (hour >= 12 && hour < 17) timeContext = "afternoon";
+  else if (hour >= 17 && hour < 21) timeContext = "evening";
+  else timeContext = "late night";
+
+  const userName = _contextProvider?.getUserProfile?.()?.name || "";
+  const nameHint = userName ? ` Their name is ${userName}.` : "";
+
+  // Vary the greeting style so it doesn't feel repetitive
+  const styles = [
+    `Greet the user warmly. It's ${timeContext}.${nameHint} Keep it short and natural — 1 sentence max. Then wait for them to talk.`,
+    `Say a casual, friendly hello. It's ${timeContext}.${nameHint} Don't be formal. Just a quick natural greeting like you're picking up a phone call with a close friend.`,
+    `Start the conversation with a warm check-in. It's ${timeContext}.${nameHint} Ask how they're doing in a genuine way. One sentence only.`,
+    `Open with something light and natural. It's ${timeContext}.${nameHint} Maybe comment on the time of day briefly. Keep it very short.`,
+  ];
+  const prompt = styles[Math.floor(Math.random() * styles.length)];
+
+  sendTextToModel(prompt);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Message handling
 // ═══════════════════════════════════════════════════════════════
@@ -403,6 +428,8 @@ function handleServerMessage(data) {
   // Setup confirmation from Gemini
   if (data.setupComplete) {
     console.log("[Voice] Gemini setup complete — ready to receive audio");
+    // MindPal speaks first — send greeting prompt after setup
+    _sendInitialGreeting();
     return;
   }
 

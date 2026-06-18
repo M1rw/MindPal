@@ -1213,16 +1213,29 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
     summarizeCallTranscript(userTranscript, aiTranscript).then(summary => {
       const summaryEl = document.getElementById(summaryId);
       if (summaryEl) summaryEl.textContent = summary;
-      const state = getState();
-      const callMsg = state.chatMemory.findLast?.(m => m.type === "voice_call" && m.voiceCall?.startTime === startTime);
-      if (callMsg) {
-        callMsg.voiceCall.summary = summary;
-        patchState({ chatMemory: state.chatMemory });
-      }
+      _persistCallSummary(startTime, summary);
     }).catch(() => {
       const summaryEl = document.getElementById(summaryId);
       if (summaryEl) summaryEl.textContent = "Voice call";
+      _persistCallSummary(startTime, "Voice call");
     });
+  }
+}
+
+function _persistCallSummary(startTime, summary) {
+  const state = getState();
+  // Find by type + startTime, or by text pattern as fallback
+  const callMsg = state.chatMemory.findLast?.(m =>
+    (m.type === "voice_call" && m.voiceCall?.startTime === startTime) ||
+    (m.text?.startsWith("[Voice Call]") && m.voiceCall?.startTime === startTime)
+  );
+  if (callMsg) {
+    if (!callMsg.voiceCall) callMsg.voiceCall = {};
+    callMsg.voiceCall.summary = summary;
+    patchState({ chatMemory: state.chatMemory });
+    saveState({ defer: false }); // Force immediate save
+  } else {
+    console.warn("[Voice] Could not find call message in chatMemory to persist summary");
   }
 }
 
