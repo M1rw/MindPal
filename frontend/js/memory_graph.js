@@ -486,7 +486,7 @@ function normalizeGraphSource(source) {
 function normalizeGraphValue(value) {
   return String(value || "")
     .toLowerCase()
-    .replace(/[^\w\u0600-\u06ff\s-]+/g, " ")
+    .replace(/[^\w\u0600-\u06ff\s-']+/g, " ")
     .replace(/\b(please|pls|response|responses|answer|answers)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();

@@ -268,8 +268,11 @@ export async function flushPendingCloudChatMessages() {
   cloudChatSyncInFlight = true;
 
   try {
-    const batch = pendingCloudChatMessages.splice(0, pendingCloudChatMessages.length);
+    const batch = [...pendingCloudChatMessages];
     const response = await upsertCloudChatMessages(batch, token);
+
+    // If successful, safely remove ONLY the items we successfully synced from the queue
+    pendingCloudChatMessages.splice(0, batch.length);
 
     if (response?.chat?.messages) {
       const merged = mergeChatMessages(
@@ -280,7 +283,7 @@ export async function flushPendingCloudChatMessages() {
       replaceChatMemory(merged);
     }
   } catch (error) {
-    console.warn("Cloud chat sync failed; will retry later:", error);
+    console.warn("Cloud chat sync failed; preserving queue to retry later:", error);
   } finally {
     cloudChatSyncInFlight = false;
   }
