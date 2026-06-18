@@ -644,12 +644,20 @@ class DBService:
         current = await self.load_user_profile(user_id_hash)
         profile = current.profile
 
+        new_preferences = profile.preferences
+        if update.preferences is not None:
+            new_preferences = profile.preferences.model_copy(update=update.preferences.model_dump(exclude_unset=True))
+
+        new_clinical = profile.clinical
+        if update.clinical is not None:
+            new_clinical = profile.clinical.model_copy(update=update.clinical.model_dump(exclude_unset=True))
+
         updated = UserProfile(
             user_id_hash=profile.user_id_hash,
             status=profile.status,
             channel=profile.channel,
-            preferences=update.preferences or profile.preferences,
-            clinical=update.clinical or profile.clinical,
+            preferences=new_preferences,
+            clinical=new_clinical,
             usage=profile.usage,
             notes=update.notes if update.notes is not None else profile.notes,
             metadata=update.metadata if update.metadata is not None else profile.metadata,
