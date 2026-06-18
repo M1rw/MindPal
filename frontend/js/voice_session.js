@@ -421,10 +421,9 @@ function handleServerMessage(data) {
     }
   }
 
-  // AI spoken transcript
+  // AI spoken transcript (does NOT reset silence timer — only user speech does)
   if (data.serverContent?.outputTranscription?.text) {
     _onTranscript?.("ai", data.serverContent.outputTranscription.text);
-    touchActivity();
   }
 
   // User speech transcript
