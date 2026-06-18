@@ -338,6 +338,7 @@ export function normalizeCloudMessages(messages) {
       ragUsed: message.metadata?.rag_used || message.metadata?.ragUsed || message.rag_used || message.ragUsed || [],
       memoryUpdated: Boolean(message.metadata?.memory_updated || message.metadata?.memoryUpdated || message.memory_updated || message.memoryUpdated),
       regenerated: Boolean(message.metadata?.regenerated || message.regenerated),
+      generationTimeMs: message.metadata?.generation_time_ms || message.metadata?.generationTimeMs || message.generation_time_ms || message.generationTimeMs || null,
       syncStatus: "cloud",
       ...(message.type ? { type: message.type } : {}),
       ...(message.voiceCall ? { voiceCall: message.voiceCall } : {}),

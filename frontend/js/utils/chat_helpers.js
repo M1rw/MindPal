@@ -287,7 +287,11 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
   // - After streaming is done (elapsedMs set): the LLM never wrote a response delimiter,
   //   so extract the actual response from the thought content
   if (!visibleContent) {
-    if (!elapsedMs) {
+    // During active streaming (no elapsedMs), only return empty if the thought
+    // content is still too short — the LLM hasn't finished writing yet.
+    // For history replay or completed responses: always run fallback extraction.
+    const isActiveStreaming = !elapsedMs && thoughtContent && thoughtContent.length < 50;
+    if (isActiveStreaming) {
       return {
         timelineHtml: "",
         finalHtml: "",

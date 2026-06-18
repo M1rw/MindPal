@@ -1288,7 +1288,25 @@ async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter
     contentContainer.appendChild(staticDiv);
   }
 
-  if (!typewriter) contentBox.innerHTML = parsed.finalHtml;
+  if (!typewriter) {
+    if (!parsed.finalHtml && text.trim()) {
+      // Safety net: parser couldn't extract visible content — show raw text
+      let raw = text.trim()
+        .replace(/^\s*\*{0,2}\s*Thought\s*:?\s*\*{0,2}\s*/i, "")
+        .replace(/^\s*Self\s*:\s*/i, "");
+      // Strip numbered step lines (1. INTAKE: ..., etc.)
+      raw = raw.replace(/(?:^|\n)\s*[1-6][.)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "").trim();
+      // Try to extract content after last delimiter
+      const delimMatch = raw.match(/\*{2}\s*(?:Balanced\s*Reframe|Response)\s*:?\s*\*{2}\s*([\s\S]*)/i)
+        || raw.match(/(?:Balanced\s*Reframe|Response)\s*:\s*([\s\S]*)/i);
+      if (delimMatch && delimMatch[1].trim()) raw = delimMatch[1].trim();
+      contentBox.innerHTML = raw
+        ? `<div class="text-[15px] leading-relaxed" dir="auto">${formatMarkdown(raw)}</div>`
+        : `<div class="text-[15px] leading-relaxed text-gray-400 italic">Response could not be parsed. Please try again.</div>`;
+    } else {
+      contentBox.innerHTML = parsed.finalHtml;
+    }
+  }
   contentContainer.appendChild(contentBox);
   if (!isCrisis) contentContainer.appendChild(buildMessageActions(text));
 
