@@ -750,10 +750,10 @@ function showCustomDialog({ title = "Confirm", message = "", input = false, defa
     };
 
     overlay.addEventListener("click", (e) => { if (e.target === overlay) close(false); });
-    document.getElementById("custom-dialog-cancel")?.addEventListener("click", () => close(false));
-    document.getElementById("custom-dialog-confirm")?.addEventListener("click", () => {
+    overlay.querySelector("#custom-dialog-cancel")?.addEventListener("click", () => close(false));
+    overlay.querySelector("#custom-dialog-confirm")?.addEventListener("click", () => {
       if (input) {
-        close(document.getElementById("custom-dialog-input")?.value ?? defaultValue);
+        close(overlay.querySelector("#custom-dialog-input")?.value ?? defaultValue);
       } else {
         close(true);
       }
