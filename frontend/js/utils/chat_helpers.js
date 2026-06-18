@@ -145,9 +145,9 @@ function parseAgentChainResponse(text) {
   // Strip leading "Self:" prefix the LLM sometimes adds before **Thought:**
   clean = clean.replace(/^\s*Self\s*:\s*/i, "").trim();
 
-  // Match **Thought:** ... followed by **Response:** or **Balanced Reframe:**
+  // Match **Thought:** or **التفكير:** (Arabic) followed by response
   const thoughtMatch = clean.match(
-    /^\s*\*{0,2}\s*Thought\s*:?\s*\*{0,2}\s*/i
+    /^\s*\*{0,2}\s*(?:Thought|التفكير)\s*:?\s*\*{0,2}\s*/i
   );
 
 
@@ -163,6 +163,10 @@ function parseAgentChainResponse(text) {
     /\*{2}\s*Response\s*:?\s*\*{2}\s*/i,
     /\s+Response\s*:\s*/i,
     /\s+Balanced\s*Reframe\s*:\s*/i,
+    // Arabic delimiters: الرد (response), الاستجابة (response), إعادة صياغة (reframe)
+    /\n\s*\*{2}\s*(?:الرد|الاستجابة|إعادة\s*صياغة)\s*:?\s*\*{2}\s*/,
+    /\n\s*(?:الرد|الاستجابة|إعادة\s*صياغة)\s*:\s*/,
+    /\*{2}\s*(?:الرد|الاستجابة|إعادة\s*صياغة)\s*:?\s*\*{2}\s*/,
   ];
 
   let splitIndex = -1;
@@ -287,33 +291,30 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
   // If we have no visible content yet:
   // - During streaming (no elapsedMs): show empty — "Thinking…" indicator handles it
   // - After streaming is done (elapsedMs set): the LLM never wrote a response delimiter,
-  //   so extract the actual response from the thought content
+  //   so extract the actual response from the thought
   if (!visibleContent) {
-    // During active streaming (no elapsedMs), only return empty if the thought
-    // content is still too short — the LLM hasn't finished writing yet.
-    // For history replay or completed responses: always run fallback extraction.
-    const isActiveStreaming = !elapsedMs && thoughtContent && thoughtContent.length < 50;
-    if (isActiveStreaming) {
+    // Still streaming — show thinking text in subtle grey so user sees progress
+    if (!elapsedMs) {
+      const thinkingPreview = (thoughtContent || "").trim();
+      if (!thinkingPreview) {
+        return { timelineHtml: "", finalHtml: "" };
+      }
+      // Show a live "thinking" preview in grey italic — NOT as the final response
       return {
         timelineHtml: "",
-        finalHtml: "",
+        finalHtml: `<div class="text-[13px] leading-relaxed text-gray-400 dark:text-gray-500 italic" dir="auto">${escapeHtml(thinkingPreview)}</div>`,
       };
     }
 
-    // Fallback: extract the actual response from the thought block
+    // Streaming is done but no Response delimiter found — extract from thought
     let fallbackContent = (thoughtContent || rawText || "").trim();
 
     // Strategy 1: Try to find content after the last numbered clinical step
-    // Works for both newline-separated and single-line outputs
-    // Matches: "6. QUALITY CHECK: ...", "6.SELF-REVIEW:...", etc.
     const lastStepPatterns = [
-      // With newlines
-      /(?:^|\n)\s*6[\.\)]\s*(?:QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW)\s*:[^\n]*(?:\n)([\s\S]*)/i,
-      // Without newlines (inline) — match step 6 and grab everything after the step content
-      /6[\.\)]\s*(?:QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW)\s*:[^.]*\.\s*([\s\S]*)/i,
-      // Match step 5 (INTERVENTION PLAN) and grab everything after
-      /(?:^|\n)\s*5[\.\)]\s*[A-Z][A-Z\s]*:[^\n]*(?:\n)([\s\S]*)/i,
-      /5[\.\)]\s*(?:INTERVENTION\s*PLAN|PLAN)\s*:[^.]*\.\s*([\s\S]*)/i,
+      /(?:^|\n)\s*6[.)]\s*(?:QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW)\s*:[^\n]*(?:\n)([\s\S]*)/i,
+      /6[.)]\s*(?:QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW)\s*:[^.]*\.\s*([\s\S]*)/i,
+      /(?:^|\n)\s*5[.)]\s*[A-Z][A-Z\s]*:[^\n]*(?:\n)([\s\S]*)/i,
+      /5[.)]\s*(?:INTERVENTION\s*PLAN|PLAN)\s*:[^.]*\.\s*([\s\S]*)/i,
     ];
 
     let extracted = false;
@@ -328,10 +329,8 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
 
     // Strategy 2: If no step was matched, strip ALL numbered step patterns
     if (!extracted) {
-      // Remove step markers like "1.INTAKE:", "2.MEMORY SCAN:", etc.
-      // Handles both "1. INTAKE:" (with space) and "1.INTAKE:" (no space)
       fallbackContent = fallbackContent
-        .replace(/[1-6][\.\)]\s*(?:INTAKE|MEMORY\s*SCAN|PATTERN\s*ANALYSIS|NERVOUS\s*SYSTEM\s*READ|INTERVENTION\s*PLAN|QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW|CONTEXT|PLAN)\s*:/gi, "")
+        .replace(/[1-6][.)]\s*(?:INTAKE|MEMORY\s*SCAN|PATTERN\s*ANALYSIS|NERVOUS\s*SYSTEM\s*READ|INTERVENTION\s*PLAN|QUALITY\s*CHECK|SELF[- ]?REVIEW|REVIEW|CONTEXT|PLAN)\s*:/gi, "")
         .trim();
     }
 
@@ -344,9 +343,9 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
       .trim();
 
     // If still looks like step content (starts with a number), strip all steps
-    if (/^\s*[1-6][\.\)]/.test(fallbackContent)) {
+    if (/^\s*[1-6][.)]/.test(fallbackContent)) {
       fallbackContent = fallbackContent
-        .replace(/(?:^|\n)\s*[1-6][\.\)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "")
+        .replace(/(?:^|\n)\s*[1-6][.)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "")
         .trim();
     }
 
