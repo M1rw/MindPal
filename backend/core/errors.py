@@ -166,7 +166,6 @@ __all__ = [
     "InputTooLongError",
     "LLMServiceError",
     "MemoryAppError",
-    "MemoryError",
     "MemoryServiceError",
     "MindPalError",
     "OutputGuardError",
