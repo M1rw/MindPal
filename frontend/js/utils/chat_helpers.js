@@ -147,7 +147,7 @@ function parseAgentChainResponse(text) {
   const thoughtMatch = clean.match(
     /^\s*\*{0,2}\s*Thought\s*:?\s*\*{0,2}\s*/i
   );
-  if (!thoughtMatch) return null;
+
 
   // Find the response delimiter — try multiple formats
   // Uses \s* (not \s+) so it matches both "Balanced Reframe" and "BalancedReframe"
@@ -156,8 +156,11 @@ function parseAgentChainResponse(text) {
     /\n\s*\*{2}\s*Response\s*:?\s*\*{2}\s*/i,
     /\n\s*Balanced\s*Reframe\s*:\s*/i,
     /\n\s*Response\s*:\s*/i,
-    // Also match inline without newline (when entire output is one line)
+    // Also match inline without newline (when entire output is one line or no newline was generated)
     /\*{2}\s*Balanced\s*Reframe\s*:?\s*\*{2}\s*/i,
+    /\*{2}\s*Response\s*:?\s*\*{2}\s*/i,
+    /\s+Response\s*:\s*/i,
+    /\s+Balanced\s*Reframe\s*:\s*/i,
   ];
 
   let splitIndex = -1;
@@ -174,7 +177,9 @@ function parseAgentChainResponse(text) {
   }
 
   if (splitIndex === -1) {
-    // No response delimiter found — the whole thing after **Thought:** is the thought
+    // No response delimiter found
+    if (!thoughtMatch) return null; // If neither thought nor response delimiter is found, it's not a chain
+
     // This can happen during streaming before the response section arrives
     return {
       thoughtContent: clean.slice(thoughtMatch[0].length).trim(),
@@ -182,7 +187,8 @@ function parseAgentChainResponse(text) {
     };
   }
 
-  const thoughtContent = clean.slice(thoughtMatch[0].length, splitIndex).trim();
+  const thoughtStart = thoughtMatch ? thoughtMatch[0].length : 0;
+  const thoughtContent = clean.slice(thoughtStart, splitIndex).trim();
   let visibleContent = clean.slice(splitIndex + matchLength).trim();
 
   // Strip leaked internal reasoning prefixes from the visible response

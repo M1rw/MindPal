@@ -51,7 +51,6 @@ import {
   showToast,
   syncInputButtons,
   updateProfileUI,
-  updateMentalHealthUI,
   updateUsageUI,
   updateUsageFromMeta,
   registerSettingsStore,
