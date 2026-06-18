@@ -551,6 +551,7 @@ async def _persist_memory_graph_inline(
         return {"delta": delta, "snapshot": snapshot}
 
     except Exception:
+        logger.warning("Memory graph persistence failed for %s", context.request_id, exc_info=True)
         return None
 
 

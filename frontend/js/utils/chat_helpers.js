@@ -243,13 +243,14 @@ export function processStructuredResponse(text, elapsedMs = null) {
 
   const timelineHtml = `
     <div class="thought-accordion group mb-2">
-      <div class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-fit">
+      <button class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-full text-left" aria-expanded="false">
         <span class="collapsed-text">${timeText}</span>
         <span class="expanded-text hidden">Analyzed cognitive patterns</span>
         <i data-lucide="chevron-right" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
-      </div>
+      </button>
 
-      <div class="accordion-content max-h-0 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+      <div class="accordion-grid grid transition-[grid-template-rows] duration-300 ease-out" style="grid-template-rows: 0fr;">
+        <div class="accordion-content overflow-hidden min-w-0 opacity-0 transition-opacity duration-300">
           <div class="mt-4 ml-[7px] pl-6 border-l border-gray-200 dark:border-[#444746] space-y-5 text-[15px] text-gray-700 dark:text-gray-300 relative pb-4">
             ${thought ? timelineItem("Thought", thought, "circle-minus") : ""}
             ${distortion ? timelineItem("Distortion", distortion, "circle-minus") : ""}
@@ -257,6 +258,7 @@ export function processStructuredResponse(text, elapsedMs = null) {
             ${evidenceAgainst ? timelineItem("Evidence Against", evidenceAgainst, "circle-minus") : ""}
             ${timelineItem("Done", "", "check-circle-2")}
           </div>
+        </div>
       </div>
     </div>
   `;
@@ -371,16 +373,18 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
 
   const timelineHtml = `
     <div class="thought-accordion group mb-2">
-      <div class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-fit">
+      <button class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-full text-left" aria-expanded="false">
         <span class="collapsed-text">${timeText}</span>
         <span class="expanded-text hidden">Analyzed cognitive patterns</span>
         <i data-lucide="chevron-right" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
-      </div>
+      </button>
 
-      <div class="accordion-content max-h-0 opacity-0 transition-all duration-300 ease-in-out overflow-hidden">
+      <div class="accordion-grid grid transition-[grid-template-rows] duration-300 ease-out" style="grid-template-rows: 0fr;">
+        <div class="accordion-content overflow-hidden min-w-0 opacity-0 transition-opacity duration-300">
           <div class="mt-4 ml-[7px] pl-6 border-l border-gray-200 dark:border-[#444746] space-y-5 text-[15px] text-gray-700 dark:text-gray-300 relative pb-4">
             ${timelineItems}
           </div>
+        </div>
       </div>
     </div>
   `;

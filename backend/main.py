@@ -86,14 +86,26 @@ def _install_middleware(app: FastAPI, settings: Settings) -> None:
             allowed_hosts=trusted_hosts,
         )
 
+    cors_origins = _string_list_setting(
+        settings,
+        "CORS_ALLOW_ORIGINS",
+        default=_string_list_setting(settings, "CORS_ORIGINS", default=["*"]),
+    )
+
+    # In production, reject wildcard CORS — require an explicit allowlist.
+    environment = str(getattr(settings, "ENVIRONMENT", "development")).lower()
+    if environment == "production" and cors_origins == ["*"]:
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning(
+            "CORS_ALLOW_ORIGINS is '*' in production — "
+            "set an explicit allowlist via the CORS_ALLOW_ORIGINS env var."
+        )
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=_string_list_setting(
-            settings,
-            "CORS_ALLOW_ORIGINS",
-            default=_string_list_setting(settings, "CORS_ORIGINS", default=["*"]),
-        ),
-        allow_credentials=bool(getattr(settings, "CORS_ALLOW_CREDENTIALS", True)),
+        allow_origins=cors_origins,
+        allow_credentials=cors_origins != ["*"],
         allow_methods=_string_list_setting(
             settings,
             "CORS_ALLOW_METHODS",
@@ -204,14 +216,6 @@ def _install_exception_handlers(app: FastAPI) -> None:
 
 def _install_routes(app: FastAPI) -> None:
     app.include_router(api_router)
-
-    @app.get("/", include_in_schema=False)
-    async def root() -> dict[str, str]:
-        return {
-            "name": "MindPal",
-            "status": "ok",
-            "health": "/api/health",
-        }
 
     import os
     is_serverless = os.getenv("VERCEL") is not None or os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
@@ -328,16 +332,26 @@ def _string_list_setting(
     return cleaned or default
 
 
+def _is_docs_enabled(settings: Settings) -> bool:
+    """Docs are enabled only when ENABLE_DOCS is explicitly True or ENVIRONMENT is development."""
+    explicit = getattr(settings, "ENABLE_DOCS", None)
+    if explicit is not None:
+        return bool(explicit)
+    # Default: enabled in development, disabled everywhere else.
+    environment = str(getattr(settings, "ENVIRONMENT", "development")).lower()
+    return environment in {"development", "dev", "local"}
+
+
 def _docs_url(settings: Settings) -> str | None:
-    return "/docs" if bool(getattr(settings, "ENABLE_DOCS", True)) else None
+    return "/docs" if _is_docs_enabled(settings) else None
 
 
 def _redoc_url(settings: Settings) -> str | None:
-    return "/redoc" if bool(getattr(settings, "ENABLE_DOCS", True)) else None
+    return "/redoc" if _is_docs_enabled(settings) else None
 
 
 def _openapi_url(settings: Settings) -> str | None:
-    return "/openapi.json" if bool(getattr(settings, "ENABLE_DOCS", True)) else None
+    return "/openapi.json" if _is_docs_enabled(settings) else None
 
 
 app = create_app()
@@ -349,19 +363,6 @@ __all__ = [
     "get_service_container",
     "reset_service_container_for_tests",
 ]
-
-@app.get("/", include_in_schema=False)
-async def serve_frontend_index():
-    index_path = FRONTEND_DIR / "index.html"
-
-    if index_path.exists():
-        return FileResponse(index_path)
-
-    return {
-        "name": "MindPal",
-        "status": "ok",
-        "health": "/api/health",
-    }
 
 # -----------------------------------------------------------------------------
 # MindPal frontend static serving

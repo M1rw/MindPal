@@ -5,7 +5,7 @@ import {
   createEmptyMemoryGraph,
   getMemoryInspectorCards,
   mergeMemoryGraphs,
-} from "../frontend/js/memory_engine.js";
+} from "../frontend/js/memory_graph.js";
 
 const first = classifyAndStoreMemoryGraphFromMessage(
   "remember: avoid apologetic responses",

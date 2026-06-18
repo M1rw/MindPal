@@ -362,6 +362,7 @@ class LLMService:
                 fallback_count += 1
                 continue
             except Exception:
+                logger.warning("Provider %s raised unexpected error during stream", provider_name, exc_info=True)
                 if has_yielded:
                     raise
                 fallback_count += 1
@@ -492,6 +493,7 @@ class LLMService:
                 raise
 
             except Exception:
+                logger.warning("Provider %s raised unexpected error", provider_name, exc_info=True)
                 latency_ms = _elapsed_ms(started)
                 traces.append(
                     ProviderCallTrace(
