@@ -263,6 +263,75 @@ async def chat(
                 locale=locale,
             )
 
+        if authenticated:
+            credit_cost = 2 if clinical_mode else 1
+            
+            def increment_quota(p: Any) -> Any:
+                import time
+                now_ts = time.time()
+                if now_ts - p.usage.credits_5h_reset_time > 5 * 3600:
+                    p.usage.credits_5h_reset_time = now_ts
+                    p.usage.total_credits_5h = 0
+                    p.usage.pro_last_reset_time = now_ts
+                    p.usage.pro_messages_count = 0
+    
+                if now_ts - p.usage.credits_week_reset_time > 7 * 24 * 3600:
+                    p.usage.credits_week_reset_time = now_ts
+                    p.usage.total_credits_week = 0
+                    
+                p.usage.total_credits_5h += credit_cost
+                p.usage.total_credits_week += credit_cost
+                p.usage.total_messages_count += 1
+                if clinical_mode:
+                    p.usage.pro_messages_count += 1
+                
+                return p
+
+            await services.db.atomic_update_user_profile(
+                context.session.user_id_hash,
+                increment_quota
+            )
+
+            if clinical_mode:
+                from backend.services.clinical_extractor import extract_clinical_profile
+                import copy
+                clinical_snapshot = copy.deepcopy(profile.clinical)
+                extraction_messages = _convert_history(payload) + [
+                    LLMMessage(role=LLMRole.USER, content=effective_message),
+                    LLMMessage(role=LLMRole.ASSISTANT, content=reply)
+                ]
+                req_id = context.request_id
+                user_id_hash = context.session.user_id_hash
+
+                async def run_extraction(
+                    _msgs=extraction_messages,
+                    _clinical=clinical_snapshot,
+                    _req_id=req_id,
+                    _uid=user_id_hash,
+                ):
+                    try:
+                        updated_clinical = await asyncio.wait_for(
+                            extract_clinical_profile(
+                                llm=services.llm,
+                                messages=_msgs,
+                                current_profile=_clinical,
+                            ),
+                            timeout=15.0,
+                        )
+                        
+                        def update_clinical(p: Any) -> Any:
+                            p.clinical = updated_clinical
+                            return p
+                            
+                        await services.db.atomic_update_user_profile(
+                            _uid,
+                            update_clinical
+                        )
+                    except Exception as ext_exc:
+                        logger.error("Clinical extraction failed for %s: %s", _req_id, type(ext_exc).__name__)
+
+                asyncio.create_task(run_extraction())
+
         return ChatResponse(
             reply=reply,
             safety=_safety_view(safety_decision),

@@ -330,9 +330,34 @@ async def chat_stream(
                 telemetry.log_llm_usage(provider="streaming", prompt_tokens=prompt_tokens_est, completion_tokens=comp_tokens_est)
                 telemetry.log_latency("chat_stream_full", (time.perf_counter() - start_time) * 1000)
 
-                # Save profile (captures quota increment)
+                # Save profile (captures quota increment atomically)
                 if authenticated:
-                    await services.db.save_user_profile(profile)
+                    def increment_quota(p: Any) -> Any:
+                        import time
+                        now_ts = time.time()
+                        if now_ts - p.usage.credits_5h_reset_time > 5 * 3600:
+                            p.usage.credits_5h_reset_time = now_ts
+                            p.usage.total_credits_5h = 0
+                            p.usage.pro_last_reset_time = now_ts
+                            p.usage.pro_messages_count = 0
+            
+                        if now_ts - p.usage.credits_week_reset_time > 7 * 24 * 3600:
+                            p.usage.credits_week_reset_time = now_ts
+                            p.usage.total_credits_week = 0
+                            
+                        if not quota_exceeded:
+                            p.usage.total_credits_5h += credit_cost
+                            p.usage.total_credits_week += credit_cost
+                            p.usage.total_messages_count += 1
+                            if clinical_mode:
+                                p.usage.pro_messages_count += 1
+                        
+                        return p
+
+                    await services.db.atomic_update_user_profile(
+                        context.session.user_id_hash,
+                        increment_quota
+                    )
 
                 # Clinical extraction in background (with timeout guard)
                 if clinical_mode and authenticated:
@@ -359,14 +384,15 @@ async def chat_stream(
                                 ),
                                 timeout=CLINICAL_EXTRACTION_TIMEOUT_SECONDS,
                             )
-                            # Re-load profile to avoid overwriting newer quota counts
-                            fresh_resp = await services.db.load_user_profile(_uid)
-                            if fresh_resp and fresh_resp.profile:
-                                fresh_resp.profile.clinical = updated_clinical
-                                await services.db.save_user_profile(fresh_resp.profile)
-                            else:
-                                profile.clinical = updated_clinical
-                                await services.db.save_user_profile(profile)
+                            
+                            def update_clinical(p: Any) -> Any:
+                                p.clinical = updated_clinical
+                                return p
+                                
+                            await services.db.atomic_update_user_profile(
+                                _uid,
+                                update_clinical
+                            )
                         except Exception as ext_exc:
                             logger.error("Clinical extraction failed for %s: %s", _req_id, type(ext_exc).__name__)
 

@@ -6,6 +6,8 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
+logger = logging.getLogger(__name__)
+
 from backend.core.security import sanitize_text
 from backend.services.llm_service import LLMService, build_llm_request
 from backend.models.memory import (
@@ -509,8 +511,7 @@ async def extract_memory_graph_from_text_llm(
                 pass # skip invalid atoms
                 
     except Exception as e:
-        print(f"LLM memory extraction failed: {e}")
-        pass
+        logger.error("LLM memory extraction failed: %s", type(e).__name__)
 
     return MemoryGraph(
         user_id_hash=user_id_hash,
