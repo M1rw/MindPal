@@ -688,13 +688,39 @@ function bindConversationActions() {
       }
     } catch {}
 
+    // Clear primary state
     clearChatMemory();
     setMemoryContext(saveMemoryContext(createEmptyMemory()));
     setMemoryGraphContext(saveMemoryGraphContext(createEmptyMemoryGraph()));
+
+    // Comprehensive localStorage wipe — remove ALL mindpal-related keys
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("mindpal_")) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
+    } catch {}
+
+    // Clear sessionStorage (pro confirmation etc.)
+    try {
+      const sessionKeysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith("mindpal_")) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+      sessionKeysToRemove.forEach((key) => sessionStorage.removeItem(key));
+    } catch {}
+
     renderMemoryInspector();
     document.getElementById("chat-history")?.replaceChildren();
     setChatStarted(false);
-    showToast("Memory cleared.");
+    showToast("All data cleared.");
   });
 }
 
