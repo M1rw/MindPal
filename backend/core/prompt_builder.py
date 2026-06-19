@@ -111,6 +111,74 @@ def _build_time_context(user_timezone: str = "UTC") -> str:
 
 
 # ═══════════════════════════════════════════════════════════════
+# RAG language decontamination
+# ═══════════════════════════════════════════════════════════════
+
+def _decontaminate_rag_for_locale(rag_grounding: str, language: str) -> str:
+    """
+    Strip English technique text from RAG grounding for non-English users.
+
+    Problem: RAG content is stored in English. When we inject it into the prompt,
+    the LLM copies it verbatim instead of translating — even with explicit
+    "translate this" instructions.
+
+    Solution: For non-English users, extract only technique names/concepts
+    and tell the LLM to explain them from its own knowledge in the user's language.
+    This eliminates the English text source entirely.
+    """
+    if not rag_grounding or language == "english":
+        return rag_grounding
+
+    # Try to extract technique names from JSON-formatted RAG
+    import re
+    technique_names: list[str] = []
+
+    try:
+        rag_items = json.loads(rag_grounding)
+        if isinstance(rag_items, list):
+            for item in rag_items:
+                if isinstance(item, dict):
+                    # Try common RAG schema fields for the technique name
+                    name = (
+                        item.get("title")
+                        or item.get("name")
+                        or item.get("technique")
+                        or item.get("topic")
+                        or ""
+                    )
+                    if name and isinstance(name, str):
+                        technique_names.append(name.strip())
+    except (json.JSONDecodeError, TypeError):
+        # Not JSON — try to extract technique names from plain text
+        # Look for patterns like "5-4-3-2-1", "Body Scan", "Grounding Technique", etc.
+        patterns = [
+            r'"title"\s*:\s*"([^"]+)"',
+            r'"name"\s*:\s*"([^"]+)"',
+            r'"technique"\s*:\s*"([^"]+)"',
+            r'\b(?:Technique|Exercise|Practice)\s*:\s*([^\n.]+)',
+        ]
+        for pat in patterns:
+            matches = re.findall(pat, rag_grounding, re.IGNORECASE)
+            technique_names.extend(m.strip() for m in matches if m.strip())
+
+    if technique_names:
+        # Return ONLY technique names — no English detail text
+        names_list = ", ".join(dict.fromkeys(technique_names))  # dedupe, preserve order
+        return (
+            f"Relevant wellness techniques to consider: {names_list}. "
+            f"You know these techniques — explain them ENTIRELY in the user's language. "
+            f"Do NOT use any English words, steps, or instructions."
+        )
+
+    # Fallback: couldn't extract names — return a generic reference
+    return (
+        "You have retrieved wellness technique references. "
+        "Explain any relevant technique ENTIRELY in the user's language from your own knowledge. "
+        "Do NOT quote or copy any English text."
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
 # Prompt sections
 # ═══════════════════════════════════════════════════════════════
 
@@ -528,11 +596,8 @@ def build_tiered_prompt(
 
         # RAG grounding (if available — techniques for emotional support)
         if rag_grounding:
-            sections.append(
-                "Retrieved wellness techniques (use as guidance — these are reference notes, "
-                "NOT copy-paste text. You MUST translate and adapt them into the user's language. "
-                "NEVER output English technique text if the user writes in Arabic or any other language):\n" + rag_grounding
-            )
+            clean_rag = _decontaminate_rag_for_locale(rag_grounding, classification.language)
+            sections.append(clean_rag)
 
         # Language (LAST)
         sections.append(_build_language_section(classification, normalize_locale(locale)))
@@ -605,12 +670,8 @@ def build_tiered_prompt(
 
     # RAG grounding (full for clinical)
     if rag_grounding:
-        sections.append(
-            "Retrieved wellness grounding notes (use as technique guidance, "
-            "not medical authority. IMPORTANT: These notes are in English — you MUST "
-            "translate ALL technique names, steps, and instructions into the user's language. "
-            "NEVER output raw English text when the user writes in another language):\n" + rag_grounding
-        )
+        clean_rag = _decontaminate_rag_for_locale(rag_grounding, classification.language)
+        sections.append(clean_rag)
 
     # Language (LAST — recency bias = strongest compliance)
     sections.append(_build_language_section(classification, normalize_locale(locale)))

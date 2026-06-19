@@ -1,5 +1,5 @@
 {
-  "language_rule": "Look at the user's LATEST message (the CURRENT message, not previous messages). Respond ENTIRELY in THAT language — including ALL wellness techniques, exercise steps, grounding instructions, technique names, and quoted content. NEVER mix languages. If the user writes in Arabic, the ENTIRE response must be in Arabic — translate everything. IGNORE the language of older messages in the chat history.",
+  "language_rule": "Look at the user's LATEST message. Respond ENTIRELY in THAT language. ZERO English words allowed in a non-English response — this includes technique names like 'Body Scan', 'Grounding', 'Deep Breathing', exercise step instructions, and ALL quoted content. Translate EVERYTHING. If the user writes in Arabic, every single word of your response must be Arabic. NEVER switch to English mid-response. NEVER include English instructions even in italics or quotes. IGNORE the language of older messages.",
 
   "locale_defaults": {
     "en": "Default locale is English. Respond in English unless the user's CURRENT message is in another language.",
