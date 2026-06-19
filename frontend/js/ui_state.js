@@ -898,20 +898,13 @@ export function appendStatusIndicator(id, parentContainer = null) {
   msgDiv.id = id;
   msgDiv.className = "flex w-full animate-fade-in py-1";
   msgDiv.innerHTML = `
-    <div class="flex flex-col w-full gap-3">
-      <div class="flex items-center gap-3">
-        <div class="flex items-end gap-[3px]">
-          <span class="mp-dot"></span>
-          <span class="mp-dot"></span>
-          <span class="mp-dot"></span>
-        </div>
-        <span class="text-[14px] font-medium text-[#444746] dark:text-[#c4c7c5]">Thinking...</span>
+    <div class="flex items-center gap-3">
+      <div class="flex items-end gap-[3px]">
+        <span class="mp-dot"></span>
+        <span class="mp-dot"></span>
+        <span class="mp-dot"></span>
       </div>
-      <div class="flex flex-col gap-2 w-full max-w-2xl opacity-40">
-        <div class="skeleton skeleton-text long"></div>
-        <div class="skeleton skeleton-text medium"></div>
-        <div class="skeleton skeleton-text short"></div>
-      </div>
+      <span class="text-[14px] font-medium text-[#444746] dark:text-[#c4c7c5]">Thinking...</span>
     </div>
   `;
 
@@ -929,9 +922,6 @@ export function finalizeStatusIndicator(id, elapsedMs) {
 
   const seconds = (elapsedMs / 1000).toFixed(1);
 
-  // Remove skeleton block
-  const skeletonBlock = el.querySelector(".skeleton")?.parentElement;
-  if (skeletonBlock) skeletonBlock.remove();
 
   const inner = el.querySelector(".flex.items-center");
   if (inner) {
