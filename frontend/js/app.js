@@ -979,6 +979,8 @@ async function handleSend() {
               .replace(/^\s*\*{0,2}\s*Thought\s*:?\s*\*{0,2}\s*/i, "")
               .replace(/^\s*Self\s*:\s*/i, "")
               .replace(/^\s*REVIEW\s*:\s*/i, "")
+              .replace(/\n\s*Note\s*:\s*[\s\S]*$/i, "")
+              .replace(/\s*\([A-Za-z][^)]{10,}\?\s*\)\s*/g, " ")
               .trim();
             // Strip numbered step lines (1. INTAKE: ..., etc.)
             raw = raw.replace(/(?:^|\n)\s*[1-6][\.\)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "").trim();
