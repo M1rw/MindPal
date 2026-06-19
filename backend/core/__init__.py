@@ -58,6 +58,8 @@ from .prompts import (
     infer_response_mode,
     infer_response_mode_for_preference,
 )
+from .message_classifier import MessageClassification, classify_message
+from .prompt_builder import build_tiered_prompt, get_self_knowledge_response
 from .security import (
     Locale,
     generate_request_id,

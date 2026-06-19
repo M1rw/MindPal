@@ -1,0 +1,61 @@
+{
+  "description": "Multi-language greeting patterns for message classification. A message matching these patterns (with no emotional distress markers) is classified as tier 'greeting'.",
+
+  "greeting_words": {
+    "english": [
+      "hi", "hello", "hey", "yo", "sup", "hiya", "heya", "howdy",
+      "good morning", "good afternoon", "good evening", "good night",
+      "morning", "afternoon", "evening",
+      "what's up", "whats up", "wassup", "whaddup"
+    ],
+    "arabic": [
+      "مرحبا", "مرحبًا", "أهلاً", "اهلا", "أهلا",
+      "السلام عليكم", "سلام عليكم", "سلام",
+      "صباح الخير", "مساء الخير", "صباح النور", "مساء النور",
+      "ازيك", "ازيكو", "عامل ايه", "عاملة ايه",
+      "كيف حالك", "كيفك", "شلونك", "شخبارك",
+      "هلا", "هلو", "يا هلا"
+    ],
+    "french": ["salut", "bonjour", "bonsoir", "coucou"],
+    "spanish": ["hola", "buenos dias", "buenas tardes"],
+    "generic": ["hii", "hiii", "hiiii", "hellooo", "heyyy", "heyy"]
+  },
+
+  "how_are_you_patterns": [
+    "how are you", "how r u", "how ru", "how's it going",
+    "how are things", "how have you been", "how you doing",
+    "what's good", "what's new", "كيف حالك", "ازيك", "عامل ايه"
+  ],
+
+  "distress_override_markers": [
+    "feeling", "stressed", "anxious", "depressed", "sad", "angry",
+    "hurt", "scared", "worried", "overwhelmed", "terrible", "awful",
+    "horrible", "help", "need", "can't", "dying", "panic",
+    "حاسس", "تعبان", "تعبانة", "زعلان", "خايف", "قلقان", "مضايق"
+  ],
+
+  "off_topic_markers": {
+    "code_keywords": [
+      "function", "class", "def ", "import ", "const ", "var ", "let ",
+      "error", "bug", "debug", "compile", "runtime", "syntax",
+      "python", "javascript", "java", "react", "sql", "api",
+      "algorithm", "data structure", "binary", "array", "loop"
+    ],
+    "academic_keywords": [
+      "solve", "calculate", "equation", "prove", "theorem",
+      "integral", "derivative", "matrix", "formula"
+    ],
+    "general_ai_keywords": [
+      "write me a", "generate a", "create a story", "translate this",
+      "summarize this", "make a list of", "give me a recipe",
+      "plan my trip", "write a resume", "write an essay"
+    ]
+  },
+
+  "meta_question_patterns": [
+    "what can you do", "what are your features", "what do you do",
+    "how do you work", "what are you", "who are you", "who made you",
+    "tell me about yourself", "what's mindpal", "what is mindpal",
+    "ايه اللي تقدر تعمله", "بتعمل ايه", "انت ايه", "انت مين"
+  ]
+}
