@@ -99,6 +99,46 @@ export function saveState({ defer = false } = {}) {
   deferredStateSaveTimer = schedule(write, { timeout: 1_000 });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Cross-tab synchronization
+// ═══════════════════════════════════════════════════════════════
+// When another tab changes localStorage (e.g., deletes all data),
+// this tab reloads its state to stay in sync.
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === STATE_KEY || event.key === "mindpal_memory_graph_v3") {
+      // Another tab modified our state — reload
+      if (event.key === STATE_KEY) {
+        const saved = event.newValue;
+        if (!saved) {
+          // State was deleted entirely — reset to defaults
+          state = createDefaultState();
+        } else {
+          try {
+            const parsed = JSON.parse(saved);
+            state = {
+              ...createDefaultState(),
+              ...parsed,
+              chatMemory: Array.isArray(parsed.chatMemory) ? parsed.chatMemory : [],
+              visitHistory: Array.isArray(parsed.visitHistory) ? parsed.visitHistory : [],
+              crisisMode: parsed.crisisMode !== false,
+              userName: normalizeName(parsed.userName),
+            };
+          } catch {
+            state = createDefaultState();
+          }
+        }
+        // Clear the chat display if chatMemory was wiped
+        if (!state.chatMemory.length) {
+          const chatHistory = document.getElementById("chat-history");
+          if (chatHistory) chatHistory.replaceChildren();
+        }
+      }
+    }
+  });
+}
+
 export function getState() {
   return state;
 }

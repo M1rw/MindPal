@@ -132,6 +132,13 @@ export async function startLiveVoice(contextProvider = null) {
     // Get auth token for authenticated API calls
     const token = await getIdToken().catch(() => null);
 
+    // Voice requires authentication — show friendly message in guest mode
+    if (!token) {
+      if (statusEl) statusEl.textContent = "Sign in to use voice calls";
+      setTimeout(stopLiveVoice, 3000);
+      return;
+    }
+
     // Start audio session
     await startSession({
       contextProvider,
