@@ -162,6 +162,8 @@ class OfflineLLMProvider:
         )
 
 
+from collections import deque
+
 class LLMService:
     """
     Provider fallback orchestrator.
@@ -196,6 +198,8 @@ class LLMService:
         allow_offline_in_production: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self._trace_cache: dict[str, ProviderChainTrace] = {}
+        self._trace_ids: deque[str] = deque(maxlen=200)
         self.production_mode = is_production(self.settings)
         self.timeout_seconds = float(timeout_seconds or setting_float(
             self.settings,
@@ -451,6 +455,8 @@ class LLMService:
                     calls=traces,
                 )
 
+                self._cache_trace(trace)
+
                 return LLMServiceResult(response=response, trace=trace)
 
             except asyncio.TimeoutError as exc:
@@ -561,6 +567,20 @@ class LLMService:
             and bool(provider.is_configured)
             for provider in self._providers
         )
+
+    def get_trace(self, request_id: str) -> ProviderChainTrace | None:
+        return self._trace_cache.get(request_id)
+
+    def _cache_trace(self, trace: ProviderChainTrace) -> None:
+        if not trace.request_id:
+            return
+        if trace.request_id in self._trace_cache:
+            return
+        if len(self._trace_ids) >= self._trace_ids.maxlen:
+            oldest = self._trace_ids.popleft()
+            self._trace_cache.pop(oldest, None)
+        self._trace_ids.append(trace.request_id)
+        self._trace_cache[trace.request_id] = trace
 
     def _offline_allowed_for_current_environment(self) -> bool:
         if not _has_provider(self._providers, "offline"):
