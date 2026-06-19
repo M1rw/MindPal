@@ -205,6 +205,18 @@ function parseAgentChainResponse(text) {
     .replace(/^\s*SELF[- ]?REVIEW\s*:\s*/i, "")
     .trim();
 
+  // Strip "Note:" meta-commentary the model appends after the actual response
+  // e.g. "Note: I wrote a story..." or "Note: You've asked this before..."
+  visibleContent = visibleContent
+    .replace(/\n\s*Note\s*:\s*[\s\S]*$/i, "")
+    .trim();
+
+  // Strip parenthetical English translations in Arabic responses
+  // e.g. "(I'm fine, thank you. How are you today?)"
+  visibleContent = visibleContent
+    .replace(/\s*\([A-Za-z][^)]{10,}\?\s*\)\s*/g, " ")
+    .trim();
+
   return { thoughtContent, visibleContent };
 }
 
@@ -230,9 +242,14 @@ export function processStructuredResponse(text, elapsedMs = null) {
   );
 
   if (!hasTimelineItems) {
+    // Strip any "Note:" meta-commentary even in non-chain responses
+    let displayText = cleanText
+      .replace(/\n\s*Note\s*:\s*[\s\S]*$/i, "")
+      .replace(/\s*\([A-Za-z][^)]{10,}\?\s*\)\s*/g, " ")
+      .trim();
     return {
       timelineHtml: "",
-      finalHtml: formatMarkdown(cleanText),
+      finalHtml: formatMarkdown(displayText || cleanText),
     };
   }
 
