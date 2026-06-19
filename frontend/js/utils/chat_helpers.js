@@ -217,6 +217,14 @@ function parseAgentChainResponse(text) {
     .replace(/\s*\([A-Za-z][^)]{10,}\?\s*\)\s*/g, " ")
     .trim();
 
+  // Strip leaked clinical chain labels that should only appear in the Thought accordion
+  // e.g. "Intake:", "Memory Scan:", "Pattern Analysis:", "Nervous System Read:",
+  //       "Intervention Plan:", "Quality Check:", "SELF-REVIEW:"
+  visibleContent = visibleContent
+    .replace(/^\s*\*{0,2}\s*(?:Intake|Memory\s*Scan|Pattern\s*Analysis|Nervous\s*System\s*Read|Intervention\s*Plan|Quality\s*Check|SELF[- ]?REVIEW|UNDERSTAND|CONTEXT\s*CHECK|PLAN)\s*:?\s*\*{0,2}\s*/gim, "")
+    .replace(/\n\s*\d+[.)]\s*(?:INTAKE|MEMORY\s*SCAN|PATTERN\s*ANALYSIS|NERVOUS\s*SYSTEM\s*READ|INTERVENTION\s*PLAN|QUALITY\s*CHECK|SELF[- ]?REVIEW|UNDERSTAND|CONTEXT\s*CHECK|PLAN)\s*:[^\n]*/gi, "")
+    .trim();
+
   return { thoughtContent, visibleContent };
 }
 
