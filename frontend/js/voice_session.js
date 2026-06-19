@@ -136,8 +136,28 @@ export async function startSession({
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   audioContext = new AudioContextCtor({ sampleRate: 16000 });
 
+  if (audioContext.state === "suspended") {
+    await audioContext.resume().catch(err => console.warn("[Voice] Failed to resume audio context:", err));
+  }
+
   // Mic stream
-  mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    if (err.name === "NotAllowedError") {
+      throw new Error("Microphone permission denied. Please allow mic access in your browser settings.");
+    }
+    throw err;
+  }
+
+  // Detect track end (e.g. OS takes mic away)
+  mediaStream.getAudioTracks().forEach(track => {
+    track.onended = () => {
+      console.warn("[Voice] Mic track ended unexpectedly");
+      if (isSessionActive) stopSession();
+    };
+  });
+
   micSource = audioContext.createMediaStreamSource(mediaStream);
 
   // AudioWorklet for PCM capture
