@@ -33,6 +33,116 @@ export function truncateRepetition(text) {
   return out.join(" ");
 }
 
+/**
+ * Strip system prompt fragments that the LLM sometimes echoes in its response.
+ *
+ * Known leak patterns:
+ * - Safety level instructions ("Safety level: abuse_or_violence", "DANGER RESPONSE")
+ * - Format rules ("CRITICAL FORMAT RULES:", "ALWAYS use ENGLISH labels")
+ * - Tool descriptions ("Available tools:", "current_time:", "search_memory:")
+ * - Channel/mode directives ("Channel: web chat", "Mode: personal_safety")
+ * - Raw boundary text ("MindPal is NOT:", "does NOT:")
+ *
+ * Strategy: detect signature phrases that ONLY appear in system prompts,
+ * then remove the entire contaminated block. If the leak covers the majority
+ * of the response, return an empty string so the caller can use a fallback.
+ */
+export function stripSystemPromptLeak(text) {
+  if (!text || text.length < 20) return text;
+
+  // Signature phrases that only appear in system prompt text — never in a real response
+  const LEAK_SIGNATURES = [
+    /\bSafety\s+level\s*:\s*\w+/i,
+    /\bDANGER\s+RESPONSE\b/i,
+    /\bCRITICAL\s+FORMAT\s+RULES\s*:/i,
+    /\bALWAYS\s+use\s+ENGLISH\s+labels\s+for\s+structural\s+markers/i,
+    /\bAvailable\s+tools\s*:/i,
+    /\bcurrent_time\s*:\s*Get\s+the\s+current\s+date/i,
+    /\bsearch_memory\s*:\s*Search\s+the\s+user/i,
+    /\bget_user_profile\s*:\s*Get\s+the\s+current\s+user/i,
+    /\bget_recent_chat\s*:\s*Get\s+the\s+most\s+recent/i,
+    /\bsearch_chat_history\s*:\s*Search\s+through/i,
+    /\bweb_search\s*:\s*Search\s+the\s+web/i,
+    /\bChannel\s*:\s*(?:web\s+chat|Discord|API|test)/i,
+    /\bMode\s*:\s*(?:personal_safety|normal_support|active_listen)/i,
+    /\bNEVER\s+start\s+the\s+Response\s+with\s+internal\s+reasoning/i,
+    /\bNEVER\s+add\s+'Note:'\s*,\s*'Disclaimer:'/i,
+    /\bPlease\s+use\s+these\s+tools\s+if\s+necessary/i,
+    /\bPrioritize\s+immediate\s+safety,?\s*de-escalation/i,
+    /\bAgent\s+chain\s+protocol\s*—/i,
+    /\bYour\s+internal\s+data\s+systems\s*\(/i,
+    /\bRetrieved\s+wellness\s+(?:techniques|grounding\s+notes)/i,
+    /\bTOOL\s+USAGE\s+INSTRUCTIONS\s*:/i,
+    /\bYou\s+are\s+MindPal\s*(?:Pro)?\s*[—–-]\s*(?:NOT|a\s+person)/i,
+  ];
+
+  // Count how many signatures are found
+  let leakCount = 0;
+  for (const sig of LEAK_SIGNATURES) {
+    if (sig.test(text)) leakCount++;
+  }
+
+  // If no leaks detected, return as-is
+  if (leakCount === 0) return text;
+
+  // If 3+ signatures found, the response is heavily contaminated —
+  // try to salvage any real response content after the leak block
+  if (leakCount >= 3) {
+    // Try to find a real response section after the leaked system prompt
+    // Look for patterns that signal the actual response beginning
+    const responseMarkers = [
+      /\*{2}\s*(?:Balanced\s*Reframe|Response)\s*:?\s*\*{2}\s*/i,
+      /\n(?:Balanced\s*Reframe|Response)\s*:\s*/i,
+    ];
+
+    for (const marker of responseMarkers) {
+      const m = text.match(marker);
+      if (m && m.index !== undefined) {
+        const afterResponse = text.slice(m.index + m[0].length).trim();
+        if (afterResponse.length > 20) {
+          return afterResponse;
+        }
+      }
+    }
+
+    // No salvageable content — return empty so fallback kicks in
+    return "";
+  }
+
+  // 1-2 signatures: try line-by-line stripping of contaminated lines
+  const lines = text.split("\n");
+  const clean = [];
+  let skipBlock = false;
+
+  for (const line of lines) {
+    // Check if this line matches any leak signature
+    let isLeak = false;
+    for (const sig of LEAK_SIGNATURES) {
+      if (sig.test(line)) {
+        isLeak = true;
+        skipBlock = true;
+        break;
+      }
+    }
+
+    // Also skip continuation lines of a leak block (bullet points, indented lines)
+    if (skipBlock && /^\s*[-*•]\s/.test(line)) {
+      isLeak = true;
+    }
+
+    // A non-matching, non-empty line after leak block ends the skip
+    if (!isLeak && line.trim()) {
+      skipBlock = false;
+    }
+
+    if (!isLeak) {
+      clean.push(line);
+    }
+  }
+
+  return clean.join("\n").trim();
+}
+
 export function timelineItem(title, body, icon, bodyIsHtml = false) {
   return `
     <div class="relative">
@@ -230,7 +340,17 @@ function parseAgentChainResponse(text) {
 
 export function processStructuredResponse(text, elapsedMs = null) {
   // Truncate any LLM repetition loops before processing
-  const cleanText = truncateRepetition(text) || text;
+  let cleanText = truncateRepetition(text) || text;
+
+  // CRITICAL: Strip any system prompt fragments that leaked into the response
+  cleanText = stripSystemPromptLeak(cleanText);
+  if (!cleanText) {
+    // Entire response was system prompt contamination — show safe fallback
+    return {
+      timelineHtml: "",
+      finalHtml: formatMarkdown("I'm here for you. Can you tell me what's going on?"),
+    };
+  }
 
   // First, try the agent chain format: **Thought:** ... **Response:**/**Balanced Reframe:**
   const agentChain = parseAgentChainResponse(cleanText);
@@ -483,7 +603,11 @@ function parseThoughtSteps(text) {
  * Used for copy-to-clipboard and read-aloud.
  */
 export function extractVisibleText(rawText) {
-  const clean = String(rawText || "").trim();
+  let clean = String(rawText || "").trim();
+  if (!clean) return "";
+
+  // Strip system prompt leaks before processing
+  clean = stripSystemPromptLeak(clean);
   if (!clean) return "";
 
   // Try agent chain format first: Thought + Response/Balanced Reframe
