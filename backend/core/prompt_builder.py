@@ -529,7 +529,9 @@ def build_tiered_prompt(
         # RAG grounding (if available — techniques for emotional support)
         if rag_grounding:
             sections.append(
-                "Retrieved wellness techniques (use as guidance):\n" + rag_grounding
+                "Retrieved wellness techniques (use as guidance — these are reference notes, "
+                "NOT copy-paste text. You MUST translate and adapt them into the user's language. "
+                "NEVER output English technique text if the user writes in Arabic or any other language):\n" + rag_grounding
             )
 
         # Language (LAST)
@@ -605,7 +607,9 @@ def build_tiered_prompt(
     if rag_grounding:
         sections.append(
             "Retrieved wellness grounding notes (use as technique guidance, "
-            "not medical authority):\n" + rag_grounding
+            "not medical authority. IMPORTANT: These notes are in English — you MUST "
+            "translate ALL technique names, steps, and instructions into the user's language. "
+            "NEVER output raw English text when the user writes in another language):\n" + rag_grounding
         )
 
     # Language (LAST — recency bias = strongest compliance)
