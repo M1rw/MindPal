@@ -442,10 +442,107 @@ def build_tiered_prompt(
         prompt = "\n\n".join(s for s in sections if s and s.strip())
         return safe_truncate(prompt, max_chars)
 
-    # ── Casual / Emotional / Clinical: full prompt assembly ──
+    # ── Casual: lightweight conversational support ──
+    # Identity + mini chain + boundaries + memory. Skip RAG, tools, heavy safety.
+    if tier == "casual":
+        sections.append(_build_identity_section(clinical_mode))
+
+        # Mini chain: just a one-liner prompt for brief reasoning
+        sections.append(
+            "Before responding, briefly consider what the user needs "
+            "(1-2 sentences of internal thought is enough).\n\n"
+            "**Thought:** [1-2 sentences of quick reasoning — what does the user need?]\n\n"
+            "**Response:** [Your warm, conversational response.]\n\n"
+            "Keep both sections short and natural. The Thought is hidden from the user."
+        )
+
+        # Light boundaries
+        sections.append(_build_boundaries_section())
+
+        # Format rules
+        sections.append(_build_format_rules_section())
+
+        # Memory (if available — for personalization)
+        if memory_prompt:
+            sections.append(
+                "User memory summary (reference naturally if relevant):\n"
+                + sanitize_text(memory_prompt, 1_500)
+            )
+
+        # Intent context (lightweight)
+        if intent_context_str:
+            sections.append(intent_context_str)
+
+        # Language (LAST)
+        sections.append(_build_language_section(classification, normalize_locale(locale)))
+        prompt = "\n\n".join(s for s in sections if s and s.strip())
+        return safe_truncate(prompt, max_chars)
+
+    # ── Emotional: standard support with full reasoning chain ──
+    # Identity + standard chain + boundaries + safety + mode + memory.
+    # Include RAG if available, skip heavy tool instructions.
+    if tier == "emotional":
+        sections.append(_build_identity_section(clinical_mode))
+
+        # Standard 3-step chain
+        chain = _build_chain_section(classification, clinical_mode)
+        if chain:
+            sections.append(chain)
+
+        # Boundaries
+        sections.append(_build_boundaries_section())
+
+        # Safety
+        sections.append(_build_safety_section(safety_level))
+
+        # Channel
+        channel_text = _build_channel_section(channel)
+        if channel_text:
+            sections.append(channel_text)
+
+        # Response mode
+        mode_text = _build_mode_section(response_mode)
+        if mode_text:
+            sections.append(mode_text)
+
+        # Format rules
+        sections.append(_build_format_rules_section())
+
+        # Intent context
+        if intent_context_str:
+            sections.append(intent_context_str)
+
+        # User preferences
+        if user_preferences:
+            sections.append(
+                "User communication preferences:\n"
+                + sanitize_text(user_preferences, 1_200)
+            )
+
+        # Memory
+        if memory_prompt:
+            sections.append(
+                "User memory summary (snapshot — reference naturally):\n"
+                + sanitize_text(memory_prompt, 2_500)
+            )
+
+        # RAG grounding (if available — techniques for emotional support)
+        if rag_grounding:
+            sections.append(
+                "Retrieved wellness techniques (use as guidance):\n" + rag_grounding
+            )
+
+        # Language (LAST)
+        sections.append(_build_language_section(classification, normalize_locale(locale)))
+        prompt = "\n\n".join(s for s in sections if s and s.strip())
+        return safe_truncate(prompt, max_chars)
+
+    # ── Clinical: full 6-step protocol with everything ──
+    # Identity + clinical chain + boundaries + safety + mode + tools + memory + RAG + intent + preferences.
+    # This is the heaviest prompt — used only for Pro mode with substantive content.
     sections.append(_build_identity_section(clinical_mode))
 
-    # Chain instructions (the core thinking protocol)
+    # Full clinical chain (6 steps)
     chain = _build_chain_section(classification, clinical_mode)
     if chain:
         sections.append(chain)
@@ -471,7 +568,7 @@ def build_tiered_prompt(
     if format_text:
         sections.append(format_text)
 
-    # Tool instructions
+    # Tool instructions (clinical tier only — full tool access)
     if tool_descriptions and tool_descriptions.strip():
         sections.append(
             "TOOL USAGE INSTRUCTIONS:\n"
@@ -496,7 +593,7 @@ def build_tiered_prompt(
             + sanitize_text(user_preferences, 1_200)
         )
 
-    # Memory
+    # Memory (full allowance for clinical)
     if memory_prompt:
         sections.append(
             "User memory summary (snapshot — older memories may be outdated. "
@@ -504,7 +601,7 @@ def build_tiered_prompt(
             + sanitize_text(memory_prompt, 2_500)
         )
 
-    # RAG grounding
+    # RAG grounding (full for clinical)
     if rag_grounding:
         sections.append(
             "Retrieved wellness grounding notes (use as technique guidance, "
