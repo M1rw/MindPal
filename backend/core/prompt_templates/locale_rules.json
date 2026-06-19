@@ -1,0 +1,32 @@
+{
+  "language_rule": "Look at the user's LATEST message (the CURRENT message, not previous messages). Respond in THAT language. IGNORE the language of older messages in the chat history.",
+
+  "locale_defaults": {
+    "en": "Default locale is English. Respond in English unless the user's CURRENT message is in another language.",
+    "ar": "Default locale is Arabic. Respond in Arabic unless the user's CURRENT message is in English. If Egyptian colloquial, use Egyptian Arabic.",
+    "auto": "Detect the language of the user's LATEST message (not history) and respond in that EXACT language and dialect."
+  },
+
+  "language_overrides": {
+    "english": {
+      "instruction": "DETECTED LANGUAGE: English. You MUST respond ENTIRELY in English. Do NOT respond in Arabic or any other language — even if the chat history contains non-English messages.",
+      "dialect_note": null
+    },
+    "arabic": {
+      "instruction": "DETECTED LANGUAGE: Arabic. You MUST respond in Arabic. Match the user's register and dialect. Do NOT respond in English even if previous messages are in English.",
+      "dialect_note": null
+    },
+    "egyptian_arabic": {
+      "instruction": "DETECTED LANGUAGE: Egyptian Arabic (colloquial dialect). You MUST respond in natural Egyptian Arabic. Do NOT use formal MSA unless the user writes in MSA. Do NOT respond in English.",
+      "dialect_note": "Use Egyptian expressions: ازاي، عايز، حاسس، مش، كده، ليه"
+    }
+  },
+
+  "detection_markers": {
+    "arabic_script_range": ["\\u0600", "\\u06ff"],
+    "egyptian_markers": [
+      "ازاي", "عايز", "عايزة", "مش", "مليش", "حاسس", "حاسه", "بحس",
+      "خبت", "بيقلل", "بيتحكم", "جوزي", "مراتي", "كفاية", "تعبت", "اقول", "أقول"
+    ]
+  }
+}

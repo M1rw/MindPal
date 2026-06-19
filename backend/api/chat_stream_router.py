@@ -33,6 +33,8 @@ from backend.api.chat_router import (
     _provider_label,
 )
 from backend.core.prompts import build_intent_context, build_system_prompt, infer_response_mode_for_preference
+from backend.core.message_classifier import classify_message
+from backend.core.prompt_builder import build_tiered_prompt
 from backend.models.chat import ChatRequest, LLMMessage, LLMRole
 from backend.models.memory import MemoryGraph, summary_from_memory_graph
 from backend.services.llm_service import build_llm_request
@@ -130,6 +132,20 @@ async def chat_stream(
         quota_exceeded = False
         credit_cost = 2 if clinical_mode else 1
 
+        # ── Message classification (determines prompt tier) ──
+        classification = classify_message(
+            payload.message,
+            locale=locale,
+            clinical_mode=clinical_mode,
+        )
+        logger.info(
+            "Message classified: tier=%s lang=%s signals=%s [%s]",
+            classification.tier,
+            classification.language,
+            classification.signals,
+            context.request_id,
+        )
+
         # ── Unified dual-window credit check ──
         if authenticated:
             now_ts = time.time()
@@ -197,16 +213,40 @@ async def chat_stream(
 
         tool_results_text = await _pre_execute_tools(payload.message, registry, tool_context)
 
-        system_prompt = build_system_prompt(
-            memory_prompt,
-            list(rag_result.prompt_grounding),
-            locale,
+        # ─── Tiered prompt assembly (optimized by classification) ───
+        # Build RAG grounding string for prompt builder
+        rag_grounding_str = ""
+        if rag_result.prompt_grounding:
+            import json as _json
+            rag_grounding_str = _json.dumps(
+                [ref if isinstance(ref, dict) else ref.model_dump() for ref in rag_result.prompt_grounding],
+                ensure_ascii=False, separators=(",", ":")
+            )
+
+        # Build intent context string
+        intent_context_str = ""
+        if intent_context:
+            allowed_keys = ("language_style", "situation_type", "core_problem", "user_need",
+                            "risk_flags", "avoid", "answer_strategy", "detected_signals")
+            compact = {k: intent_context.get(k) for k in allowed_keys if intent_context.get(k)}
+            if compact:
+                import json as _json
+                intent_context_str = (
+                    "Semantic intake context (use to answer user's real meaning):\n"
+                    + _json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+                )
+
+        system_prompt = build_tiered_prompt(
+            classification=classification,
+            locale=locale,
             response_mode=response_mode,
             safety_level=safety_decision.level.value,
             channel=context.channel.value,
-            user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
-            intent_context=intent_context,
             clinical_mode=clinical_mode,
+            memory_prompt=memory_prompt,
+            rag_grounding=rag_grounding_str,
+            user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
+            intent_context_str=intent_context_str,
             tool_descriptions=tool_descriptions,
             user_timezone=payload.metadata.timezone or "UTC",
         )
@@ -220,13 +260,14 @@ async def chat_stream(
                 f"{payload.message}"
             )
 
+        # ─── Use classification to optimize LLM parameters ───
         llm_request = build_llm_request(
             request_id=context.request_id,
             system_prompt=system_prompt,
             user_message=effective_message,
             history=_convert_history(payload),
-            temperature=0.3 if clinical_mode else 0.4,
-            max_output_tokens=1800 if clinical_mode else 1200,
+            temperature=classification.temperature,
+            max_output_tokens=classification.max_response_tokens,
             metadata={
                 "route": "chat_stream",
                 "locale": locale,
@@ -238,6 +279,8 @@ async def chat_stream(
                 "mode_preference": user_preference,
                 "intent_situation_type": intent_context.get("situation_type"),
                 "tools_pre_executed": bool(tool_results_text),
+                "message_tier": classification.tier,
+                "message_language": classification.language,
             },
         )
 
