@@ -21,6 +21,7 @@ from backend.core.settings_helpers import is_production, setting_bool, setting_v
 from backend.models.memory import (
     CommunicationPreferences,
     ImportantPerson,
+    LegacyMemoryCategory,
     MemoryCategory,
     MemoryCompactionRequest,
     MemoryCompactionResult,
@@ -1166,7 +1167,7 @@ class MemoryService:
         for trigger in triggers:
             items.append(
                 MemoryItem(
-                    category=MemoryCategory.TRIGGER,
+                    category=LegacyMemoryCategory.TRIGGER,
                     text=f"Possible trigger: {trigger}",
                     source=MemorySource.CHAT_COMPACTION,
                     sensitivity=MemorySensitivity.MEDIUM,
@@ -1178,7 +1179,7 @@ class MemoryService:
         for tool in coping_tools:
             items.append(
                 MemoryItem(
-                    category=MemoryCategory.COPING_TOOL,
+                    category=LegacyMemoryCategory.COPING_TOOL,
                     text=f"Possible preferred coping tool: {tool}",
                     source=MemorySource.CHAT_COMPACTION,
                     sensitivity=MemorySensitivity.LOW,
@@ -1190,7 +1191,7 @@ class MemoryService:
         for goal in goals:
             items.append(
                 MemoryItem(
-                    category=MemoryCategory.GOAL,
+                    category=LegacyMemoryCategory.GOAL,
                     text=f"Stated wellness goal: {goal}",
                     source=MemorySource.CHAT_COMPACTION,
                     sensitivity=MemorySensitivity.MEDIUM,
@@ -1202,7 +1203,7 @@ class MemoryService:
         for preference in preferences:
             items.append(
                 MemoryItem(
-                    category=MemoryCategory.PREFERENCE,
+                    category=LegacyMemoryCategory.PREFERENCE,
                     text=f"Communication/support preference: {preference}",
                     source=MemorySource.CHAT_COMPACTION,
                     sensitivity=MemorySensitivity.LOW,
@@ -1214,7 +1215,7 @@ class MemoryService:
         for flag in safety_flags:
             items.append(
                 MemoryItem(
-                    category=MemoryCategory.SAFETY_FLAG,
+                    category=LegacyMemoryCategory.SAFETY_FLAG,
                     text=f"Safety flag observed: {flag}",
                     source=MemorySource.CHAT_COMPACTION,
                     sensitivity=MemorySensitivity.HIGH,
@@ -1605,13 +1606,13 @@ def _clean_memory_list(value: Any) -> list[str]:
     )
 
 
-def _parse_memory_category(value: Any) -> MemoryCategory:
+def _parse_memory_category(value: Any) -> LegacyMemoryCategory:
     raw = sanitize_text(str(value or ""), 80)
 
     try:
-        return MemoryCategory(raw)
+        return LegacyMemoryCategory(raw)
     except ValueError:
-        return MemoryCategory.OTHER
+        return LegacyMemoryCategory.OTHER
 
 
 def _parse_memory_sensitivity(value: Any) -> MemorySensitivity:

@@ -916,11 +916,17 @@ details > summary::-webkit-details-marker { display: none; }
 
 @media (max-width: 640px) {
   #profile-content {
-    width: calc(100vw - 16px);
-    height: calc(100vh - 20px);
-    height: calc(100dvh - 20px);
-    border-radius: 14px;
+    width: 100vw;
+    height: 94dvh;
+    border-radius: 24px 24px 0 0;
     flex-direction: column;
+    margin-bottom: 0;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  #profile-modal:not(.opacity-0) #profile-content {
+    transform: translateY(0);
   }
 
   .settings-row {
@@ -932,6 +938,46 @@ details > summary::-webkit-details-marker { display: none; }
   .settings-select {
     font-size: 13px;
   }
+
+  /* Bottom sheet behavior for unified dropdown on mobile */
+  #unified-dropdown {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    border-radius: 24px 24px 0 0;
+    margin-bottom: 0;
+    padding: 16px 8px calc(16px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -10px 25px rgba(0,0,0,0.1);
+  }
+
+  #unified-dropdown:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    transform: translateY(0);
+  }
+}
+
+/* Touch feedback for interactive elements */
+button:active,
+.mood-btn:active,
+.settings-tab-btn:active,
+.settings-row-action:active,
+.model-option:active,
+.mode-option:active {
+  transform: scale(0.97);
+  opacity: 0.8;
+  transition: transform 0.1s ease;
+}
+
+/* Ensure momentum scrolling on iOS */
+.settings-panel-scroll,
+#chat-history,
+#voice-transcript-panel {
+  -webkit-overflow-scrolling: touch;
 }
 
 /* "Coming soon" disabled pill */

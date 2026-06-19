@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 
 from backend.api.dependencies import (
+    AuthenticatedRequestContextDep,
     RequestContextDep,
     ServiceContainer,
     ServicesDep,
@@ -27,6 +28,7 @@ from backend.models.chat import (
     LLMMessage,
     LLMRole,
 )
+from backend.models.schemas import ProviderChainTrace
 from backend.models.memory import (
     MemoryCompactionRequest,
     MemoryGraph,
@@ -66,6 +68,30 @@ def _get_tool_registry():
     if _tool_registry is None:
         _tool_registry = build_default_registry()
     return _tool_registry
+
+
+@router.get("/chat/debug/{request_id}", response_model=ProviderChainTrace)
+async def chat_debug(
+    request_id: str,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> ProviderChainTrace:
+    """
+    Retrieve LLM trace data for a specific request.
+    Used for the MindPal debug panel.
+    """
+    trace = services.llm.get_trace(sanitize_text(request_id, 80))
+
+    if not trace:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "trace_not_found",
+                "message": "Trace not found in cache",
+                "request_id": context.request_id,
+            },
+        )
+    return trace
 
 
 @router.post("/chat", response_model=ChatResponse)
