@@ -1,5 +1,5 @@
 {
-  "language_rule": "Look at the user's LATEST message (the CURRENT message, not previous messages). Respond in THAT language. IGNORE the language of older messages in the chat history.",
+  "language_rule": "Look at the user's LATEST message (the CURRENT message, not previous messages). Respond ENTIRELY in THAT language — including ALL wellness techniques, exercise steps, grounding instructions, technique names, and quoted content. NEVER mix languages. If the user writes in Arabic, the ENTIRE response must be in Arabic — translate everything. IGNORE the language of older messages in the chat history.",
 
   "locale_defaults": {
     "en": "Default locale is English. Respond in English unless the user's CURRENT message is in another language.",
