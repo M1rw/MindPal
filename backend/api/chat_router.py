@@ -26,8 +26,8 @@ from backend.models.chat import (
     ChatSafetyView,
     LLMMessage,
     LLMRole,
-    ProviderChainTrace,
 )
+from backend.models.schemas import ProviderChainTrace
 from backend.models.memory import (
     MemoryCompactionRequest,
     MemoryGraph,
