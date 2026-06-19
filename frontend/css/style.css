@@ -1193,37 +1193,3 @@ button:active,
 .usage-bar-fill.full {
   background: #ef4444;
 }
-
-/* ═══════════════ Skeleton Loading ═══════════════ */
-@keyframes skeleton-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.skeleton {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s infinite linear;
-  border-radius: 4px;
-}
-
-.dark .skeleton {
-  background: linear-gradient(90deg, #1f1f1f 25%, #2d2d2d 50%, #1f1f1f 75%);
-  background-size: 200% 100%;
-}
-
-.skeleton-text {
-  height: 14px;
-  margin-bottom: 8px;
-  width: 100%;
-}
-
-.skeleton-text.short { width: 40%; }
-.skeleton-text.medium { width: 70%; }
-.skeleton-text.long { width: 90%; }
-
-@media (max-width: 640px) {
-  #chat-history {
-    padding-top: 16px !important;
-  }
-}
