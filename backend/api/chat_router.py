@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 
 from backend.api.dependencies import (
+    AuthenticatedRequestContextDep,
     RequestContextDep,
     ServiceContainer,
     ServicesDep,
@@ -73,13 +74,14 @@ def _get_tool_registry():
 async def chat_debug(
     request_id: str,
     services: ServicesDep,
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> ProviderChainTrace:
     """
     Retrieve LLM trace data for a specific request.
     Used for the MindPal debug panel.
     """
     trace = services.llm.get_trace(sanitize_text(request_id, 80))
+
     if not trace:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
