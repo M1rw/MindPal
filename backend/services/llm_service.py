@@ -451,6 +451,7 @@ class LLMService:
                     request_id=request.request_id,
                     provider_used=response.provider_used,
                     fallback_count=_clamp_fallback_count(fallback_count),
+                    user_id_hash=sanitize_text(str(request.metadata.get("user_id_hash") or ""), 120) or None,
                     calls=traces,
                 )
 
