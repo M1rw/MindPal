@@ -327,6 +327,17 @@ function sendSetupMessage() {
   const userName = _contextProvider?.getUserProfile?.()?.name || "";
   const nameContext = userName ? `\nThe person you are talking to is called ${userName}. Use their name naturally.` : "";
 
+  // Build real-time context for the system prompt
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  const dateStr = now.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+  const utcOffset = -now.getTimezoneOffset();
+  const offsetHours = Math.floor(Math.abs(utcOffset) / 60);
+  const offsetMins = Math.abs(utcOffset) % 60;
+  const offsetStr = `UTC${utcOffset >= 0 ? '+' : '-'}${offsetHours}${offsetMins ? ':' + String(offsetMins).padStart(2, '0') : ''}`;
+  const timeContext = `\nCURRENT TIME: ${timeStr}, ${dateStr} (${tzName}, ${offsetStr}). If the user asks about time, use the get_current_time tool for the most accurate answer.`;
+
   liveWebSocket.send(JSON.stringify({
     setup: {
       model: "models/gemini-2.5-flash-native-audio-latest",
@@ -340,7 +351,7 @@ function sendSetupMessage() {
       inputAudioTranscription: {},
       tools: [{ functionDeclarations: getToolDeclarations() }],
       systemInstruction: {
-        parts: [{ text: buildSystemPrompt(nameContext) }],
+        parts: [{ text: buildSystemPrompt(nameContext + timeContext) }],
       },
     },
   }));
@@ -385,6 +396,11 @@ function getToolDeclarations() {
         required: ["query"],
       },
     },
+    {
+      name: "get_current_time",
+      description: "Get the user's current local time, date, timezone, and UTC offset. ALWAYS use this when the user asks about the time, date, or anything time-related. Never guess the time.",
+      parameters: { type: "OBJECT", properties: {} },
+    },
   ];
 }
 
@@ -401,6 +417,7 @@ CONVERSATION RULES:
 - Ask follow-up questions naturally, like a friend would.
 - React emotionally: "That sounds really tough" not "I understand you're experiencing difficulty".
 - Use their name when appropriate.
+- When asked about time, date, day, or anything time-related — ALWAYS call the get_current_time tool. NEVER guess or make up times.
 
 VOCAL EMOTION AWARENESS (CRITICAL — THIS IS YOUR SUPERPOWER):
 You can hear HOW the user speaks, not just what they say. Pay deep attention to:
@@ -628,8 +645,24 @@ async function executeToolCall(name, args) {
 }
 
 function _executeToolClientSide(name, args) {
-  // Client-side fallback using _contextProvider (original logic)
-  // Used when backend is unreachable
+  // get_current_time is purely client-side — no context provider needed
+  if (name === "get_current_time") {
+    const now = new Date();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown";
+    const utcOff = -now.getTimezoneOffset();
+    const offH = Math.floor(Math.abs(utcOff) / 60);
+    const offM = Math.abs(utcOff) % 60;
+    return {
+      local_time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+      local_date: now.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      timezone: tz,
+      utc_offset: `UTC${utcOff >= 0 ? '+' : '-'}${offH}${offM ? ':' + String(offM).padStart(2, '0') : ''}`,
+      day_of_week: now.toLocaleDateString('en', { weekday: 'long' }),
+      iso: now.toISOString(),
+    };
+  }
+
+  // Other tools need context provider
   if (!_contextProvider) return { error: "No context available" };
 
   switch (name) {
@@ -639,6 +672,7 @@ function _executeToolClientSide(name, args) {
         name: profile.name || "unknown",
         preferences: profile.preferences || {},
         communication: profile.communication || {},
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown",
       };
     }
     case "search_memory": {
