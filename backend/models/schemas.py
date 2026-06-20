@@ -295,14 +295,21 @@ class ProviderChainTrace(BaseModel):
     user_id_hash: str | None = Field(default=None, max_length=120)
     calls: list[ProviderCallTrace] = Field(default_factory=list, max_length=10)
 
-    @field_validator("request_id", "provider_used", "user_id_hash", mode="before")
+    @field_validator("request_id", "provider_used", mode="before")
     @classmethod
     def _clean_short_text(cls, value: object) -> str:
-        # Use 120 chars for hash compatibility (MAX_SESSION_HASH_CHARS from routers)
-        cleaned = sanitize_text(str(value or ""), 120)
+        cleaned = sanitize_text(str(value or ""), MAX_PROVIDER_CHARS)
         if not cleaned:
             raise ValueError("field cannot be empty")
         return cleaned
+
+    @field_validator("user_id_hash", mode="before")
+    @classmethod
+    def _clean_optional_hash(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        cleaned = sanitize_text(str(value), 120)
+        return cleaned or None
 
 
 class ValidationIssue(BaseModel):
