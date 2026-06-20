@@ -61,14 +61,31 @@ export function hydrateSettingsFromProfile(profileResponse) {
   // Strip any stale personalization key from cloud data
   delete patch.personalization;
 
-  // Hydrate gender dropdown from cloud profile
+  // Hydrate gender from cloud profile
   const gender = profileResponse?.profile?.preferences?.gender || "";
-  const genderSelect = document.getElementById("user-gender-select");
-  if (genderSelect) {
-    genderSelect.value = gender;
-  }
+  try {
+    const { setGenderValue } = await_import_gender();
+    setGenderValue(gender);
+  } catch { /* settings_ui not loaded yet */ }
 
   return mergeAppSettings(patch);
+}
+
+// Lazy reference to avoid circular import issues at module load
+function await_import_gender() {
+  // Direct property access — settings_ui.js sets this during init
+  return { setGenderValue: _genderSetter };
+}
+
+let _genderSetter = (v) => { _pendingGender = v; };
+let _pendingGender = null;
+
+export function registerGenderSetter(fn) {
+  _genderSetter = fn;
+  if (_pendingGender !== null) {
+    fn(_pendingGender);
+    _pendingGender = null;
+  }
 }
 
 export function buildProfilePreferencesPatch() {

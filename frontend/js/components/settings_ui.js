@@ -4,6 +4,7 @@ import {
   buildProfilePreferencesPatch,
   getAppSettings,
   hydrateSettingsFromProfile,
+  registerGenderSetter,
   requestBrowserNotificationsIfNeeded,
   setAppSetting,
 } from "../settings_store.js";
@@ -35,6 +36,8 @@ const deps = {
 
 export function initSettingsUI(dependencies) {
   Object.assign(deps, dependencies);
+  // Wire up the gender setter so settings_store can update our _genderValue
+  registerGenderSetter(setGenderValue);
 }
 
 const SETTINGS_SELECTS = {
@@ -45,6 +48,11 @@ const SETTINGS_SELECTS = {
   Language: {
     path: "language",
     options: [["auto", "Auto-detect"], ["en", "English"], ["ar-EG", "Arabic"]],
+  },
+  Gender: {
+    path: "gender",
+    options: [["", "Not set"], ["male", "Male"], ["female", "Female"]],
+    isProfileSetting: true,
   },
   "Response complete": {
     path: "notifications.responseComplete",
@@ -120,7 +128,11 @@ export function renderSettingsControls(root) {
     const existingChoice = row.querySelector(".settings-choice");
     const nativeSelect = row.querySelector("select");
     if (selectConfig && (action || existingChoice || nativeSelect)) {
-      (action || existingChoice || nativeSelect).replaceWith(createSettingsSelect(title, selectConfig, settings));
+      // For profile settings (like gender), inject the stored value into settings
+      const effectiveSettings = selectConfig.isProfileSetting
+        ? { ...settings, [selectConfig.path]: _genderValue }
+        : settings;
+      (action || existingChoice || nativeSelect).replaceWith(createSettingsSelect(title, selectConfig, effectiveSettings));
     }
 
     const toggle = row.querySelector("input[type='checkbox']");
@@ -170,6 +182,12 @@ function createSettingsChoice(title, config, settings) {
 
 export async function updateSettingFromControl(path, value, control) {
   if (!path) return;
+
+  // Gender is a profile setting, not an app setting
+  if (path === "gender") {
+    await _handleGenderUpdate(value || null);
+    return;
+  }
 
   const normalizedValue = path === "appearance" && typeof value === "boolean"
     ? (value ? "dark" : "light")
@@ -409,4 +427,44 @@ export function closeSettingsChoices(except = null) {
     choice.classList.remove("open");
     choice.querySelector("[data-setting-choice-trigger]")?.setAttribute("aria-expanded", "false");
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Gender (profile setting — stored separately from app settings)
+// ═══════════════════════════════════════════════════════════════
+
+let _genderValue = "";
+
+export function setGenderValue(value) {
+  _genderValue = value || "";
+}
+
+export function getGenderValue() {
+  return _genderValue;
+}
+
+async function _handleGenderUpdate(gender) {
+  _genderValue = gender || "";
+
+  // Re-render just the gender dropdown
+  const choiceWrapper = document.querySelector('[data-settings-choice="gender"]');
+  if (choiceWrapper) {
+    const config = SETTINGS_SELECTS.Gender;
+    const effectiveSettings = { ...getAppSettings(), gender: _genderValue };
+    const newChoice = createSettingsSelect("Gender", config, effectiveSettings);
+    choiceWrapper.replaceWith(newChoice);
+    deps.refreshIcons(newChoice);
+  }
+
+  // Sync to cloud
+  try {
+    const token = await getIdToken();
+    if (token) {
+      await updateUserProfilePreferences({ gender: gender || null }, token);
+    }
+  } catch (e) {
+    console.warn("Failed to sync gender:", e);
+  }
+
+  deps.showToast(gender ? `Gender set to ${gender}.` : "Gender cleared.");
 }
