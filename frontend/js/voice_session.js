@@ -1,6 +1,4 @@
-// frontend/js/voice_session.js — WebSocket, audio I/O, tool calls, noise gate, emotion intelligence
-
-import { VoiceEmotionAnalyzer } from "./voice_emotion.js";
+// frontend/js/voice_session.js — WebSocket, audio I/O, tool calls, noise gate
 
 // ═══════════════════════════════════════════════════════════════
 // Constants
@@ -40,11 +38,6 @@ let outputGainNode = null;
 
 // Noise gate
 let gateOpenUntil = 0;
-
-// Emotion intelligence
-let emotionAnalyzer = null;
-let emotionCheckInterval = null;
-const EMOTION_CHECK_MS = 8_000; // check emotional state every 8s
 
 // Silence detection
 let lastActivityTime = 0;
@@ -132,9 +125,6 @@ export async function startSession({
   activeAudioSources = [];
   gateOpenUntil = 0;
 
-  // Initialize emotion analyzer
-  emotionAnalyzer = new VoiceEmotionAnalyzer(16_000);
-
   const baseUrl = window.MINDPAL_CONFIG.API_BASE_URL;
   const keyHeaders = {};
   if (token) keyHeaders.Authorization = `Bearer ${token}`;
@@ -209,11 +199,6 @@ export async function startSession({
 
     const rms = Math.sqrt(sum / inputData.length);
 
-    // Feed raw audio to emotion analyzer for DSP analysis
-    if (!isMicMuted && emotionAnalyzer) {
-      emotionAnalyzer.feedAudioFrame(inputData);
-    }
-
     // Barge-in: interrupt AI if user speaks loudly enough
     if (!isMicMuted && rms > BARGE_IN_THRESHOLD && isAiSpeaking) {
       flushAiAudio();
@@ -276,7 +261,6 @@ export async function startSession({
     emitAudioState("listen");
     sendSetupMessage();
     startSilenceChecker();
-    startEmotionChecker();
     touchActivity();
   };
 
@@ -310,9 +294,6 @@ export function stopSession() {
 
   flushAiAudio();
   stopSilenceChecker();
-  stopEmotionChecker();
-
-  if (emotionAnalyzer) { emotionAnalyzer.reset(); emotionAnalyzer = null; }
   if (workletNode) { workletNode.disconnect(); workletNode = null; }
   if (micAnalyser) { micAnalyser.disconnect(); micAnalyser = null; }
   if (aiAnalyser) { aiAnalyser.disconnect(); aiAnalyser = null; }
@@ -440,9 +421,7 @@ You can hear HOW the user speaks, not just what they say. Pay deep attention to:
 
 • PRESSURED SPEECH: If they're talking rapidly without stopping, words tumbling over each other — this may indicate mania, extreme stress, or a crisis. Stay steady. Don't try to match their pace. Be an anchor.
 
-GENERAL EMOTION RULE: Mirror their emotional state at about 80% intensity. If they're at a 9/10 sadness, be at 7/10 warmth — don't be at 2/10 cheerful. The goal is resonance, not contrast.
-
-You will sometimes receive [Vocal emotion observation: ...] messages. These are real-time analyses of the user's voice patterns. Use them to calibrate your response, but NEVER repeat them aloud or say "my analysis shows...". Just let them inform your emotional tone.
+GENERAL EMOTION RULE: Mirror their emotional state at about 80% intensity. If they're at a 9/10 sadness, be at 7/10 warmth — don't be at 2/10 cheerful. The goal is resonance, not contrast. NEVER say things like "I can tell from your voice" or "your tone tells me" — just naturally adjust your energy without calling it out.
 
 TOOLS:
 - You have tools to search the user's memory and chat history. USE THEM proactively.
@@ -523,15 +502,12 @@ function handleServerMessage(data) {
   // User speech transcript
   if (data.serverContent?.inputTranscription?.text) {
     _onTranscript?.("user", data.serverContent.inputTranscription.text);
-    emotionAnalyzer?.onTranscript(data.serverContent.inputTranscription.text);
     touchActivity();
   }
 
   // Turn complete — AI finished speaking a full turn
   if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
     _onTurnComplete?.();
-    // Check emotional state after each AI turn for timely context injection
-    _tryEmotionInjection();
   }
 
   // Tool calls
@@ -728,14 +704,15 @@ function sendPcmToWebSocket(pcmData) {
   }));
 }
 
-// Cached silence frame — 160 samples (10ms at 16kHz) of zeros
+// Cached silence frame — 2048 samples (128ms at 16kHz) of zeros
+// Larger frame gives Gemini's VAD enough silence to detect end-of-speech
 let _silenceFrameB64 = null;
 function sendSilenceFrame() {
   if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
 
-  // Build once and cache — 160 zero int16 samples = 320 bytes
+  // Build once and cache — 2048 zero int16 samples = 4096 bytes
   if (!_silenceFrameB64) {
-    const silence = new Uint8Array(320); // all zeros = silence PCM
+    const silence = new Uint8Array(4096); // all zeros = silence PCM
     let binary = "";
     for (let i = 0; i < silence.length; i++) binary += String.fromCharCode(silence[i]);
     _silenceFrameB64 = btoa(binary);
@@ -807,34 +784,3 @@ function stopSilenceChecker() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Emotion intelligence — periodic & event-driven context injection
-// ═══════════════════════════════════════════════════════════════
-
-function startEmotionChecker() {
-  stopEmotionChecker();
-  emotionCheckInterval = setInterval(() => {
-    if (!isSessionActive || isAiSpeaking) return;
-    _tryEmotionInjection();
-  }, EMOTION_CHECK_MS);
-}
-
-function stopEmotionChecker() {
-  if (emotionCheckInterval) {
-    clearInterval(emotionCheckInterval);
-    emotionCheckInterval = null;
-  }
-}
-
-function _tryEmotionInjection() {
-  if (!emotionAnalyzer || !isSessionActive) return;
-  if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
-
-  // Don't inject while AI is speaking — wait for the next user turn
-  if (isAiSpeaking) return;
-
-  const context = emotionAnalyzer.maybeGetContextInjection();
-  if (context) {
-    sendTextToModel(context);
-  }
-}
