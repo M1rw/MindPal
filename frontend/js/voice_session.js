@@ -51,6 +51,7 @@ let aiAnalyser = null;
 
 // Context provider (injected by app.js for tool calls)
 let _contextProvider = null;
+let _authToken = null;
 
 // Callbacks
 let _onTranscript = null;   // (type: "user"|"ai", text: string) => void
@@ -111,6 +112,7 @@ export async function startSession({
   if (isSessionActive) return;
 
   _contextProvider = contextProvider;
+  _authToken = token;
   _onTranscript = onTranscript;
   _onAudioState = onAudioState;
   _onSessionEnd = onSessionEnd;
@@ -306,6 +308,7 @@ export function stopSession() {
   if (audioContext && audioContext.state !== "closed") { audioContext.close(); audioContext = null; }
   if (liveWebSocket) { liveWebSocket.close(); liveWebSocket = null; }
 
+  _authToken = null;
   _onSessionEnd?.();
 }
 
@@ -644,7 +647,7 @@ function handleToolCalls(functionCalls) {
 async function executeToolCall(name, args) {
   // Call backend /api/tools/execute endpoint for server-side tool execution
   const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
-  const token = _contextProvider?.getAuthToken?.();
+  const token = _authToken || _contextProvider?.getAuthToken?.();
 
   const headers = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
