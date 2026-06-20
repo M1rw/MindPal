@@ -12,6 +12,7 @@ from typing import Any, Protocol
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
+from backend.core.llm_utils import _circuit_open, _trip_circuit
 from backend.core.security import sanitize_text
 from backend.core.settings_helpers import is_production, setting_bool, setting_float, setting_value
 from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
@@ -314,6 +315,11 @@ class LLMService:
                 fallback_count += 1
                 continue
 
+            # Circuit breaker: skip providers that recently failed with 429/402
+            if _circuit_open(provider_name):
+                fallback_count += 1
+                continue
+
             if not is_offline:
                 attempted_remote = True
 
@@ -359,9 +365,14 @@ class LLMService:
                         code="llm_all_providers_timeout",
                     )
                 continue
-            except ProviderError:
+            except ProviderError as exc:
                 if has_yielded:
                     raise
+                # Trip circuit breaker on rate limit / payment errors
+                details = getattr(exc, 'details', None) or {}
+                status_str = str(details.get("status_code", ""))
+                if status_str in ("429", "402"):
+                    _trip_circuit(provider_name)
                 fallback_count += 1
                 continue
             except Exception:
@@ -413,6 +424,18 @@ class LLMService:
                         provider=provider_name,
                         skipped=True,
                         error_code="provider_not_configured",
+                    )
+                )
+                fallback_count += 1
+                continue
+
+            # Circuit breaker: skip providers that recently failed with 429/402
+            if _circuit_open(provider_name):
+                traces.append(
+                    ProviderCallTrace(
+                        provider=provider_name,
+                        skipped=True,
+                        error_code="circuit_breaker_open",
                     )
                 )
                 fallback_count += 1
@@ -492,6 +515,11 @@ class LLMService:
                         error_code=_clean_error_code(exc.code),
                     )
                 )
+                # Trip circuit breaker on rate limit / payment errors
+                details = exc.details or {}
+                status_str = str(details.get("status_code", ""))
+                if status_str in ("429", "402"):
+                    _trip_circuit(provider_name)
                 fallback_count += 1
                 continue
 
