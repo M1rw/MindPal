@@ -6,6 +6,7 @@ import {
   hydrateSettingsFromProfile,
   registerGenderSetter,
   requestBrowserNotificationsIfNeeded,
+  saveGenderToLocal,
   setAppSetting,
 } from "../settings_store.js";
 
@@ -445,6 +446,9 @@ export function getGenderValue() {
 
 async function _handleGenderUpdate(gender) {
   _genderValue = gender || "";
+
+  // Save to localStorage for instant load on refresh
+  saveGenderToLocal(_genderValue);
 
   // Re-render just the gender dropdown
   const choiceWrapper = document.querySelector('[data-settings-choice="gender"]');

@@ -61,8 +61,9 @@ export function hydrateSettingsFromProfile(profileResponse) {
   // Strip any stale personalization key from cloud data
   delete patch.personalization;
 
-  // Hydrate gender from cloud profile
+  // Hydrate gender from cloud profile and persist to localStorage
   const gender = profileResponse?.profile?.preferences?.gender || "";
+  _saveGenderLocal(gender);
   try {
     const { setGenderValue } = await_import_gender();
     setGenderValue(gender);
@@ -77,15 +78,37 @@ function await_import_gender() {
   return { setGenderValue: _genderSetter };
 }
 
-let _genderSetter = (v) => { _pendingGender = v; };
+let _genderSetter = (v) => { _pendingGender = v; _saveGenderLocal(v); };
 let _pendingGender = null;
 
 export function registerGenderSetter(fn) {
   _genderSetter = fn;
+  // If hydration happened before registration, apply pending value
   if (_pendingGender !== null) {
     fn(_pendingGender);
     _pendingGender = null;
+  } else {
+    // Otherwise load from localStorage as fallback
+    const local = _loadGenderLocal();
+    if (local) fn(local);
   }
+}
+
+const GENDER_KEY = "mindpal_user_gender";
+
+function _saveGenderLocal(value) {
+  try {
+    if (value) window.localStorage?.setItem(GENDER_KEY, value);
+    else window.localStorage?.removeItem(GENDER_KEY);
+  } catch { /* storage blocked */ }
+}
+
+function _loadGenderLocal() {
+  try { return window.localStorage?.getItem(GENDER_KEY) || ""; } catch { return ""; }
+}
+
+export function saveGenderToLocal(value) {
+  _saveGenderLocal(value);
 }
 
 export function buildProfilePreferencesPatch() {
