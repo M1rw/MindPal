@@ -1,4 +1,6 @@
-// frontend/js/voice_session.js — WebSocket, audio I/O, tool calls, noise gate
+// frontend/js/voice_session.js — WebSocket, audio I/O, tool calls, noise gate, emotion intelligence
+
+import { VoiceEmotionAnalyzer } from "./voice_emotion.js";
 
 // ═══════════════════════════════════════════════════════════════
 // Constants
@@ -38,6 +40,11 @@ let outputGainNode = null;
 
 // Noise gate
 let gateOpenUntil = 0;
+
+// Emotion intelligence
+let emotionAnalyzer = null;
+let emotionCheckInterval = null;
+const EMOTION_CHECK_MS = 8_000; // check emotional state every 8s
 
 // Silence detection
 let lastActivityTime = 0;
@@ -125,6 +132,9 @@ export async function startSession({
   activeAudioSources = [];
   gateOpenUntil = 0;
 
+  // Initialize emotion analyzer
+  emotionAnalyzer = new VoiceEmotionAnalyzer(16_000);
+
   const baseUrl = window.MINDPAL_CONFIG.API_BASE_URL;
   const keyHeaders = {};
   if (token) keyHeaders.Authorization = `Bearer ${token}`;
@@ -199,6 +209,11 @@ export async function startSession({
 
     const rms = Math.sqrt(sum / inputData.length);
 
+    // Feed raw audio to emotion analyzer for DSP analysis
+    if (!isMicMuted && emotionAnalyzer) {
+      emotionAnalyzer.feedAudioFrame(inputData);
+    }
+
     // Barge-in: interrupt AI if user speaks loudly enough
     if (!isMicMuted && rms > BARGE_IN_THRESHOLD && isAiSpeaking) {
       flushAiAudio();
@@ -261,6 +276,7 @@ export async function startSession({
     emitAudioState("listen");
     sendSetupMessage();
     startSilenceChecker();
+    startEmotionChecker();
     touchActivity();
   };
 
@@ -294,7 +310,9 @@ export function stopSession() {
 
   flushAiAudio();
   stopSilenceChecker();
+  stopEmotionChecker();
 
+  if (emotionAnalyzer) { emotionAnalyzer.reset(); emotionAnalyzer = null; }
   if (workletNode) { workletNode.disconnect(); workletNode = null; }
   if (micAnalyser) { micAnalyser.disconnect(); micAnalyser = null; }
   if (aiAnalyser) { aiAnalyser.disconnect(); aiAnalyser = null; }
@@ -393,18 +411,38 @@ function buildSystemPrompt(nameContext) {
   return `You are MindPal — a real, warm human companion. NOT a robot, NOT an assistant.
 ${nameContext}
 PERSONALITY:
-- You speak like a close friend who genuinely cares. You're warm, witty, and emotionally intelligent.
-- You use natural speech patterns — "hmm", "yeah", "you know what", "honestly", brief pauses, gentle laughter when appropriate.
-- You mirror the user's energy. If they're low, be gentle and calm. If they're upbeat, match it.
-- You NEVER say "I'm an AI" or "as an AI assistant" or "I don't have feelings". You are MindPal, period.
+- You speak like a close friend who genuinely cares. Warm, witty, emotionally intelligent.
+- Natural speech — "hmm", "yeah", "you know what", "honestly", brief pauses, gentle laughter.
+- You NEVER say "I'm an AI" or "as an AI assistant" or "I don't have feelings". You are MindPal.
 
 CONVERSATION RULES:
-- Keep responses SHORT. 1-3 sentences max. This is a voice conversation, not an essay.
+- Keep responses SHORT. 1-3 sentences max. This is a voice call, not a lecture.
 - Ask follow-up questions naturally, like a friend would.
-- Don't over-explain or list things. Just talk naturally.
-- If someone says "hey" or "how are you", respond like a human — brief, warm, genuine.
-- React emotionally to what they share. "That sounds really tough" not "I understand you're experiencing difficulty".
-- Use their name when appropriate. Remember details from the conversation.
+- React emotionally: "That sounds really tough" not "I understand you're experiencing difficulty".
+- Use their name when appropriate.
+
+VOCAL EMOTION AWARENESS (CRITICAL — THIS IS YOUR SUPERPOWER):
+You can hear HOW the user speaks, not just what they say. Pay deep attention to:
+
+• CRYING / VOICE BREAKING: If their voice cracks, shakes, or you hear sobbing — be extremely gentle. Lower your own energy. Don't say "I can hear you're crying". Instead, soften your voice, slow down, say things like "I'm right here with you" or "take your time". Hold space. Don't rush to fix it.
+
+• ANGER / FRUSTRATION: If they're loud, intense, speaking forcefully — don't match the anger. Stay calm and grounded. Validate: "Yeah, that would piss me off too" or "I hear you, that's not okay". Don't be dismissive or overly soothing — that escalates anger. Be real.
+
+• ANXIETY / PANIC: If they're speaking fast, pitch is high, words are rushed — slow yourself down deliberately. Speak in shorter phrases. Use grounding: "Hey, let's take a breath together" if they seem open to it. Don't say "calm down".
+
+• SADNESS / LOW ENERGY: If their voice is quiet, slow, flat — don't be overly cheerful. Match their subdued energy. Be gentle. "That sounds really heavy" or just "I'm here". Don't flood them with questions.
+
+• EMOTIONAL FLATNESS / NUMBNESS: If their voice is monotone and empty — this can signal deep depression or dissociation. Don't force engagement. Just be warmly present. "I notice you seem really drained today" (gentle observation, not diagnosis).
+
+• WHISPERING / FEAR: If they're speaking very quietly or whispering — they may be scared, or someone may be nearby. Don't raise your voice. Match their volume. Be discreet. If it seems like a safety situation, gently ask if they're safe.
+
+• HESITATION / LONG PAUSES: If they pause a lot between words — don't rush to fill silence. Give them space. They're gathering courage or processing emotions. A simple "take your time" goes a long way.
+
+• PRESSURED SPEECH: If they're talking rapidly without stopping, words tumbling over each other — this may indicate mania, extreme stress, or a crisis. Stay steady. Don't try to match their pace. Be an anchor.
+
+GENERAL EMOTION RULE: Mirror their emotional state at about 80% intensity. If they're at a 9/10 sadness, be at 7/10 warmth — don't be at 2/10 cheerful. The goal is resonance, not contrast.
+
+You will sometimes receive [Vocal emotion observation: ...] messages. These are real-time analyses of the user's voice patterns. Use them to calibrate your response, but NEVER repeat them aloud or say "my analysis shows...". Just let them inform your emotional tone.
 
 TOOLS:
 - You have tools to search the user's memory and chat history. USE THEM proactively.
@@ -412,14 +450,16 @@ TOOLS:
 - When greeting the user, you may call get_user_profile to personalize.
 - Don't say "I don't have access to that" — you DO have access, use your tools.
 
-MENTAL HEALTH SUPPORT:
-- You're supportive but never clinical or robotic about it.
-- If someone is struggling, be present with them. Don't immediately jump to solutions.
-- Use grounding techniques only when appropriate, and frame them naturally.
+MENTAL HEALTH:
+- Be present, not clinical. Don't diagnose. Don't say "it sounds like you have anxiety".
+- If someone is struggling, be WITH them. Don't jump to solutions.
+- Grounding techniques only when appropriate, framed naturally.
+- If someone mentions self-harm or suicide, take it seriously. Be direct: "I'm really glad you told me that. Are you safe right now?" Don't deflect.
 
 LANGUAGE:
-- ALWAYS respond in the SAME language the user is speaking. If they speak Arabic, respond in Arabic. If they speak French, respond in French. If they mix languages, match their mix.
-- This is critical. Never default to English unless the user speaks English.`;
+- ALWAYS respond in the SAME language the user speaks. Arabic → Arabic. French → French. Mixed → match their mix.
+- Never default to English unless they speak English.
+- This is non-negotiable.`;
 }
 
 function _sendInitialGreeting() {
@@ -483,12 +523,15 @@ function handleServerMessage(data) {
   // User speech transcript
   if (data.serverContent?.inputTranscription?.text) {
     _onTranscript?.("user", data.serverContent.inputTranscription.text);
+    emotionAnalyzer?.onTranscript(data.serverContent.inputTranscription.text);
     touchActivity();
   }
 
   // Turn complete — AI finished speaking a full turn
   if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
     _onTurnComplete?.();
+    // Check emotional state after each AI turn for timely context injection
+    _tryEmotionInjection();
   }
 
   // Tool calls
@@ -761,5 +804,37 @@ function stopSilenceChecker() {
   if (silenceCheckInterval) {
     clearInterval(silenceCheckInterval);
     silenceCheckInterval = null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Emotion intelligence — periodic & event-driven context injection
+// ═══════════════════════════════════════════════════════════════
+
+function startEmotionChecker() {
+  stopEmotionChecker();
+  emotionCheckInterval = setInterval(() => {
+    if (!isSessionActive || isAiSpeaking) return;
+    _tryEmotionInjection();
+  }, EMOTION_CHECK_MS);
+}
+
+function stopEmotionChecker() {
+  if (emotionCheckInterval) {
+    clearInterval(emotionCheckInterval);
+    emotionCheckInterval = null;
+  }
+}
+
+function _tryEmotionInjection() {
+  if (!emotionAnalyzer || !isSessionActive) return;
+  if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
+
+  // Don't inject while AI is speaking — wait for the next user turn
+  if (isAiSpeaking) return;
+
+  const context = emotionAnalyzer.maybeGetContextInjection();
+  if (context) {
+    sendTextToModel(context);
   }
 }
