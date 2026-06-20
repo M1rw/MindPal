@@ -1,16 +1,16 @@
 # backend/tools/web_search_tool.py
 
 """
-Custom web search tool for MindPal.
+Web search tool for MindPal — Multi-provider with cascading fallbacks.
 
-Uses DuckDuckGo's public API (free, no API key needed) for real-time
-web search. No dependency on paid search APIs like Tavily or SerpAPI.
+Search Cascade (in order):
+1. Brave Search API (free tier, 2000 queries/month) — if BRAVE_SEARCH_API_KEY is set
+2. DuckDuckGo Lite (more reliable from datacenter IPs than main DDG)
+3. DuckDuckGo Instant Answer API (structured JSON)
+4. DuckDuckGo HTML search (last resort)
 
-Architecture:
-- Primary: DuckDuckGo Instant Answer API (JSON, fast, reliable)
-- Fallback: DuckDuckGo HTML search with response parsing
-- Rate-limited: max 3 searches per chat request
-- Results are sanitized and stripped of tracking URLs
+All providers are free. DuckDuckGo often blocks datacenter IPs (Vercel, AWS, etc.)
+so Brave Search is the recommended primary provider for production deployments.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import html
 import logging
+import os
 import re
 from typing import Any
 from urllib.parse import quote_plus, unquote
@@ -38,13 +39,18 @@ REQUEST_TIMEOUT = 5.0
 _RATE_LIMIT_KEY = "_web_search_count"
 _MAX_SEARCHES_PER_REQUEST = 3
 
+# Optional Brave Search API key (free tier: 2000 queries/month)
+# Set via environment variable BRAVE_SEARCH_API_KEY
+BRAVE_SEARCH_API_KEY = os.environ.get("BRAVE_SEARCH_API_KEY", "")
+
 
 class WebSearchTool(BaseTool):
     """
-    Search the web for real-time information using DuckDuckGo.
+    Search the web for real-time information.
 
-    No paid API key required. Results include title, snippet, and source URL.
-    Rate-limited to prevent abuse.
+    Uses Brave Search API (if configured) with DuckDuckGo fallback.
+    No paid API key required for DuckDuckGo, but Brave is recommended
+    for reliable results from serverless/datacenter environments.
     """
 
     @property
@@ -88,7 +94,7 @@ class WebSearchTool(BaseTool):
         context.metadata[_RATE_LIMIT_KEY] = search_count + 1
 
         try:
-            results = await _search_duckduckgo(query)
+            results = await _search_cascade(query)
 
             if not results:
                 return ToolResult(data={
@@ -116,19 +122,154 @@ class WebSearchTool(BaseTool):
             )
 
 
-async def _search_duckduckgo(query: str) -> list[dict[str, str]]:
-    """
-    Search DuckDuckGo using two strategies:
-    1. Instant Answer API (structured JSON, fast)
-    2. HTML search page parsing (more results, slower)
-    """
+# ═══════════════════════════════════════════════════════════════
+# Search cascade — try providers in order until one works
+# ═══════════════════════════════════════════════════════════════
+
+async def _search_cascade(query: str) -> list[dict[str, str]]:
+    """Try search providers in order until one returns results."""
+
+    # 1. Brave Search API (most reliable from datacenter IPs)
+    if BRAVE_SEARCH_API_KEY:
+        try:
+            results = await _brave_search(query)
+            if results:
+                logger.debug("Brave Search returned %d results", len(results))
+                return results
+        except Exception as exc:
+            logger.debug("Brave Search failed: %s", exc)
+
+    # 2. DuckDuckGo Lite (more tolerant of datacenter IPs)
+    try:
+        results = await _ddg_lite_search(query)
+        if results:
+            logger.debug("DDG Lite returned %d results", len(results))
+            return results
+    except Exception as exc:
+        logger.debug("DDG Lite failed: %s", exc)
+
+    # 3. DuckDuckGo Instant Answer + HTML fallback
+    try:
+        results = await _search_duckduckgo(query)
+        if results:
+            logger.debug("DDG Classic returned %d results", len(results))
+            return results
+    except Exception as exc:
+        logger.debug("DDG Classic failed: %s", exc)
+
+    return []
+
+
+# ═══════════════════════════════════════════════════════════════
+# Brave Search API (free tier)
+# ═══════════════════════════════════════════════════════════════
+
+async def _brave_search(query: str) -> list[dict[str, str]]:
+    """Search via Brave Search API. Requires BRAVE_SEARCH_API_KEY."""
+    results: list[dict[str, str]] = []
+
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+        response = await client.get(
+            "https://api.search.brave.com/res/v1/web/search",
+            params={"q": query, "count": MAX_RESULTS},
+            headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip",
+                "X-Subscription-Token": BRAVE_SEARCH_API_KEY,
+            },
+        )
+
+        if response.status_code != 200:
+            logger.debug("Brave Search HTTP %d", response.status_code)
+            return results
+
+        data = response.json()
+        web_results = data.get("web", {}).get("results", [])
+
+        for item in web_results[:MAX_RESULTS]:
+            title = str(item.get("title", "")).strip()
+            snippet = str(item.get("description", "")).strip()
+            url = str(item.get("url", "")).strip()
+
+            if title and url:
+                results.append({
+                    "title": sanitize_text(title, 200),
+                    "snippet": sanitize_text(snippet, MAX_SNIPPET_CHARS),
+                    "url": _clean_url(url),
+                    "source": _extract_domain(url),
+                })
+
+    return results
+
+
+# ═══════════════════════════════════════════════════════════════
+# DuckDuckGo Lite (more datacenter-friendly)
+# ═══════════════════════════════════════════════════════════════
+
+async def _ddg_lite_search(query: str) -> list[dict[str, str]]:
+    """Parse DuckDuckGo Lite — a simplified page more tolerant of server IPs."""
     results: list[dict[str, str]] = []
 
     async with httpx.AsyncClient(
         timeout=REQUEST_TIMEOUT,
         follow_redirects=True,
         headers={
-            "User-Agent": "MindPal/1.0 (Mental Wellness Companion)",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    ) as client:
+        url = f"https://lite.duckduckgo.com/lite/?q={quote_plus(query)}"
+        response = await client.get(url)
+
+        if response.status_code != 200:
+            return results
+
+        body = response.text
+
+        # DDG Lite uses table rows with class "result-link" and "result-snippet"
+        # Pattern: <a rel="nofollow" href="URL" class="result-link">TITLE</a>
+        link_pattern = re.compile(
+            r'<a\s+[^>]*class="result-link"[^>]*href="([^"]*)"[^>]*>(.*?)</a>',
+            re.DOTALL | re.IGNORECASE,
+        )
+        snippet_pattern = re.compile(
+            r'<td\s+class="result-snippet"[^>]*>(.*?)</td>',
+            re.DOTALL | re.IGNORECASE,
+        )
+
+        links = link_pattern.findall(body)
+        snippets = snippet_pattern.findall(body)
+
+        for i, (raw_url, raw_title) in enumerate(links[:MAX_RESULTS]):
+            title = _strip_html(raw_title).strip()
+            snippet = _strip_html(snippets[i]).strip() if i < len(snippets) else ""
+            clean = _clean_ddg_redirect(raw_url)
+
+            if title and clean:
+                results.append({
+                    "title": sanitize_text(title, 200),
+                    "snippet": sanitize_text(snippet, MAX_SNIPPET_CHARS),
+                    "url": clean,
+                    "source": _extract_domain(clean),
+                })
+
+    return results
+
+
+# ═══════════════════════════════════════════════════════════════
+# DuckDuckGo Classic (Instant Answer + HTML)
+# ═══════════════════════════════════════════════════════════════
+
+async def _search_duckduckgo(query: str) -> list[dict[str, str]]:
+    """Classic DDG search: Instant Answer API + HTML page parsing."""
+    results: list[dict[str, str]] = []
+
+    async with httpx.AsyncClient(
+        timeout=REQUEST_TIMEOUT,
+        follow_redirects=True,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "application/json, text/html",
             "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
         },
@@ -140,7 +281,6 @@ async def _search_duckduckgo(query: str) -> list[dict[str, str]]:
         # Strategy 2: DuckDuckGo HTML search (if instant answer didn't give enough)
         if len(results) < 3:
             html_results = await _ddg_html_search(client, query)
-            # Add HTML results that aren't duplicates
             seen_urls = {r.get("url", "") for r in results}
             for r in html_results:
                 if r.get("url", "") not in seen_urls:
@@ -222,8 +362,6 @@ async def _ddg_html_search(client: httpx.AsyncClient, query: str) -> list[dict[s
 
         body = response.text
 
-        # Parse result blocks: <a class="result__a" href="...">title</a>
-        # and <a class="result__snippet" href="...">snippet</a>
         link_pattern = re.compile(
             r'<a\s+class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>',
             re.DOTALL | re.IGNORECASE,
@@ -255,6 +393,10 @@ async def _ddg_html_search(client: httpx.AsyncClient, query: str) -> list[dict[s
     return results
 
 
+# ═══════════════════════════════════════════════════════════════
+# Utility functions
+# ═══════════════════════════════════════════════════════════════
+
 def _strip_html(text: str) -> str:
     """Remove HTML tags and decode entities."""
     cleaned = re.sub(r"<[^>]+>", "", text)
@@ -285,7 +427,6 @@ def _extract_domain(url: str) -> str:
 
 def _extract_title_from_text(text: str) -> str:
     """Extract a title from DuckDuckGo topic text (first sentence or phrase)."""
-    # DDG topic text often starts with the title in bold or before a dash
     for sep in (" - ", " — ", ": ", ". "):
         if sep in text:
             return sanitize_text(text.split(sep)[0], 100)

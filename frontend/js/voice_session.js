@@ -36,6 +36,9 @@ let nextPlaybackTime = 0;
 let activeAudioSources = [];
 let outputGainNode = null;
 
+// Tool call state — must pause audio input while tools are executing
+let _toolCallPending = false;
+
 // Noise gate
 let gateOpenUntil = 0;
 
@@ -628,6 +631,10 @@ const TOOL_FETCH_TIMEOUT_MS = 12_000;  // single tool HTTP timeout (web_search n
 const TOOL_BATCH_TIMEOUT_MS = 15_000;  // entire batch must resolve within this
 
 function handleToolCalls(functionCalls) {
+  // CRITICAL: Pause mic audio while tools execute.
+  // Gemini native audio closes the WebSocket (1008) if it receives
+  // audio input during a pending tool call.
+  _toolCallPending = true;
   // Wrap the entire batch in a timeout so Gemini never hangs
   const batchTimeout = new Promise((_, reject) =>
     setTimeout(() => reject(new Error("Tool batch timeout")), TOOL_BATCH_TIMEOUT_MS)
@@ -645,10 +652,10 @@ function handleToolCalls(functionCalls) {
       if (liveWebSocket?.readyState === WebSocket.OPEN) {
         liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: resolvedResponses } }));
       }
+      _toolCallPending = false;
     })
     .catch((err) => {
       console.error("[TOOL_CALL] Batch execution failed:", err.message);
-      // Send error responses so Gemini doesn't hang — it can still respond naturally
       const errorResponses = functionCalls.map((call) => ({
         id: call.id,
         name: call.name,
@@ -657,6 +664,7 @@ function handleToolCalls(functionCalls) {
       if (liveWebSocket?.readyState === WebSocket.OPEN) {
         liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: errorResponses } }));
       }
+      _toolCallPending = false;
     });
 }
 
@@ -779,6 +787,7 @@ function _executeToolClientSide(name, args) {
 
 function sendPcmToWebSocket(pcmData) {
   if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
+  if (_toolCallPending) return; // Don't send audio during tool execution (causes 1008)
 
   const buffer = new ArrayBuffer(pcmData.length * 2);
   const view = new DataView(buffer);
@@ -800,6 +809,7 @@ function sendPcmToWebSocket(pcmData) {
 let _silenceFrameB64 = null;
 function sendSilenceFrame() {
   if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
+  if (_toolCallPending) return; // Don't send audio during tool execution (causes 1008)
 
   // Build once and cache — 2048 zero int16 samples = 4096 bytes
   if (!_silenceFrameB64) {
