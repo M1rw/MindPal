@@ -691,16 +691,18 @@ async function executeToolCall(name, args) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.warn(`[TOOL_CALL] ${name} returned HTTP ${response.status}`);
+      console.warn(`[TOOL_CALL] ${name} backend returned HTTP ${response.status} — falling back to client-side`);
       return _executeToolClientSide(name, args);
     }
 
     const data = await response.json();
-    return data.result || data;
+    const result = data.result || data;
+    console.info(`[TOOL_CALL] ${name} executed via BACKEND`, result?.result_count ? `(${result.result_count} results)` : "");
+    return result;
   } catch (err) {
     clearTimeout(timeoutId);
     const isTimeout = err.name === "AbortError";
-    console.warn(`[TOOL_CALL] Backend call failed for ${name}: ${isTimeout ? "timeout" : err.message}`);
+    console.warn(`[TOOL_CALL] ${name} backend failed: ${isTimeout ? "timeout" : err.message} — falling back to client-side`);
     return _executeToolClientSide(name, args);
   }
 }
@@ -773,6 +775,7 @@ function _executeToolClientSide(name, args) {
       };
     }
     case "web_search":
+      console.info(`[TOOL_CALL] web_search falling back to CLIENT-SIDE DDG for: "${args.query || ""}"`);
       return _clientSideWebSearch(args.query || "");
     case "date_calculator":
       return { error: "Date calculator is temporarily unavailable. Please calculate the date manually from the current time context." };

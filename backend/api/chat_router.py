@@ -882,8 +882,18 @@ _MEMORY_TRIGGERS = (
 )
 
 _WEB_SEARCH_TRIGGERS = (
-    "search for", "look up", "what's happening", "current news",
-    "latest", "who is", "what is", "دور على", "ابحث عن",
+    # English
+    "search for", "search about", "look up", "look for",
+    "what's happening", "what is happening",
+    "current news", "latest news", "last news", "recent news",
+    "latest", "news about", "news between",
+    "who is", "what is", "what are",
+    "tell me about", "find out", "find me",
+    "can you search", "can you look",
+    "what happened", "what's going on",
+    # Arabic
+    "دور على", "ابحث عن", "ابحث", "اخبار", "الاخبار",
+    "اخر اخبار", "ايه اللي بيحصل",
 )
 
 
@@ -945,7 +955,9 @@ async def _pre_execute_tools(
             pass
 
     # Web search for current information queries
-    if any(trigger in lowered for trigger in _WEB_SEARCH_TRIGGERS):
+    search_triggered = any(trigger in lowered for trigger in _WEB_SEARCH_TRIGGERS)
+    if search_triggered:
+        logger.info("Web search triggered for message: %s", sanitize_text(user_message, 120))
         try:
             # Extract search query
             query_part = user_message
@@ -964,11 +976,19 @@ async def _pre_execute_tools(
             )
             if search_result.ok and search_result.data.get("results"):
                 web_results = search_result.data["results"][:3]
+                logger.info("Web search returned %d results for '%s'", len(web_results), query_part[:80])
                 lines = [f"Web search results for '{query_part[:80]}':"]
                 for r in web_results:
                     lines.append(f"- {r.get('title', '')}: {r.get('snippet', '')} [{r.get('url', '')}]")
                 results_parts.append("\n".join(lines))
-        except Exception:
-            pass
+            elif search_result.error:
+                logger.warning("Web search error: %s", search_result.error)
+            else:
+                logger.info("Web search returned 0 results for '%s'", query_part[:80])
+        except Exception as exc:
+            logger.warning("Web search pre-execution failed: %s", type(exc).__name__, exc_info=True)
+    else:
+        logger.debug("No web search trigger matched for: %s", sanitize_text(user_message, 120))
 
     return "\n\n".join(results_parts)
+
