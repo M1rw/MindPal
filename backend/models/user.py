@@ -91,6 +91,7 @@ class UserPreferences(BaseModel):
     timezone: str | None = Field(default=None, max_length=MAX_TIMEZONE_CHARS)
     communication_style: CommunicationStyle = CommunicationStyle.BALANCED
     preferred_name: str | None = Field(default=None, max_length=MAX_DISPLAY_NAME_CHARS)
+    gender: str | None = Field(default=None, max_length=20)  # "male", "female", or None
     preferred_coping_tools: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
     wellness_goals: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
     avoided_topics: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
@@ -118,6 +119,16 @@ class UserPreferences(BaseModel):
             return None
         cleaned = sanitize_pii_text(str(value), MAX_DISPLAY_NAME_CHARS)
         return cleaned or None
+
+    @field_validator("gender", mode="before")
+    @classmethod
+    def _clean_gender(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        cleaned = sanitize_text(str(value), 20).lower().strip()
+        if cleaned in ("male", "female"):
+            return cleaned
+        return None
 
     @field_validator("preferred_coping_tools", "wellness_goals", "avoided_topics", mode="before")
     @classmethod

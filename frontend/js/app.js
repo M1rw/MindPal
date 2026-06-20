@@ -194,8 +194,20 @@ function buildVoiceContextProvider() {
       const user = getCurrentUser?.() || {};
       const name = user?.displayName || user?.name || memoryContext?.preferredName || memoryContext?.user?.preferredName || "";
       const comm = memoryContext?.communicationPreferences || {};
+      // Gender from memory graph atoms or profile
+      const genderAtom = (memoryGraphContext?.atoms || []).find(a =>
+        a.status !== "deleted" && a.category === "identity" &&
+        (a.value || "").toLowerCase().match(/\b(male|female|boy|girl|man|woman|ذكر|انثى|ولد|بنت|راجل|ست)\b/)
+      );
+      let gender = "";
+      if (genderAtom) {
+        const val = (genderAtom.value || "").toLowerCase();
+        if (val.match(/\b(male|boy|man|ذكر|ولد|راجل)\b/)) gender = "male";
+        else if (val.match(/\b(female|girl|woman|انثى|بنت|ست)\b/)) gender = "female";
+      }
       return {
         name,
+        gender,
         preferences: {
           tone: comm.tone || "",
           language: comm.language || "",
