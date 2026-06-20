@@ -367,7 +367,30 @@ export function mergeChatMessages(localMessages, cloudMessages) {
   for (const message of [...localMessages, ...cloudMessages]) {
     const clean = normalizeLocalMessage(message);
     if (!clean.text) continue;
-    byId.set(clean.messageId || stableMessageId(clean), clean);
+    const key = clean.messageId || stableMessageId(clean);
+
+    // Preserve voice call data (especially summary) from existing message
+    // when the incoming message doesn't have it. This prevents cloud sync
+    // from overwriting locally-generated summaries before they sync.
+    const existing = byId.get(key);
+    if (existing?.voiceCall && clean.voiceCall) {
+      if (existing.voiceCall.summary && !clean.voiceCall.summary) {
+        clean.voiceCall.summary = existing.voiceCall.summary;
+      }
+      // Preserve transcript data too — cloud normalization may strip it
+      if (existing.voiceCall.userTranscript && !clean.voiceCall.userTranscript) {
+        clean.voiceCall.userTranscript = existing.voiceCall.userTranscript;
+      }
+      if (existing.voiceCall.aiTranscript && !clean.voiceCall.aiTranscript) {
+        clean.voiceCall.aiTranscript = existing.voiceCall.aiTranscript;
+      }
+    } else if (existing?.voiceCall && !clean.voiceCall) {
+      // Cloud message lost voiceCall entirely — keep the local one
+      clean.voiceCall = existing.voiceCall;
+      clean.type = existing.type || clean.type;
+    }
+
+    byId.set(key, clean);
   }
 
   return Array.from(byId.values()).sort((a, b) => {

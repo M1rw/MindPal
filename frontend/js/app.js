@@ -1270,6 +1270,9 @@ function _persistCallSummary(startTime, summary) {
     // patchState calls saveState internally — force immediate write as well
     saveState({ defer: false });
     console.log("[Voice] Summary persisted:", summary);
+
+    // Sync updated message to cloud so summary isn't lost on next cloud merge
+    scheduleCloudMessageSync(callMsg);
   } else {
     console.warn("[Voice] Could not find call message to persist summary. chatMemory length:", state.chatMemory.length);
   }
