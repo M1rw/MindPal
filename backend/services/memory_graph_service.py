@@ -485,12 +485,13 @@ async def extract_memory_graph_from_text_llm(
         res = await llm_service.generate_with_trace(req)
         raw_text = res.response.text.strip()
         
-        if raw_text.startswith("```json"):
-            raw_text = raw_text.split("```json")[1].split("```")[0].strip()
-        elif raw_text.startswith("```"):
-            raw_text = raw_text.split("```")[1].split("```")[0].strip()
-            
-        data = json.loads(raw_text)
+        # Robust JSON extraction — handle various LLM output formats
+        data = _extract_json_from_llm_output(raw_text)
+        
+        if data is None:
+            # No valid JSON found — not an error, just no memories extracted
+            logger.debug("Memory extraction returned non-JSON output")
+            return MemoryGraph(user_id_hash=user_id_hash, atoms=[], source=source, full_snapshot=False)
         
         for atom_data in data.get("atoms", []):
             try:
@@ -509,7 +510,7 @@ async def extract_memory_graph_from_text_llm(
                 logger.debug("Skipping invalid memory atom from LLM extraction", exc_info=True)
                 
     except Exception as e:
-        logger.error("LLM memory extraction failed: %s", type(e).__name__)
+        logger.warning("LLM memory extraction failed: %s", type(e).__name__)
 
     return MemoryGraph(
         user_id_hash=user_id_hash,
@@ -517,3 +518,65 @@ async def extract_memory_graph_from_text_llm(
         source=source,
         full_snapshot=False,
     )
+
+
+def _extract_json_from_llm_output(raw_text: str) -> dict | None:
+    """
+    Extract a JSON object from LLM output, handling common formatting issues.
+    
+    Small models (Groq llama, Cloudflare) frequently:
+    - Wrap JSON in ```json ... ``` markdown fences
+    - Add explanatory text before/after the JSON
+    - Include trailing commas
+    - Return "No memories found" instead of {"atoms": []}
+    """
+    if not raw_text:
+        return None
+
+    text = raw_text.strip()
+
+    # Strategy 1: Strip markdown code fences
+    if "```" in text:
+        # Extract content between ```json ... ``` or ``` ... ```
+        fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
+        if fence_match:
+            text = fence_match.group(1).strip()
+
+    # Strategy 2: Direct JSON parse
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 3: Find JSON object with regex (handles text before/after JSON)
+    json_match = re.search(r"\{[^{}]*\"atoms\"\s*:\s*\[.*?\]\s*\}", text, re.DOTALL)
+    if json_match:
+        try:
+            data = json.loads(json_match.group(0))
+            if isinstance(data, dict):
+                return data
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 4: Find any JSON object (even without "atoms" key)
+    json_match = re.search(r"\{.*\}", text, re.DOTALL)
+    if json_match:
+        try:
+            # Try to fix trailing commas before parsing
+            candidate = json_match.group(0)
+            candidate = re.sub(r",\s*([}\]])", r"\1", candidate)
+            data = json.loads(candidate)
+            if isinstance(data, dict):
+                return data
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 5: Empty result (model said "no memories" or similar)
+    lower = text.lower()
+    if any(phrase in lower for phrase in ("no memor", "no durable", "no personal", "empty", "none")):
+        return {"atoms": []}
+
+    return None
+
