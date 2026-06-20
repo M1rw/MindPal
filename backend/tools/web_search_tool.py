@@ -97,16 +97,20 @@ class WebSearchTool(BaseTool):
             )
         context.metadata[_RATE_LIMIT_KEY] = search_count + 1
 
+        logger.info("Web search executing for query: '%s'", query[:100])
+
         try:
             results = await _search_cascade(query)
 
             if not results:
+                logger.info("Web search returned 0 results for '%s'", query[:80])
                 return ToolResult(data={
                     "query": query,
                     "results": [],
                     "note": "No results found. Try rephrasing the query.",
                 })
 
+            logger.info("Web search returned %d results for '%s'", len(results), query[:80])
             return ToolResult(data={
                 "query": query,
                 "results": results[:MAX_RESULTS],
@@ -114,12 +118,13 @@ class WebSearchTool(BaseTool):
             })
 
         except asyncio.TimeoutError:
+            logger.warning("Web search timed out for '%s'", query[:80])
             return ToolResult(
                 error="Search timed out. Try again with a shorter query.",
                 data={"query": query},
             )
         except Exception as exc:
-            logger.debug("Web search failed: %s — %s", type(exc).__name__, exc)
+            logger.warning("Web search failed: %s — %s", type(exc).__name__, exc)
             return ToolResult(
                 error="Search temporarily unavailable. Please try again.",
                 data={"query": query},
