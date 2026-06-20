@@ -521,6 +521,59 @@ function bindProfileModal() {
     showToast(nextName === "Friend" ? "Profile name cleared." : "Profile updated.");
   });
 
+  // Gender selector
+  const genderSelect = document.getElementById("user-gender-select");
+  genderSelect?.addEventListener("change", (event) => {
+    const gender = event.target.value || null; // "" → null
+
+    // Store in memory graph as an identity atom
+    let memoryGraphContext = getMemoryGraphContext();
+    const existingGenderAtom = (memoryGraphContext.atoms || []).find(a =>
+      a.status !== "deleted" && a.category === "identity" &&
+      (a.value || "").toLowerCase().match(/\b(male|female|boy|girl|man|woman|ذكر|انثى|ولد|بنت|راجل|ست)\b/)
+    );
+
+    if (gender) {
+      const genderLabel = gender === "male" ? "User is male" : "User is female";
+      if (existingGenderAtom) {
+        existingGenderAtom.value = genderLabel;
+        existingGenderAtom.updated_at = new Date().toISOString();
+      } else {
+        memoryGraphContext.atoms = memoryGraphContext.atoms || [];
+        memoryGraphContext.atoms.push({
+          id: `gender_${Date.now()}`,
+          category: "identity",
+          value: genderLabel,
+          source: "user_setting",
+          status: "active",
+          pinned: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          metadata: {},
+        });
+      }
+    } else if (existingGenderAtom) {
+      existingGenderAtom.status = "deleted";
+      existingGenderAtom.updated_at = new Date().toISOString();
+    }
+
+    setMemoryGraphContext(memoryGraphContext);
+    saveMemoryGraphContext(memoryGraphContext);
+    void persistMemoryContextSafe();
+
+    // Sync to cloud profile
+    getIdToken().then(token => {
+      if (token) {
+        updateUserProfilePreferences({ gender: gender || null }, token).catch(e => {
+          console.warn("Failed to sync gender:", e);
+        });
+      }
+    }).catch(() => {});
+
+    renderMemoryInspector();
+    showToast(gender ? `Gender set to ${gender}.` : "Gender cleared.");
+  });
+
   document.getElementById("delete-account-btn")?.addEventListener("click", async () => {
     const user = getCurrentUser();
     if (!user) { showToast("No cloud account is connected."); return; }

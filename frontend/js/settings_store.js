@@ -61,6 +61,13 @@ export function hydrateSettingsFromProfile(profileResponse) {
   // Strip any stale personalization key from cloud data
   delete patch.personalization;
 
+  // Hydrate gender dropdown from cloud profile
+  const gender = profileResponse?.profile?.preferences?.gender || "";
+  const genderSelect = document.getElementById("user-gender-select");
+  if (genderSelect) {
+    genderSelect.value = gender;
+  }
+
   return mergeAppSettings(patch);
 }
 
