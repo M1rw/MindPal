@@ -336,7 +336,7 @@ function sendSetupMessage() {
   const offsetHours = Math.floor(Math.abs(utcOffset) / 60);
   const offsetMins = Math.abs(utcOffset) % 60;
   const offsetStr = `UTC${utcOffset >= 0 ? '+' : '-'}${offsetHours}${offsetMins ? ':' + String(offsetMins).padStart(2, '0') : ''}`;
-  const timeContext = `\nCURRENT TIME: ${timeStr}, ${dateStr} (${tzName}, ${offsetStr}). If the user asks about time, use the get_current_time tool for the most accurate answer.`;
+  const timeContext = `\nCURRENT TIME: ${timeStr}, ${dateStr} (${tzName}, ${offsetStr}). If the user asks about time, use the current_time tool for the most accurate answer.`;
 
   liveWebSocket.send(JSON.stringify({
     setup: {
@@ -358,6 +358,8 @@ function sendSetupMessage() {
 }
 
 function getToolDeclarations() {
+  // These MUST match backend/tools registry names exactly so the backend
+  // /api/tools/execute endpoint can resolve them.
   return [
     {
       name: "get_user_profile",
@@ -397,9 +399,33 @@ function getToolDeclarations() {
       },
     },
     {
-      name: "get_current_time",
-      description: "Get the user's current local time, date, timezone, and UTC offset. ALWAYS use this when the user asks about the time, date, or anything time-related. Never guess the time.",
+      name: "current_time",
+      description: "Get the current date and time in both UTC and the user's local timezone. ALWAYS use this when the user asks about the time, date, day, or anything time-related. Never guess the time.",
       parameters: { type: "OBJECT", properties: {} },
+    },
+    {
+      name: "date_calculator",
+      description: "Calculate date differences — 'how long ago was X?', 'how many days until Y?', 'what date is N days from now?'. Use this when the user asks about dates, anniversaries, deadlines, or durations.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          operation: { type: "STRING", description: "One of: 'days_since' (how many days since a date), 'days_until' (how many days until a date), 'add_days' (what date is N days from now)" },
+          date: { type: "STRING", description: "Date in YYYY-MM-DD format (for days_since/days_until)" },
+          days: { type: "INTEGER", description: "Number of days (for add_days operation)" },
+        },
+        required: ["operation"],
+      },
+    },
+    {
+      name: "web_search",
+      description: "Search the web for real-time, current information. Use this when the user asks about current events, recent news, facts you're unsure about, weather, sports scores, or anything that requires up-to-date data from the internet. Returns titles, snippets, and URLs.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          query: { type: "STRING", description: "The search query — be specific and concise" },
+        },
+        required: ["query"],
+      },
     },
   ];
 }
@@ -417,7 +443,8 @@ CONVERSATION RULES:
 - Ask follow-up questions naturally, like a friend would.
 - React emotionally: "That sounds really tough" not "I understand you're experiencing difficulty".
 - Use their name when appropriate.
-- When asked about time, date, day, or anything time-related — ALWAYS call the get_current_time tool. NEVER guess or make up times.
+- When asked about time, date, day, or anything time-related — ALWAYS call the current_time tool. NEVER guess or make up times.
+- When asked about current events, news, weather, sports, or anything requiring real-time info — call web_search. You have internet access through this tool.
 
 VOCAL EMOTION AWARENESS (CRITICAL — THIS IS YOUR SUPERPOWER):
 You can hear HOW the user speaks, not just what they say. Pay deep attention to:
@@ -646,7 +673,7 @@ async function executeToolCall(name, args) {
 
 function _executeToolClientSide(name, args) {
   // get_current_time is purely client-side — no context provider needed
-  if (name === "get_current_time") {
+  if (name === "current_time") {
     const now = new Date();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown";
     const utcOff = -now.getTimezoneOffset();
