@@ -25,10 +25,9 @@ MAX_TRANSCRIPT_CHARS = 4_000
 MAX_AUDIO_BASE64_CHARS = 15_000_000
 
 _TRANSCRIPTION_MODELS = [
+    "models/gemini-2.5-flash",
     "models/gemini-2.0-flash",
-    "models/gemini-1.5-flash",
-    "models/gemini-1.5-flash-latest",
-    "models/gemini-1.5-pro",
+    "models/gemini-2.0-flash-lite",
 ]
 
 

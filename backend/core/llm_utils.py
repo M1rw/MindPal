@@ -94,10 +94,9 @@ async def _try_gemini(
         return ""
 
     models = [
+        "models/gemini-2.5-flash",
         "models/gemini-2.0-flash",
         "models/gemini-2.0-flash-lite",
-        "models/gemini-1.5-flash",
-        "models/gemini-1.5-flash-latest",
     ]
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
