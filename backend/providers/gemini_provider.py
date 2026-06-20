@@ -21,7 +21,7 @@ from backend.providers._shared import (
 
 
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-2.0-flash-lite"
 DEFAULT_TIMEOUT_SECONDS = 45.0
 MAX_MODEL_NAME_CHARS = 120
 MAX_BASE_URL_CHARS = 300
