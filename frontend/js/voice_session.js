@@ -96,18 +96,24 @@ export function setSpeakerMuted(muted) {
 export function setMuted(muted) {
   isMicMuted = muted;
 
-  // When muting, send a burst of silence frames so Gemini's server-side VAD
-  // detects end-of-speech and processes whatever audio was already captured.
-  // Without this, Gemini keeps waiting for more audio and the transcript freezes.
+  // When muting mid-speech, explicitly tell Gemini the user is done talking.
+  // 1. Send a few silence frames to smoothly transition the audio
+  // 2. After a short delay, send turnComplete to force processing
   if (muted && liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
-    // Send 5 silence frames (~640ms total) — enough for Gemini's VAD to trigger
-    for (let i = 0; i < 5; i++) {
-      setTimeout(() => {
-        if (isMicMuted && liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
-          sendSilenceFrame();
-        }
-      }, i * 130);
+    // Send silence frames first to pad the audio stream
+    for (let i = 0; i < 3; i++) {
+      sendSilenceFrame();
     }
+
+    // Then send turnComplete after a brief delay to trigger processing
+    setTimeout(() => {
+      if (isMicMuted && liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
+        liveWebSocket.send(JSON.stringify({
+          clientContent: { turnComplete: true },
+        }));
+        console.info("[VOICE] Sent turnComplete on mute — speech will be processed");
+      }
+    }, 200);
   }
 
   _onAudioState?.({
