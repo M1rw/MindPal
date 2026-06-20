@@ -96,10 +96,19 @@ export function setSpeakerMuted(muted) {
 export function setMuted(muted) {
   isMicMuted = muted;
 
-  // When muting, we simply stop sending audio frames (handled by the noise gate
-  // check `if (!isMicMuted)` in the worklet callback). We do NOT send turnComplete
-  // because it can cause Gemini to process incomplete speech and potentially
-  // end the session.
+  // When muting, send a burst of silence frames so Gemini's server-side VAD
+  // detects end-of-speech and processes whatever audio was already captured.
+  // Without this, Gemini keeps waiting for more audio and the transcript freezes.
+  if (muted && liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
+    // Send 5 silence frames (~640ms total) — enough for Gemini's VAD to trigger
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        if (isMicMuted && liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
+          sendSilenceFrame();
+        }
+      }, i * 130);
+    }
+  }
 
   _onAudioState?.({
     isAiSpeaking,
@@ -338,8 +347,13 @@ export function sendTextToModel(text) {
 // ═══════════════════════════════════════════════════════════════
 
 function sendSetupMessage() {
-  const userName = _contextProvider?.getUserProfile?.()?.name || "";
-  const nameContext = userName ? `\nThe person you are talking to is called ${userName}. Use their name naturally.` : "";
+  const profile = _contextProvider?.getUserProfile?.() || {};
+  const userName = profile.name || "";
+  const userGender = profile.gender || "";
+  let nameContext = userName ? `\nThe person you are talking to is called ${userName}. Use their name naturally.` : "";
+  if (userGender) {
+    nameContext += `\nGENDER: The user is ${userGender}. This is critical for Arabic and other gendered languages — use correct grammatical gender consistently (masculine/feminine verbs, adjectives, pronouns).`;
+  }
 
   // Build real-time context for the system prompt
   const now = new Date();

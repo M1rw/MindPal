@@ -810,6 +810,14 @@ def _build_user_preferences_prompt(profile: UserProfile, metadata: Any | None = 
     if preferences.preferred_name:
         parts.append(f"preferred_name={preferences.preferred_name}")
 
+    if preferences.gender:
+        parts.append(f"gender={preferences.gender}")
+        # Explicit instruction for gendered languages
+        if preferences.gender == "male":
+            parts.append("IMPORTANT: User is male. In Arabic, use masculine grammar (أنت مش إنتي, عملت مش عملتي).")
+        elif preferences.gender == "female":
+            parts.append("IMPORTANT: User is female. In Arabic, use feminine grammar (إنتي مش أنت, عملتي مش عملت).")
+
     if preferences.preferred_coping_tools:
         parts.append(
             "preferred_coping_tools="
