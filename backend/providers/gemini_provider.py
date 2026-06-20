@@ -199,10 +199,12 @@ class GeminiProvider:
         headers = self._auth_headers()
         base_url = self.config.base_url.rstrip("/")
 
-        # Try multiple embedding models in order
+        # Try embedding models in order (newest first)
+        # text-embedding-004 was deprecated → 404
         embed_models = [
-            "text-embedding-004",
-            "embedding-001",
+            "gemini-embedding-2",
+            "gemini-embedding-001",
+            "text-embedding-004",  # legacy fallback
         ]
 
         owns_client = self._client is None

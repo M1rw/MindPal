@@ -401,8 +401,7 @@ class RAGService:
                         if query_vector_res:
                             query_vector = query_vector_res[0]
                     except Exception:
-                        logger.warning("Failed to generate embedding for RAG query", exc_info=True)
-                        pass
+                        logger.debug("Embedding unavailable for RAG — using lexical search")
                 
                 result = self._result_from_plan(
                     plan,
