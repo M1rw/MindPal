@@ -45,6 +45,11 @@ let silenceCheckInterval = null;
 let silenceAskedOnce = false;
 let silenceWarnedOnce = false;
 
+// Network monitoring
+let _networkHandlers = null;
+let _lastWsMessageTime = 0;
+let _networkCheckInterval = null;
+
 // Analysers (exposed for visualizer)
 let micAnalyser = null;
 let aiAnalyser = null;
@@ -263,6 +268,7 @@ export async function startSession({
     emitAudioState("listen");
     sendSetupMessage();
     startSilenceChecker();
+    startNetworkMonitor();
     touchActivity();
   };
 
@@ -275,6 +281,7 @@ export async function startSession({
     }
 
     handleServerMessage(data);
+    _lastWsMessageTime = Date.now();
   };
 
   liveWebSocket.onerror = (err) => {
@@ -296,6 +303,7 @@ export function stopSession() {
 
   flushAiAudio();
   stopSilenceChecker();
+  stopNetworkMonitor();
   if (workletNode) { workletNode.disconnect(); workletNode = null; }
   if (micAnalyser) { micAnalyser.disconnect(); micAnalyser = null; }
   if (aiAnalyser) { aiAnalyser.disconnect(); aiAnalyser = null; }
@@ -613,35 +621,43 @@ function playAiAudioChunk(base64Data) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Tool calls
+// Tool calls (with timeout and network resilience)
 // ═══════════════════════════════════════════════════════════════
 
-function handleToolCalls(functionCalls) {
-  const responses = [];
+const TOOL_FETCH_TIMEOUT_MS = 6_000;   // single tool HTTP timeout
+const TOOL_BATCH_TIMEOUT_MS = 10_000;  // entire batch must resolve within this
 
-  // Execute all tool calls concurrently via backend
-  Promise.all(
+function handleToolCalls(functionCalls) {
+  // Wrap the entire batch in a timeout so Gemini never hangs
+  const batchTimeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Tool batch timeout")), TOOL_BATCH_TIMEOUT_MS)
+  );
+
+  const batchExecution = Promise.all(
     functionCalls.map(async (call) => {
-      // Tool call debug logging removed for production cleanliness.
       const result = await executeToolCall(call.name, call.args || {});
       return { id: call.id, name: call.name, response: { result } };
     })
-  ).then((resolvedResponses) => {
-    if (liveWebSocket?.readyState === WebSocket.OPEN) {
-      liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: resolvedResponses } }));
-    }
-  }).catch((err) => {
-    console.error("[TOOL_CALL] Batch execution failed:", err);
-    // Send error responses so Gemini doesn't hang
-    const errorResponses = functionCalls.map((call) => ({
-      id: call.id,
-      name: call.name,
-      response: { result: { error: "Tool execution failed" } },
-    }));
-    if (liveWebSocket?.readyState === WebSocket.OPEN) {
-      liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: errorResponses } }));
-    }
-  });
+  );
+
+  Promise.race([batchExecution, batchTimeout])
+    .then((resolvedResponses) => {
+      if (liveWebSocket?.readyState === WebSocket.OPEN) {
+        liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: resolvedResponses } }));
+      }
+    })
+    .catch((err) => {
+      console.error("[TOOL_CALL] Batch execution failed:", err.message);
+      // Send error responses so Gemini doesn't hang — it can still respond naturally
+      const errorResponses = functionCalls.map((call) => ({
+        id: call.id,
+        name: call.name,
+        response: { result: { error: "Tool temporarily unavailable — please respond without this tool" } },
+      }));
+      if (liveWebSocket?.readyState === WebSocket.OPEN) {
+        liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: errorResponses } }));
+      }
+    });
 }
 
 async function executeToolCall(name, args) {
@@ -652,24 +668,31 @@ async function executeToolCall(name, args) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
 
+  // AbortController for fetch timeout — prevents infinite hang on bad network
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TOOL_FETCH_TIMEOUT_MS);
+
   try {
     const response = await fetch(`${baseUrl}/tools/execute`, {
       method: "POST",
       headers,
       body: JSON.stringify({ tool: name, args }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.warn(`[TOOL_CALL] ${name} returned HTTP ${response.status}`);
-      // Fall back to client-side execution for resilience
       return _executeToolClientSide(name, args);
     }
 
     const data = await response.json();
     return data.result || data;
   } catch (err) {
-    console.warn(`[TOOL_CALL] Backend call failed for ${name}:`, err.message);
-    // Fall back to client-side execution for resilience
+    clearTimeout(timeoutId);
+    const isTimeout = err.name === "AbortError";
+    console.warn(`[TOOL_CALL] Backend call failed for ${name}: ${isTimeout ? "timeout" : err.message}`);
     return _executeToolClientSide(name, args);
   }
 }
@@ -741,8 +764,12 @@ function _executeToolClientSide(name, args) {
         totalMatches: all.length,
       };
     }
+    case "web_search":
+      return { error: "Web search is temporarily unavailable due to network issues. Please answer from your own knowledge and let the user know you couldn't search right now." };
+    case "date_calculator":
+      return { error: "Date calculator is temporarily unavailable. Please calculate the date manually from the current time context." };
     default:
-      return { error: `Unknown tool: ${name}` };
+      return { error: `Tool ${name} is not available right now. Please respond without it.` };
   }
 }
 
@@ -845,6 +872,55 @@ function stopSilenceChecker() {
   if (silenceCheckInterval) {
     clearInterval(silenceCheckInterval);
     silenceCheckInterval = null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Network connectivity monitoring
+// ═══════════════════════════════════════════════════════════════
+
+function startNetworkMonitor() {
+  stopNetworkMonitor();
+  _lastWsMessageTime = Date.now();
+
+  const onOffline = () => {
+    if (!isSessionActive) return;
+    console.warn("[Voice] Browser went offline");
+    _onTranscript?.("ai", "\n[Connection lost — trying to reconnect...]\n");
+  };
+
+  const onOnline = () => {
+    if (!isSessionActive) return;
+    console.log("[Voice] Browser back online");
+    _onTranscript?.("ai", "\n[Connection restored]\n");
+  };
+
+  window.addEventListener("offline", onOffline);
+  window.addEventListener("online", onOnline);
+  _networkHandlers = { onOffline, onOnline };
+
+  // Check for stale WebSocket every 15s — if no data received in 30s,
+  // the connection is likely dead but the browser hasn't detected it yet
+  _networkCheckInterval = setInterval(() => {
+    if (!isSessionActive || !liveWebSocket) return;
+    const elapsed = Date.now() - _lastWsMessageTime;
+    if (elapsed > 30_000 && liveWebSocket.readyState === WebSocket.OPEN) {
+      console.warn("[Voice] WebSocket appears stale — no data for 30s");
+      _onTranscript?.("ai", "\n[Connection seems unstable — call may end if it doesn't recover]\n");
+      _lastWsMessageTime = Date.now(); // prevent spamming
+    }
+  }, 15_000);
+}
+
+function stopNetworkMonitor() {
+  if (_networkHandlers) {
+    window.removeEventListener("offline", _networkHandlers.onOffline);
+    window.removeEventListener("online", _networkHandlers.onOnline);
+    _networkHandlers = null;
+  }
+  if (_networkCheckInterval) {
+    clearInterval(_networkCheckInterval);
+    _networkCheckInterval = null;
   }
 }
 
