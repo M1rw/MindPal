@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import re
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
@@ -866,23 +868,45 @@ def _provider_label(provider_used: str, *, rewrite_provider: str | None) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Tool Pre-Execution
+# Tool Pre-Execution (LLM Agent Router)
 # ═══════════════════════════════════════════════════════════════
 
-_TIME_TRIGGERS = (
+_TOOL_ROUTER_PROMPT = """\
+You are MindPal's tool router. Decide which tools (if any) are needed to answer the user's message.
+
+Available tools:
+- current_time: Get current date, time, timezone. Use for any time/date question.
+- search_memory: Search user's stored memories/facts. Use when user asks "do you remember", "what do you know about me", etc.
+- web_search: Search the web for real-time information. Use for current events, news, facts, weather, anything requiring up-to-date data.
+
+Rules:
+- Only call tools that are genuinely needed.
+- For casual chat ("hey", "how are you", "thanks"), return NO tools.
+- For news, current events, real-time data → call web_search.
+- For time/date questions → call current_time.
+- For "do you remember" / "what do you know about me" → call search_memory.
+- You can call multiple tools if needed.
+- For web_search, write a clear, specific search query in English.
+
+Return ONLY valid JSON:
+{"calls":[{"tool":"tool_name","args":{"key":"value"}}]}
+If no tools needed: {"calls":[]}
+"""
+
+# Fallback triggers (only used if LLM router fails)
+_FALLBACK_TIME_TRIGGERS = (
     "what time", "what's the time", "what date", "what day", "what's the date",
     "الساعة كام", "الساعة", "اليوم ايه", "النهاردة", "كام الساعة",
     "current time", "current date", "today's date",
 )
 
-_MEMORY_TRIGGERS = (
+_FALLBACK_MEMORY_TRIGGERS = (
     "do you remember", "what do you know about me", "what did i tell you",
     "my name", "who am i", "فاكر", "تفتكر", "بتعرف ايه عني",
     "remember when", "you know about",
 )
 
-_WEB_SEARCH_TRIGGERS = (
-    # English
+_FALLBACK_SEARCH_TRIGGERS = (
     "search for", "search about", "look up", "look for",
     "what's happening", "what is happening",
     "current news", "latest news", "last news", "recent news",
@@ -891,7 +915,6 @@ _WEB_SEARCH_TRIGGERS = (
     "tell me about", "find out", "find me",
     "can you search", "can you look",
     "what happened", "what's going on",
-    # Arabic
     "دور على", "ابحث عن", "ابحث", "اخبار", "الاخبار",
     "اخر اخبار", "ايه اللي بيحصل",
 )
@@ -903,92 +926,186 @@ async def _pre_execute_tools(
     tool_context: Any,
 ) -> str:
     """
-    Pre-execute tools when the user's message clearly needs them.
+    LLM-driven tool pre-execution.
 
-    Returns formatted tool results text to prepend to the user message,
-    or empty string if no pre-execution was needed.
+    An LLM agent decides which tools are needed for the user's message,
+    then executes them and returns formatted results for the main LLM.
+
+    Falls back to hardcoded trigger matching if the LLM router fails.
     """
     if not user_message:
         return ""
 
-    lowered = user_message.lower()
+    # Step 1: Ask the LLM which tools to call
+    tool_calls = await _llm_tool_router(user_message)
+
+    # Step 2: If LLM router failed, fall back to hardcoded triggers
+    if tool_calls is None:
+        logger.debug("LLM tool router failed — using fallback triggers")
+        tool_calls = _fallback_trigger_detection(user_message)
+
+    if not tool_calls:
+        logger.debug("No tools needed for message: %s", sanitize_text(user_message, 80))
+        return ""
+
+    logger.info("Tool router decided: %s", [c["tool"] for c in tool_calls])
+
+    # Step 3: Execute the tools
     results_parts: list[str] = []
 
-    # Always inject current time for time-related queries
-    if any(trigger in lowered for trigger in _TIME_TRIGGERS):
+    for call in tool_calls:
+        tool_name = call.get("tool", "")
+        tool_args = call.get("args", {})
+
         try:
-            time_result = await registry.execute("current_time", {}, tool_context)
-            if time_result.ok:
-                local_info = time_result.data.get("local", {})
-                utc_info = time_result.data.get("utc", {})
+            result = await registry.execute(tool_name, tool_args, tool_context)
+
+            if tool_name == "current_time" and result.ok:
+                local_info = result.data.get("local", {})
+                utc_info = result.data.get("utc", {})
                 results_parts.append(
                     f"Current time: {local_info.get('datetime', utc_info.get('datetime', 'unknown'))} "
                     f"({local_info.get('day_of_week', utc_info.get('day_of_week', ''))}) "
                     f"[{local_info.get('timezone', 'UTC')}]"
                 )
-        except Exception:
-            pass
+                logger.info("Tool current_time executed successfully")
 
-    # Memory search for "do you remember" type queries
-    if any(trigger in lowered for trigger in _MEMORY_TRIGGERS):
-        try:
-            # Extract the search query from the user's message
-            query_part = lowered
-            for trigger in _MEMORY_TRIGGERS:
-                if trigger in lowered:
-                    idx = lowered.index(trigger) + len(trigger)
-                    query_part = user_message[idx:].strip().rstrip("?").strip()
-                    break
+            elif tool_name == "search_memory" and result.ok:
+                facts = result.data.get("facts", [])[:5]
+                if facts:
+                    query = tool_args.get("query", "general")
+                    results_parts.append(
+                        f"Memory search results for '{query}':\n"
+                        + "\n".join(f"- {fact}" for fact in facts)
+                    )
+                    logger.info("Tool search_memory returned %d facts", len(facts))
 
-            memory_result = await registry.execute(
-                "search_memory",
-                {"query": query_part or user_message[:100]},
-                tool_context,
-            )
-            if memory_result.ok and memory_result.data.get("facts"):
-                facts = memory_result.data["facts"][:5]
-                results_parts.append(
-                    f"Memory search results for '{query_part or 'general'}':\n"
-                    + "\n".join(f"- {fact}" for fact in facts)
-                )
-        except Exception:
-            pass
+            elif tool_name == "web_search" and result.ok:
+                web_results = result.data.get("results", [])[:3]
+                if web_results:
+                    query = tool_args.get("query", "")
+                    logger.info("Tool web_search returned %d results for '%s'", len(web_results), query[:80])
+                    lines = [f"Web search results for '{query[:80]}':"]
+                    for r in web_results:
+                        lines.append(f"- {r.get('title', '')}: {r.get('snippet', '')} [{r.get('url', '')}]")
+                    results_parts.append("\n".join(lines))
+                elif result.error:
+                    logger.warning("Tool web_search error: %s", result.error)
+                else:
+                    logger.info("Tool web_search returned 0 results")
 
-    # Web search for current information queries
-    search_triggered = any(trigger in lowered for trigger in _WEB_SEARCH_TRIGGERS)
-    if search_triggered:
-        logger.info("Web search triggered for message: %s", sanitize_text(user_message, 120))
-        try:
-            # Extract search query
-            query_part = user_message
-            for trigger in _WEB_SEARCH_TRIGGERS:
-                if trigger in lowered:
-                    idx = lowered.index(trigger) + len(trigger)
-                    extracted = user_message[idx:].strip().rstrip("?").strip()
-                    if extracted:
-                        query_part = extracted
-                    break
+            elif result.ok:
+                # Generic tool result
+                results_parts.append(f"Tool {tool_name} result: {json.dumps(result.data, ensure_ascii=False)[:500]}")
+                logger.info("Tool %s executed successfully", tool_name)
 
-            search_result = await registry.execute(
-                "web_search",
-                {"query": query_part[:150]},
-                tool_context,
-            )
-            if search_result.ok and search_result.data.get("results"):
-                web_results = search_result.data["results"][:3]
-                logger.info("Web search returned %d results for '%s'", len(web_results), query_part[:80])
-                lines = [f"Web search results for '{query_part[:80]}':"]
-                for r in web_results:
-                    lines.append(f"- {r.get('title', '')}: {r.get('snippet', '')} [{r.get('url', '')}]")
-                results_parts.append("\n".join(lines))
-            elif search_result.error:
-                logger.warning("Web search error: %s", search_result.error)
-            else:
-                logger.info("Web search returned 0 results for '%s'", query_part[:80])
+            elif result.error:
+                logger.warning("Tool %s failed: %s", tool_name, result.error)
+
         except Exception as exc:
-            logger.warning("Web search pre-execution failed: %s", type(exc).__name__, exc_info=True)
-    else:
-        logger.debug("No web search trigger matched for: %s", sanitize_text(user_message, 120))
+            logger.warning("Tool %s execution error: %s", tool_name, type(exc).__name__)
 
     return "\n\n".join(results_parts)
+
+
+async def _llm_tool_router(user_message: str) -> list[dict[str, Any]] | None:
+    """
+    Ask an LLM which tools are needed for the user's message.
+
+    Returns a list of tool calls, or None if the LLM router fails.
+    Uses quick_llm_generate for speed (~200ms via Groq).
+    """
+    from backend.core.llm_utils import quick_llm_generate
+
+    prompt = (
+        f"{_TOOL_ROUTER_PROMPT}\n\n"
+        f"User message: {sanitize_text(user_message, 500)}\n\n"
+        f"JSON response:"
+    )
+
+    try:
+        raw = await quick_llm_generate(prompt, max_tokens=200, temperature=0.0, timeout=5.0)
+
+        if not raw:
+            return None
+
+        # Parse JSON from LLM output (handle markdown fences, etc.)
+        text = raw.strip()
+        if "```" in text:
+            fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
+            if fence_match:
+                text = fence_match.group(1).strip()
+
+        # Try direct parse
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            # Try to find JSON object in the text
+            json_match = re.search(r"\{.*\}", text, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group(0))
+            else:
+                logger.debug("LLM tool router returned non-JSON: %s", text[:100])
+                return None
+
+        calls = data.get("calls", [])
+        if not isinstance(calls, list):
+            return None
+
+        # Validate each call
+        valid_tools = {"current_time", "search_memory", "web_search", "date_calculator",
+                       "get_user_profile", "get_recent_chat", "search_chat_history"}
+        validated = []
+        for call in calls:
+            if isinstance(call, dict) and call.get("tool") in valid_tools:
+                validated.append({
+                    "tool": call["tool"],
+                    "args": call.get("args", {}),
+                })
+
+        logger.info("LLM tool router decided: %s", [c["tool"] for c in validated] if validated else "no tools")
+        return validated
+
+    except Exception as exc:
+        logger.debug("LLM tool router failed: %s", type(exc).__name__)
+        return None
+
+
+def _fallback_trigger_detection(user_message: str) -> list[dict[str, Any]]:
+    """
+    Emergency fallback: hardcoded trigger detection.
+    Only used when the LLM tool router fails.
+    """
+    lowered = user_message.lower()
+    calls: list[dict[str, Any]] = []
+
+    if any(trigger in lowered for trigger in _FALLBACK_TIME_TRIGGERS):
+        calls.append({"tool": "current_time", "args": {}})
+
+    if any(trigger in lowered for trigger in _FALLBACK_MEMORY_TRIGGERS):
+        # Extract query from message
+        query_part = user_message
+        for trigger in _FALLBACK_MEMORY_TRIGGERS:
+            if trigger in lowered:
+                idx = lowered.index(trigger) + len(trigger)
+                extracted = user_message[idx:].strip().rstrip("?").strip()
+                if extracted:
+                    query_part = extracted
+                break
+        calls.append({"tool": "search_memory", "args": {"query": query_part[:100]}})
+
+    if any(trigger in lowered for trigger in _FALLBACK_SEARCH_TRIGGERS):
+        # Extract query from message
+        query_part = user_message
+        for trigger in _FALLBACK_SEARCH_TRIGGERS:
+            if trigger in lowered:
+                idx = lowered.index(trigger) + len(trigger)
+                extracted = user_message[idx:].strip().rstrip("?").strip()
+                if extracted:
+                    query_part = extracted
+                break
+        calls.append({"tool": "web_search", "args": {"query": query_part[:150]}})
+
+    return calls
+
 
