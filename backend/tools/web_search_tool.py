@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 MAX_QUERY_CHARS = 200
 MAX_SNIPPET_CHARS = 500
 MAX_RESULTS = 5
-REQUEST_TIMEOUT = 10.0
+REQUEST_TIMEOUT = 5.0
 
 # Rate limit tracking (per-request via context metadata)
 _RATE_LIMIT_KEY = "_web_search_count"

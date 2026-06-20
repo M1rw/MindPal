@@ -624,8 +624,8 @@ function playAiAudioChunk(base64Data) {
 // Tool calls (with timeout and network resilience)
 // ═══════════════════════════════════════════════════════════════
 
-const TOOL_FETCH_TIMEOUT_MS = 6_000;   // single tool HTTP timeout
-const TOOL_BATCH_TIMEOUT_MS = 10_000;  // entire batch must resolve within this
+const TOOL_FETCH_TIMEOUT_MS = 12_000;  // single tool HTTP timeout (web_search needs more time)
+const TOOL_BATCH_TIMEOUT_MS = 15_000;  // entire batch must resolve within this
 
 function handleToolCalls(functionCalls) {
   // Wrap the entire batch in a timeout so Gemini never hangs

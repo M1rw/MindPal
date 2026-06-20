@@ -9,6 +9,11 @@
     "FIREBASE_USE_APPLICATION_DEFAULT": "false",
     "PYTHONUNBUFFERED": "1"
   },
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 25
+    }
+  },
   "headers": [
     {
       "source": "/frontend/(.*)\\.js",
