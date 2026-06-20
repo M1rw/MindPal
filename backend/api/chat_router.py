@@ -82,6 +82,20 @@ async def chat_debug(
     """
     trace = services.llm.get_trace(sanitize_text(request_id, 80))
 
+    if trace and trace.user_id_hash and trace.user_id_hash != context.session.user_id_hash:
+        logger.warning(
+            "User %s attempted to access trace %s owned by %s",
+            context.session.user_id_hash, request_id, trace.user_id_hash
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "access_denied",
+                "message": "You do not have permission to view this trace",
+                "request_id": context.request_id,
+            },
+        )
+
     if not trace:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -252,6 +266,7 @@ async def chat(
                 "history_count": len(payload.history or []),
                 "mode_preference": user_preference,
                 "intent_situation_type": intent_context.get("situation_type"),
+                "user_id_hash": context.session.user_id_hash,
             },
         )
 

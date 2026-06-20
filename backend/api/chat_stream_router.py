@@ -281,6 +281,7 @@ async def chat_stream(
                 "tools_pre_executed": bool(tool_results_text),
                 "message_tier": classification.tier,
                 "message_language": classification.language,
+                "user_id_hash": context.session.user_id_hash,
             },
         )
 
