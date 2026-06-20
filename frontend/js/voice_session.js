@@ -10,7 +10,7 @@ const SILENCE_AUTO_END_MS = 90_000;
 
 // Noise gate: prevents ambient noise from being sent to Gemini
 const NOISE_GATE_THRESHOLD = 0.008;
-const NOISE_GATE_HOLD_MS = 300;
+const NOISE_GATE_HOLD_MS = 600;
 
 // Barge-in: user must be louder than this to interrupt AI
 const BARGE_IN_THRESHOLD = 0.025;
@@ -210,7 +210,10 @@ export async function startSession({
       touchActivity();
     }
 
-    // Noise gate: only send audio when above threshold (with hold time)
+    // Noise gate: controls whether we send real audio or silence frames.
+    // CRITICAL: We must ALWAYS send frames to Gemini so its server-side VAD
+    // can detect end-of-speech from the silence. If we stop sending frames
+    // entirely, the VAD never sees silence and the transcript freezes.
     if (!isMicMuted) {
       if (rms > NOISE_GATE_THRESHOLD) {
         gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
@@ -218,10 +221,14 @@ export async function startSession({
 
       const gateOpen = Date.now() < gateOpenUntil;
 
-      _onVolume?.(rms);
+      _onVolume?.(gateOpen ? rms : 0);
 
+      // Always send audio to Gemini — real audio when gate is open,
+      // silence frames when gate is closed (so VAD detects end-of-speech)
       if (gateOpen) {
         sendPcmToWebSocket(pcmData);
+      } else {
+        sendSilenceFrame();
       }
     }
   };
@@ -674,6 +681,26 @@ function sendPcmToWebSocket(pcmData) {
   liveWebSocket.send(JSON.stringify({
     realtimeInput: {
       mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: btoa(binary) }],
+    },
+  }));
+}
+
+// Cached silence frame — 160 samples (10ms at 16kHz) of zeros
+let _silenceFrameB64 = null;
+function sendSilenceFrame() {
+  if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
+
+  // Build once and cache — 160 zero int16 samples = 320 bytes
+  if (!_silenceFrameB64) {
+    const silence = new Uint8Array(320); // all zeros = silence PCM
+    let binary = "";
+    for (let i = 0; i < silence.length; i++) binary += String.fromCharCode(silence[i]);
+    _silenceFrameB64 = btoa(binary);
+  }
+
+  liveWebSocket.send(JSON.stringify({
+    realtimeInput: {
+      mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: _silenceFrameB64 }],
     },
   }));
 }
