@@ -23,6 +23,7 @@ SECURITY NOTE:
 from __future__ import annotations
 
 import logging
+import time
 
 import httpx
 
@@ -37,6 +38,30 @@ MAX_PROMPT_CHARS = 8_000
 
 # Shared client timeout for all providers.
 DEFAULT_TIMEOUT = 15.0
+
+# ═══════════════════════════════════════════════════════════════
+# Circuit breaker — skip providers that recently returned 429/402
+# ═══════════════════════════════════════════════════════════════
+
+_CIRCUIT_BREAKER_TTL = 60  # skip failed provider for 60 seconds
+_provider_failures: dict[str, float] = {}  # provider_name → time.monotonic() when it failed
+
+
+def _circuit_open(provider_name: str) -> bool:
+    """Return True if this provider recently failed and should be skipped."""
+    failed_at = _provider_failures.get(provider_name)
+    if failed_at is None:
+        return False
+    if time.monotonic() - failed_at > _CIRCUIT_BREAKER_TTL:
+        _provider_failures.pop(provider_name, None)
+        return False
+    return True
+
+
+def _trip_circuit(provider_name: str) -> None:
+    """Mark a provider as failed — skip it for the next 60 seconds."""
+    _provider_failures[provider_name] = time.monotonic()
+    logger.info("Circuit breaker tripped for %s — skipping for %ds", provider_name, _CIRCUIT_BREAKER_TTL)
 
 
 async def quick_llm_generate(
@@ -62,7 +87,7 @@ async def quick_llm_generate(
     # Clamp timeout to sane range.
     timeout = max(1.0, min(float(timeout), 60.0))
 
-    # Try providers in configured order.
+    # Try providers in configured order (skip circuit-broken ones).
     providers = {
         "gemini": _try_gemini,
         "cloudflare": _try_cloudflare,
@@ -71,6 +96,9 @@ async def quick_llm_generate(
     }
 
     for provider_name in settings.parsed_llm_provider_order:
+        if _circuit_open(provider_name):
+            continue
+
         provider_fn = providers.get(provider_name)
         if provider_fn is None:
             continue
@@ -118,6 +146,10 @@ async def _try_gemini(
                 )
                 if resp.status_code == 404:
                     continue
+                if resp.status_code == 429:
+                    # Rate limited — trip circuit breaker and stop trying Gemini models
+                    _trip_circuit("gemini")
+                    return ""
                 resp.raise_for_status()
                 candidates = resp.json().get("candidates", [])
                 if candidates:
@@ -126,10 +158,14 @@ async def _try_gemini(
                     if text:
                         return text
             except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
                 logger.warning(
                     "Gemini model %s returned HTTP %d",
-                    model, exc.response.status_code,
+                    model, status,
                 )
+                if status == 429:
+                    _trip_circuit("gemini")
+                    return ""
                 continue
             except Exception as exc:
                 logger.debug("Gemini model %s failed: %s", model, type(exc).__name__)
@@ -236,7 +272,10 @@ async def _try_openrouter(
             resp.raise_for_status()
             return _extract_openai_text(resp.json())
     except httpx.HTTPStatusError as exc:
-        logger.warning("OpenRouter returned HTTP %d", exc.response.status_code)
+        status = exc.response.status_code
+        logger.warning("OpenRouter returned HTTP %d", status)
+        if status in (402, 429):
+            _trip_circuit("openrouter")
         return ""
     except Exception as exc:
         logger.debug("OpenRouter failed: %s", type(exc).__name__)

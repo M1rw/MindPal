@@ -196,32 +196,57 @@ class GeminiProvider:
                 details={"provider": self.name},
             )
 
-        # Use header-based auth (not query param) to avoid key leakage in logs
-        base_url = self.config.base_url.rstrip("/")
-        url = f"{base_url}/models/text-embedding-004:embedContent"
         headers = self._auth_headers()
+        base_url = self.config.base_url.rstrip("/")
+
+        # Try multiple embedding models in order
+        embed_models = [
+            "text-embedding-004",
+            "embedding-001",
+        ]
 
         owns_client = self._client is None
         client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
 
-        embeddings = []
         try:
-            for text in texts:
-                payload = {
-                    "model": "models/text-embedding-004",
-                    "content": {
-                        "parts": [{"text": text}]
+            for embed_model in embed_models:
+                url = f"{base_url}/models/{embed_model}:embedContent"
+                embeddings = []
+                all_ok = True
+
+                for text in texts:
+                    payload = {
+                        "model": f"models/{embed_model}",
+                        "content": {
+                            "parts": [{"text": text}]
+                        }
                     }
-                }
-                response = await client.post(url, headers=headers, json=payload)
-                if response.status_code >= 400:
-                    raise _provider_http_error(response)
+                    try:
+                        response = await client.post(url, headers=headers, json=payload)
+                        if response.status_code == 404:
+                            all_ok = False
+                            break  # Try next model
+                        if response.status_code >= 400:
+                            raise _provider_http_error(response)
 
-                data = response.json()
-                val = data.get("embedding", {}).get("values", [])
-                embeddings.append(val)
+                        data = response.json()
+                        val = data.get("embedding", {}).get("values", [])
+                        embeddings.append(val)
+                    except ProviderError:
+                        raise
+                    except Exception:
+                        all_ok = False
+                        break
 
-            return embeddings
+                if all_ok and embeddings:
+                    return embeddings
+
+            # All models failed with 404
+            raise ProviderError(
+                "No embedding model available",
+                code="gemini_embed_not_available",
+                details={"provider": self.name},
+            )
 
         except ProviderError:
             raise
