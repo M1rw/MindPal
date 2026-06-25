@@ -105,15 +105,18 @@ export function setMuted(muted) {
       sendSilenceFrame();
     }
 
-    // Then send turnComplete after a brief delay to trigger processing
-    setTimeout(() => {
-      if (isMicMuted && liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
-        liveWebSocket.send(JSON.stringify({
-          clientContent: { turnComplete: true },
-        }));
-        console.info("[VOICE] Sent turnComplete on mute — speech will be processed");
-      }
-    }, 200);
+    // Only send turnComplete if the AI is not already speaking.
+    // Sending turnComplete while the AI is speaking causes a 1008 Policy Violation.
+    if (!isAiSpeaking) {
+      setTimeout(() => {
+        if (isMicMuted && liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
+          liveWebSocket.send(JSON.stringify({
+            clientContent: { turnComplete: true },
+          }));
+          console.info("[VOICE] Sent turnComplete on mute — speech will be processed");
+        }
+      }, 200);
+    }
   }
 
   _onAudioState?.({
