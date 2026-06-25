@@ -233,18 +233,24 @@ def _sanitize_messages(raw_messages: Any, *, user_id_hash: str) -> list[dict[str
                 index=index,
             )
 
-        clean_messages.append(
-            {
-                "message_id": message_id,
-                "role": role,
-                "text": text,
-                "created_at": created_at,
-                "provider_used": sanitize_text(str(raw.get("provider_used") or raw.get("providerUsed") or ""), 80),
-                "request_id": sanitize_text(str(raw.get("request_id") or raw.get("requestId") or ""), 120),
-                "mode": sanitize_text(str(raw.get("mode") or ""), 80),
-                "metadata": _sanitize_metadata(raw),
-            }
-        )
+        clean_message = {
+            "message_id": message_id,
+            "role": role,
+            "text": text,
+            "created_at": created_at,
+            "provider_used": sanitize_text(str(raw.get("provider_used") or raw.get("providerUsed") or ""), 80),
+            "request_id": sanitize_text(str(raw.get("request_id") or raw.get("requestId") or ""), 120),
+            "mode": sanitize_text(str(raw.get("mode") or ""), 80),
+            "metadata": _sanitize_metadata(raw),
+        }
+
+        if raw.get("type"):
+            clean_message["type"] = sanitize_text(str(raw.get("type")), 80)
+
+        if isinstance(raw.get("voiceCall"), dict):
+            clean_message["voiceCall"] = raw.get("voiceCall")
+
+        clean_messages.append(clean_message)
 
     return _merge_messages([], clean_messages)
 
