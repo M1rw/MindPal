@@ -175,7 +175,7 @@ export function stopLiveVoice() {
   if (!isLiveActive) return;
   isLiveActive = false;
 
-  stopSession();
+  stopSession({ full: true });
   stopVisualizer();
 
   // Hide overlay with transition

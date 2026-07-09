@@ -23,10 +23,13 @@ const ACTIVITY_THRESHOLD = 0.012;
 // ═══════════════════════════════════════════════════════════════
 
 let liveWebSocket = null;
+
+// Persistent Audio Hardware (reused across WebSocket reconnections)
 let audioContext = null;
-let micSource = null;
 let mediaStream = null;
+let micSource = null;
 let workletNode = null;
+let outputGainNode = null;
 
 let isSessionActive = false;
 let isMicMuted = false;
@@ -35,7 +38,6 @@ let isAiSpeaking = false;
 let _aiInterrupted = false;
 let nextPlaybackTime = 0;
 let activeAudioSources = [];
-let outputGainNode = null;
 
 // Tool call state — must pause audio input while tools are executing
 let _toolCallPending = false;
@@ -105,6 +107,8 @@ export function setMuted(muted) {
   // if timed poorly with AI output) and usually unnecessary with real-time VAD.
   if (muted && liveWebSocket?.readyState === WebSocket.OPEN) {
     console.info("[VOICE] Microphone muted — relying on server VAD via continuous silence");
+    // Ensure the gate is closed immediately
+    gateOpenUntil = 0;
   }
 
   _onAudioState?.({
@@ -134,9 +138,7 @@ export async function startSession({
   _onTurnComplete = onTurnComplete || null;
 
   isSessionActive = true;
-  isMicMuted = false;
-  isSpeakerMuted = false;
-  _reconnectAttempts = 0;
+  // Note: we don't reset _reconnectAttempts here because this might be an internal restart
   isAiSpeaking = false;
   nextPlaybackTime = 0;
   activeAudioSources = [];
@@ -149,65 +151,95 @@ export async function startSession({
   if (!keyRes.ok) throw new Error("Failed to fetch API key");
   const { key } = await keyRes.json();
 
-  // Audio context
-  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-  audioContext = new AudioContextCtor({ sampleRate: 16000 });
+  // ── Persistent Audio Pipeline Setup ───────────────────────────
+  // We only initialize the hardware if it hasn't been done yet.
+  // This allows WebSocket reconnections without dropping the mic.
+  if (!audioContext) {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    audioContext = new AudioContextCtor({ sampleRate: 16000 });
+  }
 
   if (audioContext.state === "suspended") {
     await audioContext.resume().catch(err => console.warn("[Voice] Failed to resume audio context:", err));
   }
 
-  // Mic stream
-  try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 16000,
-      },
-    });
-  } catch (err) {
-    if (err.name === "NotAllowedError") {
-      throw new Error("Microphone permission denied. Please allow mic access in your browser settings.");
-    }
-    throw err;
-  }
+  if (!mediaStream) {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 16000,
+        },
+      });
 
-  // Detect track end (e.g. OS takes mic away)
-  mediaStream.getAudioTracks().forEach(track => {
-    track.onended = () => {
-      console.warn("[Voice] Mic track ended unexpectedly");
-      if (isSessionActive) stopSession();
-    };
-  });
-
-  micSource = audioContext.createMediaStreamSource(mediaStream);
-
-  // AudioWorklet for PCM capture
-  const workletCode = `
-  class PCMProcessor extends AudioWorkletProcessor {
-    constructor() { super(); this.buffer = new Float32Array(1024); this.ptr = 0; }
-    process(inputs) {
-      const ch = inputs[0]?.[0];
-      if (!ch) return true;
-      for (let i = 0; i < ch.length; i++) {
-        this.buffer[this.ptr++] = ch[i];
-        if (this.ptr >= 1024) {
-          this.port.postMessage(this.buffer);
-          this.ptr = 0;
-          this.buffer = new Float32Array(1024);
-        }
+      // Detect track end (e.g. OS takes mic away)
+      mediaStream.getAudioTracks().forEach(track => {
+        track.onended = () => {
+          console.warn("[Voice] Mic track ended unexpectedly");
+          if (isSessionActive) stopSession({ full: true });
+        };
+      });
+    } catch (err) {
+      if (err.name === "NotAllowedError") {
+        throw new Error("Microphone permission denied. Please allow mic access in your browser settings.");
       }
-      return true;
+      throw err;
     }
   }
-  registerProcessor('pcm-processor', PCMProcessor);
-  `;
-  const blob = new Blob([workletCode], { type: "application/javascript" });
-  await audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
-  workletNode = new AudioWorkletNode(audioContext, "pcm-processor");
 
+  if (!micSource) {
+    micSource = audioContext.createMediaStreamSource(mediaStream);
+  }
+
+  if (!workletNode) {
+    const workletCode = `
+    class PCMProcessor extends AudioWorkletProcessor {
+      constructor() { super(); this.buffer = new Float32Array(1024); this.ptr = 0; }
+      process(inputs) {
+        const ch = inputs[0]?.[0];
+        if (!ch) return true;
+        for (let i = 0; i < ch.length; i++) {
+          this.buffer[this.ptr++] = ch[i];
+          if (this.ptr >= 1024) {
+            this.port.postMessage(this.buffer);
+            this.ptr = 0;
+            this.buffer = new Float32Array(1024);
+          }
+        }
+        return true;
+      }
+    }
+    registerProcessor('pcm-processor', PCMProcessor);
+    `;
+    const blob = new Blob([workletCode], { type: "application/javascript" });
+    await audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
+    workletNode = new AudioWorkletNode(audioContext, "pcm-processor");
+
+    // Connect nodes
+    micSource.connect(workletNode);
+    workletNode.connect(audioContext.destination);
+
+    // Mic analyser (for visualizer)
+    micAnalyser = audioContext.createAnalyser();
+    micAnalyser.fftSize = 2048;
+    micAnalyser.smoothingTimeConstant = 0.8;
+    micSource.connect(micAnalyser);
+
+    // AI output analyser (for visualizer)
+    aiAnalyser = audioContext.createAnalyser();
+    aiAnalyser.fftSize = 2048;
+    aiAnalyser.smoothingTimeConstant = 0.75;
+
+    // Output gain node (for speaker mute)
+    outputGainNode = audioContext.createGain();
+    outputGainNode.gain.value = 1.0;
+    outputGainNode.connect(audioContext.destination);
+  }
+
+  // ── Worklet message handler ───────────────────────────────────
+  // Re-bind handler every time to ensure it uses the latest closures
   workletNode.port.onmessage = (e) => {
     if (!isSessionActive || !liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
 
@@ -267,31 +299,13 @@ export async function startSession({
     }
   };
 
-  micSource.connect(workletNode);
-  workletNode.connect(audioContext.destination);
-
-  // Mic analyser (for visualizer)
-  micAnalyser = audioContext.createAnalyser();
-  micAnalyser.fftSize = 2048;
-  micAnalyser.smoothingTimeConstant = 0.8;
-  micSource.connect(micAnalyser);
-
-  // AI output analyser (for visualizer)
-  aiAnalyser = audioContext.createAnalyser();
-  aiAnalyser.fftSize = 2048;
-  aiAnalyser.smoothingTimeConstant = 0.75;
-
-  // Output gain node (for speaker mute)
-  outputGainNode = audioContext.createGain();
-  outputGainNode.gain.value = 1.0;
-  outputGainNode.connect(audioContext.destination);
-
-  // WebSocket to Gemini
+  // ── WebSocket to Gemini ───────────────────────────────────────
   const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
   liveWebSocket = new WebSocket(wsUrl);
 
   liveWebSocket.onopen = () => {
     console.log("[Voice] WebSocket connected. Sending setup…");
+    _reconnectAttempts = 0; // Success — reset counter
     emitAudioState("listen");
     sendSetupMessage();
     startSilenceChecker();
@@ -321,79 +335,92 @@ export async function startSession({
   };
 
   liveWebSocket.onclose = (event) => {
-    console.warn("[Voice] WebSocket closed — code:", event.code, "reason:", event.reason, "wasClean:", event.wasClean);
+    const { code, reason, wasClean } = event;
+    console.warn("[Voice] WebSocket closed", { code, reason, wasClean });
 
     if (!isSessionActive) return;
 
-    // Abnormal closure (e.g. 1006) or 1008 (Policy Violation) that might be transient
-    if (!event.wasClean || event.code === 1008) {
-      if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        _reconnectAttempts++;
-        const delay = Math.pow(2, _reconnectAttempts) * 1000;
-        console.info("[Voice] Attempting reconnect", _reconnectAttempts, "/", MAX_RECONNECT_ATTEMPTS, "in", delay, "ms...");
+    // We attempt reconnection for almost any non-manual closure.
+    // Manual stop sets liveWebSocket.onclose = null, so this only runs for unexpected drops.
+    if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      _reconnectAttempts++;
+      const delay = Math.min(5000, Math.pow(2, _reconnectAttempts) * 1000);
+      console.info("[Voice] Attempting silent reconnect", { attempt: _reconnectAttempts, delay });
 
-        const statusEl = document.getElementById("voice-live-status");
-        if (statusEl) statusEl.textContent = "Reconnecting…";
+      const statusEl = document.getElementById("voice-live-status");
+      if (statusEl) statusEl.textContent = "Reconnecting…";
 
-        setTimeout(() => {
-          // Store these before we stop the session
-          const currentToken = _authToken;
-          const currentProvider = _contextProvider;
-          const currentCallbacks = {
-            onTranscript: _onTranscript,
-            onAudioState: _onAudioState,
-            onSessionEnd: _onSessionEnd,
-            onVolume: _onVolume,
-            onTurnComplete: _onTurnComplete
-          };
+      setTimeout(() => {
+        if (!isSessionActive) return;
 
-          // We use isSessionActive to check if the user hasn't manually closed the call
-          // while we were waiting for the timeout.
-          if (isSessionActive) {
-            console.info("[Voice] Executing internal restart for reconnection...");
-            stopSession({ silent: true }); // Don't close UI!
+        // Capture state before resetting
+        const token = _authToken;
+        const provider = _contextProvider;
+        const callbacks = {
+          onTranscript: _onTranscript,
+          onAudioState: _onAudioState,
+          onSessionEnd: _onSessionEnd,
+          onVolume: _onVolume,
+          onTurnComplete: _onTurnComplete,
+        };
 
-            // startSession will set isSessionActive back to true
-            startSession({
-              ...currentCallbacks,
-              contextProvider: currentProvider,
-              token: currentToken
-            }).catch(err => {
-              console.error("[Voice] Reconnect failed:", err);
-              // If startSession fails, we should probably end for real
-              isSessionActive = true; // temporarily set true so stopSession works
-              stopSession();
-            });
-          }
-        }, delay);
-        return;
-      }
+        console.info("[Voice] Performing internal session reset...");
+        // Reset session state without killing audio hardware
+        stopSession({ silent: true, full: false });
+
+        // startSession sets isSessionActive = true
+        startSession({ ...callbacks, contextProvider: provider, token }).catch(err => {
+          console.error("[Voice] Silent reconnect failed", { error: err.message });
+          // If restart fails, do a full cleanup to be safe
+          isSessionActive = true;
+          stopSession({ full: true });
+        });
+      }, delay);
+      return;
     }
 
-    stopSession();
+    // No more retries
+    console.error("[Voice] Connection lost — maximum retry attempts reached.");
+    stopSession({ full: true });
   };
 }
 
-export function stopSession({ silent = false } = {}) {
+export function stopSession({ silent = false, full = false } = {}) {
   if (!isSessionActive) return;
   isSessionActive = false;
 
   flushAiAudio();
   stopSilenceChecker();
   stopNetworkMonitor();
-  if (workletNode) { workletNode.disconnect(); workletNode = null; }
-  if (micAnalyser) { micAnalyser.disconnect(); micAnalyser = null; }
-  if (aiAnalyser) { aiAnalyser.disconnect(); aiAnalyser = null; }
-  if (outputGainNode) { outputGainNode.disconnect(); outputGainNode = null; }
-  if (micSource) { micSource.disconnect(); micSource = null; }
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(track => track.stop());
-    mediaStream = null;
+
+  // Close WebSocket immediately
+  if (liveWebSocket) {
+    // Remove listeners so onclose doesn't trigger a reconnection during manual stop
+    liveWebSocket.onclose = null;
+    liveWebSocket.onerror = null;
+    liveWebSocket.close();
+    liveWebSocket = null;
   }
-  if (audioContext && audioContext.state !== "closed") { audioContext.close(); audioContext = null; }
-  if (liveWebSocket) { liveWebSocket.close(); liveWebSocket = null; }
+
+  // Full teardown (closes mic and audio hardware)
+  if (full) {
+    if (workletNode) { workletNode.disconnect(); workletNode = null; }
+    if (micAnalyser) { micAnalyser.disconnect(); micAnalyser = null; }
+    if (aiAnalyser) { aiAnalyser.disconnect(); aiAnalyser = null; }
+    if (outputGainNode) { outputGainNode.disconnect(); outputGainNode = null; }
+    if (micSource) { micSource.disconnect(); micSource = null; }
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+      mediaStream = null;
+    }
+    if (audioContext && audioContext.state !== "closed") {
+      audioContext.close();
+      audioContext = null;
+    }
+  }
 
   _authToken = null;
+
   if (!silent) {
     _reconnectAttempts = 0;
     _onSessionEnd?.();
@@ -621,7 +648,7 @@ function handleServerMessage(data) {
 
   // Server error
   if (data.error) {
-    console.error("[Voice] Server error:", data.error);
+    console.error("[Voice] Server-reported error", { error: data.error });
     return;
   }
 
