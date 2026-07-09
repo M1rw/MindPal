@@ -99,27 +99,12 @@ export function setSpeakerMuted(muted) {
 export function setMuted(muted) {
   isMicMuted = muted;
 
-  // When muting mid-speech, explicitly tell Gemini the user is done talking.
-  // 1. Send a few silence frames to smoothly transition the audio
-  // 2. After a short delay, send turnComplete to force processing
-  if (muted && liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
-    // Send silence frames first to pad the audio stream
-    for (let i = 0; i < 3; i++) {
-      sendSilenceFrame();
-    }
-
-    // Only send turnComplete if the AI is not already speaking.
-    // Sending turnComplete while the AI is speaking causes a 1008 Policy Violation.
-    if (!isAiSpeaking) {
-      setTimeout(() => {
-        if (isMicMuted && liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
-          liveWebSocket.send(JSON.stringify({
-            clientContent: { turnComplete: true },
-          }));
-          console.info("[VOICE] Sent turnComplete on mute — speech will be processed");
-        }
-      }, 200);
-    }
+  // When muting mid-speech, we rely on the continuous silence stream
+  // from the worklet to trigger the server-side VAD.
+  // Manual turnComplete on mute is risky (often causes 1008 Policy Violations
+  // if timed poorly with AI output) and usually unnecessary with real-time VAD.
+  if (muted && liveWebSocket?.readyState === WebSocket.OPEN) {
+    console.info("[VOICE] Microphone muted — relying on server VAD via continuous silence");
   }
 
   _onAudioState?.({
@@ -265,22 +250,20 @@ export async function startSession({
     // CRITICAL: We must ALWAYS send frames to Gemini so its server-side VAD
     // can detect end-of-speech from the silence. If we stop sending frames
     // entirely, the VAD never sees silence and the transcript freezes.
-    if (!isMicMuted) {
-      if (rms > NOISE_GATE_THRESHOLD) {
-        gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
-      }
+    if (rms > NOISE_GATE_THRESHOLD && !isMicMuted) {
+      gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
+    }
 
-      const gateOpen = Date.now() < gateOpenUntil;
+    const gateOpen = Date.now() < gateOpenUntil && !isMicMuted;
 
-      _onVolume?.(gateOpen ? rms : 0);
+    _onVolume?.(gateOpen ? rms : 0);
 
-      // Always send audio to Gemini — real audio when gate is open,
-      // silence frames when gate is closed (so VAD detects end-of-speech)
-      if (gateOpen) {
-        sendPcmToWebSocket(pcmData);
-      } else {
-        sendSilenceFrame();
-      }
+    // Always send audio to Gemini — real audio when gate is open,
+    // silence frames when gate is closed (so VAD detects end-of-speech)
+    if (gateOpen) {
+      sendPcmToWebSocket(pcmData);
+    } else {
+      sendSilenceFrame();
     }
   };
 
@@ -317,15 +300,19 @@ export async function startSession({
   };
 
   liveWebSocket.onmessage = async (event) => {
-    let data;
-    if (event.data instanceof Blob) {
-      data = JSON.parse(await event.data.text());
-    } else {
-      data = JSON.parse(event.data);
-    }
+    try {
+      let data;
+      if (event.data instanceof Blob) {
+        data = JSON.parse(await event.data.text());
+      } else {
+        data = JSON.parse(event.data);
+      }
 
-    handleServerMessage(data);
-    _lastWsMessageTime = Date.now();
+      handleServerMessage(data);
+      _lastWsMessageTime = Date.now();
+    } catch (err) {
+      console.error("[Voice] Failed to parse WebSocket message:", err);
+    }
   };
 
   liveWebSocket.onerror = (err) => {
@@ -349,27 +336,33 @@ export async function startSession({
         if (statusEl) statusEl.textContent = "Reconnecting…";
 
         setTimeout(() => {
-          if (isSessionActive) {
-            // We need to restart the WebSocket part specifically.
-            // Simplified here by stopping and starting, but a cleaner
-            // partial restart would be better in a production app.
-            const currentToken = _authToken;
-            const currentProvider = _contextProvider;
-            const currentCallbacks = {
-              onTranscript: _onTranscript,
-              onAudioState: _onAudioState,
-              onSessionEnd: _onSessionEnd,
-              onVolume: _onVolume,
-              onTurnComplete: _onTurnComplete
-            };
+          // Store these before we stop the session
+          const currentToken = _authToken;
+          const currentProvider = _contextProvider;
+          const currentCallbacks = {
+            onTranscript: _onTranscript,
+            onAudioState: _onAudioState,
+            onSessionEnd: _onSessionEnd,
+            onVolume: _onVolume,
+            onTurnComplete: _onTurnComplete
+          };
 
-            stopSession();
+          // We use isSessionActive to check if the user hasn't manually closed the call
+          // while we were waiting for the timeout.
+          if (isSessionActive) {
+            console.info("[Voice] Executing internal restart for reconnection...");
+            stopSession({ silent: true }); // Don't close UI!
+
+            // startSession will set isSessionActive back to true
             startSession({
               ...currentCallbacks,
               contextProvider: currentProvider,
               token: currentToken
             }).catch(err => {
               console.error("[Voice] Reconnect failed:", err);
+              // If startSession fails, we should probably end for real
+              isSessionActive = true; // temporarily set true so stopSession works
+              stopSession();
             });
           }
         }, delay);
@@ -381,10 +374,9 @@ export async function startSession({
   };
 }
 
-export function stopSession() {
+export function stopSession({ silent = false } = {}) {
   if (!isSessionActive) return;
   isSessionActive = false;
-  _reconnectAttempts = 0;
 
   flushAiAudio();
   stopSilenceChecker();
@@ -402,7 +394,10 @@ export function stopSession() {
   if (liveWebSocket) { liveWebSocket.close(); liveWebSocket = null; }
 
   _authToken = null;
-  _onSessionEnd?.();
+  if (!silent) {
+    _reconnectAttempts = 0;
+    _onSessionEnd?.();
+  }
 }
 
 export function sendTextToModel(text) {
