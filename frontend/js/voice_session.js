@@ -28,6 +28,7 @@ let liveWebSocket = null;
 let audioContext = null;
 let mediaStream = null;
 let micSource = null;
+let micGainNode = null;
 let workletNode = null;
 let outputGainNode = null;
 
@@ -41,6 +42,10 @@ let activeAudioSources = [];
 
 // Tool call state — must pause audio input while tools are executing
 let _toolCallPending = false;
+
+// Mute handling
+let _silenceFrameCount = 0;
+const MAX_SILENCE_BURST = 10;
 
 // Noise gate
 let gateOpenUntil = 0;
@@ -101,14 +106,17 @@ export function setSpeakerMuted(muted) {
 export function setMuted(muted) {
   isMicMuted = muted;
 
-  // When muting mid-speech, we rely on the continuous silence stream
-  // from the worklet to trigger the server-side VAD.
-  // Manual turnComplete on mute is risky (often causes 1008 Policy Violations
-  // if timed poorly with AI output) and usually unnecessary with real-time VAD.
+  // 1. Hardware/Gain mute
+  if (micGainNode && audioContext) {
+    micGainNode.gain.setValueAtTime(muted ? 0 : 1, audioContext.currentTime);
+  }
+
+  // 2. Software transition
   if (muted && liveWebSocket?.readyState === WebSocket.OPEN) {
-    console.info("[VOICE] Microphone muted — relying on server VAD via continuous silence");
-    // Ensure the gate is closed immediately
+    console.info("[VOICE] Microphone muted — sending silence burst for server VAD");
+    // Force the worklet to send a burst of silence frames
     gateOpenUntil = 0;
+    _silenceFrameCount = 0;
   }
 
   _onAudioState?.({
@@ -217,15 +225,16 @@ export async function startSession({
     await audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
     workletNode = new AudioWorkletNode(audioContext, "pcm-processor");
 
-    // Connect nodes
-    micSource.connect(workletNode);
-    workletNode.connect(audioContext.destination);
+    // Mic Gain node (for software mute before worklet)
+    micGainNode = audioContext.createGain();
+    micGainNode.gain.value = 1.0;
+    micSource.connect(micGainNode);
 
     // Mic analyser (for visualizer)
     micAnalyser = audioContext.createAnalyser();
     micAnalyser.fftSize = 2048;
     micAnalyser.smoothingTimeConstant = 0.8;
-    micSource.connect(micAnalyser);
+    micGainNode.connect(micAnalyser);
 
     // AI output analyser (for visualizer)
     aiAnalyser = audioContext.createAnalyser();
@@ -236,6 +245,10 @@ export async function startSession({
     outputGainNode = audioContext.createGain();
     outputGainNode.gain.value = 1.0;
     outputGainNode.connect(audioContext.destination);
+
+    // Final Worklet connections
+    micGainNode.connect(workletNode);
+    workletNode.connect(audioContext.destination);
   }
 
   // ── Worklet message handler ───────────────────────────────────
@@ -262,11 +275,10 @@ export async function startSession({
       flushAiAudio();
       emitAudioState("listen");
 
-      // Explicitly tell Gemini the user interrupted so it stops generating/sending audio
+      // Explicitly tell Gemini the user interrupted
       if (liveWebSocket?.readyState === WebSocket.OPEN) {
         liveWebSocket.send(JSON.stringify({
           clientContent: {
-            turns: [],
             turnComplete: false,
           },
         }));
@@ -279,28 +291,29 @@ export async function startSession({
     }
 
     // Noise gate: controls whether we send real audio or silence frames.
-    // CRITICAL: We must ALWAYS send frames to Gemini so its server-side VAD
-    // can detect end-of-speech from the silence. If we stop sending frames
-    // entirely, the VAD never sees silence and the transcript freezes.
+    // CRITICAL: We must send a few silence frames after speech ends so Gemini's
+    // server-side VAD can detect end-of-speech. Sending silence indefinitely
+    // is unnecessary and can waste bandwidth.
     if (rms > NOISE_GATE_THRESHOLD && !isMicMuted) {
       gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
+      _silenceFrameCount = 0; // reset burst
     }
 
     const gateOpen = Date.now() < gateOpenUntil && !isMicMuted;
-
     _onVolume?.(gateOpen ? rms : 0);
 
-    // Always send audio to Gemini — real audio when gate is open,
-    // silence frames when gate is closed (so VAD detects end-of-speech)
     if (gateOpen) {
       sendPcmToWebSocket(pcmData);
-    } else {
+    } else if (_silenceFrameCount < MAX_SILENCE_BURST) {
+      // Send a limited burst of silence to trigger VAD
       sendSilenceFrame();
+      _silenceFrameCount++;
     }
   };
 
   // ── WebSocket to Gemini ───────────────────────────────────────
   const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
+
   liveWebSocket = new WebSocket(wsUrl);
 
   liveWebSocket.onopen = () => {
@@ -336,7 +349,7 @@ export async function startSession({
 
   liveWebSocket.onclose = (event) => {
     const { code, reason, wasClean } = event;
-    console.warn("[Voice] WebSocket closed", { code, reason, wasClean });
+    console.warn("[Voice] WebSocket closed", { code, reason, wasClean, sessionActive: isSessionActive });
 
     if (!isSessionActive) return;
 
@@ -407,6 +420,7 @@ export function stopSession({ silent = false, full = false } = {}) {
     if (workletNode) { workletNode.disconnect(); workletNode = null; }
     if (micAnalyser) { micAnalyser.disconnect(); micAnalyser = null; }
     if (aiAnalyser) { aiAnalyser.disconnect(); aiAnalyser = null; }
+    if (micGainNode) { micGainNode.disconnect(); micGainNode = null; }
     if (outputGainNode) { outputGainNode.disconnect(); outputGainNode = null; }
     if (micSource) { micSource.disconnect(); micSource = null; }
     if (mediaStream) {
@@ -1022,7 +1036,7 @@ function startSilenceChecker() {
     const elapsed = Date.now() - lastActivityTime;
 
     if (elapsed >= SILENCE_AUTO_END_MS) {
-      stopSession();
+      stopSession({ full: true });
       return;
     }
 
