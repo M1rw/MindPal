@@ -43,9 +43,7 @@ let activeAudioSources = [];
 // Tool call state — must pause audio input while tools are executing
 let _toolCallPending = false;
 
-// Mute handling
-let _silenceFrameCount = 0;
-const MAX_SILENCE_BURST = 10;
+// Mute handling (continuous for stability)
 
 // Noise gate
 let gateOpenUntil = 0;
@@ -106,17 +104,19 @@ export function setSpeakerMuted(muted) {
 export function setMuted(muted) {
   isMicMuted = muted;
 
-  // 1. Hardware/Gain mute
+  // 1. Double-layered mute (Gain + Track)
   if (micGainNode && audioContext) {
     micGainNode.gain.setValueAtTime(muted ? 0 : 1, audioContext.currentTime);
+  }
+  if (mediaStream) {
+    mediaStream.getAudioTracks().forEach(t => t.enabled = !muted);
   }
 
   // 2. Software transition
   if (muted && liveWebSocket?.readyState === WebSocket.OPEN) {
-    console.info("[VOICE] Microphone muted — sending silence burst for server VAD");
-    // Force the worklet to send a burst of silence frames
+    console.info("[VOICE] Microphone muted — transitioning to silence stream");
+    // Immediately close the gate to ensure silence frames are sent
     gateOpenUntil = 0;
-    _silenceFrameCount = 0;
   }
 
   _onAudioState?.({
@@ -148,6 +148,7 @@ export async function startSession({
   isSessionActive = true;
   // Note: we don't reset _reconnectAttempts here because this might be an internal restart
   isAiSpeaking = false;
+  _aiInterrupted = false;
   nextPlaybackTime = 0;
   activeAudioSources = [];
   gateOpenUntil = 0;
@@ -186,7 +187,10 @@ export async function startSession({
       mediaStream.getAudioTracks().forEach(track => {
         track.onended = () => {
           console.warn("[Voice] Mic track ended unexpectedly");
-          if (isSessionActive) stopSession({ full: true });
+          if (isSessionActive) {
+            console.info("[Voice] Stopping session due to track end");
+            stopSession({ full: true, reason: "mic_track_ended" });
+          }
         };
       });
     } catch (err) {
@@ -227,7 +231,8 @@ export async function startSession({
 
     // Mic Gain node (for software mute before worklet)
     micGainNode = audioContext.createGain();
-    micGainNode.gain.value = 1.0;
+    // Initialize with current mute state
+    micGainNode.gain.setValueAtTime(isMicMuted ? 0 : 1, audioContext.currentTime);
     micSource.connect(micGainNode);
 
     // Mic analyser (for visualizer)
@@ -247,8 +252,8 @@ export async function startSession({
     outputGainNode.connect(audioContext.destination);
 
     // Final Worklet connections
+    // CRITICAL: We do NOT connect the worklet to destination (that would cause local echo)
     micGainNode.connect(workletNode);
-    workletNode.connect(audioContext.destination);
   }
 
   // ── Worklet message handler ───────────────────────────────────
@@ -276,12 +281,14 @@ export async function startSession({
       emitAudioState("listen");
 
       // Explicitly tell Gemini the user interrupted
-      if (liveWebSocket?.readyState === WebSocket.OPEN) {
-        liveWebSocket.send(JSON.stringify({
-          clientContent: {
-            turnComplete: false,
-          },
-        }));
+      if (liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
+        try {
+          liveWebSocket.send(JSON.stringify({
+            clientContent: { turnComplete: false },
+          }));
+        } catch (err) {
+          console.warn("[VOICE] Failed to send barge-in signal", { error: err.message });
+        }
       }
     }
 
@@ -293,10 +300,9 @@ export async function startSession({
     // Noise gate: controls whether we send real audio or silence frames.
     // CRITICAL: We must send a few silence frames after speech ends so Gemini's
     // server-side VAD can detect end-of-speech. Sending silence indefinitely
-    // is unnecessary and can waste bandwidth.
+    // is unnecessary and can cause protocol violations during AI turns.
     if (rms > NOISE_GATE_THRESHOLD && !isMicMuted) {
       gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
-      _silenceFrameCount = 0; // reset burst
     }
 
     const gateOpen = Date.now() < gateOpenUntil && !isMicMuted;
@@ -304,10 +310,11 @@ export async function startSession({
 
     if (gateOpen) {
       sendPcmToWebSocket(pcmData);
-    } else if (_silenceFrameCount < MAX_SILENCE_BURST) {
-      // Send a limited burst of silence to trigger VAD
+    } else {
+      // Always send silence frames when gate is closed or mic is muted.
+      // This is critical for Gemini Live API stability to maintain VAD state
+      // and prevent connection timeouts.
       sendSilenceFrame();
-      _silenceFrameCount++;
     }
   };
 
@@ -343,17 +350,19 @@ export async function startSession({
   };
 
   liveWebSocket.onerror = (err) => {
-    console.error("[Voice] WebSocket error:", err);
-    // Don't stop immediately, allow onclose to handle reconnection if appropriate
+    console.error("[Voice] WebSocket error", { error: err });
   };
 
   liveWebSocket.onclose = (event) => {
     const { code, reason, wasClean } = event;
     console.warn("[Voice] WebSocket closed", { code, reason, wasClean, sessionActive: isSessionActive });
 
-    if (!isSessionActive) return;
+    if (!isSessionActive) {
+      console.info("[Voice] websocket closed after session end — no restart needed");
+      return;
+    }
 
-    // We attempt reconnection for almost any non-manual closure.
+    // We attempt reconnection for almost any closure if the session is still "active"
     // Manual stop sets liveWebSocket.onclose = null, so this only runs for unexpected drops.
     if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       _reconnectAttempts++;
@@ -379,14 +388,14 @@ export async function startSession({
 
         console.info("[Voice] Performing internal session reset...");
         // Reset session state without killing audio hardware
-        stopSession({ silent: true, full: false });
+        stopSession({ silent: true, full: false, reason: "silent_reconnect" });
 
         // startSession sets isSessionActive = true
         startSession({ ...callbacks, contextProvider: provider, token }).catch(err => {
           console.error("[Voice] Silent reconnect failed", { error: err.message });
           // If restart fails, do a full cleanup to be safe
           isSessionActive = true;
-          stopSession({ full: true });
+          stopSession({ full: true, reason: "silent_reconnect_failed" });
         });
       }, delay);
       return;
@@ -394,14 +403,18 @@ export async function startSession({
 
     // No more retries
     console.error("[Voice] Connection lost — maximum retry attempts reached.");
-    stopSession({ full: true });
+    stopSession({ full: true, reason: "max_retries_reached" });
   };
 }
 
-export function stopSession({ silent = false, full = false } = {}) {
-  if (!isSessionActive) return;
+export function stopSession({ silent = false, full = false, reason = "unknown" } = {}) {
+  if (!isSessionActive) {
+    console.info("[Voice] stopSession called on inactive session", { reason });
+    return;
+  }
   isSessionActive = false;
 
+  console.log("[Voice] Session stopping", { silent, full, reason });
   flushAiAudio();
   stopSilenceChecker();
   stopNetworkMonitor();
@@ -443,12 +456,16 @@ export function stopSession({ silent = false, full = false } = {}) {
 
 export function sendTextToModel(text) {
   if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
-  liveWebSocket.send(JSON.stringify({
-    clientContent: {
-      turns: [{ role: "user", parts: [{ text }] }],
-      turnComplete: true,
-    },
-  }));
+  try {
+    liveWebSocket.send(JSON.stringify({
+      clientContent: {
+        turns: [{ role: "user", parts: [{ text }] }],
+        turnComplete: true,
+      },
+    }));
+  } catch (err) {
+    console.warn("[VOICE] Failed to send text to model", { error: err.message });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -964,41 +981,47 @@ function sendPcmToWebSocket(pcmData) {
   if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
   if (_toolCallPending) return; // Don't send audio during tool execution (causes 1008)
 
-  const buffer = new ArrayBuffer(pcmData.length * 2);
-  const view = new DataView(buffer);
-  for (let i = 0; i < pcmData.length; i++) view.setInt16(i * 2, pcmData[i], true);
+  try {
+    const buffer = new ArrayBuffer(pcmData.length * 2);
+    const view = new DataView(buffer);
+    for (let i = 0; i < pcmData.length; i++) view.setInt16(i * 2, pcmData[i], true);
 
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
 
-  liveWebSocket.send(JSON.stringify({
-    realtimeInput: {
-      mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: btoa(binary) }],
-    },
-  }));
+    liveWebSocket.send(JSON.stringify({
+      realtimeInput: {
+        mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: btoa(binary) }],
+      },
+    }));
+  } catch (err) {
+    console.warn("[VOICE] Error sending PCM to WebSocket", { error: err.message });
+  }
 }
 
 // Cached silence frame — 1024 samples (64ms at 16kHz) of zeros
-// Match the worklet buffer size for perfectly timed real-time streaming
 let _silenceFrameB64 = null;
 function sendSilenceFrame() {
   if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
   if (_toolCallPending) return; // Don't send audio during tool execution (causes 1008)
 
-  // Build once and cache — 1024 zero int16 samples = 2048 bytes
-  if (!_silenceFrameB64) {
-    const silence = new Uint8Array(2048); // all zeros = silence PCM
-    let binary = "";
-    for (let i = 0; i < silence.length; i++) binary += String.fromCharCode(silence[i]);
-    _silenceFrameB64 = btoa(binary);
-  }
+  try {
+    if (!_silenceFrameB64) {
+      const silence = new Uint8Array(2048);
+      let binary = "";
+      for (let i = 0; i < silence.length; i++) binary += String.fromCharCode(silence[i]);
+      _silenceFrameB64 = btoa(binary);
+    }
 
-  liveWebSocket.send(JSON.stringify({
-    realtimeInput: {
-      mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: _silenceFrameB64 }],
-    },
-  }));
+    liveWebSocket.send(JSON.stringify({
+      realtimeInput: {
+        mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: _silenceFrameB64 }],
+      },
+    }));
+  } catch (err) {
+    console.warn("[VOICE] Error sending silence to WebSocket", { error: err.message });
+  }
 }
 
 function flushAiAudio() {
@@ -1036,7 +1059,8 @@ function startSilenceChecker() {
     const elapsed = Date.now() - lastActivityTime;
 
     if (elapsed >= SILENCE_AUTO_END_MS) {
-      stopSession({ full: true });
+      console.info("[Voice] Stopping session due to silence timeout");
+      stopSession({ full: true, reason: "silence_timeout" });
       return;
     }
 
