@@ -321,7 +321,7 @@ export async function startSession({
   };
 
   liveWebSocket.onclose = (event) => {
-    console.warn(`[Voice] WebSocket closed — code: ${event.code}, reason: "${event.reason}", wasClean: ${event.wasClean}`);
+    console.warn("[Voice] WebSocket closed — code:", event.code, "reason:", event.reason, "wasClean:", event.wasClean);
 
     if (!isSessionActive) return;
 
@@ -330,7 +330,7 @@ export async function startSession({
       if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         _reconnectAttempts++;
         const delay = Math.pow(2, _reconnectAttempts) * 1000;
-        console.info(`[Voice] Attempting reconnect ${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms...`);
+        console.info("[Voice] Attempting reconnect", _reconnectAttempts, "/", MAX_RECONNECT_ATTEMPTS, "in", delay, "ms...");
 
         const statusEl = document.getElementById("voice-live-status");
         if (statusEl) statusEl.textContent = "Reconnecting…";
@@ -774,18 +774,18 @@ async function executeToolCall(name, args) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.warn(`[TOOL_CALL] ${name} backend returned HTTP ${response.status} — falling back to client-side`);
+      console.warn("[TOOL_CALL] backend returned HTTP error — falling back to client-side", { name, status: response.status });
       return _executeToolClientSide(name, args);
     }
 
     const data = await response.json();
     const result = data.result || data;
-    console.info(`[TOOL_CALL] ${name} executed via BACKEND`, result?.result_count ? `(${result.result_count} results)` : "");
+    console.info("[TOOL_CALL] executed via BACKEND", { name, result_count: result?.result_count || 0 });
     return result;
   } catch (err) {
     clearTimeout(timeoutId);
     const isTimeout = err.name === "AbortError";
-    console.warn(`[TOOL_CALL] ${name} backend failed: ${isTimeout ? "timeout" : err.message} — falling back to client-side`);
+    console.warn("[TOOL_CALL] backend failed — falling back to client-side", { name, error: isTimeout ? "timeout" : err.message });
     return _executeToolClientSide(name, args);
   }
 }
@@ -858,7 +858,7 @@ function _executeToolClientSide(name, args) {
       };
     }
     case "web_search":
-      console.info(`[TOOL_CALL] web_search falling back to CLIENT-SIDE DDG for: "${args.query || ""}"`);
+      console.info("[TOOL_CALL] web_search falling back to CLIENT-SIDE DDG", { query: args.query || "" });
       return _clientSideWebSearch(args.query || "");
     case "date_calculator":
       return { error: "Date calculator is temporarily unavailable. Please calculate the date manually from the current time context." };
