@@ -32,6 +32,7 @@ let isSessionActive = false;
 let isMicMuted = false;
 let isSpeakerMuted = false;
 let isAiSpeaking = false;
+let _aiInterrupted = false;
 let nextPlaybackTime = 0;
 let activeAudioSources = [];
 let outputGainNode = null;
@@ -52,6 +53,8 @@ let silenceWarnedOnce = false;
 let _networkHandlers = null;
 let _lastWsMessageTime = 0;
 let _networkCheckInterval = null;
+let _reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 3;
 
 // Analysers (exposed for visualizer)
 let micAnalyser = null;
@@ -148,6 +151,7 @@ export async function startSession({
   isSessionActive = true;
   isMicMuted = false;
   isSpeakerMuted = false;
+  _reconnectAttempts = 0;
   isAiSpeaking = false;
   nextPlaybackTime = 0;
   activeAudioSources = [];
@@ -170,7 +174,14 @@ export async function startSession({
 
   // Mic stream
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 16000,
+      },
+    });
   } catch (err) {
     if (err.name === "NotAllowedError") {
       throw new Error("Microphone permission denied. Please allow mic access in your browser settings.");
@@ -191,16 +202,16 @@ export async function startSession({
   // AudioWorklet for PCM capture
   const workletCode = `
   class PCMProcessor extends AudioWorkletProcessor {
-    constructor() { super(); this.buffer = new Float32Array(4096); this.ptr = 0; }
+    constructor() { super(); this.buffer = new Float32Array(1024); this.ptr = 0; }
     process(inputs) {
       const ch = inputs[0]?.[0];
       if (!ch) return true;
       for (let i = 0; i < ch.length; i++) {
         this.buffer[this.ptr++] = ch[i];
-        if (this.ptr >= 4096) {
+        if (this.ptr >= 1024) {
           this.port.postMessage(this.buffer);
           this.ptr = 0;
-          this.buffer = new Float32Array(4096);
+          this.buffer = new Float32Array(1024);
         }
       }
       return true;
@@ -228,9 +239,21 @@ export async function startSession({
     const rms = Math.sqrt(sum / inputData.length);
 
     // Barge-in: interrupt AI if user speaks loudly enough
-    if (!isMicMuted && rms > BARGE_IN_THRESHOLD && isAiSpeaking) {
+    if (!isMicMuted && rms > BARGE_IN_THRESHOLD && isAiSpeaking && !_aiInterrupted) {
+      console.info("[VOICE] Barge-in detected — interrupting AI");
+      _aiInterrupted = true;
       flushAiAudio();
       emitAudioState("listen");
+
+      // Explicitly tell Gemini the user interrupted so it stops generating/sending audio
+      if (liveWebSocket?.readyState === WebSocket.OPEN) {
+        liveWebSocket.send(JSON.stringify({
+          clientContent: {
+            turns: [],
+            turnComplete: false,
+          },
+        }));
+      }
     }
 
     // Activity detection for silence timer
@@ -307,20 +330,61 @@ export async function startSession({
 
   liveWebSocket.onerror = (err) => {
     console.error("[Voice] WebSocket error:", err);
-    stopSession();
+    // Don't stop immediately, allow onclose to handle reconnection if appropriate
   };
 
   liveWebSocket.onclose = (event) => {
     console.warn(`[Voice] WebSocket closed — code: ${event.code}, reason: "${event.reason}", wasClean: ${event.wasClean}`);
-    if (isSessionActive) {
-      stopSession();
+
+    if (!isSessionActive) return;
+
+    // Abnormal closure (e.g. 1006) or 1008 (Policy Violation) that might be transient
+    if (!event.wasClean || event.code === 1008) {
+      if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        _reconnectAttempts++;
+        const delay = Math.pow(2, _reconnectAttempts) * 1000;
+        console.info(`[Voice] Attempting reconnect ${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${delay}ms...`);
+
+        const statusEl = document.getElementById("voice-live-status");
+        if (statusEl) statusEl.textContent = "Reconnecting…";
+
+        setTimeout(() => {
+          if (isSessionActive) {
+            // We need to restart the WebSocket part specifically.
+            // Simplified here by stopping and starting, but a cleaner
+            // partial restart would be better in a production app.
+            const currentToken = _authToken;
+            const currentProvider = _contextProvider;
+            const currentCallbacks = {
+              onTranscript: _onTranscript,
+              onAudioState: _onAudioState,
+              onSessionEnd: _onSessionEnd,
+              onVolume: _onVolume,
+              onTurnComplete: _onTurnComplete
+            };
+
+            stopSession();
+            startSession({
+              ...currentCallbacks,
+              contextProvider: currentProvider,
+              token: currentToken
+            }).catch(err => {
+              console.error("[Voice] Reconnect failed:", err);
+            });
+          }
+        }, delay);
+        return;
+      }
     }
+
+    stopSession();
   };
 }
 
 export function stopSession() {
   if (!isSessionActive) return;
   isSessionActive = false;
+  _reconnectAttempts = 0;
 
   flushAiAudio();
   stopSilenceChecker();
@@ -601,6 +665,7 @@ function playAiAudioChunk(base64Data) {
   if (!audioContext || !isSessionActive) return;
 
   isAiSpeaking = true;
+  _aiInterrupted = false;
   emitAudioState("speak");
 
   const audioData = atob(base64Data);
@@ -878,16 +943,16 @@ function sendPcmToWebSocket(pcmData) {
   }));
 }
 
-// Cached silence frame — 2048 samples (128ms at 16kHz) of zeros
-// Larger frame gives Gemini's VAD enough silence to detect end-of-speech
+// Cached silence frame — 1024 samples (64ms at 16kHz) of zeros
+// Match the worklet buffer size for perfectly timed real-time streaming
 let _silenceFrameB64 = null;
 function sendSilenceFrame() {
   if (!liveWebSocket || liveWebSocket.readyState !== WebSocket.OPEN) return;
   if (_toolCallPending) return; // Don't send audio during tool execution (causes 1008)
 
-  // Build once and cache — 2048 zero int16 samples = 4096 bytes
+  // Build once and cache — 1024 zero int16 samples = 2048 bytes
   if (!_silenceFrameB64) {
-    const silence = new Uint8Array(4096); // all zeros = silence PCM
+    const silence = new Uint8Array(2048); // all zeros = silence PCM
     let binary = "";
     for (let i = 0; i < silence.length; i++) binary += String.fromCharCode(silence[i]);
     _silenceFrameB64 = btoa(binary);
