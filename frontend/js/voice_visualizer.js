@@ -127,7 +127,8 @@ function drawVisualizer() {
   const b1 = 246 + (246 - 246) * colorBlend;
 
   const centerY = H * 0.75;
-  const baseAmplitude = H * 0.1;
+  // Scaling amplitude: base amplitude * (1 + level * 2)
+  const baseAmplitude = (H * 0.1) * (1 + smoothVolume * 2);
   const intensity = 0.1 + smoothVolume * 0.9;
 
   vizCtx.lineCap = "round";
@@ -150,8 +151,10 @@ function drawVisualizer() {
       // Envelope to taper at edges
       const envelope = Math.sin(normX * Math.PI);
 
-      let yOffset = Math.sin(normX * (2 + i) + wavePhase) * baseAmplitude;
-      yOffset += Math.sin(normX * (5 + i * 0.5) - wavePhase * 0.5) * (baseAmplitude * 0.3);
+      // Interference frequency scales with volume (smoothVolume)
+      const freqScale = 1 + smoothVolume;
+      let yOffset = Math.sin(normX * (2 + i) * freqScale + wavePhase) * baseAmplitude;
+      yOffset += Math.sin(normX * (5 + i * 0.5) * freqScale - wavePhase * 0.5) * (baseAmplitude * 0.3);
 
       // Apply intensity and envelope
       const finalY = centerY + (yOffset * intensity * envelope);

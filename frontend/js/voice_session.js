@@ -273,23 +273,14 @@ export async function startSession({
 
     const rms = Math.sqrt(sum / inputData.length);
 
-    // Barge-in: interrupt AI if user speaks loudly enough
+    // Barge-in: interrupt AI if user speaks loudly enough.
+    // We rely on the server-side VAD (Voice Activity Detection) to detect this
+    // via the audio stream itself. Manual barge-in signals can trigger protocol errors (1007/1008).
     if (!isMicMuted && rms > BARGE_IN_THRESHOLD && isAiSpeaking && !_aiInterrupted) {
-      console.info("[VOICE] Barge-in detected — interrupting AI");
+      console.info("[VOICE] Barge-in detected — interrupting AI playback locally");
       _aiInterrupted = true;
       flushAiAudio();
       emitAudioState("listen");
-
-      // Explicitly tell Gemini the user interrupted
-      if (liveWebSocket?.readyState === WebSocket.OPEN && !_toolCallPending) {
-        try {
-          liveWebSocket.send(JSON.stringify({
-            clientContent: { turnComplete: false },
-          }));
-        } catch (err) {
-          console.warn("[VOICE] Failed to send barge-in signal", { error: err.message });
-        }
-      }
     }
 
     // Activity detection for silence timer
@@ -990,11 +981,15 @@ function sendPcmToWebSocket(pcmData) {
     const bytes = new Uint8Array(buffer);
     for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
 
-    liveWebSocket.send(JSON.stringify({
+    const msg = JSON.stringify({
       realtimeInput: {
         mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: btoa(binary) }],
       },
-    }));
+    });
+
+    if (liveWebSocket.readyState === WebSocket.OPEN) {
+      liveWebSocket.send(msg);
+    }
   } catch (err) {
     console.warn("[VOICE] Error sending PCM to WebSocket", { error: err.message });
   }
@@ -1014,11 +1009,15 @@ function sendSilenceFrame() {
       _silenceFrameB64 = btoa(binary);
     }
 
-    liveWebSocket.send(JSON.stringify({
+    const msg = JSON.stringify({
       realtimeInput: {
         mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: _silenceFrameB64 }],
       },
-    }));
+    });
+
+    if (liveWebSocket.readyState === WebSocket.OPEN) {
+      liveWebSocket.send(msg);
+    }
   } catch (err) {
     console.warn("[VOICE] Error sending silence to WebSocket", { error: err.message });
   }
