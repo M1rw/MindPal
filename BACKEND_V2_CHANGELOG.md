@@ -31,3 +31,10 @@
 
 - Python tests include quota concurrency, stale recovery, idempotency replay/conflicts, memory lost-update prevention, stale-device rejection, document caps, body-size rejection, request-ID consistency, App Check, admin claims, static delivery, and route/OpenAPI resolution.
 - Node tests cover Memory V3 frontend behavior and secure voice token/reconnect behavior.
+
+## Vercel prebuilt frontend deployment
+
+- Removed Tailwind/esbuild execution from the Vercel build path.
+- Added immutable frontend artifact manifest with source fingerprint and SHA-256 verification.
+- Vercel now installs Python requirements explicitly and runs a standard-library frontend verifier.
+- Added deployment regression tests preventing npm/Tailwind/esbuild from re-entering Vercel commands.

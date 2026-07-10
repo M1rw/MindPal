@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "prebuild": "node scripts/verify_lockfile_registry.mjs",
-    "build": "npm run build:css && npm run build:icons && npm run build:app",
+    "build": "npm run build:css && npm run build:icons && npm run build:app && python scripts/generate_prebuilt_frontend_manifest.py",
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
     "build:icons": "esbuild frontend/js/vendor/lucide_global.js --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=frontend/dist/lucide.bundle.js",
     "build:app": "esbuild frontend/js/app.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/app.bundle.js",
     "test": "node --test tests/*.mjs",
-    "audit:frontend": "python scripts/audit_frontend.py"
+    "audit:frontend": "python scripts/audit_frontend.py",
+    "verify:prebuilt": "python scripts/verify_prebuilt_frontend.py"
   },
   "dependencies": {
     "dompurify": "^3.4.11",

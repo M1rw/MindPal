@@ -1,0 +1,54 @@
+{
+  "outputs": {
+    "frontend/css/tailwind.generated.css": {
+      "bytes": 35558,
+      "sha256": "16dc3b8b750a28574284284a1605496d15342925021fc8cf8fc6d90f38785717"
+    },
+    "frontend/dist/app.bundle.js": {
+      "bytes": 355198,
+      "sha256": "f48ad36e2804596fadd1be3c1274ebf56e6265e6c942791125de911c074c6d86"
+    },
+    "frontend/dist/lucide.bundle.js": {
+      "bytes": 12915,
+      "sha256": "9eee6af42759c726e707a52987bd85435cf6874e061bd85a53fcc3f99cb66fa6"
+    }
+  },
+  "schema_version": 1,
+  "source_digest": "0d2d1cef5d6e323e927209dacb8ef7bd6679315a13453635741e2fe6116fdbf0",
+  "source_files": [
+    "frontend/css/tailwind.input.css",
+    "frontend/index.html",
+    "frontend/js/api.js",
+    "frontend/js/app.js",
+    "frontend/js/auth.js",
+    "frontend/js/bootstrap.js",
+    "frontend/js/cloud_sync.js",
+    "frontend/js/components/memory_inspector.js",
+    "frontend/js/components/model_selector.js",
+    "frontend/js/components/notifications.js",
+    "frontend/js/components/settings_ui.js",
+    "frontend/js/components/usage_tracker.js",
+    "frontend/js/memory_graph.js",
+    "frontend/js/settings_store.js",
+    "frontend/js/ui_state.js",
+    "frontend/js/utils/chat_helpers.js",
+    "frontend/js/utils/dates.js",
+    "frontend/js/utils/dom.js",
+    "frontend/js/utils/helpers.js",
+    "frontend/js/utils/icons.js",
+    "frontend/js/utils/memory_helpers.js",
+    "frontend/js/utils/tts.js",
+    "frontend/js/vendor/lucide_global.js",
+    "frontend/js/voice/constants.js",
+    "frontend/js/voice/prompts.js",
+    "frontend/js/voice/runtime.js",
+    "frontend/js/voice/startup_helpers.mjs",
+    "frontend/js/voice/tools.js",
+    "frontend/js/voice_live.js",
+    "frontend/js/voice_session.js",
+    "frontend/js/voice_visualizer.js",
+    "package-lock.json",
+    "package.json",
+    "tailwind.config.cjs"
+  ]
+}

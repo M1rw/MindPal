@@ -1,14 +1,10 @@
-# Vercel install-stage fix
+# Superseded Vercel install fix
 
-The deployment is a mixed FastAPI + Node frontend build. Vercel may use the Python framework install path and then execute the configured Node build without installing frontend devDependencies.
+The earlier npm-only `installCommand` fixed missing Tailwind tooling but prevented Vercel from installing the Python runtime dependencies. It must not be used.
 
-The release now declares:
+The final mixed-runtime fix is documented in `VERCEL_PYTHON_DEPENDENCY_FIX.md`:
 
-```json
-"installCommand": "npm ci --include=dev --no-audit --no-fund",
-"buildCommand": "npm run build"
-```
-
-`--include=dev` is intentional because Tailwind CSS and esbuild are build-time dependencies. The Python runtime continues to install `requirements.txt`/`requirements.lock` for the Python function independently.
-
-In Vercel Project Settings, remove any dashboard Install Command or Build Command override that conflicts with `vercel.json`. Clear the build cache once and redeploy.
+- remove `installCommand`;
+- keep the root `requirements.txt`;
+- move Tailwind and esbuild into regular npm dependencies;
+- use `buildCommand: npm run build`.

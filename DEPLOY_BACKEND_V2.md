@@ -16,7 +16,7 @@ The script backs up managed source paths, preserves `.env`, credentials, logs, a
 
 Copy `.env.production.example` to `.env` and replace every placeholder. Do not commit `.env` or service-account JSON. The server and browser Firebase project IDs must match.
 
-For Vercel, add the values as encrypted project environment variables. `FIREBASE_CREDENTIALS_JSON` must be a single valid JSON value. The Vercel build uses `requirements.lock` and `package-lock.json`.
+For Vercel, add the values as encrypted project environment variables. `FIREBASE_CREDENTIALS_JSON` must be a single valid JSON value. Keep the Root Directory at the repository directory containing `requirements.txt` and `package.json`; disable any custom Install Command override. Vercel installs Python dependencies from the root `requirements.txt`, installs the regular npm dependencies, and runs `npm run build`.
 
 ## 3. Firebase App Check
 
@@ -60,3 +60,18 @@ The apply script prints the backup path. Manual rollback:
 ```powershell
 .\Rollback-Backend-V2.ps1 -TargetRoot 'E:\Synthos\MindPal' -BackupRoot 'E:\Synthos\MindPal_backups\backend-v2-YYYYMMDD-HHMMSS'
 ```
+
+## Vercel build model
+
+Do not run `npm run build` on Vercel. Production assets are prebuilt and committed.
+
+The authoritative `vercel.json` commands are:
+
+```text
+Install Command: python -m pip install --disable-pip-version-check --no-input -r requirements.txt
+Build Command:   python scripts/verify_prebuilt_frontend.py
+Framework:       FastAPI
+Output Directory: unset
+```
+
+Disable matching dashboard overrides, then clear the Vercel build cache for the first deployment after this change.
