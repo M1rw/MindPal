@@ -8,14 +8,24 @@ import {
   SILENCE_ASK_MS,
   SILENCE_AUTO_END_MS,
   SILENCE_WARN_MS,
-  ATTENDING_PHASE_MS,
   HOLDING_PHASE_MS,
   TURN_COMPLETE_DELAY_MS,
   TURN_COMPLETE_GRACE_MS,
 } from "./constants.js";
 import { buildAdaptiveVoicePrompt, inferEmotionHint } from "./prompts.js";
 import { createToolExecutor, getToolDeclarations } from "./tools.js";
-import { classifySocketClose, fetchVoiceKeyWithRetry } from "./startup_helpers.mjs";
+import {
+  buildEphemeralVoiceWebSocketUrl,
+  classifySocketClose,
+  fetchVoiceTokenWithRetry,
+} from "./startup_helpers.mjs";
+
+const INPUT_SAMPLE_RATE = 16_000;
+const OUTPUT_SAMPLE_RATE = 24_000;
+const CAPTURE_FRAME_SIZE = 2_048;
+const SILENCE_FRAME_INTERVAL_MS = 280;
+const MAX_RECONNECT_ATTEMPTS = 4;
+const RECONNECT_BASE_DELAY_MS = 450;
 
 export function createVoiceSessionController() {
   const state = {
@@ -24,7 +34,11 @@ export function createVoiceSessionController() {
     micSource: null,
     mediaStream: null,
     workletNode: null,
+    scriptProcessorNode: null,
+    captureSinkNode: null,
+    workletObjectUrl: null,
     isSessionActive: false,
+    isStopping: false,
     isMicMuted: false,
     isSpeakerMuted: false,
     isAiSpeaking: false,
@@ -35,7 +49,7 @@ export function createVoiceSessionController() {
     outputCompressorNode: null,
     _toolCallPending: false,
     gateOpenUntil: 0,
-    lastBargeInAt: 0,
+    bargeInStartedAt: 0,
     userTurnCompleteTimer: null,
     lastUserSpeechAt: 0,
     speechSeenRecently: false,
@@ -52,6 +66,7 @@ export function createVoiceSessionController() {
     aiAnalyser: null,
     _contextProvider: null,
     _authToken: null,
+    _refreshAuthToken: null,
     _onTranscript: null,
     _onAudioState: null,
     _onSessionEnd: null,
@@ -61,6 +76,15 @@ export function createVoiceSessionController() {
     _lastAiTranscript: "",
     _recentEmotionHint: "neutral",
     _silenceFrameB64: null,
+    _lastSilenceFrameAt: 0,
+    _voiceCredentials: null,
+    _sessionResumptionHandle: "",
+    _goAwayTimer: null,
+    _setupComplete: false,
+    _greetingSent: false,
+    _socketGeneration: 0,
+    _reconnectTimer: null,
+    _reconnectAttempts: 0,
   };
 
   const toolExecutor = createToolExecutor({
@@ -70,150 +94,130 @@ export function createVoiceSessionController() {
   });
 
   function debugLog(message, payload = {}) {
+    if (!window.MINDPAL_CONFIG?.VOICE_DEBUG) return;
     console.debug(`[VOICE][DEBUG] ${message}`, payload);
   }
 
-  function clearTurnCompleteTimer() {
-    if (state.userTurnCompleteTimer) {
-      debugLog("Clearing turn-complete timer");
-      clearTimeout(state.userTurnCompleteTimer);
-      state.userTurnCompleteTimer = null;
-    }
-  }
-
-  function clearListeningTransitionTimer() {
-    if (state.listeningTransitionTimer) {
-      debugLog("Clearing listening transition timer");
-      clearTimeout(state.listeningTransitionTimer);
-      state.listeningTransitionTimer = null;
-    }
-  }
-
-  function noteUserSpeechActivity() {
-    state.lastUserSpeechAt = Date.now();
-    state.speechSeenRecently = true;
-    debugLog("User speech activity detected", { phase: state.sessionPhase });
-    clearTurnCompleteTimer();
-    if (state.sessionPhase !== "attending" && state.sessionPhase !== "interrupting" && !state.isAiSpeaking) {
-      setSessionPhase("attending");
-    }
-
-    const lastUserWords = (state._lastUserTranscript || "").trim().split(/\s+/).filter(Boolean).length;
-    const dynamicDelay = Math.max(TURN_COMPLETE_DELAY_MS - 40, 180) + (state._recentEmotionHint === "supportive" ? 35 : 0) + (state._recentEmotionHint === "grounded" ? 20 : 0) + Math.min(90, lastUserWords * 5);
-    state.userTurnCompleteTimer = setTimeout(() => {
-      if (!state.isSessionActive || state.isMicMuted || state._toolCallPending || state.isAiSpeaking) return;
-      const elapsed = Date.now() - state.lastUserSpeechAt;
-      if (elapsed < TURN_COMPLETE_GRACE_MS) return;
-      if (!state.speechSeenRecently) return;
-      setSessionPhase("holding");
-      setTimeout(() => {
-        if (!state.isSessionActive || state.isMicMuted || state._toolCallPending || state.isAiSpeaking) return;
-        if (state.liveWebSocket?.readyState === WebSocket.OPEN) {
-          state.liveWebSocket.send(JSON.stringify({ clientContent: { turnComplete: true } }));
-          console.info("[VOICE] Emitted adaptive turnComplete after user pause");
-        }
-        state.speechSeenRecently = false;
-        setSessionPhase("listening");
-      }, HOLDING_PHASE_MS);
-    }, dynamicDelay);
-  }
-
-  function shouldInterruptForBargeIn(rms) {
-    const now = Date.now();
-    if (rms >= BARGE_IN_FAST_THRESHOLD) {
-      state.lastBargeInAt = now;
-      return true;
-    }
-    if (rms >= BARGE_IN_SUSTAINED_THRESHOLD && now - state.lastBargeInAt > BARGE_IN_GRACE_MS) {
-      state.lastBargeInAt = now;
-      return true;
-    }
-    return false;
-  }
-
-  function recoverFromInterruption() {
-    clearListeningTransitionTimer();
-    if (state.isMicMuted || state._toolCallPending) return;
-    debugLog("Recovering from interruption", { phase: state.sessionPhase });
-    setSessionPhase("recovering");
-    state.listeningTransitionTimer = setTimeout(() => {
-      if (!state.isSessionActive || state._toolCallPending || state.isMicMuted) return;
-      setSessionPhase("listening");
-    }, 220);
-  }
-
-  function setSessionPhase(phase) {
+  function setSessionPhase(phase, extra = {}) {
     state.sessionPhase = phase;
-    debugLog("Session phase changed", { phase, isAiSpeaking: state.isAiSpeaking, isMicMuted: state.isMicMuted });
     state._onAudioState?.({
       phase,
       isAiSpeaking: state.isAiSpeaking,
       isMicMuted: state.isMicMuted,
       palette: phase === "speaking" ? "speak" : "listen",
+      reconnectAttempt: state._reconnectAttempts,
+      ...extra,
     });
   }
 
-  function emitAudioState(palette) {
-    state._onAudioState?.({
-      phase: state.sessionPhase,
-      isAiSpeaking: state.isAiSpeaking,
-      isMicMuted: state.isMicMuted,
-      palette,
-    });
+  function clearTurnCompleteTimer() {
+    if (!state.userTurnCompleteTimer) return;
+    clearTimeout(state.userTurnCompleteTimer);
+    state.userTurnCompleteTimer = null;
   }
 
-  function flushAiAudio() {
-    for (const src of state.activeAudioSources) {
-      try {
-        const gainNode = src._gainNode;
-        if (gainNode && state.audioContext) {
-          gainNode.gain.cancelScheduledValues(state.audioContext.currentTime);
-          gainNode.gain.setValueAtTime(gainNode.gain.value, state.audioContext.currentTime);
-          gainNode.gain.linearRampToValueAtTime(0.0001, state.audioContext.currentTime + 0.05);
-        }
-        src.stop(state.audioContext?.currentTime ? state.audioContext.currentTime + 0.05 : undefined);
-      } catch (_) {}
+  function clearListeningTransitionTimer() {
+    if (!state.listeningTransitionTimer) return;
+    clearTimeout(state.listeningTransitionTimer);
+    state.listeningTransitionTimer = null;
+  }
+
+  function clearReconnectTimer() {
+    if (state._reconnectTimer) {
+      clearTimeout(state._reconnectTimer);
+      state._reconnectTimer = null;
     }
-    state.activeAudioSources = [];
-    state.nextPlaybackTime = 0;
-    state.isAiSpeaking = false;
-    debugLog("Flushed AI audio", { activeSources: 0 });
-    if (!state.isMicMuted) setSessionPhase("listening");
+    if (state._goAwayTimer) {
+      clearTimeout(state._goAwayTimer);
+      state._goAwayTimer = null;
+    }
+  }
+
+  function socketIsOpen() {
+    return state.liveWebSocket?.readyState === WebSocket.OPEN;
+  }
+
+  function sendJson(payload) {
+    if (!socketIsOpen()) return false;
+    try {
+      state.liveWebSocket.send(JSON.stringify(payload));
+      return true;
+    } catch (error) {
+      console.warn("[Voice] Failed to send WebSocket payload:", error);
+      return false;
+    }
+  }
+
+  function floatToPcm16(inputData) {
+    const pcm = new Int16Array(inputData.length);
+    for (let i = 0; i < inputData.length; i += 1) {
+      const sample = Math.max(-1, Math.min(1, inputData[i]));
+      pcm[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+    }
+    return pcm;
+  }
+
+  function resampleFloat32(input, fromRate, toRate = INPUT_SAMPLE_RATE) {
+    if (!input?.length || !Number.isFinite(fromRate) || fromRate <= 0 || fromRate === toRate) {
+      return input instanceof Float32Array ? input : new Float32Array(input || []);
+    }
+
+    const outputLength = Math.max(1, Math.round(input.length * toRate / fromRate));
+    const output = new Float32Array(outputLength);
+    const ratio = fromRate / toRate;
+
+    for (let i = 0; i < outputLength; i += 1) {
+      const sourceIndex = i * ratio;
+      const left = Math.floor(sourceIndex);
+      const right = Math.min(input.length - 1, left + 1);
+      const fraction = sourceIndex - left;
+      output[i] = input[left] + (input[right] - input[left]) * fraction;
+    }
+
+    return output;
+  }
+
+  function pcm16ToBase64(pcmData) {
+    const bytes = new Uint8Array(pcmData.buffer, pcmData.byteOffset, pcmData.byteLength);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return btoa(binary);
   }
 
   function sendPcmToWebSocket(pcmData) {
-    if (!state.liveWebSocket || state.liveWebSocket.readyState !== WebSocket.OPEN) return;
-    if (state._toolCallPending) return;
-
-    const buffer = new ArrayBuffer(pcmData.length * 2);
-    const view = new DataView(buffer);
-    for (let i = 0; i < pcmData.length; i++) view.setInt16(i * 2, pcmData[i], true);
-
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-
-    debugLog("Sending PCM audio chunk to WebSocket", { bytes: pcmData.length });
-    state.liveWebSocket.send(JSON.stringify({
-      realtimeInput: { mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: btoa(binary) }] },
-    }));
+    if (!socketIsOpen() || !state._setupComplete || state._toolCallPending) return;
+    sendJson({
+      realtimeInput: {
+        audio: {
+          mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}`,
+          data: pcm16ToBase64(pcmData),
+        },
+      },
+    });
   }
 
-  function sendSilenceFrame() {
-    if (!state.liveWebSocket || state.liveWebSocket.readyState !== WebSocket.OPEN) return;
-    if (state._toolCallPending) return;
+  function sendSilenceFrame({ force = false } = {}) {
+    if (!socketIsOpen() || !state._setupComplete || state._toolCallPending) return;
+
+    const now = Date.now();
+    if (!force && now - state._lastSilenceFrameAt < SILENCE_FRAME_INTERVAL_MS) return;
+    state._lastSilenceFrameAt = now;
 
     if (!state._silenceFrameB64) {
-      const silence = new Uint8Array(4096);
-      let binary = "";
-      for (let i = 0; i < silence.length; i++) binary += String.fromCharCode(silence[i]);
-      state._silenceFrameB64 = btoa(binary);
+      state._silenceFrameB64 = pcm16ToBase64(new Int16Array(1_024));
     }
 
-    debugLog("Sending silence frame to WebSocket");
-    state.liveWebSocket.send(JSON.stringify({
-      realtimeInput: { mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: state._silenceFrameB64 }] },
-    }));
+    sendJson({
+      realtimeInput: {
+        audio: {
+          mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}`,
+          data: state._silenceFrameB64,
+        },
+      },
+    });
   }
 
   function touchActivity() {
@@ -222,20 +226,142 @@ export function createVoiceSessionController() {
     state.silenceWarnedOnce = false;
   }
 
+  function sendTurnComplete() {
+    if (!socketIsOpen() || state._toolCallPending) return;
+    // Realtime audio uses automatic activity detection; a final silence frame lets
+    // the server close the spoken turn without appending an empty client turn.
+    sendSilenceFrame({ force: true });
+    state.speechSeenRecently = false;
+  }
+
+  function noteUserSpeechActivity() {
+    state.lastUserSpeechAt = Date.now();
+    state.speechSeenRecently = true;
+    clearTurnCompleteTimer();
+
+    if (!state.isAiSpeaking && state.sessionPhase !== "interrupting") {
+      setSessionPhase("attending");
+    }
+
+    const wordCount = (state._lastUserTranscript || "").trim().split(/\s+/).filter(Boolean).length;
+    const dynamicDelay = Math.max(TURN_COMPLETE_DELAY_MS - 40, 180)
+      + (state._recentEmotionHint === "supportive" ? 35 : 0)
+      + (state._recentEmotionHint === "grounded" ? 20 : 0)
+      + Math.min(90, wordCount * 5);
+
+    state.userTurnCompleteTimer = setTimeout(() => {
+      if (!state.isSessionActive || state.isMicMuted || state._toolCallPending || state.isAiSpeaking) return;
+      if (!state.speechSeenRecently) return;
+      if (Date.now() - state.lastUserSpeechAt < TURN_COMPLETE_GRACE_MS) return;
+
+      setSessionPhase("holding");
+      state.userTurnCompleteTimer = setTimeout(() => {
+        if (!state.isSessionActive || state.isMicMuted || state._toolCallPending || state.isAiSpeaking) return;
+        sendTurnComplete();
+        setSessionPhase("listening");
+      }, HOLDING_PHASE_MS);
+    }, dynamicDelay);
+  }
+
+  function shouldInterruptForBargeIn(rms) {
+    const now = Date.now();
+
+    if (rms >= BARGE_IN_FAST_THRESHOLD) {
+      state.bargeInStartedAt = now;
+      return true;
+    }
+
+    if (rms >= BARGE_IN_SUSTAINED_THRESHOLD) {
+      if (!state.bargeInStartedAt) state.bargeInStartedAt = now;
+      return now - state.bargeInStartedAt >= BARGE_IN_GRACE_MS;
+    }
+
+    state.bargeInStartedAt = 0;
+    return false;
+  }
+
+  function recoverFromInterruption() {
+    clearListeningTransitionTimer();
+    if (state.isMicMuted || state._toolCallPending || !state.isSessionActive) return;
+    setSessionPhase("recovering");
+    state.listeningTransitionTimer = setTimeout(() => {
+      if (!state.isSessionActive || state._toolCallPending || state.isMicMuted) return;
+      setSessionPhase("listening");
+    }, 220);
+  }
+
+  function flushAiAudio({ updatePhase = true } = {}) {
+    for (const source of state.activeAudioSources) {
+      try {
+        const gainNode = source._gainNode;
+        if (gainNode && state.audioContext) {
+          const now = state.audioContext.currentTime;
+          gainNode.gain.cancelScheduledValues(now);
+          gainNode.gain.setValueAtTime(Math.max(0.0001, gainNode.gain.value), now);
+          gainNode.gain.linearRampToValueAtTime(0.0001, now + 0.04);
+        }
+        source.stop(state.audioContext ? state.audioContext.currentTime + 0.04 : undefined);
+      } catch {
+        // Already stopped.
+      }
+    }
+
+    state.activeAudioSources = [];
+    state.nextPlaybackTime = 0;
+    state.isAiSpeaking = false;
+
+    if (updatePhase && state.isSessionActive && !state.isStopping) {
+      setSessionPhase(state.isMicMuted ? "muted" : "listening");
+    }
+  }
+
+  function handleCapturedAudioFrame(rawFrame) {
+    if (!state.isSessionActive || state.isMicMuted || !rawFrame?.length) return;
+
+    const sourceRate = state.audioContext?.sampleRate || INPUT_SAMPLE_RATE;
+    const inputData = resampleFloat32(rawFrame, sourceRate, INPUT_SAMPLE_RATE);
+
+    let sum = 0;
+    for (let i = 0; i < inputData.length; i += 1) sum += inputData[i] * inputData[i];
+    const rms = Math.sqrt(sum / Math.max(1, inputData.length));
+
+    if (state.isAiSpeaking && shouldInterruptForBargeIn(rms)) {
+      setSessionPhase("interrupting");
+      flushAiAudio({ updatePhase: false });
+      touchActivity();
+      recoverFromInterruption();
+    }
+
+    if (rms > ACTIVITY_THRESHOLD) {
+      touchActivity();
+      noteUserSpeechActivity();
+    }
+
+    if (rms > NOISE_GATE_THRESHOLD) {
+      state.gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
+    }
+
+    const gateOpen = Date.now() < state.gateOpenUntil;
+    state._onVolume?.(gateOpen ? rms : 0);
+
+    if (!socketIsOpen()) return;
+    if (gateOpen) sendPcmToWebSocket(floatToPcm16(inputData));
+    else sendSilenceFrame();
+  }
+
   function startKeepAlive() {
     stopKeepAlive();
     state.keepAliveInterval = setInterval(() => {
-      if (!state.isSessionActive || !state.liveWebSocket || state.liveWebSocket.readyState !== WebSocket.OPEN) return;
-      if (state._toolCallPending || state.isMicMuted || state.sessionPhase === "speaking") return;
-      sendSilenceFrame();
+      if (!state.isSessionActive || !socketIsOpen()) return;
+      if (state._toolCallPending || state.sessionPhase === "speaking") return;
+      sendSilenceFrame({ force: true });
     }, 1_800);
   }
 
   function stopKeepAlive() {
-    if (state.keepAliveInterval) {
-      clearInterval(state.keepAliveInterval);
-      state.keepAliveInterval = null;
-    }
+    if (!state.keepAliveInterval) return;
+    clearInterval(state.keepAliveInterval);
+    state.keepAliveInterval = null;
   }
 
   function startSilenceChecker() {
@@ -245,7 +371,7 @@ export function createVoiceSessionController() {
     state.silenceWarnedOnce = false;
 
     state.silenceCheckInterval = setInterval(() => {
-      if (!state.isSessionActive || !state.liveWebSocket || state.liveWebSocket.readyState !== WebSocket.OPEN) return;
+      if (!state.isSessionActive || !socketIsOpen()) return;
       const elapsed = Date.now() - state.lastActivityTime;
 
       if (elapsed >= SILENCE_AUTO_END_MS) {
@@ -255,22 +381,21 @@ export function createVoiceSessionController() {
 
       if (elapsed >= SILENCE_WARN_MS && !state.silenceWarnedOnce) {
         state.silenceWarnedOnce = true;
-        sendTextToModel("The user has been silent for a while now. Gently let them know that the call will end soon if they don't respond. Say something brief like 'I'll let you go if you're busy, just say something if you want to keep talking.'");
+        sendTextToModel("The user has been silent for a while. Briefly and gently say the call will end soon unless they respond.");
         return;
       }
 
       if (elapsed >= SILENCE_ASK_MS && !state.silenceAskedOnce) {
         state.silenceAskedOnce = true;
-        sendTextToModel("The user has been silent for 30 seconds. Gently check if they're still there. Say something brief and natural like 'Hey, you still there?' or 'I'm here whenever you're ready.'");
+        sendTextToModel("The user has been silent for 30 seconds. Briefly and naturally check whether they are still there.");
       }
-    }, 5000);
+    }, 5_000);
   }
 
   function stopSilenceChecker() {
-    if (state.silenceCheckInterval) {
-      clearInterval(state.silenceCheckInterval);
-      state.silenceCheckInterval = null;
-    }
+    if (!state.silenceCheckInterval) return;
+    clearInterval(state.silenceCheckInterval);
+    state.silenceCheckInterval = null;
   }
 
   function startNetworkMonitor() {
@@ -279,14 +404,12 @@ export function createVoiceSessionController() {
 
     const onOffline = () => {
       if (!state.isSessionActive) return;
-      console.warn("[Voice] Browser went offline");
-      state._onTranscript?.("ai", "\n[Connection lost — trying to reconnect...]\n");
+      setSessionPhase("recovering", { connection: "offline" });
     };
 
     const onOnline = () => {
       if (!state.isSessionActive) return;
-      console.log("[Voice] Browser back online");
-      state._onTranscript?.("ai", "\n[Connection restored]\n");
+      if (!socketIsOpen()) scheduleReconnect("browser-online");
     };
 
     window.addEventListener("offline", onOffline);
@@ -296,10 +419,9 @@ export function createVoiceSessionController() {
     state._networkCheckInterval = setInterval(() => {
       if (!state.isSessionActive || !state.liveWebSocket) return;
       const elapsed = Date.now() - state._lastWsMessageTime;
-      if (elapsed > 30_000 && state.liveWebSocket.readyState === WebSocket.OPEN) {
-        console.warn("[Voice] WebSocket appears stale — no data for 30s");
-        state._onTranscript?.("ai", "\n[Connection seems unstable — call may end if it doesn't recover]\n");
-        state._lastWsMessageTime = Date.now();
+      if (elapsed > 45_000 && socketIsOpen()) {
+        console.warn("[Voice] WebSocket stale; reconnecting.");
+        try { state.liveWebSocket.close(4000, "stale-connection"); } catch {}
       }
     }, 15_000);
   }
@@ -317,159 +439,192 @@ export function createVoiceSessionController() {
   }
 
   function sendSetupMessage() {
-    debugLog("Sending Gemini setup message");
     const profile = state._contextProvider?.getUserProfile?.() || {};
     const userName = profile.name || "";
     const userGender = profile.gender || "";
     let nameContext = userName ? `\nThe person you are talking to is called ${userName}. Use their name naturally.` : "";
     if (userGender) {
-      nameContext += `\nGENDER: The user is ${userGender}. This is critical for Arabic and other gendered languages — use correct grammatical gender consistently (masculine/feminine verbs, adjectives, pronouns).`;
+      nameContext += `\nGENDER: The user is ${userGender}. Use correct grammatical gender consistently, especially in Arabic.`;
     }
 
     const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    const dateStr = now.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+    const dateStr = now.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown";
     const utcOffset = -now.getTimezoneOffset();
     const offsetHours = Math.floor(Math.abs(utcOffset) / 60);
     const offsetMins = Math.abs(utcOffset) % 60;
-    const offsetStr = `UTC${utcOffset >= 0 ? '+' : '-'}${offsetHours}${offsetMins ? ':' + String(offsetMins).padStart(2, '0') : ''}`;
-    const timeContext = `\nCURRENT TIME: ${timeStr}, ${dateStr} (${tzName}, ${offsetStr}). If the user asks about time, use the current_time tool for the most accurate answer.`;
+    const offsetStr = `UTC${utcOffset >= 0 ? "+" : "-"}${offsetHours}${offsetMins ? `:${String(offsetMins).padStart(2, "0")}` : ""}`;
+    const timeContext = `\nCURRENT TIME: ${timeStr}, ${dateStr} (${tzName}, ${offsetStr}). Use current_time for time-sensitive answers.`;
 
     const adaptivePrompt = buildAdaptiveVoicePrompt(nameContext, timeContext, state);
-    state.liveWebSocket.send(JSON.stringify({
+    const model = state._voiceCredentials?.model;
+    if (!model) throw new Error("Voice model configuration is missing.");
+
+    sendJson({
       setup: {
-        model: "models/gemini-2.5-flash-native-audio-latest",
+        model: `models/${model.replace(/^models\//, "")}`,
         generationConfig: {
           responseModalities: ["AUDIO"],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } },
         },
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            disabled: false,
+            startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+            endOfSpeechSensitivity: "END_SENSITIVITY_HIGH",
+            prefixPaddingMs: 100,
+            silenceDurationMs: 500,
+          },
+          activityHandling: "START_OF_ACTIVITY_INTERRUPTS",
+          turnCoverage: "TURN_INCLUDES_ONLY_ACTIVITY",
+        },
+        sessionResumption: state._sessionResumptionHandle
+          ? { handle: state._sessionResumptionHandle }
+          : {},
+        contextWindowCompression: { slidingWindow: {} },
         outputAudioTranscription: {},
         inputAudioTranscription: {},
         tools: [{ functionDeclarations: getToolDeclarations() }],
         systemInstruction: { parts: [{ text: adaptivePrompt }] },
       },
-    }));
+    });
   }
 
-  function handleToolCalls(functionCalls) {
-    state._toolCallPending = true;
-    debugLog("Handling tool calls", { count: functionCalls?.length || 0 });
-    setSessionPhase("thinking");
-    const batchTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Tool batch timeout")), 15_000));
-    const batchExecution = Promise.all(functionCalls.map(async (call) => {
-      const result = await toolExecutor(call.name, call.args || {});
-      return { id: call.id, name: call.name, response: { result } };
-    }));
+  async function handleToolCalls(functionCalls) {
+    if (!Array.isArray(functionCalls) || functionCalls.length === 0) return;
 
-    Promise.race([batchExecution, batchTimeout])
-      .then((resolvedResponses) => {
-        if (state.liveWebSocket?.readyState === WebSocket.OPEN) {
-          state.liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: resolvedResponses } }));
-        }
-        state._toolCallPending = false;
-        if (state.isAiSpeaking) {
-          setSessionPhase("speaking");
-        } else {
-          setSessionPhase(state.isMicMuted ? "muted" : "listening");
-        }
-      })
-      .catch((err) => {
-        console.error("[TOOL_CALL] Batch execution failed:", err.message);
-        const errorResponses = functionCalls.map((call) => ({
-          id: call.id,
-          name: call.name,
-          response: { result: { error: "Tool temporarily unavailable — please respond without this tool" } },
-        }));
-        if (state.liveWebSocket?.readyState === WebSocket.OPEN) {
-          state.liveWebSocket.send(JSON.stringify({ toolResponse: { functionResponses: errorResponses } }));
-        }
-        state._toolCallPending = false;
-        if (state.isAiSpeaking) {
-          setSessionPhase("speaking");
-        } else {
-          setSessionPhase(state.isMicMuted ? "muted" : "listening");
-        }
-      });
+    state._toolCallPending = true;
+    setSessionPhase("thinking");
+
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), 15_000);
+
+    try {
+      const responses = await Promise.all(functionCalls.map(async (call) => {
+        const result = await toolExecutor(call.name, call.args || {}, {
+          timeoutMs: 12_000,
+          signal: timeoutController.signal,
+          allowClientFallback: false,
+        });
+        return { id: call.id, name: call.name, response: { result } };
+      }));
+      sendJson({ toolResponse: { functionResponses: responses } });
+    } catch (error) {
+      console.error("[TOOL_CALL] Batch execution failed:", error);
+      const responses = functionCalls.map((call) => ({
+        id: call.id,
+        name: call.name,
+        response: { result: { error: "Tool temporarily unavailable. Continue without it." } },
+      }));
+      sendJson({ toolResponse: { functionResponses: responses } });
+    } finally {
+      clearTimeout(timeoutId);
+      timeoutController.abort();
+      state._toolCallPending = false;
+      setSessionPhase(state.isAiSpeaking ? "speaking" : state.isMicMuted ? "muted" : "listening");
+    }
   }
 
   function playAiAudioChunk(base64Data) {
-    if (!state.audioContext || !state.isSessionActive) return;
+    if (!state.audioContext || !state.isSessionActive || !base64Data) return;
 
-    debugLog("Playing AI audio chunk", { bytes: base64Data?.length || 0 });
+    const audioData = atob(base64Data);
+    const sampleCount = Math.floor(audioData.length / 2);
+    if (!sampleCount) return;
+
+    const floatBuffer = new Float32Array(sampleCount);
+    let sum = 0;
+    for (let i = 0; i < sampleCount; i += 1) {
+      const lo = audioData.charCodeAt(i * 2);
+      const hi = audioData.charCodeAt(i * 2 + 1);
+      const unsigned = (hi << 8) | lo;
+      const signed = unsigned >= 0x8000 ? unsigned - 0x10000 : unsigned;
+      const value = signed / 32768;
+      floatBuffer[i] = value;
+      sum += value * value;
+    }
+
+    state._onVolume?.(Math.sqrt(sum / sampleCount));
     state.isAiSpeaking = true;
     setSessionPhase("speaking");
 
-    const audioData = atob(base64Data);
-    const pcmBuffer = new Int16Array(audioData.length / 2);
-    for (let i = 0; i < pcmBuffer.length; i++) {
-      pcmBuffer[i] = (audioData.charCodeAt(i * 2 + 1) << 8) | audioData.charCodeAt(i * 2);
-    }
-
-    const floatBuffer = new Float32Array(pcmBuffer.length);
-    for (let i = 0; i < pcmBuffer.length; i++) floatBuffer[i] = pcmBuffer[i] / 32768.0;
-
-    let aiSum = 0;
-    for (let i = 0; i < floatBuffer.length; i++) aiSum += floatBuffer[i] * floatBuffer[i];
-    state._onVolume?.(Math.sqrt(aiSum / floatBuffer.length));
-
-    const audioBuffer = state.audioContext.createBuffer(1, floatBuffer.length, 24000);
-    audioBuffer.getChannelData(0).set(floatBuffer);
+    const audioBuffer = state.audioContext.createBuffer(1, floatBuffer.length, OUTPUT_SAMPLE_RATE);
+    audioBuffer.copyToChannel(floatBuffer, 0);
 
     const source = state.audioContext.createBufferSource();
-    source.buffer = audioBuffer;
-
-    const cadenceHint = state._recentEmotionHint === "playful" ? 0.02 : state._recentEmotionHint === "supportive" ? 0.045 : state._recentEmotionHint === "grounded" ? 0.028 : 0.032;
     const gainNode = state.audioContext.createGain();
-    gainNode.gain.setValueAtTime(0.0001, state.audioContext.currentTime);
-    gainNode.gain.linearRampToValueAtTime(1.0, state.audioContext.currentTime + cadenceHint);
+    source.buffer = audioBuffer;
+    source.connect(gainNode);
+    gainNode.connect(state.outputCompressorNode || state.outputGainNode || state.audioContext.destination);
 
-    if (state.aiAnalyser) {
-      source.connect(gainNode);
-      gainNode.connect(state.outputCompressorNode || state.outputGainNode || state.audioContext.destination);
-      state.outputCompressorNode?.connect(state.aiAnalyser);
-      state.aiAnalyser.connect(state.outputGainNode || state.audioContext.destination);
-    } else {
-      source.connect(gainNode);
-      gainNode.connect(state.outputCompressorNode || state.outputGainNode || state.audioContext.destination);
-    }
+    const now = state.audioContext.currentTime;
+    const cadenceHint = state._recentEmotionHint === "supportive" ? 0.04 : 0.02;
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.linearRampToValueAtTime(1, now + cadenceHint);
 
-    if (state.nextPlaybackTime < state.audioContext.currentTime) {
-      state.nextPlaybackTime = state.audioContext.currentTime;
-    }
+    if (state.nextPlaybackTime < now) state.nextPlaybackTime = now;
     source.start(state.nextPlaybackTime);
     state.nextPlaybackTime += audioBuffer.duration;
 
     source._gainNode = gainNode;
     state.activeAudioSources.push(source);
     source.onended = () => {
-      state.activeAudioSources = state.activeAudioSources.filter((s) => s !== source);
-      if (state.activeAudioSources.length === 0 && state.audioContext.currentTime >= state.nextPlaybackTime) {
+      try { source.disconnect(); } catch {}
+      try { gainNode.disconnect(); } catch {}
+      state.activeAudioSources = state.activeAudioSources.filter((item) => item !== source);
+      if (state.activeAudioSources.length === 0) {
         state.isAiSpeaking = false;
-        setSessionPhase(state.isMicMuted ? "muted" : "listening");
+        if (state.isSessionActive && !state.isStopping) {
+          setSessionPhase(state.isMicMuted ? "muted" : "listening");
+        }
       }
     };
   }
 
   function handleServerMessage(data) {
+    if (!data || typeof data !== "object") return;
+
+    const resumption = data.sessionResumptionUpdate;
+    if (resumption?.resumable && resumption.newHandle) {
+      state._sessionResumptionHandle = String(resumption.newHandle);
+    }
+
+    if (data.goAway) {
+      debugLog("Server requested a resumable reconnect", { timeLeft: data.goAway.timeLeft });
+      if (state._sessionResumptionHandle && !state._goAwayTimer) {
+        state._goAwayTimer = setTimeout(() => {
+          state._goAwayTimer = null;
+          if (socketIsOpen()) {
+            try { state.liveWebSocket.close(4000, "server-go-away"); } catch {}
+          }
+        }, 250);
+      }
+      return;
+    }
+
     if (data.setupComplete) {
-      debugLog("Gemini setup complete — ready to receive audio");
-      sendInitialGreeting();
+      state._setupComplete = true;
+      state._reconnectAttempts = 0;
+      setSessionPhase(state.isMicMuted ? "muted" : "listening");
+      if (!state._greetingSent) {
+        state._greetingSent = true;
+        sendInitialGreeting();
+      }
       return;
     }
 
     if (data.error) {
       console.error("[Voice] Server error:", data.error);
-      debugLog("Voice server error", { error: data.error });
+      state._onTranscript?.("system", "Voice service reported an error.");
       return;
     }
 
-    if (data.serverContent?.modelTurn) {
+    if (data.serverContent?.modelTurn?.parts) {
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
       clearListeningTransitionTimer();
       setSessionPhase("preparing");
-      debugLog("Model turn received", { parts: data.serverContent.modelTurn.parts?.length || 0 });
       for (const part of data.serverContent.modelTurn.parts) {
         if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
           playAiAudioChunk(part.inlineData.data);
@@ -477,68 +632,273 @@ export function createVoiceSessionController() {
       }
     }
 
-    if (data.serverContent?.outputTranscription?.text) {
-      const text = data.serverContent.outputTranscription.text;
-      debugLog("AI transcription received", { text });
-      state._lastAiTranscript = text;
-      state._onTranscript?.("ai", text);
+    const outputText = data.serverContent?.outputTranscription?.text;
+    if (outputText) {
+      state._lastAiTranscript = outputText;
+      state._onTranscript?.("ai", outputText);
     }
 
-    if (data.serverContent?.inputTranscription?.text) {
-      const text = data.serverContent.inputTranscription.text;
-      debugLog("User transcription received", { text });
-      state._lastUserTranscript = text;
-      state._recentEmotionHint = inferEmotionHint(text);
-      state._onTranscript?.("user", text);
+    const inputText = data.serverContent?.inputTranscription?.text;
+    if (inputText) {
+      state._lastUserTranscript = inputText;
+      state._recentEmotionHint = inferEmotionHint(inputText);
+      state._onTranscript?.("user", inputText);
       touchActivity();
     }
 
     if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
-      debugLog("Turn event received", { turnComplete: Boolean(data.serverContent?.turnComplete), interrupted: Boolean(data.serverContent?.interrupted) });
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
-      if (data.serverContent?.interrupted) {
-        recoverFromInterruption();
-      } else {
-        setSessionPhase(state.isMicMuted ? "muted" : "listening");
-      }
+      if (data.serverContent.interrupted) recoverFromInterruption();
+      else setSessionPhase(state.isMicMuted ? "muted" : "listening");
       state._onTurnComplete?.();
     }
 
     if (data.toolCall?.functionCalls) {
-      handleToolCalls(data.toolCall.functionCalls);
+      void handleToolCalls(data.toolCall.functionCalls);
     }
   }
 
   function sendInitialGreeting() {
-    if (!state.liveWebSocket || state.liveWebSocket.readyState !== WebSocket.OPEN) return;
-
     const hour = new Date().getHours();
-    let timeContext;
-    if (hour >= 5 && hour < 12) timeContext = "morning";
-    else if (hour >= 12 && hour < 17) timeContext = "afternoon";
-    else if (hour >= 17 && hour < 21) timeContext = "evening";
-    else timeContext = "late night";
-
+    const timeContext = hour >= 5 && hour < 12 ? "morning"
+      : hour >= 12 && hour < 17 ? "afternoon"
+        : hour >= 17 && hour < 21 ? "evening"
+          : "late night";
     const userName = state._contextProvider?.getUserProfile?.()?.name || "";
     const nameHint = userName ? ` Their name is ${userName}.` : "";
-    const mood = state._recentEmotionHint || "neutral";
-    const moodHint = {
-      supportive: "Be soft and gentle.",
-      playful: "Be lightly playful.",
-      grounded: "Be calm and grounded.",
-      neutral: "Be warm and relaxed.",
-    }[mood] || "Be warm and relaxed.";
+    sendTextToModel(`Give a warm, natural one-sentence greeting. It is ${timeContext}.${nameHint} Then wait for the user.`);
+  }
 
-    const styles = [
-      `Greet the user warmly. It's ${timeContext}.${nameHint} Keep it short and natural — 1 sentence max. Then wait for them to talk. ${moodHint}`,
-      `Say a casual, friendly hello. It's ${timeContext}.${nameHint} Don't be formal. Just a quick natural greeting like you're picking up a phone call with a close friend. ${moodHint}`,
-      `Start the conversation with a warm check-in. It's ${timeContext}.${nameHint} Ask how they're doing in a genuine way. One sentence only. ${moodHint}`,
-      `Open with something light and natural. It's ${timeContext}.${nameHint} Maybe comment on the time of day briefly. Keep it very short. ${moodHint}`,
-    ];
-    const prompt = styles[Math.floor(Math.random() * styles.length)];
-    debugLog("Sending initial greeting prompt", { prompt });
-    sendTextToModel(prompt);
+  async function refreshVoiceCredentials() {
+    if (typeof state._refreshAuthToken === "function") {
+      const refreshed = await state._refreshAuthToken();
+      if (refreshed) state._authToken = refreshed;
+    }
+
+    const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
+    const credentials = await fetchVoiceTokenWithRetry({
+      baseUrl,
+      token: state._authToken,
+      refreshToken: async () => {
+        if (typeof state._refreshAuthToken !== "function") return state._authToken;
+        const refreshed = await state._refreshAuthToken();
+        if (refreshed) state._authToken = refreshed;
+        return state._authToken;
+      },
+      maxAttempts: 3,
+    });
+
+    state._voiceCredentials = credentials;
+    return credentials;
+  }
+
+  function openWebSocket(credentials, { reconnecting = false } = {}) {
+    if (!state.isSessionActive || state.isStopping) return;
+
+    clearReconnectTimer();
+    state._setupComplete = false;
+    const generation = ++state._socketGeneration;
+    const socket = new WebSocket(buildEphemeralVoiceWebSocketUrl(credentials));
+    state.liveWebSocket = socket;
+    setSessionPhase(reconnecting ? "recovering" : "connecting");
+
+    socket.onopen = () => {
+      if (generation !== state._socketGeneration || !state.isSessionActive) return;
+      state._lastWsMessageTime = Date.now();
+      try {
+        sendSetupMessage();
+      } catch (error) {
+        console.error("[Voice] Failed to configure Live session:", error);
+        try { socket.close(1011, "setup-failed"); } catch {}
+        return;
+      }
+      startSilenceChecker();
+      startKeepAlive();
+      startNetworkMonitor();
+      touchActivity();
+    };
+
+    socket.onmessage = async (event) => {
+      if (generation !== state._socketGeneration || !state.isSessionActive) return;
+      try {
+        const raw = event.data instanceof Blob ? await event.data.text() : event.data;
+        const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+        state._lastWsMessageTime = Date.now();
+        handleServerMessage(data);
+      } catch (error) {
+        console.warn("[Voice] Ignored malformed WebSocket message:", error);
+      }
+    };
+
+    socket.onerror = (error) => {
+      if (generation !== state._socketGeneration || !state.isSessionActive) return;
+      console.warn("[Voice] WebSocket error:", error);
+      setSessionPhase("recovering");
+    };
+
+    socket.onclose = (event) => {
+      if (generation !== state._socketGeneration) return;
+      if (state.liveWebSocket === socket) state.liveWebSocket = null;
+      if (!state.isSessionActive || state.isStopping) return;
+
+      const classification = classifySocketClose({
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        hasSetupComplete: state._setupComplete,
+        greetingSent: state._greetingSent,
+      });
+
+      if (classification.retryable) {
+        scheduleReconnect(classification.reason);
+      } else {
+        console.warn(`[Voice] Session ended after socket close: ${classification.reason}`);
+        stopSession();
+      }
+    };
+  }
+
+
+  function scheduleReconnect(reason = "transient") {
+    if (!state.isSessionActive || state.isStopping || state._reconnectTimer) return;
+
+    if (state._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.error("[Voice] Reconnect attempts exhausted.");
+      stopSession();
+      return;
+    }
+
+    state._reconnectAttempts += 1;
+    const delay = Math.min(6_000, RECONNECT_BASE_DELAY_MS * (2 ** (state._reconnectAttempts - 1)));
+    setSessionPhase("recovering", { reconnectReason: reason, reconnectInMs: delay });
+
+    state._reconnectTimer = setTimeout(async () => {
+      state._reconnectTimer = null;
+      if (!state.isSessionActive || state.isStopping) return;
+
+      try {
+        // A consumed one-use token can reconnect only when a session handle exists.
+        // Otherwise provision a fresh token and start a new Live session.
+        if (!state._sessionResumptionHandle || !state._voiceCredentials) {
+          state._sessionResumptionHandle = "";
+          await refreshVoiceCredentials();
+        }
+        openWebSocket(state._voiceCredentials, { reconnecting: true });
+      } catch (error) {
+        console.warn("[Voice] Reconnect credential refresh failed:", error);
+        scheduleReconnect("credential-refresh-failed");
+      }
+    }, delay);
+  }
+
+  async function setupAudioCapture() {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) throw new Error("This browser does not support Web Audio.");
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser does not support microphone access.");
+
+    state.audioContext = new AudioContextCtor({ latencyHint: "interactive" });
+    if (state.audioContext.state === "suspended") await state.audioContext.resume();
+
+    try {
+      state.mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      });
+    } catch (error) {
+      if (error?.name === "NotAllowedError") {
+        throw new Error("Microphone permission denied. Allow microphone access and retry.");
+      }
+      throw error;
+    }
+
+    state.mediaStream.getAudioTracks().forEach((track) => {
+      track.onended = () => {
+        if (state.isSessionActive && !state.isStopping) stopSession();
+      };
+    });
+
+    state.micSource = state.audioContext.createMediaStreamSource(state.mediaStream);
+    state.micAnalyser = state.audioContext.createAnalyser();
+    state.micAnalyser.fftSize = 2_048;
+    state.micAnalyser.smoothingTimeConstant = 0.8;
+    state.micSource.connect(state.micAnalyser);
+
+    state.captureSinkNode = state.audioContext.createGain();
+    state.captureSinkNode.gain.value = 0;
+    state.captureSinkNode.connect(state.audioContext.destination);
+
+    const workletCode = `
+      class MindPalPcmProcessor extends AudioWorkletProcessor {
+        constructor() {
+          super();
+          this.buffer = new Float32Array(${CAPTURE_FRAME_SIZE});
+          this.offset = 0;
+        }
+        process(inputs) {
+          const channel = inputs[0] && inputs[0][0];
+          if (!channel) return true;
+          for (let i = 0; i < channel.length; i += 1) {
+            this.buffer[this.offset++] = channel[i];
+            if (this.offset >= this.buffer.length) {
+              this.port.postMessage(this.buffer, [this.buffer.buffer]);
+              this.buffer = new Float32Array(${CAPTURE_FRAME_SIZE});
+              this.offset = 0;
+            }
+          }
+          return true;
+        }
+      }
+      registerProcessor("mindpal-pcm-processor", MindPalPcmProcessor);
+    `;
+
+    try {
+      const blob = new Blob([workletCode], { type: "application/javascript" });
+      state.workletObjectUrl = URL.createObjectURL(blob);
+      await state.audioContext.audioWorklet.addModule(state.workletObjectUrl);
+      state.workletNode = new AudioWorkletNode(state.audioContext, "mindpal-pcm-processor", {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+      });
+      state.workletNode.port.onmessage = (event) => handleCapturedAudioFrame(event.data);
+      state.micSource.connect(state.workletNode);
+      state.workletNode.connect(state.captureSinkNode);
+    } catch (error) {
+      console.warn("[Voice] AudioWorklet unavailable; using ScriptProcessor fallback:", error);
+      if (!state.audioContext.createScriptProcessor) {
+        throw new Error("No supported microphone capture path is available in this browser.");
+      }
+      state.scriptProcessorNode = state.audioContext.createScriptProcessor(CAPTURE_FRAME_SIZE, 1, 1);
+      state.scriptProcessorNode.onaudioprocess = (event) => {
+        const channel = event.inputBuffer.getChannelData(0);
+        handleCapturedAudioFrame(new Float32Array(channel));
+      };
+      state.micSource.connect(state.scriptProcessorNode);
+      state.scriptProcessorNode.connect(state.captureSinkNode);
+    }
+
+    state.aiAnalyser = state.audioContext.createAnalyser();
+    state.aiAnalyser.fftSize = 2_048;
+    state.aiAnalyser.smoothingTimeConstant = 0.75;
+
+    state.outputCompressorNode = state.audioContext.createDynamicsCompressor();
+    state.outputCompressorNode.threshold.value = -24;
+    state.outputCompressorNode.knee.value = 28;
+    state.outputCompressorNode.ratio.value = 8;
+    state.outputCompressorNode.attack.value = 0.002;
+    state.outputCompressorNode.release.value = 0.2;
+
+    state.outputGainNode = state.audioContext.createGain();
+    state.outputGainNode.gain.value = state.isSpeakerMuted ? 0 : 1;
+
+    state.outputCompressorNode.connect(state.aiAnalyser);
+    state.aiAnalyser.connect(state.outputGainNode);
+    state.outputGainNode.connect(state.audioContext.destination);
   }
 
   async function startSession({
@@ -549,311 +909,180 @@ export function createVoiceSessionController() {
     onVolume = null,
     onTurnComplete = null,
     token = null,
+    refreshAuthToken = null,
   } = {}) {
-    if (state.isSessionActive) return;
+    if (state.isSessionActive) return false;
 
-    debugLog("Starting voice session", { hasToken: Boolean(token) });
     state._contextProvider = contextProvider;
     state._authToken = token;
+    state._refreshAuthToken = refreshAuthToken;
     state._onTranscript = onTranscript;
     state._onAudioState = onAudioState;
     state._onSessionEnd = onSessionEnd;
     state._onVolume = onVolume;
-    state._onTurnComplete = onTurnComplete || null;
+    state._onTurnComplete = onTurnComplete;
     state._lastUserTranscript = "";
     state._lastAiTranscript = "";
     state._recentEmotionHint = "neutral";
-
+    state._voiceCredentials = null;
+    state._sessionResumptionHandle = "";
+    state._setupComplete = false;
+    state._greetingSent = false;
+    state._reconnectAttempts = 0;
+    state._socketGeneration = 0;
+    state._lastSilenceFrameAt = 0;
     state.isSessionActive = true;
+    state.isStopping = false;
     state.isMicMuted = false;
     state.isSpeakerMuted = false;
     state.isAiSpeaking = false;
-    state.sessionPhase = "connecting";
     state.nextPlaybackTime = 0;
     state.activeAudioSources = [];
     state.gateOpenUntil = 0;
-    state.lastBargeInAt = 0;
+    state.bargeInStartedAt = 0;
     state.speechSeenRecently = false;
     state.lastUserSpeechAt = 0;
     clearTurnCompleteTimer();
+    clearListeningTransitionTimer();
+    clearReconnectTimer();
+    setSessionPhase("connecting");
 
-    const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
-    let key = "";
     try {
-      debugLog("Fetching voice key", { baseUrl });
-    const keyResponse = await fetchVoiceKeyWithRetry({
-        baseUrl,
-        token,
-        refreshToken: async () => token || null,
-      });
-      key = keyResponse?.key || "";
+      // Ask for microphone permission first so the one-minute token start window
+      // is not consumed while the browser is waiting on the user.
+      await setupAudioCapture();
+      await refreshVoiceCredentials();
+      openWebSocket(state._voiceCredentials);
+      return true;
     } catch (error) {
-      console.error("[VOICE] Failed to fetch voice key:", error);
-      throw new Error("Voice service is currently unavailable. Please try again in a moment.");
+      cleanupResources({ notify: false });
+      throw error;
     }
-
-    if (!key) {
-      throw new Error("Voice service is currently unavailable. Please try again in a moment.");
-    }
-
-    if (!window.AudioContext && !window.webkitAudioContext) {
-      throw new Error("This browser does not support the Web Audio API required for voice.");
-    }
-
-    debugLog("Creating audio context");
-    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-    state.audioContext = new AudioContextCtor({ sampleRate: 16000, latencyHint: "interactive" });
-    if (state.audioContext.state === "suspended") {
-      await state.audioContext.resume().catch(err => console.warn("[Voice] Failed to resume audio context:", err));
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error("This browser does not support microphone access.");
-    }
-
-    try {
-      debugLog("Requesting microphone access");
-      state.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-          sampleRate: 16000,
-        },
-      });
-    } catch (err) {
-      if (err.name === "NotAllowedError") {
-        throw new Error("Microphone permission denied. Please allow mic access in your browser settings.");
-      }
-      throw err;
-    }
-
-    debugLog("Microphone stream acquired", { tracks: state.mediaStream.getAudioTracks().length });
-    state.mediaStream.getAudioTracks().forEach(track => {
-      track.onended = () => {
-        console.warn("[Voice] Mic track ended unexpectedly");
-        if (state.isSessionActive) stopSession();
-      };
-    });
-
-    state.micSource = state.audioContext.createMediaStreamSource(state.mediaStream);
-
-    try {
-      const workletCode = `
-    class PCMProcessor extends AudioWorkletProcessor {
-      constructor() {
-        super();
-        this.buffer = new Float32Array(4096);
-        this.ptr = 0;
-        this.smoothRms = 0.0001;
-        this.gain = 1.0;
-      }
-
-      process(inputs) {
-        const ch = inputs[0]?.[0];
-        if (!ch) return true;
-
-        for (let i = 0; i < ch.length; i++) {
-          let sample = ch[i];
-          const abs = Math.abs(sample);
-          this.smoothRms = this.smoothRms * 0.88 + abs * 0.12;
-          const targetGain = abs < 0.001 ? 0.0 : Math.min(2.2, 1.0 / Math.max(0.12, this.smoothRms * 1.6));
-          this.gain = this.gain * 0.75 + targetGain * 0.25;
-          sample = sample * this.gain;
-          sample = Math.max(-1, Math.min(1, sample));
-          if (abs < 0.0015) sample = 0;
-          this.buffer[this.ptr++] = sample;
-          if (this.ptr >= 4096) {
-            this.port.postMessage(this.buffer);
-            this.ptr = 0;
-            this.buffer = new Float32Array(4096);
-          }
-        }
-        return true;
-      }
-    }
-    registerProcessor('pcm-processor', PCMProcessor);
-    `;
-      const blob = new Blob([workletCode], { type: "application/javascript" });
-      debugLog("Loading audio worklet");
-      await state.audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
-      state.workletNode = new AudioWorkletNode(state.audioContext, "pcm-processor");
-    } catch (err) {
-      console.warn("[VOICE] Audio worklet unavailable, falling back to simpler capture:", err);
-      state.workletNode = null;
-    }
-
-    if (state.workletNode) {
-      state.workletNode.port.onmessage = (e) => {
-        if (!state.isSessionActive || !state.liveWebSocket || state.liveWebSocket.readyState !== WebSocket.OPEN) return;
-
-        const inputData = e.data;
-        const pcmData = new Int16Array(inputData.length);
-      let sum = 0;
-      for (let i = 0; i < inputData.length; i++) {
-        const s = Math.max(-1, Math.min(1, inputData[i]));
-        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-        sum += s * s;
-      }
-
-        const rms = Math.sqrt(sum / inputData.length);
-        if (!state.isMicMuted && shouldInterruptForBargeIn(rms) && state.isAiSpeaking) {
-          setSessionPhase("interrupting");
-          flushAiAudio();
-          recoverFromInterruption();
-          touchActivity();
-        }
-
-        if (!state.isMicMuted && rms > ACTIVITY_THRESHOLD) {
-          touchActivity();
-          noteUserSpeechActivity();
-        }
-
-        if (!state.isMicMuted) {
-          if (rms > NOISE_GATE_THRESHOLD) {
-            state.gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
-          }
-          const gateOpen = Date.now() < state.gateOpenUntil;
-          state._onVolume?.(gateOpen ? rms : 0);
-          if (gateOpen) sendPcmToWebSocket(pcmData); else sendSilenceFrame();
-        }
-      };
-
-      state.micSource.connect(state.workletNode);
-    }
-    state.micAnalyser = state.audioContext.createAnalyser();
-    state.micAnalyser.fftSize = 2048;
-    state.micAnalyser.smoothingTimeConstant = 0.8;
-    state.micSource.connect(state.micAnalyser);
-
-    state.aiAnalyser = state.audioContext.createAnalyser();
-    state.aiAnalyser.fftSize = 2048;
-    state.aiAnalyser.smoothingTimeConstant = 0.75;
-
-    state.outputGainNode = state.audioContext.createGain();
-    state.outputGainNode.gain.value = 1.0;
-    state.outputCompressorNode = state.audioContext.createDynamicsCompressor();
-    state.outputCompressorNode.threshold.value = -24;
-    state.outputCompressorNode.knee.value = 28;
-    state.outputCompressorNode.ratio.value = 8;
-    state.outputCompressorNode.attack.value = 0.002;
-    state.outputCompressorNode.release.value = 0.2;
-    state.outputCompressorNode.connect(state.outputGainNode);
-    state.outputGainNode.connect(state.audioContext.destination);
-
-    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
-    debugLog("Opening WebSocket", { wsUrl });
-    state.liveWebSocket = new WebSocket(wsUrl);
-
-    state.liveWebSocket.onopen = () => {
-      debugLog("WebSocket opened");
-      setSessionPhase("listening");
-      sendSetupMessage();
-      startSilenceChecker();
-      startKeepAlive();
-      startNetworkMonitor();
-      touchActivity();
-    };
-
-    state.liveWebSocket.onmessage = async (event) => {
-      debugLog("WebSocket message received", { type: typeof event.data });
-      let data;
-      if (event.data instanceof Blob) {
-        data = JSON.parse(await event.data.text());
-      } else {
-        data = JSON.parse(event.data);
-      }
-      handleServerMessage(data);
-      state._lastWsMessageTime = Date.now();
-    };
-
-    state.liveWebSocket.onerror = (err) => {
-      console.error("[Voice] WebSocket error:", err);
-      debugLog("WebSocket error", { err });
-      stopSession();
-    };
-
-    state.liveWebSocket.onclose = (event) => {
-      console.warn(`[Voice] WebSocket closed — code: ${event.code}, reason: "${event.reason}", wasClean: ${event.wasClean}`);
-      debugLog("WebSocket closed", { code: event.code, reason: event.reason, wasClean: event.wasClean });
-      const classification = classifySocketClose({
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
-        hasSetupComplete: state.sessionPhase !== "connecting",
-        greetingSent: state._lastAiTranscript !== "" || state._lastUserTranscript !== "",
-      });
-
-      if (state.isSessionActive && classification.shouldStop) {
-        stopSession();
-      } else if (state.isSessionActive && classification.retryable) {
-        console.warn(`[VOICE] Treating close as transient (${classification.reason}) — keeping session alive for a retry`);
-      }
-    };
   }
 
-  function stopSession() {
-    if (!state.isSessionActive) return;
+  function cleanupResources({ notify = true } = {}) {
+    const shouldNotify = notify && state.isSessionActive;
+    state.isStopping = true;
     state.isSessionActive = false;
-    debugLog("Stopping voice session");
+    state._socketGeneration += 1;
 
     clearTurnCompleteTimer();
     clearListeningTransitionTimer();
-    flushAiAudio();
+    clearReconnectTimer();
     stopSilenceChecker();
     stopKeepAlive();
     stopNetworkMonitor();
-    if (state.workletNode) { state.workletNode.disconnect(); state.workletNode = null; }
-    if (state.micAnalyser) { state.micAnalyser.disconnect(); state.micAnalyser = null; }
-    if (state.aiAnalyser) { state.aiAnalyser.disconnect(); state.aiAnalyser = null; }
-    if (state.outputCompressorNode) { state.outputCompressorNode.disconnect(); state.outputCompressorNode = null; }
-    if (state.outputGainNode) { state.outputGainNode.disconnect(); state.outputGainNode = null; }
-    if (state.micSource) { state.micSource.disconnect(); state.micSource = null; }
+    flushAiAudio({ updatePhase: false });
+
+    if (state.liveWebSocket) {
+      const socket = state.liveWebSocket;
+      state.liveWebSocket = null;
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+      try { socket.close(1000, "client-stop"); } catch {}
+    }
+
+    if (state.workletNode) {
+      state.workletNode.port.onmessage = null;
+      try { state.workletNode.disconnect(); } catch {}
+      state.workletNode = null;
+    }
+    if (state.scriptProcessorNode) {
+      state.scriptProcessorNode.onaudioprocess = null;
+      try { state.scriptProcessorNode.disconnect(); } catch {}
+      state.scriptProcessorNode = null;
+    }
+    if (state.captureSinkNode) {
+      try { state.captureSinkNode.disconnect(); } catch {}
+      state.captureSinkNode = null;
+    }
+    if (state.micAnalyser) {
+      try { state.micAnalyser.disconnect(); } catch {}
+      state.micAnalyser = null;
+    }
+    if (state.aiAnalyser) {
+      try { state.aiAnalyser.disconnect(); } catch {}
+      state.aiAnalyser = null;
+    }
+    if (state.outputCompressorNode) {
+      try { state.outputCompressorNode.disconnect(); } catch {}
+      state.outputCompressorNode = null;
+    }
+    if (state.outputGainNode) {
+      try { state.outputGainNode.disconnect(); } catch {}
+      state.outputGainNode = null;
+    }
+    if (state.micSource) {
+      try { state.micSource.disconnect(); } catch {}
+      state.micSource = null;
+    }
     if (state.mediaStream) {
-      state.mediaStream.getTracks().forEach(track => track.stop());
+      state.mediaStream.getTracks().forEach((track) => {
+        track.onended = null;
+        track.stop();
+      });
       state.mediaStream = null;
     }
-    if (state.audioContext && state.audioContext.state !== "closed") { state.audioContext.close(); state.audioContext = null; }
-    if (state.liveWebSocket) { state.liveWebSocket.close(); state.liveWebSocket = null; }
+    if (state.audioContext && state.audioContext.state !== "closed") {
+      void state.audioContext.close().catch(() => {});
+    }
+    state.audioContext = null;
+
+    if (state.workletObjectUrl) {
+      URL.revokeObjectURL(state.workletObjectUrl);
+      state.workletObjectUrl = null;
+    }
+
     state._authToken = null;
-    state._onSessionEnd?.();
+    state._refreshAuthToken = null;
+    state._voiceCredentials = null;
+    state._sessionResumptionHandle = "";
+    state._setupComplete = false;
+    state._toolCallPending = false;
+    state.sessionPhase = "idle";
+    state.isStopping = false;
+
+    if (shouldNotify) state._onSessionEnd?.();
+  }
+
+  function stopSession() {
+    if (!state.isSessionActive && !state.isStopping) return;
+    cleanupResources({ notify: true });
   }
 
   function setMuted(muted) {
-    state.isMicMuted = muted;
-    setSessionPhase(muted ? "muted" : state.isAiSpeaking ? "speaking" : "listening");
-    if (muted && state.liveWebSocket?.readyState === WebSocket.OPEN && !state._toolCallPending) {
-      for (let i = 0; i < 3; i++) sendSilenceFrame();
-      if (!state.isAiSpeaking) {
-        setTimeout(() => {
-          if (state.isMicMuted && state.liveWebSocket?.readyState === WebSocket.OPEN && !state._toolCallPending) {
-            state.liveWebSocket.send(JSON.stringify({ clientContent: { turnComplete: true } }));
-            console.info("[VOICE] Sent turnComplete on mute — speech will be processed");
-          }
-        }, 200);
-      }
-    }
-    state._onAudioState?.({
-      phase: state.sessionPhase,
-      isAiSpeaking: state.isAiSpeaking,
-      isMicMuted: state.isMicMuted,
-      palette: state.isAiSpeaking ? "speak" : "listen",
+    state.isMicMuted = Boolean(muted);
+    state.mediaStream?.getAudioTracks().forEach((track) => {
+      track.enabled = !state.isMicMuted;
     });
+
+    setSessionPhase(state.isMicMuted ? "muted" : state.isAiSpeaking ? "speaking" : "listening");
+
+    if (state.isMicMuted && socketIsOpen() && !state._toolCallPending) {
+      sendJson({ realtimeInput: { audioStreamEnd: true } });
+      state.speechSeenRecently = false;
+      clearTurnCompleteTimer();
+    }
   }
 
   function setSpeakerMuted(muted) {
-    state.isSpeakerMuted = muted;
-    if (state.outputGainNode) {
-      state.outputGainNode.gain.setValueAtTime(muted ? 0 : 1, state.audioContext?.currentTime || 0);
+    state.isSpeakerMuted = Boolean(muted);
+    if (state.outputGainNode && state.audioContext) {
+      state.outputGainNode.gain.setValueAtTime(state.isSpeakerMuted ? 0 : 1, state.audioContext.currentTime);
     }
   }
 
   function sendTextToModel(text) {
-    if (!state.liveWebSocket || state.liveWebSocket.readyState !== WebSocket.OPEN) return;
-    state.liveWebSocket.send(JSON.stringify({
-      clientContent: { turns: [{ role: "user", parts: [{ text }] }], turnComplete: true },
-    }));
+    const clean = String(text || "").trim();
+    if (!clean || !state._setupComplete) return false;
+    return sendJson({
+      clientContent: {
+        turns: [{ role: "user", parts: [{ text: clean }] }],
+        turnComplete: true,
+      },
+    });
   }
 
   function getSessionState() {
@@ -861,14 +1090,13 @@ export function createVoiceSessionController() {
       isActive: state.isSessionActive,
       isMicMuted: state.isMicMuted,
       isAiSpeaking: state.isAiSpeaking,
+      isSpeakerMuted: state.isSpeakerMuted,
+      phase: state.sessionPhase,
+      reconnectAttempts: state._reconnectAttempts,
       micAnalyser: state.micAnalyser,
       aiAnalyser: state.aiAnalyser,
     };
   }
-
-  function getMicMuted() { return state.isMicMuted; }
-  function getAiSpeaking() { return state.isAiSpeaking; }
-  function getSpeakerMuted() { return state.isSpeakerMuted; }
 
   return {
     startSession,
@@ -877,8 +1105,8 @@ export function createVoiceSessionController() {
     setSpeakerMuted,
     sendTextToModel,
     getSessionState,
-    getMicMuted,
-    getAiSpeaking,
-    getSpeakerMuted,
+    getMicMuted: () => state.isMicMuted,
+    getAiSpeaking: () => state.isAiSpeaking,
+    getSpeakerMuted: () => state.isSpeakerMuted,
   };
 }

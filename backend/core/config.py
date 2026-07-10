@@ -62,6 +62,9 @@ class Settings(BaseSettings):
 
     # ── LLM Provider Secrets ─────────────────────────────────────
     GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
+    GEMINI_LIVE_MODEL: str = Field(default="gemini-3.1-flash-live-preview", min_length=1, max_length=120)
+    VOICE_TOKEN_TTL_SECONDS: int = Field(default=1800, ge=300, le=1800)
+    VOICE_NEW_SESSION_TTL_SECONDS: int = Field(default=60, ge=30, le=60)
     OPENROUTER_API_KEY: SecretStr | None = Field(default=None, repr=False)
     GROQ_API_KEY: SecretStr | None = Field(default=None, repr=False)
 

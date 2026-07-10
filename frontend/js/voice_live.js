@@ -31,6 +31,7 @@ let callStartTime = null;
 let ccVisible = true;
 let isIncognito = false;
 let onChatSyncCallback = null;
+let liveVoiceInitialized = false;
 
 // Transcript bubble tracking
 let lastSpeaker = null;
@@ -42,6 +43,8 @@ let currentBubble = null;
 
 export function initLiveVoice({ onChatSync } = {}) {
   onChatSyncCallback = onChatSync;
+  if (liveVoiceInitialized) return;
+  liveVoiceInitialized = true;
 
   document.getElementById("voice-live-close")?.addEventListener("click", stopLiveVoice);
   document.getElementById("voice-live-close-bottom")?.addEventListener("click", stopLiveVoice);
@@ -56,7 +59,7 @@ export function initLiveVoice({ onChatSync } = {}) {
     });
   }
 
-  // Incognito toggle
+  // Call-history persistence toggle
   const incognitoBtn = document.getElementById("voice-incognito-toggle");
   if (incognitoBtn) {
     incognitoBtn.addEventListener("click", () => {
@@ -68,9 +71,9 @@ export function initLiveVoice({ onChatSync } = {}) {
       const statusEl = document.getElementById("voice-live-status");
       if (statusEl) {
         const prev = statusEl.textContent;
-        statusEl.textContent = isIncognito ? "Incognito on" : "Incognito off";
+        statusEl.textContent = isIncognito ? "Call won’t be saved" : "Call saving restored";
         setTimeout(() => {
-          if (statusEl.textContent.startsWith("Incognito")) statusEl.textContent = prev;
+          if (statusEl.textContent === "Call won’t be saved" || statusEl.textContent === "Call saving restored") statusEl.textContent = prev;
         }, 1500);
       }
     });
@@ -121,6 +124,11 @@ export async function startLiveVoice(contextProvider = null) {
   if (panel) { panel.innerHTML = ""; panel.style.opacity = "1"; }
   if (statusEl) statusEl.textContent = "Connecting…";
 
+  if (!overlay) {
+    isLiveActive = false;
+    throw new Error("Voice overlay is missing from the page.");
+  }
+
   overlay.classList.remove("hidden");
   void overlay.offsetWidth;
   overlay.classList.remove("opacity-0");
@@ -148,6 +156,7 @@ export async function startLiveVoice(contextProvider = null) {
       onTurnComplete: handleTurnComplete,
       onVolume: feedVolume,
       token,
+      refreshAuthToken: () => getIdToken({ forceRefresh: true }),
     });
 
     // Wire up visualizer with session analysers
@@ -180,11 +189,13 @@ export function stopLiveVoice() {
 
   // Hide overlay with transition
   const overlay = document.getElementById("voice-live-overlay");
-  overlay.classList.add("opacity-0");
-  overlay.classList.remove("pointer-events-auto");
-  setTimeout(() => overlay.classList.add("hidden"), 500);
+  if (overlay) {
+    overlay.classList.add("opacity-0");
+    overlay.classList.remove("pointer-events-auto");
+    setTimeout(() => overlay.classList.add("hidden"), 500);
+  }
 
-  // Sync to chat (unless incognito)
+  // Sync to chat unless the user disabled call-history persistence
   if (!isIncognito && onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
     const endTime = new Date();
     onChatSyncCallback({
@@ -192,7 +203,7 @@ export function stopLiveVoice() {
       aiTranscript: aiTranscript.trim(),
       startTime: callStartTime?.toISOString() || endTime.toISOString(),
       endTime: endTime.toISOString(),
-      durationMs: callStartTime ? endTime - callStartTime : 0,
+      durationMs: callStartTime ? endTime.getTime() - callStartTime.getTime() : 0,
       incognito: false,
     });
   }
@@ -223,12 +234,24 @@ function handleTranscript(type, text) {
     lastSpeaker = type;
   }
 
+  const appendChunk = (existing, chunk) => {
+    const previous = String(existing || "");
+    const next = String(chunk || "");
+    if (!previous) return next;
+    if (!next || previous.endsWith(next)) return previous;
+    // Gemini transcription messages may be cumulative rather than deltas.
+    if (next.startsWith(previous)) return next;
+    if (previous.startsWith(next)) return previous;
+    if (/\s$/.test(previous) || /^\s/.test(next) || /^[,.;:!?،؟]/.test(next)) return previous + next;
+    return `${previous} ${next}`;
+  };
+
   if (currentBubble) {
-    currentBubble.textContent += cleaned;
+    currentBubble.textContent = appendChunk(currentBubble.textContent || "", cleaned);
   }
 
-  if (type === "ai") aiTranscript += cleaned;
-  else userTranscript += cleaned;
+  if (type === "ai") aiTranscript = appendChunk(aiTranscript, cleaned);
+  else if (type === "user") userTranscript = appendChunk(userTranscript, cleaned);
 
   scrollTranscript();
 }

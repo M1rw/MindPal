@@ -339,92 +339,15 @@ function parseAgentChainResponse(text) {
 }
 
 export function processStructuredResponse(text, elapsedMs = null) {
-  // Truncate any LLM repetition loops before processing
-  let cleanText = truncateRepetition(text) || text;
-
-  // CRITICAL: Strip any system prompt fragments that leaked into the response
-  cleanText = stripSystemPromptLeak(cleanText);
-  if (!cleanText) {
-    // Entire response was system prompt contamination — show safe fallback
-    return {
-      timelineHtml: "",
-      finalHtml: formatMarkdown("I'm here for you. Can you tell me what's going on?"),
-    };
-  }
-
-  // First, try the agent chain format: **Thought:** ... **Response:**/**Balanced Reframe:**
-  const agentChain = parseAgentChainResponse(cleanText);
-  if (agentChain && agentChain.thoughtContent) {
-    return buildAgentChainResult(agentChain, elapsedMs, cleanText);
-  }
-
-  // Fall back to cognitive sections parser (Thought/Distortion/Evidence/Reframe/Action)
-  const sections = parseCognitiveSections(cleanText);
-
-  // Only build a timeline dropdown if we actually have thinking logic to show
-  const hasTimelineItems = Boolean(
-    sections.thought ||
-    sections.distortion ||
-    sections.evidenceFor ||
-    sections.evidenceAgainst
-  );
-
-  if (!hasTimelineItems) {
-    // Strip any "Note:" meta-commentary even in non-chain responses
-    let displayText = cleanText
-      .replace(/\n\s*Note\s*:\s*[\s\S]*$/i, "")
-      .replace(/\s*\([A-Za-z][^)]{10,}\?\s*\)\s*/g, " ")
-      .trim();
-    return {
-      timelineHtml: "",
-      finalHtml: formatMarkdown(displayText || cleanText),
-    };
-  }
-
-  const thought = sections.thought;
-  const distortion = sections.distortion;
-  const evidenceFor = sections.evidenceFor;
-  const evidenceAgainst = sections.evidenceAgainst;
-  const reframe = sections.reframe || sections.preamble || "";
-  const action = sections.action;
-
-  const timeText = elapsedMs
-    ? `Thought for ${(elapsedMs / 1000).toFixed(1)}s`
-    : "Thought process";
-
-  const timelineHtml = `
-    <div class="thought-accordion group mb-2">
-      <button class="accordion-header flex items-center gap-2 cursor-pointer text-[15px] text-[#444746] dark:text-[#c4c7c5] hover:text-gray-900 dark:hover:text-white font-medium select-none transition-colors w-full text-left" aria-expanded="false">
-        <span>${timeText}</span>
-        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300 transform chevron-icon"></i>
-      </button>
-
-      <div class="accordion-grid grid transition-[grid-template-rows] duration-300 ease-out" style="grid-template-rows: 0fr;">
-        <div class="accordion-content overflow-hidden min-w-0 opacity-0 transition-opacity duration-300">
-          <div class="mt-4 ml-[7px] pl-6 border-l border-gray-200 dark:border-[#444746] space-y-5 text-[15px] text-gray-700 dark:text-gray-300 relative pb-4">
-            ${thought ? timelineItem("Thought", thought, "circle-minus") : ""}
-            ${distortion ? timelineItem("Distortion", distortion, "circle-minus") : ""}
-            ${evidenceFor ? timelineItem("Evidence For", evidenceFor, "circle-minus") : ""}
-            ${evidenceAgainst ? timelineItem("Evidence Against", evidenceAgainst, "circle-minus") : ""}
-            ${timelineItem("Done", "", "check-circle-2")}
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // Build the visible response body — fall back if reframe is empty
-  const visibleBody = reframe
-    || action
-    || "I've reflected on what you shared. Would you like to talk more about it?";
-
-  let finalHtml = `<div class="text-[15px] leading-relaxed" dir="auto">${formatMarkdown(visibleBody)}</div>`;
-
-  if (action && reframe) {
-    finalHtml += `<div class="mt-4"><strong class="text-gray-900 dark:text-white font-semibold">Next Action:</strong> ${formatMarkdown(action)}</div>`;
-  }
-
-  return { timelineHtml, finalHtml };
+  const visibleText = extractVisibleText(text, { final: elapsedMs !== null });
+  return {
+    // Internal model reasoning is never rendered. The UI may show elapsed time,
+    // but not hidden chain-of-thought or prompt-planning content.
+    timelineHtml: "",
+    finalHtml: visibleText
+      ? `<div class="text-[15px] leading-relaxed" dir="auto">${formatMarkdown(visibleText)}</div>`
+      : "",
+  };
 }
 
 /**
@@ -602,29 +525,34 @@ function parseThoughtSteps(text) {
  * stripping chain-of-thought / internal reasoning.
  * Used for copy-to-clipboard and read-aloud.
  */
-export function extractVisibleText(rawText) {
-  let clean = String(rawText || "").trim();
+export function extractVisibleText(rawText, { final = true } = {}) {
+  let clean = truncateRepetition(String(rawText || "").trim()) || "";
   if (!clean) return "";
-
-  // Strip system prompt leaks before processing
   clean = stripSystemPromptLeak(clean);
-  if (!clean) return "";
+  if (!clean) return final ? "I’m here with you. Please send that again in one sentence." : "";
 
-  // Try agent chain format first: Thought + Response/Balanced Reframe
   const agentChain = parseAgentChainResponse(clean);
   if (agentChain) {
-    if (agentChain.visibleContent) return agentChain.visibleContent;
-    // If no visible content delimiter was found, fall through to cognitive sections
+    if (agentChain.visibleContent) return agentChain.visibleContent.trim();
+    // A Thought marker without a public response is internal-only. Never expose it.
+    return final ? "I’m here with you. Please send that again so I can answer clearly." : "";
   }
 
-  // Try cognitive sections: Thought/Distortion/Evidence/Reframe/Action
   const sections = parseCognitiveSections(clean);
-  if (sections.reframe) {
-    let result = sections.reframe;
-    if (sections.action) result += "\n\n" + sections.action;
-    return result;
+  const hasInternalSections = Boolean(
+    sections.thought || sections.distortion || sections.evidenceFor || sections.evidenceAgainst
+  );
+  if (hasInternalSections) {
+    const publicParts = [sections.reframe || sections.preamble, sections.action].filter(Boolean);
+    return publicParts.length
+      ? publicParts.join("\n\n").trim()
+      : final
+        ? "I’ve reflected on what you shared. Please send it again so I can give you a clear response."
+        : "";
   }
 
-  // No structured format detected — return the full text as-is
-  return clean;
+  return clean
+    .replace(/\n\s*Note\s*:\s*[\s\S]*$/i, "")
+    .replace(/\s*\([A-Za-z][^)]{10,}\?\s*\)\s*/g, " ")
+    .trim();
 }

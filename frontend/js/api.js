@@ -1,8 +1,10 @@
 // frontend/js/api.js
 
 const DEFAULT_TIMEOUT_MS = 45_000;
+const STREAM_TIMEOUT_MS = 120_000;
+const MAX_HISTORY_ITEM_CHARS = 12_000;
+const MAX_HISTORY_TOTAL_CHARS = 64_000;
 
-const PRODUCTION_API_BASE_URL = "https://mindpal-demo.vercel.app/api";
 
 function resolveApiBaseUrl() {
   const explicit = window.MINDPAL_CONFIG?.API_BASE_URL;
@@ -18,7 +20,7 @@ function resolveApiBaseUrl() {
   }
 
   if (window.location.protocol === "file:") {
-    return PRODUCTION_API_BASE_URL;
+    return "http://127.0.0.1:8000/api";
   }
 
   return `${window.location.origin}/api`;
@@ -45,23 +47,19 @@ async function requestJson(path, {
   signal = null,
 } = {}) {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const abortFromCaller = () => controller.abort(signal?.reason);
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort(new DOMException("Request timed out", "TimeoutError"));
+  }, timeoutMs);
 
-  if (signal) {
-    signal.addEventListener("abort", () => controller.abort(), { once: true });
-  }
+  if (signal?.aborted) abortFromCaller();
+  else signal?.addEventListener("abort", abortFromCaller, { once: true });
 
-  const headers = {
-    Accept: "application/json",
-  };
-
-  if (body !== undefined) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  const headers = { Accept: "application/json" };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -74,30 +72,20 @@ async function requestJson(path, {
 
     const text = await response.text();
     const data = text ? safeJsonParse(text) : null;
-
-    if (!response.ok) {
-      throw toApiError(response, data);
-    }
-
+    if (!response.ok) throw toApiError(response, data);
     return data;
   } catch (error) {
-    if (error instanceof MindPalApiError) {
-      throw error;
+    if (error instanceof MindPalApiError) throw error;
+    if (error?.name === "AbortError" || error?.name === "TimeoutError") {
+      if (!timedOut && signal?.aborted) {
+        throw new DOMException("Request cancelled", "AbortError");
+      }
+      throw new MindPalApiError("Request timed out", { status: 0, code: "request_timeout" });
     }
-
-    if (error?.name === "AbortError") {
-      throw new MindPalApiError("Request timed out", {
-        status: 0,
-        code: "request_timeout",
-      });
-    }
-
-    throw new MindPalApiError(error?.message || "Network request failed", {
-      status: 0,
-      code: "network_error",
-    });
+    throw new MindPalApiError(error?.message || "Network request failed", { status: 0, code: "network_error" });
   } finally {
     window.clearTimeout(timeout);
+    signal?.removeEventListener("abort", abortFromCaller);
   }
 }
 
@@ -129,31 +117,46 @@ export function normalizeChatHistory(chatMemory, maxMessages = 30, fieldName = "
   if (!Array.isArray(chatMemory)) return [];
 
   const outputField = fieldName === "content" ? "content" : "text";
-
-  return chatMemory
-    .slice(-maxMessages)
+  const normalized = chatMemory
+    .slice(-Math.max(0, maxMessages))
     .map((item) => {
-      const role = item.role === "User" || item.role === "user" ? "user" : "assistant";
-
-      // Expand voice call messages so the LLM knows what was discussed
+      const role = item?.role === "User" || item?.role === "user" ? "user" : "assistant";
       let value;
-      if (item.type === "voice_call" && item.voiceCall) {
-        const parts = [`[Voice Call · ${item.voiceCall.durationStr || ""}]`];
+      if (item?.type === "voice_call" && item.voiceCall) {
+        const parts = [`[Voice Call · ${String(item.voiceCall.durationStr || "").slice(0, 80)}]`];
         if (item.voiceCall.summary) parts.push(`Summary: ${item.voiceCall.summary}`);
         if (item.voiceCall.userTranscript) parts.push(`User said: ${item.voiceCall.userTranscript}`);
         if (item.voiceCall.aiTranscript) parts.push(`AI said: ${item.voiceCall.aiTranscript}`);
         value = parts.join("\n");
       } else {
-        value = String(item.text ?? item.content ?? item.message ?? "").trim();
+        value = String(item?.text ?? item?.content ?? item?.message ?? "").trim();
       }
-
+      value = value.slice(0, MAX_HISTORY_ITEM_CHARS);
       if (!value) return null;
-
-      return outputField === "content"
-        ? { role, content: value }
-        : { role, text: value };
+      return outputField === "content" ? { role, content: value } : { role, text: value };
     })
     .filter(Boolean);
+
+  let total = 0;
+  const bounded = [];
+  for (let index = normalized.length - 1; index >= 0; index -= 1) {
+    const item = normalized[index];
+    const value = item[outputField];
+    if (bounded.length && total + value.length > MAX_HISTORY_TOTAL_CHARS) break;
+    bounded.push(item);
+    total += value.length;
+  }
+  return bounded.reverse();
+}
+
+export function removeTrailingDuplicateUserMessage(history, message) {
+  const cleanMessage = String(message || "").trim();
+  if (!cleanMessage || !Array.isArray(history) || history.length === 0) return history || [];
+  const next = [...history];
+  const last = next[next.length - 1];
+  const lastText = String(last?.content ?? last?.text ?? "").trim();
+  if (last?.role === "user" && lastText === cleanMessage) next.pop();
+  return next;
 }
 
 
@@ -190,34 +193,6 @@ export async function updateUserProfilePreferences(preferences, token) {
 }
 
 
-function buildAuthenticatedContextPrefix(profileContext) {
-  if (!profileContext?.authenticated) return "";
-
-  const lines = [
-    "Verified authenticated user context:",
-    "- authenticated: true",
-  ];
-
-  if (profileContext.displayName) {
-    lines.push(`- display_name: ${String(profileContext.displayName).trim()}`);
-  }
-
-  if (profileContext.email) {
-    lines.push(`- email: ${String(profileContext.email).trim()}`);
-  }
-
-  lines.push(
-    "",
-    "Assistant instruction:",
-    "Use this verified context when the user asks about their own identity or profile.",
-    "If the user asks for their name, answer from display_name when available.",
-    "Do not say you do not have access to their name when display_name is present.",
-    "",
-    "User message:",
-  );
-
-  return `${lines.join("\\n")}\\n`;
-}
 
 // Map UI listening preference names to backend preference IDs
 // Frontend shows user-friendly names, backend receives preference identifiers
@@ -367,79 +342,131 @@ export async function sendChatMessageStream({
   token = null,
   profileContext = null,
   signal = null,
-  onChunk = (text) => {},
-  onStatus = (status) => {},
-  onMetadata = (meta) => {},
-  onError = (error) => {}
+  onChunk = () => {},
+  onStatus = () => {},
+  onMetadata = () => {},
+  onError = () => {},
 }) {
   const cleanMessage = String(message || "").trim();
   if (!cleanMessage) throw new Error("Message cannot be empty");
 
   const backendPreference = MODE_UI_TO_BACKEND[mode] || "active_listen";
-  const normalizedHistory = normalizeChatHistory(history, 60, "content");
-  const metadata = { locale, mode: backendPreference, model, ...(profileContext?.settingsMetadata || {}) };
-
+  const normalizedHistory = removeTrailingDuplicateUserMessage(
+    normalizeChatHistory(history, 60, "content"),
+    cleanMessage,
+  );
+  const metadata = { locale, channel, mode: backendPreference, model, ...(profileContext?.settingsMetadata || {}) };
   const url = `${API_BASE_URL}/chat/stream`;
-  const headers = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const headers = { Accept: "text/event-stream", "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const controller = new AbortController();
+  let timedOut = false;
+  let errorReported = false;
+  const abortFromCaller = () => controller.abort(signal?.reason);
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort(new DOMException("Stream timed out", "TimeoutError"));
+  }, STREAM_TIMEOUT_MS);
+  if (signal?.aborted) abortFromCaller();
+  else signal?.addEventListener("abort", abortFromCaller, { once: true });
+
+  const reportError = (error) => {
+    if (errorReported) return;
+    errorReported = true;
+    onError(error);
+  };
+
+  const dispatchEvent = (rawEvent) => {
+    const dataLines = String(rawEvent || "")
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).replace(/^ /, ""));
+    if (dataLines.length === 0) return false;
+    const dataStr = dataLines.join("\n").trim();
+    if (!dataStr) return false;
+    if (dataStr === "[DONE]") return true;
+
+    let data;
+    try {
+      data = JSON.parse(dataStr);
+    } catch (error) {
+      console.warn("Failed to parse SSE JSON payload", error, dataStr.slice(0, 500));
+      return false;
+    }
+
+    if (data.error) {
+      throw new MindPalApiError(
+        typeof data.error === "string" ? data.error : data.error.message || "Stream failed",
+        {
+          status: Number(data.status || 0),
+          code: data.code || "stream_error",
+          details: data.error,
+          requestId: data.request_id || null,
+        },
+      );
+    }
+    if (data.text !== undefined) onChunk(String(data.text));
+    else if (data.type === "status") onStatus(data.status);
+    else if (data.type === "metadata") onMetadata(data);
+    return false;
+  };
 
   try {
     const response = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify({ message: cleanMessage, history: normalizedHistory, metadata, stream: true }),
-      signal,
+      signal: controller.signal,
+      credentials: "omit",
     });
-
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      throw new Error(`Stream error HTTP ${response.status}: ${errText}`);
+      throw toApiError(response, safeJsonParse(errText));
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType && !contentType.includes("text/event-stream")) {
+      throw new MindPalApiError("Backend returned a non-streaming response", {
+        status: response.status,
+        code: "invalid_stream_content_type",
+        details: { contentType },
+      });
+    }
+    if (!response.body) {
+      throw new MindPalApiError("Streaming response body was empty", { status: response.status, code: "empty_stream_body" });
     }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-
-    while (true) {
+    let streamFinished = false;
+    while (!streamFinished) {
       const { done, value } = await reader.read();
-      if (done) break;
-      
-      buffer += decoder.decode(value, { stream: true });
-      
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      buffer = buffer.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
       let boundary = buffer.indexOf("\n\n");
       while (boundary !== -1) {
-        const chunk = buffer.slice(0, boundary).trim();
+        const rawEvent = buffer.slice(0, boundary);
         buffer = buffer.slice(boundary + 2);
-        
-        if (chunk.startsWith("data: ")) {
-          const dataStr = chunk.slice(6).trim();
-          if (dataStr === "[DONE]") {
-             // End of stream indicator
-          } else if (dataStr) {
-            try {
-              const data = JSON.parse(dataStr);
-              if (data.error) {
-                onError(new Error(data.error));
-              } else if (data.text !== undefined) {
-                onChunk(data.text);
-              } else if (data.type === 'status') {
-                onStatus(data.status);
-              } else if (data.type === 'metadata') {
-                onMetadata(data);
-              }
-            } catch (e) {
-              console.warn("Failed to parse SSE JSON payload", e, dataStr);
-            }
-          }
-        }
+        if (dispatchEvent(rawEvent)) { streamFinished = true; break; }
         boundary = buffer.indexOf("\n\n");
+      }
+      if (done) {
+        if (!streamFinished && buffer.trim()) dispatchEvent(buffer);
+        break;
       }
     }
   } catch (error) {
-    if (error.name === "AbortError") {
-      return; // Canceled intentionally
+    if (error?.name === "AbortError" || error?.name === "TimeoutError") {
+      if (!timedOut && signal?.aborted) throw new DOMException("Stream cancelled", "AbortError");
+      const timeoutError = new MindPalApiError("Response stream timed out", { status: 0, code: "request_timeout" });
+      reportError(timeoutError);
+      throw timeoutError;
     }
-    onError(error);
+    reportError(error);
     throw error;
+  } finally {
+    window.clearTimeout(timeout);
+    signal?.removeEventListener("abort", abortFromCaller);
   }
 }

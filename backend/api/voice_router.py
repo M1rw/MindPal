@@ -15,10 +15,12 @@ This router is a thin HTTP wrapper.
 
 from __future__ import annotations
 
+import asyncio
+import datetime as dt
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api.dependencies import RequestContextDep, ServicesDep
@@ -83,6 +85,18 @@ class SummarizeRequest(BaseModel):
     @classmethod
     def _clean_transcript(cls, value: object) -> str:
         return sanitize_text(str(value or ""), MAX_TRANSCRIPT_CHARS)
+
+
+class VoiceTokenResponse(BaseModel):
+    """Short-lived credentials for one Gemini Live API session."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    token: str = Field(min_length=1, max_length=8_000)
+    model: str = Field(min_length=1, max_length=120)
+    websocket_url: str = Field(min_length=1, max_length=500)
+    expires_at: str
+    new_session_expires_at: str
 
 
 @router.post("/transcribe", response_model=TranscribeResponse)
@@ -174,27 +188,16 @@ def _get_gemini_key(settings: Any) -> str:
     return str(value or "").strip()
 
 
-@router.get("/key")
-async def get_voice_key(
-    services: ServicesDep,
+@router.get("/token", response_model=VoiceTokenResponse)
+async def get_voice_token(
+    response: Response,
     context: RequestContextDep,
-) -> dict[str, str]:
-    """
-    Return the Gemini API key for authenticated voice sessions.
-
-    The frontend needs this key to establish a direct WebSocket connection
-    to the Gemini Live API (BidiGenerateContent). This endpoint REQUIRES
-    authentication to prevent unauthorized key access.
-
-    Security:
-    - Requires authenticated Firebase session
-    - Returns only the Gemini key (no other secrets)
-    """
+) -> VoiceTokenResponse:
+    """Issue one short-lived Gemini Live API token without exposing the API key."""
     _require_authenticated(context)
 
     settings = get_settings()
     api_key = _get_gemini_key(settings)
-
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -205,7 +208,107 @@ async def get_voice_key(
             },
         )
 
-    return {"key": api_key}
+    now = dt.datetime.now(tz=dt.timezone.utc)
+    expires_at = now + dt.timedelta(seconds=int(settings.VOICE_TOKEN_TTL_SECONDS))
+    new_session_expires_at = now + dt.timedelta(seconds=int(settings.VOICE_NEW_SESSION_TTL_SECONDS))
+
+    try:
+        token_name = await _create_ephemeral_voice_token(
+            api_key=api_key,
+            model=settings.GEMINI_LIVE_MODEL,
+            expires_at=expires_at,
+            new_session_expires_at=new_session_expires_at,
+        )
+    except ModuleNotFoundError as exc:
+        logger.error("google-genai is not installed; voice token provisioning is unavailable")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "voice_dependency_missing",
+                "message": "Voice service is temporarily unavailable",
+                "request_id": context.request_id,
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to provision Gemini Live ephemeral token")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "voice_token_provision_failed",
+                "message": "Could not start a secure voice session",
+                "request_id": context.request_id,
+            },
+        ) from exc
+
+    response.headers["Cache-Control"] = "no-store, private"
+    response.headers["Pragma"] = "no-cache"
+    return VoiceTokenResponse(
+        token=token_name,
+        model=settings.GEMINI_LIVE_MODEL,
+        websocket_url=(
+            "wss://generativelanguage.googleapis.com/ws/"
+            "google.ai.generativelanguage.v1alpha.GenerativeService."
+            "BidiGenerateContentConstrained"
+        ),
+        expires_at=expires_at.isoformat().replace("+00:00", "Z"),
+        new_session_expires_at=new_session_expires_at.isoformat().replace("+00:00", "Z"),
+    )
+
+
+@router.get("/key", status_code=status.HTTP_410_GONE)
+async def retired_voice_key_endpoint(context: RequestContextDep) -> None:
+    """Permanent provider keys are intentionally never returned to browsers."""
+    _require_authenticated(context)
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={
+            "code": "voice_key_endpoint_retired",
+            "message": "Use the secure voice token endpoint",
+            "request_id": context.request_id,
+        },
+    )
+
+
+async def _create_ephemeral_voice_token(
+    *,
+    api_key: str,
+    model: str,
+    expires_at: dt.datetime,
+    new_session_expires_at: dt.datetime,
+) -> str:
+    """Create a constrained token in a worker thread because the SDK call is synchronous."""
+
+    def create() -> str:
+        from google import genai
+
+        client = genai.Client(
+            api_key=api_key,
+            http_options={"api_version": "v1alpha"},
+        )
+        try:
+            token = client.auth_tokens.create(
+                config={
+                    "uses": 1,
+                    "expire_time": expires_at,
+                    "new_session_expire_time": new_session_expires_at,
+                    "live_connect_constraints": {
+                        "model": model,
+                        "config": {
+                            "session_resumption": {},
+                            "response_modalities": ["AUDIO"],
+                        },
+                    },
+                    "http_options": {"api_version": "v1alpha"},
+                }
+            )
+            name = str(getattr(token, "name", "") or "").strip()
+            if not name:
+                raise RuntimeError("Gemini returned an empty ephemeral token")
+            return name
+        finally:
+            client.close()
+
+    return await asyncio.to_thread(create)
 
 
 def _require_authenticated(context: Any) -> None:

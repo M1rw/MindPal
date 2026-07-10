@@ -1,0 +1,23 @@
+{
+  "name": "mindpal-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:css && npm run build:icons && npm run build:app",
+    "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
+    "build:icons": "esbuild frontend/js/vendor/lucide_global.js --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=frontend/dist/lucide.bundle.js",
+    "build:app": "esbuild frontend/js/app.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/app.bundle.js",
+    "test": "node --test tests/*.mjs",
+    "audit:frontend": "python scripts/audit_frontend.py"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.11",
+    "firebase": "11.6.1",
+    "lucide": "0.468.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1",
+    "tailwindcss": "3.4.17"
+  }
+}

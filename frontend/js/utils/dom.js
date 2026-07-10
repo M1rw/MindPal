@@ -1,4 +1,23 @@
-export { scrollChatToBottom } from "../ui_state.js";
+import DOMPurify from "dompurify";
+import { scrollChatToBottom } from "../ui_state.js";
+export { scrollChatToBottom };
+
+const RICH_HTML_POLICY = Object.freeze({
+  ALLOWED_TAGS: [
+    "br", "code", "div", "em", "i", "li", "ol", "pre", "span", "strong", "ul",
+    "button", "svg", "polyline", "path",
+  ],
+  ALLOWED_ATTR: [
+    "aria-controls", "aria-expanded", "aria-hidden", "class", "data-lucide", "data-target",
+    "dir", "fill", "height", "id", "role", "stroke", "stroke-linecap",
+    "stroke-linejoin", "stroke-width", "style", "type", "viewBox", "width",
+  ],
+  ALLOW_DATA_ATTR: false,
+});
+
+export function sanitizeRichHtml(html) {
+  return DOMPurify.sanitize(String(html || ""), RICH_HTML_POLICY);
+}
 
 export function escapeHtml(value) {
   return String(value ?? "")
@@ -10,49 +29,27 @@ export function escapeHtml(value) {
 }
 
 export function formatMarkdown(text) {
-  let result = String(text || "");
+  const codeBlocks = [];
+  let result = String(text || "").replace(/```([\w+-]*)\n([\s\S]*?)```/g, (_match, lang, code) => {
+    const escaped = escapeHtml(code.replace(/\n$/, ""));
+    const safeLang = escapeHtml(lang || "");
+    const html = `<div class="code-block-wrap">${safeLang ? `<div class="code-lang-label">${safeLang}</div>` : ""}<pre class="code-block"><code>${escaped}</code></pre></div>`;
+    const token = `@@MINDPAL_CODE_BLOCK_${codeBlocks.length}@@`;
+    codeBlocks.push(html);
+    return token;
+  });
 
-  // 1. Fenced code blocks: ```lang\n...\n``` → styled <pre><code>
-  result = result.replace(
-    /```(\w*)\n([\s\S]*?)```/g,
-    (_match, lang, code) => {
-      const escaped = code
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\n$/, ""); // trim trailing newline inside block
-      const langLabel = lang
-        ? `<div class="code-lang-label">${lang}</div>`
-        : "";
-      return `<div class="code-block-wrap">${langLabel}<pre class="code-block"><code>${escaped}</code></pre></div>`;
-    },
-  );
+  result = escapeHtml(result);
+  result = result.replace(/`([^`\n]+?)`/g, '<code class="inline-code">$1</code>');
+  result = result.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-gray-100 font-semibold">$1</strong>');
+  result = result.replace(/(^|[^*])\*([^*\n]+?)\*/g, "$1<em>$2</em>");
+  result = result.replace(/(?:^|\n)[ \t]*[-•]\s+(.+)/g, (_match, content) => `\n<li class="ml-4 list-disc">${content}</li>`);
+  result = result.replace(/(?:^|\n)[ \t]*\d+\.\s+(.+)/g, (_match, content) => `\n<li class="ml-4 list-decimal">${content}</li>`);
+  result = result.replace(/\n\n/g, "<br><br>").replace(/\n/g, "<br>");
 
-  // 2. Escape HTML in remaining (non-code-block) text
-  //    Split on code blocks we already rendered, escape only non-code parts
-  const parts = result.split(/(<div class="code-block-wrap">[\s\S]*?<\/div>)/g);
-  result = parts
-    .map((part) => {
-      if (part.startsWith('<div class="code-block-wrap">')) return part;
-      // Escape HTML
-      let p = part.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      // 3. Inline code: `code` → <code class="inline-code">
-      p = p.replace(/`([^`\n]+?)`/g, '<code class="inline-code">$1</code>');
-      // 4. Bold: **text**
-      p = p.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-gray-100 font-semibold">$1</strong>');
-      // 5. Italic: *text*
-      p = p.replace(/\*(.*?)\*/g, "<em>$1</em>");
-      // 6. Unordered lists: lines starting with - or •
-      p = p.replace(/(?:^|\n)([ \t]*[-•])\s+(.+)/g, (_m, _bullet, content) => `\n<li class="ml-4 list-disc">${content}</li>`);
-      // 7. Ordered lists: lines starting with 1. 2. etc
-      p = p.replace(/(?:^|\n)([ \t]*\d+\.)\s+(.+)/g, (_m, _num, content) => `\n<li class="ml-4 list-decimal">${content}</li>`);
-      // 8. Paragraphs / line breaks
-      p = p.replace(/\n\n/g, "<br><br>");
-      p = p.replace(/\n/g, "<br>");
-      return p;
-    })
-    .join("");
-
+  for (let index = 0; index < codeBlocks.length; index += 1) {
+    result = result.replace(`@@MINDPAL_CODE_BLOCK_${index}@@`, codeBlocks[index]);
+  }
   return result;
 }
 
@@ -70,31 +67,46 @@ export function sleep(ms) {
 }
 
 export async function typewriteHTML(element, html, scrollContainer) {
-  element.innerHTML = "";
-  const tokens = html.match(/(<[^>]+>|[^<]+)/g) || [];
-  let currentHTML = "";
+  const template = document.createElement("template");
+  // Callers provide HTML produced by formatMarkdown/processStructuredResponse,
+  // which escape user/model text before adding the small supported tag set.
+  template.innerHTML = sanitizeRichHtml(html);
 
-  for (const token of tokens) {
-    if (token.startsWith("<")) {
-      currentHTML += token;
-      element.innerHTML = currentHTML;
-      continue;
-    }
+  const fragment = template.content.cloneNode(true);
+  const walker = document.createTreeWalker(fragment, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  let node = walker.nextNode();
+  while (node) {
+    const fullText = node.textContent || "";
+    node.textContent = "";
+    textNodes.push({ node, fullText });
+    node = walker.nextNode();
+  }
 
-    for (let index = 0; index < token.length; index += 1) {
-      currentHTML += token.charAt(index);
-      element.innerHTML = currentHTML;
+  element.replaceChildren(fragment);
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  if (reduceMotion) {
+    for (const item of textNodes) item.node.textContent = item.fullText;
+    scrollChatToBottom("auto", true);
+    return;
+  }
 
-      if (index % 3 === 0) {
-        scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: "auto" });
+  const CHARS_PER_FRAME = 6;
+  let frame = 0;
+  for (const item of textNodes) {
+    for (let offset = 0; offset < item.fullText.length; offset += CHARS_PER_FRAME) {
+      item.node.textContent += item.fullText.slice(offset, offset + CHARS_PER_FRAME);
+      frame += 1;
+      if (frame % 3 === 0) {
+        scrollContainer?.scrollTo?.({ top: scrollContainer.scrollHeight, behavior: "auto" });
       }
-
-      await sleep(6);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     }
   }
 
-  scrollChatToBottom("auto");
+  scrollChatToBottom("auto", true);
 }
+
 
 export function bindAccordion(root) {
   const header = root.querySelector(".accordion-header");

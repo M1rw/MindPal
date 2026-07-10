@@ -1,6 +1,6 @@
 // frontend/js/auth.js
 
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   browserLocalPersistence,
   getAuth,
@@ -9,7 +9,7 @@ import {
   setPersistence,
   signInWithPopup,
   signOut as firebaseSignOut,
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+} from "firebase/auth";
 
 const AUTH_STATE_TIMEOUT_MS = 8_000;
 
