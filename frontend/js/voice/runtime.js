@@ -201,7 +201,8 @@ export function createVoiceSessionController() {
     if (state._toolCallPending) return;
 
     if (!state._silenceFrameB64) {
-      const silence = new Uint8Array(4096);
+      // 8192 bytes = 4096 samples at 16-bit depth (2 bytes per sample)
+      const silence = new Uint8Array(8192);
       let binary = "";
       for (let i = 0; i < silence.length; i++) binary += String.fromCharCode(silence[i]);
       state._silenceFrameB64 = btoa(binary);
@@ -465,7 +466,7 @@ export function createVoiceSessionController() {
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
       clearListeningTransitionTimer();
-      setSessionPhase("preparing");
+      if (!state.isAiSpeaking) setSessionPhase("preparing");
       debugLog("Model turn received", { parts: data.serverContent.modelTurn.parts?.length || 0 });
       for (const part of data.serverContent.modelTurn.parts) {
         if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
@@ -495,8 +496,9 @@ export function createVoiceSessionController() {
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
       if (data.serverContent?.interrupted) {
+        flushAiAudio();
         recoverFromInterruption();
-      } else {
+      } else if (!state.isAiSpeaking) {
         setSessionPhase(state.isMicMuted ? "muted" : "listening");
       }
       state._onTurnComplete?.();
