@@ -21,7 +21,7 @@
     "tailwindcss": "3.4.17"
   },
   "engines": {
-    "node": "20.x",
+    "node": "24.x",
     "npm": "10.x"
   },
   "packageManager": "npm@10.9.2"
