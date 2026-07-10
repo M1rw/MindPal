@@ -658,10 +658,10 @@ export function createVoiceSessionController() {
           const abs = Math.abs(sample);
           this.smoothRms = this.smoothRms * 0.88 + abs * 0.12;
           const targetGain = abs < 0.001 ? 0.0 : Math.min(2.2, 1.0 / Math.max(0.12, this.smoothRms * 1.6));
-          this.gain = this.gain * 0.75 + targetGain * 0.25;
+          this.gain = this.gain * 0.6 + targetGain * 0.4;
           sample = sample * this.gain;
           sample = Math.max(-1, Math.min(1, sample));
-          if (abs < 0.0015) sample = 0;
+          if (abs < 0.0003) sample = 0;
           this.buffer[this.ptr++] = sample;
           if (this.ptr >= 4096) {
             this.port.postMessage(this.buffer);
