@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildVoiceKeyUrl, classifyVoiceStartupFailure, fetchVoiceKeyWithRetry } from '../frontend/js/voice/startup_helpers.mjs';
+import { buildVoiceKeyUrl, classifySocketClose, classifyVoiceStartupFailure, fetchVoiceKeyWithRetry } from '../frontend/js/voice/startup_helpers.mjs';
 
 test('buildVoiceKeyUrl joins the base URL and voice key path correctly', () => {
   assert.equal(buildVoiceKeyUrl('https://example.com/api'), 'https://example.com/api/voice/key');
@@ -51,5 +51,18 @@ test('classifyVoiceStartupFailure detects retryable network errors', () => {
     retryable: true,
     reason: 'authentication',
     status: 401,
+  });
+});
+
+test('classifySocketClose avoids stopping the session after a transient close after greeting', () => {
+  assert.deepEqual(classifySocketClose({ code: 1006, wasClean: false, hasSetupComplete: true, greetingSent: true }), {
+    retryable: true,
+    shouldStop: false,
+    reason: 'transient',
+  });
+  assert.deepEqual(classifySocketClose({ code: 1000, wasClean: true, hasSetupComplete: true, greetingSent: true }), {
+    retryable: false,
+    shouldStop: true,
+    reason: 'normal',
   });
 });

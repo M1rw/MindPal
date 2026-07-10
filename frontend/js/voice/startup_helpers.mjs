@@ -4,6 +4,28 @@ export function buildVoiceKeyUrl(baseUrl) {
   return `${normalized.replace(/\/$/, '')}/voice/key`;
 }
 
+export function classifySocketClose({ code, reason, wasClean, hasSetupComplete, greetingSent }) {
+  const closeCode = typeof code === 'number' ? code : null;
+
+  if (wasClean || closeCode === 1000 || closeCode === 1001) {
+    return { retryable: false, shouldStop: true, reason: 'normal' };
+  }
+
+  if (hasSetupComplete && greetingSent && (closeCode === 1006 || closeCode === 1011 || closeCode === 1005 || closeCode === 1008 || closeCode === null)) {
+    return { retryable: true, shouldStop: false, reason: 'transient' };
+  }
+
+  if (hasSetupComplete && !greetingSent) {
+    return { retryable: true, shouldStop: false, reason: 'setup-incomplete' };
+  }
+
+  if (typeof reason === 'string' && /timeout|network|socket|reset|aborted/i.test(reason)) {
+    return { retryable: true, shouldStop: false, reason: 'transient-reason' };
+  }
+
+  return { retryable: false, shouldStop: true, reason: 'unexpected' };
+}
+
 export function classifyVoiceStartupFailure(error) {
   if (!error || typeof error !== 'object') {
     return { retryable: true, reason: 'network', status: null };
