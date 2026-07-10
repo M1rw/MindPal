@@ -1,4 +1,5 @@
 .*
+!.npmrc
 docs
 archive
 docker-compose.yml

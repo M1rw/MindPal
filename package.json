@@ -4,6 +4,7 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
+    "prebuild": "node scripts/verify_lockfile_registry.mjs",
     "build": "npm run build:css && npm run build:icons && npm run build:app",
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
     "build:icons": "esbuild frontend/js/vendor/lucide_global.js --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=frontend/dist/lucide.bundle.js",
@@ -19,5 +20,9 @@
   "devDependencies": {
     "esbuild": "0.28.1",
     "tailwindcss": "3.4.17"
+  },
+  "engines": {
+    "node": "20.x",
+    "npm": "10.x"
   }
 }
