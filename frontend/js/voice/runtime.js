@@ -36,6 +36,7 @@ export function createVoiceSessionController() {
     _toolCallPending: false,
     gateOpenUntil: 0,
     lastBargeInAt: 0,
+    bargeInIgnoreUntil: 0,
     userTurnCompleteTimer: null,
     lastUserSpeechAt: 0,
     speechSeenRecently: false,
@@ -117,10 +118,13 @@ export function createVoiceSessionController() {
 
   function shouldInterruptForBargeIn(rms) {
     const now = Date.now();
+    if (now < state.bargeInIgnoreUntil) return false;
+
     if (rms >= BARGE_IN_FAST_THRESHOLD) {
       state.lastBargeInAt = now;
       return true;
     }
+    // Sustained speech detection: requires significant volume over a duration
     if (rms >= BARGE_IN_SUSTAINED_THRESHOLD && now - state.lastBargeInAt > BARGE_IN_GRACE_MS) {
       state.lastBargeInAt = now;
       return true;
@@ -466,7 +470,11 @@ export function createVoiceSessionController() {
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
       clearListeningTransitionTimer();
-      if (!state.isAiSpeaking) setSessionPhase("preparing");
+      if (!state.isAiSpeaking) {
+        setSessionPhase("preparing");
+        // Give AI 250ms of 'protection' when it starts a new turn
+        state.bargeInIgnoreUntil = Date.now() + 250;
+      }
       debugLog("Model turn received", { parts: data.serverContent.modelTurn.parts?.length || 0 });
       for (const part of data.serverContent.modelTurn.parts) {
         if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
@@ -643,7 +651,7 @@ export function createVoiceSessionController() {
     class PCMProcessor extends AudioWorkletProcessor {
       constructor() {
         super();
-        this.buffer = new Float32Array(4096);
+        this.buffer = new Float32Array(2048);
         this.ptr = 0;
         this.smoothRms = 0.0001;
         this.gain = 1.0;
@@ -656,17 +664,18 @@ export function createVoiceSessionController() {
         for (let i = 0; i < ch.length; i++) {
           let sample = ch[i];
           const abs = Math.abs(sample);
-          this.smoothRms = this.smoothRms * 0.88 + abs * 0.12;
-          const targetGain = abs < 0.001 ? 0.0 : Math.min(2.2, 1.0 / Math.max(0.12, this.smoothRms * 1.6));
-          this.gain = this.gain * 0.6 + targetGain * 0.4;
+          this.smoothRms = this.smoothRms * 0.84 + abs * 0.16;
+          // High-speed gain adaptation for ultra-responsive duplex performance
+          const targetGain = abs < 0.001 ? 0.0 : Math.min(2.4, 1.0 / Math.max(0.1, this.smoothRms * 1.5));
+          this.gain = this.gain * 0.5 + targetGain * 0.5;
           sample = sample * this.gain;
           sample = Math.max(-1, Math.min(1, sample));
           if (abs < 0.0003) sample = 0;
           this.buffer[this.ptr++] = sample;
-          if (this.ptr >= 4096) {
+          if (this.ptr >= 2048) {
             this.port.postMessage(this.buffer);
             this.ptr = 0;
-            this.buffer = new Float32Array(4096);
+            this.buffer = new Float32Array(2048);
           }
         }
         return true;
