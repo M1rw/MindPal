@@ -15,6 +15,7 @@ import {
 } from "./constants.js";
 import { buildAdaptiveVoicePrompt, inferEmotionHint } from "./prompts.js";
 import { createToolExecutor, getToolDeclarations } from "./tools.js";
+import { fetchVoiceKeyWithRetry } from "./startup_helpers.mjs";
 
 export function createVoiceSessionController() {
   const state = {
@@ -554,17 +555,36 @@ export function createVoiceSessionController() {
     state.lastUserSpeechAt = 0;
     clearTurnCompleteTimer();
 
-    const baseUrl = window.MINDPAL_CONFIG.API_BASE_URL;
-    const keyHeaders = {};
-    if (token) keyHeaders.Authorization = `Bearer ${token}`;
-    const keyRes = await fetch(`${baseUrl}/voice/key`, { headers: keyHeaders });
-    if (!keyRes.ok) throw new Error("Failed to fetch API key");
-    const { key } = await keyRes.json();
+    const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
+    let key = "";
+    try {
+      const keyResponse = await fetchVoiceKeyWithRetry({
+        baseUrl,
+        token,
+        refreshToken: async () => token || null,
+      });
+      key = keyResponse?.key || "";
+    } catch (error) {
+      console.error("[VOICE] Failed to fetch voice key:", error);
+      throw new Error("Voice service is currently unavailable. Please try again in a moment.");
+    }
+
+    if (!key) {
+      throw new Error("Voice service is currently unavailable. Please try again in a moment.");
+    }
+
+    if (!window.AudioContext && !window.webkitAudioContext) {
+      throw new Error("This browser does not support the Web Audio API required for voice.");
+    }
 
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     state.audioContext = new AudioContextCtor({ sampleRate: 16000, latencyHint: "interactive" });
     if (state.audioContext.state === "suspended") {
       await state.audioContext.resume().catch(err => console.warn("[Voice] Failed to resume audio context:", err));
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("This browser does not support microphone access.");
     }
 
     try {
@@ -593,7 +613,8 @@ export function createVoiceSessionController() {
 
     state.micSource = state.audioContext.createMediaStreamSource(state.mediaStream);
 
-    const workletCode = `
+    try {
+      const workletCode = `
     class PCMProcessor extends AudioWorkletProcessor {
       constructor() {
         super();
@@ -628,15 +649,20 @@ export function createVoiceSessionController() {
     }
     registerProcessor('pcm-processor', PCMProcessor);
     `;
-    const blob = new Blob([workletCode], { type: "application/javascript" });
-    await state.audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
-    state.workletNode = new AudioWorkletNode(state.audioContext, "pcm-processor");
+      const blob = new Blob([workletCode], { type: "application/javascript" });
+      await state.audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
+      state.workletNode = new AudioWorkletNode(state.audioContext, "pcm-processor");
+    } catch (err) {
+      console.warn("[VOICE] Audio worklet unavailable, falling back to simpler capture:", err);
+      state.workletNode = null;
+    }
 
-    state.workletNode.port.onmessage = (e) => {
-      if (!state.isSessionActive || !state.liveWebSocket || state.liveWebSocket.readyState !== WebSocket.OPEN) return;
+    if (state.workletNode) {
+      state.workletNode.port.onmessage = (e) => {
+        if (!state.isSessionActive || !state.liveWebSocket || state.liveWebSocket.readyState !== WebSocket.OPEN) return;
 
-      const inputData = e.data;
-      const pcmData = new Int16Array(inputData.length);
+        const inputData = e.data;
+        const pcmData = new Int16Array(inputData.length);
       let sum = 0;
       for (let i = 0; i < inputData.length; i++) {
         const s = Math.max(-1, Math.min(1, inputData[i]));
@@ -644,30 +670,31 @@ export function createVoiceSessionController() {
         sum += s * s;
       }
 
-      const rms = Math.sqrt(sum / inputData.length);
-      if (!state.isMicMuted && shouldInterruptForBargeIn(rms) && state.isAiSpeaking) {
-        setSessionPhase("interrupting");
-        flushAiAudio();
-        recoverFromInterruption();
-        touchActivity();
-      }
-
-      if (!state.isMicMuted && rms > ACTIVITY_THRESHOLD) {
-        touchActivity();
-        noteUserSpeechActivity();
-      }
-
-      if (!state.isMicMuted) {
-        if (rms > NOISE_GATE_THRESHOLD) {
-          state.gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
+        const rms = Math.sqrt(sum / inputData.length);
+        if (!state.isMicMuted && shouldInterruptForBargeIn(rms) && state.isAiSpeaking) {
+          setSessionPhase("interrupting");
+          flushAiAudio();
+          recoverFromInterruption();
+          touchActivity();
         }
-        const gateOpen = Date.now() < state.gateOpenUntil;
-        state._onVolume?.(gateOpen ? rms : 0);
-        if (gateOpen) sendPcmToWebSocket(pcmData); else sendSilenceFrame();
-      }
-    };
 
-    state.micSource.connect(state.workletNode);
+        if (!state.isMicMuted && rms > ACTIVITY_THRESHOLD) {
+          touchActivity();
+          noteUserSpeechActivity();
+        }
+
+        if (!state.isMicMuted) {
+          if (rms > NOISE_GATE_THRESHOLD) {
+            state.gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
+          }
+          const gateOpen = Date.now() < state.gateOpenUntil;
+          state._onVolume?.(gateOpen ? rms : 0);
+          if (gateOpen) sendPcmToWebSocket(pcmData); else sendSilenceFrame();
+        }
+      };
+
+      state.micSource.connect(state.workletNode);
+    }
     state.micAnalyser = state.audioContext.createAnalyser();
     state.micAnalyser.fftSize = 2048;
     state.micAnalyser.smoothingTimeConstant = 0.8;
