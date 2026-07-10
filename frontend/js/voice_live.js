@@ -233,12 +233,28 @@ function handleTranscript(type, text) {
   scrollTranscript();
 }
 
-function handleAudioState({ isAiSpeaking: aiSpeaking, isMicMuted: muted, palette }) {
+function handleAudioState({ phase, isAiSpeaking: aiSpeaking, isMicMuted: muted, palette }) {
   const statusEl = document.getElementById("voice-live-status");
 
   setPalette(palette);
 
-  if (aiSpeaking) {
+  if (phase === "thinking") {
+    if (statusEl) statusEl.textContent = "Thinking…";
+  } else if (phase === "preparing") {
+    if (statusEl) statusEl.textContent = "Preparing a response…";
+  } else if (phase === "recovering") {
+    if (statusEl) statusEl.textContent = "Recovering from interruption…";
+  } else if (phase === "attending") {
+    if (statusEl) statusEl.textContent = "Listening closely…";
+  } else if (phase === "holding") {
+    if (statusEl) statusEl.textContent = "Taking a beat…";
+  } else if (phase === "speaking") {
+    if (statusEl) statusEl.textContent = "MindPal is speaking…";
+  } else if (phase === "interrupting") {
+    if (statusEl) statusEl.textContent = "Interruption detected — listening…";
+  } else if (phase === "muted") {
+    if (statusEl) statusEl.textContent = "Muted";
+  } else if (aiSpeaking) {
     if (statusEl) statusEl.textContent = "MindPal is speaking…";
   } else {
     if (statusEl) statusEl.textContent = muted ? "Muted" : "Listening…";
