@@ -1,7 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "buildCommand": "npm run build",
+  "framework": "fastapi",
+  "installCommand": "python -m pip install --disable-pip-version-check --no-input -r requirements.txt",
+  "buildCommand": "python scripts/verify_prebuilt_frontend.py",
   "env": {
     "ENVIRONMENT": "production",
     "DEBUG": "false",
@@ -69,6 +71,5 @@
       "src": "/(.*)",
       "dest": "/api/index.py"
     }
-  ],
-  "outputDirectory": "."
+  ]
 }

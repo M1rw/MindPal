@@ -72,6 +72,10 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 The apply script backs up only managed source paths, leaves `.env`, credentials, logs, and runtime data untouched, installs locked dependencies, rebuilds, verifies, and rolls source code back automatically on failure.
 
+## Vercel mixed-runtime deployment
+
+Keep `requirements.txt`, `package.json`, `pyproject.toml`, and `vercel.json` in the configured Vercel Root Directory. Do not set a custom Install Command: Vercel must install Python dependencies from `requirements.txt`, while the regular npm dependency set contains the frontend build tools. The repository Build Command is `npm run build`. See `VERCEL_PYTHON_DEPENDENCY_FIX.md`.
+
 ## Production requirements
 
 Complete `.env.production.example`, enable Firebase App Check enforcement, create Firestore TTL policies for rate-limit and idempotency records, deny unintended direct client database access, restrict provider/API keys, assign `mindpal_admin=true` only to operational administrators, and run real provider/device/load tests before traffic promotion.
