@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pip install --disable-pip-version-check -r requirements.lock && npm ci --no-audit --no-fund && npm run build",
+  "buildCommand": "npm run build",
   "env": {
     "ENVIRONMENT": "production",
     "DEBUG": "false",
@@ -69,5 +69,6 @@
       "dest": "/api/index.py"
     }
   ],
-  "outputDirectory": "."
+  "outputDirectory": ".",
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
