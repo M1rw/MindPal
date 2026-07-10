@@ -1,5 +1,7 @@
 // frontend/js/api.js
 
+import { getAppCheckToken } from "./auth.js";
+
 const DEFAULT_TIMEOUT_MS = 45_000;
 const STREAM_TIMEOUT_MS = 120_000;
 const MAX_HISTORY_ITEM_CHARS = 12_000;
@@ -59,7 +61,11 @@ async function requestJson(path, {
 
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+    const appCheckToken = await getAppCheckToken();
+    if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
+  }
 
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -358,7 +364,11 @@ export async function sendChatMessageStream({
   const metadata = { locale, channel, mode: backendPreference, model, ...(profileContext?.settingsMetadata || {}) };
   const url = `${API_BASE_URL}/chat/stream`;
   const headers = { Accept: "text/event-stream", "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+    const appCheckToken = await getAppCheckToken();
+    if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
+  }
 
   const controller = new AbortController();
   let timedOut = false;

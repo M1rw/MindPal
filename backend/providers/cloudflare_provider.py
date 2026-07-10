@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -74,61 +73,32 @@ class CloudflareAIProviderConfig:
         token = first_non_empty(
             secret_value(getattr(settings, "CLOUDFLARE_AIG_TOKEN", None)),
             secret_value(getattr(settings, "CLOUDFLARE_API_TOKEN", None)),
-            os.getenv("CF_AIG_TOKEN"),
-            os.getenv("CLOUDFLARE_AIG_TOKEN"),
-            os.getenv("CLOUDFLARE_API_TOKEN"),
-            os.getenv("CLOUDFLARE_API_KEY"),
         )
-
-        account_id = first_non_empty(
-            str(getattr(settings, "CLOUDFLARE_ACCOUNT_ID", "") or ""),
-            os.getenv("CLOUDFLARE_ACCOUNT_ID"),
-            os.getenv("CF_ACCOUNT_ID"),
-        )
-
+        account_id = str(getattr(settings, "CLOUDFLARE_ACCOUNT_ID", "") or "")
         gateway_id = first_non_empty(
             str(getattr(settings, "CLOUDFLARE_GATEWAY_ID", "") or ""),
-            os.getenv("CLOUDFLARE_GATEWAY_ID"),
-            os.getenv("CF_AIG_GATEWAY_ID"),
             DEFAULT_CLOUDFLARE_GATEWAY_ID,
         )
-
         model = first_non_empty(
             str(getattr(settings, "CLOUDFLARE_MODEL", "") or ""),
-            os.getenv("CLOUDFLARE_MODEL"),
-            os.getenv("CF_AI_MODEL"),
             DEFAULT_CLOUDFLARE_MODEL,
         )
-
         mode = first_non_empty(
             str(getattr(settings, "CLOUDFLARE_AI_MODE", "") or ""),
-            os.getenv("CLOUDFLARE_AI_MODE"),
-            os.getenv("CF_AI_MODE"),
             "gateway_compat",
         ).lower()
-
-        explicit_url = first_non_empty(
-            str(getattr(settings, "CLOUDFLARE_AI_GATEWAY_URL", "") or ""),
-            os.getenv("CLOUDFLARE_AI_GATEWAY_URL"),
-            os.getenv("CF_AI_GATEWAY_URL"),
-        )
-
+        explicit_url = str(getattr(settings, "CLOUDFLARE_AI_GATEWAY_URL", "") or "")
         gateway_base_url = first_non_empty(
             str(getattr(settings, "CLOUDFLARE_AI_GATEWAY_BASE_URL", "") or ""),
-            os.getenv("CLOUDFLARE_AI_GATEWAY_BASE_URL"),
             DEFAULT_CLOUDFLARE_GATEWAY_BASE_URL,
         )
-
         native_base_url = first_non_empty(
             str(getattr(settings, "CLOUDFLARE_AI_NATIVE_BASE_URL", "") or ""),
-            os.getenv("CLOUDFLARE_AI_NATIVE_BASE_URL"),
             DEFAULT_CLOUDFLARE_NATIVE_BASE_URL,
         )
-
-        timeout_seconds_raw = first_non_empty(
-            str(getattr(settings, "CLOUDFLARE_TIMEOUT_SECONDS", "") or ""),
-            os.getenv("CLOUDFLARE_TIMEOUT_SECONDS"),
-            str(DEFAULT_TIMEOUT_SECONDS),
+        timeout_seconds_raw = str(
+            getattr(settings, "CLOUDFLARE_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
+            or DEFAULT_TIMEOUT_SECONDS
         )
 
         try:
@@ -152,8 +122,14 @@ class CloudflareAIProviderConfig:
 class CloudflareAIProvider:
     name = "cloudflare"
 
-    def __init__(self, config: CloudflareAIProviderConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: CloudflareAIProviderConfig | None = None,
+        *,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
         self.config = config or CloudflareAIProviderConfig.from_settings()
+        self._client = client
 
     @property
     def is_configured(self) -> bool:
@@ -175,12 +151,17 @@ class CloudflareAIProvider:
         payload = self._build_payload(request)
 
         try:
-            async with httpx.AsyncClient(timeout=self.config.timeout_seconds) as client:
+            owns_client = self._client is None
+            client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
+            try:
                 response = await client.post(
                     self._endpoint_url(),
                     headers=self._headers(),
                     json=payload,
                 )
+            finally:
+                if owns_client:
+                    await client.aclose()
 
             if response.status_code >= 400:
                 raise build_provider_http_error(response, provider_name="cloudflare")
@@ -234,7 +215,9 @@ class CloudflareAIProvider:
         payload["stream"] = True
 
         try:
-            async with httpx.AsyncClient(timeout=self.config.timeout_seconds) as client:
+            owns_client = self._client is None
+            client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
+            try:
                 async with client.stream("POST", self._endpoint_url(), headers=self._headers(), json=payload) as response:
                     if response.status_code >= 400:
                         await response.aread()
@@ -242,6 +225,9 @@ class CloudflareAIProvider:
 
                     async for text in iter_sse_text(response):
                         yield text
+            finally:
+                if owns_client:
+                    await client.aclose()
 
         except httpx.TimeoutException as exc:
             raise ProviderTimeoutError(
@@ -278,8 +264,13 @@ class CloudflareAIProvider:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self.config.timeout_seconds) as client:
+            owns_client = self._client is None
+            client = self._client or httpx.AsyncClient(timeout=self.config.timeout_seconds)
+            try:
                 response = await client.post(url, headers=headers, json=payload)
+            finally:
+                if owns_client:
+                    await client.aclose()
 
             if response.status_code >= 400:
                 raise build_provider_http_error(response, provider_name="cloudflare")

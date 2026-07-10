@@ -78,3 +78,38 @@ test('startup classification treats retired key endpoint as a hard upgrade failu
   assert.equal(result.retryable, false);
   assert.equal(result.reason, 'client-upgrade-required');
 });
+
+
+test('fetchVoiceTokenWithRetry sends and refreshes Firebase App Check with auth', async () => {
+  const calls = [];
+  let attempt = 0;
+  const result = await fetchVoiceTokenWithRetry({
+    baseUrl: 'https://example.com/api',
+    token: 'expired-id-token',
+    appCheckToken: 'expired-app-check',
+    refreshToken: async () => 'fresh-id-token',
+    refreshAppCheckToken: async () => 'fresh-app-check',
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      attempt += 1;
+      if (attempt === 1) return { ok: false, status: 401 };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          token: 'ephemeral',
+          model: 'gemini-3.1-flash-live-preview',
+          websocket_url: 'wss://example.com/live',
+          expires_at: '2026-07-10T18:30:00Z',
+          new_session_expires_at: '2026-07-10T18:01:00Z',
+        }),
+      };
+    },
+  });
+
+  assert.equal(result.token, 'ephemeral');
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer expired-id-token');
+  assert.equal(calls[0].options.headers['X-Firebase-AppCheck'], 'expired-app-check');
+  assert.equal(calls[1].options.headers.Authorization, 'Bearer fresh-id-token');
+  assert.equal(calls[1].options.headers['X-Firebase-AppCheck'], 'fresh-app-check');
+});

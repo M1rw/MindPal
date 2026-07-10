@@ -81,16 +81,20 @@ export async function fetchVoiceTokenWithRetry({
   baseUrl,
   token,
   refreshToken,
+  appCheckToken = null,
+  refreshAppCheckToken = null,
   fetchImpl = fetch,
   maxAttempts = 2,
   signal = null,
 }) {
   let currentToken = token;
+  let currentAppCheckToken = appCheckToken;
   let lastError = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const headers = { Accept: "application/json" };
     if (currentToken) headers.Authorization = `Bearer ${currentToken}`;
+    if (currentAppCheckToken) headers["X-Firebase-AppCheck"] = currentAppCheckToken;
 
     try {
       const response = await fetchImpl(buildVoiceTokenUrl(baseUrl), {
@@ -103,8 +107,9 @@ export async function fetchVoiceTokenWithRetry({
       if (!response.ok) {
         const classification = classifyVoiceStartupFailure({ status: response.status });
         if (attempt < maxAttempts && classification.retryable) {
-          if (classification.reason === "authentication" && typeof refreshToken === "function") {
-            currentToken = await refreshToken();
+          if (classification.reason === "authentication") {
+            if (typeof refreshToken === "function") currentToken = await refreshToken();
+            if (typeof refreshAppCheckToken === "function") currentAppCheckToken = await refreshAppCheckToken();
           }
           continue;
         }
@@ -119,8 +124,9 @@ export async function fetchVoiceTokenWithRetry({
       if (signal?.aborted) throw error;
       const classification = classifyVoiceStartupFailure(error);
       if (attempt < maxAttempts && classification.retryable) {
-        if (classification.reason === "authentication" && typeof refreshToken === "function") {
-          currentToken = await refreshToken();
+        if (classification.reason === "authentication") {
+          if (typeof refreshToken === "function") currentToken = await refreshToken();
+          if (typeof refreshAppCheckToken === "function") currentAppCheckToken = await refreshAppCheckToken();
         }
         continue;
       }

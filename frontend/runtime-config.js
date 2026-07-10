@@ -11,20 +11,21 @@
 
   const deploymentOverrides = window.MINDPAL_RUNTIME_CONFIG || {};
   const firebaseDefaults = {
-    apiKey: "AIzaSyCNyY5Dp7Umw0sLZYLgYc6-_DhNjVU7Chc",
-    authDomain: "mindpal-official-0.firebaseapp.com",
-    databaseURL: "https://mindpal-official-0-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "mindpal-official-0",
-    storageBucket: "mindpal-official-0.firebasestorage.app",
-    messagingSenderId: "234733155455",
-    appId: "1:234733155455:web:a297853f71b6092b0e3b4a",
-    measurementId: "G-CT1D5ZNRB8",
+    apiKey: "",
+    authDomain: "",
+    databaseURL: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: "",
+    measurementId: "",
   };
 
   const config = {
     API_BASE_URL: defaultApiBase,
     VOICE_DEBUG: false,
     SHOW_RESPONSE_DEBUG: false,
+    FIREBASE_APPCHECK_SITE_KEY: String(deploymentOverrides.FIREBASE_APPCHECK_SITE_KEY || "").trim(),
     ...deploymentOverrides,
     FIREBASE_CONFIG: {
       ...firebaseDefaults,
@@ -32,8 +33,16 @@
     },
   };
 
+  const firebaseConfig = config.FIREBASE_CONFIG;
+  const firebaseReady = [
+    firebaseConfig.apiKey,
+    firebaseConfig.authDomain,
+    firebaseConfig.projectId,
+    firebaseConfig.appId,
+  ].every((value) => String(value || "").trim());
+
   window.MINDPAL_CONFIG = Object.freeze({
     ...config,
-    FIREBASE_CONFIG: Object.freeze({ ...config.FIREBASE_CONFIG }),
+    FIREBASE_CONFIG: firebaseReady ? Object.freeze({ ...firebaseConfig }) : null,
   });
 })();

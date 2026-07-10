@@ -17,8 +17,9 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .security import Locale, normalize_locale, safe_truncate, sanitize_text
+from .security import normalize_locale, safe_truncate, sanitize_text
 from .message_classifier import MessageClassification
 
 __all__ = ["build_tiered_prompt", "get_self_knowledge_response"]
@@ -96,12 +97,11 @@ def _build_time_context(user_timezone: str = "UTC") -> str:
 
     if tz_label and tz_label.upper() != "UTC":
         try:
-            from zoneinfo import ZoneInfo
             user_tz = ZoneInfo(tz_label)
             now_local = now_utc.astimezone(user_tz)
             local_str = f"User's local time: {now_local.strftime('%A, %Y-%m-%d %H:%M')} ({tz_label})"
-        except Exception:
-            pass
+        except (ZoneInfoNotFoundError, ValueError):
+            local_str = ""
 
     utc_str = f"Current UTC time: {now_utc.strftime('%A, %Y-%m-%d %H:%M UTC')}"
     parts = [utc_str]

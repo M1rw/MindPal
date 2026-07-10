@@ -7,7 +7,13 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.api.dependencies import RequestContextDep, ServicesDep, http_error_from_app_error
+from backend.api.dependencies import (
+    AuthenticatedRequestContextDep,
+    RequestContextDep,
+    ServicesDep,
+    assert_authenticated,
+    http_error_from_app_error,
+)
 from backend.core.errors import AppError
 from backend.core.security import normalize_locale, sanitize_text
 from backend.models.safety import SafetyAction, SafetyDecision, SafetyLevel
@@ -116,42 +122,73 @@ class CrisisResponseTemplateView(BaseModel):
 async def classify_safety(
     payload: SafetyClassifyPayload,
     services: ServicesDep,
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> SafetyClassifyResponse:
-    """
-    Classify text with the same safety service used by chat_router.
-
-    This endpoint does not generate assistant replies except deterministic
-    crisis template text when bypass_llm=true.
-    """
+    assert_authenticated(context)
+    operation_id = sanitize_text(f"{context.request_id}:safety-classify", 120)
+    claim = None
+    reserved = False
     try:
+        await services.rate_limits.consume(
+            scope="safety_diagnostic",
+            subject=context.session.user_id_hash,
+            limit=services.settings.SAFETY_DIAGNOSTIC_RATE_LIMIT_PER_MINUTE,
+            window_seconds=60,
+        )
+        claim = await services.idempotency.claim(
+            user_id_hash=context.session.user_id_hash,
+            key=context.request_id,
+            operation="safety_classify",
+            payload_hash=services.idempotency.payload_hash(payload.model_dump(mode="json")),
+        )
+        if claim.completed and claim.response:
+            return SafetyClassifyResponse.model_validate(claim.response)
+        # The ambiguity classifier may call an external LLM. Reserve first; if
+        # the local deterministic path was used, refund below.
+        await services.quota.reserve(
+            user_id_hash=context.session.user_id_hash,
+            request_id=operation_id,
+            cost=services.settings.PROVIDER_OPERATION_QUOTA_COST,
+            operation="safety_classify",
+        )
+        reserved = True
         locale = payload.locale if payload.locale != "auto" else context.locale
-
         decision = await services.safety.classify_input_with_context(
             payload.text,
             locale=locale,
             memory_summary=payload.memory_summary,
             channel=payload.channel or context.channel.value,
         )
-
-        deterministic_response = None
-        if decision.bypass_llm:
-            deterministic_response = services.safety.render_deterministic_response(
-                decision,
-                locale,
-            )
-
-        return _classification_response(
+        deterministic_response = (
+            services.safety.render_deterministic_response(decision, locale)
+            if decision.bypass_llm else None
+        )
+        meta = services.safety.health().get("last_meta")
+        response = _classification_response(
             request_id=context.request_id,
             decision=decision,
             deterministic_response=deterministic_response,
             rag_tags=services.safety.rag_tags_for_decision(decision),
-            classifier_meta=services.safety.health().get("last_meta"),
+            classifier_meta=meta,
         )
-
+        used_llm = bool((meta or {}).get("used_llm") or (meta or {}).get("provider_used"))
+        if used_llm:
+            await services.quota.commit(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        else:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        await services.idempotency.complete(claim=claim, response=response.model_dump(mode="json"))
+        return response
     except AppError as exc:
+        if reserved:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        if claim:
+            await services.idempotency.fail(claim=claim)
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
+        if reserved:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        if claim:
+            await services.idempotency.fail(claim=claim)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -174,6 +211,12 @@ async def render_crisis_response(
     This is intentionally template-only and never calls LLM providers.
     """
     try:
+        await services.rate_limits.consume(
+            scope="crisis_template",
+            subject=context.session.user_id_hash if context.session.authenticated else context.client_ip_hash,
+            limit=30,
+            window_seconds=60,
+        )
         locale = payload.locale if payload.locale != "auto" else context.locale
         template = services.safety.get_crisis_response_template(
             payload.template_id,
@@ -204,30 +247,16 @@ async def render_crisis_response(
 @router.get("/health")
 async def safety_health(
     services: ServicesDep,
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> dict[str, Any]:
     """
     Safety subsystem health.
 
     Does not expose raw regex patterns, raw YAML, or private user text.
     """
-    health = services.safety.health()
+    assert_authenticated(context)
+    return {"status": "ok", "request_id": context.request_id}
 
-    return {
-        "request_id": context.request_id,
-        "safety": {
-            "mode": health["mode"],
-            "rules_loaded": health["rules_loaded"],
-            "exclusion_rules_loaded": health["exclusion_rules_loaded"],
-            "templates_loaded": health["templates_loaded"],
-            "fallback_templates_loaded": health["fallback_templates_loaded"],
-            "locales": health["locales"],
-            "llm_ambiguity_classifier_enabled": health["llm_ambiguity_classifier_enabled"],
-            "llm_service_available": health["llm_service_available"],
-            "imminent_self_harm_bypasses_llm": health["imminent_self_harm_bypasses_llm"],
-            "last_meta": health.get("last_meta"),
-        },
-    }
 
 
 def _classification_response(
@@ -254,4 +283,4 @@ def _classification_response(
         classifier_meta=classifier_meta,
     )
 
-
+

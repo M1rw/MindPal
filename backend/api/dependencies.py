@@ -18,6 +18,9 @@ Design rules:
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+import hashlib
+import httpx
 from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Request, status
@@ -40,6 +43,10 @@ from backend.services import (
     SafetyService,
     TTSService,
 )
+from backend.services.idempotency_service import IdempotencyService
+from backend.services.memory_repository import MemoryRepository
+from backend.services.quota_service import QuotaService
+from backend.services.rate_limit_service import RateLimitService
 
 
 MAX_HEADER_CHARS = 512
@@ -74,6 +81,14 @@ class ServiceContainer:
     rag: RAGService
     safety: SafetyService
     tts: TTSService
+    quota: QuotaService
+    rate_limits: RateLimitService
+    idempotency: IdempotencyService
+    memory_repo: MemoryRepository
+    http_client: httpx.AsyncClient
+
+    async def aclose(self) -> None:
+        await self.http_client.aclose()
 
     async def health(self) -> dict[str, object]:
         db_health = await self.db.health()
@@ -99,6 +114,7 @@ class RequestContext:
     locale: str
     channel: UserChannel
     session: UserSession
+    client_ip_hash: str
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -108,65 +124,63 @@ class RequestContext:
 _service_container: ServiceContainer | None = None
 
 
-def get_service_container() -> ServiceContainer:
-    """
-    Return singleton service container for the FastAPI process.
+def build_service_container(settings: Settings) -> ServiceContainer:
+    """Build one isolated composition root from an explicit Settings object."""
+    http_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(settings.LLM_TIMEOUT_SECONDS, connect=5.0),
+        limits=httpx.Limits(
+            max_connections=100,
+            max_keepalive_connections=20,
+            keepalive_expiry=30.0,
+        ),
+        follow_redirects=False,
+        headers={"User-Agent": f"MindPal/{settings.VERSION}"},
+    )
 
-    Production-safe defaults:
-    - Firebase Auth is built by AuthService.
-    - Firebase Firestore is built by DBService.
-    - Anonymous sessions are env-driven, not hardcoded.
-    - Offline/browser fallbacks are env-driven, not hidden.
-    """
-    global _service_container
-    if _service_container is not None:
-        return _service_container
-
-    settings = get_settings()
-
-    llm_providers = build_llm_providers(settings)
+    llm_providers = build_llm_providers(settings, client=http_client)
     llm = LLMService(
         providers=llm_providers,
         settings=settings,
         include_offline_provider=settings.ENABLE_OFFLINE_LLM_FALLBACK,
     )
-
-    auth = AuthService(
-        settings=settings,
-        allow_anonymous=settings.ALLOW_ANONYMOUS_SESSIONS,
-    )
-
+    auth = AuthService(settings=settings, allow_anonymous=settings.ALLOW_ANONYMOUS_SESSIONS)
     db = DBService(settings=settings)
-
-    tts_providers = build_tts_providers(settings)
     tts = TTSService(
-        providers=tts_providers,
+        providers=build_tts_providers(settings, client=http_client),
         settings=settings,
         include_browser_fallback=settings.ENABLE_BROWSER_TTS_FALLBACK,
     )
-
     memory = MemoryService(
         settings=settings,
         llm_service=llm,
         enable_llm_summarization=settings.ENABLE_LLM_MEMORY_SUMMARIZATION,
     )
-
     output_guard = OutputGuardService(
         llm_service=llm,
         enable_llm_rewrite=settings.ENABLE_LLM_OUTPUT_REWRITE,
     )
-
     rag = RAGService(
         llm_service=llm,
         enable_llm_planning=settings.ENABLE_LLM_RAG_PLANNING,
     )
-
     safety = SafetyService(
         llm_service=llm,
         enable_llm_ambiguity_classifier=settings.ENABLE_LLM_SAFETY_CLASSIFIER,
     )
+    quota = QuotaService(
+        db=db,
+        limit_5h=settings.QUOTA_LIMIT_5H,
+        limit_week=settings.QUOTA_LIMIT_WEEK,
+        reservation_ttl_seconds=settings.QUOTA_RESERVATION_TTL_SECONDS,
+    )
+    rate_limits = RateLimitService(db=db)
+    idempotency = IdempotencyService(
+        db=db,
+        ttl_seconds=settings.IDEMPOTENCY_TTL_SECONDS,
+        processing_timeout_seconds=settings.IDEMPOTENCY_PROCESSING_TIMEOUT_SECONDS,
+    )
 
-    _service_container = ServiceContainer(
+    return ServiceContainer(
         settings=settings,
         auth=auth,
         db=db,
@@ -176,19 +190,45 @@ def get_service_container() -> ServiceContainer:
         rag=rag,
         safety=safety,
         tts=tts,
+        quota=quota,
+        rate_limits=rate_limits,
+        idempotency=idempotency,
+        memory_repo=MemoryRepository(db=db),
+        http_client=http_client,
     )
 
+
+def get_service_container() -> ServiceContainer:
+    """Compatibility singleton for scripts outside an HTTP application."""
+    global _service_container
+    if _service_container is None:
+        _service_container = build_service_container(get_settings())
     return _service_container
 
 
+async def close_service_container() -> None:
+    """Close the compatibility singleton used outside FastAPI requests."""
+    global _service_container
+    container = _service_container
+    _service_container = None
+    if container is not None:
+        await container.aclose()
+
+
 def reset_service_container_for_tests() -> None:
-    """Clear the cached service container for test isolation."""
+    """Clear the compatibility singleton for test isolation."""
     global _service_container
     _service_container = None
 
 
-def get_services() -> ServiceContainer:
-    return get_service_container()
+def get_services(request: Request) -> ServiceContainer:
+    """Resolve the service container owned by the current FastAPI app."""
+    container = getattr(request.app.state, "service_container", None)
+    if container is None:
+        settings = getattr(request.app.state, "settings", None) or get_settings()
+        container = build_service_container(settings)
+        request.app.state.service_container = container
+    return container
 
 
 ServicesDep = Annotated[ServiceContainer, Depends(get_services)]
@@ -199,10 +239,18 @@ ServicesDep = Annotated[ServiceContainer, Depends(get_services)]
 # ═══════════════════════════════════════════════════════════════
 
 def get_request_id(
+    request: Request,
     x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
 ) -> str:
+    # The HTTP middleware creates the canonical request ID before dependency
+    # resolution. Reuse it so response headers, logs, idempotency, and JSON
+    # bodies always reference the same trace.
+    middleware_id = sanitize_text(
+        str(getattr(request.state, "request_id", "") or ""),
+        MAX_REQUEST_ID_HEADER_CHARS,
+    )
     cleaned = sanitize_text(str(x_request_id or ""), MAX_REQUEST_ID_HEADER_CHARS)
-    return cleaned or generate_request_id()
+    return middleware_id or cleaned or generate_request_id()
 
 
 def get_locale(
@@ -254,6 +302,7 @@ async def get_current_session(
     channel: Annotated[UserChannel, Depends(get_channel)],
     anonymous_user_id: Annotated[str, Depends(get_anonymous_user_id)],
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    x_firebase_app_check: Annotated[str | None, Header(alias="X-Firebase-AppCheck")] = None,
 ) -> UserSession:
     """
     Resolve either:
@@ -262,13 +311,16 @@ async def get_current_session(
 
     Invalid Bearer tokens fail closed in AuthService.
     """
-    return await services.auth.resolve_session(
+    session = await services.auth.resolve_session(
         authorization_header=authorization,
         raw_user_id=anonymous_user_id,
         channel=channel,
         locale=locale,
         require_auth=False,
     )
+    if session.authenticated and services.settings.REQUIRE_FIREBASE_APP_CHECK:
+        await services.auth.verify_app_check_token(x_firebase_app_check)
+    return session
 
 
 async def require_authenticated_session(
@@ -276,17 +328,21 @@ async def require_authenticated_session(
     locale: Annotated[str, Depends(get_locale)],
     channel: Annotated[UserChannel, Depends(get_channel)],
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    x_firebase_app_check: Annotated[str | None, Header(alias="X-Firebase-AppCheck")] = None,
 ) -> UserSession:
     """
     Resolve verified Firebase session only.
     """
-    return await services.auth.resolve_session(
+    session = await services.auth.resolve_session(
         authorization_header=authorization,
         raw_user_id=None,
         channel=channel,
         locale=locale,
         require_auth=True,
     )
+    if services.settings.REQUIRE_FIREBASE_APP_CHECK:
+        await services.auth.verify_app_check_token(x_firebase_app_check)
+    return session
 
 
 SessionDep = Annotated[UserSession, Depends(get_current_session)]
@@ -313,11 +369,14 @@ async def get_request_context(
     request.state.user_id_hash = session.user_id_hash
     request.state.authenticated = session.authenticated
 
+    client_host = request.client.host if request.client else "unknown"
+    client_ip_hash = hashlib.sha256(client_host.encode("utf-8")).hexdigest()[:32]
     return RequestContext(
         request_id=request_id,
         locale=locale,
         channel=channel,
         session=session,
+        client_ip_hash=client_ip_hash,
     )
 
 
@@ -334,11 +393,14 @@ async def get_authenticated_request_context(
     request.state.user_id_hash = session.user_id_hash
     request.state.authenticated = True
 
+    client_host = request.client.host if request.client else "unknown"
+    client_ip_hash = hashlib.sha256(client_host.encode("utf-8")).hexdigest()[:32]
     return RequestContext(
         request_id=request_id,
         locale=locale,
         channel=channel,
         session=session,
+        client_ip_hash=client_ip_hash,
     )
 
 
@@ -346,6 +408,34 @@ RequestContextDep = Annotated[RequestContext, Depends(get_request_context)]
 AuthenticatedRequestContextDep = Annotated[
     RequestContext,
     Depends(get_authenticated_request_context),
+]
+
+
+def assert_admin(context: Any) -> None:
+    """Require the verified Firebase ``mindpal_admin=true`` custom claim."""
+    assert_authenticated(context)
+    metadata = getattr(getattr(context, "session", None), "metadata", {}) or {}
+    if metadata.get("admin") is not True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "admin_access_required",
+                "message": "Administrative access is required for this operation",
+                "request_id": getattr(context, "request_id", None),
+            },
+        )
+
+
+async def get_admin_request_context(
+    context: AuthenticatedRequestContextDep,
+) -> RequestContext:
+    assert_admin(context)
+    return context
+
+
+AdminRequestContextDep = Annotated[
+    RequestContext,
+    Depends(get_admin_request_context),
 ]
 
 

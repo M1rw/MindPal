@@ -19,6 +19,7 @@ Design goals:
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import re
 import unicodedata
 import uuid
@@ -32,7 +33,7 @@ REQUEST_ID_PREFIX = "req"
 USER_HASH_PREFIX = "usr"
 REDACTED_EMAIL = "[redacted_email]"
 REDACTED_PHONE = "[redacted_phone]"
-REDACTED_SECRET = "[redacted_secret]"
+REDACTED_SECRET = "[redacted_secret]"  # nosec B105
 REDACTED_IP = "[redacted_ip]"
 
 # ═══════════════════════════════════════════════════════════════
@@ -109,13 +110,6 @@ _IPV4_RE = re.compile(
 _SAFE_URL_SCHEMES = frozenset({"https", "http"})
 
 # Private/reserved IPv4 ranges (for SSRF prevention).
-_PRIVATE_IP_PREFIXES = (
-    "10.", "172.16.", "172.17.", "172.18.", "172.19.",
-    "172.20.", "172.21.", "172.22.", "172.23.", "172.24.",
-    "172.25.", "172.26.", "172.27.", "172.28.", "172.29.",
-    "172.30.", "172.31.", "192.168.", "127.", "0.",
-)
-
 
 # ═══════════════════════════════════════════════════════════════
 # Public API
@@ -311,10 +305,14 @@ def validate_url(
         raise ValueError("URL has no hostname")
 
     if block_private_ips:
-        if any(hostname.startswith(prefix) for prefix in _PRIVATE_IP_PREFIXES):
-            raise ValueError(f"URL hostname '{hostname}' is a private/reserved IP")
-        if hostname in ("localhost", "0.0.0.0", "[::]", "[::1]"):
+        if hostname == "localhost" or hostname.endswith(".localhost"):
             raise ValueError(f"URL hostname '{hostname}' is a loopback address")
+        try:
+            address = ipaddress.ip_address(hostname.strip("[]"))
+        except ValueError:
+            address = None
+        if address is not None and not address.is_global:
+            raise ValueError(f"URL hostname '{hostname}' is not globally routable")
 
     return cleaned
 

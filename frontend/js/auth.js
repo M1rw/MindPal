@@ -10,11 +10,17 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
 } from "firebase/auth";
+import {
+  getToken as getFirebaseAppCheckToken,
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+} from "firebase/app-check";
 
 const AUTH_STATE_TIMEOUT_MS = 8_000;
 
 let firebaseApp = null;
 let firebaseAuth = null;
+let firebaseAppCheck = null;
 let authReadyPromise = null;
 let currentAuthUser = null;
 
@@ -60,6 +66,21 @@ export async function initAuth() {
 
   firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
   firebaseAuth = getAuth(firebaseApp);
+
+  const appCheckSiteKey = String(window.MINDPAL_CONFIG?.FIREBASE_APPCHECK_SITE_KEY || "").trim();
+  if (appCheckSiteKey && !firebaseAppCheck) {
+    try {
+      firebaseAppCheck = initializeAppCheck(firebaseApp, {
+        provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (error) {
+      throw new MindPalAuthError("Firebase App Check initialization failed", {
+        code: "firebase_app_check_init_failed",
+        cause: error,
+      });
+    }
+  }
 
   await setPersistence(firebaseAuth, browserLocalPersistence);
 
@@ -117,6 +138,24 @@ export async function getIdToken({ forceRefresh = false } = {}) {
   } catch (error) {
     throw new MindPalAuthError("Failed to read Firebase ID token", {
       code: "firebase_token_failed",
+      cause: error,
+    });
+  }
+}
+
+export async function getAppCheckToken({ forceRefresh = false } = {}) {
+  await waitForAuthReady();
+
+  if (!firebaseAppCheck) {
+    return null;
+  }
+
+  try {
+    const result = await getFirebaseAppCheckToken(firebaseAppCheck, forceRefresh);
+    return String(result?.token || "").trim() || null;
+  } catch (error) {
+    throw new MindPalAuthError("Failed to obtain Firebase App Check token", {
+      code: "firebase_app_check_token_failed",
       cause: error,
     });
   }

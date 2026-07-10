@@ -10,7 +10,7 @@ from typing import Any, Protocol
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError, ValidationAppError
 from backend.core.security import normalize_locale, sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool, setting_float, setting_value
+from backend.core.settings_helpers import is_production, setting_bool, setting_float
 from backend.models.schemas import TTSFormat, TTSRequest, TTSResponse
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,6 @@ import json
 import logging
 import re
 from datetime import UTC, datetime
-from typing import Any
 
 from backend.core.security import sanitize_text
 from backend.services.llm_service import LLMService, build_llm_request
@@ -21,7 +20,6 @@ from backend.models.memory import (
     make_memory_atom,
     memory_graph_from_summary,
     normalize_memory_value,
-    summary_from_memory_graph,
 )
 
 logger = logging.getLogger(__name__)

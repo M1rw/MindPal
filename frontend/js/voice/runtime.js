@@ -67,6 +67,8 @@ export function createVoiceSessionController() {
     _contextProvider: null,
     _authToken: null,
     _refreshAuthToken: null,
+    _getAppCheckToken: null,
+    _refreshAppCheckToken: null,
     _onTranscript: null,
     _onAudioState: null,
     _onSessionEnd: null,
@@ -89,6 +91,7 @@ export function createVoiceSessionController() {
 
   const toolExecutor = createToolExecutor({
     getAuthToken: () => state._authToken,
+    getAppCheckToken: () => state._getAppCheckToken?.(),
     contextProvider: () => state._contextProvider,
     apiBaseUrl: () => window.MINDPAL_CONFIG?.API_BASE_URL || "",
   });
@@ -677,14 +680,24 @@ export function createVoiceSessionController() {
     }
 
     const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
+    const appCheckToken = typeof state._getAppCheckToken === "function"
+      ? await state._getAppCheckToken()
+      : null;
     const credentials = await fetchVoiceTokenWithRetry({
       baseUrl,
       token: state._authToken,
+      appCheckToken,
       refreshToken: async () => {
         if (typeof state._refreshAuthToken !== "function") return state._authToken;
         const refreshed = await state._refreshAuthToken();
         if (refreshed) state._authToken = refreshed;
         return state._authToken;
+      },
+      refreshAppCheckToken: async () => {
+        if (typeof state._refreshAppCheckToken !== "function") {
+          return typeof state._getAppCheckToken === "function" ? state._getAppCheckToken() : null;
+        }
+        return state._refreshAppCheckToken();
       },
       maxAttempts: 3,
     });
@@ -910,12 +923,16 @@ export function createVoiceSessionController() {
     onTurnComplete = null,
     token = null,
     refreshAuthToken = null,
+    getAppCheckToken = null,
+    refreshAppCheckToken = null,
   } = {}) {
     if (state.isSessionActive) return false;
 
     state._contextProvider = contextProvider;
     state._authToken = token;
     state._refreshAuthToken = refreshAuthToken;
+    state._getAppCheckToken = getAppCheckToken;
+    state._refreshAppCheckToken = refreshAppCheckToken;
     state._onTranscript = onTranscript;
     state._onAudioState = onAudioState;
     state._onSessionEnd = onSessionEnd;
@@ -1037,6 +1054,8 @@ export function createVoiceSessionController() {
 
     state._authToken = null;
     state._refreshAuthToken = null;
+    state._getAppCheckToken = null;
+    state._refreshAppCheckToken = null;
     state._voiceCredentials = null;
     state._sessionResumptionHandle = "";
     state._setupComplete = false;

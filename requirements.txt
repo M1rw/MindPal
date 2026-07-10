@@ -1,22 +1,2 @@
-# requirements.txt
-# Core runtime
-fastapi>=0.136,<0.137
-uvicorn[standard]>=0.35,<0.36
-pydantic>=2.12,<3
-pydantic-settings>=2.14,<3
-python-dotenv>=1.1,<2
-
-# HTTP providers: Gemini, OpenRouter, Groq, Camb.ai
-httpx>=0.28,<1
-
-# YAML config/corpus files
-PyYAML>=6.0,<7
-
-# Firebase Auth + Firestore provider
-firebase-admin>=7.4,<8
-
-# Optional validation helpers
-email-validator>=2.2,<3
-
-# Secure Gemini Live API ephemeral-token provisioning
-google-genai>=1.56,<2
+# Compatibility entrypoint. Runtime packages are exactly pinned here.
+-r requirements.lock

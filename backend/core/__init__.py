@@ -118,6 +118,10 @@ __all__ = [
     "build_system_prompt",
     "infer_response_mode",
     "infer_response_mode_for_preference",
+    "MessageClassification",
+    "classify_message",
+    "build_tiered_prompt",
+    "get_self_knowledge_response",
     # Security
     "Locale",
     "generate_request_id",
