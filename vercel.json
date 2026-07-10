@@ -1,5 +1,7 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "installCommand": "npm ci --include=dev --no-audit --no-fund",
   "buildCommand": "npm run build",
   "env": {
     "ENVIRONMENT": "production",
@@ -69,6 +71,5 @@
       "dest": "/api/index.py"
     }
   ],
-  "outputDirectory": ".",
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "outputDirectory": "."
 }
