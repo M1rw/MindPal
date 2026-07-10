@@ -483,6 +483,11 @@ export function createVoiceSessionController() {
       }
     }
 
+    // Advanced: Avoid resetting user activity metrics during backchanneling
+    const isBackchannelOnly = data.serverContent?.modelTurn?.parts?.every(p =>
+      p.text && /^(mm-hm|yeah|right|i see|uh-huh)\.?$/i.test(p.text.trim())
+    );
+
     if (data.serverContent?.outputTranscription?.text) {
       const text = data.serverContent.outputTranscription.text;
       debugLog("AI transcription received", { text });
@@ -496,7 +501,7 @@ export function createVoiceSessionController() {
       state._lastUserTranscript = text;
       state._recentEmotionHint = inferEmotionHint(text);
       state._onTranscript?.("user", text);
-      touchActivity();
+      if (!isBackchannelOnly) touchActivity();
     }
 
     if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
@@ -655,6 +660,10 @@ export function createVoiceSessionController() {
         this.ptr = 0;
         this.smoothRms = 0.0001;
         this.gain = 1.0;
+        // High-pass filter state (approx 100Hz at 16kHz)
+        this.lastX = 0;
+        this.lastY = 0;
+        this.hpAlpha = 0.96;
       }
 
       process(inputs) {
@@ -663,6 +672,13 @@ export function createVoiceSessionController() {
 
         for (let i = 0; i < ch.length; i++) {
           let sample = ch[i];
+
+          // 1. High-pass filter for noise cancellation (rumble removal)
+          const filtered = this.hpAlpha * (this.lastY + sample - this.lastX);
+          this.lastX = sample;
+          this.lastY = filtered;
+          sample = filtered;
+
           const abs = Math.abs(sample);
           this.smoothRms = this.smoothRms * 0.84 + abs * 0.16;
           // High-speed gain adaptation for ultra-responsive duplex performance
@@ -670,7 +686,10 @@ export function createVoiceSessionController() {
           this.gain = this.gain * 0.5 + targetGain * 0.5;
           sample = sample * this.gain;
           sample = Math.max(-1, Math.min(1, sample));
-          if (abs < 0.0003) sample = 0;
+
+          // 2. Adaptive silence clamping
+          if (abs < 0.0002) sample = 0;
+
           this.buffer[this.ptr++] = sample;
           if (this.ptr >= 2048) {
             this.port.postMessage(this.buffer);
