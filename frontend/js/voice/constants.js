@@ -3,7 +3,7 @@ export const SILENCE_WARN_MS = 60_000;
 export const SILENCE_AUTO_END_MS = 90_000;
 
 export const NOISE_GATE_THRESHOLD = 0.0015;
-export const NOISE_GATE_HOLD_MS = 600;
+export const NOISE_GATE_HOLD_MS = 800;
 
 export const BARGE_IN_FAST_THRESHOLD = 0.028;
 export const BARGE_IN_SUSTAINED_THRESHOLD = 0.018;

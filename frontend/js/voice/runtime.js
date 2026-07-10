@@ -62,6 +62,7 @@ export function createVoiceSessionController() {
     _lastAiTranscript: "",
     _recentEmotionHint: "neutral",
     _silenceFrameB64: null,
+    _lastSilenceSentAt: 0,
   };
 
   const toolExecutor = createToolExecutor({
@@ -298,12 +299,13 @@ export function createVoiceSessionController() {
     state._networkCheckInterval = setInterval(() => {
       if (!state.isSessionActive || !state.liveWebSocket) return;
       const elapsed = Date.now() - state._lastWsMessageTime;
-      if (elapsed > 30_000 && state.liveWebSocket.readyState === WebSocket.OPEN) {
-        console.warn("[Voice] WebSocket appears stale — no data for 30s");
+      // Increased to 90s to account for long user silences without false unstable warnings
+      if (elapsed > 90_000 && state.liveWebSocket.readyState === WebSocket.OPEN) {
+        console.warn("[Voice] WebSocket appears stale — no data for 90s");
         state._onTranscript?.("ai", "\n[Connection seems unstable — call may end if it doesn't recover]\n");
         state._lastWsMessageTime = Date.now();
       }
-    }, 15_000);
+    }, 20_000);
   }
 
   function stopNetworkMonitor() {
@@ -472,8 +474,8 @@ export function createVoiceSessionController() {
       clearListeningTransitionTimer();
       if (!state.isAiSpeaking) {
         setSessionPhase("preparing");
-        // Give AI 250ms of 'protection' when it starts a new turn
-        state.bargeInIgnoreUntil = Date.now() + 250;
+        // Give AI 450ms of 'protection' when it starts a new turn to avoid echo-interruption
+        state.bargeInIgnoreUntil = Date.now() + 450;
       }
       debugLog("Model turn received", { parts: data.serverContent.modelTurn.parts?.length || 0 });
       for (const part of data.serverContent.modelTurn.parts) {
@@ -687,8 +689,8 @@ export function createVoiceSessionController() {
           sample = sample * this.gain;
           sample = Math.max(-1, Math.min(1, sample));
 
-          // 2. Adaptive silence clamping
-          if (abs < 0.0002) sample = 0;
+          // 2. Adaptive silence clamping (ultra-sensitive for vocal nuances)
+          if (abs < 0.0001) sample = 0;
 
           this.buffer[this.ptr++] = sample;
           if (this.ptr >= 2048) {
@@ -741,9 +743,18 @@ export function createVoiceSessionController() {
           if (rms > NOISE_GATE_THRESHOLD) {
             state.gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
           }
-          const gateOpen = Date.now() < state.gateOpenUntil;
+          const now = Date.now();
+          const gateOpen = now < state.gateOpenUntil;
           state._onVolume?.(gateOpen ? rms : 0);
-          if (gateOpen) sendPcmToWebSocket(pcmData); else sendSilenceFrame();
+          if (gateOpen) {
+            sendPcmToWebSocket(pcmData);
+          } else {
+            // Throttle silence frames to 1Hz if gate is closed to reduce network noise
+            if (now - state._lastSilenceSentAt > 1000) {
+              sendSilenceFrame();
+              state._lastSilenceSentAt = now;
+            }
+          }
         }
       };
 
