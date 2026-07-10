@@ -15,7 +15,7 @@ import {
 } from "./constants.js";
 import { buildAdaptiveVoicePrompt, inferEmotionHint } from "./prompts.js";
 import { createToolExecutor, getToolDeclarations } from "./tools.js";
-import { fetchVoiceKeyWithRetry } from "./startup_helpers.mjs";
+import { classifySocketClose, fetchVoiceKeyWithRetry } from "./startup_helpers.mjs";
 
 export function createVoiceSessionController() {
   const state = {
@@ -69,8 +69,13 @@ export function createVoiceSessionController() {
     apiBaseUrl: () => window.MINDPAL_CONFIG?.API_BASE_URL || "",
   });
 
+  function debugLog(message, payload = {}) {
+    console.debug(`[VOICE][DEBUG] ${message}`, payload);
+  }
+
   function clearTurnCompleteTimer() {
     if (state.userTurnCompleteTimer) {
+      debugLog("Clearing turn-complete timer");
       clearTimeout(state.userTurnCompleteTimer);
       state.userTurnCompleteTimer = null;
     }
@@ -78,6 +83,7 @@ export function createVoiceSessionController() {
 
   function clearListeningTransitionTimer() {
     if (state.listeningTransitionTimer) {
+      debugLog("Clearing listening transition timer");
       clearTimeout(state.listeningTransitionTimer);
       state.listeningTransitionTimer = null;
     }
@@ -86,6 +92,7 @@ export function createVoiceSessionController() {
   function noteUserSpeechActivity() {
     state.lastUserSpeechAt = Date.now();
     state.speechSeenRecently = true;
+    debugLog("User speech activity detected", { phase: state.sessionPhase });
     clearTurnCompleteTimer();
     if (state.sessionPhase !== "attending" && state.sessionPhase !== "interrupting" && !state.isAiSpeaking) {
       setSessionPhase("attending");
@@ -127,6 +134,7 @@ export function createVoiceSessionController() {
   function recoverFromInterruption() {
     clearListeningTransitionTimer();
     if (state.isMicMuted || state._toolCallPending) return;
+    debugLog("Recovering from interruption", { phase: state.sessionPhase });
     setSessionPhase("recovering");
     state.listeningTransitionTimer = setTimeout(() => {
       if (!state.isSessionActive || state._toolCallPending || state.isMicMuted) return;
@@ -136,6 +144,7 @@ export function createVoiceSessionController() {
 
   function setSessionPhase(phase) {
     state.sessionPhase = phase;
+    debugLog("Session phase changed", { phase, isAiSpeaking: state.isAiSpeaking, isMicMuted: state.isMicMuted });
     state._onAudioState?.({
       phase,
       isAiSpeaking: state.isAiSpeaking,
@@ -168,6 +177,7 @@ export function createVoiceSessionController() {
     state.activeAudioSources = [];
     state.nextPlaybackTime = 0;
     state.isAiSpeaking = false;
+    debugLog("Flushed AI audio", { activeSources: 0 });
     if (!state.isMicMuted) setSessionPhase("listening");
   }
 
@@ -183,6 +193,7 @@ export function createVoiceSessionController() {
     const bytes = new Uint8Array(buffer);
     for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
 
+    debugLog("Sending PCM audio chunk to WebSocket", { bytes: pcmData.length });
     state.liveWebSocket.send(JSON.stringify({
       realtimeInput: { mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: btoa(binary) }] },
     }));
@@ -199,6 +210,7 @@ export function createVoiceSessionController() {
       state._silenceFrameB64 = btoa(binary);
     }
 
+    debugLog("Sending silence frame to WebSocket");
     state.liveWebSocket.send(JSON.stringify({
       realtimeInput: { mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: state._silenceFrameB64 }] },
     }));
@@ -305,6 +317,7 @@ export function createVoiceSessionController() {
   }
 
   function sendSetupMessage() {
+    debugLog("Sending Gemini setup message");
     const profile = state._contextProvider?.getUserProfile?.() || {};
     const userName = profile.name || "";
     const userGender = profile.gender || "";
@@ -341,6 +354,7 @@ export function createVoiceSessionController() {
 
   function handleToolCalls(functionCalls) {
     state._toolCallPending = true;
+    debugLog("Handling tool calls", { count: functionCalls?.length || 0 });
     setSessionPhase("thinking");
     const batchTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Tool batch timeout")), 15_000));
     const batchExecution = Promise.all(functionCalls.map(async (call) => {
@@ -382,6 +396,7 @@ export function createVoiceSessionController() {
   function playAiAudioChunk(base64Data) {
     if (!state.audioContext || !state.isSessionActive) return;
 
+    debugLog("Playing AI audio chunk", { bytes: base64Data?.length || 0 });
     state.isAiSpeaking = true;
     setSessionPhase("speaking");
 
@@ -438,13 +453,14 @@ export function createVoiceSessionController() {
 
   function handleServerMessage(data) {
     if (data.setupComplete) {
-      console.log("[Voice] Gemini setup complete — ready to receive audio");
+      debugLog("Gemini setup complete — ready to receive audio");
       sendInitialGreeting();
       return;
     }
 
     if (data.error) {
       console.error("[Voice] Server error:", data.error);
+      debugLog("Voice server error", { error: data.error });
       return;
     }
 
@@ -453,6 +469,7 @@ export function createVoiceSessionController() {
       state.speechSeenRecently = false;
       clearListeningTransitionTimer();
       setSessionPhase("preparing");
+      debugLog("Model turn received", { parts: data.serverContent.modelTurn.parts?.length || 0 });
       for (const part of data.serverContent.modelTurn.parts) {
         if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
           playAiAudioChunk(part.inlineData.data);
@@ -462,12 +479,14 @@ export function createVoiceSessionController() {
 
     if (data.serverContent?.outputTranscription?.text) {
       const text = data.serverContent.outputTranscription.text;
+      debugLog("AI transcription received", { text });
       state._lastAiTranscript = text;
       state._onTranscript?.("ai", text);
     }
 
     if (data.serverContent?.inputTranscription?.text) {
       const text = data.serverContent.inputTranscription.text;
+      debugLog("User transcription received", { text });
       state._lastUserTranscript = text;
       state._recentEmotionHint = inferEmotionHint(text);
       state._onTranscript?.("user", text);
@@ -475,6 +494,7 @@ export function createVoiceSessionController() {
     }
 
     if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
+      debugLog("Turn event received", { turnComplete: Boolean(data.serverContent?.turnComplete), interrupted: Boolean(data.serverContent?.interrupted) });
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
       if (data.serverContent?.interrupted) {
@@ -517,6 +537,7 @@ export function createVoiceSessionController() {
       `Open with something light and natural. It's ${timeContext}.${nameHint} Maybe comment on the time of day briefly. Keep it very short. ${moodHint}`,
     ];
     const prompt = styles[Math.floor(Math.random() * styles.length)];
+    debugLog("Sending initial greeting prompt", { prompt });
     sendTextToModel(prompt);
   }
 
@@ -531,6 +552,7 @@ export function createVoiceSessionController() {
   } = {}) {
     if (state.isSessionActive) return;
 
+    debugLog("Starting voice session", { hasToken: Boolean(token) });
     state._contextProvider = contextProvider;
     state._authToken = token;
     state._onTranscript = onTranscript;
@@ -558,7 +580,8 @@ export function createVoiceSessionController() {
     const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
     let key = "";
     try {
-      const keyResponse = await fetchVoiceKeyWithRetry({
+      debugLog("Fetching voice key", { baseUrl });
+    const keyResponse = await fetchVoiceKeyWithRetry({
         baseUrl,
         token,
         refreshToken: async () => token || null,
@@ -577,6 +600,7 @@ export function createVoiceSessionController() {
       throw new Error("This browser does not support the Web Audio API required for voice.");
     }
 
+    debugLog("Creating audio context");
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     state.audioContext = new AudioContextCtor({ sampleRate: 16000, latencyHint: "interactive" });
     if (state.audioContext.state === "suspended") {
@@ -588,6 +612,7 @@ export function createVoiceSessionController() {
     }
 
     try {
+      debugLog("Requesting microphone access");
       state.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -604,6 +629,7 @@ export function createVoiceSessionController() {
       throw err;
     }
 
+    debugLog("Microphone stream acquired", { tracks: state.mediaStream.getAudioTracks().length });
     state.mediaStream.getAudioTracks().forEach(track => {
       track.onended = () => {
         console.warn("[Voice] Mic track ended unexpectedly");
@@ -650,6 +676,7 @@ export function createVoiceSessionController() {
     registerProcessor('pcm-processor', PCMProcessor);
     `;
       const blob = new Blob([workletCode], { type: "application/javascript" });
+      debugLog("Loading audio worklet");
       await state.audioContext.audioWorklet.addModule(URL.createObjectURL(blob));
       state.workletNode = new AudioWorkletNode(state.audioContext, "pcm-processor");
     } catch (err) {
@@ -716,10 +743,11 @@ export function createVoiceSessionController() {
     state.outputGainNode.connect(state.audioContext.destination);
 
     const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
+    debugLog("Opening WebSocket", { wsUrl });
     state.liveWebSocket = new WebSocket(wsUrl);
 
     state.liveWebSocket.onopen = () => {
-      console.log("[Voice] WebSocket connected. Sending setup…");
+      debugLog("WebSocket opened");
       setSessionPhase("listening");
       sendSetupMessage();
       startSilenceChecker();
@@ -729,6 +757,7 @@ export function createVoiceSessionController() {
     };
 
     state.liveWebSocket.onmessage = async (event) => {
+      debugLog("WebSocket message received", { type: typeof event.data });
       let data;
       if (event.data instanceof Blob) {
         data = JSON.parse(await event.data.text());
@@ -741,18 +770,33 @@ export function createVoiceSessionController() {
 
     state.liveWebSocket.onerror = (err) => {
       console.error("[Voice] WebSocket error:", err);
+      debugLog("WebSocket error", { err });
       stopSession();
     };
 
     state.liveWebSocket.onclose = (event) => {
       console.warn(`[Voice] WebSocket closed — code: ${event.code}, reason: "${event.reason}", wasClean: ${event.wasClean}`);
-      if (state.isSessionActive) stopSession();
+      debugLog("WebSocket closed", { code: event.code, reason: event.reason, wasClean: event.wasClean });
+      const classification = classifySocketClose({
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        hasSetupComplete: state.sessionPhase !== "connecting",
+        greetingSent: state._lastAiTranscript !== "" || state._lastUserTranscript !== "",
+      });
+
+      if (state.isSessionActive && classification.shouldStop) {
+        stopSession();
+      } else if (state.isSessionActive && classification.retryable) {
+        console.warn(`[VOICE] Treating close as transient (${classification.reason}) — keeping session alive for a retry`);
+      }
     };
   }
 
   function stopSession() {
     if (!state.isSessionActive) return;
     state.isSessionActive = false;
+    debugLog("Stopping voice session");
 
     clearTurnCompleteTimer();
     clearListeningTransitionTimer();
