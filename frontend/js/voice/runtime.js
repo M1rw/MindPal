@@ -108,10 +108,7 @@ export function createVoiceSessionController() {
       setSessionPhase("holding");
       setTimeout(() => {
         if (!state.isSessionActive || state.isMicMuted || state._toolCallPending || state.isAiSpeaking) return;
-        if (state.liveWebSocket?.readyState === WebSocket.OPEN) {
-          state.liveWebSocket.send(JSON.stringify({ clientContent: { turnComplete: true } }));
-          console.info("[VOICE] Emitted adaptive turnComplete after user pause");
-        }
+        // Explicit turnComplete removed to avoid WebSocket 1007 errors; relying on server-side VAD
         state.speechSeenRecently = false;
         setSessionPhase("listening");
       }, HOLDING_PHASE_MS);
@@ -825,14 +822,7 @@ export function createVoiceSessionController() {
     setSessionPhase(muted ? "muted" : state.isAiSpeaking ? "speaking" : "listening");
     if (muted && state.liveWebSocket?.readyState === WebSocket.OPEN && !state._toolCallPending) {
       for (let i = 0; i < 3; i++) sendSilenceFrame();
-      if (!state.isAiSpeaking) {
-        setTimeout(() => {
-          if (state.isMicMuted && state.liveWebSocket?.readyState === WebSocket.OPEN && !state._toolCallPending) {
-            state.liveWebSocket.send(JSON.stringify({ clientContent: { turnComplete: true } }));
-            console.info("[VOICE] Sent turnComplete on mute — speech will be processed");
-          }
-        }, 200);
-      }
+      // Explicit turnComplete removed to avoid WebSocket 1007 errors; relying on server-side VAD
     }
     state._onAudioState?.({
       phase: state.sessionPhase,
