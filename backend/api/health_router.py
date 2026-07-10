@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
+from fastapi.responses import JSONResponse
 
-from backend.api.dependencies import RequestIdDep, ServicesDep
+from backend.api.dependencies import AdminRequestContextDep, RequestIdDep, ServicesDep
 from backend.core.security import sanitize_text
 from backend.models.schemas import DependencyHealth, HealthResponse, HealthState
 
@@ -14,100 +15,45 @@ from backend.models.schemas import DependencyHealth, HealthResponse, HealthState
 router = APIRouter(prefix="/api", tags=["health"])
 
 
-@router.get("/health", response_model=HealthResponse)
-async def health(
-    services: ServicesDep,
-) -> HealthResponse:
-    """
-    Public health check.
-
-    This endpoint must not expose:
-    - API keys
-    - auth tokens
-    - Firebase credentials
-    - raw prompts
-    - raw user messages
-    - memory contents
-    - profile contents
-
-    In production, this endpoint must not report OK when critical production
-    dependencies silently fell back to mock/authless/offline-only behavior.
-    """
-    service_health = await services.health()
-    environment = _safe_setting(services.settings, "ENVIRONMENT", "development")
-    production = _is_production(environment)
-
-    dependencies = _build_dependency_health(service_health, production=production)
-    state = _overall_state(dependencies)
-
-    return HealthResponse(
-        status=state,
-        project_name="MindPal",
-        version=_safe_setting(services.settings, "APP_VERSION", "1.0.0"),
-        environment=environment,
-        dependencies=dependencies,
-    )
+@router.get("/health")
+async def health(request_id: RequestIdDep) -> dict[str, str]:
+    """Public minimal health surface; no infrastructure fingerprinting."""
+    return {"status": HealthState.OK.value, "request_id": request_id}
 
 
 @router.get("/health/live")
-async def liveness(
-    request_id: RequestIdDep,
-) -> dict[str, str]:
-    """
-    Minimal liveness check.
-
-    Should stay lightweight and avoid touching providers or storage.
-    """
-    return {
-        "status": HealthState.OK.value,
-        "request_id": request_id,
-    }
+async def liveness(request_id: RequestIdDep) -> dict[str, str]:
+    return {"status": HealthState.OK.value, "request_id": request_id}
 
 
-@router.get("/health/ready", response_model=HealthResponse)
+@router.get("/health/ready")
 async def readiness(
     services: ServicesDep,
-) -> HealthResponse:
-    """
-    Readiness check.
-
-    Production readiness is strict:
-    - Firebase auth provider must be configured.
-    - Firestore must not be in mock mode.
-    - At least one remote LLM provider should be configured.
-    - Safety/output guard/RAG must have loaded rules/corpus.
-
-    Development can tolerate some fallback paths, but production cannot silently
-    rely on mock DB or missing auth provider.
-    """
+    request_id: RequestIdDep,
+) -> JSONResponse:
+    """Minimal readiness result suitable for deployment probes."""
     service_health = await services.health()
     environment = _safe_setting(services.settings, "ENVIRONMENT", "development")
-    production = _is_production(environment)
+    dependencies = _build_dependency_health(service_health, production=_is_production(environment))
+    critical = [item for item in dependencies if item.name in {"auth", "db", "llm", "memory", "output_guard", "rag", "safety"}]
+    state = _overall_state(critical)
+    code = status.HTTP_200_OK if state != HealthState.ERROR else status.HTTP_503_SERVICE_UNAVAILABLE
+    return JSONResponse(status_code=code, content={"status": state.value, "request_id": request_id})
 
-    dependencies = _build_dependency_health(service_health, production=production)
 
-    critical_names = {
-        "auth",
-        "db",
-        "llm",
-        "memory",
-        "output_guard",
-        "rag",
-        "safety",
-    }
-
-    critical_dependencies = [
-        dependency
-        for dependency in dependencies
-        if dependency.name in critical_names
-    ]
-
-    state = _overall_state(critical_dependencies)
-
+@router.get("/health/diagnostics", response_model=HealthResponse)
+async def diagnostics(
+    services: ServicesDep,
+    context: AdminRequestContextDep,
+) -> HealthResponse:
+    """Authenticated operational diagnostics."""
+    service_health = await services.health()
+    environment = _safe_setting(services.settings, "ENVIRONMENT", "development")
+    dependencies = _build_dependency_health(service_health, production=_is_production(environment))
     return HealthResponse(
-        status=state,
+        status=_overall_state(dependencies),
         project_name="MindPal",
-        version=_safe_setting(services.settings, "APP_VERSION", "1.0.0"),
+        version=_safe_setting(services.settings, "VERSION", "1.0.0"),
         environment=environment,
         dependencies=dependencies,
     )
@@ -116,13 +62,8 @@ async def readiness(
 @router.get("/rag/health")
 async def rag_health(
     services: ServicesDep,
+    context: AdminRequestContextDep,
 ) -> dict[str, Any]:
-    """
-    RAG-specific corpus health.
-
-    Exposes curated corpus loading metadata only. It does not expose prompts,
-    user messages, memory contents, provider secrets, or retrieved chat data.
-    """
     return services.rag.health()
 
 

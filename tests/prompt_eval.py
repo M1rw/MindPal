@@ -1,6 +1,5 @@
 import sys
 import os
-import json
 
 # Add project root to path
 sys.path.append(os.getcwd())

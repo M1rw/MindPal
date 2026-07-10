@@ -5,9 +5,8 @@ Shared settings-access helpers for backend services.
 
 All configuration reads should go through these helpers, which:
 1. Read from the pydantic Settings object first (validated, typed)
-2. Fall back to os.getenv ONLY for env vars not yet declared in Settings
-3. Safely unwrap SecretStr values
-4. Provide typed bool/float/str accessors
+2. Safely unwrap SecretStr values
+3. Provide typed bool/float/str accessors
 
 This eliminates the ~280 lines of duplicated _setting_value/_setting_bool/
 _is_production helpers that were copy-pasted across 8 service files.
@@ -15,7 +14,6 @@ _is_production helpers that were copy-pasted across 8 service files.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from backend.core.security import sanitize_text
@@ -23,16 +21,12 @@ from backend.core.security import sanitize_text
 
 def setting_value(settings: Any, name: str, default: Any = None) -> Any:
     """
-    Read a configuration value from Settings, falling back to os.getenv.
-
-    Priority:
-    1. settings.<name> (pydantic-validated)
-    2. os.getenv(name, default)
+    Read a configuration value from the validated Settings object.
     """
     value = getattr(settings, name, None)
 
     if value is None:
-        return os.getenv(name, default)
+        return default
 
     if hasattr(value, "get_secret_value"):
         return value.get_secret_value()

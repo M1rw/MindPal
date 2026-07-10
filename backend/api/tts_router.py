@@ -103,20 +103,40 @@ async def synthesize_tts(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> TTSResponse:
-    """
-    Synthesize assistant text.
-
-    Production rules:
-    - requires verified Firebase auth
-    - text is sanitized before provider calls
-    - external TTS is disabled by default for crisis/high-risk safety levels
-    - browser fallback may be returned explicitly when no backend audio is used
-    - no provider credentials or internal payloads are exposed
-    """
     assert_authenticated(context)
-
+    operation_id = sanitize_text(f"{context.request_id}:tts", 120)
+    claim = None
+    reserved = False
     try:
-        return await services.tts.synthesize_text(
+        await services.rate_limits.consume(
+            scope="tts",
+            subject=context.session.user_id_hash,
+            limit=services.settings.TTS_RATE_LIMIT_PER_MINUTE,
+            window_seconds=60,
+        )
+        claim = await services.idempotency.claim(
+            user_id_hash=context.session.user_id_hash,
+            key=context.request_id,
+            operation="tts_synthesize",
+            payload_hash=services.idempotency.payload_hash(payload.model_dump(mode="json")),
+        )
+        if claim.completed:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "idempotent_result_not_replayable",
+                    "message": "This synthesis request already completed; use its original response",
+                    "request_id": context.request_id,
+                },
+            )
+        await services.quota.reserve(
+            user_id_hash=context.session.user_id_hash,
+            request_id=operation_id,
+            cost=services.settings.PROVIDER_OPERATION_QUOTA_COST,
+            operation="tts_synthesize",
+        )
+        reserved = True
+        result = await services.tts.synthesize_text(
             text=payload.text,
             locale=payload.locale if payload.locale != "auto" else context.locale,
             response_mode=payload.response_mode,
@@ -126,10 +146,31 @@ async def synthesize_tts(
             speaking_rate=payload.speaking_rate,
             allow_external_for_crisis=False,
         )
-
+        # Browser fallback does not consume an external provider, so return the
+        # reservation instead of charging the account.
+        if result.fallback_to_browser:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        else:
+            await services.quota.commit(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        await services.idempotency.complete(claim=claim, response={"completed": True})
+        return result.model_copy(update={"request_id": context.request_id})
     except AppError as exc:
+        if reserved:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        if claim:
+            await services.idempotency.fail(claim=claim)
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except HTTPException:
+        if reserved:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        if claim and not claim.completed:
+            await services.idempotency.fail(claim=claim)
+        raise
     except Exception as exc:
+        if reserved:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        if claim:
+            await services.idempotency.fail(claim=claim)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -191,19 +232,14 @@ async def tts_policy(
 @router.get("/health")
 async def tts_health(
     services: ServicesDep,
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> dict[str, Any]:
     """
     TTS subsystem health.
 
     Does not expose provider credentials or raw synthesis payloads.
     """
-    health = services.tts.health()
+    assert_authenticated(context)
+    return {"status": "ok", "request_id": context.request_id}
 
-    return {
-        "request_id": context.request_id,
-        "authenticated": bool(context.session.authenticated),
-        "tts": health,
-    }
 
-

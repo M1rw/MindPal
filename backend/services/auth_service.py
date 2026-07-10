@@ -62,6 +62,9 @@ class AuthProvider(Protocol):
     async def verify_bearer_token(self, token: str) -> AuthIdentity:
         ...
 
+    async def verify_app_check_token(self, token: str) -> dict[str, Any]:
+        ...
+
 
 class FirebaseAuthProvider:
     """
@@ -156,6 +159,9 @@ class FirebaseAuthProvider:
         metadata: dict[str, str | int | float | bool | None] = {
             "project_id": self.project_id,
             "email_verified": bool(decoded.get("email_verified", False)),
+            # Operational endpoints require this explicit Firebase custom claim.
+            # Never infer administrative access from email/domain/client input.
+            "admin": decoded.get("mindpal_admin") is True,
         }
 
         if firebase_provider:
@@ -174,6 +180,23 @@ class FirebaseAuthProvider:
             email_verified=bool(decoded.get("email_verified", False)),
             metadata=metadata,
         )
+
+    async def verify_app_check_token(self, token: str) -> dict[str, Any]:
+        clean_token = _clean_token(token)
+        if not clean_token:
+            raise AuthError("Missing Firebase App Check token", code="app_check_missing")
+        if self._app is None:
+            raise AuthError("Firebase App Check is not configured", code="app_check_provider_missing")
+
+        def _verify() -> dict[str, Any]:
+            from firebase_admin import app_check
+            return app_check.verify_token(clean_token, app=self._app)
+
+        try:
+            decoded = await asyncio.to_thread(_verify)
+        except Exception as exc:
+            raise AuthError("Firebase App Check token verification failed", code="app_check_rejected") from exc
+        return decoded
 
     def _build_app(self) -> Any:
         try:
@@ -338,6 +361,21 @@ class AuthService:
 
         return session
 
+    async def verify_app_check_token(self, token: str | None) -> dict[str, Any]:
+        clean_token = _clean_token(token or "")
+        if not clean_token:
+            raise AuthError("Firebase App Check token is required", code="app_check_missing")
+        if self.provider is None:
+            raise AuthError("Firebase App Check provider is not configured", code="app_check_provider_missing")
+        verifier = getattr(self.provider, "verify_app_check_token", None)
+        if not callable(verifier):
+            raise AuthError("Authentication provider cannot verify App Check", code="app_check_unsupported")
+        decoded = await verifier(clean_token)
+        app_id = sanitize_text(str(decoded.get("app_id") or decoded.get("sub") or ""), 300)
+        if not app_id:
+            raise AuthError("Firebase App Check token is missing app identity", code="app_check_identity_missing")
+        return {"app_id": app_id}
+
     def health(self) -> dict[str, Any]:
         return {
             "provider": self.provider.name if self.provider else "none",
@@ -347,6 +385,7 @@ class AuthService:
             "provider_init_error": self.provider_init_error,
             "trusts_unverified_bearer_tokens": False,
             "invalid_bearer_falls_back_to_anonymous": False,
+            "app_check_required": bool(getattr(self.settings, "REQUIRE_FIREBASE_APP_CHECK", False)),
             "last_meta": None if self.last_meta is None else asdict(self.last_meta),
         }
 
@@ -525,7 +564,7 @@ def _firebase_env_present(settings: Settings) -> bool:
 
 
 def _allow_anonymous_sessions(settings: Settings) -> bool:
-    return getattr(settings, "ALLOW_ANONYMOUS_SESSIONS", True)
+    return bool(getattr(settings, "ALLOW_ANONYMOUS_SESSIONS", False))
 
 
 def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> Any:

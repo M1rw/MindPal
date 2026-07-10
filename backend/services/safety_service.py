@@ -16,7 +16,7 @@ import yaml
 from backend.core.config import Settings, get_settings
 from backend.core.errors import SafetyError
 from backend.core.security import Locale, normalize_locale, sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool, setting_value
+from backend.core.settings_helpers import is_production, setting_bool
 from backend.models.safety import (
     CrisisResponseTemplate,
     SafetyAction,

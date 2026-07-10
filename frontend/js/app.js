@@ -17,6 +17,7 @@ import {
   authIsConfigured,
   getCurrentUser,
   getIdToken,
+  getAppCheckToken,
   signInWithGoogle,
   signOut,
 } from "./auth.js";
@@ -1244,7 +1245,11 @@ async function summarizeCallTranscript(userTranscript, aiTranscript) {
   try {
     const token = await getIdToken().catch(() => null);
     const headers = { "Content-Type": "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      const appCheckToken = await getAppCheckToken();
+      if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
+    }
     const res = await fetch(`${API_BASE_URL}/voice/summarize`, {
       method: "POST",
       headers,

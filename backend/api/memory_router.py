@@ -1,5 +1,3 @@
-# backend/api/memory_router.py
-
 from __future__ import annotations
 
 from typing import Any
@@ -25,40 +23,24 @@ from backend.models.memory import (
     MemoryGraphWriteResult,
     MemoryInteraction,
     MemoryLoadResult,
+    MemorySource,
     MemorySummary,
     MemoryWriteResult,
     memory_graph_from_summary,
     summary_from_memory_graph,
 )
-from backend.services.memory_graph_service import (
-    delete_memory_atom,
-    merge_memory_graph,
-)
 
+from backend.services.memory_graph_service import memory_graph_delta_from_summary
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
-
 MAX_MEMORY_INTERACTIONS = 50
 MAX_CLIENT_MEMORY_ITEMS = 80
 MAX_SESSION_HASH_CHARS = 120
 
 
 class MemorySummarizePayload(BaseModel):
-    """
-    Explicit memory compaction payload.
-
-    user_id_hash is intentionally absent. The route always uses the verified
-    Firebase session hash to prevent client-side spoofing.
-
-    This route requires authentication.
-    """
-
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-
-    interactions: list[MemoryInteraction] = Field(
-        default_factory=list,
-        max_length=MAX_MEMORY_INTERACTIONS,
-    )
+    interactions: list[MemoryInteraction] = Field(default_factory=list, max_length=MAX_MEMORY_INTERACTIONS)
     force: bool = False
     save: bool = True
     locale: str = "auto"
@@ -70,38 +52,27 @@ class MemorySummarizePayload(BaseModel):
 
 
 class MemorySavePayload(BaseModel):
-    """
-    Explicit memory overwrite/update payload.
-
-    The submitted summary is re-bound to the verified Firebase session hash
-    before persistence.
-    """
-
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-
     summary: MemorySummary
 
 
 class MemoryGraphSavePayload(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-
     graph: MemoryGraph
-    also_update_summary: bool = True
+    also_update_summary: bool = False  # retained for wire compatibility; ignored
 
 
 class MemoryGraphPatchPayload(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-
     patch: MemoryGraphPatch
-    also_update_summary: bool = True
+    also_update_summary: bool = False
 
 
 class MemoryGraphMergePayload(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-
     graph: MemoryGraph | None = None
     atoms: list[MemoryAtom] = Field(default_factory=list, max_length=MAX_CLIENT_MEMORY_ITEMS)
-    also_update_summary: bool = True
+    also_update_summary: bool = False
 
 
 @router.get("/v3", response_model=MemoryGraphLoadResult)
@@ -110,38 +81,13 @@ async def load_memory_v3(
     context: AuthenticatedRequestContextDep,
 ) -> MemoryGraphLoadResult:
     assert_authenticated(context)
-
     try:
-        loaded = await services.db.load_memory_graph(context.session.user_id_hash)
-        if loaded.loaded and loaded.graph:
-            return loaded
-
-        legacy = await services.db.load_memory(context.session.user_id_hash)
-        if legacy.summary:
-            graph = memory_graph_from_summary(legacy.summary)
-            graph = _graph_for_session(graph, user_id_hash=context.session.user_id_hash)
-            await services.db.save_memory_graph(graph)
-            return MemoryGraphLoadResult(
-                user_id_hash=context.session.user_id_hash,
-                loaded=True,
-                graph=graph,
-                migrated_from_summary=True,
-                provider=loaded.provider,
-            )
-
-        return loaded
-
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+        return _graph_load_result(graph, services)
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_graph_load_failed",
-                "message": "Failed to load memory graph",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        raise _internal_error("memory_graph_load_failed", "Failed to load memory graph", context.request_id, exc)
 
 
 @router.put("/v3", response_model=MemoryGraphWriteResult)
@@ -151,25 +97,25 @@ async def save_memory_v3(
     context: AuthenticatedRequestContextDep,
 ) -> MemoryGraphWriteResult:
     assert_authenticated(context)
-
     try:
+        await _limit_write(services, context)
         graph = _graph_for_session(payload.graph, user_id_hash=context.session.user_id_hash)
-        result = await services.db.save_memory_graph(graph)
-        if payload.also_update_summary:
-            await services.db.save_memory(summary_from_memory_graph(graph))
-        return result
-
+        result = await services.memory_repo.replace(
+            user_id_hash=context.session.user_id_hash,
+            graph=graph,
+            expected_version=graph.version,
+        )
+        return MemoryGraphWriteResult(
+            user_id_hash=context.session.user_id_hash,
+            saved=True,
+            memory_updated=result.changed,
+            version=result.snapshot.version,
+            provider=services.db.provider.name,
+        )
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_graph_save_failed",
-                "message": "Failed to save memory graph",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        raise _internal_error("memory_graph_save_failed", "Failed to save memory graph", context.request_id, exc)
 
 
 @router.patch("/v3", response_model=MemoryGraphLoadResult)
@@ -179,35 +125,14 @@ async def patch_memory_v3(
     context: AuthenticatedRequestContextDep,
 ) -> MemoryGraphLoadResult:
     assert_authenticated(context)
-
     try:
-        existing = await _load_or_migrate_graph(services, context.session.user_id_hash)
-        graph = existing
-        for atom_id in payload.patch.deleted_atom_ids:
-            graph = delete_memory_atom(graph, atom_id, tombstone=True)
-        graph = merge_memory_graph(graph, payload.patch.atoms)
-        graph = _graph_for_session(graph, user_id_hash=context.session.user_id_hash)
-        await services.db.save_memory_graph(graph)
-        if payload.also_update_summary:
-            await services.db.save_memory(summary_from_memory_graph(graph))
-        return MemoryGraphLoadResult(
-            user_id_hash=context.session.user_id_hash,
-            loaded=True,
-            graph=graph,
-            provider=services.db.provider.name,
-        )
-
+        await _limit_write(services, context)
+        result = await services.memory_repo.patch(user_id_hash=context.session.user_id_hash, patch=payload.patch)
+        return _graph_load_result(result.snapshot, services)
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_graph_patch_failed",
-                "message": "Failed to patch memory graph",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        raise _internal_error("memory_graph_patch_failed", "Failed to patch memory graph", context.request_id, exc)
 
 
 @router.delete("/v3/items/{atom_id}", response_model=MemoryGraphLoadResult)
@@ -217,30 +142,19 @@ async def delete_memory_v3_item(
     context: AuthenticatedRequestContextDep,
 ) -> MemoryGraphLoadResult:
     assert_authenticated(context)
-
     try:
-        graph = await _load_or_migrate_graph(services, context.session.user_id_hash)
-        graph = delete_memory_atom(graph, sanitize_text(atom_id, 160), tombstone=True)
-        await services.db.save_memory_graph(graph)
-        await services.db.save_memory(summary_from_memory_graph(graph))
-        return MemoryGraphLoadResult(
-            user_id_hash=context.session.user_id_hash,
-            loaded=True,
-            graph=graph,
-            provider=services.db.provider.name,
-        )
-
+        await _limit_write(services, context)
+        clean_id = sanitize_text(atom_id, 160)
+        if not clean_id:
+            raise HTTPException(status_code=422, detail={"code": "invalid_atom_id", "message": "Invalid memory item ID"})
+        result = await services.memory_repo.delete_atom(user_id_hash=context.session.user_id_hash, atom_id=clean_id)
+        return _graph_load_result(result.snapshot, services)
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_graph_delete_item_failed",
-                "message": "Failed to delete memory graph item",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        raise _internal_error("memory_graph_delete_item_failed", "Failed to delete memory graph item", context.request_id, exc)
 
 
 @router.post("/v3/merge", response_model=MemoryGraphLoadResult)
@@ -250,33 +164,15 @@ async def merge_memory_v3(
     context: AuthenticatedRequestContextDep,
 ) -> MemoryGraphLoadResult:
     assert_authenticated(context)
-
     try:
-        existing = await _load_or_migrate_graph(services, context.session.user_id_hash)
-        incoming = payload.graph or payload.atoms
-        graph = merge_memory_graph(existing, incoming)
-        graph = _graph_for_session(graph, user_id_hash=context.session.user_id_hash)
-        await services.db.save_memory_graph(graph)
-        if payload.also_update_summary:
-            await services.db.save_memory(summary_from_memory_graph(graph))
-        return MemoryGraphLoadResult(
-            user_id_hash=context.session.user_id_hash,
-            loaded=True,
-            graph=graph,
-            provider=services.db.provider.name,
-        )
-
+        await _limit_write(services, context)
+        incoming: MemoryGraph | list[MemoryAtom] = payload.graph or payload.atoms
+        result = await services.memory_repo.merge(user_id_hash=context.session.user_id_hash, delta=incoming)
+        return _graph_load_result(result.snapshot, services)
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_graph_merge_failed",
-                "message": "Failed to merge memory graph",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        raise _internal_error("memory_graph_merge_failed", "Failed to merge memory graph", context.request_id, exc)
 
 
 @router.post("/v3/migrate", response_model=MemoryGraphLoadResult)
@@ -285,29 +181,15 @@ async def migrate_memory_v3(
     context: AuthenticatedRequestContextDep,
 ) -> MemoryGraphLoadResult:
     assert_authenticated(context)
-
     try:
-        graph = await _load_or_migrate_graph(services, context.session.user_id_hash)
-        await services.db.save_memory_graph(graph)
-        return MemoryGraphLoadResult(
-            user_id_hash=context.session.user_id_hash,
-            loaded=True,
-            graph=graph,
-            migrated_from_summary=True,
-            provider=services.db.provider.name,
-        )
-
+        await _limit_write(services, context)
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+        result = _graph_load_result(graph, services)
+        return result.model_copy(update={"migrated_from_summary": True})
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_graph_migrate_failed",
-                "message": "Failed to migrate memory graph",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        raise _internal_error("memory_graph_migrate_failed", "Failed to migrate memory graph", context.request_id, exc)
 
 
 @router.get("", response_model=MemoryLoadResult)
@@ -315,28 +197,20 @@ async def load_memory(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> MemoryLoadResult:
-    """
-    Load the authenticated user's memory summary.
-
-    Does not expose memory for arbitrary user IDs.
-    Anonymous sessions are not allowed.
-    """
+    """Backward-compatible projection derived from Memory Graph V3."""
     assert_authenticated(context)
-
     try:
-        return await services.db.load_memory(context.session.user_id_hash)
-
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+        return MemoryLoadResult(
+            user_id_hash=context.session.user_id_hash,
+            loaded=True,
+            source=graph.source,
+            summary=summary_from_memory_graph(graph),
+        )
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_load_failed",
-                "message": "Failed to load memory",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        raise _internal_error("memory_load_failed", "Failed to load memory", context.request_id, exc)
 
 
 @router.post("/summarize", response_model=MemoryCompactionResult)
@@ -345,54 +219,69 @@ async def summarize_memory(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> MemoryCompactionResult:
-    """
-    Compact sanitized interaction fragments into authenticated user memory.
-
-    Flow:
-    - require verified Firebase session
-    - load existing memory for current session
-    - run LLM-primary memory compaction with local fallback
-    - optionally persist only if changed and save=true
-    """
     assert_authenticated(context)
-
+    operation_id = sanitize_text(f"{context.request_id}:memory-summary", 120)
+    claim = None
+    reserved = False
     try:
-        locale = payload.locale if payload.locale != "auto" else context.locale
-
-        existing = await services.db.load_memory(context.session.user_id_hash)
-        existing_summary = existing.summary
-
+        await services.rate_limits.consume(
+            scope="memory_summary",
+            subject=context.session.user_id_hash,
+            limit=services.settings.SAFETY_DIAGNOSTIC_RATE_LIMIT_PER_MINUTE,
+            window_seconds=60,
+        )
+        claim = await services.idempotency.claim(
+            user_id_hash=context.session.user_id_hash,
+            key=context.request_id,
+            operation="memory_summary",
+            payload_hash=services.idempotency.payload_hash(payload.model_dump(mode="json")),
+        )
+        if claim.completed and claim.response:
+            return MemoryCompactionResult.model_validate(claim.response)
+        await services.quota.reserve(
+            user_id_hash=context.session.user_id_hash,
+            request_id=operation_id,
+            cost=services.settings.PROVIDER_OPERATION_QUOTA_COST,
+            operation="memory_summary",
+        )
+        reserved = True
+        graph = await services.memory_repo.load(context.session.user_id_hash)
         compaction = await services.memory.compact(
             MemoryCompactionRequest(
                 request_id=context.request_id,
                 user_id_hash=context.session.user_id_hash,
-                existing_summary=existing_summary,
+                existing_summary=summary_from_memory_graph(graph),
                 interactions=payload.interactions,
-                locale=locale,
+                locale=payload.locale if payload.locale != "auto" else context.locale,
                 force=payload.force,
             )
         )
-
+        final = compaction
         if payload.save and compaction.changed:
-            safe_summary = _summary_for_session(
-                compaction.summary,
-                user_id_hash=context.session.user_id_hash,
+            delta = memory_graph_delta_from_summary(compaction.summary, source=MemorySource.BACKEND_COMPACTION)
+            merged = await services.memory_repo.merge(user_id_hash=context.session.user_id_hash, delta=delta)
+            final = compaction.model_copy(
+                update={"summary": summary_from_memory_graph(merged.snapshot), "changed": merged.changed}
             )
-            await services.db.save_memory(safe_summary)
-
-        return compaction
-
+        used_llm = bool(getattr(services.memory.last_meta, "used_llm", False))
+        if used_llm:
+            await services.quota.commit(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        else:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        await services.idempotency.complete(claim=claim, response=final.model_dump(mode="json"))
+        return final
     except AppError as exc:
+        if reserved:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        if claim:
+            await services.idempotency.fail(claim=claim)
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_summarize_failed",
-                "message": "Failed to summarize memory",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        if reserved:
+            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        if claim:
+            await services.idempotency.fail(claim=claim)
+        raise _internal_error("memory_summarize_failed", "Failed to summarize memory", context.request_id, exc)
 
 
 @router.put("", response_model=MemoryWriteResult)
@@ -401,32 +290,28 @@ async def save_memory(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> MemoryWriteResult:
-    """
-    Save/replace the authenticated user's memory summary.
-
-    The client cannot choose the target user hash. The submitted summary is
-    always re-bound to context.session.user_id_hash.
-    """
+    """Legacy write mapped atomically into canonical Memory Graph V3."""
     assert_authenticated(context)
-
     try:
-        summary = _summary_for_session(
-            payload.summary,
+        await _limit_write(services, context)
+        summary = _summary_for_session(payload.summary, user_id_hash=context.session.user_id_hash)
+        graph = memory_graph_from_summary(summary)
+        existing = await services.memory_repo.load(context.session.user_id_hash)
+        result = await services.memory_repo.replace(
             user_id_hash=context.session.user_id_hash,
+            graph=graph,
+            expected_version=existing.version,
         )
-        return await services.db.save_memory(summary)
-
+        return MemoryWriteResult(
+            user_id_hash=context.session.user_id_hash,
+            saved=True,
+            provider=services.db.provider.name,
+            memory_updated=result.changed,
+        )
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_save_failed",
-                "message": "Failed to save memory",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        raise _internal_error("memory_save_failed", "Failed to save memory", context.request_id, exc)
 
 
 @router.delete("", response_model=MemoryWriteResult)
@@ -434,26 +319,20 @@ async def delete_memory(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> MemoryWriteResult:
-    """
-    Delete the authenticated user's memory summary.
-    """
     assert_authenticated(context)
-
     try:
-        await services.db.delete_memory_graph(context.session.user_id_hash)
-        return await services.db.delete_memory(context.session.user_id_hash)
-
+        await _limit_write(services, context)
+        await services.memory_repo.delete_all(user_id_hash=context.session.user_id_hash)
+        return MemoryWriteResult(
+            user_id_hash=context.session.user_id_hash,
+            saved=True,
+            provider=services.db.provider.name,
+            memory_updated=True,
+        )
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": "memory_delete_failed",
-                "message": "Failed to delete memory",
-                "request_id": context.request_id,
-            },
-        ) from exc
+        raise _internal_error("memory_delete_failed", "Failed to delete memory", context.request_id, exc)
 
 
 @router.get("/health")
@@ -461,39 +340,32 @@ async def memory_health(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> dict[str, Any]:
-    """
-    Memory subsystem health.
-
-    Does not return memory contents. Auth is still required because this route
-    belongs to the memory surface.
-    """
     assert_authenticated(context)
+    return {"status": "ok", "request_id": context.request_id}
 
-    return {
-        "request_id": context.request_id,
-        "authenticated": True,
-        "memory": services.memory.health(),
-    }
+
+async def _limit_write(services: Any, context: Any) -> None:
+    await services.rate_limits.consume(
+        scope="memory_write",
+        subject=context.session.user_id_hash,
+        limit=services.settings.MEMORY_WRITE_RATE_LIMIT_PER_MINUTE,
+        window_seconds=60,
+    )
+
+
+def _graph_load_result(graph: MemoryGraph, services: Any) -> MemoryGraphLoadResult:
+    return MemoryGraphLoadResult(
+        user_id_hash=graph.user_id_hash,
+        loaded=True,
+        graph=graph,
+        provider=services.db.provider.name,
+    )
 
 
 def _summary_for_session(summary: MemorySummary, *, user_id_hash: str) -> MemorySummary:
-    """
-    Rebind a MemorySummary to the authenticated session user.
-
-    This prevents a client from submitting a summary for another user_id_hash.
-    Uses model_copy to preserve model fields added later.
-    """
     clean_user_hash = sanitize_text(user_id_hash, MAX_SESSION_HASH_CHARS)
-
     if not clean_user_hash:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": "invalid_authenticated_session",
-                "message": "Authenticated session is missing a stable user hash",
-            },
-        )
-
+        raise HTTPException(status_code=401, detail={"code": "invalid_authenticated_session"})
     return summary.model_copy(
         update={
             "user_id_hash": clean_user_hash,
@@ -513,31 +385,10 @@ def _summary_for_session(summary: MemorySummary, *, user_id_hash: str) -> Memory
     )
 
 
-async def _load_or_migrate_graph(services: Any, user_id_hash: str) -> MemoryGraph:
-    loaded = await services.db.load_memory_graph(user_id_hash)
-
-    if loaded.loaded and loaded.graph:
-        return _graph_for_session(loaded.graph, user_id_hash=user_id_hash)
-
-    legacy = await services.db.load_memory(user_id_hash)
-    if legacy.summary:
-        return _graph_for_session(memory_graph_from_summary(legacy.summary), user_id_hash=user_id_hash)
-
-    return MemoryGraph(user_id_hash=user_id_hash)
-
-
 def _graph_for_session(graph: MemoryGraph, *, user_id_hash: str) -> MemoryGraph:
     clean_user_hash = sanitize_text(user_id_hash, MAX_SESSION_HASH_CHARS)
-
     if not clean_user_hash:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": "invalid_authenticated_session",
-                "message": "Authenticated session is missing a stable user hash",
-            },
-        )
-
+        raise HTTPException(status_code=401, detail={"code": "invalid_authenticated_session"})
     return graph.model_copy(
         update={
             "user_id_hash": clean_user_hash,
@@ -548,3 +399,8 @@ def _graph_for_session(graph: MemoryGraph, *, user_id_hash: str) -> MemoryGraph:
     )
 
 
+def _internal_error(code: str, message: str, request_id: str, exc: Exception) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail={"code": code, "message": message, "request_id": request_id},
+    )

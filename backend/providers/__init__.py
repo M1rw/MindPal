@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import httpx
+
 from backend.core.config import Settings, get_settings
 from backend.core.security import sanitize_text
 from backend.services.auth_service import AuthProvider
@@ -44,6 +46,7 @@ def build_llm_providers(
     *,
     order: Sequence[str] | None = None,
     include_unconfigured: bool = False,
+    client: httpx.AsyncClient | None = None,
 ) -> list[LLMProvider]:
     """
     Build configured LLM providers in deterministic priority order.
@@ -59,10 +62,10 @@ def build_llm_providers(
     )
 
     registry: dict[str, LLMProvider] = {
-        "gemini": GeminiProvider(GeminiProviderConfig.from_settings(settings)),
-        "cloudflare": CloudflareAIProvider(CloudflareAIProviderConfig.from_settings(settings)),
-        "openrouter": OpenRouterProvider(OpenRouterProviderConfig.from_settings(settings)),
-        "groq": GroqProvider(GroqProviderConfig.from_settings(settings)),
+        "gemini": GeminiProvider(GeminiProviderConfig.from_settings(settings), client=client),
+        "cloudflare": CloudflareAIProvider(CloudflareAIProviderConfig.from_settings(settings), client=client),
+        "openrouter": OpenRouterProvider(OpenRouterProviderConfig.from_settings(settings), client=client),
+        "groq": GroqProvider(GroqProviderConfig.from_settings(settings), client=client),
     }
 
     return _ordered_configured(
@@ -77,6 +80,7 @@ def build_tts_providers(
     *,
     order: Sequence[str] | None = None,
     include_unconfigured: bool = False,
+    client: httpx.AsyncClient | None = None,
 ) -> list[TTSProvider]:
     """
     Build configured external TTS providers.
@@ -92,7 +96,7 @@ def build_tts_providers(
     )
 
     registry: dict[str, TTSProvider] = {
-        "camb": CambProvider(CambProviderConfig.from_settings(settings)),
+        "camb": CambProvider(CambProviderConfig.from_settings(settings), client=client),
     }
 
     return _ordered_configured(

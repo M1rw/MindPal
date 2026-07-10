@@ -14,6 +14,7 @@ All three are free and require no API keys.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import html as html_module
 import logging
 import re
@@ -97,20 +98,21 @@ class WebSearchTool(BaseTool):
             )
         context.metadata[_RATE_LIMIT_KEY] = search_count + 1
 
-        logger.info("Web search executing for query: '%s'", query[:100])
+        logger.info("Web search executing query_hash=%s length=%d", hashlib.sha256(query.encode()).hexdigest()[:12], len(query))
 
         try:
-            results = await _search_cascade(query)
+            shared_client = getattr(getattr(context, "services", None), "http_client", None)
+            results = await _search_cascade(query, client=shared_client)
 
             if not results:
-                logger.info("Web search returned 0 results for '%s'", query[:80])
+                logger.info("Web search returned 0 results")
                 return ToolResult(data={
                     "query": query,
                     "results": [],
                     "note": "No results found. Try rephrasing the query.",
                 })
 
-            logger.info("Web search returned %d results for '%s'", len(results), query[:80])
+            logger.info("Web search returned %d results", len(results))
             return ToolResult(data={
                 "query": query,
                 "results": results[:MAX_RESULTS],
@@ -118,13 +120,13 @@ class WebSearchTool(BaseTool):
             })
 
         except asyncio.TimeoutError:
-            logger.warning("Web search timed out for '%s'", query[:80])
+            logger.warning("Web search timed out")
             return ToolResult(
                 error="Search timed out. Try again with a shorter query.",
                 data={"query": query},
             )
         except Exception as exc:
-            logger.warning("Web search failed: %s — %s", type(exc).__name__, exc)
+            logger.warning("Web search failed error_type=%s", type(exc).__name__)
             return ToolResult(
                 error="Search temporarily unavailable. Please try again.",
                 data={"query": query},
@@ -135,43 +137,45 @@ class WebSearchTool(BaseTool):
 # Search cascade — try strategies in order until one works
 # ═══════════════════════════════════════════════════════════════
 
-async def _search_cascade(query: str) -> list[dict[str, str]]:
-    """Try search strategies in order until one returns results."""
+async def _search_cascade(
+    query: str,
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> list[dict[str, str]]:
+    """Try search strategies with a shared pooled client when available."""
     results: list[dict[str, str]] = []
-
-    async with httpx.AsyncClient(
+    owns_client = client is None
+    active_client = client or httpx.AsyncClient(
         timeout=REQUEST_TIMEOUT,
         follow_redirects=True,
         headers=_BROWSER_HEADERS,
-    ) as client:
+    )
 
-        # Strategy 1: DDG HTML search (most reliable for real web results)
+    try:
         try:
-            html_results = await _ddg_html_search(client, query)
+            html_results = await _ddg_html_search(active_client, query)
             if html_results:
-                logger.debug("DDG HTML returned %d results", len(html_results))
                 return html_results
         except Exception as exc:
-            logger.debug("DDG HTML failed: %s", exc)
+            logger.debug("DDG HTML failed: %s", type(exc).__name__)
 
-        # Strategy 2: DDG Instant Answer API (good for factual queries)
         try:
-            instant_results = await _ddg_instant_answer(client, query)
+            instant_results = await _ddg_instant_answer(active_client, query)
             results.extend(instant_results)
             if results:
-                logger.debug("DDG Instant Answer returned %d results", len(results))
                 return results
         except Exception as exc:
-            logger.debug("DDG Instant Answer failed: %s", exc)
+            logger.debug("DDG Instant Answer failed: %s", type(exc).__name__)
 
-        # Strategy 3: DDG Lite (last resort)
         try:
-            lite_results = await _ddg_lite_search(client, query)
+            lite_results = await _ddg_lite_search(active_client, query)
             if lite_results:
-                logger.debug("DDG Lite returned %d results", len(lite_results))
                 return lite_results
         except Exception as exc:
-            logger.debug("DDG Lite failed: %s", exc)
+            logger.debug("DDG Lite failed: %s", type(exc).__name__)
+    finally:
+        if owns_client:
+            await active_client.aclose()
 
     return results
 
@@ -193,7 +197,7 @@ async def _ddg_html_search(client: httpx.AsyncClient, query: str) -> list[dict[s
     results: list[dict[str, str]] = []
 
     url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
-    response = await client.get(url)
+    response = await client.get(url, headers=_BROWSER_HEADERS, follow_redirects=True)
 
     if response.status_code != 200:
         logger.debug("DDG HTML returned status %d", response.status_code)
@@ -252,7 +256,7 @@ async def _ddg_instant_answer(client: httpx.AsyncClient, query: str) -> list[dic
     results: list[dict[str, str]] = []
 
     url = f"https://api.duckduckgo.com/?q={quote_plus(query)}&format=json&no_html=1&skip_disambig=1"
-    response = await client.get(url, headers={"Accept": "application/json"})
+    response = await client.get(url, headers={**_BROWSER_HEADERS, "Accept": "application/json"}, follow_redirects=True)
 
     if response.status_code != 200:
         return results
@@ -313,7 +317,7 @@ async def _ddg_lite_search(client: httpx.AsyncClient, query: str) -> list[dict[s
     results: list[dict[str, str]] = []
 
     url = f"https://lite.duckduckgo.com/lite/?q={quote_plus(query)}"
-    response = await client.post(url, data={"q": query})
+    response = await client.post(url, data={"q": query}, headers=_BROWSER_HEADERS, follow_redirects=True)
 
     if response.status_code != 200:
         return results

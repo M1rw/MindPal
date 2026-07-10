@@ -12,9 +12,9 @@ from typing import Any, Protocol
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
-from backend.core.llm_utils import _circuit_open, _trip_circuit
+from backend.core.circuit_breaker import circuit_open as _circuit_open, trip_circuit as _trip_circuit
 from backend.core.security import sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool, setting_float, setting_value
+from backend.core.settings_helpers import is_production, setting_bool, setting_float
 from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
 from backend.models.schemas import ProviderCallTrace, ProviderChainTrace
 

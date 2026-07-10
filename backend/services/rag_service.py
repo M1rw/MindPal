@@ -16,7 +16,7 @@ from backend.core.config import Settings, get_settings
 from backend.core.errors import RAGError
 from backend.core.prompts import VALID_RAG_TAGS
 from backend.core.security import normalize_locale, safe_truncate, sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool, setting_value
+from backend.core.settings_helpers import is_production, setting_bool
 from backend.models.chat import RagReference
 from backend.services.llm_service import LLMService, build_llm_request
 

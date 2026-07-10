@@ -194,6 +194,7 @@ class ChatResponse(BaseModel):
     memory_graph_delta: dict | None = Field(default=None, description="Memory V3 graph delta returned from backend")
     memory_graph_snapshot: dict | None = Field(default=None, description="Memory V3 full snapshot returned from backend")
     memory_graph_full_snapshot: bool = False
+    usage: dict[str, int] | None = None
     request_id: str = Field(min_length=1, max_length=80)
 
     @field_validator("reply", mode="before")

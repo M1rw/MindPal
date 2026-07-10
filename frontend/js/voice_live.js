@@ -1,7 +1,7 @@
 // frontend/js/voice_live.js — UI orchestrator for voice calls
 
 import { refreshIcons } from "./utils/icons.js";
-import { getIdToken } from "./auth.js";
+import { getAppCheckToken, getIdToken } from "./auth.js";
 import {
   startSession,
   stopSession,
@@ -157,6 +157,8 @@ export async function startLiveVoice(contextProvider = null) {
       onVolume: feedVolume,
       token,
       refreshAuthToken: () => getIdToken({ forceRefresh: true }),
+      getAppCheckToken: () => getAppCheckToken(),
+      refreshAppCheckToken: () => getAppCheckToken({ forceRefresh: true }),
     });
 
     // Wire up visualizer with session analysers

@@ -17,12 +17,11 @@ from backend.core.security import (
     safe_truncate,
     sanitize_text,
 )
-from backend.core.settings_helpers import is_production, setting_bool, setting_value
+from backend.core.settings_helpers import is_production, setting_bool
 from backend.models.memory import (
     CommunicationPreferences,
     ImportantPerson,
     LegacyMemoryCategory,
-    MemoryCategory,
     MemoryCompactionRequest,
     MemoryCompactionResult,
     MemoryInteraction,

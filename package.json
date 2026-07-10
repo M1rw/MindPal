@@ -1,7 +1,7 @@
 {
   "name": "mindpal-frontend",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "build": "npm run build:css && npm run build:icons && npm run build:app",

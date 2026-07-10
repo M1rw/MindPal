@@ -145,6 +145,7 @@ async def update_profile(
     assert_authenticated(context)
 
     try:
+        await _limit_profile_write(services, context)
         return await services.db.update_user_profile(
             context.session.user_id_hash,
             payload,
@@ -177,12 +178,26 @@ async def replace_profile(
     assert_authenticated(context)
 
     try:
-        profile = _profile_for_session(
+        await _limit_profile_write(services, context)
+        submitted = _profile_for_session(
             payload.profile,
             user_id_hash=context.session.user_id_hash,
             channel=context.session.channel,
         )
-        return await services.db.save_user_profile(profile)
+
+        def replace_mutable_fields(current: UserProfile) -> UserProfile:
+            return submitted.model_copy(
+                update={
+                    "status": current.status,
+                    "usage": current.usage,
+                    "created_at": current.created_at,
+                }
+            )
+
+        return await services.db.atomic_update_user_profile(
+            context.session.user_id_hash,
+            replace_mutable_fields,
+        )
 
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
@@ -210,11 +225,25 @@ async def reset_profile(
     assert_authenticated(context)
 
     try:
-        profile = UserProfile(
-            user_id_hash=context.session.user_id_hash,
-            channel=context.session.channel,
+        await _limit_profile_write(services, context)
+
+        def reset_mutable_fields(current: UserProfile) -> UserProfile:
+            fresh = UserProfile(
+                user_id_hash=context.session.user_id_hash,
+                channel=context.session.channel,
+            )
+            return fresh.model_copy(
+                update={
+                    "status": current.status,
+                    "usage": current.usage,
+                    "created_at": current.created_at,
+                }
+            )
+
+        return await services.db.atomic_update_user_profile(
+            context.session.user_id_hash,
+            reset_mutable_fields,
         )
-        return await services.db.save_user_profile(profile)
 
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
@@ -242,29 +271,17 @@ async def user_health(
     """
     assert_authenticated(context)
 
-    auth_health = services.auth.health()
-    db_health = await services.db.health()
+    return {"status": "ok", "request_id": context.request_id}
 
-    return {
-        "request_id": context.request_id,
-        "authenticated": True,
-        "auth": {
-            "provider": auth_health["provider"],
-            "provider_configured": auth_health["provider_configured"],
-            "allow_anonymous": auth_health["allow_anonymous"],
-            "trusts_unverified_bearer_tokens": auth_health["trusts_unverified_bearer_tokens"],
-            "invalid_bearer_falls_back_to_anonymous": auth_health.get(
-                "invalid_bearer_falls_back_to_anonymous",
-                False,
-            ),
-        },
-        "db": {
-            "provider": db_health["provider"],
-            "mock_mode": db_health["mock_mode"],
-            "database_id": db_health.get("database_id"),
-        },
-    }
 
+
+async def _limit_profile_write(services: Any, context: Any) -> None:
+    await services.rate_limits.consume(
+        scope="profile_write",
+        subject=context.session.user_id_hash,
+        limit=services.settings.PROFILE_WRITE_RATE_LIMIT_PER_MINUTE,
+        window_seconds=60,
+    )
 
 def _profile_for_session(
     profile: UserProfile,
@@ -296,4 +313,4 @@ def _profile_for_session(
         }
     )
 
-
+

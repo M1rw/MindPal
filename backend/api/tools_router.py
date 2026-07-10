@@ -15,19 +15,21 @@ Security:
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api.dependencies import (
+    AuthenticatedRequestContextDep,
     RequestContextDep,
     ServicesDep,
     assert_authenticated,
 )
 from backend.core.security import sanitize_text
-from backend.tools import ToolContext, ToolResult, build_default_registry
+from backend.tools import ToolContext, build_default_registry
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,19 @@ class ToolExecuteRequest(BaseModel):
     def _clean_tool(cls, value: object) -> str:
         return sanitize_text(str(value or ""), MAX_TOOL_NAME_CHARS)
 
+    @field_validator("args", mode="before")
+    @classmethod
+    def _validate_args(cls, value: object) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("args must be an object")
+        _validate_json_shape(value, depth=0)
+        encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
+        if len(encoded) > 12_000:
+            raise ValueError("tool arguments are too large")
+        return value
+
 
 class ToolBatchRequest(BaseModel):
     """Request to execute multiple tools in sequence."""
@@ -81,9 +96,20 @@ async def execute_tool(
     Used by voice sessions and text chat for tool calls.
     Requires authentication.
     """
-    # Note: No auth required for stateless tools (web_search, current_time).
-    # Voice sessions authenticate directly with Gemini API key.
-    # User-specific tools should check auth internally if needed.
+    assert_authenticated(context)
+    await services.rate_limits.consume(
+        scope="tools",
+        subject=context.session.user_id_hash,
+        limit=services.settings.TOOL_RATE_LIMIT_PER_MINUTE,
+        window_seconds=60,
+    )
+    if payload.tool == "web_search":
+        await services.rate_limits.consume(
+            scope="web_search",
+            subject=context.session.user_id_hash,
+            limit=services.settings.WEB_SEARCH_RATE_LIMIT_PER_HOUR,
+            window_seconds=3600,
+        )
 
     registry = _get_registry()
     tool_context = _build_tool_context(context, services)
@@ -116,7 +142,23 @@ async def execute_tools_batch(
     Used for agent chain pre-execution (time + memory + search in one call).
     Requires authentication.
     """
-    # No auth required — same rationale as execute_tool
+    assert_authenticated(context)
+    await services.rate_limits.consume(
+        scope="tools",
+        subject=context.session.user_id_hash,
+        limit=services.settings.TOOL_RATE_LIMIT_PER_MINUTE,
+        window_seconds=60,
+        amount=len(payload.calls),
+    )
+    web_calls = sum(1 for call in payload.calls if call.tool == "web_search")
+    if web_calls:
+        await services.rate_limits.consume(
+            scope="web_search",
+            subject=context.session.user_id_hash,
+            limit=services.settings.WEB_SEARCH_RATE_LIMIT_PER_HOUR,
+            window_seconds=3600,
+            amount=web_calls,
+        )
 
     registry = _get_registry()
     tool_context = _build_tool_context(context, services)
@@ -139,9 +181,10 @@ async def execute_tools_batch(
 
 @router.get("/list")
 async def list_tools(
-    context: RequestContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> dict[str, Any]:
-    """List all available tools and their declarations."""
+    """List available tools for an authenticated MindPal client."""
+    assert_authenticated(context)
     registry = _get_registry()
 
     return {
@@ -167,3 +210,22 @@ def _build_tool_context(context: Any, services: Any) -> ToolContext:
         request_id=context.request_id,
         services=services,
     )
+
+
+def _validate_json_shape(value: Any, *, depth: int) -> None:
+    if depth > 5:
+        raise ValueError("tool arguments are nested too deeply")
+    if isinstance(value, dict):
+        if len(value) > 50:
+            raise ValueError("too many tool argument fields")
+        for key, item in value.items():
+            if len(str(key)) > 120:
+                raise ValueError("tool argument key is too long")
+            _validate_json_shape(item, depth=depth + 1)
+    elif isinstance(value, list):
+        if len(value) > 100:
+            raise ValueError("tool argument list is too large")
+        for item in value:
+            _validate_json_shape(item, depth=depth + 1)
+    elif isinstance(value, str) and len(value) > MAX_ARG_VALUE_CHARS:
+        raise ValueError("tool argument value is too long")

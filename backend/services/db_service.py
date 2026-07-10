@@ -14,7 +14,7 @@ from typing import Any, Callable, Protocol
 from backend.core.config import Settings, get_settings
 from backend.core.errors import DatabaseError
 from backend.core.security import redact_basic_pii, sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool, setting_secret_str, setting_str, setting_value
+from backend.core.settings_helpers import is_production, setting_bool, setting_secret_str, setting_str
 from backend.models.memory import (
     MemoryGraph,
     MemoryGraphLoadResult,
@@ -244,6 +244,11 @@ class FirebaseDBProvider:
     def init_error(self) -> str | None:
         return self._init_error
 
+    def _require_client(self) -> Any:
+        if self._client is None:
+            raise RuntimeError("Firebase database provider is not initialized")
+        return self._client
+
     def _build_client(self) -> Any:
         try:
             import firebase_admin
@@ -272,8 +277,8 @@ class FirebaseDBProvider:
         key = _clean_key(key)
 
         def _read() -> dict[str, Any] | None:
-            assert self._client is not None
-            snap = self._client.collection(collection).document(key).get()
+            client = self._require_client()
+            snap = client.collection(collection).document(key).get()
             if not snap.exists:
                 return None
             return deepcopy(snap.to_dict() or {})
@@ -286,8 +291,8 @@ class FirebaseDBProvider:
         clean_payload = deepcopy(payload)
 
         def _write() -> None:
-            assert self._client is not None
-            self._client.collection(collection).document(key).set(clean_payload)
+            client = self._require_client()
+            client.collection(collection).document(key).set(clean_payload)
 
         await asyncio.to_thread(_write)
 
@@ -296,8 +301,8 @@ class FirebaseDBProvider:
         key = _clean_key(key)
 
         def _delete() -> None:
-            assert self._client is not None
-            self._client.collection(collection).document(key).delete()
+            client = self._require_client()
+            client.collection(collection).document(key).delete()
 
         await asyncio.to_thread(_delete)
 
@@ -306,8 +311,8 @@ class FirebaseDBProvider:
         clean_payload = deepcopy(payload)
 
         def _append() -> str:
-            assert self._client is not None
-            doc_ref = self._client.collection(collection).document()
+            client = self._require_client()
+            doc_ref = client.collection(collection).document()
             event_id = doc_ref.id
             event_payload = {
                 "event_id": event_id,
@@ -329,10 +334,10 @@ class FirebaseDBProvider:
         key = _clean_key(key)
 
         def _tx() -> dict[str, Any]:
-            assert self._client is not None
+            client = self._require_client()
             from firebase_admin import firestore
-            transaction = self._client.transaction()
-            doc_ref = self._client.collection(collection).document(key)
+            transaction = client.transaction()
+            doc_ref = client.collection(collection).document(key)
 
             @firestore.transactional
             def update_in_transaction(transaction: Any, doc_ref: Any) -> dict[str, Any]:
@@ -641,31 +646,36 @@ class DBService:
         user_id_hash: str,
         update: UserProfileUpdate,
     ) -> UserProfileResponse:
-        current = await self.load_user_profile(user_id_hash)
-        profile = current.profile
+        """Apply a partial profile mutation transactionally.
 
-        new_preferences = profile.preferences
-        if update.preferences is not None:
-            new_preferences = profile.preferences.model_copy(update=update.preferences.model_dump(exclude_unset=True))
+        The former load/merge/save sequence lost concurrent updates from another
+        request or device. This implementation performs the merge inside the
+        database transaction and preserves server-owned usage fields.
+        """
+        def apply(profile: UserProfile) -> UserProfile:
+            new_preferences = profile.preferences
+            if update.preferences is not None:
+                new_preferences = profile.preferences.model_copy(
+                    update=update.preferences.model_dump(exclude_unset=True)
+                )
 
-        new_clinical = profile.clinical
-        if update.clinical is not None:
-            new_clinical = profile.clinical.model_copy(update=update.clinical.model_dump(exclude_unset=True))
+            new_clinical = profile.clinical
+            if update.clinical is not None:
+                new_clinical = profile.clinical.model_copy(
+                    update=update.clinical.model_dump(exclude_unset=True)
+                )
 
-        updated = UserProfile(
-            user_id_hash=profile.user_id_hash,
-            status=profile.status,
-            channel=profile.channel,
-            preferences=new_preferences,
-            clinical=new_clinical,
-            usage=profile.usage,
-            notes=update.notes if update.notes is not None else profile.notes,
-            metadata=update.metadata if update.metadata is not None else profile.metadata,
-            created_at=profile.created_at,
-            updated_at=datetime.now(UTC),
-        )
+            return profile.model_copy(
+                update={
+                    "preferences": new_preferences,
+                    "clinical": new_clinical,
+                    "notes": update.notes if update.notes is not None else profile.notes,
+                    "metadata": update.metadata if update.metadata is not None else profile.metadata,
+                    "updated_at": datetime.now(UTC),
+                }
+            )
 
-        return await self.save_user_profile(updated)
+        return await self.atomic_update_user_profile(user_id_hash, apply)
 
     async def atomic_update_user_profile(
         self,

@@ -17,9 +17,10 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
-from datetime import UTC, datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .security import Locale, normalize_locale, safe_truncate, sanitize_text
 
@@ -627,14 +628,13 @@ def build_time_context(user_timezone: str = "UTC") -> str:
     tz_label = sanitize_text(user_timezone or "UTC", 80)
     if tz_label and tz_label.upper() != "UTC":
         try:
-            from zoneinfo import ZoneInfo
             user_tz = ZoneInfo(tz_label)
             now_local = now_utc.astimezone(user_tz)
             local_str = (
                 f"User's local time: {now_local.strftime('%A, %Y-%m-%d %H:%M')} ({tz_label})"
             )
-        except Exception:
-            pass
+        except (ZoneInfoNotFoundError, ValueError):
+            local_str = ""
 
     utc_str = f"Current UTC time: {now_utc.strftime('%A, %Y-%m-%d %H:%M UTC')}"
     parts = [utc_str]

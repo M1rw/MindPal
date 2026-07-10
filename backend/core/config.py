@@ -45,12 +45,16 @@ class Settings(BaseSettings):
 
     # ── App ──────────────────────────────────────────────────────
     PROJECT_NAME: str = Field(default="MindPal", min_length=1, max_length=80)
-    VERSION: str = Field(default="1.0.0", min_length=1, max_length=40)
+    VERSION: str = Field(default="2.0.0", min_length=1, max_length=40)
     ENVIRONMENT: Environment = "development"
 
     # ── Server ───────────────────────────────────────────────────
-    API_HOST: str = "0.0.0.0"
+    API_HOST: str = "127.0.0.1"
     API_PORT: int = Field(default=8000, ge=1, le=65535)
+    ENABLE_DOCS: bool = False
+    ENABLE_HSTS: bool = False
+    TRUSTED_HOSTS: list[str] = Field(default_factory=lambda: ["*"])
+    MAX_REQUEST_BODY_BYTES: int = Field(default=20_000_000, ge=1024, le=100_000_000)
 
     # ── Security / CORS ──────────────────────────────────────────
     CORS_ORIGINS: list[str] = Field(
@@ -63,6 +67,7 @@ class Settings(BaseSettings):
     # ── LLM Provider Secrets ─────────────────────────────────────
     GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
     GEMINI_LIVE_MODEL: str = Field(default="gemini-3.1-flash-live-preview", min_length=1, max_length=120)
+    GEMINI_TRANSCRIPTION_MODEL: str = Field(default="gemini-3.1-flash-lite", min_length=1, max_length=120)
     VOICE_TOKEN_TTL_SECONDS: int = Field(default=1800, ge=300, le=1800)
     VOICE_NEW_SESSION_TTL_SECONDS: int = Field(default=60, ge=30, le=60)
     OPENROUTER_API_KEY: SecretStr | None = Field(default=None, repr=False)
@@ -96,6 +101,20 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: str | None = None
     FIREBASE_USE_APPLICATION_DEFAULT: bool = False
     FIRESTORE_DATABASE_ID: str = Field(default="default")
+    REQUIRE_FIREBASE_APP_CHECK: bool = False
+
+    # Public web configuration. These values identify the Firebase web app;
+    # authorization still comes from Security Rules, Auth, and App Check.
+    FIREBASE_WEB_API_KEY: str = Field(default="", max_length=300)
+    FIREBASE_AUTH_DOMAIN: str = Field(default="", max_length=300)
+    FIREBASE_DATABASE_URL: str = Field(default="", max_length=500)
+    FIREBASE_WEB_PROJECT_ID: str = Field(default="", max_length=300)
+    FIREBASE_STORAGE_BUCKET: str = Field(default="", max_length=300)
+    FIREBASE_MESSAGING_SENDER_ID: str = Field(default="", max_length=100)
+    FIREBASE_WEB_APP_ID: str = Field(default="", max_length=200)
+    FIREBASE_MEASUREMENT_ID: str = Field(default="", max_length=100)
+    FIREBASE_APPCHECK_SITE_KEY: str = Field(default="", max_length=500)
+    PUBLIC_API_BASE_URL: str = Field(default="/api", max_length=500)
 
     # ── Google Cloud (used by Firebase + ADC) ────────────────────
     GOOGLE_CLOUD_PROJECT: str | None = None
@@ -107,8 +126,9 @@ class Settings(BaseSettings):
     ENABLE_TTS: bool = False
 
     # Service-level feature flags (previously read via os.getenv in dependencies.py)
-    ALLOW_ANONYMOUS_SESSIONS: bool = True
-    ENABLE_OFFLINE_LLM_FALLBACK: bool = True
+    ALLOW_ANONYMOUS_SESSIONS: bool = False
+    REQUIRE_AUTH_FOR_PROVIDER_CALLS: bool = True
+    ENABLE_OFFLINE_LLM_FALLBACK: bool = False
     ENABLE_BROWSER_TTS_FALLBACK: bool = True
     ENABLE_LLM_MEMORY_SUMMARIZATION: bool = True
     ENABLE_LLM_OUTPUT_REWRITE: bool = True
@@ -116,11 +136,11 @@ class Settings(BaseSettings):
     ENABLE_LLM_SAFETY_CLASSIFIER: bool = True
 
     # LLM policy flags (previously read via os.getenv in llm_service.py)
-    REQUIRE_REMOTE_LLM_PROVIDER: bool = False
+    REQUIRE_REMOTE_LLM_PROVIDER: bool = True
     ALLOW_OFFLINE_LLM_IN_PRODUCTION: bool = False
 
     # Firebase auth flags (previously read via os.getenv in auth_service.py)
-    FIREBASE_CHECK_REVOKED_TOKENS: bool = False
+    FIREBASE_CHECK_REVOKED_TOKENS: bool = True
 
     # ── Privacy / Logging ────────────────────────────────────────
     LOG_RAW_MESSAGES: bool = False
@@ -131,6 +151,29 @@ class Settings(BaseSettings):
     MAX_MESSAGE_CHARS: int = Field(default=4_000, ge=100, le=50_000)
     MAX_HISTORY_MESSAGES: int = Field(default=10, ge=0, le=100)
     MEMORY_SUMMARY_MAX_CHARS: int = Field(default=4_000, ge=500, le=50_000)
+
+    # ── Backend V2 controls ───────────────────────────────────────
+    QUOTA_LIMIT_5H: int = Field(default=50, ge=1, le=100_000)
+    QUOTA_LIMIT_WEEK: int = Field(default=500, ge=1, le=1_000_000)
+    QUOTA_RESERVATION_TTL_SECONDS: int = Field(default=900, ge=60, le=86_400)
+    CHAT_RATE_LIMIT_PER_MINUTE: int = Field(default=12, ge=1, le=10_000)
+    TOOL_RATE_LIMIT_PER_MINUTE: int = Field(default=20, ge=1, le=10_000)
+    WEB_SEARCH_RATE_LIMIT_PER_HOUR: int = Field(default=10, ge=1, le=10_000)
+    VOICE_RATE_LIMIT_PER_MINUTE: int = Field(default=10, ge=1, le=10_000)
+    VOICE_TOKEN_RATE_LIMIT_PER_HOUR: int = Field(default=8, ge=1, le=10_000)
+    TTS_RATE_LIMIT_PER_MINUTE: int = Field(default=15, ge=1, le=10_000)
+    SAFETY_DIAGNOSTIC_RATE_LIMIT_PER_MINUTE: int = Field(default=10, ge=1, le=10_000)
+    VOICE_SESSION_QUOTA_COST: int = Field(default=2, ge=1, le=100)
+    PROVIDER_OPERATION_QUOTA_COST: int = Field(default=1, ge=1, le=100)
+    MAX_CONCURRENT_CHAT_REQUESTS_PER_USER: int = Field(default=2, ge=1, le=20)
+    IDEMPOTENCY_TTL_SECONDS: int = Field(default=86_400, ge=300, le=604_800)
+    IDEMPOTENCY_PROCESSING_TIMEOUT_SECONDS: int = Field(default=120, ge=15, le=3_600)
+    ENABLE_LLM_TOOL_ROUTER: bool = False
+    ENABLE_LEGACY_MEMORY_SUMMARY_WRITES: bool = False
+    DETAILED_HEALTH_REQUIRES_AUTH: bool = True
+    CHAT_SYNC_RATE_LIMIT_PER_MINUTE: int = Field(default=30, ge=1, le=10_000)
+    PROFILE_WRITE_RATE_LIMIT_PER_MINUTE: int = Field(default=20, ge=1, le=10_000)
+    MEMORY_WRITE_RATE_LIMIT_PER_MINUTE: int = Field(default=30, ge=1, le=10_000)
 
     # ─────────────────────────────────────────────────────────────
     # Validators
@@ -178,9 +221,9 @@ class Settings(BaseSettings):
             return value or None
         return value
 
-    @field_validator("CORS_ORIGINS", mode="before")
+    @field_validator("CORS_ORIGINS", "TRUSTED_HOSTS", mode="before")
     @classmethod
-    def _parse_cors_origins(cls, value: object) -> list[str]:
+    def _parse_string_list(cls, value: object) -> list[str]:
         """
         Accepts:
         - comma-separated env string:
@@ -205,7 +248,7 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return [str(origin).strip() for origin in value if str(origin).strip()]
 
-        raise TypeError("CORS_ORIGINS must be a comma-separated string or list of strings")
+        raise TypeError("Setting must be a comma-separated string or list of strings")
 
     @model_validator(mode="after")
     def _validate_safe_config(self) -> Settings:
@@ -215,6 +258,60 @@ class Settings(BaseSettings):
 
             if self.LOG_RAW_MESSAGES:
                 raise ValueError("LOG_RAW_MESSAGES must remain false in production")
+
+            if self.ALLOW_ANONYMOUS_SESSIONS:
+                raise ValueError("ALLOW_ANONYMOUS_SESSIONS must be false in production")
+
+            if not self.REQUIRE_AUTH_FOR_PROVIDER_CALLS:
+                raise ValueError("REQUIRE_AUTH_FOR_PROVIDER_CALLS must be true in production")
+
+            if self.ENABLE_DOCS:
+                raise ValueError("ENABLE_DOCS must be false in production")
+
+            if not self.ENABLE_HSTS:
+                raise ValueError("ENABLE_HSTS must be true in production")
+
+            if self.TRUSTED_HOSTS == ["*"] or "*" in self.TRUSTED_HOSTS:
+                raise ValueError("TRUSTED_HOSTS must be explicitly allowlisted in production")
+
+            if not self.ENABLE_FIREBASE:
+                raise ValueError("ENABLE_FIREBASE must be true in production")
+
+            if not self.FIREBASE_CHECK_REVOKED_TOKENS:
+                raise ValueError("FIREBASE_CHECK_REVOKED_TOKENS must be true in production")
+
+            if not self.REQUIRE_FIREBASE_APP_CHECK:
+                raise ValueError("REQUIRE_FIREBASE_APP_CHECK must be true in production")
+
+            if not self.FIREBASE_APPCHECK_SITE_KEY.strip():
+                raise ValueError("FIREBASE_APPCHECK_SITE_KEY is required in production")
+
+            server_project_id = (self.FIREBASE_PROJECT_ID or self.GOOGLE_CLOUD_PROJECT or "").strip()
+            if not server_project_id:
+                raise ValueError("FIREBASE_PROJECT_ID or GOOGLE_CLOUD_PROJECT is required in production")
+
+            required_web_config = {
+                "FIREBASE_WEB_API_KEY": self.FIREBASE_WEB_API_KEY,
+                "FIREBASE_AUTH_DOMAIN": self.FIREBASE_AUTH_DOMAIN,
+                "FIREBASE_WEB_PROJECT_ID": self.FIREBASE_WEB_PROJECT_ID,
+                "FIREBASE_WEB_APP_ID": self.FIREBASE_WEB_APP_ID,
+            }
+            missing_web_config = [name for name, value in required_web_config.items() if not value.strip()]
+            if missing_web_config:
+                raise ValueError(
+                    "Missing Firebase web configuration: " + ", ".join(missing_web_config)
+                )
+            if self.FIREBASE_WEB_PROJECT_ID.strip() != server_project_id:
+                raise ValueError("FIREBASE_WEB_PROJECT_ID must match the server Firebase project")
+
+            if not self.REQUIRE_REMOTE_LLM_PROVIDER:
+                raise ValueError("REQUIRE_REMOTE_LLM_PROVIDER must be true in production")
+
+            if self.ENABLE_OFFLINE_LLM_FALLBACK or self.ALLOW_OFFLINE_LLM_IN_PRODUCTION:
+                raise ValueError("Offline LLM fallback must be disabled in production")
+
+            if not self.has_any_llm_provider:
+                raise ValueError("At least one remote LLM provider must be configured in production")
 
         if self.ENABLE_FIREBASE and not self._has_any_firebase_credentials:
             raise ValueError(

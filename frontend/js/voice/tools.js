@@ -69,13 +69,15 @@ export function getToolDeclarations() {
   ];
 }
 
-export function createToolExecutor({ getAuthToken, contextProvider, apiBaseUrl }) {
+export function createToolExecutor({ getAuthToken, getAppCheckToken, contextProvider, apiBaseUrl }) {
   return async function executeToolCall(name, args, options = {}) {
     const baseUrl = typeof apiBaseUrl === "function" ? apiBaseUrl() : apiBaseUrl || "";
-    const token = typeof getAuthToken === "function" ? getAuthToken() : getAuthToken;
+    const token = await Promise.resolve(typeof getAuthToken === "function" ? getAuthToken() : getAuthToken);
+    const appCheckToken = await Promise.resolve(typeof getAppCheckToken === "function" ? getAppCheckToken() : getAppCheckToken);
 
     const headers = { "Content-Type": "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
+    if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
 
     const controller = new AbortController();
     const externalSignal = options.signal || null;

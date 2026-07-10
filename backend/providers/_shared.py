@@ -13,7 +13,6 @@ No external SDK imports — only depends on backend.core.
 from __future__ import annotations
 
 import json
-import os
 import re
 from typing import Any
 
@@ -52,11 +51,11 @@ def setting_secret(settings: Settings, name: str, default: str = "") -> str:
 
 
 def setting_value(settings: Settings, name: str, default: Any = None) -> Any:
-    """Extract a value from settings with env fallback."""
+    """Extract a value from the validated settings object."""
     value = getattr(settings, name, None)
 
     if value is None:
-        return os.getenv(name, default)
+        return default
 
     if hasattr(value, "get_secret_value"):
         return value.get_secret_value()

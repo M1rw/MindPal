@@ -9,7 +9,6 @@ so it never has to guess or say "I don't know what time it is."
 
 from __future__ import annotations
 
-import calendar
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo, available_timezones
