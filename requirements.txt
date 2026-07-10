@@ -17,3 +17,6 @@ firebase-admin>=7.4,<8
 
 # Optional validation helpers
 email-validator>=2.2,<3
+
+# Secure Gemini Live API ephemeral-token provisioning
+google-genai>=1.56,<2

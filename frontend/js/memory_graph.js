@@ -21,6 +21,8 @@ import {
 // ═══════════════════════════════════════════════════════════════
 
 const MEMORY_GRAPH_STORAGE_KEY = "mindpal_memory_graph_v3";
+const MAX_MEMORY_ATOMS = 500;
+const MAX_MEMORY_TOMBSTONES = 100;
 
 const GRAPH_CATEGORY_LABELS = {
   profile: "Profile",
@@ -92,26 +94,65 @@ export function normalizeMemoryGraph(value) {
   const base = createEmptyMemoryGraph();
   const raw = value && typeof value === "object" ? value : {};
   const atoms = Array.isArray(raw.atoms) ? raw.atoms.map(normalizeMemoryAtom).filter(Boolean) : [];
-  const seen = new Set();
-  const deduped = [];
-
+  const byId = new Map();
   for (const atom of atoms) {
-    if (seen.has(atom.id)) continue;
-    seen.add(atom.id);
-    deduped.push(atom);
+    const current = byId.get(atom.id);
+    if (!current || toEpoch(atom.updated_at) >= toEpoch(current.updated_at)) byId.set(atom.id, atom);
   }
+
+  const retainedAtoms = retainMemoryAtoms(Array.from(byId.values()));
 
   return {
     ...base,
     ...raw,
     user_id_hash: String(raw.user_id_hash || raw.userIdHash || "client"),
-    atoms: deduped.slice(0, 500),
+    atoms: retainedAtoms,
     version: Math.max(1, Number(raw.version || 1)),
     source: String(raw.source || "manual"),
     full_snapshot: raw.full_snapshot !== false && raw.fullSnapshot !== false,
     created_at: raw.created_at || raw.createdAt || base.created_at,
     updated_at: raw.updated_at || raw.updatedAt || base.updated_at,
   };
+}
+
+function toEpoch(value) {
+  const parsed = new Date(value || 0).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function retainMemoryAtoms(atoms) {
+  const score = (atom) => {
+    const statusRank = atom.status === "active" ? 3 : atom.status === "archived" ? 2 : 1;
+    const sourceRank = atom.source === "manual" ? 3 : atom.source === "profile" ? 2 : 1;
+    return [Boolean(atom.pinned) ? 1 : 0, statusRank, sourceRank, toEpoch(atom.updated_at)];
+  };
+  const compare = (left, right) => {
+    const a = score(left);
+    const b = score(right);
+    for (let index = 0; index < a.length; index += 1) {
+      if (a[index] !== b[index]) return b[index] - a[index];
+    }
+    return String(left.id).localeCompare(String(right.id));
+  };
+  const live = atoms.filter((atom) => atom.status !== "deleted").sort(compare);
+  const tombstones = atoms
+    .filter((atom) => atom.status === "deleted")
+    .sort((a, b) => toEpoch(b.updated_at) - toEpoch(a.updated_at))
+    .slice(0, MAX_MEMORY_TOMBSTONES);
+  return [...live, ...tombstones].sort(compare).slice(0, MAX_MEMORY_ATOMS);
+}
+
+function nextEvidenceCount(current, incoming) {
+  const currentCount = Math.max(1, Number(current.evidence_count || 1));
+  const incomingCount = Math.max(1, Number(incoming.evidence_count || 1));
+  const isNewObservation = toEpoch(incoming.updated_at) > toEpoch(current.updated_at);
+  if (!isNewObservation || incoming.id === current.id && incoming.updated_at === current.updated_at) {
+    return Math.min(10_000, Math.max(currentCount, incomingCount));
+  }
+  if (["chat_extraction", "voice_call"].includes(incoming.source)) {
+    return Math.min(10_000, currentCount + 1);
+  }
+  return Math.min(10_000, Math.max(currentCount, incomingCount));
 }
 
 function normalizeMemoryAtom(value) {
@@ -179,16 +220,39 @@ function createMemoryAtom(category, value, options = {}) {
 // Merge
 // ═══════════════════════════════════════════════════════════════
 
+export function replaceMemoryGraphAtomValue(graphContext, atomId, nextValue) {
+  const graph = normalizeMemoryGraph(graphContext);
+  const current = graph.atoms.find((atom) => atom.id === atomId);
+  const cleanValue = String(nextValue || "").trim();
+  if (!current || !cleanValue) return graph;
+
+  const now = new Date().toISOString();
+  const withoutCurrent = {
+    ...graph,
+    atoms: graph.atoms.map((atom) => atom.id === atomId
+      ? { ...atom, status: "deleted", pinned: false, updated_at: now, metadata: { ...(atom.metadata || {}), replaced_by_user: true } }
+      : atom),
+  };
+  const replacement = createMemoryAtom(current.category, cleanValue, {
+    displayValue: cleanValue,
+    confidence: Math.max(0.95, current.confidence || 0),
+    sensitivity: current.sensitivity,
+    source: "manual",
+    pinned: current.pinned,
+    aliases: current.aliases,
+    metadata: current.metadata,
+  });
+  return mergeMemoryGraphs(withoutCurrent, [replacement]);
+}
+
 export function mergeMemoryGraphs(existingGraph, incomingGraphOrAtoms) {
   const existing = normalizeMemoryGraph(existingGraph);
   const incomingAtoms = Array.isArray(incomingGraphOrAtoms)
     ? incomingGraphOrAtoms.map(normalizeMemoryAtom).filter(Boolean)
     : normalizeMemoryGraph(incomingGraphOrAtoms).atoms;
-  let next = normalizeMemoryGraph(existing);
+  const next = { ...existing, atoms: [...existing.atoms] };
 
-  for (const atom of incomingAtoms) {
-    next = upsertMemoryGraphAtom(next, atom);
-  }
+  for (const atom of incomingAtoms) upsertMemoryGraphAtom(next, atom);
 
   if (incomingAtoms.length) {
     next.version = Math.max(existing.version + 1, Number(incomingGraphOrAtoms?.version || 1));
@@ -198,8 +262,7 @@ export function mergeMemoryGraphs(existingGraph, incomingGraphOrAtoms) {
   return normalizeMemoryGraph(next);
 }
 
-function upsertMemoryGraphAtom(graph, atom) {
-  const next = normalizeMemoryGraph(graph);
+function upsertMemoryGraphAtom(next, atom) {
   const incoming = normalizeMemoryAtom(atom);
   if (!incoming) return next;
 
@@ -231,11 +294,16 @@ function upsertMemoryGraphAtom(graph, atom) {
     confidence: Math.min(cap, Math.max(current.confidence, incoming.confidence) + 0.04),
     sensitivity: maxSensitivity(current.sensitivity, incoming.sensitivity),
     source: strongerSource(current.source, incoming.source),
-    status: incoming.status === "deleted" ? "deleted" : current.status,
+    key: incoming.metadata?.field ? incoming.key : current.key,
+    status: incoming.status === "deleted"
+      ? "deleted"
+      : incoming.source === "manual"
+        ? "active"
+        : current.status,
     pinned: current.pinned || incoming.pinned,
     updated_at: maxIso(current.updated_at, incoming.updated_at),
     last_seen_at: maxIso(current.last_seen_at, incoming.last_seen_at),
-    evidence_count: Math.min(10000, Number(current.evidence_count || 0) + Math.max(1, Number(incoming.evidence_count || 1))),
+    evidence_count: nextEvidenceCount(current, incoming),
     aliases: mergeUnique([...(current.aliases || []), ...(incoming.aliases || [])]),
     metadata: { ...(current.metadata || {}), ...(incoming.metadata || {}) },
   };
@@ -244,16 +312,24 @@ function upsertMemoryGraphAtom(graph, atom) {
 }
 
 function findMatchingGraphAtomIndex(atoms, incoming) {
-  const incomingAliases = new Set((incoming.aliases || []).map(normalizeGraphValue));
+  const incomingField = normalizeGraphValue(incoming.metadata?.field || "");
+  const incomingAliases = new Set(
+    [incoming.normalized_value, ...(incoming.aliases || []).map(normalizeGraphValue)].filter(Boolean),
+  );
 
   return atoms.findIndex((atom) => {
     if (atom.category !== incoming.category) return false;
     if (atom.key === incoming.key) return true;
+
+    const atomField = normalizeGraphValue(atom.metadata?.field || "");
+    if (incomingField && atomField === incomingField) return true;
     if (atom.normalized_value === incoming.normalized_value) return true;
+
     if (atom.category === "people") {
-      const aliases = new Set((atom.aliases || []).map(normalizeGraphValue));
-      if ([...incomingAliases].some((alias) => aliases.has(alias))) return true;
-      return atom.metadata?.relationship && atom.metadata.relationship === incoming.metadata?.relationship;
+      const aliases = new Set(
+        [atom.normalized_value, ...(atom.aliases || []).map(normalizeGraphValue)].filter(Boolean),
+      );
+      return [...incomingAliases].some((alias) => aliases.has(alias));
     }
     return false;
   });
@@ -398,11 +474,13 @@ export function getMemoryInspectorCards(graphContext = createEmptyMemoryGraph())
 
 export function classifyAndStoreMemoryGraphFromMessage(text, {
   graphContext = createEmptyMemoryGraph(),
+  source: requestedSource = "",
 } = {}) {
   const graph = normalizeMemoryGraph(graphContext);
   const message = String(text || "").trim();
   const explicit = isExplicitMemoryCommand(message.toLowerCase());
-  const source = explicit ? "manual" : "chat_extraction";
+  const allowedSources = new Set(["manual", "chat_extraction", "backend_compaction", "profile", "import", "voice_call"]);
+  const source = explicit ? "manual" : (allowedSources.has(requestedSource) ? requestedSource : "chat_extraction");
   const confidence = explicit ? 0.95 : 0.68;
   let delta = createEmptyMemoryGraph();
   delta.full_snapshot = false;
@@ -469,7 +547,12 @@ export function classifyAndStoreMemoryGraphFromMessage(text, {
 function canonicalGraphKey(category, value, metadata = {}) {
   const role = normalizeGraphValue(metadata.relationship || "");
   const field = normalizeGraphValue(metadata.field || "");
-  const basis = [category, field, role, normalizeGraphValue(value)].filter(Boolean).join("|");
+  // Named fields are singletons (for example preferred_name), so their identity
+  // must remain stable when the value changes. Relationship labels are context,
+  // not person identity, and therefore do not merge different people.
+  const basis = field
+    ? [category, field].join("|")
+    : [category, role, normalizeGraphValue(value)].filter(Boolean).join("|");
   return `${category}:${hashString(basis)}`;
 }
 
@@ -480,7 +563,7 @@ function normalizeGraphCategory(category) {
 
 function normalizeGraphSource(source) {
   const value = String(source || "chat_extraction");
-  return ["manual", "chat_extraction", "backend_compaction", "profile", "import"].includes(value) ? value : "chat_extraction";
+  return ["manual", "chat_extraction", "backend_compaction", "profile", "import", "voice_call"].includes(value) ? value : "chat_extraction";
 }
 
 function normalizeGraphValue(value) {
@@ -500,7 +583,7 @@ function incomingDisplayWins(current, incoming) {
 }
 
 function strongerSource(left, right) {
-  const rank = { chat_extraction: 1, backend_compaction: 2, import: 3, profile: 4, manual: 5 };
+  const rank = { chat_extraction: 1, voice_call: 2, backend_compaction: 3, import: 4, profile: 5, manual: 6 };
   return (rank[right] || 1) >= (rank[left] || 1) ? right : left;
 }
 
@@ -732,12 +815,11 @@ export function answerQuestionFromMemory(text, context) {
  * Legacy alias for classifyAndStoreMemoryGraphFromMessage().
  */
 export function classifyAndStoreMemoryFromMessage(text, options = {}) {
-  // Map legacy option names to graph option names
-  return classifyAndStoreMemoryGraphFromMessage(text, {
+  const result = classifyAndStoreMemoryGraphFromMessage(text, {
     graphContext: options.graphContext || options.memoryContext || createEmptyMemoryGraph(),
-    recentMessages: options.recentMessages || [],
-    silent: options.silent || false,
+    source: options.source || "",
   });
+  return { ...result, memory: result.graph };
 }
 
 

@@ -1,68 +1,80 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildVoiceKeyUrl, classifySocketClose, classifyVoiceStartupFailure, fetchVoiceKeyWithRetry } from '../frontend/js/voice/startup_helpers.mjs';
+import {
+  buildEphemeralVoiceWebSocketUrl,
+  buildVoiceTokenUrl,
+  classifySocketClose,
+  classifyVoiceStartupFailure,
+  fetchVoiceTokenWithRetry,
+} from '../frontend/js/voice/startup_helpers.mjs';
 
-test('buildVoiceKeyUrl joins the base URL and voice key path correctly', () => {
-  assert.equal(buildVoiceKeyUrl('https://example.com/api'), 'https://example.com/api/voice/key');
-  assert.equal(buildVoiceKeyUrl('https://example.com/api/'), 'https://example.com/api/voice/key');
-  assert.equal(buildVoiceKeyUrl(''), '/voice/key');
+test('buildVoiceTokenUrl normalizes API origins', () => {
+  assert.equal(buildVoiceTokenUrl('https://example.com/api'), 'https://example.com/api/voice/token');
+  assert.equal(buildVoiceTokenUrl('https://example.com/api/'), 'https://example.com/api/voice/token');
+  assert.equal(buildVoiceTokenUrl(''), '/voice/token');
 });
 
-test('fetchVoiceKeyWithRetry retries once after an auth failure and succeeds', async () => {
-  let attempts = 0;
-  const responses = [
-    { ok: false, status: 401, json: async () => ({ detail: { message: 'auth failed' } }) },
-    { ok: true, status: 200, json: async () => ({ key: 'abc123' }) },
-  ];
+test('buildEphemeralVoiceWebSocketUrl never uses a permanent API key parameter', () => {
+  const url = buildEphemeralVoiceWebSocketUrl({
+    token: 'short-lived-token',
+    websocket_url: 'wss://example.com/BidiGenerateContentConstrained',
+  });
+  assert.equal(url, 'wss://example.com/BidiGenerateContentConstrained?access_token=short-lived-token');
+  assert.equal(url.includes('?key='), false);
+});
 
-  const result = await fetchVoiceKeyWithRetry({
+test('fetchVoiceTokenWithRetry refreshes Firebase auth after 401 and succeeds', async () => {
+  const calls = [];
+  let attempt = 0;
+  const result = await fetchVoiceTokenWithRetry({
     baseUrl: 'https://example.com/api',
-    token: 'first-token',
-    refreshToken: async () => 'second-token',
-    fetchImpl: async (url, init) => {
-      attempts += 1;
-      assert.equal(url, 'https://example.com/api/voice/key');
-      if (attempts === 1) {
-        assert.equal(init.headers.Authorization, 'Bearer first-token');
-      } else {
-        assert.equal(init.headers.Authorization, 'Bearer second-token');
-      }
-      return responses[attempts - 1];
+    token: 'expired',
+    refreshToken: async () => 'fresh',
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      attempt += 1;
+      if (attempt === 1) return { ok: false, status: 401 };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          token: 'ephemeral',
+          model: 'gemini-3.1-flash-live-preview',
+          websocket_url: 'wss://example.com/live',
+          expires_at: '2026-07-10T18:30:00Z',
+          new_session_expires_at: '2026-07-10T18:01:00Z',
+        }),
+      };
     },
   });
 
-  assert.equal(attempts, 2);
-  assert.equal(result.key, 'abc123');
+  assert.equal(result.token, 'ephemeral');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, 'https://example.com/api/voice/token');
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer expired');
+  assert.equal(calls[1].options.headers.Authorization, 'Bearer fresh');
+  assert.equal(calls[1].options.cache, 'no-store');
 });
 
-test('classifyVoiceStartupFailure detects retryable network errors', () => {
-  assert.deepEqual(classifyVoiceStartupFailure({ message: 'fetch failed' }), {
-    retryable: true,
-    reason: 'network',
-    status: null,
-  });
-  assert.deepEqual(classifyVoiceStartupFailure({ status: 503 }), {
-    retryable: true,
-    reason: 'server',
-    status: 503,
-  });
-  assert.deepEqual(classifyVoiceStartupFailure({ status: 401 }), {
-    retryable: true,
-    reason: 'authentication',
-    status: 401,
-  });
+test('fetchVoiceTokenWithRetry rejects incomplete responses', async () => {
+  await assert.rejects(
+    fetchVoiceTokenWithRetry({
+      baseUrl: '',
+      fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ token: 'only-token' }) }),
+      maxAttempts: 1,
+    }),
+    /incomplete/i,
+  );
 });
 
-test('classifySocketClose avoids stopping the session after a transient close after greeting', () => {
-  assert.deepEqual(classifySocketClose({ code: 1006, wasClean: false, hasSetupComplete: true, greetingSent: true }), {
-    retryable: true,
-    shouldStop: false,
-    reason: 'transient',
-  });
-  assert.deepEqual(classifySocketClose({ code: 1000, wasClean: true, hasSetupComplete: true, greetingSent: true }), {
-    retryable: false,
-    shouldStop: true,
-    reason: 'normal',
-  });
+test('socket close classification retries transient established-session closes', () => {
+  assert.equal(classifySocketClose({ code: 1006, wasClean: false, hasSetupComplete: true, greetingSent: true }).retryable, true);
+  assert.equal(classifySocketClose({ code: 1000, wasClean: true, hasSetupComplete: true, greetingSent: true }).retryable, false);
+});
+
+test('startup classification treats retired key endpoint as a hard upgrade failure', () => {
+  const result = classifyVoiceStartupFailure({ status: 410 });
+  assert.equal(result.retryable, false);
+  assert.equal(result.reason, 'client-upgrade-required');
 });

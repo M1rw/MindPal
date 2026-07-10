@@ -65,3 +65,7 @@ local_data/
 secrets/firebase-service-account.json
 .vercel
 .env*
+
+# Production frontend bundles are release artifacts and must be committed/deployed.
+!frontend/dist/
+!frontend/dist/**

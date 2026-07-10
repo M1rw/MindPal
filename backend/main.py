@@ -92,15 +92,11 @@ def _install_middleware(app: FastAPI, settings: Settings) -> None:
         default=_string_list_setting(settings, "CORS_ORIGINS", default=["*"]),
     )
 
-    # In production, reject wildcard CORS — require an explicit allowlist.
+    # Same-origin is the secure production default. Cross-origin clients must
+    # opt in through an explicit allowlist.
     environment = str(getattr(settings, "ENVIRONMENT", "development")).lower()
     if environment == "production" and cors_origins == ["*"]:
-        import logging as _logging
-
-        _logging.getLogger(__name__).warning(
-            "CORS_ALLOW_ORIGINS is '*' in production — "
-            "set an explicit allowlist via the CORS_ALLOW_ORIGINS env var."
-        )
+        cors_origins = []
 
     app.add_middleware(
         CORSMiddleware,
@@ -143,8 +139,29 @@ def _install_middleware(app: FastAPI, settings: Settings) -> None:
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Process-Time-MS"] = str(getattr(request.state, "process_time_ms", "0"))
         response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(self), geolocation=()"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "base-uri 'self'; "
+            "object-src 'none'; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob: https://*.googleusercontent.com; "
+            "font-src 'self' data:; "
+            "media-src 'self' data: blob:; "
+            "worker-src 'self' blob:; "
+            "frame-src https://*.firebaseapp.com https://accounts.google.com; "
+            "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com "
+            "https://*.firebaseapp.com https://*.vercel-insights.com "
+            "wss://generativelanguage.googleapis.com; "
+            "manifest-src 'self'"
+        )
 
         if bool(getattr(settings, "ENABLE_HSTS", False)):
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -216,25 +233,69 @@ def _install_exception_handlers(app: FastAPI) -> None:
 
 def _install_routes(app: FastAPI) -> None:
     app.include_router(api_router)
+    _install_frontend_routes(app)
 
-    import os
-    is_serverless = os.getenv("VERCEL") is not None or os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
 
-    if not is_serverless and FRONTEND_DIR.exists():
-        assets_dir = FRONTEND_DIR
+def _install_frontend_routes(app: FastAPI) -> None:
+    """Install one deterministic frontend route map for local and serverless runs."""
+    if not FRONTEND_DIR.exists():
+        return
 
-        app.mount(
-            "/app",
-            StaticFiles(directory=str(assets_dir), html=True),
-            name="frontend",
+    static_mounts = {
+        "/css": FRONTEND_DIR / "css",
+        "/js": FRONTEND_DIR / "js",
+        "/dist": FRONTEND_DIR / "dist",
+        "/assets": FRONTEND_DIR / "assets",
+    }
+
+    for prefix, directory in static_mounts.items():
+        if directory.exists():
+            app.mount(
+                prefix,
+                StaticFiles(directory=str(directory)),
+                name=f"frontend_{prefix.strip('/').replace('/', '_')}",
+            )
+
+    @app.get("/runtime-config.js", include_in_schema=False)
+    async def runtime_config() -> FileResponse:
+        return FileResponse(
+            FRONTEND_DIR / "runtime-config.js",
+            media_type="text/javascript; charset=utf-8",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
         )
 
-        index_path = FRONTEND_DIR / "index.html"
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon_ico() -> FileResponse:
+        return FileResponse(
+            FRONTEND_DIR / "favicon.ico",
+            media_type="image/x-icon",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
 
-        if index_path.exists():
-            @app.get("/ui", include_in_schema=False)
-            async def frontend_index() -> FileResponse:
-                return FileResponse(index_path)
+    @app.get("/site.webmanifest", include_in_schema=False)
+    async def site_webmanifest() -> FileResponse:
+        return FileResponse(
+            FRONTEND_DIR / "site.webmanifest",
+            media_type="application/manifest+json",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+
+    @app.get("/robots.txt", include_in_schema=False)
+    async def robots_txt() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "robots.txt", media_type="text/plain; charset=utf-8")
+
+    @app.get("/sitemap.xml", include_in_schema=False)
+    async def sitemap_xml() -> FileResponse:
+        return FileResponse(FRONTEND_DIR / "sitemap.xml", media_type="application/xml")
+
+    @app.get("/ui", include_in_schema=False)
+    @app.get("/", include_in_schema=False)
+    async def frontend_index() -> FileResponse:
+        return FileResponse(
+            FRONTEND_DIR / "index.html",
+            media_type="text/html; charset=utf-8",
+            headers={"Cache-Control": "no-cache"},
+        )
 
 
 def _error_payload(
@@ -363,135 +424,4 @@ __all__ = [
     "get_service_container",
     "reset_service_container_for_tests",
 ]
-
-# -----------------------------------------------------------------------------
-# MindPal frontend static serving
-# -----------------------------------------------------------------------------
-
-def _mindpal_configure_frontend_static():
-    from pathlib import Path as _Path
-
-    from fastapi.responses import FileResponse as _FileResponse
-    from fastapi.staticfiles import StaticFiles as _StaticFiles
-
-    def _find_project_root() -> _Path:
-        current = _Path(__file__).resolve()
-
-        for parent in [current.parent, *current.parents]:
-            if (parent / "frontend" / "index.html").exists():
-                return parent
-
-        return current.parents[1]
-
-    project_root = _find_project_root()
-    frontend_dir = project_root / "frontend"
-
-    # Remove old frontend/static mounts if this function is called more than once.
-    app.router.routes[:] = [
-        route
-        for route in app.router.routes
-        if getattr(route, "path", None) not in {"/", "/css", "/js"}
-    ]
-
-    css_dir = frontend_dir / "css"
-    js_dir = frontend_dir / "js"
-
-    if css_dir.exists():
-        app.mount("/css", _StaticFiles(directory=str(css_dir)), name="mindpal_frontend_css")
-
-    if js_dir.exists():
-        app.mount("/js", _StaticFiles(directory=str(js_dir)), name="mindpal_frontend_js")
-
-    @app.get("/", include_in_schema=False)
-    async def _mindpal_frontend_index():
-        index_path = frontend_dir / "index.html"
-
-        if index_path.exists():
-            return _FileResponse(index_path)
-
-        return {
-            "name": "MindPal",
-            "status": "ok",
-            "health": "/api/health",
-            "frontend": "missing",
-            "expected_index": str(index_path),
-        }
-
-
-_mindpal_configure_frontend_static()
-
-
-# ---------------------------------------------------------------------------
-# Frontend brand / social / PWA assets
-# ---------------------------------------------------------------------------
-
-# Reuse existing FRONTEND_DIR from module scope (line 30)
-BRAND_ASSETS_DIR = FRONTEND_DIR / "assets" / "brand"
-
-
-def _brand_file_response(path: Path, media_type: str) -> FileResponse:
-    if not path.exists() or not path.is_file():
-        # Let FastAPI return a real 404 instead of serving index.html for assets.
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Asset not found")
-
-    return FileResponse(
-        path,
-        media_type=media_type,
-        headers={
-            "Cache-Control": "public, max-age=31536000, immutable",
-        },
-    )
-
-
-@app.get("/favicon.ico", include_in_schema=False)
-async def favicon_ico() -> FileResponse:
-    return _brand_file_response(FRONTEND_DIR / "favicon.ico", "image/x-icon")
-
-
-@app.get("/favicon.svg", include_in_schema=False)
-async def favicon_svg() -> FileResponse:
-    return _brand_file_response(FRONTEND_DIR / "favicon.svg", "image/svg+xml")
-
-
-@app.get("/favicon.png", include_in_schema=False)
-async def favicon_png() -> FileResponse:
-    return _brand_file_response(BRAND_ASSETS_DIR / "icon-32.png", "image/png")
-
-
-@app.get("/site.webmanifest", include_in_schema=False)
-async def site_webmanifest() -> FileResponse:
-    return _brand_file_response(FRONTEND_DIR / "site.webmanifest", "application/manifest+json")
-
-
-@app.get("/robots.txt", include_in_schema=False)
-async def robots_txt() -> FileResponse:
-    return _brand_file_response(FRONTEND_DIR / "robots.txt", "text/plain; charset=utf-8")
-
-
-@app.get("/sitemap.xml", include_in_schema=False)
-async def sitemap_xml() -> FileResponse:
-    return _brand_file_response(FRONTEND_DIR / "sitemap.xml", "application/xml")
-
-
-@app.get("/assets/brand/{asset_name}", include_in_schema=False)
-async def brand_asset(asset_name: str) -> FileResponse:
-    allowed = {
-        "mindpal-icon.svg": "image/svg+xml",
-        "icon-32.png": "image/png",
-        "icon-192.png": "image/png",
-        "icon-512.png": "image/png",
-        "apple-touch-icon.png": "image/png",
-        "og-image.png": "image/png",
-    }
-
-    media_type = allowed.get(asset_name)
-
-    if not media_type:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Asset not found")
-
-    return _brand_file_response(BRAND_ASSETS_DIR / asset_name, media_type)
 

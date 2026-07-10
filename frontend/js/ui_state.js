@@ -16,6 +16,9 @@ import { cryptoRandomId, normalizeName } from "./utils/helpers.js";
 export { refreshIcons } from "./utils/icons.js";
 
 const STATE_KEY = "mindpal_state_v2";
+const MAX_LOCAL_CHAT_MESSAGES = 250;
+const MAX_LOCAL_MESSAGE_CHARS = 12_000;
+const MAX_LOCAL_VOICE_TRANSCRIPT_CHARS = 24_000;
 
 const DEFAULT_STATE = Object.freeze({
   sessionId: "",
@@ -45,58 +48,90 @@ export function createDefaultState() {
   };
 }
 
-export function loadState() {
-  const saved = localStorage.getItem(STATE_KEY);
-
-  if (!saved) {
-    state = createDefaultState();
-    calculateStreak();
-    saveState();
-    return state;
-  }
-
-  try {
-    const parsed = JSON.parse(saved);
-
-    state = {
-      ...createDefaultState(),
-      ...parsed,
-      chatMemory: Array.isArray(parsed.chatMemory) ? parsed.chatMemory : [],
-      visitHistory: Array.isArray(parsed.visitHistory) ? parsed.visitHistory : [],
-      crisisMode: parsed.crisisMode !== false,
-      userName: normalizeName(parsed.userName),
+function normalizeStoredMessage(item) {
+  if (!item || typeof item !== "object") return null;
+  const text = String(item.text || item.content || "").trim().slice(0, MAX_LOCAL_MESSAGE_CHARS);
+  if (!text) return null;
+  const next = {
+    ...item,
+    role: item.role === "User" || item.role === "user" ? "User" : "MindPal",
+    text,
+    messageId: item.messageId || item.message_id || `msg_${cryptoRandomId()}_${Date.now()}`,
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+  };
+  if (next.voiceCall && typeof next.voiceCall === "object") {
+    next.voiceCall = {
+      ...next.voiceCall,
+      summary: String(next.voiceCall.summary || "").slice(0, MAX_LOCAL_MESSAGE_CHARS),
+      userTranscript: String(next.voiceCall.userTranscript || "").slice(0, MAX_LOCAL_VOICE_TRANSCRIPT_CHARS),
+      aiTranscript: String(next.voiceCall.aiTranscript || "").slice(0, MAX_LOCAL_VOICE_TRANSCRIPT_CHARS),
     };
-
-    calculateStreak();
-    saveState();
-    return state;
-  } catch {
-    state = createDefaultState();
-    calculateStreak();
-    saveState();
-    return state;
   }
+  return next;
+}
+
+function normalizeStoredChatMemory(messages) {
+  if (!Array.isArray(messages)) return [];
+  return messages.map(normalizeStoredMessage).filter(Boolean).slice(-MAX_LOCAL_CHAT_MESSAGES);
+}
+
+export function loadState() {
+  try {
+    const saved = globalThis.localStorage?.getItem(STATE_KEY);
+    if (!saved) {
+      state = createDefaultState();
+    } else {
+      const parsed = JSON.parse(saved);
+      state = {
+        ...createDefaultState(),
+        ...parsed,
+        chatMemory: normalizeStoredChatMemory(parsed.chatMemory),
+        visitHistory: Array.isArray(parsed.visitHistory) ? parsed.visitHistory : [],
+        crisisMode: parsed.crisisMode !== false,
+        userName: normalizeName(parsed.userName),
+      };
+    }
+  } catch (error) {
+    console.warn("MindPal state could not be loaded; using a clean local state.", error);
+    state = createDefaultState();
+  }
+
+  calculateStreak();
+  saveState();
+  return state;
 }
 
 export function saveState({ defer = false } = {}) {
   const write = () => {
     deferredStateSaveTimer = null;
-    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+    state.chatMemory = normalizeStoredChatMemory(state.chatMemory);
+    try {
+      globalThis.localStorage?.setItem(STATE_KEY, JSON.stringify(state));
+      return true;
+    } catch (error) {
+      console.warn("MindPal local state write failed; pruning old chat data and retrying once.", error);
+      state.chatMemory = state.chatMemory.slice(-100);
+      try {
+        globalThis.localStorage?.setItem(STATE_KEY, JSON.stringify(state));
+        return true;
+      } catch (retryError) {
+        console.error("MindPal local state could not be persisted.", retryError);
+        return false;
+      }
+    }
   };
 
   if (!defer) {
     if (deferredStateSaveTimer !== null) {
-      window.clearTimeout(deferredStateSaveTimer);
+      globalThis.clearTimeout?.(deferredStateSaveTimer);
       deferredStateSaveTimer = null;
     }
-    write();
-    return;
+    return write();
   }
 
-  if (deferredStateSaveTimer !== null) return;
-
-  const schedule = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 120));
-  deferredStateSaveTimer = schedule(write, { timeout: 1_000 });
+  if (deferredStateSaveTimer !== null) return true;
+  deferredStateSaveTimer = globalThis.setTimeout?.(write, 120) ?? null;
+  return true;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -120,7 +155,7 @@ if (typeof window !== "undefined") {
             state = {
               ...createDefaultState(),
               ...parsed,
-              chatMemory: Array.isArray(parsed.chatMemory) ? parsed.chatMemory : [],
+              chatMemory: normalizeStoredChatMemory(parsed.chatMemory),
               visitHistory: Array.isArray(parsed.visitHistory) ? parsed.visitHistory : [],
               crisisMode: parsed.crisisMode !== false,
               userName: normalizeName(parsed.userName),
@@ -190,7 +225,8 @@ export function addMessage(role, text, extra = {}) {
     ...extra,
   };
 
-  state.chatMemory.push(message);
+  state.chatMemory.push(normalizeStoredMessage(message));
+  state.chatMemory = state.chatMemory.slice(-MAX_LOCAL_CHAT_MESSAGES);
 
   if (normalizedRole === "User") {
     state.messageCount += 1;
@@ -202,18 +238,7 @@ export function addMessage(role, text, extra = {}) {
 }
 
 export function replaceChatMemory(messages) {
-  state.chatMemory = Array.isArray(messages)
-    ? messages
-        .filter((item) => item && typeof item === "object")
-        .map((item) => ({
-          ...item,
-          role: item.role === "User" || item.role === "user" ? "User" : "MindPal",
-          text: String(item.text || item.content || "").trim(),
-          messageId: item.messageId || item.message_id || `msg_${cryptoRandomId()}_${Date.now()}`,
-          createdAt: item.createdAt || item.created_at || new Date().toISOString(),
-        }))
-        .filter((item) => item.text)
-    : [];
+  state.chatMemory = normalizeStoredChatMemory(messages);
 
   state.messageCount = state.chatMemory.filter((item) => item.role === "User").length;
   saveState({ defer: true });
@@ -1049,4 +1074,10 @@ export function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => {
+    saveState();
+  });
 }

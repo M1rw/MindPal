@@ -5,8 +5,6 @@ import {
   loadUserProfile,
   loadMemory,
   loadMemoryGraph,
-  mergeMemoryGraph,
-  saveMemory,
   saveMemoryGraph,
   deleteCurrentCloudChat,
   loadCurrentCloudChat,
@@ -46,9 +44,6 @@ import {
   saveMemoryGraphContext,
   loadMemoryContext,
   memoryFromBackendSummary,
-  memoryToBackendSummary,
-  saveMemoryContext,
-  mergeMemoryContexts,
 } from "./memory_graph.js";
 
 // ═══════════════════════════════════════════════════════════════
@@ -56,19 +51,31 @@ import {
 // ═══════════════════════════════════════════════════════════════
 
 let cloudConnectInProgress = false;
-let cloudChatHydrated = false;
+let cloudChatHydratedForUser = null;
 let cloudChatSyncInFlight = false;
 let cloudChatSyncTimer = null;
 const pendingCloudChatMessages = [];
 
 let currentCloudProfileContext = null;
-let memoryContext = loadMemoryContext();
-let memoryGraphContext = loadMemoryGraphContext();
+function loadCanonicalLocalMemory() {
+  const graph = loadMemoryGraphContext();
+  if (graph.atoms?.length) return graph;
+  return mergeMemoryGraphs(graph, loadMemoryContext());
+}
+
+let memoryGraphContext = loadCanonicalLocalMemory();
+let memoryContext = memoryGraphContext;
 let authUnsubscribe = null;
 
 // Expose for app.js orchestration
-export function setMemoryContext(ctx) { memoryContext = ctx; }
-export function setMemoryGraphContext(ctx) { memoryGraphContext = ctx; }
+export function setMemoryContext(ctx) {
+  memoryGraphContext = saveMemoryGraphContext(ctx);
+  memoryContext = memoryGraphContext;
+}
+export function setMemoryGraphContext(ctx) {
+  memoryGraphContext = saveMemoryGraphContext(ctx);
+  memoryContext = memoryGraphContext;
+}
 export function setCurrentCloudProfileContext(ctx) { currentCloudProfileContext = ctx; }
 export function getMemoryContext() { return memoryContext; }
 export function getMemoryGraphContext() { return memoryGraphContext; }
@@ -92,6 +99,11 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
 
     authUnsubscribe = onAuthChange(async (user) => {
       loaderRemovedByCallback = true;
+      const nextUserId = user?.uid || null;
+      if (cloudChatHydratedForUser && cloudChatHydratedForUser !== nextUserId) {
+        cloudChatHydratedForUser = null;
+        pendingCloudChatMessages.length = 0;
+      }
 
       if (!user) {
         if (!cloudConnectInProgress) {
@@ -143,8 +155,8 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
       } catch (error) {
         console.warn("Silent cloud profile verification failed:", error);
         currentCloudProfileContext = null;
-        memoryContext = loadMemoryContext();
-        memoryGraphContext = loadMemoryGraphContext();
+        memoryGraphContext = loadCanonicalLocalMemory();
+        memoryContext = memoryGraphContext;
         setCloudSyncEnabled(false);
         updateProfileUI(null);
       } finally {
@@ -184,30 +196,34 @@ export async function hydrateCloudMemory(token, renderMemoryInspector) {
   try {
     const localGraph = saveMemoryGraphContext(memoryGraphContext);
     const response = await loadMemoryGraph(token);
+    let canonicalGraph = localGraph;
+
     if (response?.loaded && response.graph) {
       const cloudGraph = memoryGraphFromBackend(response.graph);
-      const mergedGraph = mergeMemoryGraphs(cloudGraph, localGraph);
-      memoryGraphContext = saveMemoryGraphContext(mergedGraph);
-      if (mergedGraph.version !== cloudGraph.version || mergedGraph.atoms.length !== cloudGraph.atoms.length) {
-        await mergeMemoryGraph(memoryGraphToBackend(localGraph), token);
-      }
+      canonicalGraph = mergeMemoryGraphs(cloudGraph, localGraph);
     } else {
-      memoryGraphContext = saveMemoryGraphContext(localGraph);
-      await saveMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
+      // One-time migration path only. V3 remains the sole canonical store afterward.
+      const legacyResponse = await loadMemory(token).catch(() => null);
+      if (legacyResponse?.loaded && legacyResponse.summary) {
+        canonicalGraph = mergeMemoryGraphs(canonicalGraph, memoryFromBackendSummary(legacyResponse.summary));
+      }
     }
 
-    const legacyResponse = await loadMemory(token).catch(() => null);
-    if (legacyResponse?.loaded && legacyResponse.summary) {
-      memoryContext = saveMemoryContext(mergeMemoryContexts(memoryContext, memoryFromBackendSummary(legacyResponse.summary)));
-    } else {
-      memoryContext = saveMemoryContext(memoryContext);
-      await saveMemory(memoryToBackendSummary(memoryContext), token);
+    memoryGraphContext = saveMemoryGraphContext(canonicalGraph);
+    memoryContext = memoryGraphContext;
+
+    const cloudMissing = !response?.loaded || !response.graph;
+    const cloudChanged = response?.loaded && response.graph
+      ? JSON.stringify(memoryGraphToBackend(memoryGraphContext)) !== JSON.stringify(memoryGraphToBackend(memoryGraphFromBackend(response.graph)))
+      : false;
+    if (cloudMissing || cloudChanged) {
+      await saveMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
     }
     renderMemoryInspector?.();
   } catch (error) {
     console.warn("Cloud memory load failed; using local memory.", error);
-    memoryContext = loadMemoryContext();
-    memoryGraphContext = loadMemoryGraphContext();
+    memoryGraphContext = loadCanonicalLocalMemory();
+    memoryContext = memoryGraphContext;
     renderMemoryInspector?.();
   }
 }
@@ -217,10 +233,8 @@ export async function hydrateCloudMemory(token, renderMemoryInspector) {
 // ═══════════════════════════════════════════════════════════════
 
 export async function hydrateCloudChat(token, renderPersistedChat) {
-  if (!token || cloudChatHydrated) {
-    cloudChatHydrated = true;
-    return;
-  }
+  const userId = getCurrentUser()?.uid || null;
+  if (!token || !userId || cloudChatHydratedForUser === userId) return;
 
   try {
     const response = await loadCurrentCloudChat(token);
@@ -233,7 +247,7 @@ export async function hydrateCloudChat(token, renderPersistedChat) {
       renderPersistedChat?.();
     }
 
-    cloudChatHydrated = true;
+    cloudChatHydratedForUser = userId;
 
     if (merged.length && merged.length !== cloudMessages.length) {
       await replaceCurrentCloudChat(merged, token);
@@ -263,15 +277,15 @@ export async function flushPendingCloudChatMessages() {
   if (cloudChatSyncInFlight || pendingCloudChatMessages.length === 0) return;
 
   const token = await getIdToken();
-  if (!token) return;
+  if (!token) {
+    scheduleCloudSyncRetry();
+    return;
+  }
 
   cloudChatSyncInFlight = true;
-
   try {
-    const batch = [...pendingCloudChatMessages];
+    const batch = pendingCloudChatMessages.slice(0, 50);
     const response = await upsertCloudChatMessages(batch, token);
-
-    // If successful, safely remove ONLY the items we successfully synced from the queue
     pendingCloudChatMessages.splice(0, batch.length);
 
     if (response?.chat?.messages) {
@@ -279,14 +293,23 @@ export async function flushPendingCloudChatMessages() {
         normalizeLocalMessages(getState().chatMemory || []),
         normalizeCloudMessages(response.chat.messages),
       );
-
       replaceChatMemory(merged);
     }
   } catch (error) {
     console.warn("Cloud chat sync failed; preserving queue to retry later:", error);
+    scheduleCloudSyncRetry();
   } finally {
     cloudChatSyncInFlight = false;
+    if (pendingCloudChatMessages.length > 0) scheduleCloudSyncRetry(100);
   }
+}
+
+function scheduleCloudSyncRetry(delayMs = 2_000) {
+  if (cloudChatSyncTimer) window.clearTimeout(cloudChatSyncTimer);
+  cloudChatSyncTimer = window.setTimeout(() => {
+    cloudChatSyncTimer = null;
+    void flushPendingCloudChatMessages();
+  }, delayMs);
 }
 
 export async function replaceCloudChatSnapshotSafe(messages = null) {
@@ -304,18 +327,15 @@ export async function persistMemoryContextSafe() {
   try {
     const token = await getIdToken();
     memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
+    memoryContext = memoryGraphContext;
 
-    if (!token) {
-      saveMemoryContext(memoryContext);
-      return;
-    }
+    if (!token) return;
 
-    await mergeMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
-    await saveMemory(memoryToBackendSummary(memoryContext), token);
+    await saveMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
   } catch (error) {
     console.warn("Memory sync failed; local memory retained:", error);
-    saveMemoryGraphContext(memoryGraphContext);
-    saveMemoryContext(memoryContext);
+    memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
+    memoryContext = memoryGraphContext;
   }
 }
 
@@ -327,11 +347,13 @@ export function normalizeCloudMessages(messages) {
   if (!Array.isArray(messages)) return [];
 
   return messages
-    .map((message) => ({
+    .map((message, index) => {
+      const createdAt = message.created_at || message.createdAt || new Date(0).toISOString();
+      return {
       role: message.role === "User" || message.role === "user" ? "User" : "MindPal",
       text: String(message.text || message.content || "").trim(),
-      messageId: message.message_id || message.messageId || stableMessageId(message),
-      createdAt: message.created_at || message.createdAt || new Date().toISOString(),
+      messageId: message.message_id || message.messageId || stableMessageId({ ...message, createdAt, index }),
+      createdAt,
       providerUsed: message.provider_used || message.providerUsed || "",
       requestId: message.request_id || message.requestId || "",
       safety: message.metadata?.safety || message.safety || null,
@@ -342,7 +364,8 @@ export function normalizeCloudMessages(messages) {
       syncStatus: "cloud",
       ...(message.type ? { type: message.type } : {}),
       ...(message.voiceCall ? { voiceCall: message.voiceCall } : {}),
-    }))
+    };
+    })
     .filter((message) => message.text);
 }
 
@@ -402,7 +425,7 @@ export function mergeChatMessages(localMessages, cloudMessages) {
 }
 
 function stableMessageId(message) {
-  const seed = `${message?.role || ""}|${message?.createdAt || message?.created_at || ""}|${message?.text || message?.content || ""}`;
+  const seed = `${message?.role || ""}|${message?.createdAt || message?.created_at || ""}|${message?.text || message?.content || ""}|${message?.index ?? ""}`;
   let hash = 0;
   for (let index = 0; index < seed.length; index += 1) {
     hash = ((hash << 5) - hash) + seed.charCodeAt(index);
@@ -458,8 +481,19 @@ export function formatCloudConnectErrorSafe(error) {
 
 export function resetCloudState() {
   currentCloudProfileContext = null;
-  memoryContext = loadMemoryContext();
-  memoryGraphContext = loadMemoryGraphContext();
-  cloudChatHydrated = false;
+  memoryGraphContext = loadCanonicalLocalMemory();
+  memoryContext = memoryGraphContext;
+  cloudChatHydratedForUser = null;
   pendingCloudChatMessages.length = 0;
+  if (cloudChatSyncTimer) {
+    window.clearTimeout(cloudChatSyncTimer);
+    cloudChatSyncTimer = null;
+  }
 }
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    if (pendingCloudChatMessages.length) void flushPendingCloudChatMessages();
+  });
+}
+

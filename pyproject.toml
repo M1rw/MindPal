@@ -11,7 +11,8 @@ dependencies = [
   "httpx>=0.28,<1",
   "PyYAML>=6.0,<7",
   "firebase-admin>=7.4,<8",
-  "email-validator>=2.2,<3"
+  "email-validator>=2.2,<3",
+  "google-genai>=1.56,<2"
 ]
 
 [project.scripts]
@@ -19,3 +20,8 @@ app = "backend.main:app"
 
 [tool.vercel]
 entrypoint = "backend.main:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers --strict-config"

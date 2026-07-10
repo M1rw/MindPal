@@ -63,6 +63,7 @@ import { initLiveVoice, startLiveVoice } from "./voice_live.js";
 
 import {
   formatMarkdown,
+  sanitizeRichHtml,
   stripMarkdown,
   typewriteHTML,
   bindAccordion,
@@ -124,7 +125,6 @@ import {
   buildCloudProfileContext,
   formatCloudConnectErrorSafe,
   resetCloudState,
-  getMemoryContext,
   setMemoryContext,
   getMemoryGraphContext,
   setMemoryGraphContext,
@@ -133,28 +133,17 @@ import {
 } from "./cloud_sync.js";
 
 import {
-  answerQuestionFromMemoryGraph,
   classifyAndStoreMemoryGraphFromMessage,
   createEmptyMemoryGraph,
   buildMemoryGraphLines,
   loadMemoryGraphContext,
   memoryGraphFromBackend,
-  memoryGraphFromLegacyMemory,
-  memoryGraphToBackend,
   mergeMemoryGraphs,
+  replaceMemoryGraphAtomValue,
   saveMemoryGraphContext,
 } from "./memory_graph.js";
 
-import {
-  answerQuestionFromMemory,
-  classifyAndStoreMemoryFromMessage,
-  createEmptyMemory,
-  buildMemoryLines,
-  loadMemoryContext,
-  memoryFromBackendSummary,
-  saveMemoryContext,
-  mergeMemoryContexts,
-} from "./memory_graph.js";
+import { memoryFromBackendSummary } from "./memory_graph.js";
 
 // ═══════════════════════════════════════════════════════════════
 // App state
@@ -187,52 +176,50 @@ export function removeGlobalLoader() {
 // ═══════════════════════════════════════════════════════════════
 
 function buildVoiceContextProvider() {
-  const memoryContext = getMemoryContext();
-  const memoryGraphContext = getMemoryGraphContext();
   return {
     getUserProfile() {
       const user = getCurrentUser?.() || {};
-      const name = user?.displayName || user?.name || memoryContext?.preferredName || memoryContext?.user?.preferredName || "";
-      const comm = memoryContext?.communicationPreferences || {};
-      // Gender from memory graph atoms or profile
-      const genderAtom = (memoryGraphContext?.atoms || []).find(a =>
-        a.status !== "deleted" && a.category === "identity" &&
-        (a.value || "").toLowerCase().match(/\b(male|female|boy|girl|man|woman|ذكر|انثى|ولد|بنت|راجل|ست)\b/)
+      const graph = getMemoryGraphContext();
+      const activeAtoms = (graph?.atoms || []).filter((atom) => atom.status === "active");
+      const preferredName = activeAtoms.find((atom) => atom.category === "profile" && atom.metadata?.field === "preferred_name")?.value || "";
+      const preferenceValues = activeAtoms.filter((atom) => atom.category === "preferences").map((atom) => atom.value);
+      const avoidValues = activeAtoms.filter((atom) => atom.category === "avoid").map((atom) => atom.value);
+      const patternValues = activeAtoms.filter((atom) => atom.category === "patterns").map((atom) => atom.value);
+      const goalValues = activeAtoms.filter((atom) => atom.category === "goals").map((atom) => atom.value);
+      const name = user?.displayName || user?.name || preferredName || "";
+
+      const genderAtom = activeAtoms.find((atom) =>
+        ["profile", "facts"].includes(atom.category)
+        && /\b(male|female|boy|girl|man|woman|ذكر|انثى|أنثى|ولد|بنت|راجل|ست)\b/i.test(atom.value || "")
       );
       let gender = "";
       if (genderAtom) {
-        const val = (genderAtom.value || "").toLowerCase();
-        if (val.match(/\b(male|boy|man|ذكر|ولد|راجل)\b/)) gender = "male";
-        else if (val.match(/\b(female|girl|woman|انثى|بنت|ست)\b/)) gender = "female";
+        const value = String(genderAtom.value || "").toLowerCase();
+        if (/\b(male|boy|man|ذكر|ولد|راجل)\b/i.test(value)) gender = "male";
+        else if (/\b(female|girl|woman|انثى|أنثى|بنت|ست)\b/i.test(value)) gender = "female";
       }
+
+      const tone = preferenceValues.find((value) => /\b(direct|gentle|casual|formal|warm|empathetic)\b/i.test(value)) || "";
+      const language = preferenceValues.find((value) => /\b(arabic|english|french|spanish|عربي|انجليزي|إنجليزي)\b/i.test(value)) || "";
+
       return {
         name,
         gender,
         preferences: {
-          tone: comm.tone || "",
-          language: comm.language || "",
-          responseStyle: comm.responseStyle || [],
-          avoid: comm.avoid || [],
+          tone,
+          language,
+          responseStyle: preferenceValues,
+          avoid: avoidValues,
         },
         communication: {
-          avoidedResponses: memoryContext?.avoidedResponses || [],
-          emotionalTriggers: memoryContext?.emotionalTriggers || [],
-          userGoals: memoryContext?.userGoals || [],
+          avoidedResponses: avoidValues,
+          emotionalTriggers: patternValues,
+          userGoals: goalValues,
         },
       };
     },
     getMemoryLines() {
-      const legacy = buildMemoryLines(memoryContext);
-      const graph = buildMemoryGraphLines(memoryGraphContext);
-      const seen = new Set();
-      const all = [];
-      for (const line of [...graph, ...legacy]) {
-        const key = line.toLowerCase().trim();
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        all.push(line);
-      }
-      return all.slice(0, 30);
+      return buildMemoryGraphLines(getMemoryGraphContext()).slice(0, 30);
     },
     getRecentChat(count = 10) {
       const messages = getState().chatMemory || [];
@@ -240,8 +227,8 @@ function buildVoiceContextProvider() {
     },
     searchChat(query) {
       const messages = getState().chatMemory || [];
-      const q = String(query).toLowerCase();
-      return messages.filter(m => String(m.text || "").toLowerCase().includes(q));
+      const q = String(query || "").toLowerCase();
+      return messages.filter((message) => String(message.text || "").toLowerCase().includes(q));
     },
   };
 }
@@ -347,25 +334,16 @@ async function bootstrap() {
         }
 
         if (userTranscript) {
-          let memoryGraphContext = getMemoryGraphContext();
-          let memoryContext = getMemoryContext();
-
           const graphResult = classifyAndStoreMemoryGraphFromMessage(userTranscript, {
-            graphContext: memoryGraphContext,
+            graphContext: getMemoryGraphContext(),
             source: "voice_call",
           });
-          memoryGraphContext = graphResult.graph;
-          setMemoryGraphContext(memoryGraphContext);
-          saveMemoryGraphContext(memoryGraphContext);
-
-          const memResult = classifyAndStoreMemoryFromMessage(userTranscript, {
-            memoryContext,
-            recentMessages: getState().chatMemory.slice(-8),
-          });
-          if (memResult.saved.length) {
-            memoryContext = memResult.memory;
-            setMemoryContext(memoryContext);
-            saveMemoryContext(memoryContext);
+          const canonicalGraph = saveMemoryGraphContext(graphResult.graph);
+          setMemoryGraphContext(canonicalGraph);
+          setMemoryContext(canonicalGraph);
+          if (graphResult.saved.length) {
+            renderMemoryInspector();
+            void persistMemoryContextSafe();
           }
         }
 
@@ -493,19 +471,31 @@ function bindProfileModal() {
   });
 
   userNameInput?.addEventListener("change", (event) => {
-    const nextName = setUserName(event.target.value);
-    let memoryContext = getMemoryContext();
+    const input = event.target instanceof HTMLInputElement ? event.target : userNameInput;
+    const nextName = setUserName(input?.value || "");
     let memoryGraphContext = getMemoryGraphContext();
 
-    memoryContext.preferredName = nextName === "Friend" ? "" : nextName;
-    memoryContext.user.preferredName = memoryContext.preferredName;
-    if (memoryContext.preferredName) {
-      memoryGraphContext = mergeMemoryGraphs(memoryGraphContext, memoryGraphFromLegacyMemory(memoryContext));
-      setMemoryGraphContext(memoryGraphContext);
+    if (nextName !== "Friend") {
+      const result = classifyAndStoreMemoryGraphFromMessage(`remember: my name is ${nextName}`, {
+        graphContext: memoryGraphContext,
+        source: "profile",
+      });
+      memoryGraphContext = result.graph;
+    } else {
+      const now = new Date().toISOString();
+      memoryGraphContext = {
+        ...memoryGraphContext,
+        atoms: (memoryGraphContext.atoms || []).map((atom) =>
+          atom.category === "profile" && atom.metadata?.field === "preferred_name"
+            ? { ...atom, status: "deleted", pinned: false, updated_at: now, metadata: { ...(atom.metadata || {}), deleted_by_user: true } }
+            : atom,
+        ),
+      };
     }
-    setMemoryContext(memoryContext);
-    saveMemoryGraphContext(memoryGraphContext);
-    saveMemoryContext(memoryContext);
+
+    const canonicalGraph = saveMemoryGraphContext(memoryGraphContext);
+    setMemoryGraphContext(canonicalGraph);
+    setMemoryContext(canonicalGraph);
     void persistMemoryContextSafe();
     
     getIdToken().then(token => {
@@ -547,8 +537,9 @@ function bindProfileModal() {
 
     resetCloudState();
     clearChatMemory();
-    setMemoryContext(saveMemoryContext(createEmptyMemory()));
-    setMemoryGraphContext(saveMemoryGraphContext(createEmptyMemoryGraph()));
+    const emptyGraph = saveMemoryGraphContext(createEmptyMemoryGraph());
+    setMemoryGraphContext(emptyGraph);
+    setMemoryContext(emptyGraph);
     renderMemoryInspector();
     document.getElementById("chat-history")?.replaceChildren();
     setChatStarted(false);
@@ -592,8 +583,9 @@ function bindSettings() {
       showToast("Memory refreshed.");
       return;
     }
-    setMemoryContext(loadMemoryContext());
-    setMemoryGraphContext(loadMemoryGraphContext());
+    const localGraph = loadMemoryGraphContext();
+    setMemoryGraphContext(localGraph);
+    setMemoryContext(localGraph);
     renderMemoryInspector();
     showToast("Local memory refreshed.");
   });
@@ -702,8 +694,9 @@ function bindConversationActions() {
 
     // Clear primary state
     clearChatMemory();
-    setMemoryContext(saveMemoryContext(createEmptyMemory()));
-    setMemoryGraphContext(saveMemoryGraphContext(createEmptyMemoryGraph()));
+    const emptyGraph = saveMemoryGraphContext(createEmptyMemoryGraph());
+    setMemoryGraphContext(emptyGraph);
+    setMemoryContext(emptyGraph);
 
     // Comprehensive localStorage wipe — remove ALL mindpal-related keys
     try {
@@ -829,11 +822,10 @@ async function editMemoryEntry(atomId) {
   const clean = String(newValue).trim();
   if (!clean) { showToast("Cannot save empty memory."); return; }
 
-  memoryGraphContext.atoms = (memoryGraphContext.atoms || []).map((a) =>
-    a.id === atomId ? { ...a, value: clean, updated_at: new Date().toISOString() } : a,
-  );
-  setMemoryGraphContext(memoryGraphContext);
-  saveMemoryGraphContext(memoryGraphContext);
+  memoryGraphContext = replaceMemoryGraphAtomValue(memoryGraphContext, atomId, clean);
+  const canonicalGraph = saveMemoryGraphContext(memoryGraphContext);
+  setMemoryGraphContext(canonicalGraph);
+  setMemoryContext(canonicalGraph);
   showToast("Memory updated.");
 }
 
@@ -865,6 +857,21 @@ function clearMemoryCategory(category) {
 // handleSend — main chat orchestrator
 // ═══════════════════════════════════════════════════════════════
 
+function renderStreamPreview(contentBox, rawText) {
+  if (!contentBox) return;
+  const visible = extractVisibleText(rawText, { final: false });
+  contentBox.textContent = visible;
+  contentBox.style.whiteSpace = "pre-wrap";
+}
+
+function renderFinalResponse(contentBox, rawText, elapsedMs) {
+  if (!contentBox) return "";
+  const visible = extractVisibleText(rawText, { final: true });
+  contentBox.style.whiteSpace = "";
+  contentBox.innerHTML = sanitizeRichHtml(processStructuredResponse(visible, elapsedMs).finalHtml);
+  return visible;
+}
+
 async function handleSend() {
   const inputEl = document.getElementById("chat-input");
   const text = inputEl?.value?.trim() || "";
@@ -876,6 +883,9 @@ async function handleSend() {
     showToast("You've reached your usage limit. Please wait for it to reset.", "warning");
     return;
   }
+
+  const priorChatHistory = [...getState().chatMemory];
+  let streamController = null;
 
   isGenerating = true;
   setInputState({ disabled: true, locked: false });
@@ -893,37 +903,17 @@ async function handleSend() {
     scheduleCloudMessageSync(userMessageRecord);
     clearInput();
 
-    let memoryContext = getMemoryContext();
-    let memoryGraphContext = getMemoryGraphContext();
-
-    const recentMessages = getState().chatMemory.slice(-8);
-    const memoryResult = classifyAndStoreMemoryFromMessage(text, { memoryContext, recentMessages });
-    const graphResult = classifyAndStoreMemoryGraphFromMessage(text, { graphContext: memoryGraphContext });
-
-    memoryContext = memoryResult.memory;
-    memoryGraphContext = graphResult.graph;
-    setMemoryContext(memoryContext);
+    const graphResult = classifyAndStoreMemoryGraphFromMessage(text, {
+      graphContext: getMemoryGraphContext(),
+      source: "chat_extraction",
+    });
+    const memoryGraphContext = saveMemoryGraphContext(graphResult.graph);
     setMemoryGraphContext(memoryGraphContext);
+    setMemoryContext(memoryGraphContext);
 
-    if (memoryResult.saved.length || graphResult.saved.length) {
+    if (graphResult.saved.length) {
       renderMemoryInspector();
       void persistMemoryContextSafe();
-    }
-
-    const localMemoryReply = graphResult.localReply || memoryResult.localReply;
-    if ((graphResult.shouldIntercept || memoryResult.shouldIntercept) && localMemoryReply) {
-      const memoryReplyRecord = addMessage("MindPal", localMemoryReply, { providerUsed: "local_memory", memoryUpdated: true });
-      scheduleCloudMessageSync(memoryReplyRecord);
-      await appendMessageToUI(localMemoryReply, "bot", { smoothScroll: true, typewriter: true });
-      return;
-    }
-
-    const memoryDirectAnswer = answerQuestionFromMemoryGraph(text, memoryGraphContext) || answerQuestionFromMemory(text, memoryContext);
-    if (memoryDirectAnswer) {
-      const memoryAnswerRecord = addMessage("MindPal", memoryDirectAnswer, { providerUsed: "local_memory", memoryUsed: true });
-      scheduleCloudMessageSync(memoryAnswerRecord);
-      await appendMessageToUI(memoryDirectAnswer, "bot", { smoothScroll: true, typewriter: true });
-      return;
     }
 
     const chatHistory = document.getElementById("chat-history");
@@ -934,10 +924,9 @@ async function handleSend() {
     appendStatusIndicator(statusId, streamMsgDiv);
 
     let contentBox = null;
-    const state = getState();
     const token = await getIdToken();
     const mode = getCurrentMode();
-    const model = getCurrentModel();
+    const model = currentModel;
     const contentContainer = document.createElement("div");
     contentContainer.className = "flex flex-col text-[15px] text-gemini-text dark:text-gemini-darkText leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
     contentBox = document.createElement("div");
@@ -951,21 +940,20 @@ async function handleSend() {
     let lastRenderTime = 0;
     let renderTimeout = null;
     const streamStartTime = performance.now();
-    let earlyAssistantMessage = null;
+    let responseRendered = false;
 
-    if (activeStreamController) {
-      activeStreamController.abort();
-    }
-    activeStreamController = new AbortController();
+    if (activeStreamController) activeStreamController.abort();
+    streamController = new AbortController();
+    activeStreamController = streamController;
 
     await sendChatMessageStream({
       message: text,
-      history: state.chatMemory,
+      history: priorChatHistory,
       locale: resolveLocale(getAppSettings),
       mode,
       model,
       token,
-      signal: activeStreamController.signal,
+      signal: streamController.signal,
       profileContext: {
         ...(getCurrentCloudProfileContext() || {}),
         settingsMetadata: buildChatSettingsMetadata(),
@@ -993,73 +981,25 @@ async function handleSend() {
         if (now - lastRenderTime > 150) {
           lastRenderTime = now;
           if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
-          contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
+          renderStreamPreview(contentBox, streamResponseStr);
           scrollChatToBottom("auto");
         } else if (!renderTimeout) {
           renderTimeout = requestAnimationFrame(() => {
             renderTimeout = null;
             lastRenderTime = performance.now();
-            contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
+            renderStreamPreview(contentBox, streamResponseStr);
             scrollChatToBottom("auto");
           });
         }
       },
       onStatus: (status) => {
-        if (status === "text_finished") {
-          if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
-          const elapsedMs = performance.now() - streamStartTime;
-          const finalParsed = processStructuredResponse(streamResponseStr, elapsedMs);
-
-          // Safety net: never show empty content box when we have text
-          if (!finalParsed.finalHtml && streamResponseStr.trim()) {
-            // Parser couldn't extract anything — show raw text stripped of internal markers
-            let raw = streamResponseStr.trim()
-              .replace(/^\s*\*{0,2}\s*Thought\s*:?\s*\*{0,2}\s*/i, "")
-              .replace(/^\s*Self\s*:\s*/i, "")
-              .replace(/^\s*REVIEW\s*:\s*/i, "")
-              .replace(/\n\s*Note\s*:\s*[\s\S]*$/i, "")
-              .replace(/\s*\([A-Za-z][^)]{10,}\?\s*\)\s*/g, " ")
-              .trim();
-            // Strip numbered step lines (1. INTAKE: ..., etc.)
-            raw = raw.replace(/(?:^|\n)\s*[1-6][\.\)]\s*[A-Z][A-Z\s]*:[^\n]*/gi, "").trim();
-            contentBox.innerHTML = raw
-              ? `<div class="text-[15px] leading-relaxed" dir="auto">${formatMarkdown(raw)}</div>`
-              : `<div class="text-[15px] leading-relaxed text-gray-400 italic">Response could not be parsed. Please try again.</div>`;
-          } else {
-            contentBox.innerHTML = finalParsed.finalHtml;
-          }
-
-          if (finalParsed.timelineHtml) {
-            const timelineDiv = document.createElement("div");
-            timelineDiv.innerHTML = finalParsed.timelineHtml;
-            contentContainer.insertBefore(timelineDiv, contentBox);
-            document.getElementById(statusId)?.remove();
-          } else {
-            // No thought accordion — finalize indicator as "Thought for Xs" or remove it
-            if (!firstChunkReceived) {
-              finalizeStatusIndicator(statusId, elapsedMs);
-            }
-          }
-
-          scrollChatToBottom("auto");
-          isGenerating = false;
-          notifyResponseComplete();
-          setInputState({ disabled: false, locked: isSessionLocked });
-          document.getElementById("chat-input")?.focus();
-
-          const replyText = streamResponseStr.trim();
-          earlyAssistantMessage = addMessage("MindPal", replyText, {
-            requestId: null, providerUsed: null, safety: null,
-            ragUsed: [], memoryUpdated: false, generationTimeMs: elapsedMs,
-          });
-
-          notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
-
-          if (!isCrisisReply(replyText, "")) {
-            contentContainer.appendChild(buildMessageActions(replyText));
-            refreshIcons();
-          }
-        }
+        if (status !== "text_finished" || responseRendered) return;
+        if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
+        const elapsedMs = performance.now() - streamStartTime;
+        renderFinalResponse(contentBox, streamResponseStr, elapsedMs);
+        responseRendered = true;
+        if (!firstChunkReceived) finalizeStatusIndicator(statusId, elapsedMs);
+        scrollChatToBottom("auto");
       },
       onMetadata: (meta) => {
         backendMetaFinal = meta;
@@ -1072,33 +1012,33 @@ async function handleSend() {
       },
     });
 
-    const reply = truncateRepetition(streamResponseStr.trim()) || streamResponseStr.trim();
-    if (!reply) throw new Error("Backend returned empty reply.");
+    const publicReply = extractVisibleText(streamResponseStr, { final: true });
+    const reply = truncateRepetition(publicReply) || publicReply;
+    if (!reply) throw new Error("Backend returned empty public reply.");
 
-    // Record message credit (client-side tracking for guests)
-    recordMessage(getCurrentModel());
+    const elapsedMs = performance.now() - streamStartTime;
+    if (!responseRendered) {
+      if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
+      renderFinalResponse(contentBox, streamResponseStr, elapsedMs);
+      if (!firstChunkReceived) finalizeStatusIndicator(statusId, elapsedMs);
+      responseRendered = true;
+    }
+
+    // Record against the model used for this request, even if the UI changes mid-stream.
+    recordMessage(model);
 
     if (isSafetyLock(backendMetaFinal)) {
       isSessionLocked = true;
     }
 
-    let assistantMessageRecord = earlyAssistantMessage;
-    if (assistantMessageRecord) {
-      assistantMessageRecord.text = reply;
-      assistantMessageRecord.requestId = backendMetaFinal?.request_id || null;
-      assistantMessageRecord.providerUsed = backendMetaFinal?.provider_used || null;
-      assistantMessageRecord.safety = backendMetaFinal?.safety || null;
-      assistantMessageRecord.ragUsed = backendMetaFinal?.rag_used || [];
-      assistantMessageRecord.memoryUpdated = Boolean(backendMetaFinal?.memory_updated);
-    } else {
-      assistantMessageRecord = addMessage("MindPal", reply, {
-        requestId: backendMetaFinal?.request_id || null,
-        providerUsed: backendMetaFinal?.provider_used || null,
-        safety: backendMetaFinal?.safety || null,
-        ragUsed: backendMetaFinal?.rag_used || [],
-        memoryUpdated: Boolean(backendMetaFinal?.memory_updated),
-      });
-    }
+    const assistantMessageRecord = addMessage("MindPal", reply, {
+      requestId: backendMetaFinal?.request_id || null,
+      providerUsed: backendMetaFinal?.provider_used || null,
+      safety: backendMetaFinal?.safety || null,
+      ragUsed: backendMetaFinal?.rag_used || [],
+      memoryUpdated: Boolean(backendMetaFinal?.memory_updated),
+      generationTimeMs: elapsedMs,
+    });
 
     scheduleCloudMessageSync(assistantMessageRecord);
     handleBackendMemoryUpdates(backendMetaFinal);
@@ -1107,7 +1047,12 @@ async function handleSend() {
     if (isCrisisReply(reply, safetyLevel)) {
       contentContainer.className = "flex flex-col text-[15px] text-rose-700 dark:text-rose-400 font-medium leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
       contentContainer.querySelector(".action-buttons")?.remove();
+    } else if (!contentContainer.querySelector(".action-buttons")) {
+      contentContainer.appendChild(buildMessageActions(reply));
     }
+
+    notifyResponseComplete();
+    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
 
     if (window.MINDPAL_CONFIG?.SHOW_RESPONSE_DEBUG && backendMetaFinal) {
       const metaEl = buildBackendMeta(backendMetaFinal);
@@ -1136,6 +1081,7 @@ async function handleSend() {
     }
     notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the fallback response.");
   } finally {
+    if (activeStreamController === streamController) activeStreamController = null;
     isGenerating = false;
     setInputState({ disabled: false, locked: isSessionLocked });
     if (!isSessionLocked) document.getElementById("chat-input")?.focus();
@@ -1145,23 +1091,22 @@ async function handleSend() {
 
 function handleBackendMemoryUpdates(meta) {
   if (!meta) return;
-  let memoryContext = getMemoryContext();
-  let memoryGraphContext = getMemoryGraphContext();
+  let graph = getMemoryGraphContext();
 
   if (meta.memory_summary) {
-    memoryContext = saveMemoryContext(mergeMemoryContexts(memoryContext, memoryFromBackendSummary(meta.memory_summary)));
-    setMemoryContext(memoryContext);
+    graph = mergeMemoryGraphs(graph, memoryFromBackendSummary(meta.memory_summary));
   }
 
   if (meta.memory_graph_snapshot && meta.memory_graph_full_snapshot) {
-    memoryGraphContext = saveMemoryGraphContext(memoryGraphFromBackend(meta.memory_graph_snapshot));
-    setMemoryGraphContext(memoryGraphContext);
+    graph = memoryGraphFromBackend(meta.memory_graph_snapshot);
   } else if (meta.memory_graph_delta) {
-    memoryGraphContext = saveMemoryGraphContext(mergeMemoryGraphs(memoryGraphContext, memoryGraphFromBackend(meta.memory_graph_delta)));
-    setMemoryGraphContext(memoryGraphContext);
+    graph = mergeMemoryGraphs(graph, memoryGraphFromBackend(meta.memory_graph_delta));
   }
 
   if (meta.memory_summary || meta.memory_graph_snapshot || meta.memory_graph_delta) {
+    const canonicalGraph = saveMemoryGraphContext(graph);
+    setMemoryGraphContext(canonicalGraph);
+    setMemoryContext(canonicalGraph);
     renderMemoryInspector();
   }
 }
@@ -1214,8 +1159,12 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
   if (!chatHistory) return;
 
   const callTime = new Date(startTime);
-  const timeStr = callTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const dateStr = callTime.toLocaleDateString([], { month: "short", day: "numeric" });
+  const validTime = Number.isFinite(callTime.getTime()) ? callTime : new Date();
+  const timeStr = validTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const dateStr = validTime.toLocaleDateString([], { month: "short", day: "numeric" });
+  const safeDuration = escapeHtml(String(durationStr || "").slice(0, 80));
+  const safeDate = escapeHtml(dateStr);
+  const safeTime = escapeHtml(timeStr);
   const cardId = "call-card-" + Date.now() + Math.random().toString(36).slice(2, 6);
   const summaryId = cardId + "-summary";
 
@@ -1228,7 +1177,7 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
         <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
         </svg>
-        Call ended · ${durationStr}
+        Call ended · ${safeDuration}
       </span>
       <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
     </div>
@@ -1239,7 +1188,7 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
       </svg>
     </div>
     <div id="${cardId}" class="call-card-details hidden mt-1 text-[10px] text-gray-400 dark:text-gray-500">
-      ${dateStr}, ${timeStr} · ${durationStr}
+      ${safeDate}, ${safeTime} · ${safeDuration}
     </div>
   `;
 
@@ -1249,7 +1198,8 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
   const details = card.querySelector(`#${cardId}`);
   const chevron = card.querySelector(".call-chevron");
 
-  summaryRow.addEventListener("click", () => {
+  summaryRow?.addEventListener("click", () => {
+    if (!details || !chevron) return;
     const isOpen = !details.classList.contains("hidden");
     details.classList.toggle("hidden");
     chevron.style.transform = isOpen ? "" : "rotate(180deg)";
@@ -1337,7 +1287,7 @@ async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter
 
   if (parsed.timelineHtml) {
     const timelineDiv = document.createElement("div");
-    timelineDiv.innerHTML = parsed.timelineHtml;
+    timelineDiv.innerHTML = sanitizeRichHtml(parsed.timelineHtml);
     contentContainer.appendChild(timelineDiv);
   }
 
@@ -1374,11 +1324,11 @@ async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter
       const delimMatch = raw.match(/\*{2}\s*(?:Balanced\s*Reframe|Response)\s*:?\s*\*{2}\s*([\s\S]*)/i)
         || raw.match(/(?:Balanced\s*Reframe|Response)\s*:\s*([\s\S]*)/i);
       if (delimMatch && delimMatch[1].trim()) raw = delimMatch[1].trim();
-      contentBox.innerHTML = raw
+      contentBox.innerHTML = sanitizeRichHtml(raw
         ? `<div class="text-[15px] leading-relaxed" dir="auto">${formatMarkdown(raw)}</div>`
-        : `<div class="text-[15px] leading-relaxed text-gray-400 italic">Response could not be parsed. Please try again.</div>`;
+        : `<div class="text-[15px] leading-relaxed text-gray-400 italic">Response could not be parsed. Please try again.</div>`);
     } else {
-      contentBox.innerHTML = parsed.finalHtml;
+      contentBox.innerHTML = sanitizeRichHtml(parsed.finalHtml);
     }
   }
   contentContainer.appendChild(contentBox);
@@ -1490,6 +1440,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
   const userMessage = String(messages[userIndex]?.text || "").trim();
   if (!userMessage) { showToast("No matching user message found."); return; }
 
+  let streamController = null;
   isGenerating = true;
   setInputState({ disabled: true, locked: false });
   setChatStarted(true);
@@ -1506,6 +1457,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     void replaceCloudChatSnapshotSafe(preservedMessages);
     const token = await getIdToken();
     const mode = getCurrentMode();
+    const model = getCurrentModel();
     const chatHistory = document.getElementById("chat-history");
     streamMsgDiv = document.createElement("div");
     streamMsgDiv.className = "flex flex-col gap-1 w-full self-start animate-fade-in pl-4 sm:pl-10 pr-2 sm:pr-4";
@@ -1527,18 +1479,18 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     const streamStartTime = performance.now();
     let earlyRegeneratedMessage = null;
 
-    if (activeStreamController) {
-      activeStreamController.abort();
-    }
-    activeStreamController = new AbortController();
+    if (activeStreamController) activeStreamController.abort();
+    streamController = new AbortController();
+    activeStreamController = streamController;
 
     await sendChatMessageStream({
       message: userMessage,
       history: messages.slice(0, userIndex),
       locale: resolveLocale(getAppSettings),
       mode,
+      model,
       token,
-      signal: activeStreamController.signal,
+      signal: streamController.signal,
       profileContext: {
         ...(getCurrentCloudProfileContext() || {}),
         settingsMetadata: buildChatSettingsMetadata(),
@@ -1560,13 +1512,13 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
         if (now - lastRenderTime > 150) {
           lastRenderTime = now;
           if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
-          contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
+          renderStreamPreview(contentBox, streamResponseStr);
           scrollChatToBottom("auto");
         } else if (!renderTimeout) {
           renderTimeout = requestAnimationFrame(() => {
             renderTimeout = null;
             lastRenderTime = performance.now();
-            contentBox.innerHTML = processStructuredResponse(streamResponseStr).finalHtml;
+            renderStreamPreview(contentBox, streamResponseStr);
             scrollChatToBottom("auto");
           });
         }
@@ -1575,27 +1527,11 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
         if (status === "text_finished") {
           if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
           const elapsedMs = performance.now() - streamStartTime;
-          const finalParsed = processStructuredResponse(streamResponseStr, elapsedMs);
-          contentBox.innerHTML = finalParsed.finalHtml;
-
-          if (finalParsed.timelineHtml) {
-            const timelineDiv = document.createElement("div");
-            timelineDiv.innerHTML = finalParsed.timelineHtml;
-            contentContainer.insertBefore(timelineDiv, contentBox);
-            document.getElementById(statusId)?.remove();
-          } else {
-            if (!firstChunkReceived) {
-              finalizeStatusIndicator(statusId, elapsedMs);
-            }
-          }
+          const replyText = renderFinalResponse(contentBox, streamResponseStr, elapsedMs);
+          if (!firstChunkReceived) finalizeStatusIndicator(statusId, elapsedMs);
 
           scrollChatToBottom("auto");
-          isGenerating = false;
           notifyResponseComplete();
-          setInputState({ disabled: false, locked: isSessionLocked });
-          document.getElementById("chat-input")?.focus();
-
-          const replyText = streamResponseStr.trim();
           earlyRegeneratedMessage = addMessage("MindPal", replyText, {
             requestId: null, providerUsed: null, safety: null,
             ragUsed: [], memoryUpdated: false, regenerated: true, generationTimeMs: elapsedMs,
@@ -1616,8 +1552,10 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       },
     });
 
-    const reply = truncateRepetition(streamResponseStr.trim()) || streamResponseStr.trim();
-    if (!reply) throw new Error("Backend returned empty reply.");
+    const publicReply = extractVisibleText(streamResponseStr, { final: true });
+    const reply = truncateRepetition(publicReply) || publicReply;
+    if (!reply) throw new Error("Backend returned empty public reply.");
+    recordMessage(model);
 
     if (isSafetyLock(backendMetaFinal)) isSessionLocked = true;
 
@@ -1647,7 +1585,12 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     if (isCrisisReply(reply, safetyLevel)) {
       contentContainer.className = "flex flex-col text-[15px] text-rose-700 dark:text-rose-400 font-medium leading-relaxed max-w-3xl w-full pr-2 sm:pr-0";
       contentContainer.querySelector(".action-buttons")?.remove();
+    } else if (!contentContainer.querySelector(".action-buttons")) {
+      contentContainer.appendChild(buildMessageActions(reply));
     }
+
+    notifyResponseComplete();
+    notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the response.");
 
     if (window.MINDPAL_CONFIG?.SHOW_RESPONSE_DEBUG && backendMetaFinal) {
       const metaEl = buildBackendMeta(backendMetaFinal);
@@ -1680,6 +1623,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
     }
     notifyFromSetting("responseComplete", "MindPal response ready", "MindPal finished the fallback response.");
   } finally {
+    if (activeStreamController === streamController) activeStreamController = null;
     isGenerating = false;
     setInputState({ disabled: false, locked: isSessionLocked });
     if (!isSessionLocked) document.getElementById("chat-input")?.focus();

@@ -3,59 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@1.21.0" crossorigin="anonymous"></script>
-
-    <!-- Google Fonts: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Deployment-owned browser configuration (contains no private provider keys). -->
+    <script src="./runtime-config.js"></script>
+    <link rel="stylesheet" href="./css/tailwind.generated.css">
     <link rel="stylesheet" href="./css/style.css" id="main-css">
-
-
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: { 
-                        gemini: {
-                            bg: '#ffffff',
-                            surface: '#f0f4f9',
-                            darkBg: '#131314',
-                            darkSurface: '#1e1f20',
-                            text: '#1f1f1f',
-                            darkText: '#e3e3e3',
-                            muted: '#444746',
-                            darkMuted: '#c4c7c5',
-                            border: '#e0e0e0',
-                            darkBorder: '#444746'
-                        }
-                    }
-                }
-            }
-        }
-        window.MINDPAL_CONFIG = {
-            API_BASE_URL: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-                ? "http://127.0.0.1:8000/api" 
-                : "https://mindpal-demo.vercel.app/api",
-
-            FIREBASE_CONFIG: {
-                apiKey: "AIzaSyCNyY5Dp7Umw0sLZYLgYc6-_DhNjVU7Chc",
-                authDomain: "mindpal-official-0.firebaseapp.com",
-                databaseURL: "https://mindpal-official-0-default-rtdb.europe-west1.firebasedatabase.app",
-                projectId: "mindpal-official-0",
-                storageBucket: "mindpal-official-0.firebasestorage.app",
-                messagingSenderId: "234733155455",
-                appId: "1:234733155455:web:a297853f71b6092b0e3b4a",
-                measurementId: "G-CT1D5ZNRB8"
-            }
-        };
-    </script>
-
-    <!-- All component styles consolidated in css/style.css -->
+    <script defer src="./dist/lucide.bundle.js"></script>
+    <script defer src="./js/bootstrap.js"></script>
+<!-- All component styles consolidated in css/style.css -->
 
 
     <!-- MindPal SEO / Social / PWA -->
@@ -100,15 +54,9 @@
     <!-- /MindPal SEO / Social / PWA -->
 
     <!-- Vercel Web Analytics -->
-    <script>
-        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-    </script>
     <script defer src="/_vercel/insights/script.js"></script>
 
     <!-- Vercel Speed Insights -->
-    <script>
-      window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
-    </script>
     <script defer src="/_vercel/speed-insights/script.js"></script>
 
 </head>
@@ -136,39 +84,7 @@
                 <span id="loader-typer" class="loader-hello bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]"></span>
             </h1>
         </div>
-        <script>
-        (function(){
-            var el = document.getElementById('loader-typer');
-            if (!el) return;
-            var phrases = ['Hello.', 'Getting things ready…', 'Almost there…'];
-            var pi = 0, ci = 0, speed = 70, pauseAfter = 1800, fadeMs = 400;
-            function type() {
-                if (!document.getElementById('loader-typer')) return;
-                if (ci <= phrases[pi].length) {
-                    el.textContent = phrases[pi].slice(0, ci);
-                    ci++;
-                    setTimeout(type, speed);
-                } else {
-                    // Done typing this phrase — hold, then fade to next
-                    setTimeout(function(){
-                        if (pi < phrases.length - 1) {
-                            el.style.opacity = '0';
-                            setTimeout(function(){
-                                pi++; ci = 0;
-                                el.textContent = '';
-                                el.style.opacity = '1';
-                                setTimeout(type, 100);
-                            }, fadeMs);
-                        }
-                        // Last phrase just stays
-                    }, pauseAfter);
-                }
-            }
-            setTimeout(type, 300);
-        })();
-        </script>
-
-        <!-- Input box skeleton — pinned bottom -->
+<!-- Input box skeleton — pinned bottom -->
         <div class="w-full pb-6 px-4 flex justify-center flex-none">
             <div class="w-full max-w-4xl">
                 <div class="bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] p-2 flex items-center w-full">
@@ -598,7 +514,7 @@
             <div class="flex items-center gap-1">
                 <button id="voice-incognito-toggle"
                         class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
-                        title="Incognito mode — don't save this call">
+                        title="Do not save this call to chat history">
                     <i data-lucide="eye" class="w-5 h-5"></i>
                 </button>
                 <button id="voice-cc-toggle"
@@ -648,43 +564,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Viewport height fix for iOS standalone / PWA mode -->
-    <script>
-    (function(){
-        // Set --app-height to actual window height (fixes iOS standalone 100vh bug)
-        function setAppHeight() {
-            document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
-        }
-        setAppHeight();
-        window.addEventListener('resize', setAppHeight);
-        window.addEventListener('orientationchange', function(){ setTimeout(setAppHeight, 150); });
-
-        // Detect standalone mode (added to home screen)
-        var isStandalone = window.navigator.standalone === true
-            || window.matchMedia('(display-mode: standalone)').matches;
-        if (isStandalone) {
-            document.body.classList.add('standalone');
-        }
-    })();
-    </script>
-
-    <!-- Safety-net: remove loading screen if bootstrap fails or takes too long -->
-    <script>
-    (function(){
-        var SAFETY_TIMEOUT_MS = 12000;
-        var timer = setTimeout(function(){
-            var loader = document.getElementById('global-loader');
-            if (loader) {
-                console.warn('[MindPal] Safety-net: removing loading screen after timeout');
-                loader.style.opacity = '0';
-                setTimeout(function(){ loader.remove(); }, 700);
-            }
-        }, SAFETY_TIMEOUT_MS);
-        // Allow bootstrap to cancel this timer
-        window.__mindpalLoaderTimer = timer;
-    })();
-    </script>
-    <script type="module" src="./js/app.js" onerror="console.error('[MindPal] app.js failed to load');var l=document.getElementById('global-loader');if(l){l.style.opacity='0';setTimeout(function(){l.remove()},700)}"></script>
+<script type="module" src="./dist/app.bundle.js"></script>
 </body>
 </html>

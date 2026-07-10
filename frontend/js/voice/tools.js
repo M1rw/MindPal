@@ -78,7 +78,12 @@ export function createToolExecutor({ getAuthToken, contextProvider, apiBaseUrl }
     if (token) headers.Authorization = `Bearer ${token}`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || 12_000);
+    const externalSignal = options.signal || null;
+    const abortFromExternal = () => controller.abort(externalSignal?.reason);
+    if (externalSignal?.aborted) abortFromExternal();
+    else externalSignal?.addEventListener?.("abort", abortFromExternal, { once: true });
+    const timeoutId = setTimeout(() => controller.abort(new DOMException("Tool timed out", "TimeoutError")), options.timeoutMs || 12_000);
+    const allowClientFallback = options.allowClientFallback !== false;
 
     try {
       const response = await fetch(`${baseUrl}/tools/execute`, {
@@ -86,12 +91,14 @@ export function createToolExecutor({ getAuthToken, contextProvider, apiBaseUrl }
         headers,
         body: JSON.stringify({ tool: name, args }),
         signal: controller.signal,
+        credentials: "omit",
       });
 
-      clearTimeout(timeoutId);
-
       if (!response.ok) {
-        console.warn(`[TOOL_CALL] ${name} backend returned HTTP ${response.status} — falling back to client-side`);
+        console.warn(`[TOOL_CALL] ${name} backend returned HTTP ${response.status}`);
+        if (!allowClientFallback) {
+          return { error: `Tool backend returned HTTP ${response.status}` };
+        }
         const provider = typeof contextProvider === "function" ? contextProvider() : contextProvider;
         return executeToolClientSide(name, args, provider);
       }
@@ -101,10 +108,16 @@ export function createToolExecutor({ getAuthToken, contextProvider, apiBaseUrl }
       console.info(`[TOOL_CALL] ${name} executed via BACKEND`, result?.result_count ? `(${result.result_count} results)` : "");
       return result;
     } catch (err) {
+      const isAbort = err.name === "AbortError" || err.name === "TimeoutError";
+      console.warn(`[TOOL_CALL] ${name} backend failed: ${isAbort ? "timeout/cancelled" : err.message}`);
+      if (!allowClientFallback) {
+        return { error: isAbort ? "Tool request timed out" : "Tool backend unavailable" };
+      }
+      const provider = typeof contextProvider === "function" ? contextProvider() : contextProvider;
+      return executeToolClientSide(name, args, provider);
+    } finally {
       clearTimeout(timeoutId);
-      const isTimeout = err.name === "AbortError";
-      console.warn(`[TOOL_CALL] ${name} backend failed: ${isTimeout ? "timeout" : err.message} — falling back to client-side`);
-      return executeToolClientSide(name, args, contextProvider);
+      externalSignal?.removeEventListener?.("abort", abortFromExternal);
     }
   };
 }
