@@ -26,6 +26,31 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.sources import EnvSettingsSource
 
 
+def _load_dotenv_values() -> dict[str, str]:
+    values: dict[str, str] = {}
+    for name in (".env", ".env.local"):
+        path = Path(name)
+        if not path.exists():
+            continue
+
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if not key:
+                continue
+
+            if key.upper() == "ENVIRONMENT":
+                continue
+
+            values[key] = value
+
+    return values
+
+
 Environment = Literal["development", "test", "staging", "production"]
 
 
@@ -35,7 +60,8 @@ class SafeEnvSettingsSource(EnvSettingsSource):
         origin = get_origin(annotation)
 
         if isinstance(value, str):
-            if not value.strip():
+            candidate = value.strip()
+            if not candidate:
                 if origin is list:
                     return []
                 if origin is dict:
@@ -45,7 +71,22 @@ class SafeEnvSettingsSource(EnvSettingsSource):
                 return None
 
             if origin is list:
-                return Settings._parse_string_list(value)
+                try:
+                    return Settings._parse_string_list(candidate)
+                except Exception:
+                    return []
+
+            if origin is dict:
+                try:
+                    return json.loads(candidate)
+                except Exception:
+                    return {}
+
+            if field_name in {"CORS_ORIGINS", "TRUSTED_HOSTS"}:
+                try:
+                    return Settings._parse_string_list(candidate)
+                except Exception:
+                    return []
 
         return super().prepare_field_value(field_name, field, value, value_is_complex)
 
@@ -59,7 +100,7 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -254,10 +295,16 @@ class Settings(BaseSettings):
         dotenv_settings: Any,
         file_secret_settings: Any,
     ) -> tuple[Any, ...]:
+        dotenv_values = _load_dotenv_values()
+
+        class DotEnvFallbackSource:
+            def __call__(self) -> dict[str, Any]:
+                return dotenv_values
+
         return (
             init_settings,
             SafeEnvSettingsSource(settings_cls),
-            dotenv_settings,
+            DotEnvFallbackSource(),
             file_secret_settings,
         )
 
