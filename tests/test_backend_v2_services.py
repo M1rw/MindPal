@@ -13,6 +13,7 @@ from backend.main import create_app
 from backend.models.memory import MemoryCategory, MemoryGraph, make_memory_atom
 from backend.services.db_service import DBService, InMemoryDBProvider
 from backend.services.idempotency_service import IdempotencyConflictError, IdempotencyService
+from backend.services.llm_service import LLMService
 from backend.services.memory_repository import MemoryRepository, MemoryVersionConflictError
 from backend.services.quota_service import QuotaExceededError, QuotaService
 from backend.services.rate_limit_service import RateLimitService
@@ -549,6 +550,18 @@ def test_admin_boundary_requires_explicit_verified_custom_claim() -> None:
         assert_admin(normal)
     assert exc_info.value.status_code == 403
     assert_admin(admin)
+
+
+def test_llm_service_uses_offline_provider_in_production_by_default() -> None:
+    settings = Settings(
+        ENVIRONMENT="production",
+        ENABLE_FIREBASE=False,
+        ENABLE_HSTS=True,
+        CORS_ORIGINS=["https://mindpal.example"],
+        TRUSTED_HOSTS=["mindpal.example"],
+    )
+    service = LLMService(settings=settings, providers=[])
+    assert any(provider.name == "offline" for provider in service.providers)
 
 
 def test_app_factory_owns_services_built_from_its_explicit_settings() -> None:
