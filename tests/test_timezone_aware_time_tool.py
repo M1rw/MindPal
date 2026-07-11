@@ -8,10 +8,7 @@ This test verifies that:
 4. System prompt includes tool descriptions
 """
 
-import asyncio
-import json
-from datetime import UTC, datetime
-from zoneinfo import ZoneInfo
+from datetime import UTC
 
 import pytest
 
@@ -157,7 +154,6 @@ def test_time_tool_calculations_use_timezone():
     """Test that time calculations respect timezone."""
     from backend.tools.time_tool import _resolve_tz
     from datetime import datetime
-    from zoneinfo import ZoneInfo
     
     # Test timezone resolution
     ny_tz = _resolve_tz("America/New_York")

@@ -52,11 +52,11 @@ for chunk in test_chunks:
     old_result += extract_openai_text(chunk)
     new_result += extract_openai_delta_text(chunk)
 
-print(f"\n  OLD extractor (extract_openai_text):")
+print("\n  OLD extractor (extract_openai_text):")
 print(f"    Result: {old_result}")
 print(f"    Has spaces: {'YES' if ' ' in old_result else 'NO -- BUG!'}")
 
-print(f"\n  NEW extractor (extract_openai_delta_text):")
+print("\n  NEW extractor (extract_openai_delta_text):")
 print(f"    Result: {new_result}")
 print(f"    Has spaces: {'YES' if ' ' in new_result else 'NO -- BUG!'}")
 
@@ -72,8 +72,8 @@ print("\n" + "=" * 70)
 print("2. BACKEND: Verify iter_sse_text uses extract_openai_delta_text")
 print("=" * 70)
 
-import inspect
-from backend.providers._shared import iter_sse_text
+import inspect  # noqa: E402
+from backend.providers._shared import iter_sse_text  # noqa: E402
 
 source = inspect.getsource(iter_sse_text)
 if "extract_openai_delta_text" in source:
@@ -254,7 +254,7 @@ provider_files = {
     "Gemini": "backend/providers/gemini_provider.py",
 }
 
-import os
+import os  # noqa: E402
 for name, path in provider_files.items():
     full_path = os.path.join("e:/Synthos/MindPal", path)
     with open(full_path, "r", encoding="utf-8") as f:
@@ -273,9 +273,9 @@ for name, path in provider_files.items():
                     # Old non-delta extractor — check if it calls sanitize_text
                     print(f"  [{name}] Uses iter_sse_text with custom extractor: {extractor}")
                     if name == "Gemini" and "_extract_delta_text" in extractor:
-                        print(f"    [PASS] Uses streaming-safe _extract_delta_text")
+                        print("    [PASS] Uses streaming-safe _extract_delta_text")
                     elif name == "Gemini":
-                        print(f"    [FAIL] Still uses old _extract_text!")
+                        print("    [FAIL] Still uses old _extract_text!")
                 else:
                     print(f"  [{name}] Uses iter_sse_text with: {extractor} — OK")
             else:

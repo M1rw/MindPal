@@ -1,4 +1,3 @@
-import os
 import re
 import json
 from pathlib import Path
@@ -14,7 +13,7 @@ def analyze_imports():
         rel_path = path.relative_to(frontend_dir).as_posix()
         try:
             content = path.read_text(encoding="utf-8")
-        except:
+        except UnicodeDecodeError:
             content = path.read_text(encoding="latin-1")
             
         imports = []

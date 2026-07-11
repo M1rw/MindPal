@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 from backend.core.config import get_settings, reset_settings
 from backend.providers import build_llm_providers, build_tts_providers
-from backend.services.llm_service import LLMService, build_llm_request
 
 async def test_individual_provider(provider, settings):
     """Test a single LLM provider directly."""
@@ -12,7 +11,7 @@ async def test_individual_provider(provider, settings):
     print(f"  Configured: {provider.is_configured}")
     
     if not provider.is_configured:
-        print(f"  SKIPPED (not configured)")
+        print("  SKIPPED (not configured)")
         return False
 
     from backend.models.chat import LLMMessage, LLMRole, LLMRequest
@@ -41,7 +40,7 @@ async def test_tts_provider(provider):
     print(f"  Configured: {provider.is_configured}")
     
     if not provider.is_configured:
-        print(f"  SKIPPED (not configured)")
+        print("  SKIPPED (not configured)")
         return False
 
     try:
@@ -61,7 +60,7 @@ async def test_firebase_json():
     settings = get_settings()
     config = FirebaseProviderConfig.from_settings(settings)
     
-    print(f"\n--- Testing Firebase Config ---")
+    print("\n--- Testing Firebase Config ---")
     print(f"  project_id: {config.project_id}")
     print(f"  credentials_json present: {bool(config.credentials_json)}")
     print(f"  credentials_path present: {bool(config.credentials_path)}")
@@ -82,7 +81,7 @@ async def test_firebase_json():
             print(f"  JSON parse FAILED: {e}")
             return False
     else:
-        print(f"  No JSON credentials found")
+        print("  No JSON credentials found")
         return False
 
 

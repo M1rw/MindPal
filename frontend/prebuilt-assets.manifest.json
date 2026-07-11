@@ -5,8 +5,8 @@
       "sha256": "0322897e9f16662109e0b96ba36b285198464a3617bbced48dc92855355524e9"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 354700,
-      "sha256": "4e94f204ab8e9e78059a4353c40b886377d87af22139540dfb24211b831cc32d"
+      "bytes": 355085,
+      "sha256": "945d81990a5e09a92c134e02614f2a0272764e562115d485bc6ad40b4d96b352"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 12915,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "e566208b282dd91a45a8b09b015df181bcbf14bc894b8afd0570ac65ef5fa843",
+  "source_digest": "8a137064b827dad6d116fc7b0e5c12ded1c3fb8df3e18ae1448c8f975735ed5e",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -29,6 +29,7 @@
     "frontend/js/components/settings_ui.js",
     "frontend/js/components/usage_tracker.js",
     "frontend/js/memory_graph.js",
+    "frontend/js/memory_sync.mjs",
     "frontend/js/settings_store.js",
     "frontend/js/ui_state.js",
     "frontend/js/utils/chat_helpers.js",
@@ -40,6 +41,7 @@
     "frontend/js/utils/tts.js",
     "frontend/js/vendor/lucide_global.js",
     "frontend/js/voice/constants.js",
+    "frontend/js/voice/pcm_capture_worklet.js",
     "frontend/js/voice/prompts.js",
     "frontend/js/voice/runtime.js",
     "frontend/js/voice/startup_helpers.mjs",

@@ -1,6 +1,5 @@
 import asyncio
 from backend.api.dependencies import get_service_container
-from backend.models.chat import LLMMessage, LLMRole
 from backend.services.llm_service import build_llm_request
 
 async def main():

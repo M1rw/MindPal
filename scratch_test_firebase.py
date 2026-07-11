@@ -1,5 +1,4 @@
 import os
-import json
 import asyncio
 from dotenv import load_dotenv
 from backend.core.config import get_settings, reset_settings

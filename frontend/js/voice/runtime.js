@@ -36,7 +36,6 @@ export function createVoiceSessionController() {
     workletNode: null,
     scriptProcessorNode: null,
     captureSinkNode: null,
-    workletObjectUrl: null,
     isSessionActive: false,
     isStopping: false,
     isMicMuted: false,
@@ -845,38 +844,14 @@ export function createVoiceSessionController() {
     state.captureSinkNode.gain.value = 0;
     state.captureSinkNode.connect(state.audioContext.destination);
 
-    const workletCode = `
-      class MindPalPcmProcessor extends AudioWorkletProcessor {
-        constructor() {
-          super();
-          this.buffer = new Float32Array(${CAPTURE_FRAME_SIZE});
-          this.offset = 0;
-        }
-        process(inputs) {
-          const channel = inputs[0] && inputs[0][0];
-          if (!channel) return true;
-          for (let i = 0; i < channel.length; i += 1) {
-            this.buffer[this.offset++] = channel[i];
-            if (this.offset >= this.buffer.length) {
-              this.port.postMessage(this.buffer, [this.buffer.buffer]);
-              this.buffer = new Float32Array(${CAPTURE_FRAME_SIZE});
-              this.offset = 0;
-            }
-          }
-          return true;
-        }
-      }
-      registerProcessor("mindpal-pcm-processor", MindPalPcmProcessor);
-    `;
-
     try {
-      const blob = new Blob([workletCode], { type: "application/javascript" });
-      state.workletObjectUrl = URL.createObjectURL(blob);
-      await state.audioContext.audioWorklet.addModule(state.workletObjectUrl);
+      const workletUrl = new URL("/js/voice/pcm_capture_worklet.js", window.location.origin);
+      await state.audioContext.audioWorklet.addModule(workletUrl.href);
       state.workletNode = new AudioWorkletNode(state.audioContext, "mindpal-pcm-processor", {
         numberOfInputs: 1,
         numberOfOutputs: 1,
         outputChannelCount: [1],
+        processorOptions: { frameSize: CAPTURE_FRAME_SIZE },
       });
       state.workletNode.port.onmessage = (event) => handleCapturedAudioFrame(event.data);
       state.micSource.connect(state.workletNode);
@@ -1046,11 +1021,6 @@ export function createVoiceSessionController() {
       void state.audioContext.close().catch(() => {});
     }
     state.audioContext = null;
-
-    if (state.workletObjectUrl) {
-      URL.revokeObjectURL(state.workletObjectUrl);
-      state.workletObjectUrl = null;
-    }
 
     state._authToken = null;
     state._refreshAuthToken = null;
