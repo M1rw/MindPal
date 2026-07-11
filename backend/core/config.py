@@ -278,10 +278,16 @@ class Settings(BaseSettings):
                 object.__setattr__(self, "ENABLE_FIREBASE", False)
 
             if not self.FIREBASE_CHECK_REVOKED_TOKENS:
-                raise ValueError("FIREBASE_CHECK_REVOKED_TOKENS must be true in production")
+                if self.is_production:
+                    object.__setattr__(self, "FIREBASE_CHECK_REVOKED_TOKENS", True)
+                else:
+                    raise ValueError("FIREBASE_CHECK_REVOKED_TOKENS must be true in production")
 
             if not self.REQUIRE_FIREBASE_APP_CHECK:
-                raise ValueError("REQUIRE_FIREBASE_APP_CHECK must be true in production")
+                if self.is_production:
+                    object.__setattr__(self, "REQUIRE_FIREBASE_APP_CHECK", True)
+                else:
+                    raise ValueError("REQUIRE_FIREBASE_APP_CHECK must be true in production")
 
             if not self.FIREBASE_APPCHECK_SITE_KEY.strip():
                 raise ValueError("FIREBASE_APPCHECK_SITE_KEY is required in production")

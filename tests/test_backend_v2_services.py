@@ -215,6 +215,30 @@ def test_production_configuration_disables_firebase_when_credentials_missing() -
     assert settings.ENABLE_FIREBASE is False
 
 
+def test_production_configuration_enables_revoked_token_checks_when_disabled() -> None:
+    settings = Settings(
+        ENVIRONMENT="production",
+        CORS_ORIGINS=["https://mindpal.example"],
+        TRUSTED_HOSTS=["mindpal.example"],
+        ENABLE_HSTS=True,
+        ENABLE_FIREBASE=False,
+        FIREBASE_CHECK_REVOKED_TOKENS=False,
+        FIREBASE_PROJECT_ID="mindpal-production",
+        FIREBASE_WEB_API_KEY="public-web-key",
+        FIREBASE_AUTH_DOMAIN="mindpal-production.firebaseapp.com",
+        FIREBASE_WEB_PROJECT_ID="mindpal-production",
+        FIREBASE_WEB_APP_ID="1:123:web:mindpal",
+        REQUIRE_FIREBASE_APP_CHECK=False,
+        FIREBASE_APPCHECK_SITE_KEY="public-recaptcha-enterprise-site-key",
+        GEMINI_API_KEY="provider-key",
+        REQUIRE_REMOTE_LLM_PROVIDER=True,
+        ENABLE_OFFLINE_LLM_FALLBACK=False,
+        ALLOW_OFFLINE_LLM_IN_PRODUCTION=False,
+    )
+    assert settings.FIREBASE_CHECK_REVOKED_TOKENS is True
+    assert settings.REQUIRE_FIREBASE_APP_CHECK is True
+
+
 def test_request_body_limit_rejects_before_route_parsing() -> None:
     settings = Settings(
         ENVIRONMENT="test",
