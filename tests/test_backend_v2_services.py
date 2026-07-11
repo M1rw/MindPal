@@ -239,6 +239,29 @@ def test_production_configuration_enables_revoked_token_checks_when_disabled() -
     assert settings.REQUIRE_FIREBASE_APP_CHECK is True
 
 
+def test_production_configuration_allows_missing_appcheck_site_key() -> None:
+    settings = Settings(
+        ENVIRONMENT="production",
+        CORS_ORIGINS=["https://mindpal.example"],
+        TRUSTED_HOSTS=["mindpal.example"],
+        ENABLE_HSTS=True,
+        ENABLE_FIREBASE=False,
+        FIREBASE_CHECK_REVOKED_TOKENS=False,
+        FIREBASE_PROJECT_ID="mindpal-production",
+        FIREBASE_WEB_API_KEY="public-web-key",
+        FIREBASE_AUTH_DOMAIN="mindpal-production.firebaseapp.com",
+        FIREBASE_WEB_PROJECT_ID="mindpal-production",
+        FIREBASE_WEB_APP_ID="1:123:web:mindpal",
+        REQUIRE_FIREBASE_APP_CHECK=False,
+        FIREBASE_APPCHECK_SITE_KEY="",
+        GEMINI_API_KEY="provider-key",
+        REQUIRE_REMOTE_LLM_PROVIDER=True,
+        ENABLE_OFFLINE_LLM_FALLBACK=False,
+        ALLOW_OFFLINE_LLM_IN_PRODUCTION=False,
+    )
+    assert settings.FIREBASE_APPCHECK_SITE_KEY == ""
+
+
 def test_request_body_limit_rejects_before_route_parsing() -> None:
     settings = Settings(
         ENVIRONMENT="test",
@@ -546,10 +569,11 @@ def test_production_configuration_requires_firebase_app_check() -> None:
         "ENABLE_OFFLINE_LLM_FALLBACK": False,
         "ALLOW_OFFLINE_LLM_IN_PRODUCTION": False,
     }
-    with pytest.raises(ValidationError):
-        Settings(**base, REQUIRE_FIREBASE_APP_CHECK=False)
-    with pytest.raises(ValidationError):
-        Settings(**base, REQUIRE_FIREBASE_APP_CHECK=True, FIREBASE_APPCHECK_SITE_KEY="")
+    settings = Settings(**base, REQUIRE_FIREBASE_APP_CHECK=False)
+    assert settings.REQUIRE_FIREBASE_APP_CHECK is True
+
+    settings = Settings(**base, REQUIRE_FIREBASE_APP_CHECK=True, FIREBASE_APPCHECK_SITE_KEY="")
+    assert settings.FIREBASE_APPCHECK_SITE_KEY == ""
 
 
 @pytest.mark.asyncio
