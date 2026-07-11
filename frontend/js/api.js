@@ -361,9 +361,18 @@ export async function sendChatMessageStream({
     normalizeChatHistory(history, 60, "content"),
     cleanMessage,
   );
-  const metadata = { locale, channel, mode: backendPreference, model, ...(profileContext?.settingsMetadata || {}) };
+  
+  // Detect user's timezone from browser
+  let userTimezone = "UTC";
+  try {
+    userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch (e) {
+    console.warn("Failed to detect timezone, using UTC:", e);
+  }
+  
+  const metadata = { locale, channel, mode: backendPreference, model, timezone: userTimezone, ...(profileContext?.settingsMetadata || {}) };
   const url = `${API_BASE_URL}/chat/stream`;
-  const headers = { Accept: "text/event-stream", "Content-Type": "application/json" };
+  const headers = { Accept: "text/event-stream", "Content-Type": "application/json", "X-MindPal-Timezone": userTimezone };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
     const appCheckToken = await getAppCheckToken();
