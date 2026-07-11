@@ -564,6 +564,11 @@ def test_llm_service_uses_offline_provider_in_production_by_default() -> None:
     assert any(provider.name == "offline" for provider in service.providers)
 
 
+def test_default_llm_provider_order_prefers_cloudflare() -> None:
+    settings = Settings(ENVIRONMENT="test", ENABLE_FIREBASE=False)
+    assert settings.parsed_llm_provider_order[0] == "cloudflare"
+
+
 def test_app_factory_owns_services_built_from_its_explicit_settings() -> None:
     settings = Settings(
         ENVIRONMENT="test",
