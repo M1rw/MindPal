@@ -208,10 +208,30 @@ class GroqProvider:
         return f"{self.config.base_url.rstrip('/')}/chat/completions"
 
     def _build_payload(self, request: LLMRequest) -> dict[str, Any]:
+        messages = convert_openai_messages(list(request.messages), MAX_TEXT_CHARS)
+        
+        # Groq has a strict 8k token limit (approx 32k chars). 
+        # We need to leave room for max_tokens (e.g. 1800).
+        # We will keep the system prompt (first message) and the latest messages.
+        max_total_chars = 22000
+        total_chars = sum(len(m["content"]) for m in messages)
+        
+        if total_chars > max_total_chars and len(messages) > 2:
+            system_msg = messages[0] if messages and messages[0]["role"] == "system" else None
+            user_msg = messages[-1]
+            
+            # Keep removing from the beginning of history (after system) until we fit
+            kept_history = messages[1:-1] if system_msg else messages[:-1]
+            while kept_history and total_chars > max_total_chars:
+                dropped = kept_history.pop(0)
+                total_chars -= len(dropped["content"])
+                
+            messages = [system_msg] + kept_history + [user_msg] if system_msg else kept_history + [user_msg]
+
         payload: dict[str, Any] = {
             "model": sanitize_text(self.config.model, MAX_MODEL_NAME_CHARS),
-            "messages": convert_openai_messages(list(request.messages), MAX_TEXT_CHARS),
-            "temperature": max(0.0, min(float(request.temperature), 2.0)),
+            "messages": messages,
+            "temperature": max(0.01, min(float(request.temperature), 2.0)),
             "max_tokens": max(1, min(int(request.max_output_tokens), 8192)),
             "stream": False,
             # Prevent LLM repetition loops — especially critical for non-English text

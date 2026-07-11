@@ -312,11 +312,17 @@ def convert_openai_messages(
         content = sanitize_text(message.content, max_chars)
         if not content:
             continue
-
-        converted.append({
-            "role": convert_openai_role(message.role),
-            "content": content,
-        })
+            
+        role = convert_openai_role(message.role)
+        
+        if converted and converted[-1]["role"] == role:
+            # Merge consecutive messages of the same role to prevent strict-alternation errors (e.g. Groq/Llama3)
+            converted[-1]["content"] += "\n\n" + content
+        else:
+            converted.append({
+                "role": role,
+                "content": content,
+            })
 
     if not converted:
         converted.append({"role": "user", "content": "Continue."})
