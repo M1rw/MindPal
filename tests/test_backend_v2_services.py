@@ -565,8 +565,17 @@ def test_llm_service_uses_offline_provider_in_production_by_default() -> None:
 
 
 def test_default_llm_provider_order_prefers_cloudflare() -> None:
-    settings = Settings(ENVIRONMENT="test", ENABLE_FIREBASE=False)
+    settings = Settings(ENVIRONMENT="test", ENABLE_FIREBASE=False, ENABLE_DOCS=False, ENABLE_HSTS=False)
     assert settings.parsed_llm_provider_order[0] == "cloudflare"
+
+
+def test_settings_reads_env_local_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("LLM_PROVIDER_ORDER=gemini,openrouter,groq\n", encoding="utf-8")
+    (tmp_path / ".env.local").write_text("LLM_PROVIDER_ORDER=cloudflare,gemini,openrouter,groq\n", encoding="utf-8")
+
+    settings = Settings(ENVIRONMENT="test", ENABLE_FIREBASE=False, ENABLE_DOCS=False, ENABLE_HSTS=False)
+    assert settings.LLM_PROVIDER_ORDER == "cloudflare,gemini,openrouter,groq"
 
 
 def test_app_factory_owns_services_built_from_its_explicit_settings() -> None:
