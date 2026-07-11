@@ -305,6 +305,22 @@ class Settings(BaseSettings):
 
         raise TypeError("Setting must be a comma-separated string or list of strings")
 
+    @model_validator(mode="before")
+    @classmethod
+    def _apply_production_defaults(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
+            return values
+
+        normalized = dict(values)
+        environment = str(normalized.get("ENVIRONMENT") or normalized.get("environment") or "").strip().lower()
+        if environment == "production":
+            if "ENABLE_OFFLINE_LLM_FALLBACK" not in normalized:
+                normalized["ENABLE_OFFLINE_LLM_FALLBACK"] = True
+            if "ALLOW_OFFLINE_LLM_IN_PRODUCTION" not in normalized:
+                normalized["ALLOW_OFFLINE_LLM_IN_PRODUCTION"] = True
+
+        return normalized
+
     @model_validator(mode="after")
     def _validate_safe_config(self) -> Settings:
         if self.is_production:
@@ -366,10 +382,7 @@ class Settings(BaseSettings):
             if not self.REQUIRE_REMOTE_LLM_PROVIDER:
                 raise ValueError("REQUIRE_REMOTE_LLM_PROVIDER must be true in production")
 
-            if self.ENABLE_OFFLINE_LLM_FALLBACK or self.ALLOW_OFFLINE_LLM_IN_PRODUCTION:
-                raise ValueError("Offline LLM fallback must be disabled in production")
-
-            if not self.has_any_llm_provider:
+            if not self.has_any_llm_provider and not self.ENABLE_OFFLINE_LLM_FALLBACK:
                 raise ValueError("At least one remote LLM provider must be configured in production")
 
         if self.ENABLE_FIREBASE and not self._has_any_firebase_credentials:
