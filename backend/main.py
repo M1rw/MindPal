@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -272,6 +273,36 @@ def _install_routes(app: FastAPI) -> None:
     _install_frontend_routes(app)
 
 
+def _request_host(request: Request | None) -> str:
+    if request is None:
+        return ""
+
+    hostname = getattr(request.url, "hostname", None)
+    if hostname:
+        return hostname
+
+    host_header = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+    if not host_header:
+        return ""
+
+    parsed = urlparse(host_header if host_header.startswith(("http://", "https://")) else f"//{host_header}")
+    return parsed.hostname or host_header.split(":", 1)[0]
+
+
+def _resolve_firebase_auth_domain(settings: Settings, request: Request | None = None) -> str:
+    configured_domain = str(getattr(settings, "FIREBASE_AUTH_DOMAIN", "") or "").strip()
+    environment = str(getattr(settings, "ENVIRONMENT", "development")).lower()
+    request_host = _request_host(request)
+
+    if not configured_domain:
+        return request_host
+
+    if environment == "production" and configured_domain.endswith(".firebaseapp.com"):
+        return request_host or configured_domain
+
+    return configured_domain
+
+
 def _install_frontend_routes(app: FastAPI) -> None:
     """Install one deterministic frontend route map for local and serverless runs."""
     if not FRONTEND_DIR.exists():
@@ -293,12 +324,12 @@ def _install_frontend_routes(app: FastAPI) -> None:
             )
 
     @app.get("/runtime-config.js", include_in_schema=False)
-    async def runtime_config() -> Response:
+    async def runtime_config(request: Request) -> Response:
         settings = app.state.settings
         api_base_url = str(getattr(settings, "PUBLIC_API_BASE_URL", "") or "").strip() or "/api"
         firebase_config = {
             "apiKey": str(getattr(settings, "FIREBASE_WEB_API_KEY", "") or "").strip(),
-            "authDomain": str(getattr(settings, "FIREBASE_AUTH_DOMAIN", "") or "").strip(),
+            "authDomain": _resolve_firebase_auth_domain(settings, request),
             "databaseURL": str(getattr(settings, "FIREBASE_DATABASE_URL", "") or "").strip(),
             "projectId": str(getattr(settings, "FIREBASE_WEB_PROJECT_ID", "") or "").strip(),
             "storageBucket": str(getattr(settings, "FIREBASE_STORAGE_BUCKET", "") or "").strip(),

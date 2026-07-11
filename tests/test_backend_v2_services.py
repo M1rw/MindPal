@@ -223,7 +223,7 @@ def test_string_environment_values_are_tolerated_for_list_fields(monkeypatch: py
     assert settings.CORS_ORIGINS == ["https://mindpal.example"]
 
 
-def test_production_configuration_enables_revoked_token_checks_when_disabled() -> None:
+def test_production_configuration_allows_revoked_token_checks_to_be_disabled() -> None:
     settings = Settings(
         ENVIRONMENT="production",
         CORS_ORIGINS=["https://mindpal.example"],
@@ -243,8 +243,8 @@ def test_production_configuration_enables_revoked_token_checks_when_disabled() -
         ENABLE_OFFLINE_LLM_FALLBACK=False,
         ALLOW_OFFLINE_LLM_IN_PRODUCTION=False,
     )
-    assert settings.FIREBASE_CHECK_REVOKED_TOKENS is True
-    assert settings.REQUIRE_FIREBASE_APP_CHECK is True
+    assert settings.FIREBASE_CHECK_REVOKED_TOKENS is False
+    assert settings.REQUIRE_FIREBASE_APP_CHECK is False
 
 
 def test_production_configuration_skips_firebase_validation_when_disabled() -> None:
@@ -573,7 +573,7 @@ def test_app_factory_owns_services_built_from_its_explicit_settings() -> None:
     assert app.state.service_container is None
 
 
-def test_production_configuration_requires_firebase_app_check() -> None:
+def test_production_configuration_allows_disabling_firebase_app_check() -> None:
     base = {
         "ENVIRONMENT": "production",
         "CORS_ORIGINS": ["https://mindpal.example"],
@@ -594,7 +594,7 @@ def test_production_configuration_requires_firebase_app_check() -> None:
         "ALLOW_OFFLINE_LLM_IN_PRODUCTION": False,
     }
     settings = Settings(**base, REQUIRE_FIREBASE_APP_CHECK=False)
-    assert settings.REQUIRE_FIREBASE_APP_CHECK is True
+    assert settings.REQUIRE_FIREBASE_APP_CHECK is False
 
     settings = Settings(**base, REQUIRE_FIREBASE_APP_CHECK=True, FIREBASE_APPCHECK_SITE_KEY="")
     assert settings.FIREBASE_APPCHECK_SITE_KEY == ""

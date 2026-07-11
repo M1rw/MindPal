@@ -6,6 +6,18 @@ from backend.core.config import Settings
 from backend.main import app, create_app
 
 
+async def _get_runtime_config_body(app, *, base_url: str = "http://testserver") -> str:
+    from httpx import ASGITransport, AsyncClient
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url=base_url) as client:
+        response = await client.get(
+            "/runtime-config.js",
+            headers={"host": "mindpal-demo.vercel.app"},
+        )
+    return response.text
+
+
 def test_frontend_root_references_production_bundles() -> None:
     with TestClient(app) as client:
         response = client.get("/")
@@ -59,3 +71,27 @@ def test_runtime_config_is_generated_from_deployment_settings_without_server_sec
     assert '"FIREBASE_ENABLED":false' in response.text
     assert "server-provider-secret" not in response.text
     assert "FIREBASE_CREDENTIALS_JSON" not in response.text
+
+
+def test_runtime_config_uses_the_current_host_for_firebase_auth_domain() -> None:
+    configured_app = create_app(
+        Settings(
+            ENVIRONMENT="production",
+            ENABLE_FIREBASE=True,
+            FIREBASE_PROJECT_ID="mindpal-production",
+            FIREBASE_WEB_PROJECT_ID="mindpal-production",
+            FIREBASE_WEB_API_KEY="public-web-key",
+            FIREBASE_AUTH_DOMAIN="",
+            FIREBASE_WEB_APP_ID="1:123:web:mindpal",
+            FIREBASE_APPCHECK_SITE_KEY="public-app-check-site-key",
+        )
+    )
+
+    import asyncio
+
+    response_text = asyncio.run(
+        _get_runtime_config_body(configured_app, base_url="https://mindpal-demo.vercel.app")
+    )
+
+    assert '"authDomain":"mindpal-demo.vercel.app"' in response_text
+    assert '"FIREBASE_ENABLED":true' in response_text
