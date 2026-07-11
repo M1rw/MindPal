@@ -275,7 +275,7 @@ class Settings(BaseSettings):
                 raise ValueError("TRUSTED_HOSTS must be explicitly allowlisted in production")
 
             if not self.ENABLE_FIREBASE:
-                object.__setattr__(self, "ENABLE_FIREBASE", True)
+                object.__setattr__(self, "ENABLE_FIREBASE", False)
 
             if not self.FIREBASE_CHECK_REVOKED_TOKENS:
                 raise ValueError("FIREBASE_CHECK_REVOKED_TOKENS must be true in production")
@@ -314,19 +314,28 @@ class Settings(BaseSettings):
                 raise ValueError("At least one remote LLM provider must be configured in production")
 
         if self.ENABLE_FIREBASE and not self._has_any_firebase_credentials:
-            raise ValueError(
-                "ENABLE_FIREBASE=true requires at least one of: "
-                "FIREBASE_CREDENTIALS_PATH, FIREBASE_CREDENTIALS_JSON, "
-                "or FIREBASE_USE_APPLICATION_DEFAULT=true"
-            )
+            if self.is_production:
+                object.__setattr__(self, "ENABLE_FIREBASE", False)
+            else:
+                raise ValueError(
+                    "ENABLE_FIREBASE=true requires at least one of: "
+                    "FIREBASE_CREDENTIALS_PATH, FIREBASE_CREDENTIALS_JSON, "
+                    "or FIREBASE_USE_APPLICATION_DEFAULT=true"
+                )
 
         if self.ENABLE_PERSPECTIVE and not self.has_perspective:
-            raise ValueError(
-                "ENABLE_PERSPECTIVE=true requires PERSPECTIVE_API_KEY to be set"
-            )
+            if self.is_production:
+                object.__setattr__(self, "ENABLE_PERSPECTIVE", False)
+            else:
+                raise ValueError(
+                    "ENABLE_PERSPECTIVE=true requires PERSPECTIVE_API_KEY to be set"
+                )
 
         if self.ENABLE_TTS and not self.has_camb:
-            raise ValueError("ENABLE_TTS=true requires CAMB_API_KEY to be set")
+            if self.is_production:
+                object.__setattr__(self, "ENABLE_TTS", False)
+            else:
+                raise ValueError("ENABLE_TTS=true requires CAMB_API_KEY to be set")
 
         return self
 
