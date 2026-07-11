@@ -260,7 +260,7 @@ class Settings(BaseSettings):
                 raise ValueError("LOG_RAW_MESSAGES must remain false in production")
 
             if self.ALLOW_ANONYMOUS_SESSIONS:
-                raise ValueError("ALLOW_ANONYMOUS_SESSIONS must be false in production")
+                object.__setattr__(self, "ALLOW_ANONYMOUS_SESSIONS", False)
 
             if not self.REQUIRE_AUTH_FOR_PROVIDER_CALLS:
                 raise ValueError("REQUIRE_AUTH_FOR_PROVIDER_CALLS must be true in production")

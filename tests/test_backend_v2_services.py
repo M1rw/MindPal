@@ -165,14 +165,29 @@ async def test_memory_replace_rejects_stale_device_and_noop_does_not_bump_versio
         )
 
 
-def test_production_configuration_rejects_unsafe_auth_and_docs() -> None:
+def test_production_configuration_rejects_unsafe_docs_and_fail_closes_auth() -> None:
     safe = {
         "ENVIRONMENT": "production",
         "CORS_ORIGINS": ["https://mindpal.example"],
-        "ENABLE_FIREBASE": False,
+        "TRUSTED_HOSTS": ["mindpal.example"],
+        "ENABLE_HSTS": True,
+        "ENABLE_FIREBASE": True,
+        "FIREBASE_CREDENTIALS_JSON": '{"type":"service_account"}',
+        "FIREBASE_CHECK_REVOKED_TOKENS": True,
+        "FIREBASE_PROJECT_ID": "mindpal-production",
+        "FIREBASE_WEB_API_KEY": "public-web-key",
+        "FIREBASE_AUTH_DOMAIN": "mindpal-production.firebaseapp.com",
+        "FIREBASE_WEB_PROJECT_ID": "mindpal-production",
+        "FIREBASE_WEB_APP_ID": "1:123:web:mindpal",
+        "REQUIRE_FIREBASE_APP_CHECK": True,
+        "FIREBASE_APPCHECK_SITE_KEY": "public-recaptcha-enterprise-site-key",
+        "GEMINI_API_KEY": "provider-key",
+        "REQUIRE_REMOTE_LLM_PROVIDER": True,
+        "ENABLE_OFFLINE_LLM_FALLBACK": False,
+        "ALLOW_OFFLINE_LLM_IN_PRODUCTION": False,
     }
-    with pytest.raises(ValidationError):
-        Settings(**safe, ALLOW_ANONYMOUS_SESSIONS=True)
+    settings = Settings(**safe, ALLOW_ANONYMOUS_SESSIONS=True)
+    assert settings.ALLOW_ANONYMOUS_SESSIONS is False
     with pytest.raises(ValidationError):
         Settings(**safe, ENABLE_DOCS=True)
 
