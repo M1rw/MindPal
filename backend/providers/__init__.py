@@ -37,7 +37,7 @@ from .groq_provider import GroqProvider, GroqProviderConfig
 from .openrouter_provider import OpenRouterProvider, OpenRouterProviderConfig
 
 
-DEFAULT_LLM_PROVIDER_ORDER: tuple[str, ...] = ("gemini", "cloudflare", "openrouter", "groq")
+DEFAULT_LLM_PROVIDER_ORDER: tuple[str, ...] = ("cloudflare", "gemini", "openrouter", "groq")
 DEFAULT_TTS_PROVIDER_ORDER: tuple[str, ...] = ("camb",)
 
 

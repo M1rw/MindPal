@@ -114,7 +114,7 @@ class Settings(BaseSettings):
     CAMB_API_KEY: SecretStr | None = Field(default=None, repr=False)
 
     # ── LLM Provider Order ───────────────────────────────────────
-    LLM_PROVIDER_ORDER: str = Field(default="gemini,cloudflare,openrouter,groq")
+    LLM_PROVIDER_ORDER: str = Field(default="cloudflare,gemini,openrouter,groq")
 
     # ── Firebase ─────────────────────────────────────────────────
     # All Firebase env vars that were previously read via os.getenv() in
