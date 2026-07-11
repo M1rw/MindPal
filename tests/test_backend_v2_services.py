@@ -215,6 +215,14 @@ def test_production_configuration_disables_firebase_when_credentials_missing() -
     assert settings.ENABLE_FIREBASE is False
 
 
+def test_string_environment_values_are_tolerated_for_list_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TRUSTED_HOSTS", "mindpal.example")
+    monkeypatch.setenv("CORS_ORIGINS", "https://mindpal.example")
+    settings = Settings(_env_file=None)
+    assert settings.TRUSTED_HOSTS == ["mindpal.example"]
+    assert settings.CORS_ORIGINS == ["https://mindpal.example"]
+
+
 def test_production_configuration_enables_revoked_token_checks_when_disabled() -> None:
     settings = Settings(
         ENVIRONMENT="production",
@@ -237,6 +245,22 @@ def test_production_configuration_enables_revoked_token_checks_when_disabled() -
     )
     assert settings.FIREBASE_CHECK_REVOKED_TOKENS is True
     assert settings.REQUIRE_FIREBASE_APP_CHECK is True
+
+
+def test_production_configuration_skips_firebase_validation_when_disabled() -> None:
+    settings = Settings(
+        ENVIRONMENT="production",
+        CORS_ORIGINS=["https://mindpal.example"],
+        TRUSTED_HOSTS=["mindpal.example"],
+        ENABLE_HSTS=True,
+        ENABLE_FIREBASE=False,
+        FIREBASE_CHECK_REVOKED_TOKENS=False,
+        GEMINI_API_KEY="provider-key",
+        REQUIRE_REMOTE_LLM_PROVIDER=True,
+        ENABLE_OFFLINE_LLM_FALLBACK=False,
+        ALLOW_OFFLINE_LLM_IN_PRODUCTION=False,
+    )
+    assert settings.ENABLE_FIREBASE is False
 
 
 def test_production_configuration_allows_missing_appcheck_site_key() -> None:

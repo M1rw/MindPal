@@ -17,14 +17,37 @@ Design goals:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, get_origin
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings.sources import EnvSettingsSource
 
 
 Environment = Literal["development", "test", "staging", "production"]
+
+
+class SafeEnvSettingsSource(EnvSettingsSource):
+    def prepare_field_value(self, field_name: str, field: Any, value: Any, value_is_complex: bool) -> Any:
+        annotation = getattr(field, "annotation", None)
+        origin = get_origin(annotation)
+
+        if isinstance(value, str):
+            if not value.strip():
+                if origin is list:
+                    return []
+                if origin is dict:
+                    return {}
+                if origin is tuple:
+                    return ()
+                return None
+
+            if origin is list:
+                return Settings._parse_string_list(value)
+
+        return super().prepare_field_value(field_name, field, value, value_is_complex)
 
 
 class Settings(BaseSettings):
@@ -41,6 +64,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
         validate_assignment=True,
+        env_ignore_empty=True,
     )
 
     # ── App ──────────────────────────────────────────────────────
@@ -221,11 +245,34 @@ class Settings(BaseSettings):
             return value or None
         return value
 
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: Any,
+        env_settings: Any,
+        dotenv_settings: Any,
+        file_secret_settings: Any,
+    ) -> tuple[Any, ...]:
+        return (
+            init_settings,
+            SafeEnvSettingsSource(settings_cls),
+            dotenv_settings,
+            file_secret_settings,
+        )
+
+    @classmethod
+    def parse_env_var(cls, field_name: str, raw_val: str) -> object:
+        if field_name in {"CORS_ORIGINS", "TRUSTED_HOSTS"}:
+            return cls._parse_string_list(raw_val)
+        return super().parse_env_var(field_name, raw_val)
+
     @field_validator("CORS_ORIGINS", "TRUSTED_HOSTS", mode="before")
     @classmethod
     def _parse_string_list(cls, value: object) -> list[str]:
         """
         Accepts:
+        - empty / whitespace values -> []
         - comma-separated env string:
           CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
         - JSON-style list injected by pydantic-settings
@@ -238,6 +285,14 @@ class Settings(BaseSettings):
             value = value.strip()
             if not value:
                 return []
+
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                parsed = None
+
+            if isinstance(parsed, list):
+                return [str(origin).strip() for origin in parsed if str(origin).strip()]
 
             # Common .env format: comma-separated origins
             if "," in value:
@@ -295,23 +350,33 @@ class Settings(BaseSettings):
                 else:
                     raise ValueError("FIREBASE_APPCHECK_SITE_KEY is required in production")
 
-            server_project_id = (self.FIREBASE_PROJECT_ID or self.GOOGLE_CLOUD_PROJECT or "").strip()
-            if not server_project_id:
-                raise ValueError("FIREBASE_PROJECT_ID or GOOGLE_CLOUD_PROJECT is required in production")
+            if self.ENABLE_FIREBASE:
+                server_project_id = (self.FIREBASE_PROJECT_ID or self.GOOGLE_CLOUD_PROJECT or "").strip()
+                if not server_project_id:
+                    if self.is_production:
+                        object.__setattr__(self, "ENABLE_FIREBASE", False)
+                    else:
+                        raise ValueError("FIREBASE_PROJECT_ID or GOOGLE_CLOUD_PROJECT is required in production")
 
-            required_web_config = {
-                "FIREBASE_WEB_API_KEY": self.FIREBASE_WEB_API_KEY,
-                "FIREBASE_AUTH_DOMAIN": self.FIREBASE_AUTH_DOMAIN,
-                "FIREBASE_WEB_PROJECT_ID": self.FIREBASE_WEB_PROJECT_ID,
-                "FIREBASE_WEB_APP_ID": self.FIREBASE_WEB_APP_ID,
-            }
-            missing_web_config = [name for name, value in required_web_config.items() if not value.strip()]
-            if missing_web_config:
-                raise ValueError(
-                    "Missing Firebase web configuration: " + ", ".join(missing_web_config)
-                )
-            if self.FIREBASE_WEB_PROJECT_ID.strip() != server_project_id:
-                raise ValueError("FIREBASE_WEB_PROJECT_ID must match the server Firebase project")
+                required_web_config = {
+                    "FIREBASE_WEB_API_KEY": self.FIREBASE_WEB_API_KEY,
+                    "FIREBASE_AUTH_DOMAIN": self.FIREBASE_AUTH_DOMAIN,
+                    "FIREBASE_WEB_PROJECT_ID": self.FIREBASE_WEB_PROJECT_ID,
+                    "FIREBASE_WEB_APP_ID": self.FIREBASE_WEB_APP_ID,
+                }
+                missing_web_config = [name for name, value in required_web_config.items() if not value.strip()]
+                if missing_web_config:
+                    if self.is_production:
+                        object.__setattr__(self, "ENABLE_FIREBASE", False)
+                    else:
+                        raise ValueError(
+                            "Missing Firebase web configuration: " + ", ".join(missing_web_config)
+                        )
+                if self.ENABLE_FIREBASE and self.FIREBASE_WEB_PROJECT_ID.strip() != server_project_id:
+                    if self.is_production:
+                        object.__setattr__(self, "ENABLE_FIREBASE", False)
+                    else:
+                        raise ValueError("FIREBASE_WEB_PROJECT_ID must match the server Firebase project")
 
             if not self.REQUIRE_REMOTE_LLM_PROVIDER:
                 raise ValueError("REQUIRE_REMOTE_LLM_PROVIDER must be true in production")
