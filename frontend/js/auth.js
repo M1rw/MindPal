@@ -207,7 +207,7 @@ export async function signOut() {
 }
 
 export function authIsConfigured() {
-  return Boolean(window.MINDPAL_CONFIG?.FIREBASE_CONFIG);
+  return Boolean(window.MINDPAL_CONFIG?.FIREBASE_ENABLED);
 }
 
 function toPublicUser(user) {

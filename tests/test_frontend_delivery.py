@@ -56,5 +56,6 @@ def test_runtime_config_is_generated_from_deployment_settings_without_server_sec
     assert '"API_BASE_URL":"https://api.mindpal.example/api"' in response.text
     assert '"projectId":"mindpal-production"' in response.text
     assert '"FIREBASE_APPCHECK_SITE_KEY":"public-app-check-site-key"' in response.text
+    assert '"FIREBASE_ENABLED":false' in response.text
     assert "server-provider-secret" not in response.text
     assert "FIREBASE_CREDENTIALS_JSON" not in response.text
