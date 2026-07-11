@@ -6,9 +6,9 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.api.dependencies import (
     AuthenticatedRequestContextDep,
@@ -16,6 +16,7 @@ from backend.api.dependencies import (
     ServiceContainer,
     ServicesDep,
     assert_authenticated,
+    get_timezone,
     http_error_from_app_error,
 )
 from backend.core.errors import AppError
@@ -106,8 +107,11 @@ async def chat(
     payload: ChatRequest,
     services: ServicesDep,
     context: RequestContextDep,
+    header_timezone: Annotated[str, Depends(get_timezone)] = "UTC",
 ) -> ChatResponse:
     """Production chat path with atomic quota, idempotency, and canonical memory."""
+    # Resolve timezone: prefer metadata from client, fallback to header
+    user_timezone = payload.metadata.timezone or header_timezone or "UTC"
     locale = _resolve_locale(payload, context.locale)
     authenticated = bool(context.session.authenticated)
     subject = context.session.user_id_hash if authenticated else context.client_ip_hash
@@ -234,7 +238,7 @@ async def chat(
             user_id_hash=context.session.user_id_hash,
             authenticated=authenticated,
             locale=locale,
-            timezone=payload.metadata.timezone or "UTC",
+            timezone=user_timezone,
             request_id=context.request_id,
             services=services,
             chat_history=[
@@ -255,7 +259,7 @@ async def chat(
             intent_context=intent_context,
             clinical_mode=clinical_mode,
             tool_descriptions=tool_descriptions,
-            user_timezone=payload.metadata.timezone or "UTC",
+            user_timezone=user_timezone,
         )
         if tool_results_text:
             system_prompt += (

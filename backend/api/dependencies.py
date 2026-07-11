@@ -271,6 +271,36 @@ def get_locale(
     return normalize_locale(first_locale)
 
 
+def get_timezone(
+    x_mindpal_timezone: Annotated[str | None, Header(alias="X-MindPal-Timezone")] = None,
+) -> str:
+    """
+    Resolve user timezone from X-MindPal-Timezone header.
+    
+    Validates that it's an IANA timezone (e.g. "America/New_York", "Europe/London", "UTC").
+    Falls back to "UTC" if not provided or invalid.
+    
+    Frontend should pass Intl.DateTimeFormat().resolvedOptions().timeZone
+    """
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    
+    if not x_mindpal_timezone:
+        return "UTC"
+    
+    cleaned = sanitize_text(str(x_mindpal_timezone), MAX_LOCALE_HEADER_CHARS)
+    
+    if not cleaned:
+        return "UTC"
+    
+    # Validate it's a real IANA timezone
+    try:
+        ZoneInfo(cleaned)
+        return cleaned
+    except ZoneInfoNotFoundError:
+        # Invalid timezone, fall back to UTC
+        return "UTC"
+
+
 def get_channel(
     x_mindpal_channel: Annotated[str | None, Header(alias="X-MindPal-Channel")] = None,
 ) -> UserChannel:
