@@ -38,7 +38,7 @@ def metadata(relative: Path) -> dict[str, object]:
     path = ROOT / relative
     if not path.is_file():
         raise SystemExit(f"Missing required frontend file: {relative.as_posix()}")
-    data = path.read_bytes()
+    data = path.read_bytes().replace(b"\r\n", b"\n")
     return {"bytes": len(data), "sha256": sha256_bytes(data)}
 
 
@@ -50,7 +50,7 @@ def aggregate_digest(files: list[Path]) -> str:
             raise SystemExit(f"Missing frontend build input: {relative.as_posix()}")
         digest.update(relative.as_posix().encode("utf-8"))
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
         digest.update(b"\0")
     return digest.hexdigest()
 
