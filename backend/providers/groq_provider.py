@@ -220,13 +220,33 @@ class GroqProvider:
             system_msg = messages[0] if messages and messages[0]["role"] == "system" else None
             user_msg = messages[-1]
             
-            # Keep removing from the beginning of history (after system) until we fit
             kept_history = messages[1:-1] if system_msg else messages[:-1]
             while kept_history and total_chars > max_total_chars:
                 dropped = kept_history.pop(0)
                 total_chars -= len(dropped["content"])
                 
             messages = [system_msg] + kept_history + [user_msg] if system_msg else kept_history + [user_msg]
+
+        # 2. Re-enforce strictly alternating roles starting and ending with 'user' for Llama-3
+        # If truncation dropped an odd number of messages, the sequence could break alternation.
+        valid_messages = []
+        if messages and messages[0]["role"] == "system":
+            valid_messages.append(messages.pop(0))
+            
+        for msg in messages:
+            if not valid_messages or (len(valid_messages) == 1 and valid_messages[0]["role"] == "system"):
+                if msg["role"] == "assistant":
+                    valid_messages.append({"role": "user", "content": "(Conversation context)"})
+                valid_messages.append(msg)
+            elif valid_messages[-1]["role"] == msg["role"]:
+                valid_messages[-1]["content"] += "\n\n" + msg["content"]
+            else:
+                valid_messages.append(msg)
+                
+        if valid_messages and valid_messages[-1]["role"] == "assistant":
+            valid_messages.append({"role": "user", "content": "Continue."})
+            
+        messages = valid_messages
 
         payload: dict[str, Any] = {
             "model": sanitize_text(self.config.model, MAX_MODEL_NAME_CHARS),
