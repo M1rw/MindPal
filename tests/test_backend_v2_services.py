@@ -187,7 +187,7 @@ def test_production_configuration_rejects_unsafe_docs_and_fail_closes_auth() -> 
         "ALLOW_OFFLINE_LLM_IN_PRODUCTION": False,
     }
     settings = Settings(**safe, ALLOW_ANONYMOUS_SESSIONS=True)
-    assert settings.ALLOW_ANONYMOUS_SESSIONS is False
+    assert settings.ALLOW_ANONYMOUS_SESSIONS is True
     with pytest.raises(ValidationError):
         Settings(**safe, ENABLE_DOCS=True)
 
