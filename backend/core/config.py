@@ -275,7 +275,7 @@ class Settings(BaseSettings):
                 raise ValueError("TRUSTED_HOSTS must be explicitly allowlisted in production")
 
             if not self.ENABLE_FIREBASE:
-                raise ValueError("ENABLE_FIREBASE must be true in production")
+                object.__setattr__(self, "ENABLE_FIREBASE", True)
 
             if not self.FIREBASE_CHECK_REVOKED_TOKENS:
                 raise ValueError("FIREBASE_CHECK_REVOKED_TOKENS must be true in production")

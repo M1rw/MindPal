@@ -192,6 +192,30 @@ def test_production_configuration_rejects_unsafe_docs_and_fail_closes_auth() -> 
         Settings(**safe, ENABLE_DOCS=True)
 
 
+def test_production_configuration_enables_firebase_when_missing() -> None:
+    settings = Settings(
+        ENVIRONMENT="production",
+        CORS_ORIGINS=["https://mindpal.example"],
+        TRUSTED_HOSTS=["mindpal.example"],
+        ENABLE_HSTS=True,
+        ENABLE_FIREBASE=False,
+        FIREBASE_CREDENTIALS_JSON='{"type":"service_account"}',
+        FIREBASE_CHECK_REVOKED_TOKENS=True,
+        FIREBASE_PROJECT_ID="mindpal-production",
+        FIREBASE_WEB_API_KEY="public-web-key",
+        FIREBASE_AUTH_DOMAIN="mindpal-production.firebaseapp.com",
+        FIREBASE_WEB_PROJECT_ID="mindpal-production",
+        FIREBASE_WEB_APP_ID="1:123:web:mindpal",
+        REQUIRE_FIREBASE_APP_CHECK=True,
+        FIREBASE_APPCHECK_SITE_KEY="public-recaptcha-enterprise-site-key",
+        GEMINI_API_KEY="provider-key",
+        REQUIRE_REMOTE_LLM_PROVIDER=True,
+        ENABLE_OFFLINE_LLM_FALLBACK=False,
+        ALLOW_OFFLINE_LLM_IN_PRODUCTION=False,
+    )
+    assert settings.ENABLE_FIREBASE is True
+
+
 def test_request_body_limit_rejects_before_route_parsing() -> None:
     settings = Settings(
         ENVIRONMENT="test",
