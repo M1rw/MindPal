@@ -324,6 +324,10 @@ def _install_frontend_routes(app: FastAPI) -> None:
                 getattr(settings, "FIREBASE_APPCHECK_SITE_KEY", "") or ""
             ).strip(),
             "FIREBASE_CONFIG": firebase_config if all(required_firebase_values) else None,
+            "FIREBASE_ENABLED": bool(
+                getattr(settings, "ENABLE_FIREBASE", False)
+                and all(required_firebase_values)
+            ),
         }
         serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         script = (
