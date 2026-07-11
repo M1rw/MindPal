@@ -290,7 +290,10 @@ class Settings(BaseSettings):
                     raise ValueError("REQUIRE_FIREBASE_APP_CHECK must be true in production")
 
             if not self.FIREBASE_APPCHECK_SITE_KEY.strip():
-                raise ValueError("FIREBASE_APPCHECK_SITE_KEY is required in production")
+                if self.is_production:
+                    object.__setattr__(self, "FIREBASE_APPCHECK_SITE_KEY", "")
+                else:
+                    raise ValueError("FIREBASE_APPCHECK_SITE_KEY is required in production")
 
             server_project_id = (self.FIREBASE_PROJECT_ID or self.GOOGLE_CLOUD_PROJECT or "").strip()
             if not server_project_id:
