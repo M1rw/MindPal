@@ -16,13 +16,14 @@ async def main():
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):
                         data_str = line[6:]
-                        if data_str == "[DONE]": break
+                        if data_str == "[DONE]":
+                            break
                         try:
                             data = json.loads(data_str)
                             if "text" in data:
                                 full_text += data["text"]
                                 print(data["text"], end="", flush=True)
-                        except Exception as e:
+                        except Exception:
                             pass
                 print("\n\n--- Full Text ---")
                 print(full_text)

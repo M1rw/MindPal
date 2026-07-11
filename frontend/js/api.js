@@ -245,15 +245,20 @@ export async function loadMemoryGraph(token) {
   });
 }
 
-export async function saveMemoryGraph(graph, token) {
+export async function saveMemoryGraph(graph, token, expectedVersion = null) {
+  const body = {
+    graph,
+    also_update_summary: true,
+  };
+  if (Number.isInteger(expectedVersion) && expectedVersion >= 1) {
+    body.expected_version = expectedVersion;
+  }
+
   return requestJson("/memory/v3", {
     method: "PUT",
     token,
     timeoutMs: 20_000,
-    body: {
-      graph,
-      also_update_summary: true,
-    },
+    body,
   });
 }
 

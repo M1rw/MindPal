@@ -12,7 +12,7 @@ async def main():
     reset_settings()
     settings = get_settings()
 
-    print(f"Testing LLM Service...")
+    print("Testing LLM Service...")
     providers = build_llm_providers(settings)
     
     for provider in providers:

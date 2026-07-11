@@ -1,10 +1,8 @@
 import asyncio
 import json
-import os
 import yaml
 from pathlib import Path
 from backend.api.dependencies import get_service_container
-from backend.core.config import get_settings
 
 async def main():
     services = get_service_container()

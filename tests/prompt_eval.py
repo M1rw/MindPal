@@ -4,7 +4,11 @@ import os
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from backend.core.prompts import build_intent_context, build_system_prompt, infer_response_mode_for_preference
+from backend.core.prompts import (  # noqa: E402
+    build_intent_context,
+    build_system_prompt,
+    infer_response_mode_for_preference,
+)
 
 test_cases = [
     {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 import time
 
 import pytest
@@ -222,6 +223,7 @@ def test_string_environment_values_are_tolerated_for_list_fields(monkeypatch: py
     settings = Settings(_env_file=None)
     assert settings.TRUSTED_HOSTS == ["mindpal.example"]
     assert settings.CORS_ORIGINS == ["https://mindpal.example"]
+    assert settings.ENABLE_DOCS is False
 
 
 def test_production_configuration_allows_revoked_token_checks_to_be_disabled() -> None:

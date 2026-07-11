@@ -59,6 +59,7 @@ class MemorySavePayload(BaseModel):
 class MemoryGraphSavePayload(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     graph: MemoryGraph
+    expected_version: int | None = Field(default=None, ge=1)
     also_update_summary: bool = False  # retained for wire compatibility; ignored
 
 
@@ -103,7 +104,7 @@ async def save_memory_v3(
         result = await services.memory_repo.replace(
             user_id_hash=context.session.user_id_hash,
             graph=graph,
-            expected_version=graph.version,
+            expected_version=payload.expected_version if payload.expected_version is not None else graph.version,
         )
         return MemoryGraphWriteResult(
             user_id_hash=context.session.user_id_hash,

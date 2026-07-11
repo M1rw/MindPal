@@ -3,7 +3,17 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from backend.core.config import Settings
-from backend.main import app, create_app
+from backend.main import create_app
+
+
+app = create_app(
+    Settings(
+        _env_file=None,
+        ENVIRONMENT="test",
+        ENABLE_FIREBASE=False,
+        TRUSTED_HOSTS=["testserver", "mindpal-demo.vercel.app"],
+    )
+)
 
 
 async def _get_runtime_config_body(app, *, base_url: str = "http://testserver") -> str:
@@ -28,7 +38,8 @@ def test_frontend_root_references_production_bundles() -> None:
     assert "cdn.tailwindcss.com" not in response.text
     assert "unpkg.com" not in response.text
     assert response.headers["x-content-type-options"] == "nosniff"
-    assert "script-src 'self'" in response.headers["content-security-policy"]
+    assert "script-src 'self';" in response.headers["content-security-policy"]
+    assert "script-src 'self' blob:" not in response.headers["content-security-policy"]
 
 
 def test_runtime_config_and_bundles_are_served() -> None:
@@ -37,6 +48,7 @@ def test_runtime_config_and_bundles_are_served() -> None:
         app_bundle = client.get("/dist/app.bundle.js")
         icon_bundle = client.get("/dist/lucide.bundle.js")
         css_bundle = client.get("/css/tailwind.generated.css")
+        capture_worklet = client.get("/js/voice/pcm_capture_worklet.js")
 
     assert runtime.status_code == 200
     assert runtime.headers["cache-control"] == "no-cache, no-store, must-revalidate"
@@ -44,11 +56,14 @@ def test_runtime_config_and_bundles_are_served() -> None:
     assert app_bundle.status_code == 200 and len(app_bundle.content) > 100_000
     assert icon_bundle.status_code == 200 and len(icon_bundle.content) > 5_000
     assert css_bundle.status_code == 200 and len(css_bundle.content) > 10_000
+    assert capture_worklet.status_code == 200
+    assert "registerProcessor" in capture_worklet.text
 
 
 def test_runtime_config_is_generated_from_deployment_settings_without_server_secrets() -> None:
     configured_app = create_app(
         Settings(
+            _env_file=None,
             ENVIRONMENT="test",
             ENABLE_FIREBASE=False,
             PUBLIC_API_BASE_URL="https://api.mindpal.example/api",
@@ -76,8 +91,10 @@ def test_runtime_config_is_generated_from_deployment_settings_without_server_sec
 def test_runtime_config_uses_the_current_host_for_firebase_auth_domain() -> None:
     configured_app = create_app(
         Settings(
-            ENVIRONMENT="production",
+            _env_file=None,
+            ENVIRONMENT="test",
             ENABLE_FIREBASE=True,
+            FIREBASE_USE_APPLICATION_DEFAULT=True,
             FIREBASE_PROJECT_ID="mindpal-production",
             FIREBASE_WEB_PROJECT_ID="mindpal-production",
             FIREBASE_WEB_API_KEY="public-web-key",

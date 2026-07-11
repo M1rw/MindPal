@@ -39,12 +39,13 @@ import {
 import {
   loadMemoryGraphContext,
   memoryGraphFromBackend,
-  memoryGraphToBackend,
   mergeMemoryGraphs,
   saveMemoryGraphContext,
   loadMemoryContext,
   memoryFromBackendSummary,
 } from "./memory_graph.js";
+
+import { memoryGraphAtomsEqual, syncMemoryGraphSnapshot } from "./memory_sync.mjs";
 
 // ═══════════════════════════════════════════════════════════════
 // State
@@ -55,6 +56,7 @@ let cloudChatHydratedForUser = null;
 let cloudChatSyncInFlight = false;
 let cloudChatSyncTimer = null;
 const pendingCloudChatMessages = [];
+let cloudMemorySyncTail = Promise.resolve();
 
 let currentCloudProfileContext = null;
 function loadCanonicalLocalMemory() {
@@ -80,6 +82,12 @@ export function setCurrentCloudProfileContext(ctx) { currentCloudProfileContext 
 export function getMemoryContext() { return memoryContext; }
 export function getMemoryGraphContext() { return memoryGraphContext; }
 export function getCurrentCloudProfileContext() { return currentCloudProfileContext; }
+
+function queueCloudMemorySync(operation) {
+  const result = cloudMemorySyncTail.catch(() => {}).then(operation);
+  cloudMemorySyncTail = result.catch(() => {});
+  return result;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // Auth initialization
@@ -212,16 +220,16 @@ export async function hydrateCloudMemory(token, renderMemoryInspector) {
     memoryGraphContext = saveMemoryGraphContext(canonicalGraph);
     memoryContext = memoryGraphContext;
 
-    const cloudMissing = !response?.loaded || !response.graph;
-    const cloudChanged = response?.loaded && response.graph
-      ? JSON.stringify(memoryGraphToBackend(memoryGraphContext)) !== JSON.stringify(memoryGraphToBackend(memoryGraphFromBackend(response.graph)))
-      : false;
-    if (cloudMissing || cloudChanged) {
-      await saveMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
-    }
+    memoryGraphContext = await queueCloudMemorySync(() => syncMemoryGraphSnapshot(memoryGraphContext, {
+      initialRemote: response?.graph || null,
+      loadRemote: () => loadMemoryGraph(token),
+      saveRemote: (graph, expectedVersion) => saveMemoryGraph(graph, token, expectedVersion),
+    }));
+    memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
+    memoryContext = memoryGraphContext;
     renderMemoryInspector?.();
   } catch (error) {
-    console.warn("Cloud memory load failed; using local memory.", error);
+    console.warn("Cloud memory hydration failed; using local memory.", error);
     memoryGraphContext = loadCanonicalLocalMemory();
     memoryContext = memoryGraphContext;
     renderMemoryInspector?.();
@@ -328,10 +336,18 @@ export async function persistMemoryContextSafe() {
     const token = await getIdToken();
     memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
     memoryContext = memoryGraphContext;
+    const localSnapshot = memoryGraphContext;
 
     if (!token) return;
 
-    await saveMemoryGraph(memoryGraphToBackend(memoryGraphContext), token);
+    const syncedSnapshot = await queueCloudMemorySync(() => syncMemoryGraphSnapshot(localSnapshot, {
+      loadRemote: () => loadMemoryGraph(token),
+      saveRemote: (graph, expectedVersion) => saveMemoryGraph(graph, token, expectedVersion),
+    }));
+    if (memoryGraphAtomsEqual(memoryGraphContext, localSnapshot)) {
+      memoryGraphContext = saveMemoryGraphContext(syncedSnapshot);
+      memoryContext = memoryGraphContext;
+    }
   } catch (error) {
     console.warn("Memory sync failed; local memory retained:", error);
     memoryGraphContext = saveMemoryGraphContext(memoryGraphContext);
@@ -496,4 +512,3 @@ if (typeof window !== "undefined") {
     if (pendingCloudChatMessages.length) void flushPendingCloudChatMessages();
   });
 }
-

@@ -26,9 +26,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.sources import EnvSettingsSource
 
 
-def _load_dotenv_values() -> dict[str, str]:
+def _load_dotenv_values(env_files: Any = (".env", ".env.local")) -> dict[str, str]:
+    if env_files is None:
+        return {}
+
+    names = (env_files,) if isinstance(env_files, str | Path) else tuple(env_files)
     values: dict[str, str] = {}
-    for name in (".env", ".env.local"):
+    for name in names:
         path = Path(name)
         if not path.exists():
             continue
@@ -295,7 +299,7 @@ class Settings(BaseSettings):
         dotenv_settings: Any,
         file_secret_settings: Any,
     ) -> tuple[Any, ...]:
-        dotenv_values = _load_dotenv_values()
+        dotenv_values = _load_dotenv_values(getattr(dotenv_settings, "env_file", None))
 
         class DotEnvFallbackSource:
             def __call__(self) -> dict[str, Any]:
