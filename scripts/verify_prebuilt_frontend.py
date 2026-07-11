@@ -51,7 +51,7 @@ def aggregate_digest(files: list[str]) -> str:
             fail(f"missing build input {name}")
         digest.update(relative.as_posix().encode("utf-8"))
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -81,7 +81,7 @@ def main() -> None:
         path = ROOT / name
         if not path.is_file():
             fail(f"missing output {name}")
-        data = path.read_bytes()
+        data = path.read_bytes().replace(b"\r\n", b"\n")
         if len(data) < minimum:
             fail(f"output {name} is unexpectedly small ({len(data)} bytes)")
         if expected.get("bytes") != len(data):
