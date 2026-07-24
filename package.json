@@ -14,7 +14,7 @@
     "verify:prebuilt": "python scripts/verify_prebuilt_frontend.py"
   },
   "dependencies": {
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.12",
     "firebase": "11.6.1",
     "lucide": "0.468.0",
     "esbuild": "0.28.1",
