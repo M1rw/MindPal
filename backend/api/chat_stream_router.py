@@ -96,7 +96,7 @@ async def chat_stream(
         scope="chat_stream",
         subject=subject,
         max_concurrent=services.settings.MAX_CONCURRENT_CHAT_REQUESTS_PER_USER,
-        timeout_seconds=1.0,
+        timeout_seconds=services.settings.CHAT_CONCURRENCY_QUEUE_TIMEOUT_SECONDS,
     )
 
     if services.settings.REQUIRE_AUTH_FOR_PROVIDER_CALLS:
