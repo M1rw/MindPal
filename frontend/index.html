@@ -117,8 +117,8 @@
                 <i data-lucide="flame" class="w-4 h-4 text-orange-500 dark:text-orange-400"></i>
             </button>
 
-            <button id="brain-btn" class="brain-nav-trigger" type="button" title="Open MindPal Brain" aria-label="Open MindPal Brain">
-                <i data-lucide="orbit" class="w-4 h-4"></i><span class="hidden sm:inline">Brain</span>
+            <button id="brain-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" type="button" title="Open memory" aria-label="Open memory" aria-pressed="false">
+                <i data-lucide="database" class="w-5 h-5"></i>
             </button>
             
             <button id="profile-btn" class="p-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" title="Profile & Settings">
@@ -249,42 +249,39 @@
         </div>
     </main>
 
-    <!-- MindPal Brain · dedicated workspace, kept outside Chat and Settings -->
-    <section id="brain-workspace" class="brain-workspace" hidden aria-label="MindPal Brain workspace">
-        <div class="brain-ambient brain-ambient-one" aria-hidden="true"></div>
-        <div class="brain-ambient brain-ambient-two" aria-hidden="true"></div>
-        <header class="brain-topbar">
-            <div class="brain-ident">
-                <button id="brain-close-btn" class="brain-icon-button" type="button" title="Return to chat" aria-label="Return to chat"><i data-lucide="arrow-left" class="w-4 h-4"></i></button>
-                <div><span class="brain-kicker">Personal knowledge observatory</span><h1>MindPal <em>Brain</em></h1></div>
+    <!-- MindPal Brain · native Memory view, kept within the existing app shell -->
+    <section id="brain-workspace" class="brain-workspace" hidden aria-label="Memory workspace">
+        <div class="brain-shell">
+            <header class="brain-page-header">
+                <div class="brain-page-title">
+                    <button id="brain-close-btn" class="brain-icon-button" type="button" title="Back to chat" aria-label="Back to chat"><i data-lucide="arrow-left" class="w-4 h-4"></i></button>
+                    <div><h1>Memory</h1><p id="brain-status-copy" aria-live="polite">A private view of what MindPal keeps in context.</p></div>
+                </div>
+                <div class="brain-toolbar">
+                    <span class="brain-sync-label"><span id="brain-mode-label">LOCAL</span> · <b id="brain-version">v1</b></span>
+                    <button id="brain-list-toggle" class="brain-toolbar-button" type="button"><i data-lucide="list-tree" class="w-4 h-4"></i><span>List</span></button>
+                    <button id="brain-refresh-btn" class="brain-icon-button" type="button" title="Refresh memory"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                </div>
+            </header>
+            <nav class="brain-view-nav" aria-label="Memory navigation">
+                <button class="brain-view-button active" type="button" data-brain-view="today"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Overview</span><b id="brain-today-count">0</b></button>
+                <button class="brain-view-button" type="button" data-brain-view="map"><i data-lucide="network" class="w-4 h-4"></i><span>Connections</span></button>
+                <button class="brain-view-button brain-focus-trigger" type="button" data-brain-view="focus"><i data-lucide="crosshair" class="w-4 h-4"></i><span>Focus</span></button>
+                <button class="brain-view-button" type="button" data-brain-view="review"><i data-lucide="badge-alert" class="w-4 h-4"></i><span>Review</span><b id="brain-review-count">0</b></button>
+            </nav>
+            <div class="brain-controls">
+                <label class="brain-search"><i data-lucide="search" class="w-4 h-4"></i><input id="brain-search-input" type="search" autocomplete="off" placeholder="Search saved memories" aria-label="Search saved memories"></label>
+                <div id="brain-category-filters" class="brain-filter-stack" aria-label="Filter memory categories"></div>
             </div>
-            <div class="brain-status" aria-live="polite"><span class="brain-pulse"></span><span id="brain-status-copy">Synchronizing constellation</span></div>
-            <div class="brain-toolbar">
-                <button id="brain-list-toggle" class="brain-toolbar-button" type="button"><i data-lucide="list-tree" class="w-4 h-4"></i><span>List</span></button>
-                <button id="brain-refresh-btn" class="brain-icon-button" type="button" title="Refresh Brain"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+            <div class="brain-layout">
+                <main class="brain-canvas-pane">
+                    <div id="brain-main-content" class="brain-main-content" aria-live="polite"></div>
+                    <div id="brain-list-equivalent" class="brain-list-equivalent" hidden aria-label="Accessible memory list"></div>
+                </main>
+                <aside id="brain-inspector" class="brain-inspector" aria-label="Memory details">
+                    <div class="brain-inspector-empty"><i data-lucide="scan-eye" class="w-6 h-6"></i><p>Select a memory to see its details and connections.</p></div>
+                </aside>
             </div>
-        </header>
-        <div class="brain-layout">
-            <aside class="brain-rail" aria-label="Brain navigation">
-                <div class="brain-rail-heading">WORKSPACE</div>
-                <nav class="brain-view-nav">
-                    <button class="brain-view-button active" type="button" data-brain-view="today"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Today</span><b id="brain-today-count">0</b></button>
-                    <button class="brain-view-button" type="button" data-brain-view="map"><i data-lucide="orbit" class="w-4 h-4"></i><span>Map</span></button>
-                    <button class="brain-view-button" type="button" data-brain-view="focus"><i data-lucide="crosshair" class="w-4 h-4"></i><span>Focus</span></button>
-                    <button class="brain-view-button" type="button" data-brain-view="review"><i data-lucide="badge-alert" class="w-4 h-4"></i><span>Review</span><b id="brain-review-count">0</b></button>
-                </nav>
-                <div class="brain-rail-heading brain-rail-search-label">FIND A SIGNAL</div>
-                <label class="brain-search"><i data-lucide="search" class="w-4 h-4"></i><input id="brain-search-input" type="search" autocomplete="off" placeholder="Search memories" aria-label="Search Brain memories"></label>
-                <div id="brain-category-filters" class="brain-filter-stack" aria-label="Filter Brain categories"></div>
-                <div class="brain-telemetry"><span>GRAPH / <b id="brain-version">v1</b></span><span id="brain-mode-label">LOCAL</span></div>
-            </aside>
-            <main class="brain-canvas-pane">
-                <div id="brain-main-content" class="brain-main-content" aria-live="polite"></div>
-                <div id="brain-list-equivalent" class="brain-list-equivalent" hidden aria-label="Accessible graph list"></div>
-            </main>
-            <aside id="brain-inspector" class="brain-inspector" aria-label="Brain inspector">
-                <div class="brain-inspector-empty"><i data-lucide="scan-eye" class="w-6 h-6"></i><p>Select a signal to inspect its evidence, links, and controls.</p></div>
-            </aside>
         </div>
     </section>
 

@@ -67,7 +67,7 @@ export function closeBrainWorkspace() {
 
 export async function refreshBrainWorkspace({ keepSelection = false } = {}) {
   if (!state.open) return;
-  setStatus("Synchronizing constellation");
+  setStatus("Refreshing saved memory…");
   const token = await dependencies.getIdToken?.().catch(() => null);
   state.token = token || null;
   state.remote = false;
@@ -82,15 +82,15 @@ export async function refreshBrainWorkspace({ keepSelection = false } = {}) {
       state.overview = overview;
       state.map = map;
       state.remote = true;
-      setStatus("Cloud constellation live");
+      setStatus("Cloud memory is up to date.");
     } else {
       hydrateLocalBrain();
-      setStatus("Private local constellation");
+      setStatus("Using memory stored on this device.");
     }
   } catch (error) {
     console.warn("Brain cloud refresh failed; showing local graph", error);
     hydrateLocalBrain();
-    setStatus("Local constellation · cloud unavailable");
+    setStatus("Using local memory while cloud sync is unavailable.");
   }
 
   if (!keepSelection) state.selectedId = null;
@@ -232,11 +232,11 @@ function renderWorkspace() {
 function renderToday() {
   const overview = state.overview || emptyOverview();
   return `<section class="brain-today">
-    <div class="brain-card brain-hero"><div><span class="brain-kicker">${overview.visible_node_count || 0} visible signals · ${overview.visible_edge_count || 0} links</span><h2>Your context, in constellation.</h2><p>MindPal keeps only a small, relevant set ready for the next conversation.</p></div><div class="brain-orbital-mark" aria-hidden="true"></div></div>
+    <div class="brain-card brain-hero"><div><span class="brain-kicker">${overview.visible_node_count || 0} saved memories · ${overview.visible_edge_count || 0} connections</span><h2>Memory, when it helps.</h2><p>MindPal uses a small, relevant set of your saved context to keep conversations continuous.</p></div></div>
     <div class="brain-today-grid">
-      ${renderSignalCard("star", "Pinned signals", overview.pinned_nodes, "A pinned item stays protected and easy to find.")}
-      ${renderSignalCard("activity", "Recent patterns", overview.recent_patterns, "Patterns appear when repeated context is worth reviewing.")}
-      ${renderSignalCard("heart-pulse", "Helpful tools", overview.suggested_tools, "These are user-described supports, not treatment claims.")}
+      ${renderSignalCard("star", "Saved priorities", overview.pinned_nodes, "Pin the memories you want MindPal to keep easy to find.")}
+      ${renderSignalCard("activity", "Patterns to notice", overview.recent_patterns, "Repeated context that may be useful to check in on.")}
+      ${renderSignalCard("heart-pulse", "Helpful supports", overview.suggested_tools, "Things you have said help you. These are not treatment recommendations.")}
     </div>
   </section>`;
 }
@@ -261,14 +261,14 @@ function renderMap() {
     return `<g class="brain-node-button" role="button" tabindex="0" aria-label="Focus ${escapeAttribute(node.title)}" data-brain-node="${escapeAttribute(node.id)}" style="--node-color:${color}"><circle class="brain-node-ring" cx="${point.x}" cy="${point.y}" r="21"></circle><circle class="brain-node-core" cx="${point.x}" cy="${point.y}" r="7"></circle><text class="brain-node-label" x="${point.x}" y="${point.y + 34}" text-anchor="middle">${escapeHtml(label)}</text></g>`;
   }).join("");
   const legend = [...new Set(nodes.map((node) => node.category))].slice(0, 6).map((category) => `<span><i class="brain-node-dot" style="--node-color:${nodeColor({ category })}"></i>${escapeHtml(CATEGORY_META[category]?.[0] || category)}</span>`).join("");
-  return `<section class="brain-map"><header class="brain-map-head"><div><h2>${state.view === "focus" ? "Focused constellation" : "Knowledge map"}</h2><p>Explore typed relationships without exposing hidden or high-sensitivity material.</p></div><span class="brain-map-scope">${escapeHtml((map.scope || "global").toUpperCase())} · ${nodes.length} NODES</span></header><div class="brain-map-stage">${nodes.length ? `<svg class="brain-map-svg" viewBox="0 0 800 480" role="img" aria-label="Interactive Brain relationship map">${edgeMarkup}${nodeMarkup}</svg>` : `<div class="brain-inspector-empty"><i data-lucide="orbit" class="w-7 h-7"></i><p>Your constellation will appear as you choose memories to retain.</p></div>`}</div><div class="brain-map-legend">${legend || "No visible categories"}</div></section>`;
+  return `<section class="brain-map"><header class="brain-map-head"><div><h2>${state.view === "focus" ? "Focused memories" : "Connections"}</h2><p>See how saved memories relate. Sensitive memories remain private in this view.</p></div><span class="brain-map-scope">${escapeHtml((map.scope || "all").toUpperCase())} · ${nodes.length} MEMORIES</span></header><div class="brain-map-stage">${nodes.length ? `<svg class="brain-map-svg" viewBox="0 0 800 480" role="img" aria-label="Interactive Brain relationship map">${edgeMarkup}${nodeMarkup}</svg>` : `<div class="brain-inspector-empty"><i data-lucide="orbit" class="w-7 h-7"></i><p>Saved memories will appear here as you choose what MindPal keeps.</p></div>`}</div><div class="brain-map-legend">${legend || "No visible categories"}</div></section>`;
 }
 
 function renderReview() {
   const graph = dependencies.getMemoryGraphContext?.() || {};
   const atomById = new Map((graph.atoms || []).map((atom) => [atom.id, toLocalNode(atom)]));
   const reviews = (graph.brain?.review_queue || []).filter((item) => ["pending", "deferred"].includes(item.status));
-  return `<section class="brain-review"><header class="brain-review-head"><h2>Review queue</h2><p>Confirm, correct, defer, pin, or forget what MindPal retains. You remain in control.</p></header><div class="brain-review-list">${reviews.length ? reviews.map((review) => { const node = atomById.get(review.atom_id); return `<article class="brain-card brain-review-card"><header><span class="brain-review-kind">${escapeHtml(review.kind)} · needs attention</span><span class="brain-confidence">${escapeHtml(review.status)}</span></header><h3>${escapeHtml(node?.title || "Unavailable memory")}</h3><p>${escapeHtml(review.reason || "Check whether this is still useful and accurate.")}</p><div class="brain-review-actions"><button type="button" data-brain-review-id="${escapeAttribute(review.id)}" data-brain-review-action="confirm">Confirm</button><button type="button" data-brain-review-id="${escapeAttribute(review.id)}" data-brain-review-action="defer">Defer</button><button type="button" data-brain-review-id="${escapeAttribute(review.id)}" data-brain-review-action="pin">Pin</button><button type="button" data-brain-review-id="${escapeAttribute(review.id)}" data-brain-review-action="forget">Forget</button></div></article>`; }).join("") : `<article class="brain-card brain-review-card"><h3>All signals are clear</h3><p>There are no pending Brain reviews. MindPal will surface stale or conflicting memories here instead of silently guessing.</p></article>`}</div></section>`;
+      return `<section class="brain-review"><header class="brain-review-head"><h2>Review memories</h2><p>Confirm, correct, defer, pin, or forget what MindPal retains. You remain in control.</p></header><div class="brain-review-list">${reviews.length ? reviews.map((review) => { const node = atomById.get(review.atom_id); return `<article class="brain-card brain-review-card"><header><span class="brain-review-kind">${escapeHtml(review.kind)} · needs attention</span><span class="brain-confidence">${escapeHtml(review.status)}</span></header><h3>${escapeHtml(node?.title || "Unavailable memory")}</h3><p>${escapeHtml(review.reason || "Check whether this is still useful and accurate.")}</p><div class="brain-review-actions"><button type="button" data-brain-review-id="${escapeAttribute(review.id)}" data-brain-review-action="confirm">Confirm</button><button type="button" data-brain-review-id="${escapeAttribute(review.id)}" data-brain-review-action="defer">Defer</button><button type="button" data-brain-review-id="${escapeAttribute(review.id)}" data-brain-review-action="pin">Pin</button><button type="button" data-brain-review-id="${escapeAttribute(review.id)}" data-brain-review-action="forget">Forget</button></div></article>`; }).join("") : `<article class="brain-card brain-review-card"><h3>You are all caught up</h3><p>There are no memories waiting for review. MindPal will surface stale or conflicting items here instead of silently guessing.</p></article>`}</div></section>`;
 }
 
 function renderListEquivalent() {
@@ -321,7 +321,7 @@ function renderInspector() {
   const focus = state.focus;
   if (!target || !focus?.node?.id) return;
   const node = focus.node;
-  target.innerHTML = `<div class="brain-inspector-head"><div><span class="brain-inspector-eyebrow">${escapeHtml(node.node_type)}</span><h2 class="brain-inspector-title">${escapeHtml(node.title)}</h2></div><span class="brain-confidence">${Math.round(Number(node.confidence || 0) * 100)}% certain</span></div><p class="brain-inspector-summary">${escapeHtml(node.summary || "No additional summary.")}</p><div class="brain-property-grid"><div class="brain-property"><span>Source</span><b>${escapeHtml(node.source || "memory")}</b></div><div class="brain-property"><span>Last seen</span><b>${formatDate(node.last_confirmed_at || node.updated_at)}</b></div><div class="brain-property"><span>Evidence</span><b>${Number(node.evidence_count || focus.evidence?.length || 0)} records</b></div><div class="brain-property"><span>Reply visibility</span><b>${node.hidden_from_replies ? "Hidden" : "Available"}</b></div></div><section class="brain-inspector-section"><h3><i data-lucide="quote" class="w-3.5 h-3.5"></i> Evidence</h3>${focus.evidence?.length ? focus.evidence.map((item) => `<div class="brain-evidence">“${escapeHtml(item.excerpt)}”<small>${escapeHtml(item.source || "memory")} · ${formatDate(item.captured_at)}</small></div>`).join("") : '<p class="brain-empty-copy">No separate excerpt is attached. The saved item retains its source and confidence.</p>'}</section><section class="brain-inspector-section"><h3><i data-lucide="git-branch" class="w-3.5 h-3.5"></i> Backlinks</h3>${focus.backlinks?.length ? focus.backlinks.map((edge) => `<div class="brain-backlink" data-brain-edge="${escapeAttribute(edge.id)}"><b>${escapeHtml(edge.relation.replaceAll("_", " "))}</b><small>${Math.round(Number(edge.confidence || 0) * 100)}% confidence${edge.tentative ? " · tentative" : ""}</small></div>`).join("") : '<p class="brain-empty-copy">No visible links yet. You can create a deliberate connection below.</p>'}</section><div class="brain-action-row"><button class="brain-action" type="button" data-brain-inspector-action="connect">Connect signal</button><button class="brain-action" type="button" data-brain-inspector-action="controls">Memory controls</button></div>`;
+  target.innerHTML = `<div class="brain-inspector-head"><div><span class="brain-inspector-eyebrow">${escapeHtml(node.node_type)}</span><h2 class="brain-inspector-title">${escapeHtml(node.title)}</h2></div><span class="brain-confidence">${Math.round(Number(node.confidence || 0) * 100)}% certain</span></div><p class="brain-inspector-summary">${escapeHtml(node.summary || "No additional summary.")}</p><div class="brain-property-grid"><div class="brain-property"><span>Source</span><b>${escapeHtml(node.source || "memory")}</b></div><div class="brain-property"><span>Last seen</span><b>${formatDate(node.last_confirmed_at || node.updated_at)}</b></div><div class="brain-property"><span>Evidence</span><b>${Number(node.evidence_count || focus.evidence?.length || 0)} records</b></div><div class="brain-property"><span>Use in replies</span><b>${node.hidden_from_replies ? "Off" : "On"}</b></div></div><section class="brain-inspector-section"><h3><i data-lucide="quote" class="w-3.5 h-3.5"></i> Evidence</h3>${focus.evidence?.length ? focus.evidence.map((item) => `<div class="brain-evidence">“${escapeHtml(item.excerpt)}”<small>${escapeHtml(item.source || "memory")} · ${formatDate(item.captured_at)}</small></div>`).join("") : '<p class="brain-empty-copy">No separate excerpt is attached. The saved item retains its source and confidence.</p>'}</section><section class="brain-inspector-section"><h3><i data-lucide="git-branch" class="w-3.5 h-3.5"></i> Backlinks</h3>${focus.backlinks?.length ? focus.backlinks.map((edge) => `<div class="brain-backlink" data-brain-edge="${escapeAttribute(edge.id)}"><b>${escapeHtml(edge.relation.replaceAll("_", " "))}</b><small>${Math.round(Number(edge.confidence || 0) * 100)}% confidence${edge.tentative ? " · tentative" : ""}</small></div>`).join("") : '<p class="brain-empty-copy">No visible links yet. You can create a deliberate connection below.</p>'}</section><div class="brain-action-row"><button class="brain-action" type="button" data-brain-inspector-action="connect">Connect signal</button><button class="brain-action" type="button" data-brain-inspector-action="controls">Memory controls</button></div>`;
   dependencies.refreshIcons?.();
 }
 
@@ -332,10 +332,10 @@ async function runSearch(query) {
     state.view = "map";
     state.map = { graph_version: state.overview?.graph_version || 1, scope: "search", nodes, edges: (state.map?.edges || []).filter((edge) => nodes.some((node) => node.id === edge.source_atom_id) && nodes.some((node) => node.id === edge.target_atom_id)) };
     document.querySelectorAll("[data-brain-view]").forEach((button) => button.classList.toggle("active", button.getAttribute("data-brain-view") === "map"));
-    setStatus(`${nodes.length} matching signals`);
+    setStatus(`${nodes.length} matching memories`);
     renderWorkspace();
   } catch (error) {
-    dependencies.showToast?.("Brain search is temporarily unavailable.");
+    dependencies.showToast?.("Memory search is temporarily unavailable.");
   }
 }
 
