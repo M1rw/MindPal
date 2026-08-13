@@ -119,3 +119,8 @@ Keep the newly added adversarial suite in continuous integration and expand it w
 [2]: https://github.com/OWASP/www-project-ai-testing-guide/blob/main/Document/content/tests/AITG-APP-01_Testing_for_Prompt_Injection.md "OWASP AI Testing Guide: AITG-APP-01 Testing for Prompt Injection"
 [3]: https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html "OWASP LLM Prompt Injection Prevention Cheat Sheet"
 [4]: https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/ "OWASP API4:2023 Unrestricted Resource Consumption"
+
+
+## Deployment observation
+
+At the time of the post-push dashboard check, Vercel reported the previously repaired production deployment at commit `4305692` as **Ready**. The newly pushed backend-hardening commit `c54a2f6` had not yet appeared as the listed production source, so its deployment should be allowed to trigger or be manually redeployed from the Vercel dashboard if the repository webhook is delayed. The production build command itself was already validated locally through the full backend verification pipeline.
