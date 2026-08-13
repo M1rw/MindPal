@@ -123,7 +123,7 @@ def test_brain_route_and_assets_are_delivered() -> None:
         chat_bundle = client.get("/dist/app.bundle.js")
 
     assert root.status_code == 200
-    assert 'id="brain-btn"' in root.text
+    assert 'id="brain-btn"' not in root.text
     assert 'id="brain-workspace"' not in root.text
     assert brain_page.status_code == 200
     assert 'id="brain-workspace"' in brain_page.text
@@ -133,5 +133,7 @@ def test_brain_route_and_assets_are_delivered() -> None:
     assert ".brain-standalone-workspace" in brain_css.text
     assert "prefers-reduced-motion" in brain_css.text
     assert brain_bundle.status_code == 200 and len(brain_bundle.content) > 100_000
+    assert "brain-node-aura" in brain_bundle.text
+    assert "LIVE MEMORY GRAPH" in brain_bundle.text
     assert chat_bundle.status_code == 200
-    assert "window.location.assign(\"/brain\")" in chat_bundle.text
+    assert "brain-btn" not in chat_bundle.text

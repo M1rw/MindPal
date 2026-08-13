@@ -97,8 +97,6 @@ import {
   renderMemoryInspector,
 } from "./components/memory_inspector.js";
 
-import { initBrainWorkspace } from "./components/brain_workspace.js";
-
 import {
   bindUnifiedSelector,
   getCurrentModel,
@@ -299,21 +297,6 @@ async function bootstrap() {
       clearMemoryCategory,
       persistMemoryContextSafe,
       getMemoryGraphContext,
-    });
-
-    initBrainWorkspace({
-      getIdToken,
-      getMemoryGraphContext,
-      setMemoryGraphContext,
-      persistMemoryContextSafe,
-      showToast,
-      refreshIcons,
-      openMemoryControls: () => {
-        updateProfileUI(getCurrentUser());
-        renderMemoryInspector();
-        openModal("profile-modal", "profile-content");
-        document.querySelector('[data-settings-tab="memory"]')?.click();
-      },
     });
 
     bindTheme();
