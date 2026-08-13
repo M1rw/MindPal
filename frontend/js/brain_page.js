@@ -1,1 +1,1 @@
-import "./neural_observatory.js";
+import "./safe_mode.js";

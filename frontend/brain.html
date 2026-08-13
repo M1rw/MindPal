@@ -1,72 +1,42 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#060814">
-  <meta name="description" content="MindPal Neural Observatory — a live, privacy-safe visualization of the MindPal inference workflow.">
-  <title>Neural Observatory · MindPal</title>
-  <link rel="stylesheet" href="./css/brain.css?v=observatory-2">
+  <meta name="theme-color" content="#030506">
+  <meta name="description" content="MindPal // SAFE MODE — live runtime debugger.">
+  <title>MindPal // SAFE MODE</title>
+  <link rel="stylesheet" href="./css/brain.css?v=safe-mode-1">
   <script type="module" src="./dist/brain.bundle.js"></script>
 </head>
-<body class="neural-observatory">
-  <header class="observatory-header">
-    <a class="observatory-brand" href="/" aria-label="Return to MindPal chat">MindPal</a>
-    <div class="observatory-title"><span class="observatory-pulse" aria-hidden="true"></span><span>NEURAL OBSERVATORY</span></div>
-    <div class="observatory-header-actions"><span id="observatory-connection" class="observatory-connection">PUBLIC · DEVICE LOCAL</span><a href="/" class="observatory-back">Back to chat</a></div>
-  </header>
-
-  <main class="observatory-shell">
-    <section class="observatory-intro">
-      <div>
-        <p class="eyebrow">MindPal inference field</p>
-        <h1>Watch the system <em>think in motion.</em></h1>
-        <p class="observatory-lede">A live visual model of the MindPal request pipeline: transformer layers, activation flow, sparse features, and feature relationships.</p>
-      </div>
-      <div class="observatory-status-card" aria-live="polite">
-        <span class="status-label">CURRENT STAGE</span>
-        <strong id="observatory-stage">IDLE FIELD</strong>
-        <small id="observatory-stage-detail">Running a local visual simulation</small>
-      </div>
-    </section>
-
-    <section class="observatory-visual" aria-label="Animated neural activity field">
-      <canvas id="neural-webgl-canvas" aria-hidden="true"></canvas>
-      <div class="canvas-vignette" aria-hidden="true"></div>
-      <div class="canvas-readout canvas-readout-left"><span>ACTIVE FEATURES</span><b id="active-feature-count">—</b></div>
-      <div class="canvas-readout canvas-readout-right"><span>PROPAGATION</span><b id="propagation-rate">—</b></div>
-      <div class="canvas-legend" aria-hidden="true"><i class="legend-dot input"></i> input <i class="legend-dot activation"></i> activation <i class="legend-dot feature"></i> SAE feature</div>
-      <div id="neural-canvas-fallback" class="neural-canvas-fallback" hidden>WebGL is unavailable. The pipeline and live activity summary remain available below.</div>
-    </section>
-
-    <section class="observatory-console">
-      <div class="pipeline-panel">
-        <div class="panel-heading"><span>COMPUTATION PATH</span><small id="event-mode-label">IDLE SIMULATION</small></div>
-        <ol class="transformer-pipeline" id="transformer-pipeline">
-          <li data-stage="request"><b>01</b><span>Request event</span><i></i></li>
-          <li data-stage="tokenize"><b>02</b><span>Tokenization</span><i></i></li>
-          <li data-stage="attention"><b>03</b><span>Attention heads</span><i></i></li>
-          <li data-stage="activation"><b>04</b><span>Activation field</span><i></i></li>
-          <li data-stage="sae"><b>05</b><span>SAE features</span><i></i></li>
-          <li data-stage="feature_graph"><b>06</b><span>Feature graph</span><i></i></li>
-          <li data-stage="response"><b>07</b><span>Response stream</span><i></i></li>
-        </ol>
-      </div>
-      <div class="feature-panel">
-        <div class="panel-heading"><span>SPARSE FEATURE READOUT</span><small>TOP ACTIVATIONS</small></div>
-        <div id="feature-readout" class="feature-readout" aria-live="polite"></div>
-      </div>
-      <aside class="control-panel" aria-label="Neural visualization controls">
-        <div class="panel-heading"><span>FIELD CONTROL</span><small>LOCAL ONLY</small></div>
-        <button id="neural-pause-toggle" class="control-button" type="button" aria-pressed="false">Pause field</button>
-        <label class="density-control" for="neural-density"><span>Activity density</span><input id="neural-density" type="range" min="1" max="3" step="1" value="2"></label>
-        <button id="neural-trigger-button" class="control-button subtle" type="button">Trigger sample flow</button>
+<body class="safe-mode">
+  <main class="safe-shell" aria-label="MindPal SAFE MODE runtime debugger">
+    <header class="safe-topbar">
+      <div class="safe-product">MINDPAL CORE <span>v1.0.0</span></div>
+      <div class="safe-top-item">MODEL: <b id="safe-model-label">mindpal-runtime</b></div>
+      <div class="safe-top-item">MODE: <strong>SAFE</strong></div>
+      <div class="safe-uptime">UPTIME: <b id="safe-uptime">00:00:00</b></div>
+      <div class="safe-window-controls" aria-hidden="true"><i></i><i></i><i></i></div>
+    </header>
+    <div class="safe-workspace">
+      <aside class="safe-sidebar">
+        <section><h2>SYSTEM</h2><dl><dt>Status</dt><dd id="safe-status">IDLE</dd><dt>Mode</dt><dd>SAFE</dd><dt>Transport</dt><dd>SSE</dd><dt>Trace</dt><dd>LOCAL</dd></dl></section>
+        <section><h2>ENGINE</h2><dl><dt>Pipeline</dt><dd>CHAT</dd><dt>Events</dt><dd id="safe-event-count">0</dd><dt>Nodes</dt><dd id="safe-node-count">0</dd><dt>Run</dt><dd id="safe-run-short">—</dd></dl></section>
+        <section><h2>MODULES</h2><ul class="safe-module-list"><li>Safety <b>[/]</b></li><li>Memory <b>[/]</b></li><li>Retrieval <b>[/]</b></li><li>Tools <b>[/]</b></li><li>Provider <b>[/]</b></li></ul></section>
+        <section class="safe-views"><h2>VIEWS</h2><a class="active" href="#safe-graph">› Graph</a><a href="#safe-trace">Tokens</a><a href="#safe-trace">Events</a><a href="/">Back to chat</a></section>
       </aside>
-    </section>
-
-    <section class="observatory-disclosure">
-      <p><strong>What you are seeing:</strong> MindPal’s coarse local request stages drive this visual field when chat is active. The neuron positions, activation strengths, and SAE-style features are a deterministic educational simulation—not raw hidden states, attention tensors, or internal provider weights. No prompt text, response text, account data, or stored memories are sent here.</p>
-    </section>
+      <section class="safe-main">
+        <header class="safe-graph-header"><span>GRAPH VIEW</span><div><b id="safe-breadcrumb">Input → Runtime → Output</b><button id="safe-pause" type="button" aria-pressed="false">PAUSE</button></div></header>
+        <section id="safe-graph" class="safe-graph" aria-label="Live MindPal runtime graph"><div id="safe-graph-empty" class="safe-graph-empty">WAITING FOR A MINDPAL RUN<span>Send a chat message to attach this console to the real runtime.</span></div><svg id="safe-graph-svg" viewBox="0 0 1200 420" role="img" aria-label="Deterministic MindPal runtime execution graph"></svg></section>
+        <section class="safe-inspectors">
+          <article id="safe-node-info"><h2>NODE INFO</h2><p>Select a runtime node.</p></article>
+          <article id="safe-live-activity"><h2>LIVE ACTIVITY</h2><div id="safe-activity-lines" class="safe-log-lines"></div></article>
+          <article class="safe-legend"><h2>LEGEND</h2><p><i class="strong"></i>Strong connection</p><p><i class="weak"></i>Weak connection</p><p><i class="node-active"></i>Active node</p><p><i class="node-idle"></i>Completed node</p></article>
+        </section>
+        <section id="safe-trace" class="safe-terminal"><div id="safe-terminal-lines" class="safe-log-lines"></div><div class="safe-telemetry"><p>RUN ID <b id="safe-run-id">—</b></p><p>LATENCY <b id="safe-latency">—</b></p><p>MEMORY <b id="safe-memory">—</b></p><p>TOOLS <b id="safe-tools">—</b></p></div></section>
+        <footer class="safe-prompt">C:\MindPal\Core&gt;<span id="safe-prompt-status"> observer ready</span></footer>
+      </section>
+    </div>
   </main>
 </body>
 </html>

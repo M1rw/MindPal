@@ -61,7 +61,7 @@ import {
 } from "./ui_state.js";
 
 import { initLiveVoice, startLiveVoice } from "./voice_live.js";
-import { emitNeuralEvent } from "./neural_telemetry.js";
+import { emitNeuralEvent, emitSafeModeRuntimeTrace } from "./neural_telemetry.js";
 
 import {
   formatMarkdown,
@@ -1011,6 +1011,7 @@ async function handleSend() {
       },
       onMetadata: (meta) => {
         backendMetaFinal = meta;
+        if (meta?.runtime_trace) emitSafeModeRuntimeTrace(meta.runtime_trace);
         if (meta.quota_exceeded) {
           showToast("MindPal Pro usage limit reached. Switched to Standard.", "warning");
           document.querySelector('.model-option[data-model="standard"]')?.click();
@@ -1564,6 +1565,7 @@ async function regenerateLastUserMessage(targetAssistantText = "") {
       },
       onMetadata: (meta) => {
         backendMetaFinal = meta;
+        if (meta?.runtime_trace) emitSafeModeRuntimeTrace(meta.runtime_trace);
         if (meta.pro_usage) updateUsageFromMeta(meta.pro_usage);
         if (meta.usage) syncUsageFromBackend(meta.usage);
       },

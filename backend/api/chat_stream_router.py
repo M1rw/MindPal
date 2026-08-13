@@ -39,9 +39,11 @@ from backend.core.prompts import build_intent_context, infer_response_mode_for_p
 from backend.models.brain import BrainPolicyTier
 from backend.models.chat import ChatRequest, LLMMessage, LLMRole
 from backend.models.memory import MemoryGraph, summary_from_memory_graph
+from backend.models.runtime_trace import RuntimeNode
 from backend.services.brain_service import render_context_pack_for_prompt
 from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
+from backend.services.runtime_trace_service import RuntimeTraceRecorder
 from backend.tools import ToolContext
 
 logger = logging.getLogger(__name__)
@@ -91,6 +93,8 @@ async def chat_stream(
     clinical_mode = payload.metadata.model == "pro"
     credit_cost = 2 if clinical_mode else 1
     idempotency_key = payload.metadata.client_request_id or context.request_id
+    runtime = RuntimeTraceRecorder(context.request_id)
+    runtime.started(metadata={"channel": context.channel.value, "authenticated": authenticated})
     quota_request_id = sanitize_text(f"{idempotency_key}:chat-stream", 120)
     reservation = None
     claim = None
@@ -140,15 +144,20 @@ async def chat_stream(
                 operation="chat_stream_pro" if clinical_mode else "chat_stream_standard",
             )
 
+        runtime.node_started(RuntimeNode.GUARDRAILS, parent=RuntimeNode.SESSION)
         safety_decision = await services.safety.classify_input_with_context(
             payload.message,
             locale=locale,
             memory_summary=None,
             channel=context.channel.value,
         )
+        runtime.node_completed(RuntimeNode.GUARDRAILS, parent=RuntimeNode.SESSION, metadata={"bypass": safety_decision.bypass_llm})
 
         if safety_decision.bypass_llm:
+            runtime.node_started(RuntimeNode.SYNTHESIS, parent=RuntimeNode.GUARDRAILS)
             reply = services.safety.render_deterministic_response(safety_decision, locale)
+            runtime.node_completed(RuntimeNode.SYNTHESIS, parent=RuntimeNode.GUARDRAILS, metadata={"deterministic": True})
+            runtime.complete(metadata={"safety_bypass": True})
             if safety_decision.should_log:
                 await _persist_safety_event_inline(
                     services=services,
@@ -166,6 +175,7 @@ async def chat_stream(
                 "memory_updated": False,
                 "safety": _safety_view(safety_decision).model_dump(mode="json"),
                 "request_id": context.request_id,
+                "runtime_trace": runtime.trace().model_dump(mode="json"),
             }
             await services.idempotency.complete(
                 claim=claim,
@@ -175,6 +185,9 @@ async def chat_stream(
 
         deterministic_reply = _maybe_answer_chat_context_question(payload)
         if deterministic_reply:
+            runtime.node_started(RuntimeNode.SYNTHESIS, parent=RuntimeNode.GUARDRAILS)
+            runtime.node_completed(RuntimeNode.SYNTHESIS, parent=RuntimeNode.GUARDRAILS, metadata={"deterministic": True})
+            runtime.complete(metadata={"context_shortcut": True})
             if reservation:
                 await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=quota_request_id)
             metadata = {
@@ -185,6 +198,7 @@ async def chat_stream(
                 "memory_updated": False,
                 "safety": _safety_view(safety_decision).model_dump(mode="json"),
                 "request_id": context.request_id,
+                "runtime_trace": runtime.trace().model_dump(mode="json"),
             }
             await services.idempotency.complete(
                 claim=claim,
@@ -192,14 +206,18 @@ async def chat_stream(
             )
             return _stream_response(deterministic_reply, metadata)
 
+        runtime.node_started(RuntimeNode.SESSION, parent=RuntimeNode.INPUT)
         profile = await _load_chat_profile(services=services, context=context, authenticated=authenticated)
+        runtime.node_completed(RuntimeNode.SESSION, parent=RuntimeNode.INPUT)
         memory_graph = None
         memory_summary = None
         memory_prompt = ""
         memory_allowed = bool(authenticated and profile.preferences.safety.allow_memory)
         if memory_allowed:
+            runtime.node_started(RuntimeNode.MEMORY, parent=RuntimeNode.CONTEXT)
             memory_graph = await services.memory_repo.load(context.session.user_id_hash)
             memory_summary = summary_from_memory_graph(memory_graph)
+            runtime.node_completed(RuntimeNode.MEMORY, parent=RuntimeNode.CONTEXT, metadata={"atom_count": len(memory_graph.atoms)})
             if not services.settings.ENABLE_BRAIN_CONTEXT_PLANNER:
                 memory_prompt = build_memory_graph_prompt(memory_graph)
             else:
@@ -238,6 +256,7 @@ async def chat_stream(
             intent_context=intent_context,
         )
         classification = classify_message(payload.message, locale=locale, clinical_mode=clinical_mode)
+        runtime.node_started(RuntimeNode.RETRIEVAL, parent=RuntimeNode.CONTEXT)
         rag_result = await services.rag.retrieve_contextual(
             payload.message,
             safety_tags=rag_tags,
@@ -245,6 +264,7 @@ async def chat_stream(
             memory_summary=memory_prompt,
             max_results=4,
         )
+        runtime.node_completed(RuntimeNode.RETRIEVAL, parent=RuntimeNode.CONTEXT, metadata={"reference_count": len(rag_result.references)})
 
         registry = _get_tool_registry()
         tool_context = ToolContext(
@@ -259,7 +279,9 @@ async def chat_stream(
                 for m in (payload.history or [])
             ],
         )
-        tool_results_text = await _pre_execute_tools(payload.message, registry, tool_context)
+        runtime.node_started(RuntimeNode.TOOL_ROUTER, parent=RuntimeNode.RETRIEVAL)
+        tool_results_text = await _pre_execute_tools(payload.message, registry, tool_context, runtime=runtime)
+        runtime.node_completed(RuntimeNode.TOOL_ROUTER, parent=RuntimeNode.RETRIEVAL, metadata={"tool_data": bool(tool_results_text)})
 
         rag_grounding = json.dumps(
             [ref if isinstance(ref, dict) else ref.model_dump() for ref in rag_result.prompt_grounding],
@@ -317,8 +339,12 @@ async def chat_stream(
             },
         )
 
+        runtime.node_started(RuntimeNode.MODEL, parent=RuntimeNode.TOOL_ROUTER)
         llm_result = await services.llm.generate_with_trace(llm_request)
+        runtime.node_completed(RuntimeNode.MODEL, parent=RuntimeNode.TOOL_ROUTER, metadata={"provider": llm_result.response.provider_used, "fallback_count": llm_result.response.fallback_count, "latency_ms": round(llm_result.response.latency_ms)})
+        runtime.node_started(RuntimeNode.EVALUATOR, parent=RuntimeNode.MODEL)
         guarded = await services.output_guard.validate_output_with_rewrite(llm_result.response.text, locale=locale)
+        runtime.node_completed(RuntimeNode.EVALUATOR, parent=RuntimeNode.MODEL, metadata={"rewritten": bool(guarded.rewrite_provider)})
         final_reply = guarded.final_text
 
         memory_updated = False
@@ -326,6 +352,7 @@ async def chat_stream(
         response_memory_graph_delta = None
         response_memory_graph_snapshot = None
         if memory_allowed:
+            runtime.node_started(RuntimeNode.MEMORY, parent=RuntimeNode.SYNTHESIS)
             graph_update = await _persist_memory_graph_inline(
                 payload=payload,
                 reply=final_reply,
@@ -339,6 +366,7 @@ async def chat_stream(
                 response_memory_graph_delta = graph_update["delta"]
                 response_memory_graph_snapshot = graph_update["snapshot"]
                 response_memory_summary = summary_from_memory_graph(response_memory_graph_snapshot)
+            runtime.node_completed(RuntimeNode.MEMORY, parent=RuntimeNode.SYNTHESIS, metadata={"updated": memory_updated})
 
         if safety_decision.should_log:
             await _persist_safety_event_inline(
@@ -373,6 +401,9 @@ async def chat_stream(
                 clinical_mode=clinical_mode,
             )
 
+        runtime.node_started(RuntimeNode.SYNTHESIS, parent=RuntimeNode.EVALUATOR)
+        runtime.node_completed(RuntimeNode.SYNTHESIS, parent=RuntimeNode.EVALUATOR)
+        runtime.complete(metadata={"memory_updated": memory_updated, "rag_reference_count": len(rag_result.references)})
         metadata: dict[str, Any] = {
             "type": "metadata",
             "provider_used": _provider_label(llm_result.response.provider_used, rewrite_provider=guarded.rewrite_provider),
@@ -383,6 +414,7 @@ async def chat_stream(
             "usage": usage,
             "request_id": context.request_id,
             "safe_buffered_stream": True,
+            "runtime_trace": runtime.trace().model_dump(mode="json"),
         }
         if response_memory_summary and not response_memory_summary.is_empty():
             metadata["memory_summary"] = response_memory_summary.model_dump(mode="json")

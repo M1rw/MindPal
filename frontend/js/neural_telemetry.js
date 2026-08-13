@@ -30,6 +30,24 @@ export function emitNeuralEvent(stage, details = {}) {
   persistEvent(event);
 }
 
+export function emitSafeModeRuntimeTrace(trace) {
+  const safeTrace = normalizeRuntimeTrace(trace);
+  if (!safeTrace) return;
+  const event = { kind: "mindpal_safe_mode_trace", trace: safeTrace, timestamp: Date.now() };
+  try { getChannel()?.postMessage(event); } catch { /* BroadcastChannel unavailable. */ }
+  try { window.localStorage?.setItem("mindpal_safe_mode_last_trace_v1", JSON.stringify(event)); } catch { /* Optional local hand-off. */ }
+}
+
+export function readLastSafeModeRuntimeTrace() {
+  try {
+    const raw = window.localStorage?.getItem("mindpal_safe_mode_last_trace_v1");
+    const value = raw ? JSON.parse(raw) : null;
+    return value?.kind === "mindpal_safe_mode_trace" ? normalizeRuntimeTrace(value.trace) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function readRecentNeuralEvents() {
   try {
     const raw = window.localStorage?.getItem(STORAGE_KEY);
@@ -38,6 +56,29 @@ export function readRecentNeuralEvents() {
   } catch {
     return [];
   }
+}
+
+function normalizeRuntimeTrace(trace) {
+  if (!trace || typeof trace !== "object" || !Array.isArray(trace.events)) return null;
+  const runId = String(trace.run_id || "").slice(0, 120);
+  if (!runId) return null;
+  const events = trace.events.slice(0, 64).map((event) => ({
+    run_id: runId,
+    sequence: Number(event.sequence || 0),
+    timestamp_ms: Number(event.timestamp_ms || 0),
+    kind: String(event.kind || "").slice(0, 40),
+    node: String(event.node || "").slice(0, 40),
+    status: String(event.status || "").slice(0, 24),
+    duration_ms: Number.isFinite(Number(event.duration_ms)) ? Number(event.duration_ms) : null,
+    parent: event.parent ? String(event.parent).slice(0, 40) : null,
+    metadata: normalizeTraceMetadata(event.metadata),
+  })).filter((event) => event.sequence > 0 && event.kind && event.node && event.status);
+  return { run_id: runId, completed: Boolean(trace.completed), total_duration_ms: Number(trace.total_duration_ms || 0), events, metrics: normalizeTraceMetadata(trace.metrics) };
+}
+
+function normalizeTraceMetadata(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).slice(0, 16).filter(([key, item]) => /^[a-z_]{1,40}$/.test(key) && ["string", "number", "boolean"].includes(typeof item)).map(([key, item]) => [key, typeof item === "string" ? item.slice(0, 80) : item]));
 }
 
 function persistEvent(event) {
