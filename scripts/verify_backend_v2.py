@@ -198,9 +198,9 @@ def main() -> int:
             ROOT / "requirements.lock",
             ROOT / "requirements-dev.lock",
             ROOT / "package-lock.json",
-            ROOT / ".env.production.example",
-            ROOT / "BACKEND_V2_ARCHITECTURE.md",
-            ROOT / "DEPLOY_BACKEND_V2.md",
+            ROOT / ".env.example",
+            ROOT / "docs" / "architecture" / "system-overview.md",
+            ROOT / "docs" / "ops" / "release-and-deploy-flow.md",
         ]
     )
 

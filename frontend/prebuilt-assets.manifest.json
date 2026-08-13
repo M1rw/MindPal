@@ -5,8 +5,8 @@
       "sha256": "0322897e9f16662109e0b96ba36b285198464a3617bbced48dc92855355524e9"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 355085,
-      "sha256": "945d81990a5e09a92c134e02614f2a0272764e562115d485bc6ad40b4d96b352"
+      "bytes": 356143,
+      "sha256": "55c1350f9606429790673cfbdfc6247cf03634c7b9d983d5b420b5bc9b21199f"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 12915,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "8a137064b827dad6d116fc7b0e5c12ded1c3fb8df3e18ae1448c8f975735ed5e",
+  "source_digest": "f0e292dd3e6997876ccfbddb3cec3538c8ed65dc47911d103108e83e4e38a41f",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",

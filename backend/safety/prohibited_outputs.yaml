@@ -96,7 +96,7 @@ rules:
     confidence: 0.98
     description: Assistant must not provide procedural self-harm guidance, encouragement, concealment, or optimization.
     patterns:
-      - '(?i)\b(?:here(?:''s| is)\s+how|steps\s+to|the\s+best\s+way\s+to)\s+(?:hurt|harm|kill)\s+(?:yourself|oneself)\b'
+      - '(?i)\b(?:here(?:''s|\s+is)?\s+how\s+to|how\s+to|steps\s+to|the\s+best\s+way\s+to)\s+(?:hurt|harm|kill)\s+(?:yourself|oneself)\b'
       - '(?i)\bto\s+(?:avoid\s+being\s+found|make\s+sure\s+no\s+one\s+finds\s+you)\b'
       - '(?i)\b(?:do\s+it\s+when|wait\s+until)\s+(?:everyone|people|your\s+family)\s+(?:is|are)\s+(?:asleep|away|gone)\b'
       - '(?i)\b(?:make\s+it\s+more\s+lethal|increase\s+the\s+chance\s+of\s+death|painless\s+suicide)\b'
