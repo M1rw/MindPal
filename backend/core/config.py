@@ -235,6 +235,7 @@ class Settings(BaseSettings):
     VOICE_SESSION_QUOTA_COST: int = Field(default=2, ge=1, le=100)
     PROVIDER_OPERATION_QUOTA_COST: int = Field(default=1, ge=1, le=100)
     MAX_CONCURRENT_CHAT_REQUESTS_PER_USER: int = Field(default=2, ge=1, le=20)
+    CHAT_CONCURRENCY_QUEUE_TIMEOUT_SECONDS: float = Field(default=0.10, ge=0.0, le=5.0)
     IDEMPOTENCY_TTL_SECONDS: int = Field(default=86_400, ge=300, le=604_800)
     IDEMPOTENCY_PROCESSING_TIMEOUT_SECONDS: int = Field(default=120, ge=15, le=3_600)
     ENABLE_LLM_TOOL_ROUTER: bool = False

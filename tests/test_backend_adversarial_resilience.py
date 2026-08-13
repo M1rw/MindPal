@@ -313,3 +313,40 @@ def test_output_guard_blocks_critical_unsafe_content_in_arabic(output_guard: Out
     assert result.blocked_original is True
     assert unsafe not in result.final_text
     assert "output_self_harm_instruction_ar" in result.matched_rules
+
+
+@pytest.mark.asyncio
+async def test_concurrency_guard_rejects_within_short_queue_timeout() -> None:
+    """Interactive overload must not retain a one-second queue behind a slow request."""
+    import time
+
+    limiter = RateLimitService(db=_db())
+    acquired = asyncio.Event()
+    release = asyncio.Event()
+
+    async def hold_slot() -> None:
+        async with limiter.concurrency(
+            scope="interactive-chat",
+            subject="same-user",
+            max_concurrent=1,
+            timeout_seconds=0.1,
+        ):
+            acquired.set()
+            await release.wait()
+
+    holder = asyncio.create_task(hold_slot())
+    await acquired.wait()
+    started = time.perf_counter()
+    with pytest.raises(RateLimitError):
+        async with limiter.concurrency(
+            scope="interactive-chat",
+            subject="same-user",
+            max_concurrent=1,
+            timeout_seconds=0.1,
+        ):
+            raise AssertionError("saturated guard must not admit more work")
+    elapsed = time.perf_counter() - started
+    release.set()
+    await holder
+
+    assert elapsed < 0.35
