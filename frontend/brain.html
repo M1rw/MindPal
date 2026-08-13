@@ -3,60 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#131314">
-  <meta name="description" content="MindPal Memory — a private view of the context that helps MindPal stay continuous.">
-  <title>Brain · MindPal</title>
-  <script src="./runtime-config.js"></script>
-  <link rel="stylesheet" href="./css/tailwind.generated.css">
-  <link rel="stylesheet" href="./css/style.css">
+  <meta name="theme-color" content="#060814">
+  <meta name="description" content="MindPal Neural Observatory — a live, privacy-safe visualization of the MindPal inference workflow.">
+  <title>Neural Observatory · MindPal</title>
   <link rel="stylesheet" href="./css/brain.css">
-  <script defer src="./dist/lucide.bundle.js"></script>
   <script type="module" src="./dist/brain.bundle.js"></script>
 </head>
-<body class="brain-page-body bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText font-sans antialiased">
-  <header class="brain-site-header">
-    <a class="brain-brand" href="/" aria-label="Return to MindPal chat">MindPal</a>
-    <div class="brain-site-actions">
-      <span id="brain-account-label" class="brain-account-label">Local memory</span>
-      <button id="brain-theme-toggle" class="brain-page-icon-button" type="button" title="Toggle theme" aria-label="Toggle theme">
-        <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
-        <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
-      </button>
-      <a class="brain-return-link" href="/">Back to chat</a>
-    </div>
+<body class="neural-observatory">
+  <header class="observatory-header">
+    <a class="observatory-brand" href="/" aria-label="Return to MindPal chat">MindPal</a>
+    <div class="observatory-title"><span class="observatory-pulse" aria-hidden="true"></span><span>NEURAL OBSERVATORY</span></div>
+    <div class="observatory-header-actions"><span id="observatory-connection" class="observatory-connection">PUBLIC · DEVICE LOCAL</span><a href="/" class="observatory-back">Back to chat</a></div>
   </header>
 
-  <main id="brain-workspace" class="brain-workspace brain-standalone-workspace" aria-label="MindPal Memory">
-    <div class="brain-shell">
-      <header class="brain-page-header">
-        <div class="brain-page-title">
-          <div><h1>Brain</h1><p id="brain-status-copy" aria-live="polite">Your private memory graph, moving in real time.</p></div>
-        </div>
-        <div class="brain-toolbar">
-          <span class="brain-sync-label"><span id="brain-mode-label">LOCAL</span> · <b id="brain-version">v1</b></span>
-          <button id="brain-list-toggle" class="brain-toolbar-button" type="button"><i data-lucide="list-tree" class="w-4 h-4"></i><span>List</span></button>
-          <button id="brain-refresh-btn" class="brain-icon-button" type="button" title="Refresh memory"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
-        </div>
-      </header>
-      <nav class="brain-view-nav" aria-label="Brain navigation">
-        <button class="brain-view-button active" type="button" data-brain-view="map"><i data-lucide="network" class="w-4 h-4"></i><span>Graph</span></button>
-        <button class="brain-view-button" type="button" data-brain-view="review"><i data-lucide="badge-alert" class="w-4 h-4"></i><span>Review</span><b id="brain-review-count">0</b></button>
-      </nav>
-      <div class="brain-controls">
-        <label class="brain-search"><i data-lucide="search" class="w-4 h-4"></i><input id="brain-search-input" type="search" autocomplete="off" placeholder="Search saved memories" aria-label="Search saved memories"></label>
-        <div id="brain-category-filters" class="brain-filter-stack" aria-label="Filter memory categories"></div>
+  <main class="observatory-shell">
+    <section class="observatory-intro">
+      <div>
+        <p class="eyebrow">MindPal inference field</p>
+        <h1>Watch the system <em>think in motion.</em></h1>
+        <p class="observatory-lede">A live visual model of the MindPal request pipeline: transformer layers, activation flow, sparse features, and feature relationships.</p>
       </div>
-      <div class="brain-layout">
-        <section class="brain-canvas-pane">
-          <div id="brain-main-content" class="brain-main-content" aria-live="polite"></div>
-          <div id="brain-list-equivalent" class="brain-list-equivalent" hidden aria-label="Accessible memory list"></div>
-        </section>
-        <aside id="brain-inspector" class="brain-inspector" aria-label="Memory details">
-          <div class="brain-inspector-empty"><i data-lucide="scan-eye" class="w-6 h-6"></i><p>Select a memory to see its details and connections.</p></div>
-        </aside>
+      <div class="observatory-status-card" aria-live="polite">
+        <span class="status-label">CURRENT STAGE</span>
+        <strong id="observatory-stage">IDLE FIELD</strong>
+        <small id="observatory-stage-detail">Running a local visual simulation</small>
       </div>
-    </div>
+    </section>
+
+    <section class="observatory-visual" aria-label="Animated neural activity field">
+      <canvas id="neural-webgl-canvas" aria-hidden="true"></canvas>
+      <div class="canvas-vignette" aria-hidden="true"></div>
+      <div class="canvas-readout canvas-readout-left"><span>ACTIVE FEATURES</span><b id="active-feature-count">—</b></div>
+      <div class="canvas-readout canvas-readout-right"><span>PROPAGATION</span><b id="propagation-rate">—</b></div>
+      <div class="canvas-legend" aria-hidden="true"><i class="legend-dot input"></i> input <i class="legend-dot activation"></i> activation <i class="legend-dot feature"></i> SAE feature</div>
+      <div id="neural-canvas-fallback" class="neural-canvas-fallback" hidden>WebGL is unavailable. The pipeline and live activity summary remain available below.</div>
+    </section>
+
+    <section class="observatory-console">
+      <div class="pipeline-panel">
+        <div class="panel-heading"><span>COMPUTATION PATH</span><small id="event-mode-label">IDLE SIMULATION</small></div>
+        <ol class="transformer-pipeline" id="transformer-pipeline">
+          <li data-stage="request"><b>01</b><span>Request event</span><i></i></li>
+          <li data-stage="tokenize"><b>02</b><span>Tokenization</span><i></i></li>
+          <li data-stage="attention"><b>03</b><span>Attention heads</span><i></i></li>
+          <li data-stage="activation"><b>04</b><span>Activation field</span><i></i></li>
+          <li data-stage="sae"><b>05</b><span>SAE features</span><i></i></li>
+          <li data-stage="feature_graph"><b>06</b><span>Feature graph</span><i></i></li>
+          <li data-stage="response"><b>07</b><span>Response stream</span><i></i></li>
+        </ol>
+      </div>
+      <div class="feature-panel">
+        <div class="panel-heading"><span>SPARSE FEATURE READOUT</span><small>TOP ACTIVATIONS</small></div>
+        <div id="feature-readout" class="feature-readout" aria-live="polite"></div>
+      </div>
+      <aside class="control-panel" aria-label="Neural visualization controls">
+        <div class="panel-heading"><span>FIELD CONTROL</span><small>LOCAL ONLY</small></div>
+        <button id="neural-pause-toggle" class="control-button" type="button" aria-pressed="false">Pause field</button>
+        <label class="density-control" for="neural-density"><span>Activity density</span><input id="neural-density" type="range" min="1" max="3" step="1" value="2"></label>
+        <button id="neural-trigger-button" class="control-button subtle" type="button">Trigger sample flow</button>
+      </aside>
+    </section>
+
+    <section class="observatory-disclosure">
+      <p><strong>What you are seeing:</strong> MindPal’s coarse local request stages drive this visual field when chat is active. The neuron positions, activation strengths, and SAE-style features are a deterministic educational simulation—not raw hidden states, attention tensors, or internal provider weights. No prompt text, response text, account data, or stored memories are sent here.</p>
+    </section>
   </main>
-  <div id="brain-toast" class="brain-toast" role="status" aria-live="polite"></div>
 </body>
 </html>
