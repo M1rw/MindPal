@@ -61,6 +61,7 @@ import {
 } from "./ui_state.js";
 
 import { initLiveVoice, startLiveVoice } from "./voice_live.js";
+import { emitNeuralEvent } from "./neural_telemetry.js";
 
 import {
   formatMarkdown,
@@ -890,6 +891,7 @@ async function handleSend() {
   let streamController = null;
 
   isGenerating = true;
+  emitNeuralEvent("request", { inputLength: text.length });
   setInputState({ disabled: true, locked: false });
   setChatStarted(true);
 
@@ -926,7 +928,9 @@ async function handleSend() {
     appendStatusIndicator(statusId, streamMsgDiv);
 
     let contentBox = null;
+    emitNeuralEvent("tokenize", { inputLength: text.length });
     const token = await getIdToken();
+    emitNeuralEvent("attention", { inputLength: text.length });
     const mode = getCurrentMode();
     const model = currentModel;
     const contentContainer = document.createElement("div");
@@ -941,10 +945,11 @@ async function handleSend() {
 
     let lastRenderTime = 0;
     let renderTimeout = null;
-    const streamStartTime = performance.now();
-    let responseRendered = false;
+          const streamStartTime = performance.now();
+      let responseRendered = false;
+      emitNeuralEvent("activation", { inputLength: text.length });
 
-    if (activeStreamController) activeStreamController.abort();
+      if (activeStreamController) activeStreamController.abort();
     streamController = new AbortController();
     activeStreamController = streamController;
 
@@ -995,6 +1000,7 @@ async function handleSend() {
         }
       },
       onStatus: (status) => {
+        if (status === "text_finished") emitNeuralEvent("feature_graph", { inputLength: text.length });
         if (status !== "text_finished" || responseRendered) return;
         if (renderTimeout) { cancelAnimationFrame(renderTimeout); renderTimeout = null; }
         const elapsedMs = performance.now() - streamStartTime;
@@ -1068,6 +1074,7 @@ async function handleSend() {
       if (streamMsgDiv) streamMsgDiv.remove();
       return;
     }
+    emitNeuralEvent("error", { inputLength: text.length });
     console.error("handleSend error:", error);
     if (!streamResponseStr.trim() && streamMsgDiv) streamMsgDiv.remove();
     if (!firstChunkReceived) removeStatusIndicator(statusId);

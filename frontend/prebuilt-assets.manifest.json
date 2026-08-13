@@ -5,8 +5,8 @@
       "sha256": "63440def8df5e0b954c4e6aaf470c6fc6b4717d49086e103b5324c7a41cde396"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 361305,
-      "sha256": "362040ea1b0b88a7ea133d3d3416722b4f3cb1d5052150efe83a5fd45953f2ae"
+      "bytes": 362706,
+      "sha256": "25e40f3a1daf284ba2ef0083d34004f52b22b730c5a1ab9a7410147412d55c13"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "b8f9ad5f1e6b4e44f82a169ef5be5d1df990bf8d5338d18f3ad1a03a09d043ec",
+  "source_digest": "b3518a3561277d6279a6957ae41120a40ecd7b8fadf65ac57ab451b5daeed6a5",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -32,6 +32,8 @@
     "frontend/js/components/usage_tracker.js",
     "frontend/js/memory_graph.js",
     "frontend/js/memory_sync.mjs",
+    "frontend/js/neural_observatory.js",
+    "frontend/js/neural_telemetry.js",
     "frontend/js/settings_store.js",
     "frontend/js/ui_state.js",
     "frontend/js/utils/chat_helpers.js",
