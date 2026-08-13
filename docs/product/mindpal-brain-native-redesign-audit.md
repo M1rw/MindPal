@@ -24,3 +24,7 @@ The Brain is functioning, but visually behaves like a different application. It 
 ## Redesign acceptance criteria
 
 The refined Brain should look like a native MindPal panel even with the app title hidden. It must retain all implementation functionality—Today/overview, map, focus, review, search, links, evidence, filters, accessible list, local/cloud behavior—but present it through the current product’s restrained card system and a single centered workflow. The graph may remain visually distinct, but must appear inside a standard MindPal surface rather than an alternate visual universe.
+
+## Deployment validation note
+
+The native redesign was pushed to `main` in commit `a19b163`. Two live reload checks after the initial deployment window still returned the preceding bundle, identifiable by the labeled `Brain` header pill and the old observatory workspace. The repository build, frontend audit, prebuilt manifest verification, targeted API/service/delivery tests, and frontend tests passed before the push. A live visual acceptance pass should occur once the Vercel deployment for `a19b163` is active.
