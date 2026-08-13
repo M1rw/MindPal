@@ -52,6 +52,7 @@ export function stripSystemPromptLeak(text) {
 
   // Signature phrases that only appear in system prompt text — never in a real response
   const LEAK_SIGNATURES = [
+    /\bSystem\s+(?:Prompt|Instructions)\s*:/i,
     /\bSafety\s+level\s*:\s*\w+/i,
     /\bDANGER\s+RESPONSE\b/i,
     /\bCRITICAL\s+FORMAT\s+RULES\s*:/i,
