@@ -114,7 +114,7 @@ def test_runtime_config_uses_the_current_host_for_firebase_auth_domain() -> None
     assert '"FIREBASE_ENABLED":true' in response_text
 
 
-def test_public_neural_observatory_route_and_assets_are_delivered() -> None:
+def test_safe_mode_runtime_debugger_route_and_assets_are_delivered() -> None:
     with TestClient(app) as client:
         root = client.get("/")
         brain_page = client.get("/brain")
@@ -126,15 +126,15 @@ def test_public_neural_observatory_route_and_assets_are_delivered() -> None:
     assert 'id="brain-btn"' not in root.text
     assert 'id="brain-workspace"' not in root.text
     assert brain_page.status_code == 200
-    assert 'id="neural-webgl-canvas"' in brain_page.text
-    assert 'id="transformer-pipeline"' in brain_page.text
-    assert "raw hidden states" in brain_page.text
+    assert 'id="safe-graph-svg"' in brain_page.text
+    assert 'id="safe-terminal-lines"' in brain_page.text
+    assert "MINDPAL CORE" in brain_page.text
     assert "runtime-config.js" not in brain_page.text
     assert brain_css.status_code == 200
-    assert ".neural-observatory" in brain_css.text
+    assert ".safe-mode" in brain_css.text
     assert "prefers-reduced-motion" in brain_css.text
     assert brain_bundle.status_code == 200 and len(brain_bundle.content) > 5_000
-    assert "Neural WebGL program" in brain_bundle.text
+    assert "mindpal_safe_mode_last_trace_v1" in brain_bundle.text
     assert "firebase" not in brain_bundle.text.lower()
     assert chat_bundle.status_code == 200
-    assert "mindpal-neural-observatory-v1" in chat_bundle.text
+    assert "mindpal_safe_mode_trace" in chat_bundle.text

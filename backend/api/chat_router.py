@@ -970,6 +970,8 @@ async def _pre_execute_tools(
     user_message: str,
     registry: Any,
     tool_context: Any,
+    *,
+    runtime: Any | None = None,
 ) -> str:
     """Bounded tool routing with deterministic default and structured output.
 
@@ -991,6 +993,9 @@ async def _pre_execute_tools(
     evidence: list[dict[str, Any]] = []
     for call in tool_calls[:3]:
         tool_name = sanitize_text(str(call.get("tool", "")), 80)
+        runtime_node = _runtime_node_for_tool(tool_name)
+        if runtime and runtime_node:
+            runtime.node_started(runtime_node, metadata={"selected": True})
         tool_args = call.get("args", {}) if isinstance(call.get("args", {}), dict) else {}
         try:
             if tool_name == "web_search":
@@ -1003,6 +1008,8 @@ async def _pre_execute_tools(
                     window_seconds=3600,
                 )
             result = await registry.execute(tool_name, tool_args, tool_context)
+            if runtime and runtime_node:
+                runtime.node_completed(runtime_node, metadata={"ok": bool(result.ok)})
             evidence.append({
                 "tool": tool_name,
                 "ok": bool(result.ok),
@@ -1012,11 +1019,24 @@ async def _pre_execute_tools(
             })
         except Exception as exc:
             logger.warning("Tool %s execution failed: %s", tool_name, type(exc).__name__)
+            if runtime and runtime_node:
+                runtime.failed(runtime_node, code="tool_failed")
             evidence.append({"tool": tool_name, "ok": False, "args": tool_args, "data": None, "error": "tool_failed"})
 
     if not evidence:
         return ""
     return sanitize_text(json.dumps(evidence, ensure_ascii=False, separators=(",", ":")), 8_000)
+
+
+def _runtime_node_for_tool(tool_name: str) -> Any | None:
+    """Map existing tool identifiers to SAFE MODE graph nodes without creating new tools."""
+    from backend.models.runtime_trace import RuntimeNode
+
+    return {
+        "web_search": RuntimeNode.WEB,
+        "current_time": RuntimeNode.TIME,
+        "search_memory": RuntimeNode.MEMORY_SEARCH,
+    }.get(tool_name)
 
 
 async def _llm_tool_router(
