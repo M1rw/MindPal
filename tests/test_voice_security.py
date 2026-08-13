@@ -97,3 +97,41 @@ async def test_retired_voice_key_endpoint_never_returns_secret() -> None:
     with pytest.raises(HTTPException) as exc_info:
         await voice_router.retired_voice_key_endpoint(context=_context())
     assert exc_info.value.status_code == 410
+
+
+@pytest.mark.asyncio
+async def test_voice_transcription_and_summary_complete_with_sanitized_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _VoiceTool:
+        def __init__(self, data: dict[str, str]) -> None:
+            self.data = data
+
+        async def execute(self, *_: object, **__: object) -> SimpleNamespace:
+            return SimpleNamespace(ok=True, data=self.data, error=None)
+
+    services = _services()
+    services.settings.VOICE_RATE_LIMIT_PER_MINUTE = 10
+    services.settings.PROVIDER_OPERATION_QUOTA_COST = 1
+    monkeypatch.setattr(voice_router, "_transcribe_tool", _VoiceTool({"text": "  I feel calmer now.  "}))
+    monkeypatch.setattr(
+        voice_router,
+        "_summarize_tool",
+        _VoiceTool({"summary": "A calm discussion about a manageable next step."}),
+    )
+
+    transcription = await voice_router.transcribe_audio(
+        payload=voice_router.TranscribeRequest(audio_base64="dGVzdA==", mime_type="audio/webm; codecs=opus"),
+        services=services,
+        context=_context(),
+    )
+    summary = await voice_router.summarize_call(
+        payload=voice_router.SummarizeRequest(user_transcript="I feel calmer", ai_transcript="Let’s choose one next step"),
+        services=services,
+        context=_context(),
+    )
+
+    assert transcription.text == "I feel calmer now."
+    assert transcription.usage is not None
+    assert summary.summary == "A calm discussion about a manageable next step."
+    assert summary.usage is not None
