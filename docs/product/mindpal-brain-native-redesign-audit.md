@@ -28,3 +28,7 @@ The refined Brain should look like a native MindPal panel even with the app titl
 ## Deployment validation note
 
 The native redesign was pushed to `main` in commit `a19b163`. Two live reload checks after the initial deployment window still returned the preceding bundle, identifiable by the labeled `Brain` header pill and the old observatory workspace. The repository build, frontend audit, prebuilt manifest verification, targeted API/service/delivery tests, and frontend tests passed before the push. A live visual acceptance pass should occur once the Vercel deployment for `a19b163` is active.
+
+Vercel deployment detail confirmation: the production deployment for commit `a19b163` is **Ready** and attached to `mindpal-demo.vercel.app`. The immutable deployment URL reported by Vercel is `https://mindpal-demo-qewzlt87e-miljtes-projects.vercel.app`; use that URL for cache-independent visual acceptance.
+
+Cache-bypassed canonical-domain validation (`?v=a19b163`) confirmed the active production bundle: the prior labeled `Brain` pill is replaced by the compact database icon using the same rounded header-control styling as MindPal’s theme, streak, and profile controls.
