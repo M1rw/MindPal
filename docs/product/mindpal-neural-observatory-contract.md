@@ -38,3 +38,5 @@ The public `/brain` route must load without authentication, operate with no memo
 ## Production validation note
 
 The anonymous production route for commit `e85be60` rendered the public Neural Observatory with the pipeline, feature readout, disclosure, and dense neural field. The validation browser reported WebGL unavailable, so the fallback notice was also visible. The observatory remains WebGL-first on capable browsers; the fallback presentation must remain unobtrusive and informative when browser graphics policy disables WebGL.
+
+Final production acceptance: cache-bypassed validation for commit `53a22f3` confirmed that `/brain` loads publicly as the Neural Observatory, displays the dense neural field, pipeline, sparse-feature readout, and privacy disclosure, and no longer displays the fallback notice during the WebGL-first visual state.
