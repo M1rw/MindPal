@@ -5,8 +5,8 @@
       "sha256": "0322897e9f16662109e0b96ba36b285198464a3617bbced48dc92855355524e9"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 356143,
-      "sha256": "55c1350f9606429790673cfbdfc6247cf03634c7b9d983d5b420b5bc9b21199f"
+      "bytes": 357611,
+      "sha256": "6cd9bb029d50fd02e57fe6c5da0f51460c02c74ba4631797dc8ef4aadf675e1c"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 12915,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "f0e292dd3e6997876ccfbddb3cec3538c8ed65dc47911d103108e83e4e38a41f",
+  "source_digest": "70104a5f4a5c87e27e6dc408710c6c74755d5110c7c434ee7d32e17b956b2ff8",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -39,6 +39,7 @@
     "frontend/js/utils/icons.js",
     "frontend/js/utils/memory_helpers.js",
     "frontend/js/utils/tts.js",
+    "frontend/js/utils/voice_summary.js",
     "frontend/js/vendor/lucide_global.js",
     "frontend/js/voice/constants.js",
     "frontend/js/voice/pcm_capture_worklet.js",

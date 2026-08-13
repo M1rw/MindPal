@@ -72,6 +72,7 @@ import {
 
 import { processStructuredResponse, truncateRepetition, extractVisibleText } from "./utils/chat_helpers.js";
 import { speakText, fallbackCopy, isSafetyLock, isCrisisReply, resolveLocale } from "./utils/tts.js";
+import { resolveVoiceCallSummaryState } from "./utils/voice_summary.js";
 
 import {
   applyVisualSettings,
@@ -1168,6 +1169,11 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
   const safeTime = escapeHtml(timeStr);
   const cardId = "call-card-" + Date.now() + Math.random().toString(36).slice(2, 6);
   const summaryId = cardId + "-summary";
+  const summaryState = resolveVoiceCallSummaryState({
+    existingSummary,
+    userTranscript,
+    aiTranscript,
+  });
 
   const card = document.createElement("div");
   card.className = "call-card-container w-full flex flex-col items-center my-4 opacity-70";
@@ -1183,7 +1189,7 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
       <div class="h-px bg-gray-300 dark:bg-gray-700 flex-grow max-w-[100px]"></div>
     </div>
     <div class="call-summary-row flex items-start gap-1 mt-1.5 cursor-pointer select-none max-w-sm w-full justify-center">
-      <p id="${summaryId}" class="text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed text-center">${(existingSummary && existingSummary.length <= 120) ? escapeHtml(existingSummary) : '<span class="italic">Summarizing…</span>'}</p>
+      <p id="${summaryId}" class="text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed text-center">${summaryState.shouldSummarize ? '<span class="italic">Summarizing…</span>' : escapeHtml(summaryState.display)}</p>
       <svg class="w-2.5 h-2.5 text-gray-400 dark:text-gray-500 transition-transform duration-200 call-chevron mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="6 9 12 15 18 9"/>
       </svg>
@@ -1206,8 +1212,7 @@ function insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript
     chevron.style.transform = isOpen ? "" : "rotate(180deg)";
   });
 
-  const needsSummary = !existingSummary || existingSummary.length > 120;
-  if (needsSummary && (userTranscript || aiTranscript)) {
+  if (summaryState.shouldSummarize) {
     summarizeCallTranscript(userTranscript, aiTranscript).then(summary => {
       const summaryEl = document.getElementById(summaryId);
       if (summaryEl) summaryEl.textContent = summary;
