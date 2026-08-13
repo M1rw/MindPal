@@ -3,7 +3,7 @@
   "version": 2,
   "framework": "fastapi",
   "installCommand": "python -m pip install --disable-pip-version-check --no-input -r requirements.txt",
-  "buildCommand": "python scripts/verify_prebuilt_frontend.py",
+  "buildCommand": "npm ci && npm run build && python scripts/verify_prebuilt_frontend.py",
   "env": {
     "ENVIRONMENT": "production",
     "DEBUG": "false",
