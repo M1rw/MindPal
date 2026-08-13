@@ -34,3 +34,9 @@ Vercel deployment detail confirmation: the production deployment for commit `a19
 Cache-bypassed canonical-domain validation (`?v=a19b163`) confirmed the active production bundle: the prior labeled `Brain` pill is replaced by the compact database icon using the same rounded header-control styling as MindPal’s theme, streak, and profile controls.
 
 Final layout-fix validation began against cache-bypassed production revision `1de712e`; the regular MindPal chat header and compact memory icon loaded successfully before entering the Memory view.
+
+Standalone-route deployment validation: an initial cache-bypassed request to `/brain?v=3ab7cd1` returned the preceding deployment’s `404 Not Found`. This is a deployment-propagation observation; the route contract passed locally and must be rechecked once Vercel marks commit `3ab7cd1` ready.
+
+Vercel then confirmed commit `3ab7cd1` as the **Ready** production deployment on `mindpal-demo.vercel.app`. The initial `/brain` 404 therefore preceded the ready state and should be retried against the active deployment.
+
+Final production acceptance on `/brain?v=3ab7cd1-ready`: the page loaded as an independent `Memory · MindPal` document with the normal MindPal brand, a simple header, no chat composer or overlay, and a clean centered workspace. The authenticated browser session completed cloud hydration successfully (`CLOUD · v79`) and displayed the user-specific Brain overview. The standalone bootstrap falls back to the persisted device-local graph whenever the current Firebase session has no token or cloud hydration fails.
