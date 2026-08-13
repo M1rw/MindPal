@@ -1,0 +1,38 @@
+diff --git a/tests/test_vercel_prebuilt_deployment.py b/tests/test_vercel_prebuilt_deployment.py
+index 846d649..d0c267a 100644
+--- a/tests/test_vercel_prebuilt_deployment.py
++++ b/tests/test_vercel_prebuilt_deployment.py
+@@ -8,15 +8,14 @@ from pathlib import Path
+ ROOT = Path(__file__).resolve().parents[1]
+ 
+ 
+-def test_vercel_never_compiles_frontend() -> None:
++def test_vercel_rebuilds_and_verifies_frontend() -> None:
+     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
+     assert config["framework"] == "fastapi"
+     assert config["installCommand"].startswith("python -m pip install")
+-    assert config["buildCommand"] == "python scripts/verify_prebuilt_frontend.py"
+-    combined = f"{config['installCommand']} {config['buildCommand']}".lower()
+-    assert "npm" not in combined
+-    assert "tailwind" not in combined
+-    assert "esbuild" not in combined
++    assert (
++        config["buildCommand"]
++        == "npm ci && npm run build && python scripts/verify_prebuilt_frontend.py"
++    )
+     assert "outputDirectory" not in config
+ 
+ 
+diff --git a/vercel.json b/vercel.json
+index d2d51d7..e00991d 100644
+--- a/vercel.json
++++ b/vercel.json
+@@ -3,7 +3,7 @@
+   "version": 2,
+   "framework": "fastapi",
+   "installCommand": "python -m pip install --disable-pip-version-check --no-input -r requirements.txt",
+-  "buildCommand": "python scripts/verify_prebuilt_frontend.py",
++  "buildCommand": "npm ci && npm run build && python scripts/verify_prebuilt_frontend.py",
+   "env": {
+     "ENVIRONMENT": "production",
+     "DEBUG": "false",

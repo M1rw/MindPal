@@ -1,0 +1,13 @@
+diff --git a/frontend/prebuilt-assets.manifest.json b/frontend/prebuilt-assets.manifest.json
+index 11149a6..46d68a0 100644
+--- a/frontend/prebuilt-assets.manifest.json
++++ b/frontend/prebuilt-assets.manifest.json
+@@ -14,7 +14,7 @@
+     }
+   },
+   "schema_version": 1,
+-  "source_digest": "8a137064b827dad6d116fc7b0e5c12ded1c3fb8df3e18ae1448c8f975735ed5e",
++  "source_digest": "e74d5f4167941a7c5c0d92b635b08f35607c601417fdbcde5ad4b86d8d3a2abf",
+   "source_files": [
+     "frontend/css/tailwind.input.css",
+     "frontend/index.html",

@@ -8,15 +8,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_vercel_never_compiles_frontend() -> None:
+def test_vercel_rebuilds_and_verifies_frontend() -> None:
     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
     assert config["framework"] == "fastapi"
     assert config["installCommand"].startswith("python -m pip install")
-    assert config["buildCommand"] == "python scripts/verify_prebuilt_frontend.py"
-    combined = f"{config['installCommand']} {config['buildCommand']}".lower()
-    assert "npm" not in combined
-    assert "tailwind" not in combined
-    assert "esbuild" not in combined
+    assert (
+        config["buildCommand"]
+        == "npm ci && npm run build && python scripts/verify_prebuilt_frontend.py"
+    )
     assert "outputDirectory" not in config
 
 

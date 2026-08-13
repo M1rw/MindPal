@@ -1,0 +1,41 @@
+flowchart LR
+    subgraph Capture["Capture and consent"]
+      C["Chat, voice, manual note"] --> E["Immutable event log"]
+      E --> GATE["Safety, consent, sensitivity gate"]
+    end
+
+    subgraph Knowledge["MindPal Brain — canonical knowledge layer"]
+      GATE --> INBOX["Candidate inbox"]
+      INBOX --> NODES["Typed knowledge nodes"]
+      NODES <--> EDGES["Typed, weighted links"]
+      NODES --> PROV["Evidence and provenance"]
+      EDGES --> VIEWS["Saved views and collections"]
+      NODES <--> IDX["Hybrid search index\nlexical + semantic"]
+    end
+
+    subgraph Intelligence["Fast context planner"]
+      Q["Current user turn"] --> PLAN["Intent and context plan"]
+      IDX --> PLAN
+      NODES --> PLAN
+      PLAN --> PACK["Small cited context pack"]
+      PACK --> RESP["Safety-aware response pipeline"]
+    end
+
+    subgraph Experience["Obsidian-inspired workspace"]
+      VIEWS --> MAP["Local map and global map"]
+      NODES --> NOTE["Node note and inspector"]
+      EDGES --> BACK["Backlinks and evidence trail"]
+      INBOX --> REVIEW["Review, pin, correct, forget"]
+    end
+
+    subgraph Storage["Privacy-preserving persistence"]
+      E --> LOCAL["Local encrypted cache"]
+      NODES --> SYNC["Encrypted cloud sync when enabled"]
+      EDGES --> SYNC
+    end
+
+    style Capture fill:#e8f1ff,stroke:#4f7cac,color:#172a3a
+    style Knowledge fill:#e8f7ef,stroke:#3c8b63,color:#173b29
+    style Intelligence fill:#fff3df,stroke:#c9882d,color:#4a2d05
+    style Experience fill:#f2edff,stroke:#8064b9,color:#31234d
+    style Storage fill:#f6f6f6,stroke:#777,color:#222
