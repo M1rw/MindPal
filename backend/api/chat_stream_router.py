@@ -56,6 +56,27 @@ def _chunks(text: str, size: int = 96) -> list[str]:
     return [text[index:index + size] for index in range(0, len(text), size)]
 
 
+def _stream_replay_record(reply: str, metadata: dict[str, Any]) -> dict[str, Any]:
+    """Persist exactly what a completed safe stream needs for a transport retry."""
+    return {
+        "reply": sanitize_text(reply, 12_000),
+        "metadata": dict(metadata),
+    }
+
+
+def _stream_replay_response(record: object) -> StreamingResponse | None:
+    """Recreate a safe SSE response from a completed idempotency record."""
+    if not isinstance(record, dict):
+        return None
+    reply = sanitize_text(str(record.get("reply") or ""), 12_000)
+    metadata = record.get("metadata")
+    if not reply or not isinstance(metadata, dict):
+        return None
+    replay_metadata = dict(metadata)
+    replay_metadata["type"] = "metadata"
+    return _stream_response(reply, replay_metadata)
+
+
 @router.post("/chat/stream")
 async def chat_stream(
     payload: ChatRequest,
@@ -97,6 +118,9 @@ async def chat_stream(
             payload_hash=services.idempotency.payload_hash(payload.model_dump(mode="json")),
         )
         if claim.completed:
+            replay = _stream_replay_response(claim.response)
+            if replay is not None:
+                return replay
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
@@ -141,7 +165,10 @@ async def chat_stream(
                 "safety": _safety_view(safety_decision).model_dump(mode="json"),
                 "request_id": context.request_id,
             }
-            await services.idempotency.complete(claim=claim, response=metadata)
+            await services.idempotency.complete(
+                claim=claim,
+                response=_stream_replay_record(reply, metadata),
+            )
             return _stream_response(reply, metadata)
 
         deterministic_reply = _maybe_answer_chat_context_question(payload)
@@ -157,7 +184,10 @@ async def chat_stream(
                 "safety": _safety_view(safety_decision).model_dump(mode="json"),
                 "request_id": context.request_id,
             }
-            await services.idempotency.complete(claim=claim, response=metadata)
+            await services.idempotency.complete(
+                claim=claim,
+                response=_stream_replay_record(deterministic_reply, metadata),
+            )
             return _stream_response(deterministic_reply, metadata)
 
         profile = await _load_chat_profile(services=services, context=context, authenticated=authenticated)
@@ -334,7 +364,10 @@ async def chat_stream(
         if response_memory_graph_snapshot:
             metadata["memory_graph_snapshot"] = response_memory_graph_snapshot.model_dump(mode="json")
 
-        await services.idempotency.complete(claim=claim, response=metadata)
+        await services.idempotency.complete(
+            claim=claim,
+            response=_stream_replay_record(final_reply, metadata),
+        )
         return _stream_response(final_reply, metadata)
 
     except HTTPException:

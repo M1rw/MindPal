@@ -284,14 +284,16 @@ export function scheduleCloudMessageSync(message) {
 export async function flushPendingCloudChatMessages() {
   if (cloudChatSyncInFlight || pendingCloudChatMessages.length === 0) return;
 
-  const token = await getIdToken();
-  if (!token) {
-    scheduleCloudSyncRetry();
-    return;
-  }
-
+  // Claim the single-flight lock before awaiting a token. Without this, two
+  // timers can both await getIdToken and submit the same queue batch.
   cloudChatSyncInFlight = true;
   try {
+    const token = await getIdToken();
+    if (!token) {
+      scheduleCloudSyncRetry();
+      return;
+    }
+
     const batch = pendingCloudChatMessages.slice(0, 50);
     const response = await upsertCloudChatMessages(batch, token);
     pendingCloudChatMessages.splice(0, batch.length);

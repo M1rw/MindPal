@@ -343,6 +343,44 @@ export async function deleteCurrentCloudChat(token) {
 }
 
 
+export function buildChatStreamPayload({
+  message,
+  history = [],
+  metadata = {},
+  clientRequestId = null,
+} = {}) {
+  const cleanMessage = String(message || "").trim();
+  if (!cleanMessage) throw new Error("Message cannot be empty");
+
+  const normalizedHistory = removeTrailingDuplicateUserMessage(
+    normalizeChatHistory(history, 60, "content"),
+    cleanMessage,
+  );
+  const suppliedRequestId = String(clientRequestId || "").trim().slice(0, 120);
+  const stableRequestId = suppliedRequestId || createClientRequestId();
+
+  return {
+    message: cleanMessage,
+    history: normalizedHistory,
+    metadata: {
+      ...metadata,
+      client_request_id: stableRequestId,
+    },
+    stream: true,
+  };
+}
+
+export function shouldRetryStreamRequest({ error, emittedText = "", attempt = 0 } = {}) {
+  if (attempt !== 0 || String(emittedText || "").trim()) return false;
+  if (error?.name === "AbortError") return false;
+  return error?.code === "network_error" || error?.code === "request_timeout";
+}
+
+function createClientRequestId() {
+  if (globalThis.crypto?.randomUUID) return `chat_${globalThis.crypto.randomUUID()}`;
+  return `chat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 14)}`;
+}
+
 export async function sendChatMessageStream({
   message,
   history = [],
@@ -352,6 +390,8 @@ export async function sendChatMessageStream({
   model = "standard",
   token = null,
   profileContext = null,
+  clientRequestId = null,
+  retryAttempt = 0,
   signal = null,
   onChunk = () => {},
   onStatus = () => {},
@@ -362,10 +402,6 @@ export async function sendChatMessageStream({
   if (!cleanMessage) throw new Error("Message cannot be empty");
 
   const backendPreference = MODE_UI_TO_BACKEND[mode] || "active_listen";
-  const normalizedHistory = removeTrailingDuplicateUserMessage(
-    normalizeChatHistory(history, 60, "content"),
-    cleanMessage,
-  );
   
   // Detect user's timezone from browser
   let userTimezone = "UTC";
@@ -376,6 +412,12 @@ export async function sendChatMessageStream({
   }
   
   const metadata = { locale, channel, mode: backendPreference, model, timezone: userTimezone, ...(profileContext?.settingsMetadata || {}) };
+  const requestPayload = buildChatStreamPayload({
+    message: cleanMessage,
+    history,
+    metadata,
+    clientRequestId,
+  });
   const url = `${API_BASE_URL}/chat/stream`;
   const headers = { Accept: "text/event-stream", "Content-Type": "application/json", "X-MindPal-Timezone": userTimezone };
   if (token) {
@@ -430,65 +472,96 @@ export async function sendChatMessageStream({
         },
       );
     }
-    if (data.text !== undefined) onChunk(String(data.text));
-    else if (data.type === "status") onStatus(data.status);
+    if (data.text !== undefined) {
+      const text = String(data.text);
+      emittedText += text;
+      onChunk(text);
+    } else if (data.type === "status") onStatus(data.status);
     else if (data.type === "metadata") onMetadata(data);
     return false;
   };
 
+  let attempt = Math.max(0, Number(retryAttempt) || 0);
+  let emittedText = "";
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ message: cleanMessage, history: normalizedHistory, metadata, stream: true }),
-      signal: controller.signal,
-      credentials: "omit",
-    });
+    while (true) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
+        credentials: "omit",
+      });
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
       throw toApiError(response, safeJsonParse(errText));
     }
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType && !contentType.includes("text/event-stream")) {
-      throw new MindPalApiError("Backend returned a non-streaming response", {
-        status: response.status,
-        code: "invalid_stream_content_type",
-        details: { contentType },
-      });
-    }
-    if (!response.body) {
-      throw new MindPalApiError("Streaming response body was empty", { status: response.status, code: "empty_stream_body" });
-    }
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType && !contentType.includes("text/event-stream")) {
+        throw new MindPalApiError("Backend returned a non-streaming response", {
+          status: response.status,
+          code: "invalid_stream_content_type",
+          details: { contentType },
+        });
+      }
+      if (!response.body) {
+        throw new MindPalApiError("Streaming response body was empty", { status: response.status, code: "empty_stream_body" });
+      }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let streamFinished = false;
-    while (!streamFinished) {
-      const { done, value } = await reader.read();
-      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-      buffer = buffer.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-      let boundary = buffer.indexOf("\n\n");
-      while (boundary !== -1) {
-        const rawEvent = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        if (dispatchEvent(rawEvent)) { streamFinished = true; break; }
-        boundary = buffer.indexOf("\n\n");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let streamFinished = false;
+      while (!streamFinished) {
+        const { done, value } = await reader.read();
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+        buffer = buffer.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary !== -1) {
+          const rawEvent = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          if (dispatchEvent(rawEvent)) { streamFinished = true; break; }
+          boundary = buffer.indexOf("\n\n");
+        }
+        if (done) {
+          if (!streamFinished && buffer.trim()) dispatchEvent(buffer);
+          break;
+        }
       }
-      if (done) {
-        if (!streamFinished && buffer.trim()) dispatchEvent(buffer);
-        break;
-      }
+      return;
     }
   } catch (error) {
-    if (error?.name === "AbortError" || error?.name === "TimeoutError") {
-      if (!timedOut && signal?.aborted) throw new DOMException("Stream cancelled", "AbortError");
-      const timeoutError = new MindPalApiError("Response stream timed out", { status: 0, code: "request_timeout" });
-      reportError(timeoutError);
-      throw timeoutError;
+    const normalizedError = error?.name === "AbortError" || error?.name === "TimeoutError"
+      ? (!timedOut && signal?.aborted
+        ? new DOMException("Stream cancelled", "AbortError")
+        : new MindPalApiError("Response stream timed out", { status: 0, code: "request_timeout" }))
+      : (error instanceof MindPalApiError
+        ? error
+        : new MindPalApiError(error?.message || "Network request failed", { status: 0, code: "network_error" }));
+
+    if (shouldRetryStreamRequest({ error: normalizedError, emittedText, attempt })) {
+      attempt += 1;
+      onStatus("retrying");
+      return sendChatMessageStream({
+        message: cleanMessage,
+        history,
+        locale,
+        channel,
+        mode,
+        model,
+        token,
+        profileContext,
+        clientRequestId: requestPayload.metadata.client_request_id,
+        retryAttempt: attempt,
+        signal,
+        onChunk,
+        onStatus,
+        onMetadata,
+        onError,
+      });
     }
-    reportError(error);
-    throw error;
+    reportError(normalizedError);
+    throw normalizedError;
   } finally {
     window.clearTimeout(timeout);
     signal?.removeEventListener("abort", abortFromCaller);
