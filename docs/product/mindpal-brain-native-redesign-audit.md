@@ -40,3 +40,7 @@ Standalone-route deployment validation: an initial cache-bypassed request to `/b
 Vercel then confirmed commit `3ab7cd1` as the **Ready** production deployment on `mindpal-demo.vercel.app`. The initial `/brain` 404 therefore preceded the ready state and should be retried against the active deployment.
 
 Final production acceptance on `/brain?v=3ab7cd1-ready`: the page loaded as an independent `Memory · MindPal` document with the normal MindPal brand, a simple header, no chat composer or overlay, and a clean centered workspace. The authenticated browser session completed cloud hydration successfully (`CLOUD · v79`) and displayed the user-specific Brain overview. The standalone bootstrap falls back to the persisted device-local graph whenever the current Firebase session has no token or cloud hydration fails.
+
+Animated-graph acceptance: production commit `61df717` was checked through a cache-bypassed `/brain` URL after deployment propagation. The route now renders `Brain · MindPal` in graph-first mode, with an animated dark neural canvas, flowing visual connection particles, real cloud-memory nodes, and no summary dashboard as the opening surface. With no stored links, the animated paths are explicitly labelled visual-only until the user saves a relationship.
+
+Normal-page acceptance: cache-bypassed production chat verification for `61df717` confirmed that the header contains only MindPal’s existing theme, streak, and profile controls. No Brain or Memory control remains on the normal chat page.
