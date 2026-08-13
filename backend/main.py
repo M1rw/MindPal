@@ -398,6 +398,14 @@ def _install_frontend_routes(app: FastAPI) -> None:
     async def sitemap_xml() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "sitemap.xml", media_type="application/xml")
 
+    @app.get("/brain", include_in_schema=False)
+    async def brain_page() -> FileResponse:
+        return FileResponse(
+            FRONTEND_DIR / "brain.html",
+            media_type="text/html; charset=utf-8",
+            headers={"Cache-Control": "no-cache"},
+        )
+
     @app.get("/ui", include_in_schema=False)
     @app.get("/", include_in_schema=False)
     async def frontend_index() -> FileResponse:

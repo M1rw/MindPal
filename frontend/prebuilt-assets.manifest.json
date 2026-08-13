@@ -5,8 +5,8 @@
       "sha256": "63440def8df5e0b954c4e6aaf470c6fc6b4717d49086e103b5324c7a41cde396"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 381750,
-      "sha256": "72996f10bdd0c50b845cfb501f61b3061b19c5599d3594788e58e6a38f236fd4"
+      "bytes": 381960,
+      "sha256": "dad3345ffd5a9da9f6d21047abbe1cf490f95c1f53c028782ee51ea4784f4572"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "c7c9da4055e9c68cb8de1f299a5f1bf4c6f60d2431367d31acfbfe45e08129cc",
+  "source_digest": "f008d3f7c9b0ac4a86440da1b576cd796bd98d97ccbcad3f74d8d1247f2502a9",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -22,6 +22,7 @@
     "frontend/js/app.js",
     "frontend/js/auth.js",
     "frontend/js/bootstrap.js",
+    "frontend/js/brain_page.js",
     "frontend/js/cloud_sync.js",
     "frontend/js/components/brain_workspace.js",
     "frontend/js/components/memory_inspector.js",

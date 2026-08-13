@@ -97,10 +97,7 @@ import {
   renderMemoryInspector,
 } from "./components/memory_inspector.js";
 
-import {
-  initBrainWorkspace,
-  refreshBrainWorkspace,
-} from "./components/brain_workspace.js";
+import { initBrainWorkspace } from "./components/brain_workspace.js";
 
 import {
   bindUnifiedSelector,
@@ -470,7 +467,6 @@ function bindProfileModal() {
       });
       await persistAppSettingsToCloud();
       await hydrateCloudMemory(token, renderMemoryInspector);
-      await refreshBrainWorkspace({ keepSelection: true });
       await hydrateCloudChat(token, renderPersistedChat);
 
       setCloudSyncEnabled(true);
