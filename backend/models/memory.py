@@ -67,6 +67,16 @@ MAX_METADATA_VALUE_CHARS = 300
 MAX_MEMORY_ALIAS_ITEMS = 20
 MAX_MEMORY_SHORT_TEXT_CHARS = 160
 
+# Obsidian Brain envelope bounds. Brain nodes are projected from existing
+# MemoryAtom records, so only graph-specific relationship and review records
+# are persisted alongside Memory V3.
+MAX_BRAIN_EDGES = 1_000
+MAX_BRAIN_EVIDENCE = 500
+MAX_BRAIN_REVIEWS = 500
+MAX_BRAIN_COLLECTIONS = 100
+MAX_BRAIN_TITLE_CHARS = 180
+MAX_BRAIN_EXCERPT_CHARS = 500
+
 # Confidence decay: 2% per week (0.02 / 7 days)
 CONFIDENCE_DECAY_PER_DAY = 0.02 / 7.0
 # Minimum confidence before an atom is considered stale
@@ -165,6 +175,159 @@ class MemoryStatus(str, Enum):
 class MemoryInteractionRole(str, Enum):
     USER = "user"
     ASSISTANT = "assistant"
+
+
+class BrainEdgeType(str, Enum):
+    RELATES_TO = "relates_to"
+    AFFECTS = "affects"
+    HELPS_WITH = "helps_with"
+    BLOCKS = "blocks"
+    PART_OF = "part_of"
+    CONTRADICTS = "contradicts"
+    SUPERSEDES = "supersedes"
+
+
+class BrainEdgeStatus(str, Enum):
+    ACTIVE = "active"
+    HIDDEN = "hidden"
+    DELETED = "deleted"
+
+
+class BrainReviewKind(str, Enum):
+    NEW = "new"
+    STALE = "stale"
+    CONFLICT = "conflict"
+    EXPIRING = "expiring"
+
+
+class BrainReviewStatus(str, Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    DISMISSED = "dismissed"
+    DEFERRED = "deferred"
+
+
+class BrainEdge(BaseModel):
+    """A typed, evidence-aware relationship between two durable memory atoms."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    id: str = Field(min_length=1, max_length=160)
+    source_atom_id: str = Field(min_length=1, max_length=160)
+    target_atom_id: str = Field(min_length=1, max_length=160)
+    relation: BrainEdgeType = BrainEdgeType.RELATES_TO
+    confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    status: BrainEdgeStatus = BrainEdgeStatus.ACTIVE
+    source: MemorySource = MemorySource.MANUAL
+    evidence_ids: list[str] = Field(default_factory=list, max_length=30)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+    last_confirmed_at: datetime | None = None
+
+    @field_validator("id", "source_atom_id", "target_atom_id", mode="before")
+    @classmethod
+    def _clean_ids(cls, value: object) -> str:
+        cleaned = sanitize_text(str(value or ""), 160)
+        if not cleaned:
+            raise ValueError("brain edge identifier cannot be empty")
+        return cleaned
+
+    @field_validator("evidence_ids", mode="before")
+    @classmethod
+    def _clean_evidence_ids(cls, value: object) -> list[str]:
+        return _clean_graph_string_list(value, max_items=30)
+
+    @model_validator(mode="after")
+    def _validate_endpoints(self) -> BrainEdge:
+        if self.source_atom_id == self.target_atom_id:
+            raise ValueError("brain edge endpoints must be distinct")
+        return self
+
+
+class BrainEvidence(BaseModel):
+    """A minimal provenance record. It intentionally avoids duplicating raw chat history."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    id: str = Field(min_length=1, max_length=160)
+    atom_id: str = Field(min_length=1, max_length=160)
+    excerpt: str = Field(min_length=1, max_length=MAX_BRAIN_EXCERPT_CHARS)
+    source: MemorySource = MemorySource.CHAT_EXTRACTION
+    captured_at: datetime = Field(default_factory=utcnow)
+    sensitivity: MemorySensitivity = MemorySensitivity.MEDIUM
+
+    @field_validator("id", "atom_id", "excerpt", mode="before")
+    @classmethod
+    def _clean_text(cls, value: object) -> str:
+        cleaned = sanitize_text(str(value or ""), MAX_BRAIN_EXCERPT_CHARS)
+        if not cleaned:
+            raise ValueError("brain evidence text cannot be empty")
+        return cleaned
+
+
+class BrainReviewRecord(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    id: str = Field(min_length=1, max_length=160)
+    atom_id: str = Field(min_length=1, max_length=160)
+    kind: BrainReviewKind
+    status: BrainReviewStatus = BrainReviewStatus.PENDING
+    reason: str = Field(default="", max_length=MAX_BRAIN_EXCERPT_CHARS)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    @field_validator("id", "atom_id", "reason", mode="before")
+    @classmethod
+    def _clean_text(cls, value: object) -> str:
+        cleaned = sanitize_text(str(value or ""), MAX_BRAIN_EXCERPT_CHARS)
+        if not cleaned and value not in (None, ""):
+            raise ValueError("brain review text cannot be empty")
+        return cleaned
+
+
+class BrainCollection(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    id: str = Field(min_length=1, max_length=160)
+    title: str = Field(min_length=1, max_length=MAX_BRAIN_TITLE_CHARS)
+    atom_ids: list[str] = Field(default_factory=list, max_length=MAX_ATOMS)
+    category_filters: list[MemoryCategory] = Field(default_factory=list, max_length=len(MemoryCategory))
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    @field_validator("id", "title", mode="before")
+    @classmethod
+    def _clean_text(cls, value: object) -> str:
+        cleaned = sanitize_text(str(value or ""), MAX_BRAIN_TITLE_CHARS)
+        if not cleaned:
+            raise ValueError("brain collection text cannot be empty")
+        return cleaned
+
+    @field_validator("atom_ids", mode="before")
+    @classmethod
+    def _clean_atom_ids(cls, value: object) -> list[str]:
+        return _clean_graph_string_list(value, max_items=MAX_ATOMS)
+
+
+class BrainWorkspace(BaseModel):
+    """Persisted relationship and review envelope for the projected Brain graph."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    schema_version: int = Field(default=1, ge=1, le=10)
+    edges: list[BrainEdge] = Field(default_factory=list, max_length=MAX_BRAIN_EDGES)
+    evidence: list[BrainEvidence] = Field(default_factory=list, max_length=MAX_BRAIN_EVIDENCE)
+    review_queue: list[BrainReviewRecord] = Field(default_factory=list, max_length=MAX_BRAIN_REVIEWS)
+    collections: list[BrainCollection] = Field(default_factory=list, max_length=MAX_BRAIN_COLLECTIONS)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    @model_validator(mode="after")
+    def _dedupe_records(self) -> BrainWorkspace:
+        self.edges = _dedupe_brain_records(self.edges, MAX_BRAIN_EDGES)
+        self.evidence = _dedupe_brain_records(self.evidence, MAX_BRAIN_EVIDENCE)
+        self.review_queue = _dedupe_brain_records(self.review_queue, MAX_BRAIN_REVIEWS)
+        self.collections = _dedupe_brain_records(self.collections, MAX_BRAIN_COLLECTIONS)
+        return self
 
 
 _utcnow = utcnow
@@ -311,6 +474,7 @@ class MemoryGraph(BaseModel):
     version: int = Field(default=1, ge=1)
     source: MemorySource = MemorySource.BACKEND_COMPACTION
     full_snapshot: bool = True
+    brain: BrainWorkspace = Field(default_factory=BrainWorkspace)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
@@ -1065,6 +1229,21 @@ def _sanitize_metadata(value: object) -> dict[str, str | int | float | bool | No
         max_items=MAX_METADATA_ITEMS,
         max_value_chars=MAX_METADATA_VALUE_CHARS,
     )
+
+
+def _dedupe_brain_records(records: list[Any], limit: int) -> list[Any]:
+    """Keep the first occurrence of each stable Brain record ID within its bound."""
+    output: list[Any] = []
+    seen: set[str] = set()
+    for record in records:
+        record_id = str(getattr(record, "id", ""))
+        if not record_id or record_id in seen:
+            continue
+        seen.add(record_id)
+        output.append(record)
+        if len(output) >= limit:
+            break
+    return output
 
 
 def _clean_graph_string_list(value: object, *, max_items: int) -> list[str]:

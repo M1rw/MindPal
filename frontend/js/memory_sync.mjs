@@ -13,6 +13,13 @@ export function memoryGraphAtomsEqual(left, right) {
   return JSON.stringify(leftAtoms) === JSON.stringify(rightAtoms);
 }
 
+export function memoryGraphContentEqual(left, right) {
+  const normalizedLeft = memoryGraphToBackend(normalizeMemoryGraph(left));
+  const normalizedRight = memoryGraphToBackend(normalizeMemoryGraph(right));
+  return JSON.stringify({ atoms: normalizedLeft.atoms, brain: normalizedLeft.brain })
+    === JSON.stringify({ atoms: normalizedRight.atoms, brain: normalizedRight.brain });
+}
+
 function graphFromLoadResult(result) {
   const payload = result?.graph || result;
   return payload && typeof payload === "object" ? memoryGraphFromBackend(payload) : null;
@@ -42,12 +49,12 @@ export async function syncMemoryGraphSnapshot(localGraph, {
       if (!remote) throw new Error("Cloud memory response did not include a graph");
     }
 
-    if (memoryGraphAtomsEqual(remote, desired)) {
+    if (memoryGraphContentEqual(remote, desired)) {
       return remote;
     }
 
     const canonical = mergeMemoryGraphs(remote, desired);
-    if (memoryGraphAtomsEqual(remote, canonical)) {
+    if (memoryGraphContentEqual(remote, canonical)) {
       return normalizeMemoryGraph({
         ...canonical,
         version: remote.version,

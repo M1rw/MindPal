@@ -81,3 +81,51 @@ test("memory sync reloads and retries a genuine version conflict", async () => {
   assert.ok(result.atoms.some((atom) => atom.category === "avoid"));
   assert.ok(result.atoms.some((atom) => atom.category === "projects"));
 });
+
+
+test("memory sync persists Brain-only links when atoms are unchanged", async () => {
+  const remote = {
+    ...graphWith("remember: my project is MindPal"),
+    user_id_hash: "user-a",
+    version: 9,
+  };
+  const [source, target] = remote.atoms.length >= 2
+    ? remote.atoms
+    : [remote.atoms[0], { ...remote.atoms[0], id: "mem_related", category: "goals", value: "Ship MindPal", display_value: "Ship MindPal" }];
+  const local = {
+    ...remote,
+    brain: {
+      ...remote.brain,
+      edges: [{
+        id: "edge_project_goal",
+        source_atom_id: source.id,
+        target_atom_id: target.id,
+        relation: "part_of",
+        confidence: 0.9,
+        status: "active",
+        source: "manual",
+        evidence_ids: [],
+        created_at: "2026-08-13T00:00:00Z",
+        updated_at: "2026-08-13T00:00:00Z",
+        last_confirmed_at: "2026-08-13T00:00:00Z",
+      }],
+    },
+  };
+  let saved = null;
+
+  const result = await syncMemoryGraphSnapshot(local, {
+    initialRemote: remote,
+    loadRemote: async () => ({ loaded: true, graph: remote }),
+    saveRemote: async (graph, expectedVersion) => {
+      saved = { graph, expectedVersion };
+      return { saved: true, version: 10 };
+    },
+  });
+
+  assert.equal(memoryGraphAtomsEqual(remote, local), true);
+  assert.ok(saved);
+  assert.equal(saved.expectedVersion, 9);
+  assert.equal(saved.graph.brain.edges.length, 1);
+  assert.equal(saved.graph.brain.edges[0].relation, "part_of");
+  assert.equal(result.version, 10);
+});

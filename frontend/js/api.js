@@ -282,6 +282,45 @@ export async function deleteMemoryGraphItem(atomId, token) {
   });
 }
 
+export async function loadBrainOverview(token) {
+  return requestJson("/brain/overview", { method: "GET", token, timeoutMs: 20_000 });
+}
+
+export async function loadBrainMap(token, { focusAtomId = null, depth = 1, categories = [] } = {}) {
+  const params = new URLSearchParams();
+  if (focusAtomId) params.set("focus_atom_id", focusAtomId);
+  params.set("depth", String(Math.max(0, Math.min(2, Number(depth) || 1))));
+  if (Array.isArray(categories) && categories.length) params.set("categories", categories.join(","));
+  const suffix = params.toString();
+  return requestJson(`/brain/map${suffix ? `?${suffix}` : ""}`, { method: "GET", token, timeoutMs: 20_000 });
+}
+
+export async function loadBrainFocus(atomId, token) {
+  return requestJson(`/brain/nodes/${encodeURIComponent(atomId)}`, { method: "GET", token, timeoutMs: 20_000 });
+}
+
+export async function searchBrain(query, token, { categories = [], limit = 30 } = {}) {
+  const params = new URLSearchParams({ q: String(query || ""), limit: String(Math.max(1, Math.min(100, Number(limit) || 30)))});
+  if (Array.isArray(categories) && categories.length) params.set("categories", categories.join(","));
+  return requestJson(`/brain/search?${params.toString()}`, { method: "GET", token, timeoutMs: 20_000 });
+}
+
+export async function createBrainEdge(edge, token) {
+  return requestJson("/brain/edges", { method: "POST", token, timeoutMs: 20_000, body: edge });
+}
+
+export async function updateBrainEdge(edgeId, action, token, expectedVersion = null) {
+  const body = { action };
+  if (Number.isInteger(expectedVersion) && expectedVersion >= 1) body.expected_version = expectedVersion;
+  return requestJson(`/brain/edges/${encodeURIComponent(edgeId)}`, { method: "PATCH", token, timeoutMs: 20_000, body });
+}
+
+export async function resolveBrainReview(reviewId, action, token, expectedVersion = null) {
+  const body = { action };
+  if (Number.isInteger(expectedVersion) && expectedVersion >= 1) body.expected_version = expectedVersion;
+  return requestJson(`/brain/review/${encodeURIComponent(reviewId)}`, { method: "POST", token, timeoutMs: 20_000, body });
+}
+
 export function buildClientFallbackReply(error) {
   if (error?.status === 401) {
     return "You need to sign in before using this cloud feature.";

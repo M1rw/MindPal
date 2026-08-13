@@ -112,3 +112,21 @@ def test_runtime_config_uses_the_current_host_for_firebase_auth_domain() -> None
 
     assert '"authDomain":"mindpal-demo.vercel.app"' in response_text
     assert '"FIREBASE_ENABLED":true' in response_text
+
+
+def test_brain_workspace_shell_and_assets_are_delivered() -> None:
+    with TestClient(app) as client:
+        root = client.get("/")
+        brain_css = client.get("/css/brain.css")
+        bundle = client.get("/dist/app.bundle.js")
+
+    assert root.status_code == 200
+    assert 'id="brain-workspace"' in root.text
+    assert 'id="brain-btn"' in root.text
+    assert 'id="brain-list-equivalent"' in root.text
+    assert './css/brain.css' in root.text
+    assert brain_css.status_code == 200
+    assert ".brain-workspace" in brain_css.text
+    assert "prefers-reduced-motion" in brain_css.text
+    assert bundle.status_code == 200
+    assert "brain-workspace" in bundle.text

@@ -23,6 +23,10 @@ import {
 const MEMORY_GRAPH_STORAGE_KEY = "mindpal_memory_graph_v3";
 const MAX_MEMORY_ATOMS = 500;
 const MAX_MEMORY_TOMBSTONES = 100;
+const MAX_BRAIN_EDGES = 1000;
+const MAX_BRAIN_EVIDENCE = 500;
+const MAX_BRAIN_REVIEWS = 500;
+const MAX_BRAIN_COLLECTIONS = 100;
 
 const GRAPH_CATEGORY_LABELS = {
   profile: "Profile",
@@ -48,6 +52,17 @@ const GRAPH_CATEGORY_ORDER = [
 // CRUD
 // ═══════════════════════════════════════════════════════════════
 
+export function createEmptyBrainWorkspace() {
+  return {
+    schema_version: 1,
+    edges: [],
+    evidence: [],
+    review_queue: [],
+    collections: [],
+    updated_at: new Date().toISOString(),
+  };
+}
+
 export function createEmptyMemoryGraph() {
   const now = new Date().toISOString();
   return {
@@ -56,6 +71,7 @@ export function createEmptyMemoryGraph() {
     version: 1,
     source: "manual",
     full_snapshot: true,
+    brain: createEmptyBrainWorkspace(),
     created_at: now,
     updated_at: now,
   };
@@ -110,9 +126,114 @@ export function normalizeMemoryGraph(value) {
     version: Math.max(1, Number(raw.version || 1)),
     source: String(raw.source || "manual"),
     full_snapshot: raw.full_snapshot !== false && raw.fullSnapshot !== false,
+    brain: normalizeBrainWorkspace(raw.brain),
     created_at: raw.created_at || raw.createdAt || base.created_at,
     updated_at: raw.updated_at || raw.updatedAt || base.updated_at,
   };
+}
+
+function normalizeBrainWorkspace(value) {
+  const base = createEmptyBrainWorkspace();
+  const raw = value && typeof value === "object" ? value : {};
+  return {
+    ...base,
+    schema_version: Math.max(1, Number(raw.schema_version || raw.schemaVersion || 1)),
+    edges: normalizeBrainRecords(raw.edges, normalizeBrainEdge, MAX_BRAIN_EDGES),
+    evidence: normalizeBrainRecords(raw.evidence, normalizeBrainEvidence, MAX_BRAIN_EVIDENCE),
+    review_queue: normalizeBrainRecords(raw.review_queue || raw.reviewQueue, normalizeBrainReview, MAX_BRAIN_REVIEWS),
+    collections: normalizeBrainRecords(raw.collections, normalizeBrainCollection, MAX_BRAIN_COLLECTIONS),
+    updated_at: raw.updated_at || raw.updatedAt || base.updated_at,
+  };
+}
+
+function normalizeBrainRecords(value, normalizer, limit) {
+  const byId = new Map();
+  for (const raw of (Array.isArray(value) ? value : [])) {
+    const record = normalizer(raw);
+    if (!record) continue;
+    const current = byId.get(record.id);
+    if (!current || brainRecordEpoch(record) >= brainRecordEpoch(current)) byId.set(record.id, record);
+  }
+  return Array.from(byId.values())
+    .sort((left, right) => brainRecordEpoch(right) - brainRecordEpoch(left) || String(left.id).localeCompare(String(right.id)))
+    .slice(0, limit);
+}
+
+function normalizeBrainEdge(value) {
+  if (!value || typeof value !== "object") return null;
+  const sourceAtomId = String(value.source_atom_id || value.sourceAtomId || "").trim();
+  const targetAtomId = String(value.target_atom_id || value.targetAtomId || "").trim();
+  const relation = String(value.relation || "relates_to");
+  if (!sourceAtomId || !targetAtomId || sourceAtomId === targetAtomId) return null;
+  if (!["relates_to", "affects", "helps_with", "blocks", "part_of", "contradicts", "supersedes"].includes(relation)) return null;
+  const now = new Date().toISOString();
+  return {
+    id: String(value.id || `edge_${hashString(`${sourceAtomId}|${relation}|${targetAtomId}`)}`),
+    source_atom_id: sourceAtomId,
+    target_atom_id: targetAtomId,
+    relation,
+    confidence: clampNumber(value.confidence, 0, 1, 0.7),
+    status: ["active", "hidden", "deleted"].includes(value.status) ? value.status : "active",
+    source: normalizeGraphSource(value.source || "manual"),
+    evidence_ids: normalizeStringList(value.evidence_ids || value.evidenceIds || []).slice(0, 30),
+    created_at: value.created_at || value.createdAt || now,
+    updated_at: value.updated_at || value.updatedAt || now,
+    last_confirmed_at: value.last_confirmed_at || value.lastConfirmedAt || null,
+  };
+}
+
+function normalizeBrainEvidence(value) {
+  if (!value || typeof value !== "object") return null;
+  const atomId = String(value.atom_id || value.atomId || "").trim();
+  const excerpt = String(value.excerpt || "").trim().slice(0, 500);
+  if (!atomId || !excerpt) return null;
+  const now = new Date().toISOString();
+  return {
+    id: String(value.id || `evidence_${hashString(`${atomId}|${excerpt}`)}`),
+    atom_id: atomId,
+    excerpt,
+    source: normalizeGraphSource(value.source || "chat_extraction"),
+    captured_at: value.captured_at || value.capturedAt || now,
+    sensitivity: ["low", "medium", "high"].includes(value.sensitivity) ? value.sensitivity : "medium",
+  };
+}
+
+function normalizeBrainReview(value) {
+  if (!value || typeof value !== "object") return null;
+  const atomId = String(value.atom_id || value.atomId || "").trim();
+  const kind = String(value.kind || "");
+  if (!atomId || !["new", "stale", "conflict", "expiring"].includes(kind)) return null;
+  const now = new Date().toISOString();
+  return {
+    id: String(value.id || `review_${hashString(`${atomId}|${kind}`)}`),
+    atom_id: atomId,
+    kind,
+    status: ["pending", "confirmed", "dismissed", "deferred"].includes(value.status) ? value.status : "pending",
+    reason: String(value.reason || "").trim().slice(0, 500),
+    created_at: value.created_at || value.createdAt || now,
+    updated_at: value.updated_at || value.updatedAt || now,
+  };
+}
+
+function normalizeBrainCollection(value) {
+  if (!value || typeof value !== "object") return null;
+  const title = String(value.title || "").trim().slice(0, 180);
+  if (!title) return null;
+  const now = new Date().toISOString();
+  return {
+    id: String(value.id || `collection_${hashString(title)}`),
+    title,
+    atom_ids: normalizeStringList(value.atom_ids || value.atomIds || []).slice(0, MAX_MEMORY_ATOMS),
+    category_filters: (Array.isArray(value.category_filters || value.categoryFilters) ? value.category_filters || value.categoryFilters : [])
+      .map(normalizeGraphCategory)
+      .filter((item, index, list) => list.indexOf(item) === index),
+    created_at: value.created_at || value.createdAt || now,
+    updated_at: value.updated_at || value.updatedAt || now,
+  };
+}
+
+function brainRecordEpoch(record) {
+  return toEpoch(record.updated_at || record.captured_at || record.created_at);
 }
 
 function toEpoch(value) {
@@ -247,19 +368,43 @@ export function replaceMemoryGraphAtomValue(graphContext, atomId, nextValue) {
 
 export function mergeMemoryGraphs(existingGraph, incomingGraphOrAtoms) {
   const existing = normalizeMemoryGraph(existingGraph);
-  const incomingAtoms = Array.isArray(incomingGraphOrAtoms)
+  const incomingIsAtoms = Array.isArray(incomingGraphOrAtoms);
+  const incomingGraph = incomingIsAtoms ? null : normalizeMemoryGraph(incomingGraphOrAtoms);
+  const incomingAtoms = incomingIsAtoms
     ? incomingGraphOrAtoms.map(normalizeMemoryAtom).filter(Boolean)
-    : normalizeMemoryGraph(incomingGraphOrAtoms).atoms;
-  const next = { ...existing, atoms: [...existing.atoms] };
+    : incomingGraph.atoms;
+  const next = {
+    ...existing,
+    atoms: [...existing.atoms],
+    brain: incomingGraph && incomingGraphOrAtoms?.brain
+      ? mergeBrainWorkspaces(existing.brain, incomingGraph.brain)
+      : existing.brain,
+  };
 
   for (const atom of incomingAtoms) upsertMemoryGraphAtom(next, atom);
 
-  if (incomingAtoms.length) {
+  const brainChanged = JSON.stringify(next.brain) !== JSON.stringify(existing.brain);
+  if (incomingAtoms.length || brainChanged) {
     next.version = Math.max(existing.version + 1, Number(incomingGraphOrAtoms?.version || 1));
     next.updated_at = new Date().toISOString();
   }
 
   return normalizeMemoryGraph(next);
+}
+
+function mergeBrainWorkspaces(existingBrain, incomingBrain) {
+  const existing = normalizeBrainWorkspace(existingBrain);
+  const incoming = normalizeBrainWorkspace(incomingBrain);
+  const merge = (left, right, normalizer, limit) => normalizeBrainRecords([...left, ...right], normalizer, limit);
+  return normalizeBrainWorkspace({
+    ...existing,
+    ...incoming,
+    edges: merge(existing.edges, incoming.edges, normalizeBrainEdge, MAX_BRAIN_EDGES),
+    evidence: merge(existing.evidence, incoming.evidence, normalizeBrainEvidence, MAX_BRAIN_EVIDENCE),
+    review_queue: merge(existing.review_queue, incoming.review_queue, normalizeBrainReview, MAX_BRAIN_REVIEWS),
+    collections: merge(existing.collections, incoming.collections, normalizeBrainCollection, MAX_BRAIN_COLLECTIONS),
+    updated_at: maxIso(existing.updated_at, incoming.updated_at),
+  });
 }
 
 function upsertMemoryGraphAtom(next, atom) {
