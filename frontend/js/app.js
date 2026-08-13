@@ -98,6 +98,11 @@ import {
 } from "./components/memory_inspector.js";
 
 import {
+  initBrainWorkspace,
+  refreshBrainWorkspace,
+} from "./components/brain_workspace.js";
+
+import {
   bindUnifiedSelector,
   getCurrentModel,
   getCurrentMode,
@@ -299,6 +304,21 @@ async function bootstrap() {
       getMemoryGraphContext,
     });
 
+    initBrainWorkspace({
+      getIdToken,
+      getMemoryGraphContext,
+      setMemoryGraphContext,
+      persistMemoryContextSafe,
+      showToast,
+      refreshIcons,
+      openMemoryControls: () => {
+        updateProfileUI(getCurrentUser());
+        renderMemoryInspector();
+        openModal("profile-modal", "profile-content");
+        document.querySelector('[data-settings-tab="memory"]')?.click();
+      },
+    });
+
     bindTheme();
     bindProfileModal();
     bindSettingsTabs();
@@ -450,6 +470,7 @@ function bindProfileModal() {
       });
       await persistAppSettingsToCloud();
       await hydrateCloudMemory(token, renderMemoryInspector);
+      await refreshBrainWorkspace({ keepSelection: true });
       await hydrateCloudChat(token, renderPersistedChat);
 
       setCloudSyncEnabled(true);

@@ -8,6 +8,7 @@ from .health_router import router as health_router
 from .chat_router import router as chat_router
 from .user_router import router as user_router
 from .memory_router import router as memory_router
+from .brain_router import router as brain_router
 from .chat_store_router import router as chat_store_router
 from .safety_router import router as safety_router
 from .tts_router import router as tts_router
@@ -23,6 +24,7 @@ def create_api_router() -> APIRouter:
     api_router.include_router(chat_router)
     api_router.include_router(user_router)
     api_router.include_router(memory_router)
+    api_router.include_router(brain_router)
     api_router.include_router(chat_store_router)
     api_router.include_router(safety_router)
     api_router.include_router(tts_router)

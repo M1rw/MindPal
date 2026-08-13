@@ -203,6 +203,7 @@ class Settings(BaseSettings):
     ENABLE_LLM_OUTPUT_REWRITE: bool = True
     ENABLE_LLM_RAG_PLANNING: bool = True
     ENABLE_LLM_SAFETY_CLASSIFIER: bool = True
+    ENABLE_BRAIN_CONTEXT_PLANNER: bool = True
 
     # LLM policy flags (previously read via os.getenv in llm_service.py)
     REQUIRE_REMOTE_LLM_PROVIDER: bool = True

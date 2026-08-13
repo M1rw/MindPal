@@ -268,3 +268,101 @@ async def test_feature_routes_fail_closed_for_malformed_or_unavailable_inputs() 
                     denied_memory = await unauth_client.get("/api/memory/v3")
                     assert denied_profile.status_code == 401
                     assert denied_memory.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_brain_routes_project_memory_v3_and_keep_context_bounded() -> None:
+    from backend.models.memory import (
+        MemoryCategory,
+        MemoryGraph,
+        MemorySensitivity,
+        MemorySource,
+        make_memory_atom,
+    )
+
+    app = _app_with_authenticated_test_session()
+    transport = httpx.ASGITransport(app=app)
+    headers = {"X-MindPal-Channel": "web"}
+    user_hash = hash_user_id("feature-contract-user")
+    goal = make_memory_atom(
+        user_id_hash=user_hash,
+        category=MemoryCategory.GOALS,
+        value="Maintain a steady sleep routine before demanding deadlines",
+        confidence=0.91,
+        source=MemorySource.MANUAL,
+        sensitivity=MemorySensitivity.MEDIUM,
+        pinned=True,
+    )
+    pattern = make_memory_atom(
+        user_id_hash=user_hash,
+        category=MemoryCategory.PATTERNS,
+        value="Deadline pressure can affect sleep quality",
+        confidence=0.82,
+        source=MemorySource.CHAT_EXTRACTION,
+        sensitivity=MemorySensitivity.MEDIUM,
+    )
+    restricted = make_memory_atom(
+        user_id_hash=user_hash,
+        category=MemoryCategory.SAFETY_CONTEXT,
+        value="Restricted safety context must not appear in standard Brain views",
+        confidence=0.9,
+        source=MemorySource.MANUAL,
+        sensitivity=MemorySensitivity.HIGH,
+    )
+    graph = MemoryGraph(user_id_hash=user_hash, atoms=[goal, pattern, restricted])
+
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            saved = await client.put(
+                "/api/memory/v3",
+                headers=headers,
+                json={"graph": graph.model_dump(mode="json"), "expected_version": 1},
+            )
+            assert saved.status_code == 200, saved.text
+            graph_version = saved.json()["version"]
+
+            overview = await client.get("/api/brain/overview", headers=headers)
+            assert overview.status_code == 200, overview.text
+            assert overview.json()["visible_node_count"] == 2
+            assert overview.json()["pending_review_count"] == 0
+
+            global_map = await client.get("/api/brain/map", headers=headers)
+            assert global_map.status_code == 200, global_map.text
+            map_ids = {item["id"] for item in global_map.json()["nodes"]}
+            assert {goal.id, pattern.id}.issubset(map_ids)
+            assert restricted.id not in map_ids
+
+            edge = await client.post(
+                "/api/brain/edges",
+                headers=headers,
+                json={
+                    "source_atom_id": pattern.id,
+                    "target_atom_id": goal.id,
+                    "relation": "affects",
+                    "confidence": 0.86,
+                    "expected_version": graph_version,
+                },
+            )
+            assert edge.status_code == 201, edge.text
+            edge_id = edge.json()["edge"]["id"]
+
+            focus = await client.get(f"/api/brain/nodes/{goal.id}", headers=headers)
+            assert focus.status_code == 200, focus.text
+            assert focus.json()["node"]["id"] == goal.id
+            assert focus.json()["backlinks"][0]["id"] == edge_id
+
+            planned = await client.post(
+                "/api/brain/context-plan",
+                headers=headers,
+                json={"query": "How can I keep a better sleep routine when deadlines are close?", "intent": "goal_planning"},
+            )
+            assert planned.status_code == 200, planned.text
+            payload = planned.json()
+            assert payload["candidate_count"] <= 24
+            assert len(payload["nodes"]) <= 6
+            assert len(payload["evidence"]) <= 2
+            assert len(payload["edges"]) <= 8
+            assert goal.id in {item["id"] for item in payload["nodes"]}
+
+            hidden = await client.get(f"/api/brain/nodes/{restricted.id}", headers=headers)
+            assert hidden.status_code == 404

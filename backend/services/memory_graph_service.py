@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 from backend.core.security import sanitize_text
 from backend.services.llm_service import LLMService, build_llm_request
 from backend.models.memory import (
+    BrainEdgeStatus,
+    BrainReviewStatus,
     MemoryAtom,
     MemoryCategory,
     MemoryGraph,
@@ -120,6 +122,28 @@ def delete_memory_atom(graph: MemoryGraph, atom_id: str, tombstone: bool = True)
             )
         else:
             del next_graph.atoms[index]
+        # Brain records are additive projections of atoms. Remove their minimal
+        # evidence and tombstone connected links so deleted personal context can
+        # never appear through a stale graph path or future context plan.
+        brain = next_graph.brain.model_copy(
+            update={
+                "edges": [
+                    edge.model_copy(update={"status": BrainEdgeStatus.DELETED, "updated_at": now})
+                    if atom_id in {edge.source_atom_id, edge.target_atom_id}
+                    else edge
+                    for edge in next_graph.brain.edges
+                ],
+                "evidence": [evidence for evidence in next_graph.brain.evidence if evidence.atom_id != atom_id],
+                "review_queue": [
+                    review.model_copy(update={"status": BrainReviewStatus.DISMISSED, "updated_at": now})
+                    if review.atom_id == atom_id and review.status in {BrainReviewStatus.PENDING, BrainReviewStatus.DEFERRED}
+                    else review
+                    for review in next_graph.brain.review_queue
+                ],
+                "updated_at": now,
+            }
+        )
+        next_graph.brain = brain
         next_graph.version += 1
         next_graph.updated_at = now
         return next_graph

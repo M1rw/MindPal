@@ -3,10 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from datetime import datetime, timezone
+from collections.abc import Callable
 from typing import Any
 
 from backend.core.errors import AppError
 from backend.models.memory import (
+    BrainWorkspace,
     MemoryCategory,
     MemoryGraph,
     MemoryGraphPatch,
@@ -89,19 +91,23 @@ class MemoryRepository:
                     "Memory changed on another device",
                     details={"expected_version": expected_version, "current_version": existing.version},
                 )
+            # Older clients do not yet send a Brain envelope. Preserve the server
+            # envelope in that case rather than treating an omitted field as a reset.
+            incoming_brain = graph.brain if _brain_has_content(graph.brain) or existing is None else existing.brain
             incoming = _fit_graph_document(
                 graph.model_copy(
                     update={
                         "user_id_hash": user_id_hash,
                         "full_snapshot": True,
+                        "brain": incoming_brain,
                         "created_at": existing.created_at if existing else graph.created_at,
                         "updated_at": datetime.now(timezone.utc),
                     }
                 )
             )
-            before_atoms = existing.model_dump(mode="json").get("atoms") if existing else []
-            after_atoms = incoming.model_dump(mode="json").get("atoms")
-            changed = before_atoms != after_atoms
+            before_content = _persistent_content(existing) if existing else None
+            after_content = _persistent_content(incoming)
+            changed = before_content != after_content
             if not changed and existing is not None:
                 return existing.model_dump(mode="json")
             incoming = incoming.model_copy(update={"version": (existing.version + 1) if existing else 1})
@@ -128,6 +134,41 @@ class MemoryRepository:
         # Remove the retired cache too so a later load cannot remigrate stale data.
         await self.db.delete_memory(user_id_hash)
 
+    async def update_brain(
+        self,
+        *,
+        user_id_hash: str,
+        mutate: Callable[[MemoryGraph], MemoryGraph],
+        expected_version: int | None = None,
+    ) -> MemoryMergeResult:
+        """Atomically apply a validated Brain mutation without rewriting atom data."""
+        changed = False
+
+        def updater(data: dict[str, Any]) -> dict[str, Any]:
+            nonlocal changed
+            existing = MemoryGraph.model_validate(data) if data else MemoryGraph(user_id_hash=user_id_hash)
+            if expected_version is not None and expected_version != existing.version:
+                raise MemoryVersionConflictError(
+                    "Memory changed on another device",
+                    details={"expected_version": expected_version, "current_version": existing.version},
+                )
+            candidate = _fit_graph_document(mutate(existing).model_copy(update={"user_id_hash": user_id_hash}))
+            changed = _persistent_content(existing) != _persistent_content(candidate)
+            if not changed:
+                return existing.model_dump(mode="json")
+            candidate = candidate.model_copy(
+                update={
+                    "version": existing.version + 1,
+                    "full_snapshot": True,
+                    "created_at": existing.created_at,
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            )
+            return candidate.model_dump(mode="json")
+
+        data = await self.db.provider.atomic_update_document(self.db.MEMORY_GRAPH_COLLECTION, user_id_hash, updater)
+        return MemoryMergeResult(MemoryGraph.model_validate(data), changed)
+
     async def _mutate(
         self,
         *,
@@ -145,9 +186,7 @@ class MemoryRepository:
                 candidate = delete_memory_atom(candidate, atom_id, tombstone=True)
             candidate = merge_memory_graph(candidate, atoms_or_graph)
             candidate = _fit_graph_document(candidate)
-            before_atoms = existing.model_dump(mode="json").get("atoms")
-            after_atoms = candidate.model_dump(mode="json").get("atoms")
-            changed = before_atoms != after_atoms
+            changed = _persistent_content(existing) != _persistent_content(candidate)
             if not changed:
                 return existing.model_dump(mode="json")
             candidate = candidate.model_copy(
@@ -165,8 +204,38 @@ class MemoryRepository:
         return MemoryMergeResult(MemoryGraph.model_validate(data), changed)
 
 
+def _persistent_content(graph: MemoryGraph) -> dict[str, Any]:
+    """Return user-controlled data that determines whether a graph version must advance."""
+    payload = graph.model_dump(mode="json")
+    return {"atoms": payload.get("atoms", []), "brain": payload.get("brain", {})}
+
+
+def _brain_has_content(brain: BrainWorkspace) -> bool:
+    return bool(brain.edges or brain.evidence or brain.review_queue or brain.collections)
+
+
+def _fit_brain_workspace(brain: BrainWorkspace, max_bytes: int) -> BrainWorkspace:
+    """Keep Brain records bounded before atom fitting; newest user controls survive first."""
+    candidate = brain
+    for _ in range(8):
+        encoded = json.dumps(candidate.model_dump(mode="json"), ensure_ascii=False, separators=(",", ":"), default=str)
+        if len(encoded.encode("utf-8")) <= max_bytes:
+            return candidate
+        candidate = candidate.model_copy(
+            update={
+                "collections": candidate.collections[: max(0, len(candidate.collections) // 2)],
+                "review_queue": candidate.review_queue[: max(0, len(candidate.review_queue) // 2)],
+                "evidence": candidate.evidence[: max(0, len(candidate.evidence) // 2)],
+                "edges": candidate.edges[: max(0, len(candidate.edges) // 2)],
+            }
+        )
+    return candidate.model_copy(update={"edges": [], "evidence": [], "review_queue": [], "collections": []})
+
+
 def _fit_graph_document(graph: MemoryGraph) -> MemoryGraph:
     """Bound a graph below Firestore's document limit without dropping core facts first."""
+    bounded_brain = _fit_brain_workspace(graph.brain, MAX_MEMORY_DOCUMENT_BYTES // 2)
+    graph = graph.model_copy(update={"brain": bounded_brain})
     payload = graph.model_copy(update={"atoms": []}).model_dump(mode="json")
     used = len(json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str).encode("utf-8"))
     identity_categories = {

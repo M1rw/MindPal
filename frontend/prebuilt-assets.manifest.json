@@ -1,20 +1,20 @@
 {
   "outputs": {
     "frontend/css/tailwind.generated.css": {
-      "bytes": 36145,
-      "sha256": "0322897e9f16662109e0b96ba36b285198464a3617bbced48dc92855355524e9"
+      "bytes": 36232,
+      "sha256": "0516f2f6b3ce624d1b7c4ad1d551a174b860888ba014cb6c049ecb938cfc1504"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 357653,
-      "sha256": "2f478df6c5a9fcd9fd2763b341bb15a6b5b0e1586eb2f38deb192c40e8b6d4bb"
+      "bytes": 381760,
+      "sha256": "9f9736fe51b84bb4dc251716dd5299c5a3a2142fe04aaa3ae29659d9b9606e18"
     },
     "frontend/dist/lucide.bundle.js": {
-      "bytes": 12915,
-      "sha256": "9eee6af42759c726e707a52987bd85435cf6874e061bd85a53fcc3f99cb66fa6"
+      "bytes": 16029,
+      "sha256": "ab1a8796276fe8088fe76a82099ecba5f755c3aa2d3669cb3b44c35b8f1ac293"
     }
   },
   "schema_version": 1,
-  "source_digest": "1735dfba86fa280f835329fe1b9d6c608a5acebcaad19770e8dd4d06f85fc001",
+  "source_digest": "9a5f7773030d708a47179aefec28fa70d7e1c76ba1efc467e89605c79bf5a393",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -23,6 +23,7 @@
     "frontend/js/auth.js",
     "frontend/js/bootstrap.js",
     "frontend/js/cloud_sync.js",
+    "frontend/js/components/brain_workspace.js",
     "frontend/js/components/memory_inspector.js",
     "frontend/js/components/model_selector.js",
     "frontend/js/components/notifications.js",

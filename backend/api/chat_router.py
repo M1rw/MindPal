@@ -33,11 +33,13 @@ from backend.models.chat import (
     LLMMessage,
     LLMRole,
 )
+from backend.models.brain import BrainPolicyTier
 from backend.models.memory import MemoryGraph, summary_from_memory_graph
 from backend.models.safety import SafetyDecision
 from backend.models.schemas import ProviderChainTrace
 from backend.models.user import UserProfile
 from backend.services.llm_service import build_llm_request
+from backend.services.brain_service import render_context_pack_for_prompt
 from backend.services.memory_graph_service import (
     build_memory_graph_prompt,
     extract_memory_graph_from_text_llm,
@@ -211,7 +213,36 @@ async def chat(
         if memory_allowed:
             memory_graph = await services.memory_repo.load(context.session.user_id_hash)
             memory_summary = summary_from_memory_graph(memory_graph)
-            memory_prompt = build_memory_graph_prompt(memory_graph)
+            if not services.settings.ENABLE_BRAIN_CONTEXT_PLANNER:
+                memory_prompt = build_memory_graph_prompt(memory_graph)
+            else:
+                try:
+                    # Identity information remains available, while durable knowledge is
+                    # narrowed through the small, explainable Brain context budget.
+                    identity_graph = memory_graph.model_copy(
+                        update={
+                            "atoms": [
+                                atom
+                                for atom in memory_graph.tier1_atoms()
+                                if services.brain.is_visible(atom, BrainPolicyTier.STANDARD, for_reply=True)
+                            ]
+                        }
+                    )
+                    identity_prompt = build_memory_graph_prompt(identity_graph)
+                    brain_pack = services.brain.plan_context(
+                        memory_graph,
+                        payload.message,
+                        intent="chat_support",
+                        policy_tier=BrainPolicyTier.STANDARD,
+                    )
+                    memory_prompt = "\n\n".join(
+                        value for value in (identity_prompt, render_context_pack_for_prompt(brain_pack)) if value
+                    )
+                except Exception:
+                    # Brain is an optimization layer. Its failure must never disrupt a
+                    # safety-cleared response or remove established Memory V3 context.
+                    logger.warning("Brain context planning failed for %s", context.request_id, exc_info=True)
+                    memory_prompt = build_memory_graph_prompt(memory_graph)
 
         rag_tags = services.safety.rag_tags_for_decision(safety_decision)
         intent_context = build_intent_context(payload.message, locale=locale)

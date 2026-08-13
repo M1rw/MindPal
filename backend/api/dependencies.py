@@ -43,6 +43,7 @@ from backend.services import (
     SafetyService,
     TTSService,
 )
+from backend.services.brain_service import BrainService
 from backend.services.idempotency_service import IdempotencyService
 from backend.services.memory_repository import MemoryRepository
 from backend.services.quota_service import QuotaService
@@ -85,6 +86,7 @@ class ServiceContainer:
     rate_limits: RateLimitService
     idempotency: IdempotencyService
     memory_repo: MemoryRepository
+    brain: BrainService
     http_client: httpx.AsyncClient
 
     async def aclose(self) -> None:
@@ -194,6 +196,7 @@ def build_service_container(settings: Settings) -> ServiceContainer:
         rate_limits=rate_limits,
         idempotency=idempotency,
         memory_repo=MemoryRepository(db=db),
+        brain=BrainService(),
         http_client=http_client,
     )
 
