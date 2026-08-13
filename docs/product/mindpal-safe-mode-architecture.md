@@ -53,3 +53,7 @@ Nodes appear only when the authoritative trace includes the underlying operation
 Every event includes `run_id`, `sequence`, `timestamp_ms`, `kind`, `node`, `status`, optional bounded `duration_ms`, and sanitized metadata. Supported kinds are: `run.started`, `node.started`, `node.completed`, `memory.retrieved`, `tool.started`, `tool.completed`, `model.started`, `model.completed`, `error`, and `run.completed`.
 
 SAFE MODE is public as a shell, but no prior user run trace is persisted or shared into the page. It attaches only to new local browser lifecycle messages and locally cached, sanitized response traces.
+
+## Production layout validation
+
+Cache-bypassed production validation for commit `827419d` confirmed that `/brain` now renders the requested SAFE MODE console composition: near-black terminal shell, fixed system bar, left diagnostic rail, wide graph viewport, node/activity/legend inspection panes, terminal trace strip, and command footer. The graph correctly presents an explicit empty state until a real MindPal run is observed; it does not fabricate model activity.
