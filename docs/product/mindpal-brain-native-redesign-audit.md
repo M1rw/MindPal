@@ -32,3 +32,5 @@ The native redesign was pushed to `main` in commit `a19b163`. Two live reload ch
 Vercel deployment detail confirmation: the production deployment for commit `a19b163` is **Ready** and attached to `mindpal-demo.vercel.app`. The immutable deployment URL reported by Vercel is `https://mindpal-demo-qewzlt87e-miljtes-projects.vercel.app`; use that URL for cache-independent visual acceptance.
 
 Cache-bypassed canonical-domain validation (`?v=a19b163`) confirmed the active production bundle: the prior labeled `Brain` pill is replaced by the compact database icon using the same rounded header-control styling as MindPal’s theme, streak, and profile controls.
+
+Final layout-fix validation began against cache-bypassed production revision `1de712e`; the regular MindPal chat header and compact memory icon loaded successfully before entering the Memory view.

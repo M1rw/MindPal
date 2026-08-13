@@ -40,17 +40,36 @@ let state = {
 
 export function initBrainWorkspace(nextDependencies = {}) {
   dependencies = nextDependencies;
+  // On the main chat document the Brain is intentionally a real route, not an
+  // overlay. The standalone /brain page provides the actual workspace markup.
+  if (!document.getElementById("brain-workspace")) {
+    document.getElementById("brain-btn")?.addEventListener("click", () => {
+      window.location.assign("/brain");
+    });
+    return;
+  }
   bindWorkspaceEvents();
   renderFilters();
+}
+
+export async function mountBrainWorkspace() {
+  const workspace = document.getElementById("brain-workspace");
+  if (!workspace) return;
+  state.open = true;
+  workspace.hidden = false;
+  await refreshBrainWorkspace({ keepSelection: true });
 }
 
 export async function openBrainWorkspace() {
   const workspace = document.getElementById("brain-workspace");
   const main = document.getElementById("main-content");
-  if (!workspace || !main) return;
+  if (!workspace) {
+    window.location.assign("/brain");
+    return;
+  }
   state.open = true;
   workspace.hidden = false;
-  main.hidden = true;
+  if (main) main.hidden = true;
   document.getElementById("brain-btn")?.setAttribute("aria-pressed", "true");
   await refreshBrainWorkspace({ keepSelection: true });
 }
@@ -58,7 +77,11 @@ export async function openBrainWorkspace() {
 export function closeBrainWorkspace() {
   const workspace = document.getElementById("brain-workspace");
   const main = document.getElementById("main-content");
-  if (!workspace || !main) return;
+  if (!workspace) return;
+  if (!main) {
+    window.location.assign("/");
+    return;
+  }
   state.open = false;
   workspace.hidden = true;
   main.hidden = false;
