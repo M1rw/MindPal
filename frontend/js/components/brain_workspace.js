@@ -26,7 +26,7 @@ const VIEW_LABELS = { today: "Today", map: "Map", focus: "Focus", review: "Revie
 let dependencies = {};
 let state = {
   open: false,
-  view: "today",
+  view: "map",
   token: null,
   remote: false,
   overview: null,
@@ -239,10 +239,13 @@ function renderFilters() {
 
 function renderWorkspace() {
   const overview = state.overview || emptyOverview();
-  document.getElementById("brain-version").textContent = `v${overview.graph_version || 1}`;
-  document.getElementById("brain-mode-label").textContent = state.remote ? "CLOUD" : "LOCAL";
-  document.getElementById("brain-review-count").textContent = String(overview.pending_review_count || 0);
-  document.getElementById("brain-today-count").textContent = String(overview.visible_node_count || 0);
+  const version = document.getElementById("brain-version");
+  const mode = document.getElementById("brain-mode-label");
+  const reviews = document.getElementById("brain-review-count");
+  if (version) version.textContent = `v${overview.graph_version || 1}`;
+  if (mode) mode.textContent = state.remote ? "CLOUD" : "LOCAL";
+  if (reviews) reviews.textContent = String(overview.pending_review_count || 0);
+  document.querySelectorAll("[data-brain-view]").forEach((button) => button.classList.toggle("active", button.getAttribute("data-brain-view") === state.view));
   const target = document.getElementById("brain-main-content");
   if (!target) return;
   if (state.view === "map" || state.view === "focus") target.innerHTML = renderMap();
@@ -272,19 +275,26 @@ function renderMap() {
   const map = state.map || { nodes: [], edges: [], scope: "global" };
   const nodes = map.nodes || [];
   const positions = layoutNodes(nodes);
-  const byId = new Map(nodes.map((node) => [node.id, node]));
-  const edges = (map.edges || []).filter((edge) => positions.has(edge.source_atom_id) && positions.has(edge.target_atom_id));
-  const edgeMarkup = edges.map((edge) => {
+  const storedEdges = (map.edges || []).filter((edge) => positions.has(edge.source_atom_id) && positions.has(edge.target_atom_id));
+  const edges = storedEdges.length ? storedEdges : createAmbientEdges(nodes);
+  const edgeMarkup = edges.map((edge, index) => {
     const source = positions.get(edge.source_atom_id); const target = positions.get(edge.target_atom_id);
-    const stateClass = `${edge.tentative ? " tentative" : ""}${edge.relation === "contradicts" ? " conflict" : ""}`;
-    return `<line class="brain-edge-line${stateClass}" x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}"/>`;
+    const sourceNode = nodes.find((node) => node.id === edge.source_atom_id);
+    const targetNode = nodes.find((node) => node.id === edge.target_atom_id);
+    const stateClass = `${edge.tentative ? " tentative" : ""}${edge.relation === "contradicts" ? " conflict" : ""}${edge.visual_only ? " ambient" : ""}`;
+    const path = neuralPath(source, target, index);
+    const color = nodeColor(sourceNode || targetNode || {});
+    const duration = 4.8 + (index % 4) * .72;
+    const delay = (index % 5) * -.88;
+    return `<g class="brain-neural-edge${stateClass}" style="--edge-color:${color}"><path class="brain-edge-line" d="${path}"/><circle class="brain-flow-particle" r="2.3"><animateMotion dur="${duration}s" begin="${delay}s" repeatCount="indefinite" path="${path}"/></circle></g>`;
   }).join("");
-  const nodeMarkup = nodes.map((node) => {
-    const point = positions.get(node.id); const color = nodeColor(node); const label = trimLabel(node.title, 20);
-    return `<g class="brain-node-button" role="button" tabindex="0" aria-label="Focus ${escapeAttribute(node.title)}" data-brain-node="${escapeAttribute(node.id)}" style="--node-color:${color}"><circle class="brain-node-ring" cx="${point.x}" cy="${point.y}" r="21"></circle><circle class="brain-node-core" cx="${point.x}" cy="${point.y}" r="7"></circle><text class="brain-node-label" x="${point.x}" y="${point.y + 34}" text-anchor="middle">${escapeHtml(label)}</text></g>`;
+  const nodeMarkup = nodes.map((node, index) => {
+    const point = positions.get(node.id); const color = nodeColor(node); const label = trimLabel(node.title, 22); const delay = (index % 6) * .45;
+    return `<g class="brain-node-button" role="button" tabindex="0" aria-label="Focus ${escapeAttribute(node.title)}" data-brain-node="${escapeAttribute(node.id)}" style="--node-color:${color};--node-delay:${delay}s"><circle class="brain-node-aura" cx="${point.x}" cy="${point.y}" r="31"></circle><circle class="brain-node-ring" cx="${point.x}" cy="${point.y}" r="19"></circle><circle class="brain-node-core" cx="${point.x}" cy="${point.y}" r="6.4"></circle><text class="brain-node-label" x="${point.x}" y="${point.y + 36}" text-anchor="middle">${escapeHtml(label)}</text></g>`;
   }).join("");
   const legend = [...new Set(nodes.map((node) => node.category))].slice(0, 6).map((category) => `<span><i class="brain-node-dot" style="--node-color:${nodeColor({ category })}"></i>${escapeHtml(CATEGORY_META[category]?.[0] || category)}</span>`).join("");
-  return `<section class="brain-map"><header class="brain-map-head"><div><h2>${state.view === "focus" ? "Focused memories" : "Connections"}</h2><p>See how saved memories relate. Sensitive memories remain private in this view.</p></div><span class="brain-map-scope">${escapeHtml((map.scope || "all").toUpperCase())} · ${nodes.length} MEMORIES</span></header><div class="brain-map-stage">${nodes.length ? `<svg class="brain-map-svg" viewBox="0 0 800 480" role="img" aria-label="Interactive Brain relationship map">${edgeMarkup}${nodeMarkup}</svg>` : `<div class="brain-inspector-empty"><i data-lucide="orbit" class="w-7 h-7"></i><p>Saved memories will appear here as you choose what MindPal keeps.</p></div>`}</div><div class="brain-map-legend">${legend || "No visible categories"}</div></section>`;
+  const subtitle = storedEdges.length ? "Live paths reflect your saved relationships." : "Signals are flowing; save a connection to make a path persistent.";
+  return `<section class="brain-map brain-neural-map"><header class="brain-map-head"><div><span class="brain-live-indicator"><i></i> LIVE MEMORY GRAPH</span><h2>${state.view === "focus" ? "Focused signal" : "Your MindPal brain"}</h2><p>${subtitle}</p></div><span class="brain-map-scope">${nodes.length} SIGNALS · ${storedEdges.length} SAVED LINKS</span></header><div class="brain-map-stage brain-neural-stage">${nodes.length ? `<svg class="brain-map-svg" viewBox="0 0 800 480" role="img" aria-label="Animated interactive Brain relationship map">${edgeMarkup}${nodeMarkup}</svg><div class="brain-map-caption">Select any signal to inspect its memory, evidence, and relationships.</div>` : `<div class="brain-inspector-empty"><i data-lucide="orbit" class="w-7 h-7"></i><p>Your Brain wakes up as you choose memories to retain.</p></div>`}</div><div class="brain-map-legend">${legend || "No visible categories"}</div></section>`;
 }
 
 function renderReview() {
@@ -412,13 +422,41 @@ function mutateLocalBrain(mutator) {
   dependencies.persistMemoryContextSafe?.();
 }
 
+function createAmbientEdges(nodes) {
+  if (nodes.length < 2) return [];
+  const edges = nodes.slice(0, -1).map((node, index) => ({
+    id: `ambient-${node.id}-${nodes[index + 1].id}`,
+    source_atom_id: node.id,
+    target_atom_id: nodes[index + 1].id,
+    relation: "ambient",
+    visual_only: true,
+  }));
+  if (nodes.length > 4) {
+    edges.push({ id: `ambient-cross-${nodes[0].id}-${nodes[2].id}`, source_atom_id: nodes[0].id, target_atom_id: nodes[2].id, relation: "ambient", visual_only: true });
+    edges.push({ id: `ambient-cross-${nodes[1].id}-${nodes[nodes.length - 1].id}`, source_atom_id: nodes[1].id, target_atom_id: nodes[nodes.length - 1].id, relation: "ambient", visual_only: true });
+  }
+  return edges;
+}
+
+function neuralPath(source, target, index) {
+  const centerX = (source.x + target.x) / 2;
+  const centerY = (source.y + target.y) / 2;
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const length = Math.max(Math.hypot(dx, dy), 1);
+  const bend = ((index % 2 ? 1 : -1) * Math.min(52, length * .16));
+  const controlX = centerX - (dy / length) * bend;
+  const controlY = centerY + (dx / length) * bend;
+  return `M ${source.x} ${source.y} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${target.x} ${target.y}`;
+}
+
 function layoutNodes(nodes) {
   const positions = new Map();
   const total = Math.max(nodes.length, 1);
   nodes.forEach((node, index) => {
     const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
-    const radius = total === 1 ? 0 : 112 + (index % 3) * 55;
-    positions.set(node.id, { x: 400 + Math.cos(angle) * radius * 1.55, y: 235 + Math.sin(angle) * radius });
+    const radius = total === 1 ? 0 : 120 + (index % 3) * 58;
+    positions.set(node.id, { x: 400 + Math.cos(angle) * radius * 1.48, y: 232 + Math.sin(angle) * radius * .95 });
   });
   return positions;
 }

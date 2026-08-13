@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#131314">
   <meta name="description" content="MindPal Memory — a private view of the context that helps MindPal stay continuous.">
-  <title>Memory · MindPal</title>
+  <title>Brain · MindPal</title>
   <script src="./runtime-config.js"></script>
   <link rel="stylesheet" href="./css/tailwind.generated.css">
   <link rel="stylesheet" href="./css/style.css">
@@ -30,7 +30,7 @@
     <div class="brain-shell">
       <header class="brain-page-header">
         <div class="brain-page-title">
-          <div><h1>Memory</h1><p id="brain-status-copy" aria-live="polite">A private view of what MindPal keeps in context.</p></div>
+          <div><h1>Brain</h1><p id="brain-status-copy" aria-live="polite">Your private memory graph, moving in real time.</p></div>
         </div>
         <div class="brain-toolbar">
           <span class="brain-sync-label"><span id="brain-mode-label">LOCAL</span> · <b id="brain-version">v1</b></span>
@@ -38,10 +38,8 @@
           <button id="brain-refresh-btn" class="brain-icon-button" type="button" title="Refresh memory"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
         </div>
       </header>
-      <nav class="brain-view-nav" aria-label="Memory navigation">
-        <button class="brain-view-button active" type="button" data-brain-view="today"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Overview</span><b id="brain-today-count">0</b></button>
-        <button class="brain-view-button" type="button" data-brain-view="map"><i data-lucide="network" class="w-4 h-4"></i><span>Connections</span></button>
-        <button class="brain-view-button brain-focus-trigger" type="button" data-brain-view="focus"><i data-lucide="crosshair" class="w-4 h-4"></i><span>Focus</span></button>
+      <nav class="brain-view-nav" aria-label="Brain navigation">
+        <button class="brain-view-button active" type="button" data-brain-view="map"><i data-lucide="network" class="w-4 h-4"></i><span>Graph</span></button>
         <button class="brain-view-button" type="button" data-brain-view="review"><i data-lucide="badge-alert" class="w-4 h-4"></i><span>Review</span><b id="brain-review-count">0</b></button>
       </nav>
       <div class="brain-controls">
