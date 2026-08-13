@@ -34,3 +34,7 @@ The user can pause/resume visual activity, adjust activity density, switch the c
 ## Acceptance criteria
 
 The public `/brain` route must load without authentication, operate with no memory data, remain useful offline after initial assets load, and label all simulated activation/SAE values honestly. It must render a dense multi-layer WebGL neural field with animated propagation, while reduced-motion and no-WebGL users retain an informative non-animated representation.
+
+## Production validation note
+
+The anonymous production route for commit `e85be60` rendered the public Neural Observatory with the pipeline, feature readout, disclosure, and dense neural field. The validation browser reported WebGL unavailable, so the fallback notice was also visible. The observatory remains WebGL-first on capable browsers; the fallback presentation must remain unobtrusive and informative when browser graphics policy disables WebGL.
