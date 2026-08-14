@@ -10,27 +10,35 @@ import { escapeHtml } from "../ui_state.js";
 export function truncateRepetition(text) {
   if (!text || text.length < 80) return text;
 
-  // Split on sentence-ending punctuation (., ?, !, ؟) while keeping the delimiter
-  const sentences = text.split(/(?<=[.\n\u061F?!])\s*/);
-  if (sentences.length < 4) return text;
+  // Split after sentence-ending punctuation while preserving the exact whitespace
+  // between sentences. Structured safety templates rely on line breaks for distinct
+  // actions, so joining with a generic space would collapse them into a single step.
+  const chunks = text.split(/(?<=[.\u061F?!])(\s+)/);
+  const sentenceCount = chunks.filter((_chunk, index) => index % 2 === 0 && _chunk.trim()).length;
+  if (sentenceCount < 4) return text;
 
   const seen = new Map();
   const out = [];
 
-  for (const sentence of sentences) {
+  for (let index = 0; index < chunks.length; index += 2) {
+    const sentence = chunks[index] || "";
+    const separator = chunks[index + 1] || "";
     const key = sentence.trim().toLowerCase();
-    if (!key) { out.push(sentence); continue; }
+    if (!key) {
+      out.push(sentence, separator);
+      continue;
+    }
 
     const count = (seen.get(key) || 0) + 1;
     seen.set(key, count);
 
-    // Allow up to 2 occurrences, drop the rest
+    // Allow up to two occurrences while retaining the source's paragraph and list layout.
     if (count <= 2) {
-      out.push(sentence);
+      out.push(sentence, separator);
     }
   }
 
-  return out.join(" ");
+  return out.join("").trim();
 }
 
 /**

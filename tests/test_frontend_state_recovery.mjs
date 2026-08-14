@@ -111,6 +111,21 @@ test("chat presentation removes instruction-leak markers from visible text", () 
   assert.equal(cleaned.includes("Helpful answer."), true);
 });
 
+test("repetition filtering preserves separate crisis action lines", () => {
+  const structured = [
+    "For the next few minutes:",
+    "- Move away from anything you could use to hurt yourself.",
+    "- Go near another person or a public/shared space.",
+    "- Message someone nearby and ask them to stay with you.",
+    "Stay with me for one step: are you alone?",
+  ].join("\n");
+  const cleaned = helpers.truncateRepetition(structured);
+
+  assert.equal(cleaned, structured);
+  assert.equal((cleaned.match(/\n- /g) || []).length, 3);
+  assert.equal(cleaned.includes(". - Go near"), false);
+});
+
 
 const richDom = await import("../frontend/js/utils/dom.js");
 
