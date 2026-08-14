@@ -291,7 +291,7 @@ function faviconForUrl(url) {
   try {
     const parsed = new URL(url);
     if (!(["https:", "http:"].includes(parsed.protocol))) return "";
-    return `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsed.origin)}&sz=32`;
+    return `/api/favicon?url=${encodeURIComponent(parsed.href)}`;
   } catch {
     return "";
   }
