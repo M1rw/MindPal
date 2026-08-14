@@ -38,8 +38,10 @@ def test_frontend_root_references_production_bundles() -> None:
     assert "cdn.tailwindcss.com" not in response.text
     assert "unpkg.com" not in response.text
     assert response.headers["x-content-type-options"] == "nosniff"
-    assert "script-src 'self';" in response.headers["content-security-policy"]
-    assert "script-src 'self' blob:" not in response.headers["content-security-policy"]
+    csp = response.headers["content-security-policy"]
+    assert "script-src 'self';" in csp
+    assert "script-src 'self' blob:" not in csp
+    assert "img-src 'self' data: blob: https://www.google.com https://*.gstatic.com" in csp
 
 
 def test_runtime_config_and_bundles_are_served() -> None:
