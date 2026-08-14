@@ -10,6 +10,12 @@
   height: var(--app-height);
 }
 
+/* Responsive Safe Area Top Padding */
+.pt-safe-top {
+  padding-top: 12px; /* fallback */
+  padding-top: max(env(safe-area-inset-top, 12px), 12px) !important;
+}
+
 /* Main content offset — matches header height (which includes safe-area-inset-top via max()) */
 #main-content {
   padding-top: calc(56px + max(env(safe-area-inset-top, 0px), 12px)) !important;
@@ -1192,4 +1198,12 @@ button:active,
 }
 .usage-bar-fill.full {
   background: #ef4444;
+}
+
+/* ═══════════════ Memory Manage Button Icons ═══════════════ */
+.memory-pin-btn svg,
+.memory-edit-btn svg,
+.memory-delete-btn svg {
+  width: 16px !important;
+  height: 16px !important;
 }

@@ -291,16 +291,9 @@ def _request_host(request: Request | None) -> str:
 
 def _resolve_firebase_auth_domain(settings: Settings, request: Request | None = None) -> str:
     configured_domain = str(getattr(settings, "FIREBASE_AUTH_DOMAIN", "") or "").strip()
-    environment = str(getattr(settings, "ENVIRONMENT", "development")).lower()
-    request_host = _request_host(request)
-
-    if not configured_domain:
-        return request_host
-
-    if environment == "production" and configured_domain.endswith(".firebaseapp.com"):
-        return request_host or configured_domain
-
-    return configured_domain
+    if configured_domain:
+        return configured_domain
+    return _request_host(request)
 
 
 def _install_frontend_routes(app: FastAPI) -> None:
