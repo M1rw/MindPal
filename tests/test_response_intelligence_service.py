@@ -233,3 +233,87 @@ def test_response_brief_current_message_language_beats_client_locale() -> None:
 
     assert classification.language == "english"
     assert brief.expected_output_language == "english"
+
+
+@pytest.mark.asyncio
+async def test_english_greeting_rejects_transliterated_arabic_lead() -> None:
+    """The live `hiii` → `Marhaba` reply must be corrected to natural English."""
+    service = _service()
+    classification = classify_message("hiii", locale="ar")
+    brief = service.build_brief(
+        user_message="hiii",
+        classification=classification,
+        response_mode="normal_support",
+    )
+
+    outcome = await service.enforce_reply_language(
+        candidate_reply="Marhaba! It's great to hear from you again.",
+        brief=brief,
+        locale="ar",
+        request_id="transliterated-greeting-regression",
+    )
+
+    assert outcome.corrected is True
+    assert outcome.fallback_used is True
+    assert outcome.reply == "Hi — what would you like to talk about?"
+
+
+def test_quality_evaluator_flags_breathing_after_explicit_user_boundary() -> None:
+    message = "Don't just tell me to breathe. I need a practical alternative."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply="Break the task into one line, then take a few deep breaths.",
+        brief=brief,
+    )
+
+    assert brief.prohibited_suggestions == ("breathing_exercises",)
+    assert "user_boundary_violated" in evaluation.issues
+    assert evaluation.repair_recommended is True
+
+
+def test_quality_evaluator_flags_invented_continuity_in_new_chat() -> None:
+    service = _service()
+    classification = classify_message("hiii")
+    brief = service.build_brief(
+        user_message="hiii",
+        classification=classification,
+        response_mode="normal_support",
+        chat_history=[],
+    )
+
+    evaluation = service.evaluate(
+        user_message="hiii",
+        reply="It's great to hear from you again. How have you been managing your workload lately?",
+        brief=brief,
+    )
+
+    assert brief.is_new_conversation is True
+    assert "unsupported_continuity" in evaluation.issues
+    assert evaluation.repair_recommended is True
+
+
+def test_quality_evaluator_flags_bare_breathing_cliche() -> None:
+    message = "Give me a 10-word answer: I'm nervous to call my dad."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply="It's normal to feel nervous, take a few deep breaths.",
+        brief=brief,
+    )
+
+    assert "generic_coping_cliche" in evaluation.issues

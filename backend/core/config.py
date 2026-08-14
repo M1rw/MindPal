@@ -205,7 +205,9 @@ class Settings(BaseSettings):
     ENABLE_LLM_SAFETY_CLASSIFIER: bool = True
     ENABLE_BRAIN_CONTEXT_PLANNER: bool = True
     ENABLE_RESPONSE_INTELLIGENCE: bool = True
-    ENABLE_RESPONSE_QUALITY_REPAIR: bool = False
+    # Repairs are limited to one pass and never run for elevated-safety conversations.
+    # Keep this enabled so the response-quality gate is active in normal production chat.
+    ENABLE_RESPONSE_QUALITY_REPAIR: bool = True
     RESPONSE_QUALITY_MIN_SCORE: int = Field(default=72, ge=0, le=100)
     RESPONSE_QUALITY_MAX_REPAIR_TOKENS: int = Field(default=600, ge=100, le=1_200)
 

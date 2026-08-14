@@ -1313,23 +1313,6 @@ async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter
   contentBox.className = "content-box";
   contentBox.setAttribute("dir", "auto");
 
-  // Static "Thought for Xs" fallback when no accordion but timing data exists
-  if (!parsed.timelineHtml && backendMeta?.generationTimeMs) {
-    const timeSec = (backendMeta.generationTimeMs / 1000).toFixed(1);
-    const staticDiv = document.createElement("div");
-    staticDiv.innerHTML = `
-      <div class="flex items-center gap-1 mb-2">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-          class="text-[#4285f4] dark:text-[#7baaf7] flex-shrink-0 opacity-80">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-        <span class="text-[13px] text-[#5f6368] dark:text-[#9aa0a6] italic">Thought for ${timeSec}s</span>
-      </div>
-    `;
-    contentContainer.appendChild(staticDiv);
-  }
-
   if (!typewriter) {
     if (!parsed.finalHtml && text.trim()) {
       // Safety net: parser couldn't extract visible content — show raw text

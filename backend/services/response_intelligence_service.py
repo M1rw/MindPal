@@ -28,6 +28,9 @@ QualityIssue = Literal[
     "empty_reply",
     "internal_format",
     "generic_without_grounding",
+    "generic_coping_cliche",
+    "user_boundary_violated",
+    "unsupported_continuity",
     "too_many_questions",
     "does_not_lead_with_answer",
     "missing_concrete_next_step",
@@ -87,6 +90,28 @@ _DIRECT_MARKERS = ("help", "how", "what", "why", "can you", "should i", "عاي�
 
 _INTERNAL_LABEL_RE = re.compile(r"(?is)(?:\*{0,2}(?:thought|analysis|reasoning|balanced\s+reframe)\*{0,2}\s*:|<\s*(?:thought|analysis|reasoning)\s*>)")
 _WORD_RE = re.compile(r"[\w\u0600-\u06ff']+", re.UNICODE)
+_BREATHING_BOUNDARY_RE = re.compile(
+    r"(?is)\b(?:don['’]?t|do\s+not|stop|tired\s+of|no\s+more|not\s+another)\b.{0,80}"
+    r"\b(?:breathe|breathing|deep\s+breaths?|breathwork|grounding)\b"
+)
+_BREATHING_SUGGESTION_RE = re.compile(
+    r"(?is)\b(?:take|try|practice|start\s+with)\b.{0,40}"
+    r"\b(?:breathe|breathing|deep\s+breaths?|breathwork)\b"
+)
+_GENERIC_COPING_CLICHE_RE = re.compile(
+    r"(?is)^\s*(?:it['’]?s\s+normal\s+to\s+feel\s+(?:nervous|anxious)|"
+    r"take\s+(?:a\s+few|some)\s+deep\s+breaths?)[,!\.\s]"
+)
+_UNSUPPORTED_NEW_CONVERSATION_RE = re.compile(
+    r"(?is)\b(?:great\s+to\s+hear\s+from\s+you\s+again|nice\s+to\s+see\s+you\s+again|"
+    r"welcome\s+back|how\s+have\s+you\s+been\s+managing\s+your\s+workload)\b"
+)
+# Transliteration is not an English-language reply when it is used as the lead greeting.
+# Keep this intentionally narrow to avoid rejecting legitimate names in otherwise English text.
+_FOREIGN_GREETING_LEAD_RE = re.compile(
+    r"^\s*(?:marhaba|marhaban|ahlan|salam|salaam|as[-\s]?salamu\s+alaykum)\b[!,.\s]*",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +127,8 @@ class ResponseBrief:
     needs_concrete_step: bool
     can_use_light_warmth: bool
     expected_output_language: str = "english"
+    prohibited_suggestions: tuple[str, ...] = ()
+    is_new_conversation: bool = False
 
     def to_prompt(self) -> str:
         return "\n".join(
@@ -116,6 +143,10 @@ class ResponseBrief:
                 f"- directness={self.directness}",
                 f"- concrete_next_step_helpful={str(self.needs_concrete_step).lower()}",
                 f"- light_warmth_appropriate={str(self.can_use_light_warmth).lower()}",
+                f"- prohibited_suggestions={','.join(self.prohibited_suggestions) or 'none'}",
+                f"- is_new_conversation={str(self.is_new_conversation).lower()}",
+                "If prohibited_suggestions includes breathing_exercises, do not recommend, repeat, or reframe breathing exercises in this reply.",
+                "If is_new_conversation is true, do not claim prior contact, remembered workload, history, treatment plans, or personal facts unless the current user message itself states them.",
                 "Use this as a steering brief, not as a fact about the user. Do not mention the brief.",
             )
         )
@@ -187,6 +218,7 @@ class ResponseIntelligenceService:
         classification: Any,
         response_mode: str,
         metadata: Any | None = None,
+        chat_history: list[Any] | None = None,
     ) -> ResponseBrief:
         text = sanitize_text(user_message or "", MAX_BRIEF_MESSAGE_CHARS)
         lowered = text.lower()
@@ -228,6 +260,8 @@ class ResponseIntelligenceService:
         response_depth = "brief" if tier in {"greeting", "casual"} else "supportive_and_specific"
         directness = client_directness if client_directness in {"gentle", "balanced", "direct"} else ("direct" if asks_directly else "balanced")
         needs_step = emotional and response_mode not in {"personal_safety", "ambiguous_self_harm_support"}
+        prohibited_suggestions = _detect_prohibited_suggestions(text)
+        is_new_conversation = not bool(chat_history)
 
         return ResponseBrief(
             intent=intent,
@@ -239,6 +273,8 @@ class ResponseIntelligenceService:
             needs_concrete_step=needs_step,
             can_use_light_warmth=bool(playful and not emotional),
             expected_output_language="arabic" if language in {"arabic", "egyptian_arabic"} else "english",
+            prohibited_suggestions=prohibited_suggestions,
+            is_new_conversation=is_new_conversation,
         )
 
     async def enforce_reply_language(
@@ -292,6 +328,12 @@ class ResponseIntelligenceService:
         else:
             if _INTERNAL_LABEL_RE.search(text):
                 issues.append("internal_format")
+            if "breathing_exercises" in brief.prohibited_suggestions and _BREATHING_SUGGESTION_RE.search(text):
+                issues.append("user_boundary_violated")
+            if brief.is_new_conversation and _UNSUPPORTED_NEW_CONVERSATION_RE.search(text):
+                issues.append("unsupported_continuity")
+            if _is_generic_coping_cliche(message, text):
+                issues.append("generic_coping_cliche")
             if text.count("?") + text.count("؟") > 1:
                 issues.append("too_many_questions")
             if _starts_with_question(text) and _contains_question(message):
@@ -308,6 +350,9 @@ class ResponseIntelligenceService:
             "empty_reply": 100,
             "internal_format": 45,
             "generic_without_grounding": 28,
+            "generic_coping_cliche": 24,
+            "user_boundary_violated": 55,
+            "unsupported_continuity": 45,
             "too_many_questions": 15,
             "does_not_lead_with_answer": 18,
             "missing_concrete_next_step": 12,
@@ -447,6 +492,10 @@ def _reply_matches_expected_language(text: str, expected_language: str) -> bool:
 
     if expected == "english":
         # A substantive Arabic-script reply to an English message is a mismatch.
+        # A transliterated Arabic greeting is also a mismatch when it leads the reply;
+        # the current-message contract requires natural English, not a mixed greeting.
+        if _FOREIGN_GREETING_LEAD_RE.match(text):
+            return False
         return arabic_letters < 2 or latin_letters >= arabic_letters
     if expected == "arabic":
         # Common short English tokens can appear in Arabic chat, but a mainly
@@ -490,6 +539,24 @@ def _starts_with_question(text: str) -> bool:
 
 def _contains_question(text: str) -> bool:
     return "?" in text or "؟" in text
+
+
+def _detect_prohibited_suggestions(user_message: str) -> tuple[str, ...]:
+    """Extract only explicit, immediate conversational boundaries from this turn."""
+    clean = sanitize_text(user_message or "", MAX_BRIEF_MESSAGE_CHARS)
+    if _BREATHING_BOUNDARY_RE.search(clean):
+        return ("breathing_exercises",)
+    return ()
+
+
+def _is_generic_coping_cliche(user_message: str, reply: str) -> bool:
+    """Flag a bare coping cliché when it ignores the concrete user context."""
+    if not _GENERIC_COPING_CLICHE_RE.search(reply or ""):
+        return False
+    user_words = {word.lower() for word in _WORD_RE.findall(user_message) if len(word) >= 4}
+    reply_words = {word.lower() for word in _WORD_RE.findall(reply) if len(word) >= 4}
+    meaningful_overlap = (user_words & reply_words) - {"normal", "feel", "nervous", "anxious", "breaths", "breath"}
+    return not meaningful_overlap
 
 
 def _is_generic_without_grounding(user_message: str, lowered_reply: str) -> bool:

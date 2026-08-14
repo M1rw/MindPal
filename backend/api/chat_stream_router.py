@@ -305,6 +305,7 @@ async def chat_stream(
                 classification=classification,
                 response_mode=response_mode,
                 metadata=payload.metadata,
+                chat_history=list(payload.history or []),
             ).to_prompt()
         system_prompt = build_tiered_prompt(
             classification=classification,
@@ -360,6 +361,7 @@ async def chat_stream(
             classification=classification,
             response_mode=response_mode,
             metadata=payload.metadata,
+            chat_history=list(payload.history or []),
         )
         language_outcome = await services.response_intelligence.enforce_reply_language(
             candidate_reply=visible_reply,
