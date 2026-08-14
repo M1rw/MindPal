@@ -44,7 +44,7 @@ export function escapeHtml(value) {
  */
 export function formatMarkdown(text) {
   const codeBlocks = [];
-  let source = String(text || "").replace(/\r\n/g, "\n");
+  let source = normalizeInlineListMarkers(String(text || "").replace(/\r\n/g, "\n"));
 
   source = source.replace(/```([\w+-]*)\n([\s\S]*?)```/g, (_match, language, code) => {
     const safeLanguage = escapeHtml(language || "");
@@ -170,6 +170,13 @@ function renderInline(value) {
   return result;
 }
 
+function normalizeInlineListMarkers(text) {
+  return String(text || "")
+    .split("\n")
+    .map((line) => line.replace(/([.!?])\s+(?=(?:[-*•]\s+|\d+[.)]\s+))/g, "$1\n"))
+    .join("\n");
+}
+
 function renderList(lines, startIndex) {
   const ordered = /^\s*\d+[.)]\s+/.test(lines[startIndex]);
   const pattern = ordered ? /^\s*\d+[.)]\s+(.+)$/ : /^\s*[-*•]\s+(.+)$/;
@@ -187,10 +194,14 @@ function renderList(lines, startIndex) {
   const sourceOnly = !ordered && rawItems.length > 0 && rawItems.every((item) =>
     /^\s*(?:\[[^\]]+\]\([^)]+\)|https?:\/\/\S+)\s*$/.test(item),
   );
-  const tag = ordered ? "ol" : "ul";
-  const className = ordered
-    ? "mp-list mp-list--ordered"
-    : sourceOnly ? "mp-list mp-list--sources" : "mp-list mp-list--bulleted";
+  const safetyActionList = ordered && rawItems.length > 1 && rawItems.some((item) =>
+    /\b(?:move away|go near|message or call|keep your phone|put down|step into|ابعد|روح جنب|خلي موبايلك|سيب أي حاجة)\b/i.test(item),
+  );
+  const tag = ordered && !safetyActionList ? "ol" : "ul";
+  const className = safetyActionList
+    ? "mp-list mp-list--actions"
+    : ordered ? "mp-list mp-list--ordered"
+      : sourceOnly ? "mp-list mp-list--sources" : "mp-list mp-list--bulleted";
   return { html: `<${tag} class="${className}">${items.join("")}</${tag}>`, nextIndex: index - 1 };
 }
 
