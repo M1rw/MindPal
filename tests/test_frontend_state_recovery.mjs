@@ -161,7 +161,7 @@ test("source links use a real favicon and source-only lists have no bullet marke
 
   assert.match(html, /class="mp-list mp-list--sources"/);
   assert.match(html, /class="mp-source-link__favicon"/);
-  assert.match(html, /src="\/api\/favicon\?url=https%3A%2F%2Fwww\.nhs\.uk%2Fmental-health%2F"/);
+  assert.match(html, /src="\/api\/favicon\?v=2&amp;url=https%3A%2F%2Fwww\.nhs\.uk%2Fmental-health%2F"/);
   assert.equal(html.includes("mp-list--bulleted"), false);
 });
 
