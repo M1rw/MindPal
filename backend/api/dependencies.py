@@ -48,6 +48,7 @@ from backend.services.idempotency_service import IdempotencyService
 from backend.services.memory_repository import MemoryRepository
 from backend.services.quota_service import QuotaService
 from backend.services.rate_limit_service import RateLimitService
+from backend.services.response_intelligence_service import ResponseIntelligenceService
 
 
 MAX_HEADER_CHARS = 512
@@ -87,6 +88,7 @@ class ServiceContainer:
     idempotency: IdempotencyService
     memory_repo: MemoryRepository
     brain: BrainService
+    response_intelligence: ResponseIntelligenceService
     http_client: httpx.AsyncClient
 
     async def aclose(self) -> None:
@@ -181,6 +183,7 @@ def build_service_container(settings: Settings) -> ServiceContainer:
         ttl_seconds=settings.IDEMPOTENCY_TTL_SECONDS,
         processing_timeout_seconds=settings.IDEMPOTENCY_PROCESSING_TIMEOUT_SECONDS,
     )
+    response_intelligence = ResponseIntelligenceService(settings=settings, llm_service=llm)
 
     return ServiceContainer(
         settings=settings,
@@ -197,6 +200,7 @@ def build_service_container(settings: Settings) -> ServiceContainer:
         idempotency=idempotency,
         memory_repo=MemoryRepository(db=db),
         brain=BrainService(),
+        response_intelligence=response_intelligence,
         http_client=http_client,
     )
 

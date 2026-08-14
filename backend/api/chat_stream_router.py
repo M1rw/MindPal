@@ -43,6 +43,7 @@ from backend.models.runtime_trace import RuntimeNode
 from backend.services.brain_service import render_context_pack_for_prompt
 from backend.services.llm_service import build_llm_request
 from backend.services.memory_graph_service import build_memory_graph_prompt
+from backend.services.response_quality_service import finalize_user_reply
 from backend.services.runtime_trace_service import RuntimeTraceRecorder
 from backend.tools import ToolContext
 
@@ -297,6 +298,14 @@ async def chat_stream(
             "Semantic intake context:\n" + json.dumps(compact_intent, ensure_ascii=False, separators=(",", ":"))
             if compact_intent else ""
         )
+        response_brief = ""
+        if services.settings.ENABLE_RESPONSE_INTELLIGENCE:
+            response_brief = services.response_intelligence.build_brief(
+                user_message=payload.message,
+                classification=classification,
+                response_mode=response_mode,
+                metadata=payload.metadata,
+            ).to_prompt()
         system_prompt = build_tiered_prompt(
             classification=classification,
             locale=locale,
@@ -308,6 +317,7 @@ async def chat_stream(
             rag_grounding=rag_grounding,
             user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
             intent_context_str=intent_context_str,
+            response_brief=response_brief,
             tool_descriptions=registry.get_tool_descriptions_prompt(),
             user_timezone=payload.metadata.timezone or "UTC",
         )
@@ -334,6 +344,7 @@ async def chat_stream(
                 "response_mode": response_mode,
                 "message_tier": classification.tier,
                 "message_language": classification.language,
+                "response_intelligence": bool(services.settings.ENABLE_RESPONSE_INTELLIGENCE),
                 "tools_pre_executed": bool(tool_results_text),
                 "user_id_hash": context.session.user_id_hash,
             },
@@ -343,8 +354,31 @@ async def chat_stream(
         llm_result = await services.llm.generate_with_trace(llm_request)
         runtime.node_completed(RuntimeNode.MODEL, parent=RuntimeNode.TOOL_ROUTER, metadata={"provider": llm_result.response.provider_used, "fallback_count": llm_result.response.fallback_count, "latency_ms": round(llm_result.response.latency_ms)})
         runtime.node_started(RuntimeNode.EVALUATOR, parent=RuntimeNode.MODEL)
-        guarded = await services.output_guard.validate_output_with_rewrite(llm_result.response.text, locale=locale)
-        runtime.node_completed(RuntimeNode.EVALUATOR, parent=RuntimeNode.MODEL, metadata={"rewritten": bool(guarded.rewrite_provider)})
+        visible_reply = finalize_user_reply(llm_result.response.text)
+        quality_metadata: dict[str, str | int | bool] = {}
+        if services.settings.ENABLE_RESPONSE_INTELLIGENCE:
+            response_brief_object = services.response_intelligence.build_brief(
+                user_message=payload.message,
+                classification=classification,
+                response_mode=response_mode,
+                metadata=payload.metadata,
+            )
+            quality_outcome = await services.response_intelligence.improve_if_needed(
+                user_message=payload.message,
+                candidate_reply=visible_reply,
+                brief=response_brief_object,
+                locale=locale,
+                safety_level=safety_decision.level.value,
+                request_id=context.request_id,
+            )
+            visible_reply = quality_outcome.reply
+            quality_metadata = quality_outcome.metadata()
+        guarded = await services.output_guard.validate_output_with_rewrite(visible_reply, locale=locale)
+        runtime.node_completed(
+            RuntimeNode.EVALUATOR,
+            parent=RuntimeNode.MODEL,
+            metadata={"rewritten": bool(guarded.rewrite_provider), **quality_metadata},
+        )
         final_reply = guarded.final_text
 
         memory_updated = False

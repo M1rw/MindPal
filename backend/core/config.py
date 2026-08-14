@@ -204,6 +204,10 @@ class Settings(BaseSettings):
     ENABLE_LLM_RAG_PLANNING: bool = True
     ENABLE_LLM_SAFETY_CLASSIFIER: bool = True
     ENABLE_BRAIN_CONTEXT_PLANNER: bool = True
+    ENABLE_RESPONSE_INTELLIGENCE: bool = True
+    ENABLE_RESPONSE_QUALITY_REPAIR: bool = False
+    RESPONSE_QUALITY_MIN_SCORE: int = Field(default=72, ge=0, le=100)
+    RESPONSE_QUALITY_MAX_REPAIR_TOKENS: int = Field(default=600, ge=100, le=1_200)
 
     # LLM policy flags (previously read via os.getenv in llm_service.py)
     REQUIRE_REMOTE_LLM_PROVIDER: bool = True

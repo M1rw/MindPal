@@ -22,9 +22,10 @@ from backend.api.dependencies import (
 from backend.core.errors import AppError
 from backend.core.prompts import (
     build_intent_context,
-    build_system_prompt,
     infer_response_mode_for_preference,
 )
+from backend.core.message_classifier import classify_message
+from backend.core.prompt_builder import build_tiered_prompt
 from backend.core.security import sanitize_text
 from backend.models.chat import (
     ChatRequest,
@@ -44,6 +45,7 @@ from backend.services.memory_graph_service import (
     build_memory_graph_prompt,
     extract_memory_graph_from_text_llm,
 )
+from backend.services.response_quality_service import finalize_user_reply
 from backend.tools import ToolContext, build_default_registry
 
 
@@ -279,16 +281,51 @@ async def chat(
         )
         tool_results_text = await _pre_execute_tools(payload.message, registry, tool_context)
 
-        system_prompt = build_system_prompt(
-            memory_prompt,
-            list(rag_result.prompt_grounding),
-            locale,
+        classification = classify_message(
+            payload.message,
+            locale=locale,
+            clinical_mode=clinical_mode,
+        )
+        rag_grounding = json.dumps(
+            [ref if isinstance(ref, dict) else ref.model_dump() for ref in rag_result.prompt_grounding],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ) if rag_result.prompt_grounding else ""
+        allowed_intent_keys = (
+            "language_style", "situation_type", "core_problem", "user_need",
+            "risk_flags", "avoid", "answer_strategy", "detected_signals",
+        )
+        compact_intent = {
+            key: intent_context.get(key)
+            for key in allowed_intent_keys
+            if intent_context.get(key)
+        }
+        intent_context_str = (
+            "Semantic intake context:\n"
+            + json.dumps(compact_intent, ensure_ascii=False, separators=(",", ":"))
+            if compact_intent
+            else ""
+        )
+        response_brief = ""
+        if services.settings.ENABLE_RESPONSE_INTELLIGENCE:
+            response_brief = services.response_intelligence.build_brief(
+                user_message=payload.message,
+                classification=classification,
+                response_mode=response_mode,
+                metadata=payload.metadata,
+            ).to_prompt()
+        system_prompt = build_tiered_prompt(
+            classification=classification,
+            locale=locale,
             response_mode=response_mode,
             safety_level=safety_decision.level.value,
             channel=context.channel.value,
-            user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
-            intent_context=intent_context,
             clinical_mode=clinical_mode,
+            memory_prompt=memory_prompt,
+            rag_grounding=rag_grounding,
+            user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
+            intent_context_str=intent_context_str,
+            response_brief=response_brief,
             tool_descriptions=tool_descriptions,
             user_timezone=user_timezone,
         )
@@ -304,8 +341,8 @@ async def chat(
             system_prompt=system_prompt,
             user_message=payload.message,
             history=_convert_history(payload),
-            temperature=0.3 if clinical_mode else 0.4,
-            max_output_tokens=1800 if clinical_mode else 1200,
+            temperature=classification.temperature,
+            max_output_tokens=classification.max_response_tokens,
             metadata={
                 "route": "chat",
                 "locale": locale,
@@ -315,6 +352,9 @@ async def chat(
                 "response_mode": response_mode,
                 "history_count": len(payload.history or []),
                 "mode_preference": user_preference,
+                "message_tier": classification.tier,
+                "message_language": classification.language,
+                "response_intelligence": bool(services.settings.ENABLE_RESPONSE_INTELLIGENCE),
                 "intent_situation_type": intent_context.get("situation_type"),
                 "tools_pre_executed": bool(tool_results_text),
                 "user_id_hash": context.session.user_id_hash,
@@ -322,8 +362,25 @@ async def chat(
         )
 
         llm_result = await services.llm.generate_with_trace(llm_request)
+        visible_reply = finalize_user_reply(llm_result.response.text)
+        if services.settings.ENABLE_RESPONSE_INTELLIGENCE:
+            response_brief_object = services.response_intelligence.build_brief(
+                user_message=payload.message,
+                classification=classification,
+                response_mode=response_mode,
+                metadata=payload.metadata,
+            )
+            quality_outcome = await services.response_intelligence.improve_if_needed(
+                user_message=payload.message,
+                candidate_reply=visible_reply,
+                brief=response_brief_object,
+                locale=locale,
+                safety_level=safety_decision.level.value,
+                request_id=context.request_id,
+            )
+            visible_reply = quality_outcome.reply
         guarded = await services.output_guard.validate_output_with_rewrite(
-            llm_result.response.text,
+            visible_reply,
             locale=locale,
         )
         reply = guarded.final_text

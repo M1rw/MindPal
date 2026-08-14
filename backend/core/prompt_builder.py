@@ -284,103 +284,72 @@ def _build_safety_section(safety_level: str) -> str:
 
 
 def _build_chain_section(classification: MessageClassification, clinical_mode: bool) -> str:
-    """Build the thinking chain instructions based on tier."""
+    """Provide private planning instructions without requiring reasoning to be emitted."""
     if classification.skip_thought:
         return ""
 
-    if clinical_mode:
-        proto = _clinical()
-        steps = proto.get("chain_steps", [])
-        data_systems = proto.get("data_systems", [])
-        fmt = proto.get("format", {})
+    proto = _clinical() if clinical_mode else _standard()
+    steps = proto.get("chain_steps", [])
+    data_systems = proto.get("data_systems", [])
 
-        lines = ["Agent chain protocol — you MUST use this exact output format:", ""]
+    lines = [
+        "PRIVATE RESPONSE PLANNING:",
+        "Think through the following checks privately before writing the reply.",
+        "Never reveal chain-of-thought, hidden analysis, planning notes, or labels such as '**Thought:**', '**Response:**', or '**Balanced Reframe:**'.",
+    ]
 
-        # Data systems
-        lines.append("Your internal data systems (use them actively):")
-        for ds in data_systems:
-            lines.append(f"- {ds}")
-        lines.append("")
+    if data_systems:
+        lines.append("Use these sources only when relevant:")
+        for data_system in data_systems:
+            lines.append(f"- {data_system}")
 
-        # Thought block
-        thought_label = fmt.get("thought_label", "**Thought:**")
-        response_label = fmt.get("response_label", "**Balanced Reframe:**")
-
-        lines.append(f"{thought_label} [Write your full internal reasoning here — hidden from user, shown as collapsible accordion.]")
-        lines.append("")
-
+    if steps:
+        lines.append("Private checks:")
         for step in steps:
-            lines.append(f"{step['number']}. {step['name']}: {step['instruction']}")
+            lines.append(f"- {step['name']}: {step['instruction']}")
 
-        lines.append("")
-        lines.append(f"{response_label} [Your actual response to the user — the ONLY part they read.]")
-        lines.append("")
+    style = proto.get("response_style", [])
+    if style:
+        lines.append("Writing standards:")
+        for item in style:
+            lines.append(f"- {item}")
 
-        # Format rules
-        thought_len = fmt.get("thought_length", "150-400 words")
-        response_len = fmt.get("response_length", "200-600 words")
-        lines.append(f"The Thought block should be {thought_len} of genuine clinical reasoning.")
-        lines.append(f"The response should be {response_len} of deep, personalized clinical response.")
+    anti_repetition = proto.get("anti_repetition_rules", [])
+    if anti_repetition:
+        lines.append("Avoid repetition:")
+        for item in anti_repetition:
+            lines.append(f"- {item}")
 
-        # Response style
-        style = proto.get("response_style", [])
-        if style:
-            lines.append("")
-            lines.append("Response style:")
-            for s in style:
-                lines.append(f"- {s}")
+    hallucination_guard = proto.get("hallucination_guard", [])
+    if hallucination_guard:
+        lines.append("Accuracy boundaries:")
+        for item in hallucination_guard:
+            lines.append(f"- {item}")
 
-        # Anti-repetition
-        anti_rep = proto.get("anti_repetition_rules", [])
-        if anti_rep:
-            lines.append("")
-            lines.append("ANTI-REPETITION RULES:")
-            for r in anti_rep:
-                lines.append(f"- {r}")
+    return "\n".join(lines)
 
-        # Hallucination guard
-        guard = proto.get("hallucination_guard", [])
-        if guard:
-            lines.append("")
-            lines.append("HALLUCINATION GUARD:")
-            for g in guard:
-                lines.append(f"- {g}")
 
-        return "\n".join(lines)
+def _build_clear_response_contract(classification: MessageClassification) -> str:
+    """Make compassionate, direct replies observable and regression-testable."""
+    lines = [
+        "CLEAR RESPONSE CONTRACT:",
+        "C — Capture the user's actual ask and any emotion they explicitly expressed; do not invent motives, history, or a diagnosis.",
+        "L — Lead with a direct answer or a specific, grounded acknowledgement instead of a generic opener.",
+        "E — Explain only a tentative, useful pattern when it helps. Use calibrated language such as 'it may be' or 'one possibility is'.",
+        "A — Offer one to three concrete next steps that fit the user's situation. Do not overwhelm the user with a menu of techniques.",
+        "R — Re-engage with at most one easy, relevant question only when an answer would materially improve the next reply.",
+        "Write the final reply only. Never reveal chain-of-thought, private reasoning, analysis labels, scoring, or an internal protocol.",
+        "Avoid empty reassurance, exaggerated praise, clinical certainty, and claims about root causes the user did not provide.",
+    ]
+
+    if classification.tier == "greeting":
+        lines.append("For a greeting, be warm and concise (one to three sentences) and invite a simple next topic.")
+    elif classification.tier == "casual":
+        lines.append("For a casual request, answer the request first; add wellness support only when it is relevant.")
     else:
-        # Standard mode
-        proto = _standard()
-        steps = proto.get("chain_steps", [])
-        data_systems = proto.get("data_systems", [])
-        fmt = proto.get("format", {})
+        lines.append("For emotional or clinical support, reflect one concrete detail before offering a small, tailored next step.")
 
-        lines = ["Your internal data systems (use them actively):"]
-        for ds in data_systems:
-            lines.append(f"- {ds}")
-        lines.append("")
-
-        thought_label = fmt.get("thought_label", "**Thought:**")
-        response_label = fmt.get("response_label", "**Response:**")
-
-        lines.append("Agent protocol — reason before responding:")
-        lines.append("")
-        lines.append(f"{thought_label} [Brief internal reasoning — hidden from user.]")
-        for step in steps:
-            lines.append(f"{step['number']}. {step['name']}: {step['instruction']}")
-        lines.append("")
-        lines.append(f"{response_label} [Your actual response to the user.]")
-        lines.append("")
-
-        thought_len = fmt.get("thought_length", "50-200 words")
-        lines.append(f"Thought block: {thought_len} — scale depth to match message complexity.")
-
-        style = proto.get("response_style", [])
-        if style:
-            lines.append("")
-            for s in style:
-                lines.append(f"- {s}")
-
-        return "\n".join(lines)
+    return "\n".join(lines)
 
 
 def _build_format_rules_section() -> str:
@@ -495,6 +464,7 @@ def build_tiered_prompt(
     rag_grounding: str = "",
     user_preferences: str = "",
     intent_context_str: str = "",
+    response_brief: str = "",
     tool_descriptions: str = "",
     user_timezone: str = "UTC",
     max_chars: int = 18_000,
@@ -544,8 +514,12 @@ def build_tiered_prompt(
     # ── Greeting: lightweight warm opener ──
     if tier == "greeting":
         sections.append(_build_identity_section(clinical_mode))
+        sections.append(_build_clear_response_contract(classification))
         sections.append(_build_greeting_instructions(classification, clinical_mode))
         sections.append(_build_boundaries_section())
+
+        if response_brief:
+            sections.append(sanitize_text(response_brief, 1_500))
 
         # Include memory if available (for personalized greeting)
         if memory_prompt:
@@ -563,14 +537,7 @@ def build_tiered_prompt(
     if tier == "casual":
         sections.append(_build_identity_section(clinical_mode))
 
-        # Mini chain: just a one-liner prompt for brief reasoning
-        sections.append(
-            "Before responding, briefly consider what the user needs "
-            "(1-2 sentences of internal thought is enough).\n\n"
-            "**Thought:** [1-2 sentences of quick reasoning — what does the user need?]\n\n"
-            "**Response:** [Your warm, conversational response.]\n\n"
-            "Keep both sections short and natural. The Thought is hidden from the user."
-        )
+        sections.append(_build_clear_response_contract(classification))
 
         # Light boundaries
         sections.append(_build_boundaries_section())
@@ -589,6 +556,9 @@ def build_tiered_prompt(
         if intent_context_str:
             sections.append(intent_context_str)
 
+        if response_brief:
+            sections.append(sanitize_text(response_brief, 1_500))
+
         # Language (LAST)
         sections.append(_build_language_section(classification, normalize_locale(locale)))
         prompt = "\n\n".join(s for s in sections if s and s.strip())
@@ -600,7 +570,9 @@ def build_tiered_prompt(
     if tier == "emotional":
         sections.append(_build_identity_section(clinical_mode))
 
-        # Standard 3-step chain
+        sections.append(_build_clear_response_contract(classification))
+
+        # Private planning protocol; the final reply must not expose it.
         chain = _build_chain_section(classification, clinical_mode)
         if chain:
             sections.append(chain)
@@ -647,6 +619,9 @@ def build_tiered_prompt(
             clean_rag = _decontaminate_rag_for_locale(rag_grounding, classification.language)
             sections.append(clean_rag)
 
+        if response_brief:
+            sections.append(sanitize_text(response_brief, 1_500))
+
         # Language (LAST)
         sections.append(_build_language_section(classification, normalize_locale(locale)))
         prompt = "\n\n".join(s for s in sections if s and s.strip())
@@ -657,7 +632,9 @@ def build_tiered_prompt(
     # This is the heaviest prompt — used only for Pro mode with substantive content.
     sections.append(_build_identity_section(clinical_mode))
 
-    # Full clinical chain (6 steps)
+    sections.append(_build_clear_response_contract(classification))
+
+    # Full private planning protocol; the final reply must not expose it.
     chain = _build_chain_section(classification, clinical_mode)
     if chain:
         sections.append(chain)
@@ -720,6 +697,9 @@ def build_tiered_prompt(
     if rag_grounding:
         clean_rag = _decontaminate_rag_for_locale(rag_grounding, classification.language)
         sections.append(clean_rag)
+
+    if response_brief:
+        sections.append(sanitize_text(response_brief, 1_500))
 
     # Language (LAST — recency bias = strongest compliance)
     sections.append(_build_language_section(classification, normalize_locale(locale)))

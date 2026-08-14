@@ -1,14 +1,13 @@
-import sys
+import json
 import os
+import sys
 
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from backend.core.prompts import (  # noqa: E402
-    build_intent_context,
-    build_system_prompt,
-    infer_response_mode_for_preference,
-)
+from backend.core.message_classifier import classify_message  # noqa: E402
+from backend.core.prompt_builder import build_tiered_prompt  # noqa: E402
+from backend.core.prompts import build_intent_context, infer_response_mode_for_preference  # noqa: E402
 
 test_cases = [
     {
@@ -70,26 +69,30 @@ def run_eval():
         )
         print(f"Inferred Mode: {mode}")
 
-        prompt = build_system_prompt(
-            memory_summary="User likes coffee.",
-            rag_grounding=[],
+        classification = classify_message(tc["message"])
+        compact_intent = {
+            key: intent.get(key)
+            for key in ("language_style", "situation_type", "core_problem", "user_need")
+            if intent.get(key)
+        }
+        prompt = build_tiered_prompt(
+            classification=classification,
+            memory_prompt="User likes coffee.",
             response_mode=mode,
-            intent_context=intent
+            intent_context_str="Semantic intake context:\n" + json.dumps(compact_intent),
         )
 
-        # Check if boundary rules are present
-        has_boundary = "MindPal is ONLY for mental wellness" in prompt
-        print(f"System Prompt Boundary Check: {'PASS' if has_boundary else 'FAIL'}")
-
-        # Check for specific mode instructions
-        if mode == "panic_grounding":
-            has_mode_instr = "IMMEDIATE TACTIC MODE" in prompt
-        elif mode == "personal_safety":
-            has_mode_instr = "DANGER RESPONSE" in prompt
+        # Tiered prompts intentionally keep crisis and off-topic routes minimal.
+        # All other routes must carry the shared direct-response quality contract.
+        if classification.tier in {"crisis", "off_topic"}:
+            has_expected_tier_route = "MindPal" in prompt
         else:
-            has_mode_instr = True # Generic
+            has_expected_tier_route = "CLEAR RESPONSE CONTRACT:" in prompt
+        print(f"Tier Prompt Route Check: {'PASS' if has_expected_tier_route else 'FAIL'}")
 
-        print(f"Mode Instruction Check: {'PASS' if has_mode_instr else 'FAIL'}")
+        # The revised production builder must never require exposed reasoning.
+        no_visible_reasoning_requirement = "write your full internal reasoning" not in prompt.lower()
+        print(f"Private Reasoning Check: {'PASS' if no_visible_reasoning_requirement else 'FAIL'}")
         print("-" * 30)
 
 if __name__ == "__main__":
