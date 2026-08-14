@@ -1413,3 +1413,152 @@ button:active,
 @media (prefers-reduced-motion: reduce) {
   .content-box .mp-source-link { transition: none; }
 }
+
+
+/* ── Rich responses: native MindPal refinement ──
+   Keep answer structure useful without turning chat into a dashboard. */
+.content-box .mp-paragraph {
+  max-width: 68ch;
+  margin: 0 0 0.72rem;
+  line-height: 1.66;
+}
+
+.content-box .mp-heading {
+  max-width: 68ch;
+  margin: 1.1rem 0 0.42rem;
+  color: #1f1f1f;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  line-height: 1.35;
+}
+
+.content-box .mp-heading--h2 { font-size: 1.06rem; }
+.content-box .mp-heading--h3 { font-size: 1rem; }
+.content-box .mp-heading--h4 { font-size: 0.96rem; }
+.dark .content-box .mp-heading { color: #e3e3e3; }
+
+.content-box .mp-strong { color: inherit; font-weight: 650; }
+.content-box .mp-list { margin: 0.32rem 0 0.78rem; line-height: 1.62; }
+.content-box .mp-list li { margin: 0.18rem 0; }
+.content-box .mp-list li::marker { color: #5f8fdc; font-weight: 600; }
+
+.content-box .mp-divider {
+  width: min(100%, 38rem);
+  margin: 1rem 0;
+  background: #e0e0e0;
+}
+.dark .content-box .mp-divider { background: #444746; }
+
+/* A quote should read like chat copy, not an alert card. */
+.content-box .mp-callout {
+  display: block;
+  max-width: 66ch;
+  margin: 0.86rem 0;
+  padding: 0.08rem 0 0.08rem 0.78rem;
+  border: 0;
+  border-left: 2px solid #9aa0a6;
+  border-radius: 0;
+  background: transparent;
+  color: #444746;
+}
+.content-box .mp-callout__bar { display: none; }
+.content-box .mp-callout p { line-height: 1.6; }
+.dark .content-box .mp-callout {
+  border-left-color: #8ab4f8;
+  background: transparent;
+  color: #c4c7c5;
+}
+
+/* Tables are quiet, readable, and part of the answer—not floating cards. */
+.content-box .mp-table-scroll {
+  width: min(100%, 42rem);
+  max-width: 100%;
+  margin: 0.82rem 0 0.94rem;
+  overflow-x: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+.content-box .mp-table-scroll:focus-visible {
+  outline: 2px solid #8ab4f8;
+  outline-offset: 2px;
+}
+.content-box .mp-table {
+  min-width: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.content-box .mp-table th,
+.content-box .mp-table td {
+  padding: 0.56rem 0.7rem;
+  border-bottom-color: #e0e0e0;
+}
+.content-box .mp-table th {
+  color: #444746;
+  background: #f8f9fa;
+  font-size: 0.71rem;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+}
+.content-box .mp-table tbody tr:hover { background: transparent; }
+.dark .content-box .mp-table-scroll {
+  border-color: #444746;
+  background: transparent;
+}
+.dark .content-box .mp-table th,
+.dark .content-box .mp-table td { border-bottom-color: #444746; }
+.dark .content-box .mp-table th { color: #c4c7c5; background: #1e1f20; }
+
+/* A source is a compact text link with a quiet icon—never a button or pill. */
+.content-box .mp-source-link {
+  display: inline-flex !important;
+  align-items: center;
+  align-self: flex-start;
+  width: fit-content !important;
+  max-width: 100%;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #0b57d0;
+  font-size: 0.88em;
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration: none;
+  transform: none !important;
+}
+.content-box .mp-source-link:hover,
+.content-box .mp-source-link:focus-visible {
+  border: 0 !important;
+  background: transparent !important;
+  color: #0842a0;
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.content-box .mp-source-link__icon { width: 13px; height: 13px; opacity: 0.74; }
+.content-box .mp-source-link span {
+  display: inline !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.dark .content-box .mp-source-link { color: #a8c7fa; }
+.dark .content-box .mp-source-link:hover,
+.dark .content-box .mp-source-link:focus-visible { color: #d3e3fd; }
+
+@media (max-width: 640px) {
+  .content-box .mp-table-scroll { width: 100%; border-radius: 6px; }
+  .content-box .mp-table { min-width: 25rem; font-size: 0.82rem; }
+  .content-box .mp-table th,
+  .content-box .mp-table td { padding: 0.5rem 0.6rem; }
+}
