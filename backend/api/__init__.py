@@ -15,6 +15,7 @@ from .tts_router import router as tts_router
 from .chat_stream_router import router as chat_stream_router
 from .voice_router import router as voice_router
 from .tools_router import router as tools_router
+from .favicon_router import router as favicon_router
 
 
 def create_api_router() -> APIRouter:
@@ -31,6 +32,7 @@ def create_api_router() -> APIRouter:
     api_router.include_router(chat_stream_router)
     api_router.include_router(voice_router)
     api_router.include_router(tools_router)
+    api_router.include_router(favicon_router)
 
     return api_router
 

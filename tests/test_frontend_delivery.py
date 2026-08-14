@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import importlib
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 
+favicon_router = importlib.import_module("backend.api.favicon_router")
+from backend.api.dependencies import get_services
 from backend.core.config import Settings
 from backend.main import create_app
 
@@ -41,7 +46,31 @@ def test_frontend_root_references_production_bundles() -> None:
     csp = response.headers["content-security-policy"]
     assert "script-src 'self';" in csp
     assert "script-src 'self' blob:" not in csp
-    assert "img-src 'self' data: blob: https://www.google.com https://*.gstatic.com" in csp
+    assert "img-src 'self' data: blob: https://*.googleusercontent.com;" in csp
+    assert "https://www.google.com" not in csp
+    assert "https://*.gstatic.com" not in csp
+
+
+def test_favicon_proxy_returns_a_same_origin_safe_image(monkeypatch) -> None:
+    favicon_router._cache.clear()
+
+    async def fake_fetch(_target_url, _client):
+        return b"\x89PNG\r\n\x1a\nsite-icon", "image/png"
+
+    monkeypatch.setattr(favicon_router, "_fetch_favicon", fake_fetch)
+    app.dependency_overrides[get_services] = lambda: SimpleNamespace(http_client=None)
+    try:
+        with TestClient(app) as client:
+            response = client.get("/api/favicon", params={"url": "https://www.nhs.uk/mental-health/"})
+            invalid = client.get("/api/favicon", params={"url": "http://127.0.0.1/favicon.ico"})
+    finally:
+        app.dependency_overrides.pop(get_services, None)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content.startswith(b"\x89PNG")
+    assert "max-age=86400" in response.headers["cache-control"]
+    assert invalid.status_code == 400
 
 
 def test_runtime_config_and_bundles_are_served() -> None:
