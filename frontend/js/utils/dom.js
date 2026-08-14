@@ -4,13 +4,13 @@ export { scrollChatToBottom };
 
 const RICH_HTML_POLICY = Object.freeze({
   ALLOWED_TAGS: [
-    "a", "blockquote", "br", "code", "div", "em", "h2", "h3", "h4", "hr", "i",
+    "a", "blockquote", "br", "code", "div", "em", "h2", "h3", "h4", "hr", "i", "img",
     "li", "ol", "p", "pre", "span", "strong", "table", "tbody", "td", "th", "thead",
     "tr", "ul", "button", "svg", "polyline", "path",
   ],
   ALLOWED_ATTR: [
     "aria-controls", "aria-expanded", "aria-hidden", "aria-label", "class", "data-lucide", "data-target",
-    "dir", "fill", "height", "href", "id", "rel", "role", "scope", "stroke", "stroke-linecap",
+    "alt", "dir", "fill", "height", "href", "id", "referrerpolicy", "rel", "role", "scope", "src", "stroke", "stroke-linecap",
     "stroke-linejoin", "stroke-width", "style", "tabindex", "target", "type", "viewBox", "width",
   ],
   ALLOW_DATA_ATTR: false,
@@ -173,18 +173,24 @@ function renderInline(value) {
 function renderList(lines, startIndex) {
   const ordered = /^\s*\d+[.)]\s+/.test(lines[startIndex]);
   const pattern = ordered ? /^\s*\d+[.)]\s+(.+)$/ : /^\s*[-*•]\s+(.+)$/;
-  const items = [];
+  const rawItems = [];
   let index = startIndex;
 
   while (index < lines.length) {
     const match = lines[index].match(pattern);
     if (!match) break;
-    items.push(`<li>${renderInline(match[1])}</li>`);
+    rawItems.push(match[1]);
     index += 1;
   }
 
+  const items = rawItems.map((item) => `<li>${renderInline(item)}</li>`);
+  const sourceOnly = !ordered && rawItems.length > 0 && rawItems.every((item) =>
+    /^\s*(?:\[[^\]]+\]\([^)]+\)|https?:\/\/\S+)\s*$/.test(item),
+  );
   const tag = ordered ? "ol" : "ul";
-  const className = ordered ? "mp-list mp-list--ordered" : "mp-list mp-list--bulleted";
+  const className = ordered
+    ? "mp-list mp-list--ordered"
+    : sourceOnly ? "mp-list mp-list--sources" : "mp-list mp-list--bulleted";
   return { html: `<${tag} class="${className}">${items.join("")}</${tag}>`, nextIndex: index - 1 };
 }
 
@@ -262,8 +268,22 @@ function shortLinkLabel(url) {
 }
 
 function renderSourceLink(label, url) {
-  const icon = '<svg class="mp-source-link__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
+  const fallbackIcon = '<svg class="mp-source-link__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
+  const favicon = faviconForUrl(url);
+  const icon = favicon
+    ? `<img class="mp-source-link__favicon" src="${escapeHtml(favicon)}" alt="" aria-hidden="true" referrerpolicy="no-referrer">`
+    : fallbackIcon;
   return `<a class="mp-source-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${icon}<span>${escapeHtml(label)}</span></a>`;
+}
+
+function faviconForUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (!(["https:", "http:"].includes(parsed.protocol))) return "";
+    return `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsed.origin)}&sz=32`;
+  } catch {
+    return "";
+  }
 }
 
 export function stripMarkdown(text) {

@@ -141,6 +141,15 @@ test("rich Markdown renders clear headings, lists, tables, callouts, and source 
   assert.match(html, /href="https:\/\/example\.com\/guide"/);
 });
 
+test("source links use a real favicon and source-only lists have no bullet marker", () => {
+  const html = richDom.formatMarkdown("Sources:\n\n- [NHS guidance](https://www.nhs.uk/mental-health/)");
+
+  assert.match(html, /class="mp-list mp-list--sources"/);
+  assert.match(html, /class="mp-source-link__favicon"/);
+  assert.match(html, /src="https:\/\/www\.google\.com\/s2\/favicons\?domain_url=https%3A%2F%2Fwww\.nhs\.uk&amp;sz=32"/);
+  assert.equal(html.includes("mp-list--bulleted"), false);
+});
+
 test("rich Markdown compacts whitespace-corrupted model URLs into one source-link pill", () => {
   const html = richDom.formatMarkdown("* [https://www. nhs. uk/mental-health/](https://www. nhs. uk/mental-health/)");
 
