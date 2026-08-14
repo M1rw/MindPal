@@ -479,6 +479,9 @@ export function formatCloudConnectErrorSafe(error) {
   if (code.includes("unauthorized-domain")) {
     return "Firebase rejected this domain. Add mindpal-demo.vercel.app to Firebase Auth authorized domains.";
   }
+  if (code.includes("auth/internal-error") || code.includes("internal-error")) {
+    return "Firebase sign-in encountered an internal auth error. Check your Firebase authDomain configuration and network connection.";
+  }
   if (code.includes("popup-closed-by-user")) return "Sign-in popup was closed.";
   if (code.includes("popup-blocked")) return "Browser blocked the sign-in popup.";
   if (code.includes("cancelled-popup-request")) return "Another sign-in popup was already open.";
