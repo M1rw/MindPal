@@ -1617,3 +1617,19 @@ button:active,
   content: "•";
   font-weight: 700;
 }
+
+
+/* Keep real site favicons visibly legible against the dark chat surface. */
+.content-box .mp-source-link__favicon {
+  display: inline-block !important;
+  flex: 0 0 16px !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  min-height: 16px !important;
+  box-sizing: border-box;
+  border-radius: 3px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+  object-fit: contain;
+}
