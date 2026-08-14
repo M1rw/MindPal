@@ -14,7 +14,7 @@ const RICH_HTML_POLICY = Object.freeze({
     "stroke-linejoin", "stroke-width", "style", "tabindex", "target", "type", "viewBox", "width",
   ],
   ALLOW_DATA_ATTR: false,
-  ALLOWED_URI_REGEXP: /^(?:(?:https?):|mailto:)/i,
+  ALLOWED_URI_REGEXP: /^(?:(?:https?):|mailto:|\/(?!\/))/i,
 });
 
 const CODE_TOKEN = /@@MINDPAL_CODE_BLOCK_(\d+)@@/g;
