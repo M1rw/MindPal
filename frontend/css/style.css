@@ -1587,7 +1587,9 @@ button:active,
 
 /* Crisis templates use separated, calm action lines—not compressed numbering. */
 .text-rose-700 .content-box .mp-list--bulleted,
-.dark .dark\:text-rose-400 .content-box .mp-list--bulleted {
+.text-rose-700 .content-box .mp-list--actions,
+.dark .dark\:text-rose-400 .content-box .mp-list--bulleted,
+.dark .dark\:text-rose-400 .content-box .mp-list--actions {
   display: grid;
   gap: 0.48rem;
   margin: 0.82rem 0 0.95rem;
@@ -1596,14 +1598,18 @@ button:active,
   line-height: 1.56;
 }
 .text-rose-700 .content-box .mp-list--bulleted li,
-.dark .dark\:text-rose-400 .content-box .mp-list--bulleted li {
+.text-rose-700 .content-box .mp-list--actions li,
+.dark .dark\:text-rose-400 .content-box .mp-list--bulleted li,
+.dark .dark\:text-rose-400 .content-box .mp-list--actions li {
   position: relative;
   margin: 0;
   padding-left: 1rem;
   font-weight: 500;
 }
 .text-rose-700 .content-box .mp-list--bulleted li::before,
-.dark .dark\:text-rose-400 .content-box .mp-list--bulleted li::before {
+.text-rose-700 .content-box .mp-list--actions li::before,
+.dark .dark\:text-rose-400 .content-box .mp-list--bulleted li::before,
+.dark .dark\:text-rose-400 .content-box .mp-list--actions li::before {
   position: absolute;
   top: 0.02rem;
   left: 0;

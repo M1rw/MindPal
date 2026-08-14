@@ -175,6 +175,21 @@ test("rich Markdown compacts whitespace-corrupted model URLs into one source-lin
   assert.equal(html.includes("Open source"), false);
 });
 
+test("rich Markdown separates collapsed legacy crisis actions", () => {
+  const html = richDom.formatMarkdown("For the next few minutes:\n- Move away from danger. - Go near another person. - Message someone nearby.");
+
+  assert.equal((html.match(/<li>/g) || []).length, 3);
+  assert.equal(html.includes(". - Go near"), false);
+});
+
+test("rich Markdown renders collapsed numbered crisis actions as non-numbered action rows", () => {
+  const html = richDom.formatMarkdown("1. Move away from danger. 2. Go near another person. 3. Message someone nearby.");
+
+  assert.match(html, /class="mp-list mp-list--actions"/);
+  assert.equal((html.match(/<li>/g) || []).length, 3);
+  assert.equal(html.includes("mp-list--ordered"), false);
+});
+
 test("rich Markdown leaves unsupported link schemes as inert text", () => {
   const html = richDom.formatMarkdown("[Do not open](javascript:alert(1))");
 
