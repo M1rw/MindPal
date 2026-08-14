@@ -291,7 +291,7 @@ function faviconForUrl(url) {
   try {
     const parsed = new URL(url);
     if (!(["https:", "http:"].includes(parsed.protocol))) return "";
-    return `/api/favicon?url=${encodeURIComponent(parsed.href)}`;
+    return `/api/favicon?v=2&url=${encodeURIComponent(parsed.href)}`;
   } catch {
     return "";
   }

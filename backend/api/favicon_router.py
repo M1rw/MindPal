@@ -117,7 +117,7 @@ async def get_favicon(
     except (httpx.HTTPError, ValueError):
         # A transparent response avoids a broken-image glyph while revealing no
         # outbound-fetch detail to the browser.
-        return Response(status_code=204, headers={"Cache-Control": "public, max-age=3600"})
+        return Response(status_code=204, headers={"Cache-Control": "no-store"})
 
     _store_icon(key, body, media_type)
     return Response(
