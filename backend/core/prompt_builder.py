@@ -352,6 +352,25 @@ def _build_clear_response_contract(classification: MessageClassification) -> str
     return "\n".join(lines)
 
 
+def _build_presentation_contract(classification: MessageClassification) -> str:
+    """Tell the model to select a response shape that serves the current request."""
+    lines = [
+        "ADAPTIVE PRESENTATION:",
+        "Choose the simplest shape that makes this particular answer easier to understand.",
+        "- For a greeting, a short reassurance, or a one-step answer: use plain conversational prose; no heading, table, or list.",
+        "- For a multi-part explanation: use one short Markdown heading, then concise paragraphs.",
+        "- For actions, plans, or choices: use a short bullet or numbered list. Keep items concrete and avoid long nested lists.",
+        "- Use a compact Markdown table only for a true comparison with shared criteria; never use a table for emotional support or a simple answer.",
+        "- Use **bold** for only the most important one to three ideas and *italics* sparingly for gentle emphasis.",
+        "- Use a blockquote only for a key takeaway or a short script the user could copy. Do not create callouts just for decoration.",
+        "- Include Markdown links only for tool-provided, verified sources. Never invent a URL, source name, citation, or research claim.",
+        "Never expose internal reasoning or add meta labels such as Thought, Analysis, Response, or Balanced Reframe.",
+    ]
+    if classification.tier in {"emotional", "clinical"}:
+        lines.append("In emotional support, warmth and clarity come before formatting: use structure only when it reduces cognitive load.")
+    return "\n".join(lines)
+
+
 def _build_format_rules_section() -> str:
     safety = _safety()
     rules = safety.get("format_rules", [])
@@ -542,7 +561,8 @@ def build_tiered_prompt(
         # Light boundaries
         sections.append(_build_boundaries_section())
 
-        # Format rules
+        # Presentation and format rules
+        sections.append(_build_presentation_contract(classification))
         sections.append(_build_format_rules_section())
 
         # Memory (if available — for personalization)
@@ -593,7 +613,8 @@ def build_tiered_prompt(
         if mode_text:
             sections.append(mode_text)
 
-        # Format rules
+        # Presentation and format rules
+        sections.append(_build_presentation_contract(classification))
         sections.append(_build_format_rules_section())
 
         # Intent context
@@ -655,7 +676,8 @@ def build_tiered_prompt(
     if mode_text:
         sections.append(mode_text)
 
-    # Format rules
+    # Presentation and format rules
+    sections.append(_build_presentation_contract(classification))
     format_text = _build_format_rules_section()
     if format_text:
         sections.append(format_text)

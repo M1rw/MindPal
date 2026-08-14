@@ -110,3 +110,48 @@ test("chat presentation removes instruction-leak markers from visible text", () 
   assert.equal(cleaned.includes("SYSTEM PROMPT"), false);
   assert.equal(cleaned.includes("Helpful answer."), true);
 });
+
+
+const richDom = await import("../frontend/js/utils/dom.js");
+
+test("rich Markdown renders clear headings, lists, tables, callouts, and source links", () => {
+  const html = richDom.formatMarkdown([
+    "## A clear plan",
+    "",
+    "**Start small** and keep it realistic.",
+    "",
+    "1. Open the draft.",
+    "2. Write one sentence.",
+    "",
+    "> Copyable script: I can begin with one line.",
+    "",
+    "| Option | Best when |",
+    "| --- | --- |",
+    "| Tiny step | You feel stuck |",
+    "| Time box | You need momentum |",
+    "",
+    "Source: [Example guide](https://example.com/guide)",
+  ].join("\n"));
+
+  assert.match(html, /<h3 class="mp-heading mp-heading--h3">A clear plan<\/h3>/);
+  assert.match(html, /<ol class="mp-list mp-list--ordered">/);
+  assert.match(html, /<blockquote class="mp-callout">/);
+  assert.match(html, /<table class="mp-table">/);
+  assert.match(html, /class="mp-source-link"/);
+  assert.match(html, /href="https:\/\/example\.com\/guide"/);
+});
+
+test("rich Markdown leaves unsupported link schemes as inert text", () => {
+  const html = richDom.formatMarkdown("[Do not open](javascript:alert(1))");
+
+  assert.equal(html.includes("href="), false);
+  assert.equal(html.includes("javascript:"), true);
+});
+
+test("copy text removes rich Markdown while preserving visible source labels", () => {
+  const plain = richDom.stripMarkdown("## Plan\n\n[Example guide](https://example.com)\n\n| A | B |\n| --- | --- |\n| One | Two |");
+
+  assert.equal(plain.includes("Example guide"), true);
+  assert.equal(plain.includes("https://example.com"), false);
+  assert.equal(plain.includes("---"), false);
+});
