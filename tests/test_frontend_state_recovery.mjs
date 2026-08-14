@@ -141,6 +141,16 @@ test("rich Markdown renders clear headings, lists, tables, callouts, and source 
   assert.match(html, /href="https:\/\/example\.com\/guide"/);
 });
 
+test("rich Markdown compacts whitespace-corrupted model URLs into one source-link pill", () => {
+  const html = richDom.formatMarkdown("* [https://www. nhs. uk/mental-health/](https://www. nhs. uk/mental-health/)");
+
+  assert.match(html, /class="mp-source-link"/);
+  assert.match(html, /href="https:\/\/www\.nhs\.uk\/mental-health\/"/);
+  assert.match(html, />nhs\.uk<\/span>/);
+  assert.equal(html.includes("[https://"), false);
+  assert.equal(html.includes("Open source"), false);
+});
+
 test("rich Markdown leaves unsupported link schemes as inert text", () => {
   const html = richDom.formatMarkdown("[Do not open](javascript:alert(1))");
 
