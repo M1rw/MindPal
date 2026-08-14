@@ -363,13 +363,20 @@ async def chat(
 
         llm_result = await services.llm.generate_with_trace(llm_request)
         visible_reply = finalize_user_reply(llm_result.response.text)
+        response_brief_object = services.response_intelligence.build_brief(
+            user_message=payload.message,
+            classification=classification,
+            response_mode=response_mode,
+            metadata=payload.metadata,
+        )
+        language_outcome = await services.response_intelligence.enforce_reply_language(
+            candidate_reply=visible_reply,
+            brief=response_brief_object,
+            locale=locale,
+            request_id=context.request_id,
+        )
+        visible_reply = language_outcome.reply
         if services.settings.ENABLE_RESPONSE_INTELLIGENCE:
-            response_brief_object = services.response_intelligence.build_brief(
-                user_message=payload.message,
-                classification=classification,
-                response_mode=response_mode,
-                metadata=payload.metadata,
-            )
             quality_outcome = await services.response_intelligence.improve_if_needed(
                 user_message=payload.message,
                 candidate_reply=visible_reply,
