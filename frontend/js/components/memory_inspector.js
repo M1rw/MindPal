@@ -211,13 +211,13 @@ function renderMemoryManageBody(cards) {
             ${item.pinned ? `<i data-lucide="pin" class="w-3 h-3 text-blue-400 flex-none"></i>` : ""}
             <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-none">
               <button class="memory-pin-btn p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors" data-memory-id="${escapeHtml(item.id)}" title="${item.pinned ? "Unpin" : "Pin"}" type="button">
-                <i data-lucide="${item.pinned ? "pin-off" : "pin"}" class="w-3.5 h-3.5"></i>
+                <i data-lucide="${item.pinned ? "pin-off" : "pin"}" class="w-4 h-4"></i>
               </button>
               <button class="memory-edit-btn p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors" data-memory-id="${escapeHtml(item.id)}" title="Edit" type="button">
-                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                <i data-lucide="pencil" class="w-4 h-4"></i>
               </button>
               <button class="memory-delete-btn p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/20 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors" data-memory-id="${escapeHtml(item.id)}" title="Delete" type="button">
-                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
           </div>
