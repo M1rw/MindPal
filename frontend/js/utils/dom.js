@@ -147,9 +147,9 @@ function renderInline(value) {
   let source = String(value || "");
 
   // Capture explicit Markdown links before escaping. Only http(s) and mailto links are accepted.
-  source = source.replace(/\[([^\]\n]{1,180})\]\(([^)\s]+)\)/g, (match, label, url) => {
+  source = source.replace(/\[([^\]\n]{1,180})\]\(([^)]+)\)/g, (match, label, url) => {
     const safeUrl = normalizeLink(url);
-    return safeUrl ? addToken(renderSourceLink(label, safeUrl)) : match;
+    return safeUrl ? addToken(renderSourceLink(normalizeLinkLabel(label, safeUrl), safeUrl)) : match;
   });
 
   // A bare web URL is still useful in chat, but gets the same safe, compact treatment.
@@ -235,13 +235,22 @@ function splitTableRow(line) {
 }
 
 function normalizeLink(value) {
+  const compactValue = String(value || "").trim().replace(/\s+/g, "");
   try {
-    const url = new URL(String(value || "").trim());
+    const url = new URL(compactValue);
     if (!(["https:", "http:", "mailto:"].includes(url.protocol))) return "";
     return url.href;
   } catch {
     return "";
   }
+}
+
+function normalizeLinkLabel(label, url) {
+  const visibleLabel = String(label || "").replace(/\s+/g, " ").trim();
+  const compactLabel = visibleLabel.replace(/\s+/g, "");
+  return /^(?:https?:\/\/|www\.)/i.test(compactLabel)
+    ? shortLinkLabel(url)
+    : visibleLabel || shortLinkLabel(url);
 }
 
 function shortLinkLabel(url) {
