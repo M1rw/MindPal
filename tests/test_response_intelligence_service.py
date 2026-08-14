@@ -171,3 +171,65 @@ def test_tiered_prompt_receives_response_brief_without_weakening_language_rule()
 
     assert "TRUSTED CONVERSATION RESPONSE BRIEF:" in prompt
     assert "ABSOLUTE FINAL RULE — LANGUAGE:" in prompt
+
+
+@pytest.mark.asyncio
+async def test_english_greeting_never_surfaces_arabic_reply_when_locale_is_arabic() -> None:
+    """Regression for the reported `hiii` → Arabic greeting production failure."""
+    service = _service()
+    classification = classify_message("hiii", locale="ar")
+    brief = service.build_brief(
+        user_message="hiii",
+        classification=classification,
+        response_mode="normal_support",
+    )
+
+    assert brief.expected_output_language == "english"
+
+    outcome = await service.enforce_reply_language(
+        candidate_reply="مرحباً. ماذا تريد أن تتكلم عن؟",
+        brief=brief,
+        locale="ar",
+        request_id="english-greeting-language-regression",
+    )
+
+    assert outcome.corrected is True
+    assert outcome.fallback_used is True
+    assert outcome.reply == "Hi — what would you like to talk about?"
+
+
+@pytest.mark.asyncio
+async def test_arabic_greeting_never_surfaces_english_reply() -> None:
+    service = _service()
+    classification = classify_message("أهلًا", locale="en")
+    brief = service.build_brief(
+        user_message="أهلًا",
+        classification=classification,
+        response_mode="normal_support",
+    )
+
+    assert brief.expected_output_language == "arabic"
+
+    outcome = await service.enforce_reply_language(
+        candidate_reply="Hi — what would you like to talk about?",
+        brief=brief,
+        locale="en",
+        request_id="arabic-greeting-language-regression",
+    )
+
+    assert outcome.corrected is True
+    assert outcome.fallback_used is True
+    assert outcome.reply == "مرحبًا — عن ماذا تريد أن تتحدث؟"
+
+
+def test_response_brief_current_message_language_beats_client_locale() -> None:
+    service = _service()
+    classification = classify_message("hiii", locale="ar")
+    brief = service.build_brief(
+        user_message="hiii",
+        classification=classification,
+        response_mode="normal_support",
+    )
+
+    assert classification.language == "english"
+    assert brief.expected_output_language == "english"
