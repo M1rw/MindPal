@@ -57,6 +57,24 @@ rules:
         - '(?i)\b(?:i\s+have|i\s+got|i\s+found|with\s+me|next\s+to\s+me)\b.{0,80}\b(?:pills|knife|blade|rope|gun|weapon|poison)\b'
         - '(?i)\b(?:pills|knife|blade|rope|gun|weapon|poison)\b.{0,80}\b(?:ready|with\s+me|next\s+to\s+me|in\s+my\s+hand|beside\s+me)\b'
 
+  - id: en_self_harm_imminent_unsafe_alone
+    level: self_harm_imminent
+    action: deterministic_response
+    bypass_llm: true
+    response_template_id: imminent_self_harm_en
+    should_log: true
+    user_visible_category: immediate_safety
+    confidence: 0.99
+    priority: 990
+    match_mode: all_groups
+    pattern_groups:
+      self_harm_signal:
+        - '(?i)\b(?:i\s+)?(?:want\s+to|feel\s+like)\s+(?:disappear|disappearing|vanish|vanishing|not\s+exist|not\s+existing)\b'
+        - '(?i)\b(?:i\s+)?(?:do\s+not|don''t)\s+want\s+to\s+(?:be\s+)?(?:here|alive)\b'
+      immediate_isolation:
+        - '(?i)\b(?:i\s+)?(?:do\s+not|don''t)\s+feel\s+safe\s+(?:by\s+myself|alone)(?:\s+(?:tonight|today|right\s+now))?\b'
+        - '(?i)\b(?:i\s+)?(?:am|''m)\s+(?:alone|by\s+myself)\s+(?:tonight|right\s+now)\s+and\s+(?:do\s+not|don''t)\s+feel\s+safe\b'
+
   - id: en_self_harm_ambiguous
     level: self_harm_ambiguous
     action: deescalate

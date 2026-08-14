@@ -350,3 +350,17 @@ async def test_concurrency_guard_rejects_within_short_queue_timeout() -> None:
     await holder
 
     assert elapsed < 0.35
+
+
+def test_unsafe_alone_disclosure_bypasses_generation_deterministically(
+    safety_service: SafetyService,
+) -> None:
+    """Regression for the live crisis prompt that incorrectly received grounding only."""
+    decision = safety_service.classify_input(
+        "I want to disappear and I do not feel safe by myself tonight.",
+        locale="en",
+    )
+
+    assert decision.level == SafetyLevel.SELF_HARM_IMMINENT
+    assert decision.bypass_llm is True
+    assert decision.response_template_id == "imminent_self_harm_en"

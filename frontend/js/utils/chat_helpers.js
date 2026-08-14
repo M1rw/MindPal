@@ -426,9 +426,8 @@ function buildAgentChainResult(agentChain, elapsedMs, rawText) {
     };
   }
 
-  const timeText = elapsedMs
-    ? `Thought for ${(elapsedMs / 1000).toFixed(1)}s`
-    : "Thought process";
+  // Legacy formatter retained for compatibility; it must never advertise private reasoning.
+  const timeText = elapsedMs ? "Response ready" : "Preparing response";
 
   // Parse thought content into numbered steps for a nice timeline
   const steps = parseThoughtSteps(thoughtContent);

@@ -138,3 +138,15 @@ def test_safe_mode_runtime_debugger_route_and_assets_are_delivered() -> None:
     assert "firebase" not in brain_bundle.text.lower()
     assert chat_bundle.status_code == 200
     assert "mindpal_safe_mode_trace" in chat_bundle.text
+
+
+def test_frontend_does_not_ship_user_visible_thought_duration() -> None:
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    status_source = (root / "frontend/js/ui_state.js").read_text(encoding="utf-8")
+    bundle = (root / "frontend/dist/app.bundle.js").read_text(encoding="utf-8")
+
+    assert "Thought for ${seconds}s" not in status_source
+    assert "Thought for" not in bundle
+    assert "removeStatusIndicator(id)" in status_source
