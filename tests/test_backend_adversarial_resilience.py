@@ -364,3 +364,7 @@ def test_unsafe_alone_disclosure_bypasses_generation_deterministically(
     assert decision.level == SafetyLevel.SELF_HARM_IMMINENT
     assert decision.bypass_llm is True
     assert decision.response_template_id == "imminent_self_harm_en"
+    template = safety_service.get_crisis_response_template(decision.response_template_id, "en")
+    assert "\n- Move away from anything you could use to hurt yourself." in template.body
+    assert "\n- Go near another person or a public/shared space." in template.body
+    assert "\n1. Move away" not in template.body
