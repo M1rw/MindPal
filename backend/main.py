@@ -176,7 +176,7 @@ def _install_middleware(app: FastAPI, settings: Settings) -> None:
             "form-action 'self'; "
             "script-src 'self'; "
             "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: blob: https://www.google.com https://*.googleusercontent.com; "
+            "img-src 'self' data: blob: https://www.google.com https://*.gstatic.com https://*.googleusercontent.com; "
             "font-src 'self' data:; "
             "media-src 'self' data: blob:; "
             "worker-src 'self' blob:; "
