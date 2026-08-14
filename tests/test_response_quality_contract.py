@@ -91,3 +91,18 @@ def test_both_chat_routes_use_the_same_tiered_prompt_and_finalizer() -> None:
     assert "build_tiered_prompt(" in stream_source
     assert "finalize_user_reply(" in standard_source
     assert "finalize_user_reply(" in stream_source
+
+
+def test_adaptive_presentation_contract_supports_rich_markdown_without_forcing_it() -> None:
+    classification = classify_message(
+        "Compare two ways to ask my manager for a deadline extension.",
+        locale="en",
+        clinical_mode=False,
+    )
+    prompt = build_tiered_prompt(classification=classification, locale="en")
+
+    assert "adaptive presentation:" in prompt.lower()
+    assert "use a compact markdown table only for a true comparison" in prompt.lower()
+    assert "include markdown links only for tool-provided, verified sources" in prompt.lower()
+    assert "thought block" not in prompt.lower()
+    assert "must contain only your thought block and response block" not in prompt.lower()
