@@ -237,21 +237,15 @@ def test_cloud_login_modal_exposes_web_supported_firebase_methods() -> None:
     assert "confirmPhoneNumberSignIn" in app_source
 
 
-def test_vercel_uses_a_query_preserving_rewrite_for_firebase_auth_helper() -> None:
+def test_vercel_uses_firebase_hosted_popup_auth_without_custom_proxy() -> None:
     root = Path(__file__).resolve().parents[1]
     deployment = json.loads((root / "vercel.json").read_text(encoding="utf-8"))
 
-    auth_rewrites = [
-        item
+    assert deployment["env"]["FIREBASE_USE_SAME_ORIGIN_AUTH_PROXY"] == "false"
+    assert not any(
+        item.get("source") == "/__/auth/(.*)"
         for item in deployment.get("rewrites", [])
-        if item.get("source") == "/__/auth/(.*)"
-    ]
-    assert auth_rewrites == [
-        {
-            "source": "/__/auth/(.*)",
-            "destination": "https://mindpal-official-0.firebaseapp.com/__/auth/$1",
-        }
-    ]
+    )
     assert not any(item.get("src") == "/__/auth/(.*)" for item in deployment.get("routes", []))
 
 
