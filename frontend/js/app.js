@@ -713,7 +713,8 @@ function bindProfileModal() {
     if (diagnostic.status === "no_credential") {
       message = `${provider} returned to MindPal, but Firebase did not restore a sign-in credential. Please retry after checking the auth callback configuration.`;
     } else if (diagnostic.status === "failed") {
-      message = `${provider} redirect could not finish: ${diagnostic.code || "firebase_redirect_result_failed"}.`;
+      const reason = diagnostic.detail ? ` Firebase reason: ${diagnostic.detail}.` : "";
+      message = `${provider} sign-in could not finish: ${diagnostic.code || "firebase_sign_in_failed"}.${reason}`;
     }
 
     authDiagnostic.textContent = message;

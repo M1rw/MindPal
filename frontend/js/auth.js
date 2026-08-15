@@ -36,17 +36,34 @@ let redirectDiagnostic = {
   status: "idle",
   provider: "",
   code: "",
+  detail: "",
 };
 
 const REDIRECT_PENDING_KEY = "mindpal.firebase.redirect.pending.v1";
 
 class MindPalAuthError extends Error {
-  constructor(message, { code = "auth_error", cause = null } = {}) {
+  constructor(message, { code = "auth_error", detail = "", cause = null } = {}) {
     super(message);
     this.name = "MindPalAuthError";
     this.code = code;
+    this.detail = detail;
     this.cause = cause;
   }
+}
+
+function getSafeFirebaseFailureDetail(error) {
+  const candidates = [
+    error?.customData?._tokenResponse?.errorMessage,
+    error?.customData?._tokenResponse?.error?.message,
+    error?.customData?.errorMessage,
+    error?.message,
+  ];
+
+  for (const candidate of candidates) {
+    const match = String(candidate || "").match(/\b[A-Z][A-Z0-9_]{2,}\b/);
+    if (match) return match[0];
+  }
+  return "";
 }
 
 function getFirebaseConfig() {
@@ -108,16 +125,17 @@ export async function initAuth() {
     const redirectResult = await getRedirectResult(firebaseAuth);
     if (redirectResult?.user) {
       currentAuthUser = redirectResult.user;
-      redirectDiagnostic = { status: "completed", provider: pendingRedirect?.provider || "", code: "" };
+      redirectDiagnostic = { status: "completed", provider: pendingRedirect?.provider || "", code: "", detail: "" };
       clearPendingRedirect();
     } else if (pendingRedirect) {
-      redirectDiagnostic = { status: "no_credential", provider: pendingRedirect.provider, code: "" };
+      redirectDiagnostic = { status: "no_credential", provider: pendingRedirect.provider, code: "", detail: "" };
     }
   } catch (error) {
     redirectDiagnostic = {
       status: "failed",
       provider: pendingRedirect?.provider || "",
       code: String(error?.code || "firebase_redirect_result_failed"),
+      detail: getSafeFirebaseFailureDetail(error),
     };
     // A previous redirect attempt can fail after returning to the app while
     // still leaving a completed Firebase initialization available. Do not
@@ -223,8 +241,11 @@ export async function signInWithGoogle() {
     return toPublicUser(credential.user);
   } catch (error) {
     const code = String(error?.code || "");
+    const detail = getSafeFirebaseFailureDetail(error);
+    redirectDiagnostic = { status: "failed", provider: "Google", code: code || "google_sign_in_failed", detail };
     throw new MindPalAuthError("Google sign-in failed", {
       code: code || "google_sign_in_failed",
+      detail,
       cause: error,
     });
   }
@@ -244,8 +265,11 @@ async function signInWithOAuthProvider(provider, providerName) {
     return toPublicUser(credential.user);
   } catch (error) {
     const code = String(error?.code || "");
+    const detail = getSafeFirebaseFailureDetail(error);
+    redirectDiagnostic = { status: "failed", provider: providerName, code: code || "provider_sign_in_failed", detail };
     throw new MindPalAuthError(`${providerName} sign-in failed`, {
       code: code || "provider_sign_in_failed",
+      detail,
       cause: error,
     });
   }
