@@ -63,3 +63,15 @@ Sources:
 - Firebase Google sign-in guide: https://firebase.google.com/docs/auth/web/google-signin
 - Google Identity Services token model: https://developers.google.com/identity/oauth2/web/guides/use-token-model
 - Firebase redirect best-practices, Option 5: https://firebase.google.com/docs/auth/web/redirect-best-practices
+
+## Google Identity Services deployment checkpoint
+
+Commit `48e6c65` deployed successfully. It replaces Google’s Firebase popup helper with a Google Identity Services token request followed by a Firebase `signInWithCredential` exchange. The production page was refreshed and is ready for the final provider test.
+
+## Final verification setup
+
+The refreshed Google Identity build reached MindPal’s Account panel successfully and is in expected Local Mode before the user initiates sign-in. No Google account has been selected or consent granted at this point.
+
+## Readiness diagnosis and repair
+
+The live test of commit `48e6c65` reached the native sign-in modal but returned the safe code `google_identity_not_ready`; the Google Identity Services library was not yet present when the Google button was pressed. The repair preloads `https://accounts.google.com/gsi/client` in the document head and makes the application loader reuse that same script and its load/error events. This maintains a synchronous user-click token request once the library is ready, while eliminating the timing race caused by injecting the provider library only during application initialization.

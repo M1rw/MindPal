@@ -98,15 +98,22 @@ function preloadGoogleIdentityServices() {
   if (googleIdentityScriptPromise) return googleIdentityScriptPromise;
 
   googleIdentityScriptPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = GOOGLE_IDENTITY_SERVICES_URL;
-    script.async = true;
-    script.onload = () => {
+    const finishLoading = () => {
       if (window.google?.accounts?.oauth2) resolve();
       else reject(new Error("Google Identity Services did not initialize"));
     };
-    script.onerror = () => reject(new Error("Google Identity Services could not load"));
-    document.head.appendChild(script);
+    const existingScript = document.querySelector("script[data-mindpal-google-identity]");
+    const script = existingScript || document.createElement("script");
+
+    script.addEventListener("load", finishLoading, { once: true });
+    script.addEventListener("error", () => reject(new Error("Google Identity Services could not load")), { once: true });
+
+    if (!existingScript) {
+      script.src = GOOGLE_IDENTITY_SERVICES_URL;
+      script.async = true;
+      script.dataset.mindpalGoogleIdentity = "";
+      document.head.appendChild(script);
+    }
   });
 
   return googleIdentityScriptPromise;
