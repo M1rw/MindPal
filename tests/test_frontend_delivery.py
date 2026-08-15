@@ -119,7 +119,7 @@ def test_runtime_config_is_generated_from_deployment_settings_without_server_sec
     assert "FIREBASE_CREDENTIALS_JSON" not in response.text
 
 
-def test_runtime_config_uses_the_current_host_for_firebase_auth_domain() -> None:
+def test_runtime_config_derives_firebase_hosting_domain_when_auth_domain_is_omitted() -> None:
     configured_app = create_app(
         Settings(
             _env_file=None,
@@ -141,7 +141,7 @@ def test_runtime_config_uses_the_current_host_for_firebase_auth_domain() -> None
         _get_runtime_config_body(configured_app, base_url="https://mindpal-demo.vercel.app")
     )
 
-    assert '"authDomain":"mindpal-demo.vercel.app"' in response_text
+    assert '"authDomain":"mindpal-production.firebaseapp.com"' in response_text
     assert '"FIREBASE_ENABLED":true' in response_text
 
 
