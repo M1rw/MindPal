@@ -208,6 +208,8 @@ def test_firebase_popup_auth_recovers_from_stale_redirect_errors() -> None:
     assert "REDIRECT_PENDING_KEY" in auth_source
     assert "getAuthRedirectDiagnostic" in auth_source
     assert "getSafeFirebaseFailureDetail" in auth_source
+    assert 'stage: "browser_persistence"' in auth_source
+    assert 'stage: "google_popup"' in auth_source
     assert "Firebase reason:" in app_source
     assert "account-auth-diagnostic" in app_source
     assert "Firebase did not return a signed-in user." in app_source

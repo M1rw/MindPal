@@ -482,7 +482,14 @@ export function formatCloudConnectErrorSafe(error) {
   }
   if (code.includes("auth/internal-error") || code.includes("internal-error")) {
     const detail = String(error?.detail || "").match(/\b[A-Z][A-Z0-9_]{2,}\b/)?.[0] || "";
-    return `Firebase sign-in encountered an internal auth error.${detail ? ` Firebase reason: ${detail}.` : " Check your Firebase authDomain configuration and network connection."}`;
+    const stageLabels = {
+      browser_persistence: "browser session setup",
+      google_popup: "Google provider window",
+      apple_popup: "Apple provider window",
+      token_refresh: "Firebase token refresh",
+    };
+    const stage = stageLabels[String(error?.stage || "")] || "";
+    return `Firebase sign-in encountered an internal auth error.${stage ? ` Stage: ${stage}.` : ""}${detail ? ` Firebase reason: ${detail}.` : " Check your Firebase authDomain configuration and network connection."}`;
   }
   if (code.includes("popup-closed-by-user")) return "Sign-in popup was closed.";
   if (code.includes("popup-blocked")) return "Browser blocked the sign-in popup.";

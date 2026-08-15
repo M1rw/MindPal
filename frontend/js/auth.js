@@ -42,11 +42,12 @@ let redirectDiagnostic = {
 const REDIRECT_PENDING_KEY = "mindpal.firebase.redirect.pending.v1";
 
 class MindPalAuthError extends Error {
-  constructor(message, { code = "auth_error", detail = "", cause = null } = {}) {
+  constructor(message, { code = "auth_error", detail = "", stage = "", cause = null } = {}) {
     super(message);
     this.name = "MindPalAuthError";
     this.code = code;
     this.detail = detail;
+    this.stage = stage;
     this.cause = cause;
   }
 }
@@ -115,7 +116,16 @@ export async function initAuth() {
     }
   }
 
-  await setPersistence(firebaseAuth, browserLocalPersistence);
+  try {
+    await setPersistence(firebaseAuth, browserLocalPersistence);
+  } catch (error) {
+    firebaseAuth = null;
+    throw new MindPalAuthError("Firebase browser persistence could not be initialized", {
+      code: error?.code || "firebase_persistence_failed",
+      stage: "browser_persistence",
+      cause: error,
+    });
+  }
 
   // Firebase redirect sign-in must be consumed after the browser returns from
   // the auth handler. We persist only the selected provider name so the Account
@@ -196,7 +206,9 @@ export async function getIdToken({ forceRefresh = false } = {}) {
     return await user.getIdToken(forceRefresh);
   } catch (error) {
     throw new MindPalAuthError("Failed to read Firebase ID token", {
-      code: "firebase_token_failed",
+      code: error?.code || "firebase_token_failed",
+      stage: "token_refresh",
+      detail: getSafeFirebaseFailureDetail(error),
       cause: error,
     });
   }
@@ -246,6 +258,7 @@ export async function signInWithGoogle() {
     throw new MindPalAuthError("Google sign-in failed", {
       code: code || "google_sign_in_failed",
       detail,
+      stage: "google_popup",
       cause: error,
     });
   }
@@ -270,6 +283,7 @@ async function signInWithOAuthProvider(provider, providerName) {
     throw new MindPalAuthError(`${providerName} sign-in failed`, {
       code: code || "provider_sign_in_failed",
       detail,
+      stage: `${providerName.toLowerCase()}_popup`,
       cause: error,
     });
   }
