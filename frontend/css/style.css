@@ -1736,6 +1736,11 @@ button:active,
   transition: border-color 160ms cubic-bezier(0.23, 1, 0.32, 1), background 160ms cubic-bezier(0.23, 1, 0.32, 1), transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+.auth-provider-btn--last-used {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
 .auth-provider-btn:hover {
   border-color: #cbd5e1;
   background: #f9fafb;
@@ -1770,6 +1775,37 @@ button:active,
   width: 20px;
   height: 20px;
   color: #111827;
+}
+
+.auth-provider-btn__last-used {
+  position: absolute;
+  top: -10px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border: 1px solid #dbe3ee;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.dark .auth-provider-btn--last-used {
+  border-color: #52525b;
+  background: #29292d;
+}
+
+.dark .auth-provider-btn__last-used {
+  border-color: #52525b;
+  background: #29292d;
+  color: #d4d4d8;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.2);
 }
 
 .dark .auth-provider-btn__brand {
