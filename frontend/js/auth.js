@@ -15,6 +15,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   signInWithPopup,
+  signInWithCredential,
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import {
@@ -24,6 +25,7 @@ import {
 } from "firebase/app-check";
 
 const AUTH_STATE_TIMEOUT_MS = 8_000;
+const GOOGLE_IDENTITY_SERVICES_URL = "https://accounts.google.com/gsi/client";
 
 let firebaseApp = null;
 let firebaseAuth = null;
@@ -32,6 +34,7 @@ let authReadyPromise = null;
 let currentAuthUser = null;
 let phoneRecaptchaVerifier = null;
 let phoneConfirmationResult = null;
+let googleIdentityScriptPromise = null;
 let redirectDiagnostic = {
   status: "idle",
   provider: "",
@@ -84,6 +87,29 @@ function getFirebaseConfig() {
   }
 
   return config;
+}
+
+function getGoogleClientId() {
+  return String(getFirebaseConfig()?.googleClientId || "").trim();
+}
+
+function preloadGoogleIdentityServices() {
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  if (googleIdentityScriptPromise) return googleIdentityScriptPromise;
+
+  googleIdentityScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = GOOGLE_IDENTITY_SERVICES_URL;
+    script.async = true;
+    script.onload = () => {
+      if (window.google?.accounts?.oauth2) resolve();
+      else reject(new Error("Google Identity Services did not initialize"));
+    };
+    script.onerror = () => reject(new Error("Google Identity Services could not load"));
+    document.head.appendChild(script);
+  });
+
+  return googleIdentityScriptPromise;
 }
 
 export async function initAuth() {
@@ -167,6 +193,9 @@ export async function initAuth() {
   });
 
   await authReadyPromise;
+  // Preload independently of a button click so Google account selection can
+  // start synchronously when the user chooses the provider in MindPal.
+  void preloadGoogleIdentityServices().catch(() => {});
   return firebaseAuth;
 }
 
@@ -240,8 +269,8 @@ function requireInitializedPopupAuth() {
   });
 }
 
-function completePopupSignIn(popupPromise, providerName) {
-  return popupPromise.then((credential) => {
+function completeFirebaseSignIn(signInPromise, providerName, stage) {
+  return signInPromise.then((credential) => {
     currentAuthUser = credential.user;
     return toPublicUser(credential.user);
   }).catch((error) => {
@@ -251,7 +280,7 @@ function completePopupSignIn(popupPromise, providerName) {
     throw new MindPalAuthError(`${providerName} sign-in failed`, {
       code: code || "provider_sign_in_failed",
       detail,
-      stage: `${providerName.toLowerCase()}_popup`,
+      stage,
       cause: error,
     });
   });
@@ -259,16 +288,62 @@ function completePopupSignIn(popupPromise, providerName) {
 
 export function signInWithGoogle() {
   const auth = requireInitializedPopupAuth();
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: "select_account" });
-  // Do not await before this call: browser popup permission is tied to this click.
-  return completePopupSignIn(signInWithPopup(auth, provider), "Google");
+  const clientId = getGoogleClientId();
+
+  if (!clientId) {
+    throw new MindPalAuthError("Google sign-in is not configured", {
+      code: "google_client_id_missing",
+      stage: "google_identity_setup",
+    });
+  }
+  if (!window.google?.accounts?.oauth2) {
+    throw new MindPalAuthError("Google sign-in is still loading. Please try again.", {
+      code: "google_identity_not_ready",
+      stage: "google_identity_setup",
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: "openid email profile",
+      callback: (response) => {
+        if (response?.error || !response?.access_token) {
+          reject(new MindPalAuthError("Google did not return an authorization token", {
+            code: String(response?.error || "google_identity_token_missing"),
+            stage: "google_identity_window",
+          }));
+          return;
+        }
+        const firebaseCredential = GoogleAuthProvider.credential(null, response.access_token);
+        completeFirebaseSignIn(
+          signInWithCredential(auth, firebaseCredential),
+          "Google",
+          "google_credential_exchange",
+        ).then(resolve, reject);
+      },
+      error_callback: (error) => {
+        reject(new MindPalAuthError("Google account selection could not open", {
+          code: String(error?.type || "google_identity_window_failed"),
+          stage: "google_identity_window",
+          cause: error,
+        }));
+      },
+    });
+
+    // This runs synchronously in the user click path and avoids Firebase's
+    // popup/redirect helper, which failed in production for this project.
+    client.requestAccessToken({ prompt: "select_account" });
+  });
 }
 
 function signInWithOAuthProvider(provider, providerName) {
   const auth = requireInitializedPopupAuth();
-  // Do not await before this call: browser popup permission is tied to this click.
-  return completePopupSignIn(signInWithPopup(auth, provider), providerName);
+  return completeFirebaseSignIn(
+    signInWithPopup(auth, provider),
+    providerName,
+    `${providerName.toLowerCase()}_popup`,
+  );
 }
 
 export async function signInWithApple() {

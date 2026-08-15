@@ -174,14 +174,14 @@ def _install_middleware(app: FastAPI, settings: Settings) -> None:
             "object-src 'none'; "
             "frame-ancestors 'none'; "
             "form-action 'self'; "
-            "script-src 'self'; "
+            "script-src 'self' https://accounts.google.com; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: blob: https://*.googleusercontent.com; "
             "font-src 'self' data:; "
             "media-src 'self' data: blob:; "
             "worker-src 'self' blob:; "
             "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; "
-            "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com "
+            "connect-src 'self' https://accounts.google.com https://*.googleapis.com https://*.firebaseio.com "
             "https://*.firebaseapp.com https://*.vercel-insights.com "
             "wss://generativelanguage.googleapis.com; "
             "manifest-src 'self'"
@@ -337,6 +337,9 @@ def _install_frontend_routes(app: FastAPI) -> None:
         api_base_url = str(getattr(settings, "PUBLIC_API_BASE_URL", "") or "").strip() or "/api"
         firebase_config = {
             "apiKey": str(getattr(settings, "FIREBASE_WEB_API_KEY", "") or "").strip(),
+            "googleClientId": str(
+                getattr(settings, "FIREBASE_WEB_GOOGLE_CLIENT_ID", "") or ""
+            ).strip(),
             "authDomain": _resolve_firebase_auth_domain(settings, request),
             "databaseURL": str(getattr(settings, "FIREBASE_DATABASE_URL", "") or "").strip(),
             "projectId": str(getattr(settings, "FIREBASE_WEB_PROJECT_ID", "") or "").strip(),
