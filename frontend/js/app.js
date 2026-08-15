@@ -565,15 +565,12 @@ function bindAuthModal() {
       return;
     }
 
-    let redirectHandoff = false;
     setButtonBusy(triggerButton, true, busyLabel);
     setCloudConnectInProgress(true);
     try {
       const user = await runSignIn();
       if (!user) {
-        redirectHandoff = true;
-        showMessage("Continue in the provider window. MindPal will finish connecting when you return.");
-        return;
+        throw new Error("Firebase did not return a signed-in user.");
       }
       await completeCloudConnection(user);
       closeAuthModal();
@@ -583,7 +580,7 @@ function bindAuthModal() {
       updateProfileUI(null);
       showMessage(formatAuthModalError(error), { error: true });
     } finally {
-      if (!redirectHandoff) setCloudConnectInProgress(false);
+      setCloudConnectInProgress(false);
       setButtonBusy(triggerButton, false);
     }
   };
