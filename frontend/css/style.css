@@ -1777,6 +1777,10 @@ button:active,
   color: #111827;
 }
 
+.auth-provider-btn__last-used.hidden {
+  display: none;
+}
+
 .auth-provider-btn__last-used {
   position: absolute;
   top: -10px;
