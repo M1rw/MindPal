@@ -33,6 +33,13 @@ let authReadyPromise = null;
 let currentAuthUser = null;
 let phoneRecaptchaVerifier = null;
 let phoneConfirmationResult = null;
+let redirectDiagnostic = {
+  status: "idle",
+  provider: "",
+  code: "",
+};
+
+const REDIRECT_PENDING_KEY = "mindpal.firebase.redirect.pending.v1";
 
 class MindPalAuthError extends Error {
   constructor(message, { code = "auth_error", cause = null } = {}) {
@@ -95,14 +102,24 @@ export async function initAuth() {
   await setPersistence(firebaseAuth, browserLocalPersistence);
 
   // Firebase redirect sign-in must be consumed after the browser returns from
-  // the auth handler. Without this, the selected Google account can return to
-  // MindPal while the app still renders the local unauthenticated state.
+  // the auth handler. We persist only the selected provider name so the Account
+  // panel can report a safe, actionable status if Firebase restores no user.
+  const pendingRedirect = readPendingRedirect();
   try {
     const redirectResult = await getRedirectResult(firebaseAuth);
     if (redirectResult?.user) {
       currentAuthUser = redirectResult.user;
+      redirectDiagnostic = { status: "completed", provider: pendingRedirect?.provider || "", code: "" };
+      clearPendingRedirect();
+    } else if (pendingRedirect) {
+      redirectDiagnostic = { status: "no_credential", provider: pendingRedirect.provider, code: "" };
     }
   } catch (error) {
+    redirectDiagnostic = {
+      status: "failed",
+      provider: pendingRedirect?.provider || "",
+      code: String(error?.code || "firebase_redirect_result_failed"),
+    };
     throw new MindPalAuthError("Firebase redirect sign-in could not be completed", {
       code: error?.code || "firebase_redirect_result_failed",
       cause: error,
@@ -200,18 +217,20 @@ export async function signInWithGoogle() {
     prompt: "select_account",
   });
 
+  if (usesSameOriginAuthDomain()) {
+    await startRedirectSignIn(auth, provider, "Google");
+    return null;
+  }
+
   try {
     const credential = await signInWithPopup(auth, provider);
     currentAuthUser = credential.user;
     return toPublicUser(credential.user);
   } catch (error) {
     const code = String(error?.code || "");
-    // Some browsers/extensions fail before the popup reaches the Firebase
-    // handler. Redirect sign-in is Firebase's supported non-popup flow and
-    // resumes through the same authorized authDomain after navigation.
     if (code.includes("internal-error") || code.includes("popup-blocked")) {
       try {
-        await signInWithRedirect(auth, provider);
+        await startRedirectSignIn(auth, provider, "Google");
         return null;
       } catch (redirectError) {
         throw new MindPalAuthError("Google redirect sign-in failed", {
@@ -235,6 +254,11 @@ async function signInWithOAuthProvider(provider, providerName) {
     throw new MindPalAuthError("Firebase is not configured", { code: "firebase_not_configured" });
   }
 
+  if (usesSameOriginAuthDomain()) {
+    await startRedirectSignIn(auth, provider, providerName);
+    return null;
+  }
+
   try {
     const credential = await signInWithPopup(auth, provider);
     currentAuthUser = credential.user;
@@ -243,7 +267,7 @@ async function signInWithOAuthProvider(provider, providerName) {
     const code = String(error?.code || "");
     if (code.includes("internal-error") || code.includes("popup-blocked")) {
       try {
-        await signInWithRedirect(auth, provider);
+        await startRedirectSignIn(auth, provider, providerName);
         return null;
       } catch (redirectError) {
         throw new MindPalAuthError(`${providerName} redirect sign-in failed`, {
@@ -416,6 +440,39 @@ export async function signOut() {
 
 export function authIsConfigured() {
   return Boolean(window.MINDPAL_CONFIG?.FIREBASE_ENABLED);
+}
+
+export function getAuthRedirectDiagnostic() {
+  return { ...redirectDiagnostic };
+}
+
+function usesSameOriginAuthDomain() {
+  const authDomain = String(getFirebaseConfig()?.authDomain || "").trim().toLowerCase();
+  return Boolean(authDomain && authDomain === String(window.location.host || "").toLowerCase());
+}
+
+async function startRedirectSignIn(auth, provider, providerName) {
+  redirectDiagnostic = { status: "pending", provider: providerName, code: "" };
+  try {
+    window.sessionStorage.setItem(REDIRECT_PENDING_KEY, JSON.stringify({ provider: providerName }));
+  } catch {}
+  await signInWithRedirect(auth, provider);
+}
+
+function readPendingRedirect() {
+  try {
+    const value = JSON.parse(window.sessionStorage.getItem(REDIRECT_PENDING_KEY) || "null");
+    const provider = String(value?.provider || "").trim();
+    return provider ? { provider } : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingRedirect() {
+  try {
+    window.sessionStorage.removeItem(REDIRECT_PENDING_KEY);
+  } catch {}
 }
 
 function toPublicUser(user) {

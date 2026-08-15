@@ -195,6 +195,11 @@ def test_firebase_popup_internal_error_uses_redirect_handoff() -> None:
     assert "const redirectResult = await getRedirectResult(firebaseAuth)" in auth_source
     assert 'code.includes("internal-error")' in auth_source
     assert "await signInWithRedirect(auth, provider)" in auth_source
+    assert "usesSameOriginAuthDomain()" in auth_source
+    assert 'startRedirectSignIn(auth, provider, "Google")' in auth_source
+    assert "REDIRECT_PENDING_KEY" in auth_source
+    assert "getAuthRedirectDiagnostic" in auth_source
+    assert "account-auth-diagnostic" in app_source
     assert "Continue in the provider window" in app_source
     assert "redirectHandoff = true" in app_source
 
@@ -211,6 +216,7 @@ def test_cloud_login_modal_exposes_web_supported_firebase_methods() -> None:
     assert 'id="auth-phone-btn"' in index_source
     assert 'id="auth-email-form"' in index_source
     assert 'id="auth-phone-recaptcha"' in index_source
+    assert 'id="account-auth-diagnostic"' in index_source
     assert "signInWithEmailAndPassword" in auth_source
     assert "createUserWithEmailAndPassword" in auth_source
     assert "sendPasswordResetEmail" in auth_source
