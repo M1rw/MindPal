@@ -195,3 +195,27 @@ def test_firebase_popup_internal_error_uses_redirect_handoff() -> None:
     assert 'code.includes("internal-error")' in auth_source
     assert "await signInWithRedirect(auth, provider)" in auth_source
     assert "if (!user) return;" in app_source
+
+
+def test_runtime_config_uses_same_origin_auth_domain_only_with_firebase_proxy() -> None:
+    proxied_app = create_app(
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="test",
+            ENABLE_FIREBASE=True,
+            FIREBASE_USE_APPLICATION_DEFAULT=True,
+            FIREBASE_WEB_PROJECT_ID="mindpal-production",
+            FIREBASE_WEB_API_KEY="public-web-key",
+            FIREBASE_WEB_APP_ID="1:123:web:mindpal",
+            FIREBASE_USE_SAME_ORIGIN_AUTH_PROXY=True,
+        )
+    )
+
+    import asyncio
+
+    response_text = asyncio.run(
+        _get_runtime_config_body(proxied_app, base_url="https://mindpal-demo.vercel.app")
+    )
+
+    assert '"authDomain":"mindpal-demo.vercel.app"' in response_text
+    assert '"FIREBASE_ENABLED":true' in response_text

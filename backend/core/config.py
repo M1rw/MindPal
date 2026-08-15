@@ -176,6 +176,9 @@ class Settings(BaseSettings):
     # authorization still comes from Security Rules, Auth, and App Check.
     FIREBASE_WEB_API_KEY: str = Field(default="", max_length=300)
     FIREBASE_AUTH_DOMAIN: str = Field(default="", max_length=300)
+    # When a non-Firebase host transparently proxies /__/auth and /__/firebase,
+    # use that host as authDomain to avoid cross-origin redirect storage.
+    FIREBASE_USE_SAME_ORIGIN_AUTH_PROXY: bool = False
     FIREBASE_DATABASE_URL: str = Field(default="", max_length=500)
     FIREBASE_WEB_PROJECT_ID: str = Field(default="", max_length=300)
     FIREBASE_STORAGE_BUCKET: str = Field(default="", max_length=300)

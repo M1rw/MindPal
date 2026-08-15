@@ -290,13 +290,20 @@ def _request_host(request: Request | None) -> str:
 
 
 def _resolve_firebase_auth_domain(settings: Settings, request: Request | None = None) -> str:
+    # A transparent same-origin proxy for Firebase's helper endpoints removes
+    # redirect-flow dependence on cross-origin browser storage. It is opt-in so
+    # local development and deployments without those proxy routes stay safe.
+    if bool(getattr(settings, "FIREBASE_USE_SAME_ORIGIN_AUTH_PROXY", False)):
+        request_host = _request_host(request)
+        if request_host:
+            return request_host
+
     configured_domain = str(getattr(settings, "FIREBASE_AUTH_DOMAIN", "") or "").strip()
     if configured_domain:
         return configured_domain
 
     # Firebase Auth's handler lives on the Firebase Hosting domain, not on the
-    # local/Vercel application host. Falling back to localhost here causes the
-    # browser SDK to fail during popup sign-in with an internal auth error.
+    # local application host when the same-origin proxy is not enabled.
     project_id = str(getattr(settings, "FIREBASE_WEB_PROJECT_ID", "") or "").strip()
     if project_id:
         return f"{project_id}.firebaseapp.com"
