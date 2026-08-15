@@ -46,8 +46,9 @@ def test_frontend_root_references_production_bundles() -> None:
     assert "unpkg.com" not in response.text
     assert response.headers["x-content-type-options"] == "nosniff"
     csp = response.headers["content-security-policy"]
-    assert "script-src 'self';" in csp
+    assert "script-src 'self' https://accounts.google.com;" in csp
     assert "script-src 'self' blob:" not in csp
+    assert "connect-src 'self' https://accounts.google.com" in csp
     assert "img-src 'self' data: blob: https://*.googleusercontent.com;" in csp
     assert "https://www.google.com" not in csp
     assert "https://*.gstatic.com" not in csp
@@ -194,7 +195,7 @@ def test_frontend_does_not_ship_user_visible_thought_duration() -> None:
     assert "removeStatusIndicator(id)" in status_source
 
 
-def test_firebase_popup_auth_recovers_from_stale_redirect_errors() -> None:
+def test_firebase_google_identity_auth_recovers_from_stale_redirect_errors() -> None:
     root = Path(__file__).resolve().parents[1]
     auth_source = (root / "frontend" / "js" / "auth.js").read_text(encoding="utf-8")
     app_source = (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
@@ -202,8 +203,11 @@ def test_firebase_popup_auth_recovers_from_stale_redirect_errors() -> None:
     assert "getRedirectResult" in auth_source
     assert "const redirectResult = await getRedirectResult(firebaseAuth)" in auth_source
     assert "function requireInitializedPopupAuth()" in auth_source
-    assert 'return completePopupSignIn(signInWithPopup(auth, provider), "Google");' in auth_source
-    assert "Do not await before this call: browser popup permission is tied to this click." in auth_source
+    assert "preloadGoogleIdentityServices" in auth_source
+    assert "window.google.accounts.oauth2.initTokenClient" in auth_source
+    assert "GoogleAuthProvider.credential(null, response.access_token)" in auth_source
+    assert "signInWithCredential(auth, firebaseCredential)" in auth_source
+    assert "Google Identity Services" in auth_source
     assert "signInWithRedirect" not in auth_source
     assert "clearPendingRedirect();" in auth_source
     assert "Do not\n    // prevent popup-based providers" in auth_source
@@ -211,7 +215,8 @@ def test_firebase_popup_auth_recovers_from_stale_redirect_errors() -> None:
     assert "getAuthRedirectDiagnostic" in auth_source
     assert "getSafeFirebaseFailureDetail" in auth_source
     assert 'stage: "browser_persistence"' in auth_source
-    assert 'stage: `${providerName.toLowerCase()}_popup`' in auth_source
+    assert '"google_credential_exchange",' in auth_source
+    assert '`${providerName.toLowerCase()}_popup`,' in auth_source
     assert "Firebase reason:" in app_source
     assert "account-auth-diagnostic" in app_source
     assert "Firebase did not return a signed-in user." in app_source

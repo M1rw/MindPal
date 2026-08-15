@@ -175,6 +175,9 @@ class Settings(BaseSettings):
     # Public web configuration. These values identify the Firebase web app;
     # authorization still comes from Security Rules, Auth, and App Check.
     FIREBASE_WEB_API_KEY: str = Field(default="", max_length=300)
+    # Public OAuth client ID used by Google Identity Services in the browser.
+    # It is an identifier, not a client secret.
+    FIREBASE_WEB_GOOGLE_CLIENT_ID: str = Field(default="", max_length=300)
     FIREBASE_AUTH_DOMAIN: str = Field(default="", max_length=300)
     # When a non-Firebase host transparently proxies /__/auth and /__/firebase,
     # use that host as authDomain to avoid cross-origin redirect storage.

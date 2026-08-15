@@ -41,3 +41,25 @@ No OAuth secret, callback code, or authorization URL was recorded in this audit.
 - Profile settings opened successfully and the Account panel is ready for the Google provider launch.
 
 No Google account was selected and no consent was submitted at this checkpoint.
+
+## Pre-repair provider launch result
+
+After the OAuth secret update but before the user-gesture repair, clicking **Continue with Google** failed immediately in MindPal before Google account selection. The visible diagnostic identified the stage as **Google provider window**. This demonstrated that the browser gesture had not reached a usable Firebase popup launch, even though the OAuth client settings were valid.
+
+The direct-popup user-gesture repair was then deployed in commit `9d8ed92`. Production was refreshed afterward and is ready for the final verification.
+
+## Direct-popup repair verification checkpoint
+
+After the `9d8ed92` deployment, the refreshed production page and Account panel loaded normally in Local Mode. The Google provider has not yet been launched from this repaired build at this checkpoint.
+
+## Official helper-free sign-in fallback
+
+Firebase documents an advanced Google sign-in option in which an application obtains a Google ID token itself and exchanges it with Firebase using `GoogleAuthProvider.credential(idToken)` and `signInWithCredential`. This bypasses Firebase's `signInWithPopup` and `signInWithRedirect` helper flow.
+
+Google Identity Services documents a browser token model in which `google.accounts.oauth2.initTokenClient()` is initialized with the web client ID, and a user gesture calls `requestAccessToken()` to open Google account selection and consent.
+
+Sources:
+
+- Firebase Google sign-in guide: https://firebase.google.com/docs/auth/web/google-signin
+- Google Identity Services token model: https://developers.google.com/identity/oauth2/web/guides/use-token-model
+- Firebase redirect best-practices, Option 5: https://firebase.google.com/docs/auth/web/redirect-best-practices
