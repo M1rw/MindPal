@@ -180,7 +180,7 @@ def _install_middleware(app: FastAPI, settings: Settings) -> None:
             "font-src 'self' data:; "
             "media-src 'self' data: blob:; "
             "worker-src 'self' blob:; "
-            "frame-src https://*.firebaseapp.com https://accounts.google.com; "
+            "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; "
             "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com "
             "https://*.firebaseapp.com https://*.vercel-insights.com "
             "wss://generativelanguage.googleapis.com; "
