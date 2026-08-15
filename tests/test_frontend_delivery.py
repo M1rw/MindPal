@@ -204,8 +204,8 @@ def test_firebase_popup_internal_error_uses_redirect_handoff() -> None:
     assert "const redirectResult = await getRedirectResult(firebaseAuth)" in auth_source
     assert 'code.includes("internal-error")' in auth_source
     assert "await signInWithRedirect(auth, provider)" in auth_source
-    assert "usesSameOriginAuthDomain()" in auth_source
-    assert 'startRedirectSignIn(auth, provider, "Google")' in auth_source
+    assert "const credential = await signInWithPopup(auth, provider)" in auth_source
+    assert 'await startRedirectSignIn(auth, provider, "Google")' in auth_source
     assert "REDIRECT_PENDING_KEY" in auth_source
     assert "getAuthRedirectDiagnostic" in auth_source
     assert "account-auth-diagnostic" in app_source
