@@ -15,11 +15,18 @@ import {
 
 import {
   authIsConfigured,
+  clearPhoneNumberSignIn,
+  confirmPhoneNumberSignIn,
+  createAccountWithEmailPassword,
   getCurrentUser,
   getIdToken,
   getAppCheckToken,
+  sendPasswordReset,
+  signInWithApple,
+  signInWithEmailPassword,
   signInWithGoogle,
   signOut,
+  startPhoneNumberSignIn,
 } from "./auth.js";
 
 import {
@@ -133,6 +140,7 @@ import {
   setMemoryGraphContext,
   getCurrentCloudProfileContext,
   setCurrentCloudProfileContext,
+  setCloudConnectInProgress,
 } from "./cloud_sync.js";
 
 import {
@@ -302,6 +310,7 @@ async function bootstrap() {
 
     bindTheme();
     bindProfileModal();
+    bindAuthModal();
     bindSettingsTabs();
     bindSettingsControls();
     bindSettingsChoiceEvents();
@@ -396,6 +405,298 @@ function bindTheme() {
   });
 }
 
+function formatAuthModalError(error) {
+  const code = String(error?.code || "");
+  if (code.includes("invalid-credential") || code.includes("wrong-password")) return "That email or password is not correct.";
+  if (code.includes("user-not-found")) return "No MindPal account exists for that email yet.";
+  if (code.includes("email-already-in-use")) return "An account already exists for that email. Try signing in instead.";
+  if (code.includes("weak-password")) return "Use a password with at least 6 characters.";
+  if (code.includes("invalid-email")) return "Enter a valid email address.";
+  if (code.includes("too-many-requests")) return "Too many attempts. Please wait a moment and try again.";
+  if (code.includes("invalid-phone-number")) return "Enter a complete mobile number with its country code.";
+  if (code.includes("invalid-verification-code")) return "That verification code is not correct. Try again or request a new one.";
+  if (code.includes("code-expired") || code.includes("session-expired")) return "That verification code expired. Request a new one.";
+  if (code.includes("operation-not-allowed")) return "This sign-in method needs to be completed in Firebase before it can be used.";
+  return formatCloudConnectErrorSafe(error);
+}
+
+async function completeCloudConnection(user) {
+  if (!user) return;
+  if (user.displayName) setUserName(user.displayName);
+
+  const token = await getIdToken({ forceRefresh: true });
+  if (!token) throw new Error("Firebase returned no ID token.");
+
+  const profile = await getCurrentUserProfile(token);
+  const storedProfile = await loadUserProfile(token).catch(() => null);
+  if (storedProfile) {
+    hydrateSettingsFromProfile(storedProfile);
+    updateMentalHealthUI(storedProfile);
+    updateUsageUI(storedProfile);
+  }
+
+  setCurrentCloudProfileContext({
+    ...buildCloudProfileContext(user, profile),
+    settingsMetadata: buildChatSettingsMetadata(),
+  });
+  await persistAppSettingsToCloud();
+  await hydrateCloudMemory(token, renderMemoryInspector);
+  await hydrateCloudChat(token, renderPersistedChat);
+
+  setCloudSyncEnabled(true);
+  updateProfileUI(user);
+}
+
+function bindAuthModal() {
+  const modal = document.getElementById("auth-modal");
+  const content = document.getElementById("auth-modal-content");
+  const backdrop = document.getElementById("auth-modal-backdrop");
+  const closeButton = document.getElementById("auth-modal-close-btn");
+  const choiceView = document.getElementById("auth-view-choice");
+  const emailForm = document.getElementById("auth-email-form");
+  const phoneForm = document.getElementById("auth-phone-form");
+  const phoneCodeForm = document.getElementById("auth-phone-code-form");
+  const message = document.getElementById("auth-modal-message");
+  const title = document.getElementById("auth-modal-title");
+  const description = document.getElementById("auth-modal-description");
+  const emailInput = document.getElementById("auth-email-input");
+  const passwordInput = document.getElementById("auth-password-input");
+  const passwordVisibilityButton = document.getElementById("auth-password-visibility-btn");
+  const emailModeButton = document.getElementById("auth-email-mode-btn");
+  const emailModeCopy = document.getElementById("auth-email-mode-copy");
+  const emailSubmitButton = document.getElementById("auth-email-submit-btn");
+  const passwordResetButton = document.getElementById("auth-password-reset-btn");
+  const emailViewButton = document.getElementById("auth-email-view-btn");
+  const phoneButton = document.getElementById("auth-phone-btn");
+  const phoneInput = document.getElementById("auth-phone-input");
+  const phoneRecaptcha = document.getElementById("auth-phone-recaptcha");
+  const phoneSubmitButton = document.getElementById("auth-phone-submit-btn");
+  const phoneCodeInput = document.getElementById("auth-phone-code-input");
+  const phoneCodeSubmitButton = document.getElementById("auth-phone-code-submit-btn");
+  const phoneCodeCopy = document.getElementById("auth-phone-code-copy");
+  const phoneResendButton = document.getElementById("auth-phone-resend-btn");
+  const googleButton = document.getElementById("auth-google-btn");
+  const appleButton = document.getElementById("auth-apple-btn");
+  const profileConnectButton = document.getElementById("btn-cloud-connect");
+  const views = [choiceView, emailForm, phoneForm, phoneCodeForm].filter(Boolean);
+  let emailMode = "signin";
+  let returnFocus = null;
+
+  if (!modal || !content || !choiceView || !emailForm || !phoneForm || !phoneCodeForm) return;
+
+  const showMessage = (text, { error = false } = {}) => {
+    if (!message) return;
+    message.textContent = text;
+    message.classList.remove("hidden", "auth-modal__message--error");
+    message.classList.toggle("auth-modal__message--error", error);
+  };
+
+  const clearMessage = () => {
+    message?.classList.add("hidden");
+    message?.classList.remove("auth-modal__message--error");
+    if (message) message.textContent = "";
+  };
+
+  const setView = (nextView) => {
+    views.forEach((view) => view.classList.toggle("hidden", view !== nextView));
+    clearMessage();
+    if (nextView === choiceView) {
+      title.textContent = "Back up your MindPal";
+      description.textContent = "Sign in to securely sync your memory and conversations across devices.";
+    } else if (nextView === emailForm) {
+      title.textContent = emailMode === "signup" ? "Create your MindPal" : "Welcome back";
+      description.textContent = emailMode === "signup" ? "Create a secure cloud account in a few seconds." : "Sign in to sync your memory and conversations.";
+      window.setTimeout(() => emailInput?.focus(), 0);
+    } else if (nextView === phoneForm) {
+      title.textContent = "Verify your number";
+      description.textContent = "Use your phone number to securely connect MindPal Cloud.";
+      window.setTimeout(() => document.getElementById("auth-phone-input")?.focus(), 0);
+    } else {
+      title.textContent = "Check your messages";
+      description.textContent = "Enter the one-time code to finish signing in.";
+      window.setTimeout(() => document.getElementById("auth-phone-code-input")?.focus(), 0);
+    }
+  };
+
+  const openAuthModal = () => {
+    if (!authIsConfigured()) {
+      showToast("Firebase web config is missing.");
+      return;
+    }
+    returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : profileConnectButton;
+    emailMode = "signin";
+    if (emailInput) emailInput.value = "";
+    if (passwordInput) passwordInput.value = "";
+    if (passwordInput) passwordInput.type = "password";
+    emailForm.reset();
+    clearPhoneNumberSignIn();
+    phoneForm.reset();
+    phoneCodeForm.reset();
+    updateEmailMode();
+    setView(choiceView);
+    openModal("auth-modal", "auth-modal-content");
+    modal.setAttribute("aria-hidden", "false");
+    refreshIcons();
+    window.setTimeout(() => content.focus(), 0);
+  };
+
+  const closeAuthModal = () => {
+    closeModal("auth-modal", "auth-modal-content");
+    modal.setAttribute("aria-hidden", "true");
+    clearPhoneNumberSignIn();
+    clearMessage();
+    if (returnFocus && typeof returnFocus.focus === "function") {
+      window.setTimeout(() => returnFocus.focus(), 0);
+    }
+  };
+
+  const updateEmailMode = () => {
+    const isSignUp = emailMode === "signup";
+    if (emailModeCopy) emailModeCopy.textContent = isSignUp ? "Create a password to keep your MindPal private." : "Use your MindPal email and password to sign in.";
+    if (emailSubmitButton) emailSubmitButton.textContent = isSignUp ? "Create account" : "Sign in";
+    if (emailModeButton) emailModeButton.textContent = isSignUp ? "I already have an account" : "Create an account";
+    if (passwordInput) passwordInput.autocomplete = isSignUp ? "new-password" : "current-password";
+  };
+
+  const connectUser = async (runSignIn, triggerButton, busyLabel) => {
+    if (!authIsConfigured()) {
+      showMessage("Firebase web config is missing.", { error: true });
+      return;
+    }
+
+    let redirectHandoff = false;
+    setButtonBusy(triggerButton, true, busyLabel);
+    setCloudConnectInProgress(true);
+    try {
+      const user = await runSignIn();
+      if (!user) {
+        redirectHandoff = true;
+        showMessage("Continue in the provider window. MindPal will finish connecting when you return.");
+        return;
+      }
+      await completeCloudConnection(user);
+      closeAuthModal();
+      showToast("Cloud profile connected.");
+    } catch (error) {
+      setCloudSyncEnabled(false);
+      updateProfileUI(null);
+      showMessage(formatAuthModalError(error), { error: true });
+    } finally {
+      if (!redirectHandoff) setCloudConnectInProgress(false);
+      setButtonBusy(triggerButton, false);
+    }
+  };
+
+  profileConnectButton?.addEventListener("click", openAuthModal);
+  closeButton?.addEventListener("click", closeAuthModal);
+  backdrop?.addEventListener("click", closeAuthModal);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !modal.classList.contains("opacity-0")) closeAuthModal();
+  });
+
+  emailViewButton?.addEventListener("click", () => setView(emailForm));
+  phoneButton?.addEventListener("click", () => setView(phoneForm));
+  document.querySelectorAll("[data-auth-back]").forEach((button) => button.addEventListener("click", () => {
+    clearPhoneNumberSignIn();
+    setView(choiceView);
+  }));
+
+  passwordVisibilityButton?.addEventListener("click", () => {
+    if (!passwordInput) return;
+    const showPassword = passwordInput.type === "password";
+    passwordInput.type = showPassword ? "text" : "password";
+    passwordVisibilityButton.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
+    passwordVisibilityButton.innerHTML = `<i data-lucide="${showPassword ? "eye-off" : "eye"}" class="w-4 h-4"></i>`;
+    refreshIcons();
+  });
+
+  emailModeButton?.addEventListener("click", () => {
+    emailMode = emailMode === "signin" ? "signup" : "signin";
+    updateEmailMode();
+    clearMessage();
+  });
+
+  emailForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = String(emailInput?.value || "").trim();
+    const password = String(passwordInput?.value || "");
+    if (!emailInput?.checkValidity()) {
+      showMessage("Enter a valid email address.", { error: true });
+      emailInput?.focus();
+      return;
+    }
+    if (password.length < 6) {
+      showMessage("Use a password with at least 6 characters.", { error: true });
+      passwordInput?.focus();
+      return;
+    }
+    await connectUser(
+      () => emailMode === "signup" ? createAccountWithEmailPassword(email, password) : signInWithEmailPassword(email, password),
+      emailSubmitButton,
+      emailMode === "signup" ? "Creating account..." : "Signing in...",
+    );
+  });
+
+  passwordResetButton?.addEventListener("click", async () => {
+    const email = String(emailInput?.value || "").trim();
+    if (!emailInput?.checkValidity()) {
+      showMessage("Enter your email address, then select password reset.", { error: true });
+      emailInput?.focus();
+      return;
+    }
+    setButtonBusy(passwordResetButton, true, "Sending...");
+    try {
+      await sendPasswordReset(email);
+      showMessage("If that email has a MindPal account, a password-reset message is on its way.");
+    } catch (error) {
+      showMessage(formatAuthModalError(error), { error: true });
+    } finally {
+      setButtonBusy(passwordResetButton, false);
+    }
+  });
+
+  phoneForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const phoneNumber = String(phoneInput?.value || "").trim();
+    if (!phoneInput?.checkValidity()) {
+      showMessage("Enter your mobile number with country code.", { error: true });
+      phoneInput?.focus();
+      return;
+    }
+
+    setButtonBusy(phoneSubmitButton, true, "Sending code...");
+    clearMessage();
+    try {
+      await startPhoneNumberSignIn(phoneNumber, phoneRecaptcha);
+      if (phoneCodeCopy) phoneCodeCopy.textContent = `Enter the 6-digit code sent to ${phoneNumber}.`;
+      setView(phoneCodeForm);
+    } catch (error) {
+      showMessage(formatAuthModalError(error), { error: true });
+    } finally {
+      setButtonBusy(phoneSubmitButton, false);
+    }
+  });
+
+  phoneCodeForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const code = String(phoneCodeInput?.value || "").trim();
+    if (!/^\d{6}$/.test(code)) {
+      showMessage("Enter the 6-digit verification code.", { error: true });
+      phoneCodeInput?.focus();
+      return;
+    }
+    await connectUser(() => confirmPhoneNumberSignIn(code), phoneCodeSubmitButton, "Verifying...");
+  });
+
+  phoneResendButton?.addEventListener("click", () => {
+    setView(phoneForm);
+    phoneForm.requestSubmit();
+  });
+
+  googleButton?.addEventListener("click", () => connectUser(signInWithGoogle, googleButton, "Opening Google..."));
+  appleButton?.addEventListener("click", () => connectUser(signInWithApple, appleButton, "Opening Apple..."));
+}
+
 function bindProfileModal() {
   const profileModal = document.getElementById("profile-modal");
   const closeProfileBtn = document.getElementById("close-profile-btn");
@@ -419,53 +720,6 @@ function bindProfileModal() {
 
   profileModal?.addEventListener("click", (event) => {
     if (event.target === profileModal) closeProfileBtn?.click();
-  });
-
-  connectBtn?.addEventListener("click", async () => {
-    if (!authIsConfigured()) {
-      showToast("Firebase web config is missing.");
-      return;
-    }
-
-    setButtonBusy(connectBtn, true, "Connecting...");
-
-    try {
-      const user = await signInWithGoogle();
-      // Redirect fallback deliberately leaves this page before Firebase returns
-      // a user. Authentication resumes through the auth-state observer after
-      // the authorized Firebase handler redirects back to MindPal.
-      if (!user) return;
-      if (user.displayName) setUserName(user.displayName);
-
-      const token = await getIdToken({ forceRefresh: true });
-      if (!token) throw new Error("Firebase returned no ID token.");
-
-      const profile = await getCurrentUserProfile(token);
-      const storedProfile = await loadUserProfile(token).catch(() => null);
-      if (storedProfile) {
-        hydrateSettingsFromProfile(storedProfile);
-        updateMentalHealthUI(storedProfile);
-        updateUsageUI(storedProfile);
-      }
-
-      setCurrentCloudProfileContext({
-        ...buildCloudProfileContext(user, profile),
-        settingsMetadata: buildChatSettingsMetadata(),
-      });
-      await persistAppSettingsToCloud();
-      await hydrateCloudMemory(token, renderMemoryInspector);
-      await hydrateCloudChat(token, renderPersistedChat);
-
-      setCloudSyncEnabled(true);
-      updateProfileUI(user);
-      showToast("Cloud profile connected.");
-    } catch (error) {
-      setCloudSyncEnabled(false);
-      updateProfileUI(null);
-      showToast(formatCloudConnectErrorSafe(error));
-    } finally {
-      setButtonBusy(connectBtn, false);
-    }
   });
 
   disconnectBtn?.addEventListener("click", async () => {

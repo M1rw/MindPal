@@ -194,7 +194,31 @@ def test_firebase_popup_internal_error_uses_redirect_handoff() -> None:
     assert "const redirectResult = await getRedirectResult(firebaseAuth)" in auth_source
     assert 'code.includes("internal-error")' in auth_source
     assert "await signInWithRedirect(auth, provider)" in auth_source
-    assert "if (!user) return;" in app_source
+    assert "Continue in the provider window" in app_source
+    assert "redirectHandoff = true" in app_source
+
+
+def test_cloud_login_modal_exposes_web_supported_firebase_methods() -> None:
+    root = Path(__file__).resolve().parents[1]
+    index_source = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    auth_source = (root / "frontend" / "js" / "auth.js").read_text(encoding="utf-8")
+    app_source = (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="auth-modal"' in index_source
+    assert 'id="auth-google-btn"' in index_source
+    assert 'id="auth-apple-btn"' in index_source
+    assert 'id="auth-phone-btn"' in index_source
+    assert 'id="auth-email-form"' in index_source
+    assert 'id="auth-phone-recaptcha"' in index_source
+    assert "signInWithEmailAndPassword" in auth_source
+    assert "createUserWithEmailAndPassword" in auth_source
+    assert "sendPasswordResetEmail" in auth_source
+    assert 'new OAuthProvider("apple.com")' in auth_source
+    assert "new RecaptchaVerifier" in auth_source
+    assert "signInWithPhoneNumber" in auth_source
+    assert "bindAuthModal();" in app_source
+    assert "completeCloudConnection" in app_source
+    assert "confirmPhoneNumberSignIn" in app_source
 
 
 def test_runtime_config_uses_same_origin_auth_domain_only_with_firebase_proxy() -> None:
