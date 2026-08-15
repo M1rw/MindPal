@@ -232,51 +232,19 @@ export async function getAppCheckToken({ forceRefresh = false } = {}) {
   }
 }
 
-export async function signInWithGoogle() {
-  const auth = await initAuth();
-
-  if (!auth) {
-    throw new MindPalAuthError("Firebase is not configured", {
-      code: "firebase_not_configured",
-    });
-  }
-
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({
-    prompt: "select_account",
+function requireInitializedPopupAuth() {
+  if (firebaseAuth) return firebaseAuth;
+  throw new MindPalAuthError("Firebase is still initializing. Please try again in a moment.", {
+    code: "firebase_auth_not_ready",
+    stage: "auth_initialization",
   });
-
-
-  try {
-    const credential = await signInWithPopup(auth, provider);
-    currentAuthUser = credential.user;
-    return toPublicUser(credential.user);
-  } catch (error) {
-    const code = String(error?.code || "");
-    const detail = getSafeFirebaseFailureDetail(error);
-    redirectDiagnostic = { status: "failed", provider: "Google", code: code || "google_sign_in_failed", detail };
-    throw new MindPalAuthError("Google sign-in failed", {
-      code: code || "google_sign_in_failed",
-      detail,
-      stage: "google_popup",
-      cause: error,
-    });
-  }
 }
 
-async function signInWithOAuthProvider(provider, providerName) {
-  const auth = await initAuth();
-
-  if (!auth) {
-    throw new MindPalAuthError("Firebase is not configured", { code: "firebase_not_configured" });
-  }
-
-
-  try {
-    const credential = await signInWithPopup(auth, provider);
+function completePopupSignIn(popupPromise, providerName) {
+  return popupPromise.then((credential) => {
     currentAuthUser = credential.user;
     return toPublicUser(credential.user);
-  } catch (error) {
+  }).catch((error) => {
     const code = String(error?.code || "");
     const detail = getSafeFirebaseFailureDetail(error);
     redirectDiagnostic = { status: "failed", provider: providerName, code: code || "provider_sign_in_failed", detail };
@@ -286,7 +254,21 @@ async function signInWithOAuthProvider(provider, providerName) {
       stage: `${providerName.toLowerCase()}_popup`,
       cause: error,
     });
-  }
+  });
+}
+
+export function signInWithGoogle() {
+  const auth = requireInitializedPopupAuth();
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  // Do not await before this call: browser popup permission is tied to this click.
+  return completePopupSignIn(signInWithPopup(auth, provider), "Google");
+}
+
+function signInWithOAuthProvider(provider, providerName) {
+  const auth = requireInitializedPopupAuth();
+  // Do not await before this call: browser popup permission is tied to this click.
+  return completePopupSignIn(signInWithPopup(auth, provider), providerName);
 }
 
 export async function signInWithApple() {
