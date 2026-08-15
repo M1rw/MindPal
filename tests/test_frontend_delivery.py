@@ -190,6 +190,8 @@ def test_firebase_popup_internal_error_uses_redirect_handoff() -> None:
     app_source = (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
 
     assert "signInWithRedirect" in auth_source
+    assert "getRedirectResult" in auth_source
+    assert "const redirectResult = await getRedirectResult(firebaseAuth)" in auth_source
     assert 'code.includes("internal-error")' in auth_source
     assert "await signInWithRedirect(auth, provider)" in auth_source
     assert "if (!user) return;" in app_source

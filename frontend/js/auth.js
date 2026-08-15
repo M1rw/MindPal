@@ -4,6 +4,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   browserLocalPersistence,
   getAuth,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   setPersistence,
@@ -84,6 +85,21 @@ export async function initAuth() {
   }
 
   await setPersistence(firebaseAuth, browserLocalPersistence);
+
+  // Firebase redirect sign-in must be consumed after the browser returns from
+  // the auth handler. Without this, the selected Google account can return to
+  // MindPal while the app still renders the local unauthenticated state.
+  try {
+    const redirectResult = await getRedirectResult(firebaseAuth);
+    if (redirectResult?.user) {
+      currentAuthUser = redirectResult.user;
+    }
+  } catch (error) {
+    throw new MindPalAuthError("Firebase redirect sign-in could not be completed", {
+      code: error?.code || "firebase_redirect_result_failed",
+      cause: error,
+    });
+  }
 
   authReadyPromise = new Promise((resolve) => {
     const timeout = window.setTimeout(() => {
