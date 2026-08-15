@@ -79,6 +79,7 @@ export function setMemoryGraphContext(ctx) {
   memoryContext = memoryGraphContext;
 }
 export function setCurrentCloudProfileContext(ctx) { currentCloudProfileContext = ctx; }
+export function setCloudConnectInProgress(inProgress) { cloudConnectInProgress = Boolean(inProgress); }
 export function getMemoryContext() { return memoryContext; }
 export function getMemoryGraphContext() { return memoryGraphContext; }
 export function getCurrentCloudProfileContext() { return currentCloudProfileContext; }
