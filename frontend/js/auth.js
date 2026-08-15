@@ -8,6 +8,7 @@ import {
   onAuthStateChanged,
   setPersistence,
   signInWithPopup,
+  signInWithRedirect,
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import {
@@ -180,8 +181,24 @@ export async function signInWithGoogle() {
     currentAuthUser = credential.user;
     return toPublicUser(credential.user);
   } catch (error) {
+    const code = String(error?.code || "");
+    // Some browsers/extensions fail before the popup reaches the Firebase
+    // handler. Redirect sign-in is Firebase's supported non-popup flow and
+    // resumes through the same authorized authDomain after navigation.
+    if (code.includes("internal-error") || code.includes("popup-blocked")) {
+      try {
+        await signInWithRedirect(auth, provider);
+        return null;
+      } catch (redirectError) {
+        throw new MindPalAuthError("Google redirect sign-in failed", {
+          code: redirectError?.code || code || "google_redirect_sign_in_failed",
+          cause: redirectError,
+        });
+      }
+    }
+
     throw new MindPalAuthError("Google sign-in failed", {
-      code: error?.code || "google_sign_in_failed",
+      code: code || "google_sign_in_failed",
       cause: error,
     });
   }
