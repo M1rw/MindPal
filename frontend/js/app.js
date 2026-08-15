@@ -431,7 +431,10 @@ function bindProfileModal() {
 
     try {
       const user = await signInWithGoogle();
-      if (!user) throw new Error("Firebase sign-in returned no user.");
+      // Redirect fallback deliberately leaves this page before Firebase returns
+      // a user. Authentication resumes through the auth-state observer after
+      // the authorized Firebase handler redirects back to MindPal.
+      if (!user) return;
       if (user.displayName) setUserName(user.displayName);
 
       const token = await getIdToken({ forceRefresh: true });

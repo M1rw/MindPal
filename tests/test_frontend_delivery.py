@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -181,3 +182,14 @@ def test_frontend_does_not_ship_user_visible_thought_duration() -> None:
     assert "Thought for ${seconds}s" not in status_source
     assert "Thought for" not in bundle
     assert "removeStatusIndicator(id)" in status_source
+
+
+def test_firebase_popup_internal_error_uses_redirect_handoff() -> None:
+    root = Path(__file__).resolve().parents[1]
+    auth_source = (root / "frontend" / "js" / "auth.js").read_text(encoding="utf-8")
+    app_source = (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+
+    assert "signInWithRedirect" in auth_source
+    assert 'code.includes("internal-error")' in auth_source
+    assert "await signInWithRedirect(auth, provider)" in auth_source
+    assert "if (!user) return;" in app_source
