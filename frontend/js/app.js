@@ -479,6 +479,7 @@ function bindAuthModal() {
   const googleButton = document.getElementById("auth-google-btn");
   const appleButton = document.getElementById("auth-apple-btn");
   const profileConnectButton = document.getElementById("btn-cloud-connect");
+  const providerButtons = Array.from(document.querySelectorAll("[data-auth-provider]"));
   const views = [choiceView, emailForm, phoneForm, phoneCodeForm].filter(Boolean);
   let emailMode = "signin";
   let returnFocus = null;
@@ -496,6 +497,35 @@ function bindAuthModal() {
     message?.classList.add("hidden");
     message?.classList.remove("auth-modal__message--error");
     if (message) message.textContent = "";
+  };
+
+  const getLastUsedProvider = () => {
+    try {
+      const stored = String(window.localStorage?.getItem("mindpal.auth.last-used-provider.v1") || "");
+      if (["google", "apple", "phone", "email"].includes(stored)) return stored;
+    } catch {}
+
+    const providerIds = new Set((getCurrentUser()?.providerData || []).map((provider) => provider?.providerId));
+    if (providerIds.has("google.com")) return "google";
+    if (providerIds.has("apple.com")) return "apple";
+    if (providerIds.has("phone")) return "phone";
+    if (providerIds.has("password")) return "email";
+    return "";
+  };
+
+  const refreshLastUsedProvider = () => {
+    const lastUsedProvider = getLastUsedProvider();
+    providerButtons.forEach((button) => {
+      const isLastUsed = button.dataset.authProvider === lastUsedProvider;
+      button.classList.toggle("auth-provider-btn--last-used", isLastUsed);
+      button.querySelector("[data-auth-last-used]")?.classList.toggle("hidden", !isLastUsed);
+    });
+  };
+
+  const rememberLastUsedProvider = (provider) => {
+    if (!["google", "apple", "phone", "email"].includes(provider)) return;
+    try { window.localStorage?.setItem("mindpal.auth.last-used-provider.v1", provider); } catch {}
+    refreshLastUsedProvider();
   };
 
   const setView = (nextView) => {
@@ -534,6 +564,7 @@ function bindAuthModal() {
     phoneForm.reset();
     phoneCodeForm.reset();
     updateEmailMode();
+    refreshLastUsedProvider();
     setView(choiceView);
     openModal("auth-modal", "auth-modal-content");
     modal.setAttribute("aria-hidden", "false");
@@ -559,7 +590,7 @@ function bindAuthModal() {
     if (passwordInput) passwordInput.autocomplete = isSignUp ? "new-password" : "current-password";
   };
 
-  const connectUser = async (runSignIn, triggerButton, busyLabel) => {
+  const connectUser = async (runSignIn, triggerButton, busyLabel, provider = "") => {
     if (!authIsConfigured()) {
       showMessage("Firebase web config is missing.", { error: true });
       return;
@@ -573,6 +604,7 @@ function bindAuthModal() {
         throw new Error("Firebase did not return a signed-in user.");
       }
       await completeCloudConnection(user);
+      rememberLastUsedProvider(provider);
       closeAuthModal();
       showToast("Cloud profile connected.");
     } catch (error) {
@@ -632,6 +664,7 @@ function bindAuthModal() {
       () => emailMode === "signup" ? createAccountWithEmailPassword(email, password) : signInWithEmailPassword(email, password),
       emailSubmitButton,
       emailMode === "signup" ? "Creating account..." : "Signing in...",
+      "email",
     );
   });
 
@@ -683,7 +716,7 @@ function bindAuthModal() {
       phoneCodeInput?.focus();
       return;
     }
-    await connectUser(() => confirmPhoneNumberSignIn(code), phoneCodeSubmitButton, "Verifying...");
+    await connectUser(() => confirmPhoneNumberSignIn(code), phoneCodeSubmitButton, "Verifying...", "phone");
   });
 
   phoneResendButton?.addEventListener("click", () => {
@@ -691,8 +724,8 @@ function bindAuthModal() {
     phoneForm.requestSubmit();
   });
 
-  googleButton?.addEventListener("click", () => connectUser(signInWithGoogle, googleButton, "Opening Google..."));
-  appleButton?.addEventListener("click", () => connectUser(signInWithApple, appleButton, "Opening Apple..."));
+  googleButton?.addEventListener("click", () => connectUser(signInWithGoogle, googleButton, "Opening Google...", "google"));
+  appleButton?.addEventListener("click", () => connectUser(signInWithApple, appleButton, "Opening Apple...", "apple"));
 }
 
 function bindProfileModal() {
