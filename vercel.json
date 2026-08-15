@@ -63,15 +63,13 @@
       ]
     }
   ],
+  "rewrites": [
+    {
+      "source": "/__/auth/(.*)",
+      "destination": "https://mindpal-official-0.firebaseapp.com/__/auth/$1"
+    }
+  ],
   "routes": [
-    {
-      "src": "/__/auth/(.*)",
-      "dest": "https://mindpal-official-0.firebaseapp.com/__/auth/$1"
-    },
-    {
-      "src": "/__/firebase/(.*)",
-      "dest": "https://mindpal-official-0.firebaseapp.com/__/firebase/$1"
-    },
     {
       "src": "/api/(.*)",
       "dest": "/api/index.py"

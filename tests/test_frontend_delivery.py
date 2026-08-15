@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -219,6 +220,24 @@ def test_cloud_login_modal_exposes_web_supported_firebase_methods() -> None:
     assert "bindAuthModal();" in app_source
     assert "completeCloudConnection" in app_source
     assert "confirmPhoneNumberSignIn" in app_source
+
+
+def test_vercel_uses_a_query_preserving_rewrite_for_firebase_auth_helper() -> None:
+    root = Path(__file__).resolve().parents[1]
+    deployment = json.loads((root / "vercel.json").read_text(encoding="utf-8"))
+
+    auth_rewrites = [
+        item
+        for item in deployment.get("rewrites", [])
+        if item.get("source") == "/__/auth/(.*)"
+    ]
+    assert auth_rewrites == [
+        {
+            "source": "/__/auth/(.*)",
+            "destination": "https://mindpal-official-0.firebaseapp.com/__/auth/$1",
+        }
+    ]
+    assert not any(item.get("src") == "/__/auth/(.*)" for item in deployment.get("routes", []))
 
 
 def test_runtime_config_uses_same_origin_auth_domain_only_with_firebase_proxy() -> None:
