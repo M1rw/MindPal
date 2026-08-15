@@ -15,7 +15,6 @@ import {
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   signInWithPopup,
-  signInWithRedirect,
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import {
@@ -120,10 +119,10 @@ export async function initAuth() {
       provider: pendingRedirect?.provider || "",
       code: String(error?.code || "firebase_redirect_result_failed"),
     };
-    throw new MindPalAuthError("Firebase redirect sign-in could not be completed", {
-      code: error?.code || "firebase_redirect_result_failed",
-      cause: error,
-    });
+    // A previous redirect attempt can fail after returning to the app while
+    // still leaving a completed Firebase initialization available. Do not
+    // prevent popup-based providers from starting because of that stale event.
+    clearPendingRedirect();
   }
 
   authReadyPromise = new Promise((resolve) => {
@@ -224,18 +223,6 @@ export async function signInWithGoogle() {
     return toPublicUser(credential.user);
   } catch (error) {
     const code = String(error?.code || "");
-    if (code.includes("internal-error") || code.includes("popup-blocked")) {
-      try {
-        await startRedirectSignIn(auth, provider, "Google");
-        return null;
-      } catch (redirectError) {
-        throw new MindPalAuthError("Google redirect sign-in failed", {
-          code: redirectError?.code || code || "google_redirect_sign_in_failed",
-          cause: redirectError,
-        });
-      }
-    }
-
     throw new MindPalAuthError("Google sign-in failed", {
       code: code || "google_sign_in_failed",
       cause: error,
@@ -257,18 +244,6 @@ async function signInWithOAuthProvider(provider, providerName) {
     return toPublicUser(credential.user);
   } catch (error) {
     const code = String(error?.code || "");
-    if (code.includes("internal-error") || code.includes("popup-blocked")) {
-      try {
-        await startRedirectSignIn(auth, provider, providerName);
-        return null;
-      } catch (redirectError) {
-        throw new MindPalAuthError(`${providerName} redirect sign-in failed`, {
-          code: redirectError?.code || code || "provider_redirect_sign_in_failed",
-          cause: redirectError,
-        });
-      }
-    }
-
     throw new MindPalAuthError(`${providerName} sign-in failed`, {
       code: code || "provider_sign_in_failed",
       cause: error,
@@ -436,14 +411,6 @@ export function authIsConfigured() {
 
 export function getAuthRedirectDiagnostic() {
   return { ...redirectDiagnostic };
-}
-
-async function startRedirectSignIn(auth, provider, providerName) {
-  redirectDiagnostic = { status: "pending", provider: providerName, code: "" };
-  try {
-    window.sessionStorage.setItem(REDIRECT_PENDING_KEY, JSON.stringify({ provider: providerName }));
-  } catch {}
-  await signInWithRedirect(auth, provider);
 }
 
 function readPendingRedirect() {

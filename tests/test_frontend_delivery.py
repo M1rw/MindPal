@@ -199,18 +199,17 @@ def test_firebase_popup_internal_error_uses_redirect_handoff() -> None:
     auth_source = (root / "frontend" / "js" / "auth.js").read_text(encoding="utf-8")
     app_source = (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
 
-    assert "signInWithRedirect" in auth_source
     assert "getRedirectResult" in auth_source
     assert "const redirectResult = await getRedirectResult(firebaseAuth)" in auth_source
-    assert 'code.includes("internal-error")' in auth_source
-    assert "await signInWithRedirect(auth, provider)" in auth_source
     assert "const credential = await signInWithPopup(auth, provider)" in auth_source
-    assert 'await startRedirectSignIn(auth, provider, "Google")' in auth_source
+    assert "signInWithRedirect" not in auth_source
+    assert "clearPendingRedirect();" in auth_source
+    assert "Do not\n    // prevent popup-based providers" in auth_source
     assert "REDIRECT_PENDING_KEY" in auth_source
     assert "getAuthRedirectDiagnostic" in auth_source
     assert "account-auth-diagnostic" in app_source
-    assert "Continue in the provider window" in app_source
-    assert "redirectHandoff = true" in app_source
+    assert "Firebase did not return a signed-in user." in app_source
+    assert "redirectHandoff = true" not in app_source
 
 
 def test_cloud_login_modal_exposes_web_supported_firebase_methods() -> None:
