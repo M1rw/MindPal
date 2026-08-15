@@ -19,6 +19,7 @@ import {
   confirmPhoneNumberSignIn,
   createAccountWithEmailPassword,
   getCurrentUser,
+  getAuthRedirectDiagnostic,
   getIdToken,
   getAppCheckToken,
   sendPasswordReset,
@@ -704,9 +705,27 @@ function bindProfileModal() {
   const connectBtn = document.getElementById("btn-cloud-connect");
   const disconnectBtn = document.getElementById("btn-cloud-disconnect");
   const userNameInput = document.getElementById("user-name-input");
+  const authDiagnostic = document.getElementById("account-auth-diagnostic");
+
+  const refreshAuthDiagnostic = () => {
+    if (!authDiagnostic) return;
+    const diagnostic = getAuthRedirectDiagnostic();
+    const provider = diagnostic.provider || "Provider";
+    let message = "";
+
+    if (diagnostic.status === "no_credential") {
+      message = `${provider} returned to MindPal, but Firebase did not restore a sign-in credential. Please retry after checking the auth callback configuration.`;
+    } else if (diagnostic.status === "failed") {
+      message = `${provider} redirect could not finish: ${diagnostic.code || "firebase_redirect_result_failed"}.`;
+    }
+
+    authDiagnostic.textContent = message;
+    authDiagnostic.classList.toggle("hidden", !message);
+  };
 
   document.getElementById("profile-btn")?.addEventListener("click", () => {
     updateProfileUI(getCurrentUser());
+    refreshAuthDiagnostic();
     // Re-render settings controls so dropdowns reflect changes made outside the panel
     renderSettingsControls(document.getElementById("profile-content") || document);
     if (document.querySelector('[data-settings-panel="memory"]')?.classList.contains("active")) {
