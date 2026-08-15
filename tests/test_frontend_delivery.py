@@ -194,7 +194,7 @@ def test_frontend_does_not_ship_user_visible_thought_duration() -> None:
     assert "removeStatusIndicator(id)" in status_source
 
 
-def test_firebase_popup_internal_error_uses_redirect_handoff() -> None:
+def test_firebase_popup_auth_recovers_from_stale_redirect_errors() -> None:
     root = Path(__file__).resolve().parents[1]
     auth_source = (root / "frontend" / "js" / "auth.js").read_text(encoding="utf-8")
     app_source = (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
@@ -207,6 +207,8 @@ def test_firebase_popup_internal_error_uses_redirect_handoff() -> None:
     assert "Do not\n    // prevent popup-based providers" in auth_source
     assert "REDIRECT_PENDING_KEY" in auth_source
     assert "getAuthRedirectDiagnostic" in auth_source
+    assert "getSafeFirebaseFailureDetail" in auth_source
+    assert "Firebase reason:" in app_source
     assert "account-auth-diagnostic" in app_source
     assert "Firebase did not return a signed-in user." in app_source
     assert "redirectHandoff = true" not in app_source
