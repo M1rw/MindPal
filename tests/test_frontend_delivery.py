@@ -147,6 +147,15 @@ def test_runtime_config_derives_firebase_hosting_domain_when_auth_domain_is_omit
     assert '"FIREBASE_ENABLED":true' in response_text
 
 
+def test_csp_permits_same_origin_firebase_auth_helper_iframe() -> None:
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    policy = response.headers["content-security-policy"]
+    assert "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com" in policy
+
+
 def test_safe_mode_runtime_debugger_route_and_assets_are_delivered() -> None:
     with TestClient(app) as client:
         root = client.get("/")
