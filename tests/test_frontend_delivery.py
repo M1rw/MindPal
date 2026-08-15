@@ -201,7 +201,9 @@ def test_firebase_popup_auth_recovers_from_stale_redirect_errors() -> None:
 
     assert "getRedirectResult" in auth_source
     assert "const redirectResult = await getRedirectResult(firebaseAuth)" in auth_source
-    assert "const credential = await signInWithPopup(auth, provider)" in auth_source
+    assert "function requireInitializedPopupAuth()" in auth_source
+    assert 'return completePopupSignIn(signInWithPopup(auth, provider), "Google");' in auth_source
+    assert "Do not await before this call: browser popup permission is tied to this click." in auth_source
     assert "signInWithRedirect" not in auth_source
     assert "clearPendingRedirect();" in auth_source
     assert "Do not\n    // prevent popup-based providers" in auth_source
@@ -209,7 +211,7 @@ def test_firebase_popup_auth_recovers_from_stale_redirect_errors() -> None:
     assert "getAuthRedirectDiagnostic" in auth_source
     assert "getSafeFirebaseFailureDetail" in auth_source
     assert 'stage: "browser_persistence"' in auth_source
-    assert 'stage: "google_popup"' in auth_source
+    assert 'stage: `${providerName.toLowerCase()}_popup`' in auth_source
     assert "Firebase reason:" in app_source
     assert "account-auth-diagnostic" in app_source
     assert "Firebase did not return a signed-in user." in app_source
