@@ -75,3 +75,5 @@ The refreshed Google Identity build reached MindPal’s Account panel successful
 ## Readiness diagnosis and repair
 
 The live test of commit `48e6c65` reached the native sign-in modal but returned the safe code `google_identity_not_ready`; the Google Identity Services library was not yet present when the Google button was pressed. The repair preloads `https://accounts.google.com/gsi/client` in the document head and makes the application loader reuse that same script and its load/error events. This maintains a synchronous user-click token request once the library is ready, while eliminating the timing race caused by injecting the provider library only during application initialization.
+
+The deployed preloading repair was then re-tested from a fresh page load and still returned `google_identity_not_ready`. This establishes that the outstanding fault is not merely an application initialization race: the production browser is not exposing `google.accounts.oauth2` after attempting to load the GSI client. The next diagnostic step is to inspect the exact production Content Security Policy and the client-script request response before changing the flow again.
