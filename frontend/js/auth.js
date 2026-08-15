@@ -217,10 +217,6 @@ export async function signInWithGoogle() {
     prompt: "select_account",
   });
 
-  if (usesSameOriginAuthDomain()) {
-    await startRedirectSignIn(auth, provider, "Google");
-    return null;
-  }
 
   try {
     const credential = await signInWithPopup(auth, provider);
@@ -254,10 +250,6 @@ async function signInWithOAuthProvider(provider, providerName) {
     throw new MindPalAuthError("Firebase is not configured", { code: "firebase_not_configured" });
   }
 
-  if (usesSameOriginAuthDomain()) {
-    await startRedirectSignIn(auth, provider, providerName);
-    return null;
-  }
 
   try {
     const credential = await signInWithPopup(auth, provider);
@@ -444,11 +436,6 @@ export function authIsConfigured() {
 
 export function getAuthRedirectDiagnostic() {
   return { ...redirectDiagnostic };
-}
-
-function usesSameOriginAuthDomain() {
-  const authDomain = String(getFirebaseConfig()?.authDomain || "").trim().toLowerCase();
-  return Boolean(authDomain && authDomain === String(window.location.host || "").toLowerCase());
 }
 
 async function startRedirectSignIn(auth, provider, providerName) {
