@@ -116,6 +116,57 @@ def test_active_listener_rejects_live_paraphrase_and_generic_options_failure() -
     assert evaluation.repair_recommended is True
 
 
+def test_active_listener_requires_a_bounded_decision_contribution() -> None:
+    message = "I want money fast, but I still have three years of college left and I don’t want to waste them only working. I honestly don’t know what to do next."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "You're in a tough spot with three years of college left and a need for money. "
+            "Not wanting to waste your college time just working is a valid concern. "
+            "What's the most important thing you feel is missing from your current situation that having more money would solve?"
+        ),
+        brief=brief,
+    )
+
+    assert "robotic_reflection_template" in evaluation.issues
+    assert "missing_decision_contribution" in evaluation.issues
+    assert evaluation.score < 72
+    assert evaluation.repair_recommended is True
+
+
+def test_active_listener_accepts_bounded_default_move_for_direct_decision_request() -> None:
+    message = "I want money fast, but I still have three years of college left and I don’t want to waste them only working. I honestly don’t know what to do next."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "Treat the next two weeks as a small test, not a decision about your whole college life. "
+            "Today, choose one skill you can offer and cap the work at five hours a week; by the end of the test, you will know whether people will pay for it without giving up your studies."
+        ),
+        brief=brief,
+    )
+
+    assert evaluation.score == 100
+    assert evaluation.issues == ()
+
+
 def test_active_listener_accepts_specific_decision_frame_without_a_template() -> None:
     message = "I want money fast, but I still have three years of college left."
     classification = classify_message(message)
