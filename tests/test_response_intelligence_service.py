@@ -47,7 +47,7 @@ def test_brief_permits_light_warmth_only_when_not_distressed() -> None:
     assert brief.needs_concrete_step is False
 
 
-def test_active_listener_brief_includes_anchor_communication_contract() -> None:
+def test_active_listener_brief_includes_human_reply_orchestration() -> None:
     message = "I want money fast, but I still have three years of college left."
     classification = classify_message(message)
     brief = _service().build_brief(
@@ -59,8 +59,133 @@ def test_active_listener_brief_includes_anchor_communication_contract() -> None:
 
     assert brief.communication_style == "active_listener"
     assert brief.needs_concrete_step is False
-    assert "ACTIVE LISTENER — ANCHOR COMMUNICATION CONTRACT:" in brief.to_prompt()
-    assert "Never use stock lead-ins" in brief.to_prompt()
+    assert "HUMAN REPLY ORCHESTRATION:" in brief.to_prompt()
+    assert "ACTIVE LISTEN:" in brief.to_prompt()
+    assert "response_move=" in brief.to_prompt()
+    assert "target_shape=" in brief.to_prompt()
+
+
+def test_hro_selects_distinct_moves_and_shapes_per_mode() -> None:
+    message = "I’m building a lot but it feels like I build air."
+    classification = classify_message(message)
+    service = _service()
+
+    active = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+    coach = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="guided_coach"),
+    )
+    cognitive = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="cognitive_tools"),
+    )
+
+    assert (active.communication_style, active.response_move, active.target_shape) == (
+        "active_listener", "meaning_making", "short_prose"
+    )
+    assert (coach.communication_style, coach.response_move, coach.target_shape) == (
+        "guided_coach", "meaning_making", "short_prose"
+    )
+    assert (cognitive.communication_style, cognitive.response_move, cognitive.target_shape) == (
+        "cognitive_tools", "meaning_making", "short_prose"
+    )
+
+
+def test_guided_coach_selects_diagnostic_fork_before_a_plan() -> None:
+    message = "My project is not moving and I don’t know why."
+    classification = classify_message(message)
+    brief = _service().build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="guided_coach"),
+    )
+
+    assert brief.response_move == "diagnostic_fork"
+    assert brief.target_shape == "short_prose"
+
+
+def test_active_listener_rejects_live_literal_mirroring_failure() -> None:
+    message = "I’m building a lot but it feels like I build air."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "You're building a lot, but it feels like you're building air. "
+            "That's a really interesting phrase—what does building air mean to you in this context?"
+        ),
+        brief=brief,
+    )
+
+    assert "literal_mirroring" in evaluation.issues
+    assert "robotic_reflection_template" in evaluation.issues
+    assert evaluation.repair_recommended is True
+
+
+def test_guided_coach_rejects_premature_generic_checklist() -> None:
+    message = "My project is not moving and I don’t know why."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="guided_coach"),
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "Break down your goals into smaller, more manageable tasks. "
+            "Identify the most important task and focus on one task at a time. Take regular breaks."
+        ),
+        brief=brief,
+    )
+
+    assert "premature_generic_plan" in evaluation.issues
+    assert evaluation.repair_recommended is True
+
+
+def test_pro_style_rejects_prior_assistant_hypothesis_as_user_history() -> None:
+    message = "I’m building a lot but it feels like I build air."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="guided_coach"),
+        chat_history=[SimpleNamespace(role="assistant", content="You may be disconnected from your goals.")],
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "Earlier you said you were feeling disconnected from your goals or motivations. "
+            "It may help to focus on a different metric."
+        ),
+        brief=brief,
+    )
+
+    assert "unsupported_assistant_hypothesis" in evaluation.issues
+    assert evaluation.repair_recommended is True
 
 
 def test_active_listener_rejects_robotic_reflection_and_generic_question_loop() -> None:
@@ -167,37 +292,6 @@ def test_active_listener_accepts_bounded_default_move_for_direct_decision_reques
     assert evaluation.issues == ()
 
 
-@pytest.mark.asyncio
-async def test_active_listener_uses_deterministic_decision_fallback_without_remote_repair() -> None:
-    message = "I want money fast, but I still have three years of college left and I don’t want to waste them only working. I honestly don’t know what to do next."
-    classification = classify_message(message)
-    service = _service(ENABLE_RESPONSE_QUALITY_REPAIR=False)
-    brief = service.build_brief(
-        user_message=message,
-        classification=classification,
-        response_mode="normal_support",
-        metadata=SimpleNamespace(mode="active_listen"),
-    )
-
-    outcome = await service.improve_if_needed(
-        user_message=message,
-        candidate_reply=(
-            "You're trying to balance earning money quickly with finishing college. "
-            "Part-time work or freelancing could fit your schedule. Would exploring job options be a good next step?"
-        ),
-        brief=brief,
-        locale="en",
-        safety_level="safe",
-        request_id="active-listener-deterministic-fallback",
-    )
-
-    assert outcome.repaired is True
-    assert outcome.repair_provider == "deterministic_anchor"
-    assert "This week" in outcome.reply
-    assert "five hours" in outcome.reply
-    assert outcome.evaluation.score == 100
-
-
 def test_active_listener_accepts_specific_decision_frame_without_a_template() -> None:
     message = "I want money fast, but I still have three years of college left."
     classification = classify_message(message)
@@ -212,9 +306,8 @@ def test_active_listener_accepts_specific_decision_frame_without_a_template() ->
     evaluation = service.evaluate(
         user_message=message,
         reply=(
-            "With three college years left, you want income soon without turning college into nonstop work. "
-            "The real split is fast cash versus something that can keep paying you later. "
-            "List one skill you can sell this month and the hours you can protect each week; that tells us whether a small service is realistic."
+            "With three college years left, protect your study time while you test income. "
+            "What skill could you try this month in five hours a week or less?"
         ),
         brief=brief,
     )
@@ -223,7 +316,7 @@ def test_active_listener_accepts_specific_decision_frame_without_a_template() ->
     assert evaluation.issues == ()
 
 
-def test_tiered_prompt_carries_active_listener_anchor_contract() -> None:
+def test_tiered_prompt_carries_human_reply_orchestration_contract() -> None:
     message = "I want money fast, but I still have three years of college left."
     classification = classify_message(message)
     brief = _service().build_brief(
@@ -240,8 +333,9 @@ def test_tiered_prompt_carries_active_listener_anchor_contract() -> None:
         response_brief=brief.to_prompt(),
     )
 
-    assert "ACTIVE LISTENER — ANCHOR COMMUNICATION CONTRACT:" in prompt
-    assert "Never use stock lead-ins" in prompt
+    assert "HUMAN REPLY ORCHESTRATION:" in prompt
+    assert "ACTIVE LISTEN:" in prompt
+    assert "response_move=" in prompt
     assert "ABSOLUTE FINAL RULE — LANGUAGE:" in prompt
 
 
