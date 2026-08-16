@@ -89,6 +89,33 @@ def test_active_listener_rejects_robotic_reflection_and_generic_question_loop() 
     assert evaluation.repair_recommended is True
 
 
+def test_active_listener_rejects_live_paraphrase_and_generic_options_failure() -> None:
+    message = "I want money fast, but I still have three years of college left and I don’t want to waste them only working. I honestly don’t know what to do next."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "You're trying to balance earning money quickly with finishing your last three years of college without wasting them on just working. "
+            "You could explore ways to earn money that fit around your studies, like part-time jobs, freelancing, or online sales. "
+            "What's the most important thing you'd want from a part-time job or side hustle to make it worth your time?"
+        ),
+        brief=brief,
+    )
+
+    assert "generic_question_loop" in evaluation.issues
+    assert "vacuous_restatement" in evaluation.issues
+    assert evaluation.score < 72
+    assert evaluation.repair_recommended is True
+
+
 def test_active_listener_accepts_specific_decision_frame_without_a_template() -> None:
     message = "I want money fast, but I still have three years of college left."
     classification = classify_message(message)

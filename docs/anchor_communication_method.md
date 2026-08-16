@@ -53,3 +53,11 @@ The response-quality layer enforces observable defects before an optional single
 ## Success criteria
 
 A high-quality Active Listener reply is language-correct, does not invent continuity, includes a concrete anchor from the current message, adds value beyond paraphrase, respects stated boundaries, and asks no more than one useful question. It should feel like a thoughtful person understood the actual point—not like a generic mental-wellness template.
+
+## Production verification setup
+
+The deployed build was opened with a cache-busting URL and a new non-destructive conversation was started before verification. This prevents historic responses from influencing the test. The production selector showed **Standard · Active Listen**, confirming that the test will use the user-selected Active Listener preference.
+
+## Production test finding — refinement required
+
+The first production reply under Active Listen was language-correct, referred to the user’s three college years, and did not use a banned stock lead-in. However, it still mostly paraphrased the dilemma, listed broad categories such as part-time work, freelancing, and online sales, and ended with a vague preference question. This does **not** meet ANCHOR’s contribution standard. The next refinement must detect a reply that has high lexical overlap with the user message but no decision frame, bounded action, or concrete constraint, then require a repair.
