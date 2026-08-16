@@ -18,3 +18,7 @@ The Privacy Policy documents Local Mode, Cloud Mode, optional memory, supported 
 Both pages include direct navigation back to MindPal, cross-links to one another, crawlable metadata, dark-mode support, keyboard focus styling, reduced-motion support, and sitemap entries.
 
 > This is a product-specific working draft. It should be reviewed by a qualified attorney before commercial reliance or a jurisdiction-specific launch.
+
+## Design simplification — August 16, 2026
+
+The legal pages were simplified after visual review. The decorative `M` monogram, document-card border and shadow, badge-style date treatment, and boxed return control were removed. The current production layouts use a text-only MindPal header, a plain return link, compact date text, an understated table of contents, and a shadow-free reading column. Both `/privacy` and `/terms` were visually verified in production after deployment.
