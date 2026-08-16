@@ -89,3 +89,43 @@ The final production response to the direct college-income dilemma was:
 > “You do not need to decide the next three college years today. This week, choose one small service you can offer using a skill you already have, cap it at five hours, and contact five people who might need it. At the end of the week, decide from the response—not from the idea alone. What skill could you test first?”
 
 The reply is entirely in the latest-message language, avoids the earlier scripted lead-ins, names the concrete three-year college constraint, contributes a bounded and reversible next move, and asks one narrow question. It satisfies the ANCHOR contract and replaces the prior paraphrase-plus-generic-question pattern in production.
+
+## Mode audit setup
+
+The production selector exposes two model depths—**Standard** and **Pro**—plus three listening styles under Standard: **Active Listen**, **Guided Coach**, and **Cognitive Tools**. The audit will test each style and model depth independently, using isolated conversations and the same transcript-derived failure prompts.
+
+## Cross-mode live audit — Active Listen
+
+Prompt: “I’m building a lot but it feels like I build air.”
+
+Observed reply: “You’re building a lot, but it feels like you’re building air. That’s a really interesting phrase—what does ‘building air’ mean to you in this context?”
+
+Finding: **weak**. The reply is short and language-correct, but it merely mirrors the user’s metaphor, adds empty praise, and makes the user do all the meaning-making. The dynamic system must select a concise *meaning-making* move here: offer one tentative, useful interpretation and one precise fork, rather than a literal repeat and broad clarification.
+
+## Mode-switch audit note
+
+The selector confirmed that listening-style changes are applied independently of the Standard model. During the Guided Coach switch attempt, the UI applied **Cognitive Tools** instead. Cognitive Tools will therefore be audited next, followed by an explicit Guided Coach selection in a fresh conversation.
+
+## Cross-mode live audit — Cognitive Tools
+
+Prompt: “I’m building a lot but it feels like I build air.”
+
+Observed reply: “It sounds like you’re feeling a sense of emptiness or futility… One possibility is… Take a step back and reflect…”
+
+Finding: **weak**. Cognitive Tools adds unsupported interpretations (“emptiness,” “disconnected from goals”), repeats banned stock lead-ins, and forces a generic values worksheet onto a short metaphorical message. The dynamic replacement needs an evidence ladder: distinguish an observation from a hypothesis, offer a small falsifiable check only when requested or clearly useful, and otherwise keep the reply short.
+
+## Cross-mode live audit — Guided Coach
+
+Prompt: “I’m building a lot but it feels like I build air.”
+
+Observed reply: a four-step generic task-breakdown checklist about manageable goals and regular breaks.
+
+Finding: **weak**. Guided Coach assumes the problem is task size, although the user said the issue is lack of tangible leverage or visible outcome. It is longer than the moment requires and provides a reusable productivity list rather than a discriminating next question or test. The dynamic system must first classify the bottleneck—scope, feedback, distribution, proof of progress, or energy—before choosing a coaching move.
+
+## Cross-mode live audit — Pro
+
+Prompt: “I’m building a lot but it feels like I build air.”
+
+Observed reply: Pro cited that the user had “mentioned feeling disconnected from goals or motivations,” even though that idea came from MindPal’s earlier Cognitive Tools response—not from the user. It then proposed generic external-versus-internal success metrics.
+
+Finding: **weak and safety-relevant**. Pro is treating prior assistant speculation as durable user context, which creates false continuity. The dynamic system must separate user-evidenced facts from assistant hypotheses, forbid recycling assistant inferences as user history, and apply the same concise-response rules to short prompts unless the user asks for depth.
