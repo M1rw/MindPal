@@ -284,6 +284,51 @@ def test_pro_style_rejects_prior_assistant_hypothesis_as_user_history() -> None:
     assert evaluation.repair_recommended is True
 
 
+def test_pro_fact_recap_uses_only_user_role_history() -> None:
+    message = "Before you suggest anything else, tell me only what I’ve actually said—not what you think it means."
+    classification = classify_message(message)
+    service = _service()
+    history = [
+        SimpleNamespace(role="user", content="I’m building a lot but it feels like I build air."),
+        SimpleNamespace(role="assistant", content="Your project is stalled and you're unsure why."),
+        SimpleNamespace(role="user", content="My project is not moving and I don’t know why."),
+    ]
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="cognitive_tools"),
+        chat_history=history,
+    )
+
+    bad_recap = service.evaluate(
+        user_message=message,
+        reply=(
+            "You've said: ‘I’m building a lot but it feels like I build air.’ "
+            "‘Your project is stalled and you're unsure why.’"
+        ),
+        brief=brief,
+    )
+    good_recap = service.evaluate(
+        user_message=message,
+        reply=(
+            "You said: ‘I’m building a lot but it feels like I build air.’ "
+            "You also said: ‘My project is not moving and I don’t know why.’"
+        ),
+        brief=brief,
+    )
+
+    assert brief.response_move == "fact_recap"
+    assert brief.reported_user_facts == (
+        "I’m building a lot but it feels like I build air.",
+        "My project is not moving and I don’t know why.",
+    )
+    assert "fact_recap_unverified_quote" in bad_recap.issues
+    assert bad_recap.repair_recommended is True
+    assert good_recap.score == 100
+    assert good_recap.issues == ()
+
+
 def test_active_listener_rejects_robotic_reflection_and_generic_question_loop() -> None:
     message = "I want money fast, but I still have three years of college left."
     classification = classify_message(message)
