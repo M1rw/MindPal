@@ -65,3 +65,15 @@ The first production reply under Active Listen was language-correct, referred to
 ## Production test finding — second refinement required
 
 After the first value gate, the live reply removed the generic option list but still produced a generic acknowledgement—“You’re in a tough spot”—followed by a broad question about what money would solve. It remains below the ANCHOR standard because it does not give the user a decision frame or default next move. The next refinement must require a concrete contribution whenever an Active Listener user directly asks what to do, rather than merely rejecting a particular option-list template.
+
+## Final verification setup
+
+After deployment of the direct-decision safeguard, a new non-destructive conversation was started on the cache-busted production build. Active Listen remains selected for the final exact-regression test.
+
+## Production test finding — runtime repair investigation
+
+The final response still surfaced a paraphrase plus a generic job suggestion and approval-seeking question, without the required bounded default move. That candidate should receive the new direct-decision quality issue. The next investigation is therefore runtime-focused: confirm that production enables quality repair and that the Active Listener metadata reaches the response-intelligence brief. The delivery must not be declared complete until this gate is demonstrably applied to a live reply.
+
+## Bounded deterministic fallback
+
+For a direct Active Listener request that the quality gate flags as missing a decision contribution, MindPal now applies a constrained fallback before optional model rewriting. The fallback is available only for the exact direct-decision pattern, includes one reversible time- or effort-bounded next move, preserves the latest-message language, and ends with at most one narrow question. This makes the core communication contract reliable even when a provider repair is unavailable or returns another generic response.
