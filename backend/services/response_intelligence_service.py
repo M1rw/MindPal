@@ -59,7 +59,7 @@ Rules:
 - Do not invent facts, memories, causes, diagnoses, certainty, or a hidden meaning the user did not support.
 - Follow the brief's response_move and target_shape. A move is a choice, not a checklist: do not include every possible move in one reply.
 - For meaning_making: add one tentative interpretation beyond the user's words. For a short metaphor, write a compact evidence fork: name two or three observable possibilities (for example, no finished version, no outside response, or no measurable result) and ask which is closest. Do not replace this with a philosophical reframe, a generic guessed cause, or a broad question about their projects.
-- For diagnostic_fork: ask one discriminating question with two or three concrete options; never ask a broad “tell me more” question.
+- For diagnostic_fork: ask one discriminating question with two or three concrete options; never ask a broad “tell me more” question. Do not assign a cause such as overthinking or analysis paralysis before there is evidence, and do not give a task list before the fork is answered.
 - For decision_frame: reduce the decision to the next reversible test; be concise and do not force a long plan.
 - For mini_plan: give no more than three situation-specific actions and only after the bottleneck is clear.
 - For evidence_check: separate what the user said from a tentative hypothesis; do not make a hypothesis sound like a remembered fact.
@@ -168,9 +168,10 @@ _LITERAL_MIRROR_OPENERS_RE = re.compile(
     r"you['’]?re\s+trying\s+to\s+balance|you\s+want\s+to\s+balance)"
 )
 _PREMATURE_GENERIC_PLAN_RE = re.compile(
-    r"(?is)\b(?:break\s+down\s+your\s+goals|smaller[,\s]+more\s+manageable\s+tasks|"
-    r"focus\s+on\s+one\s+task\s+at\s+a\s+time|take\s+regular\s+breaks|"
-    r"identify\s+the\s+most\s+important\s+task)\b"
+    r"(?is)\b(?:break(?:ing)?\s+down\s+(?:your\s+)?(?:goals?|project)\s+into\s+smaller[,\s]+(?:more\s+)?manageable\s+tasks|"
+    r"focus\s+on\s+(?:completing\s+)?one\s+task\s+at\s+a\s+time|take\s+regular\s+breaks|"
+    r"identify\s+the\s+(?:most\s+)?important\s+task|make\s+a\s+list\s+of\s+(?:the\s+)?tasks|"
+    r"prioriti[sz]e\s+the\s+(?:most\s+)?important\s+tasks?|set\s+specific[,\s]+achievable\s+goals)\b"
 )
 _ASSISTANT_HYPOTHESIS_AS_HISTORY_RE = re.compile(
     r"(?is)\b(?:i\s+(?:remember\s+)?you\s+mentioned|earlier\s+you\s+said)\b.*?"
@@ -238,7 +239,7 @@ class ResponseBrief:
             "HUMAN REPLY ORCHESTRATION: choose this response_move as the primary act for this turn; do not combine every available act.",
             "Use the target_shape as a length ceiling. A reply must earn lists, explanation, or a question; plain conversational prose is the default.",
             "Add one useful observation beyond literal mirroring, but do not invent a hidden motive, diagnosis, or backstory.",
-            "Ask at most one question, only when its answer changes the next helpful move. A diagnostic fork should offer concrete alternatives instead of 'tell me more'.",
+            "Ask at most one question, only when its answer changes the next helpful move. A diagnostic fork should offer concrete alternatives instead of 'tell me more'; do not name a cause or give a task list before the fork is answered.",
             "For a short metaphor in meaning_making, use a concrete evidence fork: name two or three observable possibilities such as visible output, outside response, or a finished version, then ask which is closest. Do not replace this with a philosophical reframe, an unsupported generic cause, or a broad question about projects.",
             "Never use stock lead-ins such as 'It sounds like', 'It seems like', 'One possibility is', 'That is a really interesting phrase', or 'Let's take a step back'.",
         ]
