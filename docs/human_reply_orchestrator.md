@@ -82,3 +82,13 @@ The old universal deterministic income fallback is removed. It solved one test c
 | “I can’t sleep after arguing with my brother.” | Hold space + small action | “The argument is still running in your head. Write the one sentence you wish had landed, then leave the conversation for tomorrow.” |
 
 The goal is not to imitate a therapist’s script. It is to make each response feel as though an intelligent, attentive person understood **this exact sentence** and chose the smallest helpful next move.
+
+## Production verification setup
+
+The completed production deployment was opened with a cache-busting URL. A new non-destructive conversation was started, clearing the pre-upgrade history. The remaining verification uses isolated, transcript-derived prompts and records the selected model and listening style with each result.
+
+The first live verification is configured as **Standard · Active Listen** in a clean conversation.
+
+## Production verification finding — Active Listen refinement required
+
+The first HRO Active Listen reply was shorter, but still said that the act of building itself might be what matters and asked, “What kind of things are you trying to build?” This is better than literal sentence copying, but it remains an unsupported reframe plus a broad clarification. The metaphor move will be tightened to require an evidence-led fork—such as visible output, external feedback, or completion—rather than a philosophical reframe or “what do you mean?” question.
