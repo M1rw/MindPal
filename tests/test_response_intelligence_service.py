@@ -164,6 +164,41 @@ def test_active_listener_rejects_ungrounded_metaphor_reframe() -> None:
     assert evaluation.repair_recommended is True
 
 
+def test_active_listener_requires_concrete_metaphor_evidence_fork() -> None:
+    message = "I’m building a lot but it feels like I build air."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    broad_reframe = service.evaluate(
+        user_message=message,
+        reply=(
+            "You're putting a lot of effort into building something, but it doesn't feel like "
+            "it's amounting to much. Maybe the things you're creating aren't having the impact "
+            "or getting the reaction you expected. What kind of projects are you working on?"
+        ),
+        brief=brief,
+    )
+    evidence_fork = service.evaluate(
+        user_message=message,
+        reply=(
+            "‘Building air’ can mean the work is not becoming a finished version, getting outside "
+            "feedback, or producing a result you can measure. Which is closest?"
+        ),
+        brief=brief,
+    )
+
+    assert "ungrounded_metaphor_reframe" in broad_reframe.issues
+    assert broad_reframe.repair_recommended is True
+    assert evidence_fork.score == 100
+    assert evidence_fork.issues == ()
+
+
 def test_guided_coach_rejects_premature_generic_checklist() -> None:
     message = "My project is not moving and I don’t know why."
     classification = classify_message(message)

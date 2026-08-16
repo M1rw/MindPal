@@ -58,7 +58,7 @@ Rules:
 - Answer or acknowledge the user's actual request first.
 - Do not invent facts, memories, causes, diagnoses, certainty, or a hidden meaning the user did not support.
 - Follow the brief's response_move and target_shape. A move is a choice, not a checklist: do not include every possible move in one reply.
-- For meaning_making: add one tentative interpretation beyond the user's words. For a short metaphor, translate it into two or three concrete possibilities and ask which is closest only if it changes the next reply; do not give a philosophical reframe or ask 'what do you mean?'.
+- For meaning_making: add one tentative interpretation beyond the user's words. For a short metaphor, write a compact evidence fork: name two or three observable possibilities (for example, no finished version, no outside response, or no measurable result) and ask which is closest. Do not replace this with a philosophical reframe, a generic guessed cause, or a broad question about their projects.
 - For diagnostic_fork: ask one discriminating question with two or three concrete options; never ask a broad “tell me more” question.
 - For decision_frame: reduce the decision to the next reversible test; be concise and do not force a long plan.
 - For mini_plan: give no more than three situation-specific actions and only after the bottleneck is clear.
@@ -178,8 +178,15 @@ _ASSISTANT_HYPOTHESIS_AS_HISTORY_RE = re.compile(
 )
 _UNGROUNDED_METAPHOR_REFRAME_RE = re.compile(
     r"(?is)\b(?:maybe\s+the\s+act\s+of\s+building\s+itself\s+is\s+what['’]?s\s+important|"
-    r"what\s+kind\s+of\s+things\s+are\s+you\s+trying\s+to\s+build|"
+    r"what\s+kind\s+of\s+(?:things|projects)\s+are\s+you\s+(?:trying\s+to\s+)?build(?:ing)?|"
     r"what\s+does\s+(?:building\s+air|that)\s+mean\s+to\s+you)\b"
+)
+_METAPHOR_FORK_CUE_RE = re.compile(
+    r"(?is)\b(?:which(?:\s+(?:one|is\s+closest|fits))?|more\s+like|is\s+it\s+(?:that|more))\b"
+)
+_METAPHOR_EVIDENCE_MARKERS = (
+    "visible", "output", "shipped", "finished", "version", "result", "feedback",
+    "response", "user", "users", "money", "traction", "measured", "measurable", "measure",
 )
 _NOISE_ONLY_RE = re.compile(r"(?is)^[a-z]{4,}$")
 
@@ -232,7 +239,7 @@ class ResponseBrief:
             "Use the target_shape as a length ceiling. A reply must earn lists, explanation, or a question; plain conversational prose is the default.",
             "Add one useful observation beyond literal mirroring, but do not invent a hidden motive, diagnosis, or backstory.",
             "Ask at most one question, only when its answer changes the next helpful move. A diagnostic fork should offer concrete alternatives instead of 'tell me more'.",
-            "For a short metaphor, do not offer a philosophical reframe or ask 'what do you mean?'. Translate it into a concrete evidence fork—such as visible output, outside response, or a finished version—and ask which is closest only if needed.",
+            "For a short metaphor in meaning_making, use a concrete evidence fork: name two or three observable possibilities such as visible output, outside response, or a finished version, then ask which is closest. Do not replace this with a philosophical reframe, an unsupported generic cause, or a broad question about projects.",
             "Never use stock lead-ins such as 'It sounds like', 'It seems like', 'One possibility is', 'That is a really interesting phrase', or 'Let's take a step back'.",
         ]
         lines.append("Use this as a steering brief, not as a fact about the user. Do not mention the brief.")
@@ -456,7 +463,7 @@ class ResponseIntelligenceService:
                 issues.append("literal_mirroring")
             if _PREMATURE_GENERIC_PLAN_RE.search(text) and brief.response_move == "diagnostic_fork":
                 issues.append("premature_generic_plan")
-            if _UNGROUNDED_METAPHOR_REFRAME_RE.search(text) and brief.response_move == "meaning_making":
+            if _is_ungrounded_metaphor_reply(message=message, reply=text, brief=brief):
                 issues.append("ungrounded_metaphor_reframe")
             if brief.communication_style == "active_listener":
                 if _ROBOTIC_REFLECTION_RE.search(text):
@@ -734,6 +741,29 @@ def _is_generic_coping_cliche(user_message: str, reply: str) -> bool:
     meaningful_overlap = (user_words & reply_words) - {"normal", "feel", "nervous", "anxious", "breaths", "breath"}
     return not meaningful_overlap
 
+
+
+def _is_ungrounded_metaphor_reply(*, message: str, reply: str, brief: ResponseBrief) -> bool:
+    """Require an evidence fork for the short-metaphor meaning-making move.
+
+    This narrow rule applies only to the specific move selected for phrases such
+    as “building air.” It rejects philosophical reframes, made-up causal stories,
+    and broad clarification questions. A model still has freedom of voice, but
+    must offer at least two observable possibilities and a discriminating fork.
+    """
+    if brief.response_move != "meaning_making":
+        return False
+    lowered_message = (message or "").lower()
+    is_building_air_metaphor = any(
+        marker in lowered_message
+        for marker in ("building air", "build air", "feels like i build", "ببني هوا")
+    )
+    if not is_building_air_metaphor:
+        return False
+    lowered_reply = (reply or "").lower()
+    evidence_count = sum(marker in lowered_reply for marker in _METAPHOR_EVIDENCE_MARKERS)
+    has_evidence_fork = bool(_METAPHOR_FORK_CUE_RE.search(lowered_reply) and evidence_count >= 2)
+    return bool(_UNGROUNDED_METAPHOR_REFRAME_RE.search(reply or "") or not has_evidence_fork)
 
 
 def _is_vacuous_active_listener_reply(user_message: str, reply: str) -> bool:
