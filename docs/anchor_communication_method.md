@@ -77,3 +77,15 @@ The final response still surfaced a paraphrase plus a generic job suggestion and
 ## Bounded deterministic fallback
 
 For a direct Active Listener request that the quality gate flags as missing a decision contribution, MindPal now applies a constrained fallback before optional model rewriting. The fallback is available only for the exact direct-decision pattern, includes one reversible time- or effort-bounded next move, preserves the latest-message language, and ends with at most one narrow question. This makes the core communication contract reliable even when a provider repair is unavailable or returns another generic response.
+
+## Deterministic fallback production verification setup
+
+The final production build was opened with a cache-busting URL and a new non-destructive conversation. Active Listen remained selected. The next reply will be evaluated against the exact direct-decision prompt that previously produced generic paraphrases.
+
+## Final production verification — passed
+
+The final production response to the direct college-income dilemma was:
+
+> “You do not need to decide the next three college years today. This week, choose one small service you can offer using a skill you already have, cap it at five hours, and contact five people who might need it. At the end of the week, decide from the response—not from the idea alone. What skill could you test first?”
+
+The reply is entirely in the latest-message language, avoids the earlier scripted lead-ins, names the concrete three-year college constraint, contributes a bounded and reversible next move, and asks one narrow question. It satisfies the ANCHOR contract and replaces the prior paraphrase-plus-generic-question pattern in production.
