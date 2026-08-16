@@ -183,6 +183,33 @@ def test_safe_mode_runtime_debugger_route_and_assets_are_delivered() -> None:
     assert "mindpal_safe_mode_trace" in chat_bundle.text
 
 
+def test_privacy_and_terms_pages_are_publicly_delivered_and_linked() -> None:
+    root = Path(__file__).resolve().parents[1]
+    with TestClient(app) as client:
+        privacy_page = client.get("/privacy")
+        terms_page = client.get("/terms")
+        legal_css = client.get("/css/legal.css")
+
+    sitemap = (root / "frontend" / "sitemap.xml").read_text(encoding="utf-8")
+    index_source = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    assert privacy_page.status_code == 200
+    assert "Privacy Policy — MindPal" in privacy_page.text
+    assert "Local Mode" in privacy_page.text
+    assert 'href="/terms"' in privacy_page.text
+    assert terms_page.status_code == 200
+    assert "Terms of Service — MindPal" in terms_page.text
+    assert "Safety and health boundaries" in terms_page.text
+    assert 'href="/privacy"' in terms_page.text
+    assert legal_css.status_code == 200
+    assert ".legal-document" in legal_css.text
+    assert "prefers-reduced-motion" in legal_css.text
+    assert "https://mindpal-demo.vercel.app/privacy" in sitemap
+    assert "https://mindpal-demo.vercel.app/terms" in sitemap
+    assert 'href="/privacy"' in index_source
+    assert 'href="/terms"' in index_source
+
+
 def test_frontend_does_not_ship_user_visible_thought_duration() -> None:
     from pathlib import Path
 
