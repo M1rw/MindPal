@@ -139,6 +139,31 @@ def test_active_listener_rejects_live_literal_mirroring_failure() -> None:
     assert evaluation.repair_recommended is True
 
 
+def test_active_listener_rejects_ungrounded_metaphor_reframe() -> None:
+    message = "I’m building a lot but it feels like I build air."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "You're putting in a lot of effort to build something, but it doesn't feel substantial. "
+            "Maybe the act of building itself is what's important, rather than just the end result. "
+            "What kind of things are you trying to build?"
+        ),
+        brief=brief,
+    )
+
+    assert "ungrounded_metaphor_reframe" in evaluation.issues
+    assert evaluation.repair_recommended is True
+
+
 def test_guided_coach_rejects_premature_generic_checklist() -> None:
     message = "My project is not moving and I don’t know why."
     classification = classify_message(message)

@@ -42,6 +42,7 @@ QualityIssue = Literal[
     "premature_generic_plan",
     "unsupported_assistant_hypothesis",
     "overlong_for_turn",
+    "ungrounded_metaphor_reframe",
 ]
 
 _REPAIR_JSON_PROMPT = """You are MindPal's response-quality editor.
@@ -57,7 +58,7 @@ Rules:
 - Answer or acknowledge the user's actual request first.
 - Do not invent facts, memories, causes, diagnoses, certainty, or a hidden meaning the user did not support.
 - Follow the brief's response_move and target_shape. A move is a choice, not a checklist: do not include every possible move in one reply.
-- For meaning_making: add one tentative interpretation beyond the user's words, then use one precise fork only if it changes the next reply.
+- For meaning_making: add one tentative interpretation beyond the user's words. For a short metaphor, translate it into two or three concrete possibilities and ask which is closest only if it changes the next reply; do not give a philosophical reframe or ask 'what do you mean?'.
 - For diagnostic_fork: ask one discriminating question with two or three concrete options; never ask a broad “tell me more” question.
 - For decision_frame: reduce the decision to the next reversible test; be concise and do not force a long plan.
 - For mini_plan: give no more than three situation-specific actions and only after the bottleneck is clear.
@@ -175,6 +176,11 @@ _ASSISTANT_HYPOTHESIS_AS_HISTORY_RE = re.compile(
     r"(?is)\b(?:i\s+(?:remember\s+)?you\s+mentioned|earlier\s+you\s+said)\b.*?"
     r"\b(?:disconnected\s+from\s+(?:your\s+)?goals?|empty|futility|freeze\s+response)\b"
 )
+_UNGROUNDED_METAPHOR_REFRAME_RE = re.compile(
+    r"(?is)\b(?:maybe\s+the\s+act\s+of\s+building\s+itself\s+is\s+what['’]?s\s+important|"
+    r"what\s+kind\s+of\s+things\s+are\s+you\s+trying\s+to\s+build|"
+    r"what\s+does\s+(?:building\s+air|that)\s+mean\s+to\s+you)\b"
+)
 _NOISE_ONLY_RE = re.compile(r"(?is)^[a-z]{4,}$")
 
 
@@ -226,6 +232,7 @@ class ResponseBrief:
             "Use the target_shape as a length ceiling. A reply must earn lists, explanation, or a question; plain conversational prose is the default.",
             "Add one useful observation beyond literal mirroring, but do not invent a hidden motive, diagnosis, or backstory.",
             "Ask at most one question, only when its answer changes the next helpful move. A diagnostic fork should offer concrete alternatives instead of 'tell me more'.",
+            "For a short metaphor, do not offer a philosophical reframe or ask 'what do you mean?'. Translate it into a concrete evidence fork—such as visible output, outside response, or a finished version—and ask which is closest only if needed.",
             "Never use stock lead-ins such as 'It sounds like', 'It seems like', 'One possibility is', 'That is a really interesting phrase', or 'Let's take a step back'.",
         ]
         lines.append("Use this as a steering brief, not as a fact about the user. Do not mention the brief.")
@@ -449,6 +456,8 @@ class ResponseIntelligenceService:
                 issues.append("literal_mirroring")
             if _PREMATURE_GENERIC_PLAN_RE.search(text) and brief.response_move == "diagnostic_fork":
                 issues.append("premature_generic_plan")
+            if _UNGROUNDED_METAPHOR_REFRAME_RE.search(text) and brief.response_move == "meaning_making":
+                issues.append("ungrounded_metaphor_reframe")
             if brief.communication_style == "active_listener":
                 if _ROBOTIC_REFLECTION_RE.search(text):
                     issues.append("robotic_reflection_template")
@@ -481,6 +490,7 @@ class ResponseIntelligenceService:
             "premature_generic_plan": 30,
             "unsupported_assistant_hypothesis": 45,
             "overlong_for_turn": 16,
+            "ungrounded_metaphor_reframe": 30,
         }
         score = max(0, 100 - sum(penalties[issue] for issue in issues))
         threshold = int(getattr(self.settings, "RESPONSE_QUALITY_MIN_SCORE", 72))
