@@ -409,6 +409,22 @@ def _install_frontend_routes(app: FastAPI) -> None:
     async def sitemap_xml() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "sitemap.xml", media_type="application/xml")
 
+    @app.get("/privacy", include_in_schema=False)
+    async def privacy_page() -> FileResponse:
+        return FileResponse(
+            FRONTEND_DIR / "privacy.html",
+            media_type="text/html; charset=utf-8",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    @app.get("/terms", include_in_schema=False)
+    async def terms_page() -> FileResponse:
+        return FileResponse(
+            FRONTEND_DIR / "terms.html",
+            media_type="text/html; charset=utf-8",
+            headers={"Cache-Control": "no-cache"},
+        )
+
     @app.get("/brain", include_in_schema=False)
     async def brain_page() -> FileResponse:
         return FileResponse(
