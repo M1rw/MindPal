@@ -167,6 +167,37 @@ def test_active_listener_accepts_bounded_default_move_for_direct_decision_reques
     assert evaluation.issues == ()
 
 
+@pytest.mark.asyncio
+async def test_active_listener_uses_deterministic_decision_fallback_without_remote_repair() -> None:
+    message = "I want money fast, but I still have three years of college left and I don’t want to waste them only working. I honestly don’t know what to do next."
+    classification = classify_message(message)
+    service = _service(ENABLE_RESPONSE_QUALITY_REPAIR=False)
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    outcome = await service.improve_if_needed(
+        user_message=message,
+        candidate_reply=(
+            "You're trying to balance earning money quickly with finishing college. "
+            "Part-time work or freelancing could fit your schedule. Would exploring job options be a good next step?"
+        ),
+        brief=brief,
+        locale="en",
+        safety_level="safe",
+        request_id="active-listener-deterministic-fallback",
+    )
+
+    assert outcome.repaired is True
+    assert outcome.repair_provider == "deterministic_anchor"
+    assert "This week" in outcome.reply
+    assert "five hours" in outcome.reply
+    assert outcome.evaluation.score == 100
+
+
 def test_active_listener_accepts_specific_decision_frame_without_a_template() -> None:
     message = "I want money fast, but I still have three years of college left."
     classification = classify_message(message)

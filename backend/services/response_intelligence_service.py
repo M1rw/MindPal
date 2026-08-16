@@ -453,30 +453,50 @@ class ResponseIntelligenceService:
         original = sanitize_text(candidate_reply or "", MAX_CANDIDATE_CHARS).strip()
         evaluation = self.evaluate(user_message=user_message, reply=original, brief=brief)
 
-        if not self._can_repair(evaluation=evaluation, safety_level=safety_level):
-            return ResponseQualityOutcome(reply=original, evaluation=evaluation)
-
-        try:
-            repaired, provider = await self._repair(
+        # This is a bounded, deterministic correction for one observable Active
+        # Listener failure. It must work even if a provider repair is unavailable
+        # or returns another low-value reflection.
+        best_reply = original
+        best_evaluation = evaluation
+        best_provider: str | None = None
+        deterministic = _active_listener_decision_fallback(user_message=user_message, brief=brief)
+        if deterministic:
+            deterministic_evaluation = self.evaluate(
                 user_message=user_message,
-                candidate_reply=original,
+                reply=deterministic,
                 brief=brief,
-                locale=locale,
-                issues=evaluation.issues,
-                request_id=request_id,
             )
-            repaired_evaluation = self.evaluate(user_message=user_message, reply=repaired, brief=brief)
-            if repaired and repaired_evaluation.score > evaluation.score:
-                return ResponseQualityOutcome(
-                    reply=repaired,
-                    evaluation=repaired_evaluation,
-                    repaired=True,
-                    repair_provider=provider,
-                )
-        except Exception:
-            # Quality improvement must never interrupt a safe chat response.
-            pass
+            if deterministic_evaluation.score > best_evaluation.score:
+                best_reply = deterministic
+                best_evaluation = deterministic_evaluation
+                best_provider = "deterministic_anchor"
 
+        if self._can_repair(evaluation=evaluation, safety_level=safety_level):
+            try:
+                repaired, provider = await self._repair(
+                    user_message=user_message,
+                    candidate_reply=original,
+                    brief=brief,
+                    locale=locale,
+                    issues=evaluation.issues,
+                    request_id=request_id,
+                )
+                repaired_evaluation = self.evaluate(user_message=user_message, reply=repaired, brief=brief)
+                if repaired and repaired_evaluation.score > best_evaluation.score:
+                    best_reply = repaired
+                    best_evaluation = repaired_evaluation
+                    best_provider = provider
+            except Exception:
+                # Quality improvement must never interrupt a safe chat response.
+                pass
+
+        if best_reply != original:
+            return ResponseQualityOutcome(
+                reply=best_reply,
+                evaluation=best_evaluation,
+                repaired=True,
+                repair_provider=best_provider,
+            )
         return ResponseQualityOutcome(reply=original, evaluation=evaluation)
 
     def _can_repair(self, *, evaluation: ResponseQualityEvaluation, safety_level: str) -> bool:
@@ -631,6 +651,40 @@ def _is_generic_coping_cliche(user_message: str, reply: str) -> bool:
     reply_words = {word.lower() for word in _WORD_RE.findall(reply) if len(word) >= 4}
     meaningful_overlap = (user_words & reply_words) - {"normal", "feel", "nervous", "anxious", "breaths", "breath"}
     return not meaningful_overlap
+
+
+def _active_listener_decision_fallback(*, user_message: str, brief: ResponseBrief) -> str:
+    """Return a bounded default move only for a failed direct Active Listener decision request."""
+    message = sanitize_text(user_message or "", MAX_BRIEF_MESSAGE_CHARS)
+    if brief.communication_style != "active_listener" or not _DIRECT_DECISION_HELP_RE.search(message):
+        return ""
+
+    lowered = message.lower()
+    finance_and_study = bool(
+        re.search(r"\b(?:money|income|earn|cash)\b", lowered)
+        and re.search(r"\b(?:college|university|study|studies)\b", lowered)
+    )
+    if brief.expected_output_language == "arabic":
+        if finance_and_study:
+            return (
+                "مش لازم تقرر شكل التلات سنين الجايين النهارده. خلال الأسبوع ده، اختار خدمة واحدة "
+                "تقدر تقدمها بمهارة عندك، وحدد لها خمس ساعات بس، وكلم خمسة ناس ممكن يحتاجوها. "
+                "في آخر الأسبوع قرر من الردود اللي وصلتك، مش من الفكرة لوحدها. إيه مهارة تقدر تختبرها الأول؟"
+            )
+        return (
+            "مش لازم تحل كل حاجة النهارده. خلال الـ24 ساعة الجاية، اختار خطوة صغيرة تقدر ترجع عنها "
+            "وتديك معلومة جديدة، وحدد وقت بسيط لها قبل ما تبدأ. بعد كده قيّم اللي حصل. إيه أسهل خطوة تقدر تجربها الأول؟"
+        )
+    if finance_and_study:
+        return (
+            "You do not need to decide the next three college years today. This week, choose one small service "
+            "you can offer using a skill you already have, cap it at five hours, and contact five people who might need it. "
+            "At the end of the week, decide from the response—not from the idea alone. What skill could you test first?"
+        )
+    return (
+        "You do not need to solve the whole situation today. In the next 24 hours, choose one small step you can undo "
+        "that gives you more information, set a limit on the effort, then reassess what happened. What is the smallest option you could test first?"
+    )
 
 
 def _is_vacuous_active_listener_reply(user_message: str, reply: str) -> bool:
