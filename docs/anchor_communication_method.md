@@ -61,3 +61,7 @@ The deployed build was opened with a cache-busting URL and a new non-destructive
 ## Production test finding — refinement required
 
 The first production reply under Active Listen was language-correct, referred to the user’s three college years, and did not use a banned stock lead-in. However, it still mostly paraphrased the dilemma, listed broad categories such as part-time work, freelancing, and online sales, and ended with a vague preference question. This does **not** meet ANCHOR’s contribution standard. The next refinement must detect a reply that has high lexical overlap with the user message but no decision frame, bounded action, or concrete constraint, then require a repair.
+
+## Production test finding — second refinement required
+
+After the first value gate, the live reply removed the generic option list but still produced a generic acknowledgement—“You’re in a tough spot”—followed by a broad question about what money would solve. It remains below the ANCHOR standard because it does not give the user a decision frame or default next move. The next refinement must require a concrete contribution whenever an Active Listener user directly asks what to do, rather than merely rejecting a particular option-list template.
