@@ -182,10 +182,10 @@ _UNGROUNDED_METAPHOR_REFRAME_RE = re.compile(
     r"what\s+does\s+(?:building\s+air|that)\s+mean\s+to\s+you)\b"
 )
 _METAPHOR_FORK_CUE_RE = re.compile(
-    r"(?is)\b(?:which(?:\s+(?:one|is\s+closest|fits))?|more\s+like|is\s+it\s+(?:that|more))\b"
+    r"(?is)\b(?:which(?:\s+(?:one|is\s+(?:closest|most\s+true)|fits|resonates(?:\s+with\s+you)?))?|more\s+like|is\s+it\s+(?:that|more))\b"
 )
 _METAPHOR_EVIDENCE_MARKERS = (
-    "visible", "output", "shipped", "finished", "version", "result", "feedback",
+    "visible", "output", "shipped", "finished", "version", "result", "outcome", "completion", "feedback",
     "response", "user", "users", "money", "traction", "measured", "measurable", "measure",
 )
 _NOISE_ONLY_RE = re.compile(r"(?is)^[a-z]{4,}$")

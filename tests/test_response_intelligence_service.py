@@ -192,11 +192,21 @@ def test_active_listener_requires_concrete_metaphor_evidence_fork() -> None:
         ),
         brief=brief,
     )
+    natural_evidence_fork = service.evaluate(
+        user_message=message,
+        reply=(
+            "Maybe what you're building is missing a tangible outcome, a meaningful response from "
+            "others, or a sense of completion — which one resonates with you?"
+        ),
+        brief=brief,
+    )
 
     assert "ungrounded_metaphor_reframe" in broad_reframe.issues
     assert broad_reframe.repair_recommended is True
     assert evidence_fork.score == 100
     assert evidence_fork.issues == ()
+    assert natural_evidence_fork.score == 100
+    assert natural_evidence_fork.issues == ()
 
 
 def test_guided_coach_rejects_premature_generic_checklist() -> None:
