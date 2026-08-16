@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from backend.core.config import Settings
@@ -43,6 +45,95 @@ def test_brief_permits_light_warmth_only_when_not_distressed() -> None:
     assert brief.social_tone == "light_or_playful"
     assert brief.can_use_light_warmth is True
     assert brief.needs_concrete_step is False
+
+
+def test_active_listener_brief_includes_anchor_communication_contract() -> None:
+    message = "I want money fast, but I still have three years of college left."
+    classification = classify_message(message)
+    brief = _service().build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    assert brief.communication_style == "active_listener"
+    assert brief.needs_concrete_step is False
+    assert "ACTIVE LISTENER — ANCHOR COMMUNICATION CONTRACT:" in brief.to_prompt()
+    assert "Never use stock lead-ins" in brief.to_prompt()
+
+
+def test_active_listener_rejects_robotic_reflection_and_generic_question_loop() -> None:
+    message = "I want money fast, but I still have three years of college left."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "It seems like you are under pressure. One possibility is that you need more options. "
+            "What do you think is the most pressing issue right now?"
+        ),
+        brief=brief,
+    )
+
+    assert "robotic_reflection_template" in evaluation.issues
+    assert "generic_question_loop" in evaluation.issues
+    assert evaluation.score < 72
+    assert evaluation.repair_recommended is True
+
+
+def test_active_listener_accepts_specific_decision_frame_without_a_template() -> None:
+    message = "I want money fast, but I still have three years of college left."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "With three college years left, you want income soon without turning college into nonstop work. "
+            "The real split is fast cash versus something that can keep paying you later. "
+            "List one skill you can sell this month and the hours you can protect each week; that tells us whether a small service is realistic."
+        ),
+        brief=brief,
+    )
+
+    assert evaluation.score == 100
+    assert evaluation.issues == ()
+
+
+def test_tiered_prompt_carries_active_listener_anchor_contract() -> None:
+    message = "I want money fast, but I still have three years of college left."
+    classification = classify_message(message)
+    brief = _service().build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="active_listen"),
+    )
+
+    prompt = build_tiered_prompt(
+        classification=classification,
+        locale="auto",
+        response_mode="normal_support",
+        response_brief=brief.to_prompt(),
+    )
+
+    assert "ACTIVE LISTENER — ANCHOR COMMUNICATION CONTRACT:" in prompt
+    assert "Never use stock lead-ins" in prompt
+    assert "ABSOLUTE FINAL RULE — LANGUAGE:" in prompt
 
 
 def test_quality_evaluator_flags_generic_support_without_grounding() -> None:
