@@ -233,6 +233,32 @@ def test_guided_coach_rejects_premature_generic_checklist() -> None:
     assert evaluation.repair_recommended is True
 
 
+def test_guided_coach_rejects_live_ungrounded_cause_and_generic_plan() -> None:
+    message = "My project is not moving and I don’t know why."
+    classification = classify_message(message)
+    service = _service()
+    brief = service.build_brief(
+        user_message=message,
+        classification=classification,
+        response_mode="normal_support",
+        metadata=SimpleNamespace(mode="guided_coach"),
+    )
+
+    evaluation = service.evaluate(
+        user_message=message,
+        reply=(
+            "One possibility is that you're overthinking or overplanning, which can lead to analysis paralysis. "
+            "Try breaking down your project into smaller, manageable tasks. Focus on completing one task at a time. "
+            "Make a list of the tasks that need to be done, prioritize the most important tasks, and set specific, achievable goals."
+        ),
+        brief=brief,
+    )
+
+    assert "premature_generic_plan" in evaluation.issues
+    assert "robotic_reflection_template" not in evaluation.issues
+    assert evaluation.repair_recommended is True
+
+
 def test_pro_style_rejects_prior_assistant_hypothesis_as_user_history() -> None:
     message = "I’m building a lot but it feels like I build air."
     classification = classify_message(message)
