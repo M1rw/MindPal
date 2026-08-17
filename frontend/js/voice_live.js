@@ -175,9 +175,8 @@ export async function startLiveVoice(contextProvider = null) {
     });
     setAnalysers({ mic: micAnalyser, ai: aiAnalyser });
 
-    if (statusEl) statusEl.textContent = "Listening…";
-    overlay.dataset.voicePhase = "listening";
-    setPalette("listen");
+    // Keep the connection-only spinner visible until the live session itself
+    // emits its setup-complete Listening state through handleAudioState().
   } catch (error) {
     console.error("Failed to start Live Voice", error);
     if (statusEl) statusEl.textContent = "Error: " + (error.message || "Failed to connect");
