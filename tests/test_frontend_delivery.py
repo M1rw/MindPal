@@ -321,3 +321,16 @@ def test_runtime_config_uses_same_origin_auth_domain_only_with_firebase_proxy() 
 
     assert '"authDomain":"mindpal-demo.vercel.app"' in response_text
     assert '"FIREBASE_ENABLED":true' in response_text
+
+
+def test_voice_overlay_exposes_holographic_connection_state_accessibly() -> None:
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    css = (root / "frontend" / "css" / "style.css").read_text(encoding="utf-8")
+
+    assert 'id="voice-holo-loader"' in html
+    assert 'id="voice-live-status" aria-live="polite"' in html
+    assert ".voice-holo-loader" in css
+    assert 'data-voice-phase="connecting"' in css
+    assert 'data-voice-phase="attending"' in css
+    assert "@media (prefers-reduced-motion: reduce)" in css

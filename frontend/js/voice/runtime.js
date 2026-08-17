@@ -29,6 +29,9 @@ const RECONNECT_BASE_DELAY_MS = 450;
 const BACKGROUND_TOOL_NAMES = new Set(["web_search"]);
 const MAX_BACKGROUND_TOOL_TASKS = 2;
 const BACKGROUND_TOOL_TIMEOUT_MS = 12_000;
+const STALE_MODEL_RESPONSE_MS = 45_000;
+const BARGE_IN_FADE_MS = 120;
+const LONG_SPEECH_LISTENER_CUE_MS = 2_400;
 
 function quoteUntrustedProfileValue(value, maxChars = 120) {
   const cleaned = String(value || "")
@@ -67,7 +70,11 @@ export function createVoiceSessionController() {
     bargeInStartedAt: 0,
     userTurnCompleteTimer: null,
     lastUserSpeechAt: 0,
+    userSpeechStartedAt: 0,
+    listenerCueSentForTurn: false,
     speechSeenRecently: false,
+    awaitingModelResponseAt: 0,
+    _staleSocketCloseRequested: false,
     lastActivityTime: 0,
     silenceCheckInterval: null,
     keepAliveInterval: null,
@@ -250,6 +257,7 @@ export function createVoiceSessionController() {
     // the server close the spoken turn without appending an empty client turn.
     sendSilenceFrame({ force: true });
     state.speechSeenRecently = false;
+    state.awaitingModelResponseAt = Date.now();
   }
 
   function noteUserSpeechActivity() {
@@ -259,12 +267,22 @@ export function createVoiceSessionController() {
     if (startsNewUserTurn) {
       state._conversationEpoch += 1;
       state._inputTurnActive = true;
+      state.userSpeechStartedAt = state.lastUserSpeechAt;
+      state.listenerCueSentForTurn = false;
+      state.awaitingModelResponseAt = 0;
       cancelStaleBackgroundTasks();
     }
     clearTurnCompleteTimer();
 
     if (!state.isAiSpeaking && state.sessionPhase !== "interrupting") {
       setSessionPhase("attending");
+    }
+
+    if (!state.listenerCueSentForTurn
+      && state.userSpeechStartedAt
+      && state.lastUserSpeechAt - state.userSpeechStartedAt >= LONG_SPEECH_LISTENER_CUE_MS) {
+      state.listenerCueSentForTurn = true;
+      setSessionPhase("attending", { listenerCue: "I’m with you — keep going." });
     }
 
     const wordCount = (state._lastUserTranscript || "").trim().split(/\s+/).filter(Boolean).length;
@@ -322,9 +340,9 @@ export function createVoiceSessionController() {
           const now = state.audioContext.currentTime;
           gainNode.gain.cancelScheduledValues(now);
           gainNode.gain.setValueAtTime(Math.max(0.0001, gainNode.gain.value), now);
-          gainNode.gain.linearRampToValueAtTime(0.0001, now + 0.04);
+          gainNode.gain.linearRampToValueAtTime(0.0001, now + BARGE_IN_FADE_MS / 1000);
         }
-        source.stop(state.audioContext ? state.audioContext.currentTime + 0.04 : undefined);
+        source.stop(state.audioContext ? state.audioContext.currentTime + BARGE_IN_FADE_MS / 1000 : undefined);
       } catch {
         // Already stopped.
       }
@@ -422,6 +440,15 @@ export function createVoiceSessionController() {
     state.silenceCheckInterval = null;
   }
 
+  function requestSocketReconnect(reason = "stale-response") {
+    if (!socketIsOpen() || state._staleSocketCloseRequested) return;
+    state._staleSocketCloseRequested = true;
+    state.awaitingModelResponseAt = 0;
+    console.warn(`[Voice] Reconnecting after ${reason}.`);
+    setSessionPhase("recovering", { reconnectReason: reason });
+    try { state.liveWebSocket.close(4000, reason); } catch {}
+  }
+
   function startNetworkMonitor() {
     stopNetworkMonitor();
     state._lastWsMessageTime = Date.now();
@@ -441,13 +468,19 @@ export function createVoiceSessionController() {
     state._networkHandlers = { onOffline, onOnline };
 
     state._networkCheckInterval = setInterval(() => {
-      if (!state.isSessionActive || !state.liveWebSocket) return;
-      const elapsed = Date.now() - state._lastWsMessageTime;
-      if (elapsed > 45_000 && socketIsOpen()) {
-        console.warn("[Voice] WebSocket stale; reconnecting.");
-        try { state.liveWebSocket.close(4000, "stale-connection"); } catch {}
+      if (!state.isSessionActive || !state.liveWebSocket || !state._setupComplete) return;
+      // A healthy Live connection can be quiet while the user is speaking or simply
+      // listening. Reconnect only after MindPal has explicitly waited too long for a
+      // response to a completed turn, never merely because no server message arrived.
+      const awaitingResponse = state.awaitingModelResponseAt;
+      const canReconnect = awaitingResponse
+        && !state.isAiSpeaking
+        && !state._toolCallPending
+        && !state.speechSeenRecently;
+      if (canReconnect && Date.now() - awaitingResponse > STALE_MODEL_RESPONSE_MS) {
+        requestSocketReconnect("stale-model-response");
       }
-    }, 15_000);
+    }, 10_000);
   }
 
   function stopNetworkMonitor() {
@@ -716,6 +749,7 @@ export function createVoiceSessionController() {
 
   function handleServerMessage(data) {
     if (!data || typeof data !== "object") return;
+    state.awaitingModelResponseAt = 0;
 
     const resumption = data.sessionResumptionUpdate;
     if (resumption?.resumable && resumption.newHandle) {
@@ -727,9 +761,7 @@ export function createVoiceSessionController() {
       if (state._sessionResumptionHandle && !state._goAwayTimer) {
         state._goAwayTimer = setTimeout(() => {
           state._goAwayTimer = null;
-          if (socketIsOpen()) {
-            try { state.liveWebSocket.close(4000, "server-go-away"); } catch {}
-          }
+          if (socketIsOpen()) requestSocketReconnect("server-go-away");
         }, 250);
       }
       return;
@@ -843,6 +875,8 @@ export function createVoiceSessionController() {
 
     clearReconnectTimer();
     state._setupComplete = false;
+    state._staleSocketCloseRequested = false;
+    state.awaitingModelResponseAt = 0;
     const generation = ++state._socketGeneration;
     const socket = new WebSocket(buildEphemeralVoiceWebSocketUrl(credentials));
     state.liveWebSocket = socket;
@@ -887,13 +921,17 @@ export function createVoiceSessionController() {
       if (state.liveWebSocket === socket) state.liveWebSocket = null;
       if (!state.isSessionActive || state.isStopping) return;
 
-      const classification = classifySocketClose({
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
-        hasSetupComplete: state._setupComplete,
-        greetingSent: state._greetingSent,
-      });
+      const forcedReconnect = state._staleSocketCloseRequested;
+      state._staleSocketCloseRequested = false;
+      const classification = forcedReconnect
+        ? { retryable: true, reason: "stale-model-response" }
+        : classifySocketClose({
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          hasSetupComplete: state._setupComplete,
+          greetingSent: state._greetingSent,
+        });
 
       if (classification.retryable) {
         scheduleReconnect(classification.reason);
@@ -1073,6 +1111,10 @@ export function createVoiceSessionController() {
     state.bargeInStartedAt = 0;
     state.speechSeenRecently = false;
     state.lastUserSpeechAt = 0;
+    state.userSpeechStartedAt = 0;
+    state.listenerCueSentForTurn = false;
+    state.awaitingModelResponseAt = 0;
+    state._staleSocketCloseRequested = false;
     clearTurnCompleteTimer();
     clearListeningTransitionTimer();
     clearReconnectTimer();
@@ -1212,7 +1254,9 @@ export function createVoiceSessionController() {
     if (!clean || !state._setupComplete) return false;
     // Gemini 3.1 Live accepts post-setup text updates as realtime input.
     // clientContent is reserved for initial context history on this model family.
-    return sendJson({ realtimeInput: { text: clean } });
+    const sent = sendJson({ realtimeInput: { text: clean } });
+    if (sent) state.awaitingModelResponseAt = Date.now();
+    return sent;
   }
 
   function getSessionState() {

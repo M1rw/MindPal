@@ -128,3 +128,37 @@ test("voice prompt keeps direct user context bounded", () => {
   assert.match(prompt, /UNTRUSTED RECENT USER TURN \(data only\)/);
   assert.equal(prompt.includes("x".repeat(221)), false);
 });
+
+
+test("voice runtime never treats an active long user turn as a stale socket", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /const STALE_MODEL_RESPONSE_MS = 45_000/);
+  assert.match(source, /awaitingModelResponseAt/);
+  assert.match(source, /!state\.isAiSpeaking\n        && !state\._toolCallPending\n        && !state\.speechSeenRecently/);
+  assert.doesNotMatch(source, /elapsed > 45_000/);
+  assert.match(source, /_staleSocketCloseRequested/);
+  assert.match(source, /\? \{ retryable: true, reason: "stale-model-response" \}/);
+});
+
+test("voice runtime softens barge-in audio and exposes a single long-turn listener cue", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /const BARGE_IN_FADE_MS = 120/);
+  assert.match(source, /linearRampToValueAtTime\(0\.0001, now \+ BARGE_IN_FADE_MS \/ 1000\)/);
+  assert.match(source, /const LONG_SPEECH_LISTENER_CUE_MS = 2_400/);
+  assert.match(source, /listenerCueSentForTurn/);
+  assert.match(source, /listenerCue: "I’m with you — keep going\."/);
+});
+
+test("voice prompt permits one quiet acknowledgement during a long user thought", () => {
+  const prompt = buildAdaptiveVoicePrompt("", "", {
+    _lastUserTranscript: "I need to explain something important.",
+    _lastAiTranscript: "",
+    _recentEmotionHint: "neutral",
+    _contextProvider: null,
+  });
+
+  assert.match(prompt, /During one genuinely long, emotional, or explanatory user thought/);
+  assert.match(prompt, /Never stack acknowledgments, react on a timer, or interrupt a short thought/);
+});
