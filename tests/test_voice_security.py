@@ -56,7 +56,7 @@ class _Quota:
 def _services() -> SimpleNamespace:
     settings = SimpleNamespace(
         GEMINI_API_KEY=SecretStr("permanent-provider-secret"),
-        GEMINI_LIVE_MODEL="gemini-3.1-flash-live-preview",
+        GEMINI_LIVE_MODEL="gemini-2.5-flash-native-audio-preview-12-2025",
         VOICE_TOKEN_TTL_SECONDS=1800,
         VOICE_NEW_SESSION_TTL_SECONDS=60,
         VOICE_TOKEN_RATE_LIMIT_PER_HOUR=8,
@@ -87,8 +87,8 @@ async def test_voice_token_endpoint_returns_ephemeral_token_not_provider_key(mon
 
     assert result.token == "ephemeral-session-token"
     assert result.token != services.settings.GEMINI_API_KEY.get_secret_value()
-    assert "BidiGenerateContentConstrained" in result.websocket_url
-    assert result.model == "gemini-3.1-flash-live-preview"
+    assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
+    assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
     assert response.headers["cache-control"] == "no-store, private"
 
 

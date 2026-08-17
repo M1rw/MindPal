@@ -93,6 +93,19 @@ def test_both_chat_routes_use_the_same_tiered_prompt_and_finalizer() -> None:
     assert "finalize_user_reply(" in stream_source
 
 
+def test_volatile_public_facts_require_verified_web_search() -> None:
+    for question in (
+        "Who is the mayor of New York?",
+        "Who is the current president of France?",
+        "What is the weather in Cairo today?",
+        "من هو عمدة نيويورك؟",
+    ):
+        assert chat_router_module._requires_verified_web_search(question), question
+
+    assert not chat_router_module._requires_verified_web_search("Who wrote Hamlet?")
+    assert not chat_router_module._requires_verified_web_search("Explain photosynthesis")
+
+
 def test_adaptive_presentation_contract_supports_rich_markdown_without_forcing_it() -> None:
     classification = classify_message(
         "Compare two ways to ask my manager for a deadline extension.",

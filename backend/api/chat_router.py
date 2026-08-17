@@ -1018,6 +1018,33 @@ _FALLBACK_MEMORY_TRIGGERS = (
     "remember when", "you know about",
 )
 
+_VOLATILE_OFFICEHOLDER_RE = re.compile(
+    r"\b(?:mayor|president|prime minister|governor|senator|representative|"
+    r"member of parliament|mp|ceo|chair(?:man|woman)?|minister|commissioner)\b",
+    re.IGNORECASE,
+)
+_VOLATILE_FACT_RE = re.compile(
+    r"\b(?:current|latest|today(?:'s)?|right now|now|price|cost|weather|"
+    r"score|standings?|election|officeholder)\b",
+    re.IGNORECASE,
+)
+_VOLATILE_FACT_ARABIC_RE = re.compile(
+    r"(?:عمدة|رئيس|رئيس الوزراء|محافظ|وزير|سعر|الطقس|نتيجة|الآن|حاليًا|اليوم)",
+)
+
+
+def _requires_verified_web_search(user_message: str) -> bool:
+    """Return true for facts that can change and must not be answered from model memory."""
+    message = sanitize_text(user_message, 500)
+    if not message:
+        return False
+    return bool(
+        _VOLATILE_OFFICEHOLDER_RE.search(message)
+        or _VOLATILE_FACT_RE.search(message)
+        or _VOLATILE_FACT_ARABIC_RE.search(message)
+    )
+
+
 _FALLBACK_SEARCH_TRIGGERS = (
     "search for", "search about", "look up", "look for",
     "what's happening", "what is happening",
@@ -1053,6 +1080,14 @@ async def _pre_execute_tools(
     tool_calls = await _llm_tool_router(user_message, tool_context.services, tool_context.request_id) if use_llm_router else None
     if tool_calls is None:
         tool_calls = _fallback_trigger_detection(user_message)
+
+    # Changing facts need evidence even when the model router confidently selects no tool.
+    # Put the search first so the bounded three-tool budget cannot crowd it out.
+    if _requires_verified_web_search(user_message) and not any(
+        call.get("tool") == "web_search" for call in tool_calls
+    ):
+        tool_calls = [{"tool": "web_search", "args": {"query": user_message[:150]}}] + tool_calls[:2]
+
     if not tool_calls:
         return ""
 
