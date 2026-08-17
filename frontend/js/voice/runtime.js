@@ -13,6 +13,12 @@ import {
   TURN_COMPLETE_GRACE_MS,
 } from "./constants.js";
 import { buildAdaptiveVoicePrompt, inferEmotionHint } from "./prompts.js";
+import {
+  getVoiceIdleAction,
+  isVoiceConversationBusy,
+  requiresVerifiedVoiceEvidence,
+} from "./conversation_policy.js";
+import { verifyCurrentVoiceFact } from "./fact_verifier.js";
 import { createToolExecutor, getToolDeclarations } from "./tools.js";
 import {
   buildEphemeralVoiceWebSocketUrl,
@@ -63,6 +69,11 @@ export function createVoiceSessionController() {
     _toolCallPending: false,
     _backgroundTasks: new Map(),
     _backgroundTaskSequence: 0,
+    _factVerificationController: null,
+    _factVerificationEpoch: 0,
+    _factVerificationStatus: "idle",
+    _factVerificationQuery: "",
+    _factVerificationGateUntilTurnComplete: false,
     _conversationEpoch: 0,
     _inputTurnActive: false,
     _onBackgroundTask: null,
@@ -251,6 +262,33 @@ export function createVoiceSessionController() {
     state.silenceWarnedOnce = false;
   }
 
+  function hasActiveConversationWork() {
+    return isVoiceConversationBusy({
+      isUserTurnActive: state._inputTurnActive,
+      speechSeenRecently: state.speechSeenRecently,
+      isAiSpeaking: state.isAiSpeaking,
+      queuedAudioCount: state.activeAudioSources.length,
+      sessionPhase: state.sessionPhase,
+      toolCallPending: state._toolCallPending,
+      backgroundTaskCount: state._backgroundTasks.size,
+      awaitingModelResponseAt: state.awaitingModelResponseAt,
+      factVerificationPending: state._factVerificationStatus === "pending",
+    });
+  }
+
+  function resetFactVerification({ abort = false } = {}) {
+    if (abort) state._factVerificationController?.abort(new DOMException("Superseded Voice turn", "AbortError"));
+    state._factVerificationController = null;
+    state._factVerificationStatus = "idle";
+    state._factVerificationQuery = "";
+    state._factVerificationGateUntilTurnComplete = false;
+  }
+
+  function shouldBlockForVerifiedFact(call) {
+    return String(call?.name || "") === "web_search"
+      && requiresVerifiedVoiceEvidence(state._lastUserTranscript);
+  }
+
   function sendTurnComplete() {
     if (!socketIsOpen() || state._toolCallPending) return;
     // Realtime audio uses automatic activity detection; a final silence frame lets
@@ -270,6 +308,7 @@ export function createVoiceSessionController() {
       state.userSpeechStartedAt = state.lastUserSpeechAt;
       state.listenerCueSentForTurn = false;
       state.awaitingModelResponseAt = 0;
+      resetFactVerification({ abort: true });
       cancelStaleBackgroundTasks();
     }
     clearTurnCompleteTimer();
@@ -408,28 +447,32 @@ export function createVoiceSessionController() {
 
   function startSilenceChecker() {
     stopSilenceChecker();
-    state.lastActivityTime = Date.now();
-    state.silenceAskedOnce = false;
-    state.silenceWarnedOnce = false;
+    touchActivity();
 
     state.silenceCheckInterval = setInterval(() => {
       if (!state.isSessionActive || !socketIsOpen()) return;
-      const elapsed = Date.now() - state.lastActivityTime;
+      const idleAction = getVoiceIdleAction({
+        lastActivityTime: state.lastActivityTime,
+        isBusy: hasActiveConversationWork(),
+        silenceAskedOnce: state.silenceAskedOnce,
+        silenceWarnedOnce: state.silenceWarnedOnce,
+        askAfterMs: SILENCE_ASK_MS,
+        warnAfterMs: SILENCE_WARN_MS,
+        endAfterMs: SILENCE_AUTO_END_MS,
+      });
 
-      if (elapsed >= SILENCE_AUTO_END_MS) {
+      if (idleAction === "end") {
         stopSession();
         return;
       }
-
-      if (elapsed >= SILENCE_WARN_MS && !state.silenceWarnedOnce) {
+      if (idleAction === "warn") {
         state.silenceWarnedOnce = true;
-        sendTextToModel("The user has been silent for a while. Briefly and gently say the call will end soon unless they respond.");
+        sendTextToModel("The call has been genuinely quiet for a while. In one calm sentence, say you will end the call soon unless the user wants to continue.");
         return;
       }
-
-      if (elapsed >= SILENCE_ASK_MS && !state.silenceAskedOnce) {
+      if (idleAction === "ask") {
         state.silenceAskedOnce = true;
-        sendTextToModel("The user has been silent for 30 seconds. Briefly and naturally check whether they are still there.");
+        sendTextToModel("The conversation has been genuinely quiet for a while. Give one brief, warm check-in only if no one is currently speaking or waiting for a result.");
       }
     }, 5_000);
   }
@@ -553,6 +596,7 @@ export function createVoiceSessionController() {
   async function handleBlockingToolCalls(functionCalls) {
     if (!Array.isArray(functionCalls) || functionCalls.length === 0) return;
 
+    touchActivity();
     state._toolCallPending = true;
     setSessionPhase("thinking");
 
@@ -581,12 +625,16 @@ export function createVoiceSessionController() {
       clearTimeout(timeoutId);
       timeoutController.abort();
       state._toolCallPending = false;
+      touchActivity();
       setSessionPhase(state.isAiSpeaking ? "speaking" : state.isMicMuted ? "muted" : "listening");
     }
   }
 
   function isBackgroundToolCall(call) {
-    return BACKGROUND_TOOL_NAMES.has(String(call?.name || ""));
+    // Current facts are evidence-gated. Their search must return before a Voice
+    // answer can be spoken, even though ordinary exploratory research stays fluid.
+    return BACKGROUND_TOOL_NAMES.has(String(call?.name || ""))
+      && !shouldBlockForVerifiedFact(call);
   }
 
   function summarizeBackgroundResult(result) {
@@ -606,6 +654,57 @@ export function createVoiceSessionController() {
         task.controller.abort(new DOMException("Superseded by a newer topic", "AbortError"));
       }
     }
+  }
+
+  function startCurrentFactVerification(transcript) {
+    const query = String(transcript || "").trim();
+    if (!requiresVerifiedVoiceEvidence(query)) return;
+    if (state._factVerificationStatus === "pending" || state._factVerificationQuery === query) return;
+
+    resetFactVerification({ abort: true });
+    const controller = new AbortController();
+    const verificationEpoch = ++state._factVerificationEpoch;
+    state._factVerificationController = controller;
+    state._factVerificationStatus = "pending";
+    state._factVerificationQuery = query;
+    state._factVerificationGateUntilTurnComplete = true;
+    touchActivity();
+    setSessionPhase("thinking", { factVerification: true });
+
+    void (async () => {
+      const appCheckToken = typeof state._getAppCheckToken === "function"
+        ? await state._getAppCheckToken()
+        : null;
+      return verifyCurrentVoiceFact({
+        query,
+        baseUrl: window.MINDPAL_CONFIG?.API_BASE_URL || "",
+        token: state._authToken,
+        appCheckToken,
+        signal: controller.signal,
+      });
+    })().then((verification) => {
+      if (!state.isSessionActive || controller.signal.aborted || verificationEpoch !== state._factVerificationEpoch) return;
+      state._factVerificationController = null;
+      if (!verification.verified) {
+        state._factVerificationStatus = "failed";
+        sendTextToModel(
+          "[INTERNAL CURRENT-FACT VERIFICATION FAILED — NOT USER SPEECH]\n"
+          + "Do not answer the changing fact from memory. Say briefly that you cannot verify it right now, then offer to help with something else.",
+        );
+        return;
+      }
+
+      state._factVerificationStatus = "verified";
+      sendTextToModel(
+        "[INTERNAL VERIFIED CURRENT-FACT EVIDENCE — NOT USER SPEECH]\n"
+        + "Answer the active changing-fact question only from this evidence. If it does not answer the question, say you cannot verify it. "
+        + `Evidence: ${summarizeBackgroundResult(verification.evidence)}`,
+      );
+    }).catch(() => {
+      if (!controller.signal.aborted && verificationEpoch === state._factVerificationEpoch) {
+        state._factVerificationStatus = "failed";
+      }
+    });
   }
 
   function startBackgroundToolCall(call) {
@@ -693,6 +792,7 @@ export function createVoiceSessionController() {
 
   function playAiAudioChunk(base64Data) {
     if (!state.audioContext || !state.isSessionActive || !base64Data) return;
+    touchActivity();
 
     const audioData = atob(base64Data);
     const sampleCount = Math.floor(audioData.length / 2);
@@ -740,6 +840,7 @@ export function createVoiceSessionController() {
       state.activeAudioSources = state.activeAudioSources.filter((item) => item !== source);
       if (state.activeAudioSources.length === 0) {
         state.isAiSpeaking = false;
+        touchActivity();
         if (state.isSessionActive && !state.isStopping) {
           setSessionPhase(state.isMicMuted ? "muted" : "listening");
         }
@@ -784,33 +885,42 @@ export function createVoiceSessionController() {
       return;
     }
 
-    if (data.serverContent?.modelTurn?.parts) {
-      clearTurnCompleteTimer();
-      state.speechSeenRecently = false;
-      clearListeningTransitionTimer();
-      setSessionPhase("preparing");
-      for (const part of data.serverContent.modelTurn.parts) {
-        if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
-          playAiAudioChunk(part.inlineData.data);
-        }
-      }
-    }
-
-    const outputText = data.serverContent?.outputTranscription?.text;
-    if (outputText) {
-      state._lastAiTranscript = outputText;
-      state._onTranscript?.("ai", outputText);
-    }
-
+    // Gemini 3.1 can carry input transcription and model audio in the same
+    // server event. Read user speech first so a volatile-fact gate exists before
+    // any speculative model audio is allowed into the playback queue.
     const inputText = data.serverContent?.inputTranscription?.text;
     if (inputText) {
       state._lastUserTranscript = inputText;
       state._recentEmotionHint = inferEmotionHint(inputText);
       state._onTranscript?.("user", inputText);
       touchActivity();
+      startCurrentFactVerification(inputText);
+    }
+
+    const factGatePending = state._factVerificationGateUntilTurnComplete;
+    if (data.serverContent?.modelTurn?.parts) {
+      touchActivity();
+      clearTurnCompleteTimer();
+      state.speechSeenRecently = false;
+      clearListeningTransitionTimer();
+      setSessionPhase(factGatePending ? "thinking" : "preparing", { factVerification: factGatePending });
+      for (const part of data.serverContent.modelTurn.parts) {
+        if (part.inlineData?.mimeType?.startsWith("audio/pcm") && !factGatePending) {
+          playAiAudioChunk(part.inlineData.data);
+        }
+      }
+    }
+
+    const outputText = data.serverContent?.outputTranscription?.text;
+    if (outputText && !factGatePending) {
+      state._lastAiTranscript = outputText;
+      state._onTranscript?.("ai", outputText);
     }
 
     if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
+      // Any model output before this boundary belongs to the turn that began
+      // before verified evidence existed. Never let it leak into playback.
+      state._factVerificationGateUntilTurnComplete = false;
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
       state._inputTurnActive = false;
@@ -1088,6 +1198,8 @@ export function createVoiceSessionController() {
     state._onBackgroundTask = onBackgroundTask;
     state._backgroundTasks.clear();
     state._backgroundTaskSequence = 0;
+    resetFactVerification({ abort: true });
+    state._factVerificationEpoch = 0;
     state._conversationEpoch = 0;
     state._inputTurnActive = false;
     state._lastUserTranscript = "";
@@ -1214,6 +1326,7 @@ export function createVoiceSessionController() {
       task.controller.abort(new DOMException("Voice session ended", "AbortError"));
     }
     state._backgroundTasks.clear();
+    resetFactVerification({ abort: true });
     state._toolCallPending = false;
     state._inputTurnActive = false;
     state.sessionPhase = "idle";

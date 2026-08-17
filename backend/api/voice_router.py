@@ -15,8 +15,9 @@ from backend.api.dependencies import (
     http_error_from_app_error,
 )
 from backend.core.errors import AppError
+from backend.core.freshness import requires_verified_web_search
 from backend.core.security import sanitize_text
-from backend.tools import ToolContext
+from backend.tools import ToolContext, build_default_registry
 from backend.tools.voice_tools import VoiceSummarizeTool, VoiceTranscribeTool
 
 logger = logging.getLogger(__name__)
@@ -25,9 +26,18 @@ router = APIRouter(prefix="/api/voice", tags=["voice"])
 MAX_AUDIO_BASE64_CHARS = 15_000_000
 MAX_TRANSCRIPT_CHARS = 4_000
 MAX_MIME_TYPE_CHARS = 80
+MAX_VOICE_FACT_QUERY_CHARS = 500
 
 _summarize_tool = VoiceSummarizeTool()
 _transcribe_tool = VoiceTranscribeTool()
+_verified_fact_registry = None
+
+
+def _get_verified_fact_registry():
+    global _verified_fact_registry
+    if _verified_fact_registry is None:
+        _verified_fact_registry = build_default_registry()
+    return _verified_fact_registry
 
 
 class TranscribeRequest(BaseModel):
@@ -78,6 +88,26 @@ class VoiceTokenResponse(BaseModel):
     expires_at: str
     new_session_expires_at: str
     usage: dict[str, int] | None = None
+
+
+class VoiceVerifiedFactRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    query: str = Field(min_length=1, max_length=MAX_VOICE_FACT_QUERY_CHARS)
+
+    @field_validator("query", mode="before")
+    @classmethod
+    def _clean_query(cls, value: object) -> str:
+        return sanitize_text(str(value or ""), MAX_VOICE_FACT_QUERY_CHARS)
+
+
+class VoiceVerifiedFactResponse(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    query: str
+    required: bool
+    verified: bool
+    evidence: dict[str, Any] | None = None
+    error: str | None = None
+    request_id: str
 
 
 @router.post("/transcribe", response_model=TranscribeResponse)
@@ -222,6 +252,65 @@ async def summarize_call(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"code": "voice_summary_failed", "message": "Voice summarization failed", "request_id": context.request_id},
         ) from exc
+
+
+@router.post("/verify-current-fact", response_model=VoiceVerifiedFactResponse)
+async def verify_current_voice_fact(
+    payload: VoiceVerifiedFactRequest,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> VoiceVerifiedFactResponse:
+    """Return backend-verified web evidence before Voice may speak volatile facts."""
+    assert_authenticated(context)
+    query = payload.query
+    required = requires_verified_web_search(query)
+    if not required:
+        return VoiceVerifiedFactResponse(
+            query=query,
+            required=False,
+            verified=False,
+            error="verification_not_required",
+            request_id=context.request_id,
+        )
+
+    await services.rate_limits.consume(
+        scope="tools",
+        subject=context.session.user_id_hash,
+        limit=services.settings.TOOL_RATE_LIMIT_PER_MINUTE,
+        window_seconds=60,
+    )
+    await services.rate_limits.consume(
+        scope="web_search",
+        subject=context.session.user_id_hash,
+        limit=services.settings.WEB_SEARCH_RATE_LIMIT_PER_HOUR,
+        window_seconds=3600,
+    )
+
+    tool_context = ToolContext(
+        user_id_hash=context.session.user_id_hash,
+        authenticated=True,
+        locale=getattr(context, "locale", "auto"),
+        timezone=getattr(context, "timezone", "UTC"),
+        request_id=context.request_id,
+        services=services,
+    )
+    result = await _get_verified_fact_registry().execute("web_search", {"query": query}, tool_context)
+    if not result.ok:
+        return VoiceVerifiedFactResponse(
+            query=query,
+            required=True,
+            verified=False,
+            error="verification_unavailable",
+            request_id=context.request_id,
+        )
+
+    return VoiceVerifiedFactResponse(
+        query=query,
+        required=True,
+        verified=True,
+        evidence=result.to_dict(),
+        request_id=context.request_id,
+    )
 
 
 @router.get("/token", response_model=VoiceTokenResponse)

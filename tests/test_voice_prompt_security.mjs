@@ -3,6 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { buildAdaptiveVoicePrompt } from "../frontend/js/voice/prompts.js";
+import {
+  getVoiceIdleAction,
+  isVoiceConversationBusy,
+  requiresVerifiedVoiceEvidence,
+} from "../frontend/js/voice/conversation_policy.js";
+import { verifyCurrentVoiceFact } from "../frontend/js/voice/fact_verifier.js";
 
 function buildPromptWithUntrustedContext() {
   return buildAdaptiveVoicePrompt(
@@ -102,8 +108,9 @@ test("voice prompt tells the model how to use background research", async () => 
   assert.match(prompt, /automatically detected from the user's device timezone/);
   assert.match(prompt, /NEVER ask the user what timezone they are in/);
   assert.match(prompt, /elected officials/);
-  assert.match(prompt, /ALWAYS call web_search before you answer/);
-  assert.match(prompt, /verified INTERNAL BACKGROUND RESEARCH UPDATE/);
+  assert.match(prompt, /NEVER answer from memory alone/);
+  assert.match(prompt, /INTERNAL VERIFIED CURRENT-FACT EVIDENCE/);
+  assert.match(prompt, /CURRENT-FACT VERIFICATION FAILED/);
   assert.doesNotMatch(prompt, /Google Search grounding/);
   assert.match(prompt, /briefly interrupts or clarifies the same subject/);
 });
@@ -161,4 +168,91 @@ test("voice prompt permits one quiet acknowledgement during a long user thought"
 
   assert.match(prompt, /During one genuinely long, emotional, or explanatory user thought/);
   assert.match(prompt, /Never stack acknowledgments, react on a timer, or interrupt a short thought/);
+});
+
+
+test("Voice policy marks officeholders and changing facts as evidence-required", () => {
+  assert.equal(requiresVerifiedVoiceEvidence("Who is the mayor of New York?"), true);
+  assert.equal(requiresVerifiedVoiceEvidence("What is the weather today in Cairo?"), true);
+  assert.equal(requiresVerifiedVoiceEvidence("مين رئيس الوزراء الحالي؟"), true);
+  assert.equal(requiresVerifiedVoiceEvidence("What is a sales channel?"), false);
+});
+
+test("Voice idle policy never checks in while either party or evidence work is active", () => {
+  const busy = isVoiceConversationBusy({ isAiSpeaking: true, queuedAudioCount: 2, sessionPhase: "speaking" });
+  assert.equal(busy, true);
+  assert.equal(getVoiceIdleAction({
+    now: 120_000,
+    lastActivityTime: 0,
+    isBusy: busy,
+    askAfterMs: 30_000,
+    warnAfterMs: 60_000,
+    endAfterMs: 90_000,
+  }), "none");
+
+  assert.equal(getVoiceIdleAction({
+    now: 35_000,
+    lastActivityTime: 0,
+    isBusy: false,
+    askAfterMs: 30_000,
+    warnAfterMs: 60_000,
+    endAfterMs: 90_000,
+  }), "ask");
+});
+
+test("Voice fact verifier accepts only authenticated backend evidence and never browser-search fallback", async () => {
+  let request = null;
+  const result = await verifyCurrentVoiceFact({
+    query: "Who is the mayor of New York?",
+    token: "user-token",
+    appCheckToken: "app-check-token",
+    fetchImpl: async (url, options) => {
+      request = { url, options };
+      return new Response(JSON.stringify({
+        verified: true,
+        query: "Who is the mayor of New York?",
+        evidence: { data: { results: [{ title: "NYC", url: "https://www.nyc.gov/" }] } },
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    },
+  });
+
+  assert.equal(result.verified, true);
+  assert.match(request.url, /\/voice\/verify-current-fact$/);
+  assert.equal(request.options.headers.Authorization, "Bearer user-token");
+  assert.equal(request.options.headers["X-Firebase-AppCheck"], "app-check-token");
+
+  const unavailable = await verifyCurrentVoiceFact({
+    query: "Who is the mayor of New York?",
+    fetchImpl: async () => new Response("no", { status: 503 }),
+  });
+  assert.equal(unavailable.verified, false);
+  assert.equal(unavailable.error, "verification_http_503");
+});
+
+test("Voice prompt handles ordinary overwhelm as a human conversation, not a clinical disclaimer", () => {
+  const prompt = buildAdaptiveVoicePrompt("", "", {
+    _lastUserTranscript: "I feel overwhelmed and I do not know what to do.",
+    _lastAiTranscript: "",
+    _recentEmotionHint: "supportive",
+    _contextProvider: { getVoiceResponseContract: () => ({ mode: "Guided Coach", model: "standard" }) },
+  });
+
+  assert.match(prompt, /Ordinary overwhelm, indecision, stress, frustration, ambition/);
+  assert.match(prompt, /generic medical disclaimer/);
+  assert.match(prompt, /detailed personal dilemma/);
+  assert.match(prompt, /actual conflict/);
+  assert.match(prompt, /practical bottleneck/);
+});
+
+test("Voice runtime gates speculative volatile-fact audio and uses shared idle ownership", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /startCurrentFactVerification\(inputText\)/);
+  assert.match(source, /INTERNAL VERIFIED CURRENT-FACT EVIDENCE/);
+  assert.match(source, /INTERNAL CURRENT-FACT VERIFICATION FAILED/);
+  assert.match(source, /_factVerificationGateUntilTurnComplete/);
+  assert.match(source, /if \(part\.inlineData\?\.mimeType\?\.startsWith\("audio\/pcm"\) && !factGatePending\)/);
+  assert.match(source, /getVoiceIdleAction\(/);
+  assert.match(source, /hasActiveConversationWork\(\)/);
+  assert.doesNotMatch(source, /The user has been silent for 30 seconds/);
 });

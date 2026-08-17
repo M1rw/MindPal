@@ -20,6 +20,7 @@ from backend.api.dependencies import (
     http_error_from_app_error,
 )
 from backend.core.errors import AppError
+from backend.core.freshness import requires_verified_web_search
 from backend.core.prompts import (
     build_intent_context,
     infer_response_mode_for_preference,
@@ -1018,31 +1019,9 @@ _FALLBACK_MEMORY_TRIGGERS = (
     "remember when", "you know about",
 )
 
-_VOLATILE_OFFICEHOLDER_RE = re.compile(
-    r"\b(?:mayor|president|prime minister|governor|senator|representative|"
-    r"member of parliament|mp|ceo|chair(?:man|woman)?|minister|commissioner)\b",
-    re.IGNORECASE,
-)
-_VOLATILE_FACT_RE = re.compile(
-    r"\b(?:current|latest|today(?:'s)?|right now|now|price|cost|weather|"
-    r"score|standings?|election|officeholder)\b",
-    re.IGNORECASE,
-)
-_VOLATILE_FACT_ARABIC_RE = re.compile(
-    r"(?:عمدة|رئيس|رئيس الوزراء|محافظ|وزير|سعر|الطقس|نتيجة|الآن|حاليًا|اليوم)",
-)
-
-
 def _requires_verified_web_search(user_message: str) -> bool:
-    """Return true for facts that can change and must not be answered from model memory."""
-    message = sanitize_text(user_message, 500)
-    if not message:
-        return False
-    return bool(
-        _VOLATILE_OFFICEHOLDER_RE.search(message)
-        or _VOLATILE_FACT_RE.search(message)
-        or _VOLATILE_FACT_ARABIC_RE.search(message)
-    )
+    """Backward-compatible alias for the shared deterministic freshness policy."""
+    return requires_verified_web_search(user_message)
 
 
 _FALLBACK_SEARCH_TRIGGERS = (
