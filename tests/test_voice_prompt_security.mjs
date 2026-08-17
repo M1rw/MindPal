@@ -77,15 +77,15 @@ test("live runtime delegates web research without pausing audio input", async ()
   assert.doesNotMatch(source, /state\._toolCallPending \|\| state\._backgroundTasks\.size/);
 });
 
-test("voice session enables grounded current facts and preserves research through one barge-in", async () => {
+test("voice session keeps verified research through one barge-in on the stable setup payload", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
-  assert.match(source, /tools: \[\{ googleSearch: \{\} \}, \{ functionDeclarations: getLiveToolDeclarations\(\) \}\]/);
-  assert.match(source, /behavior: "NON_BLOCKING"/);
-  assert.match(source, /enableAffectiveDialog: true/);
-  assert.match(source, /proactivity: \{ proactiveAudio: true \}/);
-  assert.match(source, /scheduling: "WHEN_IDLE"/);
+  assert.match(source, /tools: \[\{ functionDeclarations: getToolDeclarations\(\) \}\]/);
   assert.match(source, /task\.epoch \+ 1 < state\._conversationEpoch/);
   assert.match(source, /Superseded by a newer topic/);
+  assert.doesNotMatch(source, /googleSearch: \{\}/);
+  assert.doesNotMatch(source, /behavior: "NON_BLOCKING"/);
+  assert.doesNotMatch(source, /enableAffectiveDialog: true/);
+  assert.doesNotMatch(source, /proactivity: \{ proactiveAudio: true \}/);
 });
 
 test("voice prompt tells the model how to use background research", async () => {
@@ -102,7 +102,9 @@ test("voice prompt tells the model how to use background research", async () => 
   assert.match(prompt, /automatically detected from the user's device timezone/);
   assert.match(prompt, /NEVER ask the user what timezone they are in/);
   assert.match(prompt, /elected officials/);
-  assert.match(prompt, /Google Search grounding/);
+  assert.match(prompt, /ALWAYS call web_search before you answer/);
+  assert.match(prompt, /verified INTERNAL BACKGROUND RESEARCH UPDATE/);
+  assert.doesNotMatch(prompt, /Google Search grounding/);
   assert.match(prompt, /briefly interrupts or clarifies the same subject/);
 });
 

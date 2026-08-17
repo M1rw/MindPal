@@ -8,11 +8,23 @@ import {
 import {
   classifyAndStoreMemoryGraphFromMessage,
   createEmptyMemoryGraph,
+  memoryGraphToBackend,
 } from "../frontend/js/memory_graph.js";
 
 function graphWith(text, graph = createEmptyMemoryGraph()) {
   return classifyAndStoreMemoryGraphFromMessage(text, { graphContext: graph }).graph;
 }
+
+test("Voice-origin memory serializes with valid voice_call provenance", () => {
+  const graph = classifyAndStoreMemoryGraphFromMessage("My project is MindPal", {
+    graphContext: createEmptyMemoryGraph(),
+    source: "voice_call",
+  }).graph;
+  const payload = memoryGraphToBackend(graph);
+
+  assert.equal(payload.atoms.length, 1);
+  assert.equal(payload.atoms[0].source, "voice_call");
+});
 
 test("memory sync uses the loaded cloud version instead of the client merge version", async () => {
   const remote = { ...graphWith("remember: my name is Marwan"), user_id_hash: "user-a", version: 7 };
