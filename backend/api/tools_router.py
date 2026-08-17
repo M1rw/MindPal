@@ -206,7 +206,7 @@ def _build_tool_context(context: Any, services: Any) -> ToolContext:
         user_id_hash=context.session.user_id_hash,
         authenticated=context.session.authenticated,
         locale=context.locale,
-        timezone="UTC",  # Frontend can send timezone via header in the future
+        timezone=context.timezone,
         request_id=context.request_id,
         services=services,
     )

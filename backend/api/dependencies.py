@@ -119,6 +119,7 @@ class RequestContext:
     channel: UserChannel
     session: UserSession
     client_ip_hash: str
+    timezone: str = "UTC"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -386,6 +387,7 @@ SessionDep = Annotated[UserSession, Depends(get_current_session)]
 RequiredSessionDep = Annotated[UserSession, Depends(require_authenticated_session)]
 RequestIdDep = Annotated[str, Depends(get_request_id)]
 LocaleDep = Annotated[str, Depends(get_locale)]
+TimezoneDep = Annotated[str, Depends(get_timezone)]
 ChannelDep = Annotated[UserChannel, Depends(get_channel)]
 
 
@@ -397,6 +399,7 @@ async def get_request_context(
     request: Request,
     request_id: RequestIdDep,
     locale: LocaleDep,
+    timezone: TimezoneDep,
     channel: ChannelDep,
     session: SessionDep,
 ) -> RequestContext:
@@ -411,6 +414,7 @@ async def get_request_context(
     return RequestContext(
         request_id=request_id,
         locale=locale,
+        timezone=timezone,
         channel=channel,
         session=session,
         client_ip_hash=client_ip_hash,
@@ -421,6 +425,7 @@ async def get_authenticated_request_context(
     request: Request,
     request_id: RequestIdDep,
     locale: LocaleDep,
+    timezone: TimezoneDep,
     channel: ChannelDep,
     session: RequiredSessionDep,
 ) -> RequestContext:
@@ -435,6 +440,7 @@ async def get_authenticated_request_context(
     return RequestContext(
         request_id=request_id,
         locale=locale,
+        timezone=timezone,
         channel=channel,
         session=session,
         client_ip_hash=client_ip_hash,

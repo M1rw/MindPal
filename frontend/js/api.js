@@ -61,6 +61,12 @@ async function requestJson(path, {
 
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timezone) headers["X-MindPal-Timezone"] = timezone;
+  } catch {
+    // Timezone is optional; backend safely falls back to UTC.
+  }
   if (token) {
     headers.Authorization = `Bearer ${token}`;
     const appCheckToken = await getAppCheckToken();
