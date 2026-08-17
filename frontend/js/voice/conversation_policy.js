@@ -5,14 +5,25 @@
 const VOLATILE_OFFICEHOLDER_RE = /\b(?:mayor|president|prime minister|governor|senator|representative|member of parliament|mp|ceo|chair(?:man|woman)?|minister|commissioner)\b/i;
 const VOLATILE_FACT_RE = /\b(?:current|latest|today(?:'s)?|right now|now|price|cost|weather|score|standings?|election|officeholder)\b/i;
 const VOLATILE_FACT_ARABIC_RE = /(?:عمدة|رئيس|رئيس الوزراء|محافظ|وزير|سعر|الطقس|نتيجة|الآن|حاليًا|اليوم)/;
+const LOCAL_TIME_EN_RE = /\b(?:what(?:\s+is|'s)\s+(?:the\s+)?time|tell\s+me\s+(?:the\s+)?time|current\s+time|time\s+(?:right\s+)?now|what\s+time\s+is\s+it)\b/i;
+const LOCAL_TIME_AR_RE = /(?:الساعة\s*(?:كام|كم|دلوقتي|الآن)?|الوقت\s*(?:دلوقتي|الآن)?|كم\s+الساعة)/;
+
+function normalizeVoicePolicyText(value) {
+  return String(value || "").replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, 500);
+}
+
+export function isVoiceLocalTimeRequest(value) {
+  const text = normalizeVoicePolicyText(value);
+  return Boolean(text && (LOCAL_TIME_EN_RE.test(text) || LOCAL_TIME_AR_RE.test(text)));
+}
 
 export function requiresVerifiedVoiceEvidence(value) {
-  const text = String(value || "").replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, 500);
+  const text = normalizeVoicePolicyText(value);
+  if (!text || isVoiceLocalTimeRequest(text)) return false;
   return Boolean(
-    text
-    && (VOLATILE_OFFICEHOLDER_RE.test(text)
-      || VOLATILE_FACT_RE.test(text)
-      || VOLATILE_FACT_ARABIC_RE.test(text))
+    VOLATILE_OFFICEHOLDER_RE.test(text)
+    || VOLATILE_FACT_RE.test(text)
+    || VOLATILE_FACT_ARABIC_RE.test(text)
   );
 }
 

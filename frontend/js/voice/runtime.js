@@ -16,10 +16,11 @@ import { buildAdaptiveVoicePrompt, inferEmotionHint } from "./prompts.js";
 import {
   getVoiceIdleAction,
   isVoiceConversationBusy,
+  isVoiceLocalTimeRequest,
   requiresVerifiedVoiceEvidence,
 } from "./conversation_policy.js";
 import { verifyCurrentVoiceFact } from "./fact_verifier.js";
-import { createToolExecutor, getToolDeclarations } from "./tools.js";
+import { createToolExecutor, executeToolClientSide, getToolDeclarations } from "./tools.js";
 import {
   buildEphemeralVoiceWebSocketUrl,
   classifySocketClose,
@@ -74,6 +75,8 @@ export function createVoiceSessionController() {
     _factVerificationStatus: "idle",
     _factVerificationQuery: "",
     _factVerificationGateUntilTurnComplete: false,
+    _localTimeGateUntilTurnComplete: false,
+    _localTimeQuestion: "",
     _factVerificationResult: null,
     _factBridgeSentForTurn: false,
     _conversationEpoch: 0,
@@ -114,6 +117,9 @@ export function createVoiceSessionController() {
     _recentEmotionHint: "neutral",
     _silenceFrameB64: null,
     _lastSilenceFrameAt: 0,
+    _noiseFloorRms: 0.0025,
+    _speechFrameStreak: 0,
+    _noiseGateThreshold: NOISE_GATE_THRESHOLD,
     _voiceCredentials: null,
     _sessionResumptionHandle: "",
     _goAwayTimer: null,
@@ -315,6 +321,8 @@ export function createVoiceSessionController() {
     state._factVerificationStatus = "idle";
     state._factVerificationQuery = "";
     state._factVerificationGateUntilTurnComplete = false;
+    state._localTimeGateUntilTurnComplete = false;
+    state._localTimeQuestion = "";
     state._factVerificationResult = null;
     state._factBridgeSentForTurn = false;
   }
@@ -333,6 +341,30 @@ export function createVoiceSessionController() {
     state.awaitingModelResponseAt = Date.now();
   }
 
+  function queueLocalTimeResponse(transcript) {
+    const question = String(transcript || "").trim();
+    if (!question || state._localTimeQuestion === question) return;
+    state._localTimeQuestion = question;
+    state._localTimeGateUntilTurnComplete = true;
+    setInteractionTag("time-resolving", { localTime: true });
+    setSessionPhase("thinking", { localTime: true, interactionTag: "time-resolving" });
+  }
+
+  function releaseLocalTimeAfterYield() {
+    if (state._localTimeGateUntilTurnComplete || !state._localTimeQuestion || !state.isSessionActive) return;
+    const localTime = executeToolClientSide("current_time", {}, null);
+    const question = state._localTimeQuestion;
+    state._localTimeQuestion = "";
+    setInteractionTag("model-thinking", { localTimeReady: true });
+    sendTextToModel(
+      "[INTERNAL LOCAL DEVICE TIME — NOT USER SPEECH]\n"
+      + "Answer the user's active time question directly and naturally using only this local device result. "
+      + "Do not mention verification, web search, or internal tools. "
+      + `Question: ${question}\nTime result: ${summarizeBackgroundResult(localTime)}`,
+      { forceModelTurn: true },
+    );
+  }
+
   function noteUserSpeechActivity() {
     const startsNewUserTurn = !state.speechSeenRecently;
     state.lastUserSpeechAt = Date.now();
@@ -344,6 +376,8 @@ export function createVoiceSessionController() {
       state.listenerCueSentForTurn = false;
       state.awaitingModelResponseAt = 0;
       resetFactVerification({ abort: true });
+      state._localTimeGateUntilTurnComplete = false;
+      state._localTimeQuestion = "";
       cancelStaleBackgroundTasks();
     }
     clearTurnCompleteTimer();
@@ -433,6 +467,23 @@ export function createVoiceSessionController() {
     }
   }
 
+  function updateAdaptiveSpeechGate(rms) {
+    // Track the persistent acoustic floor slowly. This catches fans, keyboard hum,
+    // and PC-room noise without learning short speech peaks as the new baseline.
+    const floorEligible = rms <= Math.max(0.022, state._noiseFloorRms * 2.1);
+    if (floorEligible) {
+      state._noiseFloorRms = state._noiseFloorRms * 0.965 + rms * 0.035;
+    }
+    const adaptiveThreshold = Math.min(
+      0.020,
+      Math.max(NOISE_GATE_THRESHOLD, state._noiseFloorRms * 1.7 + 0.002),
+    );
+    state._noiseGateThreshold = adaptiveThreshold;
+    const speechLike = rms >= adaptiveThreshold;
+    state._speechFrameStreak = speechLike ? Math.min(8, state._speechFrameStreak + 1) : 0;
+    return { speechLike, confirmedSpeech: state._speechFrameStreak >= 2 };
+  }
+
   function handleCapturedAudioFrame(rawFrame) {
     if (!state.isSessionActive || state.isMicMuted || !rawFrame?.length) return;
 
@@ -442,20 +493,18 @@ export function createVoiceSessionController() {
     let sum = 0;
     for (let i = 0; i < inputData.length; i += 1) sum += inputData[i] * inputData[i];
     const rms = Math.sqrt(sum / Math.max(1, inputData.length));
+    const { confirmedSpeech } = updateAdaptiveSpeechGate(rms);
 
-    if (state.isAiSpeaking && shouldInterruptForBargeIn(rms)) {
+    if (state.isAiSpeaking && confirmedSpeech && shouldInterruptForBargeIn(rms)) {
       setSessionPhase("interrupting");
       flushAiAudio({ updatePhase: false });
       touchActivity();
       recoverFromInterruption();
     }
 
-    if (rms > ACTIVITY_THRESHOLD) {
+    if (confirmedSpeech) {
       touchActivity();
       noteUserSpeechActivity();
-    }
-
-    if (rms > NOISE_GATE_THRESHOLD) {
       state.gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
     }
 
@@ -725,6 +774,7 @@ export function createVoiceSessionController() {
           + "The user has finished asking a changing-fact question and verification is still running. "
           + "Say exactly ONE very short, natural sentence in the user's language meaning ‘Give me a second — I’m checking that properly.’ "
           + "Do not answer, guess, explain the tool, or add a follow-up question. Then wait for verified evidence.",
+          { forceModelTurn: true },
         );
       }
       return;
@@ -739,6 +789,7 @@ export function createVoiceSessionController() {
         "[INTERNAL VERIFIED CURRENT-FACT EVIDENCE — NOT USER SPEECH]\n"
         + "Answer the active changing-fact question only from this evidence. If it does not answer the question, say you cannot verify it. "
         + `Evidence: ${summarizeBackgroundResult(verification.evidence)}`,
+        { forceModelTurn: true },
       );
       return;
     }
@@ -748,6 +799,7 @@ export function createVoiceSessionController() {
       sendTextToModel(
         "[INTERNAL CURRENT-FACT VERIFICATION FAILED — NOT USER SPEECH]\n"
         + "Do not answer the changing fact from memory. Say briefly that you cannot verify it right now, then offer to help with something else.",
+        { forceModelTurn: true },
       );
     }
   }
@@ -1005,10 +1057,11 @@ export function createVoiceSessionController() {
       appendContinuityLedger("user", inputText);
       state._onTranscript?.("user", inputText);
       touchActivity();
-      startCurrentFactVerification(inputText);
+      if (isVoiceLocalTimeRequest(inputText)) queueLocalTimeResponse(inputText);
+      else startCurrentFactVerification(inputText);
     }
 
-    const factGatePending = state._factVerificationGateUntilTurnComplete;
+    const factGatePending = state._factVerificationGateUntilTurnComplete || state._localTimeGateUntilTurnComplete;
     if (data.serverContent?.modelTurn?.parts) {
       touchActivity();
       clearTurnCompleteTimer();
@@ -1037,6 +1090,8 @@ export function createVoiceSessionController() {
       // Any model output before this boundary belongs to the turn that began
       // before verified evidence existed. Never let it leak into playback.
       state._factVerificationGateUntilTurnComplete = false;
+      state._localTimeGateUntilTurnComplete = false;
+      releaseLocalTimeAfterYield();
       releaseFactVerificationAfterYield();
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
@@ -1221,14 +1276,18 @@ export function createVoiceSessionController() {
     if (state.audioContext.state === "suspended") await state.audioContext.resume();
 
     try {
-      state.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        },
-      });
+      const supported = navigator.mediaDevices.getSupportedConstraints?.() || {};
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: false,
+        channelCount: 1,
+        latency: { ideal: 0.01, max: 0.04 },
+      };
+      // Voice isolation is a progressive browser capability. Request it only when
+      // the active browser advertises support, never block a call if it is absent.
+      if (supported.voiceIsolation) audioConstraints.voiceIsolation = true;
+      state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
     } catch (error) {
       if (error?.name === "NotAllowedError") {
         throw new Error("Microphone permission denied. Allow microphone access and retry.");
@@ -1345,6 +1404,9 @@ export function createVoiceSessionController() {
     state._reconnectAttempts = 0;
     state._socketGeneration = 0;
     state._lastSilenceFrameAt = 0;
+    state._noiseFloorRms = 0.0025;
+    state._speechFrameStreak = 0;
+    state._noiseGateThreshold = NOISE_GATE_THRESHOLD;
     state.isSessionActive = true;
     state.isStopping = false;
     state.isMicMuted = false;
@@ -1495,12 +1557,20 @@ export function createVoiceSessionController() {
     }
   }
 
-  function sendTextToModel(text) {
+  function sendTextToModel(text, { forceModelTurn = false } = {}) {
     const clean = String(text || "").trim();
     if (!clean || !state._setupComplete) return false;
-    // Gemini 3.1 Live accepts post-setup text updates as realtime input.
-    // clientContent is reserved for initial context history on this model family.
-    const sent = sendJson({ realtimeInput: { text: clean } });
+    // Realtime text stays fluid for passive updates. A completed client turn is
+    // required when MindPal must audibly acknowledge a post-yield safety/tool event.
+    const payload = forceModelTurn
+      ? {
+        clientContent: {
+          turns: [{ role: "user", parts: [{ text: clean }] }],
+          turnComplete: true,
+        },
+      }
+      : { realtimeInput: { text: clean } };
+    const sent = sendJson(payload);
     if (sent) state.awaitingModelResponseAt = Date.now();
     return sent;
   }
