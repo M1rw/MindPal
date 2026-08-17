@@ -157,3 +157,20 @@ def test_memory_graph_to_summary_compatibility() -> None:
 
     assert summary.preferred_name == "Marwan"
     assert "direct answers" in summary.communication_preferences.response_style
+
+
+def test_memory_graph_accepts_voice_call_provenance() -> None:
+    graph = MemoryGraph(
+        user_id_hash="user-a",
+        atoms=[
+            make_memory_atom(
+                user_id_hash="user-a",
+                category=MemoryCategory.FACTS,
+                value="Discussed a launch plan in a Voice call",
+                source=MemorySource.VOICE_CALL,
+                confidence=0.72,
+            )
+        ],
+    )
+
+    assert graph.atoms[0].source == MemorySource.VOICE_CALL

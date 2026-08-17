@@ -153,6 +153,7 @@ class MemorySource(str, Enum):
     BACKEND_COMPACTION = "backend_compaction"
     PROFILE = "profile"
     IMPORT = "import"
+    VOICE_CALL = "voice_call"
     # Legacy aliases — kept for backward compat with stored data
     CHAT_COMPACTION = "chat_compaction"
     USER_PROFILE = "user_profile"

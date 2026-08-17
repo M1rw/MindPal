@@ -287,7 +287,7 @@ async def get_voice_token(
             model=services.settings.GEMINI_LIVE_MODEL,
             websocket_url=(
                 "wss://generativelanguage.googleapis.com/ws/"
-                "google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained"
+                "google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained"
             ),
             expires_at=expires_at.isoformat().replace("+00:00", "Z"),
             new_session_expires_at=new_session_expires_at.isoformat().replace("+00:00", "Z"),
@@ -345,7 +345,7 @@ async def _create_ephemeral_voice_token(
     def create() -> str:
         from google import genai
 
-        client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
+        client = genai.Client(api_key=api_key, http_options={"api_version": "v1alpha"})
         try:
             token = client.auth_tokens.create(
                 config={
@@ -356,7 +356,7 @@ async def _create_ephemeral_voice_token(
                         "model": model,
                         "config": {"session_resumption": {}, "response_modalities": ["AUDIO"]},
                     },
-                    "http_options": {"api_version": "v1beta"},
+                    "http_options": {"api_version": "v1alpha"},
                 }
             )
             name = str(getattr(token, "name", "") or "").strip()
