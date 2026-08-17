@@ -135,3 +135,52 @@ async def test_voice_transcription_and_summary_complete_with_sanitized_results(
     assert transcription.usage is not None
     assert summary.summary == "A calm discussion about a manageable next step."
     assert summary.usage is not None
+
+
+@pytest.mark.asyncio
+async def test_voice_current_fact_verification_uses_backend_web_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Registry:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, dict[str, str]]] = []
+
+        async def execute(self, name: str, args: dict[str, str], context: object) -> SimpleNamespace:
+            self.calls.append((name, args))
+            assert getattr(context, "authenticated") is True
+            return SimpleNamespace(
+                ok=True,
+                to_dict=lambda: {
+                    "name": "web_search",
+                    "data": {"results": [{"title": "NYC", "url": "https://www.nyc.gov/"}]},
+                },
+            )
+
+    services = _services()
+    services.settings.TOOL_RATE_LIMIT_PER_MINUTE = 20
+    services.settings.WEB_SEARCH_RATE_LIMIT_PER_HOUR = 10
+    registry = _Registry()
+    monkeypatch.setattr(voice_router, "_get_verified_fact_registry", lambda: registry)
+
+    result = await voice_router.verify_current_voice_fact(
+        payload=voice_router.VoiceVerifiedFactRequest(query="Who is the mayor of New York?"),
+        services=services,
+        context=_context(),
+    )
+
+    assert result.required is True
+    assert result.verified is True
+    assert result.evidence is not None
+    assert registry.calls == [("web_search", {"query": "Who is the mayor of New York?"})]
+
+
+@pytest.mark.asyncio
+async def test_voice_current_fact_verification_does_not_search_static_question(monkeypatch: pytest.MonkeyPatch) -> None:
+    services = _services()
+    result = await voice_router.verify_current_voice_fact(
+        payload=voice_router.VoiceVerifiedFactRequest(query="What is a sales channel?"),
+        services=services,
+        context=_context(),
+    )
+
+    assert result.required is False
+    assert result.verified is False
+    assert result.error == "verification_not_required"
