@@ -33,6 +33,7 @@ let isIncognito = false;
 let onChatSyncCallback = null;
 let liveVoiceInitialized = false;
 let backgroundTaskCount = 0;
+let lastAudioProjection = { phase: "idle", isAiSpeaking: false, isMicMuted: false };
 
 // Transcript bubble tracking
 let lastSpeaker = null;
@@ -268,68 +269,39 @@ function handleTranscript(type, text) {
   scrollTranscript();
 }
 
+function resolveMinimalVoiceStatus({ phase, isAiSpeaking: aiSpeaking } = {}) {
+  // Product-facing state intentionally stays small. Runtime interaction tags and
+  // telemetry remain available for diagnostics but never become user copy.
+  if (["connecting", "recovering"].includes(phase)) return "Connecting…";
+  if (aiSpeaking || backgroundTaskCount > 0 || ["thinking", "preparing", "interrupting"].includes(phase)) {
+    return "Thinking…";
+  }
+  return "Listening…";
+}
+
+function renderMinimalVoiceStatus() {
+  const statusEl = document.getElementById("voice-live-status");
+  if (statusEl) statusEl.textContent = resolveMinimalVoiceStatus(lastAudioProjection);
+}
+
 function handleAudioState({
   phase,
   isAiSpeaking: aiSpeaking,
   isMicMuted: muted,
   palette,
-  listenerCue = "",
   interactionTag = "",
-  factVerification = false,
-  factBridge = false,
-  continuityReseeded = false,
-}) {
-  const statusEl = document.getElementById("voice-live-status");
+} = {}) {
   const overlay = document.getElementById("voice-live-overlay");
+  lastAudioProjection = {
+    phase: phase || "idle",
+    isAiSpeaking: Boolean(aiSpeaking),
+    isMicMuted: Boolean(muted),
+    interactionTag,
+  };
 
   if (overlay) overlay.dataset.voicePhase = phase || "idle";
   setPalette(palette);
-
-  if (factVerification || interactionTag === "fact-verifying") {
-    if (statusEl) statusEl.textContent = factBridge ? "Checking that properly…" : "Verifying that now…";
-    return;
-  }
-
-  if (interactionTag === "resuming") {
-    if (statusEl) statusEl.textContent = "Keeping our conversation connected…";
-    return;
-  }
-
-  if (interactionTag === "continuity-reseeding" || continuityReseeded) {
-    if (statusEl) statusEl.textContent = "Restoring the thread…";
-    return;
-  }
-
-  if (backgroundTaskCount > 0 && ["listening", "attending", "holding", "recovering"].includes(phase)) {
-    if (statusEl) statusEl.textContent = "Checking that in the background — keep talking…";
-    return;
-  }
-
-  if (listenerCue) {
-    if (statusEl) statusEl.textContent = listenerCue;
-  } else if (phase === "connecting") {
-    if (statusEl) statusEl.textContent = "Connecting…";
-  } else if (phase === "thinking") {
-    if (statusEl) statusEl.textContent = "Thinking…";
-  } else if (phase === "preparing") {
-    if (statusEl) statusEl.textContent = "Preparing a response…";
-  } else if (phase === "recovering") {
-    if (statusEl) statusEl.textContent = "Restoring the conversation…";
-  } else if (phase === "attending") {
-    if (statusEl) statusEl.textContent = "Listening closely…";
-  } else if (phase === "holding") {
-    if (statusEl) statusEl.textContent = "Taking a beat…";
-  } else if (phase === "speaking") {
-    if (statusEl) statusEl.textContent = "MindPal is speaking…";
-  } else if (phase === "interrupting") {
-    if (statusEl) statusEl.textContent = "Interruption detected — listening…";
-  } else if (phase === "muted") {
-    if (statusEl) statusEl.textContent = "Muted";
-  } else if (aiSpeaking) {
-    if (statusEl) statusEl.textContent = "MindPal is speaking…";
-  } else {
-    if (statusEl) statusEl.textContent = muted ? "Muted" : "Listening…";
-  }
+  renderMinimalVoiceStatus();
 }
 
 function handleBackgroundTask({ status } = {}) {
@@ -337,18 +309,7 @@ function handleBackgroundTask({ status } = {}) {
   if (["ready", "failed", "discarded"].includes(status)) {
     backgroundTaskCount = Math.max(0, backgroundTaskCount - 1);
   }
-
-  if (!isLiveActive) return;
-  const statusEl = document.getElementById("voice-live-status");
-  if (!statusEl) return;
-
-  if (status === "started") {
-    statusEl.textContent = "Checking that in the background — keep talking…";
-  } else if (status === "ready") {
-    statusEl.textContent = "Research is ready — I’ll bring it in when useful.";
-  } else if (status === "failed") {
-    statusEl.textContent = "I couldn’t verify that just now — we can keep talking.";
-  }
+  if (isLiveActive) renderMinimalVoiceStatus();
 }
 
 function handleSessionEnd() {

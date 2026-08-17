@@ -1,22 +1,18 @@
 import {
-  ACTIVITY_THRESHOLD,
-  BARGE_IN_FAST_THRESHOLD,
-  BARGE_IN_GRACE_MS,
-  BARGE_IN_SUSTAINED_THRESHOLD,
   NOISE_GATE_HOLD_MS,
   NOISE_GATE_THRESHOLD,
   SILENCE_ASK_MS,
   SILENCE_AUTO_END_MS,
   SILENCE_WARN_MS,
-  HOLDING_PHASE_MS,
-  TURN_COMPLETE_DELAY_MS,
-  TURN_COMPLETE_GRACE_MS,
 } from "./constants.js";
 import { buildAdaptiveVoicePrompt, inferEmotionHint } from "./prompts.js";
 import {
+  advanceVoiceNoiseGate,
+  getVoiceCapturePolicy,
   getVoiceIdleAction,
   isVoiceConversationBusy,
   isVoiceLocalTimeRequest,
+  reduceProviderTurnEvent,
   requiresVerifiedVoiceEvidence,
 } from "./conversation_policy.js";
 import { verifyCurrentVoiceFact } from "./fact_verifier.js";
@@ -338,15 +334,6 @@ export function createVoiceSessionController() {
       && requiresVerifiedVoiceEvidence(state._lastUserTranscript);
   }
 
-  function sendTurnComplete() {
-    if (!socketIsOpen() || state._toolCallPending) return;
-    // Realtime audio uses automatic activity detection; a final silence frame lets
-    // the server close the spoken turn without appending an empty client turn.
-    sendSilenceFrame({ force: true });
-    state.speechSeenRecently = false;
-    state.awaitingModelResponseAt = Date.now();
-  }
-
   function queueLocalTimeResponse(transcript) {
     const question = String(transcript || "").trim();
     if (!question || state._localTimeQuestion === question) return;
@@ -370,11 +357,12 @@ export function createVoiceSessionController() {
     );
   }
 
-  function noteUserSpeechActivity() {
-    const startsNewUserTurn = !state.speechSeenRecently;
+  function noteConfirmedCaptureActivity() {
+    const startsNewCaptureActivity = !state.speechSeenRecently;
     state.lastUserSpeechAt = Date.now();
     state.speechSeenRecently = true;
-    if (startsNewUserTurn) {
+
+    if (startsNewCaptureActivity) {
       state._conversationEpoch += 1;
       state._inputTurnActive = true;
       state.userSpeechStartedAt = state.lastUserSpeechAt;
@@ -385,8 +373,9 @@ export function createVoiceSessionController() {
       state._localTimeQuestion = "";
       cancelStaleBackgroundTasks();
     }
-    clearTurnCompleteTimer();
 
+    // This state is intentionally advisory. It never sends a client-authored
+    // end-of-turn marker; Gemini automatic VAD determines semantic yield.
     if (!state.isAiSpeaking && state.sessionPhase !== "interrupting") {
       setInteractionTag("user-speaking");
       setSessionPhase("attending", { interactionTag: "user-speaking" });
@@ -398,53 +387,6 @@ export function createVoiceSessionController() {
       state.listenerCueSentForTurn = true;
       setSessionPhase("attending", { listenerCue: "I’m with you — keep going." });
     }
-
-    const wordCount = (state._lastUserTranscript || "").trim().split(/\s+/).filter(Boolean).length;
-    const dynamicDelay = Math.max(TURN_COMPLETE_DELAY_MS - 40, 180)
-      + (state._recentEmotionHint === "supportive" ? 35 : 0)
-      + (state._recentEmotionHint === "grounded" ? 20 : 0)
-      + Math.min(90, wordCount * 5);
-
-    state.userTurnCompleteTimer = setTimeout(() => {
-      if (!state.isSessionActive || state.isMicMuted || state._toolCallPending || state.isAiSpeaking) return;
-      if (!state.speechSeenRecently) return;
-      if (Date.now() - state.lastUserSpeechAt < TURN_COMPLETE_GRACE_MS) return;
-
-      setInteractionTag("user-yielded");
-      setSessionPhase("holding", { interactionTag: "user-yielded" });
-      state.userTurnCompleteTimer = setTimeout(() => {
-        if (!state.isSessionActive || state.isMicMuted || state._toolCallPending || state.isAiSpeaking) return;
-        sendTurnComplete();
-        setSessionPhase("listening");
-      }, HOLDING_PHASE_MS);
-    }, dynamicDelay);
-  }
-
-  function shouldInterruptForBargeIn(rms) {
-    const now = Date.now();
-
-    if (rms >= BARGE_IN_FAST_THRESHOLD) {
-      state.bargeInStartedAt = now;
-      return true;
-    }
-
-    if (rms >= BARGE_IN_SUSTAINED_THRESHOLD) {
-      if (!state.bargeInStartedAt) state.bargeInStartedAt = now;
-      return now - state.bargeInStartedAt >= BARGE_IN_GRACE_MS;
-    }
-
-    state.bargeInStartedAt = 0;
-    return false;
-  }
-
-  function recoverFromInterruption() {
-    clearListeningTransitionTimer();
-    if (state.isMicMuted || state._toolCallPending || !state.isSessionActive) return;
-    setSessionPhase("recovering");
-    state.listeningTransitionTimer = setTimeout(() => {
-      if (!state.isSessionActive || state._toolCallPending || state.isMicMuted) return;
-      setSessionPhase("listening");
-    }, 220);
   }
 
   function flushAiAudio({ updatePhase = true } = {}) {
@@ -473,20 +415,14 @@ export function createVoiceSessionController() {
   }
 
   function updateAdaptiveSpeechGate(rms) {
-    // Track the persistent acoustic floor slowly. This catches fans, keyboard hum,
-    // and PC-room noise without learning short speech peaks as the new baseline.
-    const floorEligible = rms <= Math.max(0.022, state._noiseFloorRms * 2.1);
-    if (floorEligible) {
-      state._noiseFloorRms = state._noiseFloorRms * 0.965 + rms * 0.035;
-    }
-    const adaptiveThreshold = Math.min(
-      0.020,
-      Math.max(NOISE_GATE_THRESHOLD, state._noiseFloorRms * 1.7 + 0.002),
-    );
-    state._noiseGateThreshold = adaptiveThreshold;
-    const speechLike = rms >= adaptiveThreshold;
-    state._speechFrameStreak = speechLike ? Math.min(8, state._speechFrameStreak + 1) : 0;
-    return { speechLike, confirmedSpeech: state._speechFrameStreak >= 2 };
+    const signal = advanceVoiceNoiseGate({
+      noiseFloorRms: state._noiseFloorRms,
+      speechFrameStreak: state._speechFrameStreak,
+    }, rms, { minimumThreshold: NOISE_GATE_THRESHOLD });
+    state._noiseFloorRms = signal.next.noiseFloorRms;
+    state._speechFrameStreak = signal.next.speechFrameStreak;
+    state._noiseGateThreshold = signal.adaptiveThreshold;
+    return signal;
   }
 
   function handleCapturedAudioFrame(rawFrame) {
@@ -498,19 +434,22 @@ export function createVoiceSessionController() {
     let sum = 0;
     for (let i = 0; i < inputData.length; i += 1) sum += inputData[i] * inputData[i];
     const rms = Math.sqrt(sum / Math.max(1, inputData.length));
-    const { confirmedSpeech } = updateAdaptiveSpeechGate(rms);
+    const signal = updateAdaptiveSpeechGate(rms);
+    const capturePolicy = getVoiceCapturePolicy({
+      confirmedSpeech: signal.confirmedSpeech,
+      isAiSpeaking: state.isAiSpeaking,
+    });
 
-    if (state.isAiSpeaking && confirmedSpeech && shouldInterruptForBargeIn(rms)) {
-      setSessionPhase("interrupting");
-      flushAiAudio({ updatePhase: false });
+    // Candidate audio is forwarded to the provider so its native VAD can recognise
+    // quiet speech. Only confirmed speech alters client state or visual activity.
+    if (signal.candidateSpeech) state.gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
+    if (signal.confirmedSpeech) {
       touchActivity();
-      recoverFromInterruption();
-    }
-
-    if (confirmedSpeech) {
-      touchActivity();
-      noteUserSpeechActivity();
-      state.gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
+      noteConfirmedCaptureActivity();
+      if (capturePolicy.awaitProviderInterruption) {
+        setInteractionTag("barge-in-pending");
+        setSessionPhase("interrupting", { interactionTag: "barge-in-pending" });
+      }
     }
 
     const gateOpen = Date.now() < state.gateOpenUntil;
@@ -1097,6 +1036,20 @@ export function createVoiceSessionController() {
     }
 
     if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
+      // Gemini automatic VAD owns semantic yield and interruption. Capture RMS may
+      // mark quality activity, but it cannot clear model playback on its own.
+      const providerTurn = reduceProviderTurnEvent({
+        interrupted: Boolean(data.serverContent.interrupted),
+        turnComplete: Boolean(data.serverContent.turnComplete),
+        captureSpeechActive: state.speechSeenRecently,
+        isMicMuted: state.isMicMuted,
+      });
+      if (providerTurn.clearPlayback) {
+        clearListeningTransitionTimer();
+        flushAiAudio({ updatePhase: false });
+        touchActivity();
+      }
+
       // Any model output before this boundary belongs to the turn that began
       // before verified evidence existed. Never let it leak into playback.
       state._factVerificationGateUntilTurnComplete = false;
@@ -1104,10 +1057,11 @@ export function createVoiceSessionController() {
       releaseLocalTimeAfterYield();
       releaseFactVerificationAfterYield();
       clearTurnCompleteTimer();
-      state.speechSeenRecently = false;
-      state._inputTurnActive = false;
-      if (data.serverContent.interrupted) recoverFromInterruption();
-      else setSessionPhase(state.isMicMuted ? "muted" : "listening");
+      if (providerTurn.clearCaptureActivity) {
+        state.speechSeenRecently = false;
+        state._inputTurnActive = false;
+      }
+      if (providerTurn.nextPhase) setSessionPhase(providerTurn.nextPhase);
       state._onTurnComplete?.();
     }
 
