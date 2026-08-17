@@ -15,6 +15,7 @@ import pytest
 
 from backend.api.dependencies import get_timezone
 from backend.api.tools_router import _build_tool_context
+from backend.api.chat_stream_router import _resolve_user_timezone
 from backend.tools import build_default_registry
 from backend.tools.time_tool import CurrentTimeTool
 
@@ -82,6 +83,12 @@ def test_current_time_tool_with_timezone():
     # Run the async test
     import asyncio
     asyncio.run(run_test())
+
+
+def test_streaming_chat_falls_back_to_validated_request_timezone():
+    assert _resolve_user_timezone(None, "Africa/Cairo") == "Africa/Cairo"
+    assert _resolve_user_timezone("", "Africa/Cairo") == "Africa/Cairo"
+    assert _resolve_user_timezone("Asia/Tokyo", "Africa/Cairo") == "Asia/Tokyo"
 
 
 def test_tools_router_preserves_request_timezone():

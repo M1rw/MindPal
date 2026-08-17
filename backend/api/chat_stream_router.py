@@ -61,6 +61,12 @@ def _chunks(text: str, size: int = 96) -> list[str]:
     return [text[index:index + size] for index in range(0, len(text), size)]
 
 
+def _resolve_user_timezone(metadata_timezone: object, request_timezone: str) -> str:
+    """Prefer the client payload value, then the validated request timezone."""
+    payload_timezone = sanitize_text(str(metadata_timezone or ""), 80).strip()
+    return payload_timezone or request_timezone or "UTC"
+
+
 def _stream_replay_record(reply: str, metadata: dict[str, Any]) -> dict[str, Any]:
     """Persist exactly what a completed safe stream needs for a transport retry."""
     return {
@@ -89,6 +95,7 @@ async def chat_stream(
     context: RequestContextDep,
 ) -> StreamingResponse:
     locale = _resolve_locale(payload, context.locale)
+    user_timezone = _resolve_user_timezone(payload.metadata.timezone, context.timezone)
     authenticated = bool(context.session.authenticated)
     subject = context.session.user_id_hash if authenticated else context.client_ip_hash
     clinical_mode = payload.metadata.model == "pro"
@@ -272,7 +279,7 @@ async def chat_stream(
             user_id_hash=context.session.user_id_hash,
             authenticated=authenticated,
             locale=locale,
-            timezone=payload.metadata.timezone or "UTC",
+            timezone=user_timezone,
             request_id=context.request_id,
             services=services,
             chat_history=[
@@ -320,7 +327,7 @@ async def chat_stream(
             intent_context_str=intent_context_str,
             response_brief=response_brief,
             tool_descriptions=registry.get_tool_descriptions_prompt(),
-            user_timezone=payload.metadata.timezone or "UTC",
+            user_timezone=user_timezone,
         )
         if tool_results_text:
             system_prompt += (
