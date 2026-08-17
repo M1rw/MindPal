@@ -56,6 +56,17 @@ export function getToolDeclarations() {
       },
     },
     {
+      name: "calculate_expression",
+      description: "Calculate a numeric arithmetic expression exactly. Use for arithmetic, percentages, ratios, or unit-free numeric transforms; never do the math mentally.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          expression: { type: "STRING", description: "Arithmetic using numbers, parentheses, +, -, *, /, //, %, and ** only" },
+        },
+        required: ["expression"],
+      },
+    },
+    {
       name: "web_search",
       description: "Search the web for real-time, current information. Use this when the user asks about current events, recent news, facts you're unsure about, weather, sports scores, or anything that requires up-to-date data from the internet. Returns titles, snippets, and URLs.",
       parameters: {

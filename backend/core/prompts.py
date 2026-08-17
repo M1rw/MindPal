@@ -663,7 +663,9 @@ def build_tool_instructions(tool_descriptions: str) -> str:
         "- Always use the current_time tool when the user asks about time or date.\n"
         "- Use search_memory when the user asks 'do you remember...?' or references personal facts.\n"
         "- Use search_chat_history when the user asks about past conversations.\n"
-        "- Use web_search when the user asks about current events, news, or facts you're unsure about.\n"
+        "- Use web_search for current events, news, and any changing fact.\n"
+        "- Officeholders (mayors, presidents, governors, ministers, CEOs), prices, weather, scores, elections, and 'latest/current/today' claims are changing facts: answer only from successful current web evidence.\n"
+        "- If current web evidence is unavailable or empty, say you could not verify the answer right now; never fill the gap from retained model knowledge.\n"
         "- Do NOT make up information that a tool search could verify."
     )
 

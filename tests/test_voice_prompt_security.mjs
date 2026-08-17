@@ -77,7 +77,18 @@ test("live runtime delegates web research without pausing audio input", async ()
   assert.doesNotMatch(source, /state\._toolCallPending \|\| state\._backgroundTasks\.size/);
 });
 
-test("voice prompt tells the model how to use background research", () => {
+test("voice session enables grounded current facts and preserves research through one barge-in", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  assert.match(source, /tools: \[\{ googleSearch: \{\} \}, \{ functionDeclarations: getLiveToolDeclarations\(\) \}\]/);
+  assert.match(source, /behavior: "NON_BLOCKING"/);
+  assert.match(source, /enableAffectiveDialog: true/);
+  assert.match(source, /proactivity: \{ proactiveAudio: true \}/);
+  assert.match(source, /scheduling: "WHEN_IDLE"/);
+  assert.match(source, /task\.epoch \+ 1 < state\._conversationEpoch/);
+  assert.match(source, /Superseded by a newer topic/);
+});
+
+test("voice prompt tells the model how to use background research", async () => {
   const prompt = buildAdaptiveVoicePrompt("", "", {
     _lastUserTranscript: "What is the latest news?",
     _lastAiTranscript: "",
@@ -90,6 +101,9 @@ test("voice prompt tells the model how to use background research", () => {
   assert.match(prompt, /INTERNAL BACKGROUND RESEARCH UPDATE/);
   assert.match(prompt, /automatically detected from the user's device timezone/);
   assert.match(prompt, /NEVER ask the user what timezone they are in/);
+  assert.match(prompt, /elected officials/);
+  assert.match(prompt, /Google Search grounding/);
+  assert.match(prompt, /briefly interrupts or clarifies the same subject/);
 });
 
 test("live runtime sends post-setup text through realtime input", async () => {

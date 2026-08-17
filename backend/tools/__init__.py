@@ -191,10 +191,12 @@ def build_default_registry() -> ToolRegistry:
     from backend.tools.memory_search_tool import MemorySearchTool, GetUserProfileTool
     from backend.tools.chat_search_tool import GetRecentChatTool, SearchChatHistoryTool
     from backend.tools.web_search_tool import WebSearchTool
+    from backend.tools.calculation_tool import CalculationTool
 
     registry = ToolRegistry()
     registry.register(CurrentTimeTool())
     registry.register(DateCalculatorTool())
+    registry.register(CalculationTool())
     registry.register(MemorySearchTool())
     registry.register(GetUserProfileTool())
     registry.register(GetRecentChatTool())

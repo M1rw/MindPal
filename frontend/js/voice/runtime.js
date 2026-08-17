@@ -27,6 +27,7 @@ const SILENCE_FRAME_INTERVAL_MS = 280;
 const MAX_RECONNECT_ATTEMPTS = 4;
 const RECONNECT_BASE_DELAY_MS = 450;
 const BACKGROUND_TOOL_NAMES = new Set(["web_search"]);
+const NON_BLOCKING_TOOL_NAMES = new Set(["web_search"]);
 const MAX_BACKGROUND_TOOL_TASKS = 2;
 const BACKGROUND_TOOL_TIMEOUT_MS = 12_000;
 
@@ -462,6 +463,14 @@ export function createVoiceSessionController() {
     }
   }
 
+  function getLiveToolDeclarations() {
+    return getToolDeclarations().map((declaration) => (
+      NON_BLOCKING_TOOL_NAMES.has(declaration.name)
+        ? { ...declaration, behavior: "NON_BLOCKING" }
+        : declaration
+    ));
+  }
+
   function sendSetupMessage() {
     const profile = state._contextProvider?.getUserProfile?.() || {};
     const userName = quoteUntrustedProfileValue(profile.name);
@@ -494,6 +503,10 @@ export function createVoiceSessionController() {
           responseModalities: ["AUDIO"],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } },
         },
+        // Gemini 2.5 Live native-audio capabilities: adapt delivery to vocal affect
+        // and ignore ambient/non-directed speech when appropriate.
+        enableAffectiveDialog: true,
+        proactivity: { proactiveAudio: true },
         realtimeInputConfig: {
           automaticActivityDetection: {
             disabled: false,
@@ -511,7 +524,9 @@ export function createVoiceSessionController() {
         contextWindowCompression: { slidingWindow: {} },
         outputAudioTranscription: {},
         inputAudioTranscription: {},
-        tools: [{ functionDeclarations: getToolDeclarations() }],
+        // Provider grounding handles fresh public facts before the model speaks;
+        // custom tools remain for MindPal-specific memory and verified fallback work.
+        tools: [{ googleSearch: {} }, { functionDeclarations: getLiveToolDeclarations() }],
         systemInstruction: { parts: [{ text: adaptivePrompt }] },
       },
     });
@@ -567,8 +582,10 @@ export function createVoiceSessionController() {
 
   function cancelStaleBackgroundTasks() {
     for (const task of state._backgroundTasks.values()) {
-      if (task.epoch < state._conversationEpoch) {
-        task.controller.abort(new DOMException("Superseded by a newer user turn", "AbortError"));
+      // A barge-in is often a clarification of the same question. Keep one newer
+      // user turn of grace so a verified result can still serve the conversation.
+      if (task.epoch + 1 < state._conversationEpoch) {
+        task.controller.abort(new DOMException("Superseded by a newer topic", "AbortError"));
       }
     }
   }
@@ -594,7 +611,7 @@ export function createVoiceSessionController() {
       signal: controller.signal,
       allowClientFallback: false,
     }).then((result) => {
-      if (!state.isSessionActive || controller.signal.aborted || task.epoch !== state._conversationEpoch) {
+      if (!state.isSessionActive || controller.signal.aborted || task.epoch + 1 < state._conversationEpoch) {
         notifyBackgroundTask({ id: taskId, name: call.name, status: "discarded" });
         return;
       }
@@ -639,6 +656,7 @@ export function createVoiceSessionController() {
             status: "background_started",
             message: "Research is running in the background. Continue the conversation naturally and wait for an internal update before stating current facts.",
           },
+          scheduling: "WHEN_IDLE",
         },
       }));
       const capacityResponses = backgroundCalls
