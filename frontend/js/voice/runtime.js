@@ -26,6 +26,9 @@ const CAPTURE_FRAME_SIZE = 2_048;
 const SILENCE_FRAME_INTERVAL_MS = 280;
 const MAX_RECONNECT_ATTEMPTS = 4;
 const RECONNECT_BASE_DELAY_MS = 450;
+const BACKGROUND_TOOL_NAMES = new Set(["web_search"]);
+const MAX_BACKGROUND_TOOL_TASKS = 2;
+const BACKGROUND_TOOL_TIMEOUT_MS = 12_000;
 
 function quoteUntrustedProfileValue(value, maxChars = 120) {
   const cleaned = String(value || "")
@@ -55,6 +58,11 @@ export function createVoiceSessionController() {
     outputGainNode: null,
     outputCompressorNode: null,
     _toolCallPending: false,
+    _backgroundTasks: new Map(),
+    _backgroundTaskSequence: 0,
+    _conversationEpoch: 0,
+    _inputTurnActive: false,
+    _onBackgroundTask: null,
     gateOpenUntil: 0,
     bargeInStartedAt: 0,
     userTurnCompleteTimer: null,
@@ -245,8 +253,14 @@ export function createVoiceSessionController() {
   }
 
   function noteUserSpeechActivity() {
+    const startsNewUserTurn = !state.speechSeenRecently;
     state.lastUserSpeechAt = Date.now();
     state.speechSeenRecently = true;
+    if (startsNewUserTurn) {
+      state._conversationEpoch += 1;
+      state._inputTurnActive = true;
+      cancelStaleBackgroundTasks();
+    }
     clearTurnCompleteTimer();
 
     if (!state.isAiSpeaking && state.sessionPhase !== "interrupting") {
@@ -503,7 +517,7 @@ export function createVoiceSessionController() {
     });
   }
 
-  async function handleToolCalls(functionCalls) {
+  async function handleBlockingToolCalls(functionCalls) {
     if (!Array.isArray(functionCalls) || functionCalls.length === 0) return;
 
     state._toolCallPending = true;
@@ -535,6 +549,110 @@ export function createVoiceSessionController() {
       timeoutController.abort();
       state._toolCallPending = false;
       setSessionPhase(state.isAiSpeaking ? "speaking" : state.isMicMuted ? "muted" : "listening");
+    }
+  }
+
+  function isBackgroundToolCall(call) {
+    return BACKGROUND_TOOL_NAMES.has(String(call?.name || ""));
+  }
+
+  function summarizeBackgroundResult(result) {
+    const text = JSON.stringify(result || {});
+    return text.length > 3_000 ? `${text.slice(0, 3_000)}…` : text;
+  }
+
+  function notifyBackgroundTask(update) {
+    state._onBackgroundTask?.(update);
+  }
+
+  function cancelStaleBackgroundTasks() {
+    for (const task of state._backgroundTasks.values()) {
+      if (task.epoch < state._conversationEpoch) {
+        task.controller.abort(new DOMException("Superseded by a newer user turn", "AbortError"));
+      }
+    }
+  }
+
+  function startBackgroundToolCall(call) {
+    if (state._backgroundTasks.size >= MAX_BACKGROUND_TOOL_TASKS) {
+      return false;
+    }
+
+    const taskId = `research-${++state._backgroundTaskSequence}`;
+    const controller = new AbortController();
+    const task = {
+      id: taskId,
+      name: call.name,
+      epoch: state._conversationEpoch,
+      controller,
+    };
+    state._backgroundTasks.set(taskId, task);
+    notifyBackgroundTask({ id: taskId, name: call.name, status: "started" });
+
+    void toolExecutor(call.name, call.args || {}, {
+      timeoutMs: BACKGROUND_TOOL_TIMEOUT_MS,
+      signal: controller.signal,
+      allowClientFallback: false,
+    }).then((result) => {
+      if (!state.isSessionActive || controller.signal.aborted || task.epoch !== state._conversationEpoch) {
+        notifyBackgroundTask({ id: taskId, name: call.name, status: "discarded" });
+        return;
+      }
+
+      if (result?.error) {
+        notifyBackgroundTask({ id: taskId, name: call.name, status: "failed" });
+        return;
+      }
+
+      notifyBackgroundTask({ id: taskId, name: call.name, status: "ready" });
+      sendTextToModel(
+        `[INTERNAL BACKGROUND RESEARCH UPDATE — NOT USER SPEECH]\n`
+        + `The web research requested for the active user question is complete. `
+        + `Use it only if it remains relevant; do not interrupt a newer topic. `
+        + `Results: ${summarizeBackgroundResult(result)}`,
+      );
+    }).catch((error) => {
+      if (!controller.signal.aborted) {
+        console.warn("[BACKGROUND_TOOL] failed", { name: call.name, error: error?.name || "unknown" });
+        notifyBackgroundTask({ id: taskId, name: call.name, status: "failed" });
+      }
+    }).finally(() => {
+      state._backgroundTasks.delete(taskId);
+    });
+
+    return true;
+  }
+
+  async function handleToolCalls(functionCalls) {
+    if (!Array.isArray(functionCalls) || functionCalls.length === 0) return;
+
+    const backgroundCalls = functionCalls.filter(isBackgroundToolCall);
+    const blockingCalls = functionCalls.filter((call) => !isBackgroundToolCall(call));
+
+    if (backgroundCalls.length) {
+      const acceptedCalls = backgroundCalls.filter(startBackgroundToolCall);
+      const immediateResponses = acceptedCalls.map((call) => ({
+        id: call.id,
+        name: call.name,
+        response: {
+          result: {
+            status: "background_started",
+            message: "Research is running in the background. Continue the conversation naturally and wait for an internal update before stating current facts.",
+          },
+        },
+      }));
+      const capacityResponses = backgroundCalls
+        .filter((call) => !acceptedCalls.includes(call))
+        .map((call) => ({
+          id: call.id,
+          name: call.name,
+          response: { result: { error: "Background research capacity is full. Continue without a search result." } },
+        }));
+      sendJson({ toolResponse: { functionResponses: [...immediateResponses, ...capacityResponses] } });
+    }
+
+    if (blockingCalls.length) {
+      await handleBlockingToolCalls(blockingCalls);
     }
   }
 
@@ -661,6 +779,7 @@ export function createVoiceSessionController() {
     if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
+      state._inputTurnActive = false;
       if (data.serverContent.interrupted) recoverFromInterruption();
       else setSessionPhase(state.isMicMuted ? "muted" : "listening");
       state._onTurnComplete?.();
@@ -924,7 +1043,12 @@ export function createVoiceSessionController() {
     state._onAudioState = onAudioState;
     state._onSessionEnd = onSessionEnd;
     state._onVolume = onVolume;
-    state._onTurnComplete = onTurnComplete;
+    state._onTurnComplete = options.onTurnComplete || null;
+    state._onBackgroundTask = options.onBackgroundTask || null;
+    state._backgroundTasks.clear();
+    state._backgroundTaskSequence = 0;
+    state._conversationEpoch = 0;
+    state._inputTurnActive = false;
     state._lastUserTranscript = "";
     state._lastAiTranscript = "";
     state._recentEmotionHint = "neutral";
@@ -1041,7 +1165,12 @@ export function createVoiceSessionController() {
     state._voiceCredentials = null;
     state._sessionResumptionHandle = "";
     state._setupComplete = false;
+    for (const task of state._backgroundTasks.values()) {
+      task.controller.abort(new DOMException("Voice session ended", "AbortError"));
+    }
+    state._backgroundTasks.clear();
     state._toolCallPending = false;
+    state._inputTurnActive = false;
     state.sessionPhase = "idle";
     state.isStopping = false;
 

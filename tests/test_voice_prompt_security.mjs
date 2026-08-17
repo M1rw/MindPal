@@ -58,6 +58,30 @@ test("voice prompt carries the selected HRO mode and Pro provenance rule", () =>
   assert.match(cognitiveToolsPrompt, /never repeat an assistant inference as if the user said it/);
 });
 
+test("live runtime delegates web research without pausing audio input", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /BACKGROUND_TOOL_NAMES = new Set\(\["web_search"\]\)/);
+  assert.match(source, /status: "background_started"/);
+  assert.match(source, /cancelStaleBackgroundTasks\(\)/);
+  assert.match(source, /INTERNAL BACKGROUND RESEARCH UPDATE — NOT USER SPEECH/);
+  assert.match(source, /if \(!socketIsOpen\(\) \|\| !state\._setupComplete \|\| state\._toolCallPending\) return;/);
+  assert.doesNotMatch(source, /state\._toolCallPending \|\| state\._backgroundTasks\.size/);
+});
+
+test("voice prompt tells the model how to use background research", () => {
+  const prompt = buildAdaptiveVoicePrompt("", "", {
+    _lastUserTranscript: "What is the latest news?",
+    _lastAiTranscript: "",
+    _recentEmotionHint: "neutral",
+    _contextProvider: null,
+  });
+
+  assert.match(prompt, /BACKGROUND RESEARCH:/);
+  assert.match(prompt, /background_started/);
+  assert.match(prompt, /INTERNAL BACKGROUND RESEARCH UPDATE/);
+});
+
 test("live runtime sends post-setup text through realtime input", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
   const sendTextToModel = source.match(/function sendTextToModel\(text\) \{[\s\S]*?\n  \}/)?.[0] || "";

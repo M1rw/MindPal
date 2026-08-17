@@ -32,6 +32,7 @@ let ccVisible = true;
 let isIncognito = false;
 let onChatSyncCallback = null;
 let liveVoiceInitialized = false;
+let backgroundTaskCount = 0;
 
 // Transcript bubble tracking
 let lastSpeaker = null;
@@ -68,15 +69,15 @@ export function initLiveVoice({ onChatSync } = {}) {
       if (icon) icon.setAttribute("data-lucide", isIncognito ? "eye-off" : "eye");
       refreshIcons();
 
-              incognitoBtn.setAttribute("aria-pressed", String(isIncognito));
-        const statusEl = document.getElementById("voice-live-status");
-        if (statusEl) {
-          const prev = statusEl.textContent;
-          statusEl.textContent = isIncognito ? "Call won’t be added to chat" : "Call will be added to chat";
-          setTimeout(() => {
-            if (statusEl.textContent === "Call won’t be added to chat" || statusEl.textContent === "Call will be added to chat") statusEl.textContent = prev;
-          }, 1800);
-        }
+      incognitoBtn.setAttribute("aria-pressed", String(isIncognito));
+      const statusEl = document.getElementById("voice-live-status");
+      if (statusEl) {
+        const prev = statusEl.textContent;
+        statusEl.textContent = isIncognito ? "Call won’t be added to chat" : "Call will be added to chat";
+        setTimeout(() => {
+          if (statusEl.textContent === "Call won’t be added to chat" || statusEl.textContent === "Call will be added to chat") statusEl.textContent = prev;
+        }, 1800);
+      }
 
     });
   }
@@ -117,6 +118,7 @@ export async function startLiveVoice(contextProvider = null) {
   callStartTime = new Date();
   lastSpeaker = null;
   currentBubble = null;
+  backgroundTaskCount = 0;
 
   // Prepare UI
   const overlay = document.getElementById("voice-live-overlay");
@@ -156,6 +158,7 @@ export async function startLiveVoice(contextProvider = null) {
       onAudioState: handleAudioState,
       onSessionEnd: handleSessionEnd,
       onTurnComplete: handleTurnComplete,
+      onBackgroundTask: handleBackgroundTask,
       onVolume: feedVolume,
       token,
       refreshAuthToken: () => getIdToken({ forceRefresh: true }),
@@ -215,6 +218,7 @@ export function stopLiveVoice() {
 
   // Reset incognito for next call
   isIncognito = false;
+  backgroundTaskCount = 0;
   const incognitoBtn = document.getElementById("voice-incognito-toggle");
   if (incognitoBtn) {
     const icon = incognitoBtn.querySelector("[data-lucide]");
@@ -267,6 +271,11 @@ function handleAudioState({ phase, isAiSpeaking: aiSpeaking, isMicMuted: muted, 
 
   setPalette(palette);
 
+  if (backgroundTaskCount > 0 && ["listening", "attending", "holding", "recovering"].includes(phase)) {
+    if (statusEl) statusEl.textContent = "Checking that in the background — keep talking…";
+    return;
+  }
+
   if (phase === "thinking") {
     if (statusEl) statusEl.textContent = "Thinking…";
   } else if (phase === "preparing") {
@@ -287,6 +296,25 @@ function handleAudioState({ phase, isAiSpeaking: aiSpeaking, isMicMuted: muted, 
     if (statusEl) statusEl.textContent = "MindPal is speaking…";
   } else {
     if (statusEl) statusEl.textContent = muted ? "Muted" : "Listening…";
+  }
+}
+
+function handleBackgroundTask({ status } = {}) {
+  if (status === "started") backgroundTaskCount += 1;
+  if (["ready", "failed", "discarded"].includes(status)) {
+    backgroundTaskCount = Math.max(0, backgroundTaskCount - 1);
+  }
+
+  if (!isLiveActive) return;
+  const statusEl = document.getElementById("voice-live-status");
+  if (!statusEl) return;
+
+  if (status === "started") {
+    statusEl.textContent = "Checking that in the background — keep talking…";
+  } else if (status === "ready") {
+    statusEl.textContent = "Research is ready — I’ll bring it in when useful.";
+  } else if (status === "failed") {
+    statusEl.textContent = "I couldn’t verify that just now — we can keep talking.";
   }
 }
 
