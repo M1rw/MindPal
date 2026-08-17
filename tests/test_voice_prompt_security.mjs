@@ -88,6 +88,8 @@ test("voice prompt tells the model how to use background research", () => {
   assert.match(prompt, /BACKGROUND RESEARCH:/);
   assert.match(prompt, /background_started/);
   assert.match(prompt, /INTERNAL BACKGROUND RESEARCH UPDATE/);
+  assert.match(prompt, /automatically detected from the user's device timezone/);
+  assert.match(prompt, /NEVER ask the user what timezone they are in/);
 });
 
 test("live runtime sends post-setup text through realtime input", async () => {
