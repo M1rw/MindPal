@@ -29,6 +29,20 @@
   }
 }
 
+/* Live Voice is fullscreen. Do not add the app-wide 24px safe-area minimum here:
+   in an installed iPhone app it creates a visibly empty strip below the call controls.
+   Keep only the real home-indicator inset plus an 8px touch margin. */
+.voice-live-controls {
+  padding-top: 0.75rem;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
+}
+
+@media all and (display-mode: standalone) {
+  .voice-live-controls {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.375rem);
+  }
+}
+
 /* Sleek Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

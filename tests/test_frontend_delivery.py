@@ -54,6 +54,19 @@ def test_frontend_root_references_production_bundles() -> None:
     assert "https://*.gstatic.com" not in csp
 
 
+def test_voice_overlay_uses_compact_standalone_safe_area_controls() -> None:
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    css = (root / "frontend" / "css" / "style.css").read_text(encoding="utf-8")
+
+    assert "voice-live-controls" in html
+    assert "pb-[max(env(safe-area-inset-bottom,24px),24px)]" not in html
+    assert ".voice-live-controls" in css
+    assert "padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);" in css
+    assert "@media all and (display-mode: standalone)" in css
+    assert "padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.375rem);" in css
+
+
 def test_favicon_proxy_returns_a_same_origin_safe_image(monkeypatch) -> None:
     favicon_router._cache.clear()
 
