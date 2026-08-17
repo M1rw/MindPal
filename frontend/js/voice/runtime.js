@@ -20,6 +20,10 @@ import {
   requiresVerifiedVoiceEvidence,
 } from "./conversation_policy.js";
 import { verifyCurrentVoiceFact } from "./fact_verifier.js";
+import {
+  planVoiceRecovery,
+  resetVoiceRecoveryState,
+} from "./recovery_policy.js";
 import { createToolExecutor, executeToolClientSide, getToolDeclarations } from "./tools.js";
 import {
   buildEphemeralVoiceWebSocketUrl,
@@ -31,8 +35,6 @@ const INPUT_SAMPLE_RATE = 16_000;
 const OUTPUT_SAMPLE_RATE = 24_000;
 const CAPTURE_FRAME_SIZE = 2_048;
 const SILENCE_FRAME_INTERVAL_MS = 280;
-const MAX_RECONNECT_ATTEMPTS = 4;
-const RECONNECT_BASE_DELAY_MS = 450;
 const BACKGROUND_TOOL_NAMES = new Set(["web_search"]);
 const MAX_BACKGROUND_TOOL_TASKS = 2;
 const BACKGROUND_TOOL_TIMEOUT_MS = 12_000;
@@ -134,6 +136,10 @@ export function createVoiceSessionController() {
     _socketGeneration: 0,
     _reconnectTimer: null,
     _reconnectAttempts: 0,
+    _resumptionAttempts: 0,
+    _transientReconnectAttempts: 0,
+    _transientRecoveryCycles: 0,
+    _reconnectInFlight: false,
   };
 
   const toolExecutor = createToolExecutor({
@@ -361,7 +367,6 @@ export function createVoiceSessionController() {
       + "Answer the user's active time question directly and naturally using only this local device result. "
       + "Do not mention verification, web search, or internal tools. "
       + `Question: ${question}\nTime result: ${summarizeBackgroundResult(localTime)}`,
-      { forceModelTurn: true },
     );
   }
 
@@ -774,7 +779,6 @@ export function createVoiceSessionController() {
           + "The user has finished asking a changing-fact question and verification is still running. "
           + "Say exactly ONE very short, natural sentence in the user's language meaning ‘Give me a second — I’m checking that properly.’ "
           + "Do not answer, guess, explain the tool, or add a follow-up question. Then wait for verified evidence.",
-          { forceModelTurn: true },
         );
       }
       return;
@@ -789,7 +793,6 @@ export function createVoiceSessionController() {
         "[INTERNAL VERIFIED CURRENT-FACT EVIDENCE — NOT USER SPEECH]\n"
         + "Answer the active changing-fact question only from this evidence. If it does not answer the question, say you cannot verify it. "
         + `Evidence: ${summarizeBackgroundResult(verification.evidence)}`,
-        { forceModelTurn: true },
       );
       return;
     }
@@ -799,7 +802,6 @@ export function createVoiceSessionController() {
       sendTextToModel(
         "[INTERNAL CURRENT-FACT VERIFICATION FAILED — NOT USER SPEECH]\n"
         + "Do not answer the changing fact from memory. Say briefly that you cannot verify it right now, then offer to help with something else.",
-        { forceModelTurn: true },
       );
     }
   }
@@ -1024,7 +1026,12 @@ export function createVoiceSessionController() {
     if (data.setupComplete) {
       const continuityReseeded = state._continuityReseedPending;
       state._setupComplete = true;
+      state._reconnectInFlight = false;
+      const recoveryState = resetVoiceRecoveryState();
       state._reconnectAttempts = 0;
+      state._resumptionAttempts = recoveryState.resumptionAttempts;
+      state._transientReconnectAttempts = recoveryState.transientAttempts;
+      state._transientRecoveryCycles = recoveryState.recoveryCycles;
       state._resumeRequested = false;
       state._continuityReseedPending = false;
       setInteractionTag("listening", { continuityReseeded });
@@ -1043,7 +1050,10 @@ export function createVoiceSessionController() {
 
     if (data.error) {
       console.error("[Voice] Server error:", data.error);
-      state._onTranscript?.("system", "Voice service reported an error.");
+      state._onTranscript?.("system", "Voice service is reconnecting.");
+      state._clientReconnectRequested = true;
+      state._clientReconnectReason = state._resumeRequested ? "resume-server-error" : "provider-server-error";
+      try { state.liveWebSocket?.close(1011, "provider-server-error"); } catch {}
       return;
     }
 
@@ -1157,6 +1167,7 @@ export function createVoiceSessionController() {
 
     clearReconnectTimer();
     state._setupComplete = false;
+    state._reconnectInFlight = reconnecting;
     state._staleSocketCloseRequested = false;
     state.awaitingModelResponseAt = 0;
     const generation = ++state._socketGeneration;
@@ -1203,8 +1214,11 @@ export function createVoiceSessionController() {
       if (state.liveWebSocket === socket) state.liveWebSocket = null;
       if (!state.isSessionActive || state.isStopping) return;
 
-      const plannedReconnect = state._clientReconnectRequested || state._resumeRequested;
-      const plannedReason = state._clientReconnectReason || (state._resumeRequested ? "server-go-away" : "stale-model-response");
+      const reconnectSetupFailed = state._reconnectInFlight && !state._setupComplete;
+      const plannedReconnect = state._clientReconnectRequested || state._resumeRequested || reconnectSetupFailed;
+      const plannedReason = state._clientReconnectReason
+        || (state._resumeRequested ? "server-go-away" : "")
+        || (reconnectSetupFailed ? "reconnect-setup-failed" : "stale-model-response");
       state._clientReconnectRequested = false;
       state._clientReconnectReason = "";
       state._staleSocketCloseRequested = false;
@@ -1228,43 +1242,57 @@ export function createVoiceSessionController() {
   }
 
 
+  function applyRecoveryCounters(next) {
+    state._resumptionAttempts = next.resumptionAttempts;
+    state._transientReconnectAttempts = next.transientAttempts;
+    state._transientRecoveryCycles = next.recoveryCycles;
+    state._reconnectAttempts = next.resumptionAttempts + next.transientAttempts;
+  }
+
   function scheduleReconnect(reason = "transient") {
     if (!state.isSessionActive || state.isStopping || state._reconnectTimer) return;
 
-    if (state._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error("[Voice] Reconnect attempts exhausted.");
-      stopSession();
-      return;
-    }
-
-    state._reconnectAttempts += 1;
-    const delay = Math.min(6_000, RECONNECT_BASE_DELAY_MS * (2 ** (state._reconnectAttempts - 1)));
-    setSessionPhase("recovering", { reconnectReason: reason, reconnectInMs: delay });
+    const recovery = planVoiceRecovery({
+      reason,
+      hasResumptionHandle: Boolean(state._sessionResumptionHandle),
+      credentialExpiresAt: state._voiceCredentials?.expires_at,
+      resumeRequested: state._resumeRequested,
+      resumptionAttempts: state._resumptionAttempts,
+      transientAttempts: state._transientReconnectAttempts,
+      recoveryCycles: state._transientRecoveryCycles,
+    });
+    applyRecoveryCounters(recovery.next);
+    setSessionPhase("recovering", {
+      reconnectReason: recovery.reason,
+      reconnectInMs: recovery.delayMs,
+      recoveryAction: recovery.action,
+    });
 
     state._reconnectTimer = setTimeout(async () => {
       state._reconnectTimer = null;
       if (!state.isSessionActive || state.isStopping) return;
 
       try {
-        // Gemini allows the active ephemeral token to resume this logical session.
-        // If no handle is currently resumable, transparently start a fresh session
-        // with the compact local ledger embedded in its trusted setup context.
-        if (!state._sessionResumptionHandle || !state._voiceCredentials) {
+        const needsFreshSession = recovery.action === "reseed";
+        // Tokens are provisioned with uses: 1. Every physical WebSocket needs
+        // a fresh credential; only the provider resumption handle is reused.
+        const needsCredentialRefresh = true;
+        if (needsFreshSession) {
           state._sessionResumptionHandle = "";
-          state._continuityReseedPending = state._continuityLedger.length > 0;
           state._resumeRequested = false;
+          state._continuityReseedPending = state._continuityLedger.length > 0;
           setInteractionTag(state._continuityReseedPending ? "continuity-reseeding" : "recovering", {
-            reconnectReason: reason,
+            reconnectReason: recovery.reason,
             continuityReseeded: state._continuityReseedPending,
           });
-          await refreshVoiceCredentials();
         }
+        if (needsCredentialRefresh) await refreshVoiceCredentials();
         openWebSocket(state._voiceCredentials, { reconnecting: true });
       } catch (error) {
-        console.warn("[Voice] Reconnect credential refresh failed:", error);
+        console.warn("[Voice] Recovery credential refresh failed:", error);
         scheduleReconnect("credential-refresh-failed");
       }
-    }, delay);
+    }, recovery.delayMs);
   }
 
   async function setupAudioCapture() {
@@ -1401,7 +1429,12 @@ export function createVoiceSessionController() {
     state._interactionTag = "idle";
     state._setupComplete = false;
     state._greetingSent = false;
+    const recoveryState = resetVoiceRecoveryState();
     state._reconnectAttempts = 0;
+    state._resumptionAttempts = recoveryState.resumptionAttempts;
+    state._transientReconnectAttempts = recoveryState.transientAttempts;
+    state._transientRecoveryCycles = recoveryState.recoveryCycles;
+    state._reconnectInFlight = false;
     state._socketGeneration = 0;
     state._lastSilenceFrameAt = 0;
     state._noiseFloorRms = 0.0025;
@@ -1517,6 +1550,7 @@ export function createVoiceSessionController() {
     state._voiceCredentials = null;
     state._sessionResumptionHandle = "";
     state._setupComplete = false;
+    state._reconnectInFlight = false;
     for (const task of state._backgroundTasks.values()) {
       task.controller.abort(new DOMException("Voice session ended", "AbortError"));
     }
@@ -1557,20 +1591,13 @@ export function createVoiceSessionController() {
     }
   }
 
-  function sendTextToModel(text, { forceModelTurn = false } = {}) {
+  function sendTextToModel(text) {
     const clean = String(text || "").trim();
     if (!clean || !state._setupComplete) return false;
-    // Realtime text stays fluid for passive updates. A completed client turn is
-    // required when MindPal must audibly acknowledge a post-yield safety/tool event.
-    const payload = forceModelTurn
-      ? {
-        clientContent: {
-          turns: [{ role: "user", parts: [{ text: clean }] }],
-          turnComplete: true,
-        },
-      }
-      : { realtimeInput: { text: clean } };
-    const sent = sendJson(payload);
+    // Gemini 3.1 accepts post-setup text only as realtime input. Completed
+    // semantic turns are provider-owned through VAD and must not be forged
+    // through clientContent after setup.
+    const sent = sendJson({ realtimeInput: { text: clean } });
     if (sent) state.awaitingModelResponseAt = Date.now();
     return sent;
   }

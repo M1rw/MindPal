@@ -8,6 +8,10 @@ import {
   classifyVoiceStartupFailure,
   fetchVoiceTokenWithRetry,
 } from '../frontend/js/voice/startup_helpers.mjs';
+import {
+  MAX_TRANSIENT_RECONNECT_ATTEMPTS,
+  planVoiceRecovery,
+} from '../frontend/js/voice/recovery_policy.js';
 
 test('buildVoiceTokenUrl normalizes API origins', () => {
   assert.equal(buildVoiceTokenUrl('https://example.com/api'), 'https://example.com/api/voice/token');
@@ -112,4 +116,46 @@ test('fetchVoiceTokenWithRetry sends and refreshes Firebase App Check with auth'
   assert.equal(calls[0].options.headers['X-Firebase-AppCheck'], 'expired-app-check');
   assert.equal(calls[1].options.headers.Authorization, 'Bearer fresh-id-token');
   assert.equal(calls[1].options.headers['X-Firebase-AppCheck'], 'fresh-app-check');
+});
+
+
+test('provider GoAway uses a separate one-handle resumption attempt', () => {
+  const recovery = planVoiceRecovery({
+    reason: 'server-go-away',
+    resumeRequested: true,
+    hasResumptionHandle: true,
+    resumptionAttempts: 0,
+    transientAttempts: 3,
+    recoveryCycles: 0,
+  });
+
+  assert.equal(recovery.action, 'resume');
+  assert.equal(recovery.reason, 'provider-resumption');
+  assert.equal(recovery.next.resumptionAttempts, 1);
+  assert.equal(recovery.next.transientAttempts, 3);
+});
+
+test('a failed or unavailable resume handle transitions to fresh continuity reseed', () => {
+  const recovery = planVoiceRecovery({
+    reason: 'reconnect-setup-failed',
+    resumeRequested: true,
+    hasResumptionHandle: true,
+    resumptionAttempts: 1,
+  });
+
+  assert.equal(recovery.action, 'reseed');
+  assert.equal(recovery.reason, 'resume-fallback');
+});
+
+test('transient network retries pause rather than automatically end a live call', () => {
+  const recovery = planVoiceRecovery({
+    reason: 'transient-network',
+    transientAttempts: MAX_TRANSIENT_RECONNECT_ATTEMPTS,
+    recoveryCycles: 0,
+  });
+
+  assert.equal(recovery.action, 'pause');
+  assert.equal(recovery.reason, 'network-recovery-pause');
+  assert.equal(recovery.next.transientAttempts, 0);
+  assert.equal(recovery.next.recoveryCycles, 1);
 });

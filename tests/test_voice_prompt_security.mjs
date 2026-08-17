@@ -116,14 +116,13 @@ test("voice prompt tells the model how to use background research", async () => 
   assert.match(prompt, /briefly interrupts or clarifies the same subject/);
 });
 
-test("live runtime uses realtime text for passive updates and completed client turns for audible internal bridges", async () => {
+test("live runtime uses the documented realtime text channel for every post-setup update", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
-  const sendTextToModel = source.match(/function sendTextToModel\(text, \{ forceModelTurn = false \} = \{\}\) \{[\s\S]*?\n  \}/)?.[0] || "";
+  const sendTextToModel = source.match(/function sendTextToModel\(text\) \{[\s\S]*?\n  \}/)?.[0] || "";
 
   assert.match(sendTextToModel, /realtimeInput: \{ text: clean \}/);
-  assert.match(sendTextToModel, /clientContent:/);
-  assert.match(sendTextToModel, /turnComplete: true/);
-  assert.match(source, /INTERNAL FACT-CHECK BRIDGE — NOT USER SPEECH[\s\S]*?forceModelTurn: true/);
+  assert.doesNotMatch(sendTextToModel, /clientContent:/);
+  assert.doesNotMatch(source, /forceModelTurn/);
 });
 
 test("voice prompt keeps direct user context bounded", () => {
@@ -319,7 +318,7 @@ test("Voice runtime resolves local time after yield without entering the verifie
   assert.match(source, /function queueLocalTimeResponse\(transcript\)/);
   assert.match(source, /INTERNAL LOCAL DEVICE TIME — NOT USER SPEECH/);
   assert.match(source, /executeToolClientSide\("current_time", \{\}, null\)/);
-  assert.match(source, /forceModelTurn: true/);
+  assert.match(source, /realtimeInput: \{ text: clean \}/);
   assert.match(source, /_localTimeGateUntilTurnComplete/);
 });
 
