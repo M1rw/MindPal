@@ -242,6 +242,12 @@ function buildVoiceContextProvider() {
       const q = String(query || "").toLowerCase();
       return messages.filter((message) => String(message.text || "").toLowerCase().includes(q));
     },
+    getVoiceResponseContract() {
+      return {
+        model: getCurrentModel(),
+        mode: getCurrentMode(),
+      };
+    },
   };
 }
 

@@ -76,6 +76,12 @@ export function createToolExecutor({ getAuthToken, getAppCheckToken, contextProv
     const appCheckToken = await Promise.resolve(typeof getAppCheckToken === "function" ? getAppCheckToken() : getAppCheckToken);
 
     const headers = { "Content-Type": "application/json" };
+    try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (timezone) headers["X-MindPal-Timezone"] = timezone;
+    } catch {
+      // Timezone is optional; backend safely falls back to UTC.
+    }
     if (token) headers.Authorization = `Bearer ${token}`;
     if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
 

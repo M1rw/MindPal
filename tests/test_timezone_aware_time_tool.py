@@ -9,10 +9,12 @@ This test verifies that:
 """
 
 from datetime import UTC
+from types import SimpleNamespace
 
 import pytest
 
 from backend.api.dependencies import get_timezone
+from backend.api.tools_router import _build_tool_context
 from backend.tools import build_default_registry
 from backend.tools.time_tool import CurrentTimeTool
 
@@ -80,6 +82,19 @@ def test_current_time_tool_with_timezone():
     # Run the async test
     import asyncio
     asyncio.run(run_test())
+
+
+def test_tools_router_preserves_request_timezone():
+    context = SimpleNamespace(
+        session=SimpleNamespace(user_id_hash="test-user", authenticated=True),
+        locale="en",
+        timezone="Africa/Cairo",
+        request_id="request-timezone",
+    )
+
+    tool_context = _build_tool_context(context, services=SimpleNamespace())
+
+    assert tool_context.timezone == "Africa/Cairo"
 
 
 def test_time_tool_registered_in_registry():

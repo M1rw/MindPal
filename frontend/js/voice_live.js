@@ -68,14 +68,16 @@ export function initLiveVoice({ onChatSync } = {}) {
       if (icon) icon.setAttribute("data-lucide", isIncognito ? "eye-off" : "eye");
       refreshIcons();
 
-      const statusEl = document.getElementById("voice-live-status");
-      if (statusEl) {
-        const prev = statusEl.textContent;
-        statusEl.textContent = isIncognito ? "Call won’t be saved" : "Call saving restored";
-        setTimeout(() => {
-          if (statusEl.textContent === "Call won’t be saved" || statusEl.textContent === "Call saving restored") statusEl.textContent = prev;
-        }, 1500);
-      }
+              incognitoBtn.setAttribute("aria-pressed", String(isIncognito));
+        const statusEl = document.getElementById("voice-live-status");
+        if (statusEl) {
+          const prev = statusEl.textContent;
+          statusEl.textContent = isIncognito ? "Call won’t be added to chat" : "Call will be added to chat";
+          setTimeout(() => {
+            if (statusEl.textContent === "Call won’t be added to chat" || statusEl.textContent === "Call will be added to chat") statusEl.textContent = prev;
+          }, 1800);
+        }
+
     });
   }
 
@@ -197,7 +199,8 @@ export function stopLiveVoice() {
     setTimeout(() => overlay.classList.add("hidden"), 500);
   }
 
-  // Sync to chat unless the user disabled call-history persistence
+  // A private-from-chat call still runs through the authenticated live session;
+  // this control only blocks post-call transcript, memory, and cloud-chat persistence.
   if (!isIncognito && onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
     const endTime = new Date();
     onChatSyncCallback({
@@ -216,6 +219,7 @@ export function stopLiveVoice() {
   if (incognitoBtn) {
     const icon = incognitoBtn.querySelector("[data-lucide]");
     if (icon) icon.setAttribute("data-lucide", "eye");
+    incognitoBtn.setAttribute("aria-pressed", "false");
   }
 }
 
