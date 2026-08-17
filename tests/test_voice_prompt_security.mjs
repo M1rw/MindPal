@@ -58,6 +58,14 @@ test("voice prompt carries the selected HRO mode and Pro provenance rule", () =>
   assert.match(cognitiveToolsPrompt, /never repeat an assistant inference as if the user said it/);
 });
 
+test("live runtime binds optional callbacks from the start-session signature", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  assert.match(source, /async function startSession\(\{[\s\S]*?onTurnComplete = null,[\s\S]*?onBackgroundTask = null,/);
+  assert.match(source, /state\._onTurnComplete = onTurnComplete/);
+  assert.match(source, /state\._onBackgroundTask = onBackgroundTask/);
+  assert.doesNotMatch(source, /options\.onTurnComplete|options\.onBackgroundTask/);
+});
+
 test("live runtime delegates web research without pausing audio input", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
 
