@@ -133,6 +133,7 @@ export async function startLiveVoice(contextProvider = null) {
     throw new Error("Voice overlay is missing from the page.");
   }
 
+  overlay.dataset.voicePhase = "connecting";
   overlay.classList.remove("hidden");
   void overlay.offsetWidth;
   overlay.classList.remove("opacity-0");
@@ -175,6 +176,7 @@ export async function startLiveVoice(contextProvider = null) {
     setAnalysers({ mic: micAnalyser, ai: aiAnalyser });
 
     if (statusEl) statusEl.textContent = "Listening…";
+    overlay.dataset.voicePhase = "listening";
     setPalette("listen");
   } catch (error) {
     console.error("Failed to start Live Voice", error);
@@ -197,6 +199,7 @@ export function stopLiveVoice() {
   // Hide overlay with transition
   const overlay = document.getElementById("voice-live-overlay");
   if (overlay) {
+    overlay.dataset.voicePhase = "idle";
     overlay.classList.add("opacity-0");
     overlay.classList.remove("pointer-events-auto");
     setTimeout(() => overlay.classList.add("hidden"), 500);
@@ -266,9 +269,11 @@ function handleTranscript(type, text) {
   scrollTranscript();
 }
 
-function handleAudioState({ phase, isAiSpeaking: aiSpeaking, isMicMuted: muted, palette }) {
+function handleAudioState({ phase, isAiSpeaking: aiSpeaking, isMicMuted: muted, palette, listenerCue = "" }) {
   const statusEl = document.getElementById("voice-live-status");
+  const overlay = document.getElementById("voice-live-overlay");
 
+  if (overlay) overlay.dataset.voicePhase = phase || "idle";
   setPalette(palette);
 
   if (backgroundTaskCount > 0 && ["listening", "attending", "holding", "recovering"].includes(phase)) {
@@ -276,12 +281,16 @@ function handleAudioState({ phase, isAiSpeaking: aiSpeaking, isMicMuted: muted, 
     return;
   }
 
-  if (phase === "thinking") {
+  if (listenerCue) {
+    if (statusEl) statusEl.textContent = listenerCue;
+  } else if (phase === "connecting") {
+    if (statusEl) statusEl.textContent = "Connecting…";
+  } else if (phase === "thinking") {
     if (statusEl) statusEl.textContent = "Thinking…";
   } else if (phase === "preparing") {
     if (statusEl) statusEl.textContent = "Preparing a response…";
   } else if (phase === "recovering") {
-    if (statusEl) statusEl.textContent = "Recovering from interruption…";
+    if (statusEl) statusEl.textContent = "Restoring the conversation…";
   } else if (phase === "attending") {
     if (statusEl) statusEl.textContent = "Listening closely…";
   } else if (phase === "holding") {

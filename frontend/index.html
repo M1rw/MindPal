@@ -589,9 +589,18 @@
 
         <!-- ── Status pill ── -->
         <div class="relative z-20 flex justify-center px-5 py-2">
-            <div id="voice-live-status"
+            <div id="voice-live-status" aria-live="polite"
                  class="px-4 py-1.5 rounded-full text-[12px] font-medium tracking-wide bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 transition-all duration-300">
                 Connecting…
+            </div>
+        </div>
+
+        <!-- ── Holographic connection state ── -->
+        <div id="voice-holo-loader" class="voice-holo-loader" aria-hidden="true">
+            <div class="voice-holo-loader__shell">
+                <span class="voice-holo-loader__glow"></span>
+                <span class="voice-holo-loader__core"></span>
+                <span class="voice-holo-loader__sheen"></span>
             </div>
         </div>
 
