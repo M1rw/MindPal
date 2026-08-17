@@ -268,12 +268,37 @@ function handleTranscript(type, text) {
   scrollTranscript();
 }
 
-function handleAudioState({ phase, isAiSpeaking: aiSpeaking, isMicMuted: muted, palette, listenerCue = "" }) {
+function handleAudioState({
+  phase,
+  isAiSpeaking: aiSpeaking,
+  isMicMuted: muted,
+  palette,
+  listenerCue = "",
+  interactionTag = "",
+  factVerification = false,
+  factBridge = false,
+  continuityReseeded = false,
+}) {
   const statusEl = document.getElementById("voice-live-status");
   const overlay = document.getElementById("voice-live-overlay");
 
   if (overlay) overlay.dataset.voicePhase = phase || "idle";
   setPalette(palette);
+
+  if (factVerification || interactionTag === "fact-verifying") {
+    if (statusEl) statusEl.textContent = factBridge ? "Checking that properly…" : "Verifying that now…";
+    return;
+  }
+
+  if (interactionTag === "resuming") {
+    if (statusEl) statusEl.textContent = "Keeping our conversation connected…";
+    return;
+  }
+
+  if (interactionTag === "continuity-reseeding" || continuityReseeded) {
+    if (statusEl) statusEl.textContent = "Restoring the thread…";
+    return;
+  }
 
   if (backgroundTaskCount > 0 && ["listening", "attending", "holding", "recovering"].includes(phase)) {
     if (statusEl) statusEl.textContent = "Checking that in the background — keep talking…";
