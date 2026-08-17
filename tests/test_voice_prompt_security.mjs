@@ -4,9 +4,12 @@ import test from "node:test";
 
 import { buildAdaptiveVoicePrompt } from "../frontend/js/voice/prompts.js";
 import {
+  advanceVoiceNoiseGate,
+  getVoiceCapturePolicy,
   getVoiceIdleAction,
   isVoiceConversationBusy,
   isVoiceLocalTimeRequest,
+  reduceProviderTurnEvent,
   requiresVerifiedVoiceEvidence,
 } from "../frontend/js/voice/conversation_policy.js";
 import { verifyCurrentVoiceFact } from "../frontend/js/voice/fact_verifier.js";
@@ -301,13 +304,19 @@ test("Voice runtime releases evidence only after its original fact-gated turn an
   assert.match(source, /_factVerificationGateUntilTurnComplete = false;/);
 });
 
-test("Voice overlay surfaces verified-fact and resumption states without persistent decoration", async () => {
+test("Voice overlay maps all runtime detail to the three-state human vocabulary", async () => {
   const source = await readFile(new URL("../frontend/js/voice_live.js", import.meta.url), "utf8");
 
-  assert.match(source, /Checking that properly…/);
-  assert.match(source, /Keeping our conversation connected…/);
-  assert.match(source, /Restoring the thread…/);
-  assert.match(source, /interactionTag = ""/);
+  assert.match(source, /function resolveMinimalVoiceStatus/);
+  assert.match(source, /return "Connecting…"/);
+  assert.match(source, /return "Thinking…"/);
+  assert.match(source, /return "Listening…"/);
+  assert.match(source, /function renderMinimalVoiceStatus/);
+  assert.match(source, /lastAudioProjection/);
+  assert.doesNotMatch(source, /Checking that properly…/);
+  assert.doesNotMatch(source, /Keeping our conversation connected…/);
+  assert.doesNotMatch(source, /Restoring the thread…/);
+  assert.doesNotMatch(source, /MindPal is speaking…/);
 });
 
 
@@ -322,7 +331,7 @@ test("Voice runtime resolves local time after yield without entering the verifie
   assert.match(source, /_localTimeGateUntilTurnComplete/);
 });
 
-test("Voice runtime applies supported native capture constraints and confirmed-speech noise gating", async () => {
+test("Voice runtime applies supported native capture constraints and provider-owned interruption", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
 
   assert.match(source, /getSupportedConstraints\?\.\(\) \|\| \{\}/);
@@ -330,8 +339,53 @@ test("Voice runtime applies supported native capture constraints and confirmed-s
   assert.match(source, /noiseSuppression: true/);
   assert.match(source, /autoGainControl: false/);
   assert.match(source, /if \(supported\.voiceIsolation\) audioConstraints\.voiceIsolation = true/);
-  assert.match(source, /function updateAdaptiveSpeechGate\(rms\)/);
-  assert.match(source, /confirmedSpeech: state\._speechFrameStreak >= 2/);
-  assert.match(source, /state\.isAiSpeaking && confirmedSpeech && shouldInterruptForBargeIn\(rms\)/);
-  assert.match(source, /if \(confirmedSpeech\) \{/);
+  assert.match(source, /advanceVoiceNoiseGate\(/);
+  assert.match(source, /getVoiceCapturePolicy\(/);
+  assert.match(source, /reduceProviderTurnEvent\(/);
+  assert.doesNotMatch(source, /function shouldInterruptForBargeIn/);
+  assert.doesNotMatch(source, /function sendTurnComplete/);
+});
+
+test("Voice capture policy filters noise without locally ending turns or playback", () => {
+  let signal = { noiseFloorRms: 0.0025, speechFrameStreak: 0 };
+  for (let index = 0; index < 4; index += 1) {
+    const result = advanceVoiceNoiseGate(signal, 0.009);
+    signal = result.next;
+    assert.equal(result.confirmedSpeech, false, "short fan/keyboard noise cannot become a user turn");
+  }
+
+  let speech = { noiseFloorRms: 0.0025, speechFrameStreak: 0 };
+  let result;
+  for (let index = 0; index < 2; index += 1) {
+    result = advanceVoiceNoiseGate(speech, 0.03);
+    speech = result.next;
+  }
+  assert.equal(result.confirmedSpeech, true, "sustained real speech is recognised for quality telemetry");
+  assert.deepEqual(getVoiceCapturePolicy({ confirmedSpeech: true, isAiSpeaking: true }), {
+    activity: "barge-in-pending",
+    awaitProviderInterruption: true,
+  });
+
+  assert.deepEqual(reduceProviderTurnEvent({
+    interrupted: false,
+    turnComplete: false,
+    captureSpeechActive: true,
+  }), {
+    clearPlayback: false,
+    clearCaptureActivity: false,
+    nextPhase: null,
+  });
+  assert.deepEqual(reduceProviderTurnEvent({
+    interrupted: true,
+    captureSpeechActive: true,
+  }), {
+    clearPlayback: true,
+    clearCaptureActivity: false,
+    nextPhase: "attending",
+  });
+  assert.deepEqual(reduceProviderTurnEvent({ turnComplete: true }), {
+    clearPlayback: false,
+    clearCaptureActivity: true,
+    nextPhase: "listening",
+  });
 });
