@@ -6,6 +6,7 @@ import { buildAdaptiveVoicePrompt } from "../frontend/js/voice/prompts.js";
 import {
   getVoiceIdleAction,
   isVoiceConversationBusy,
+  isVoiceLocalTimeRequest,
   requiresVerifiedVoiceEvidence,
 } from "../frontend/js/voice/conversation_policy.js";
 import { verifyCurrentVoiceFact } from "../frontend/js/voice/fact_verifier.js";
@@ -115,12 +116,14 @@ test("voice prompt tells the model how to use background research", async () => 
   assert.match(prompt, /briefly interrupts or clarifies the same subject/);
 });
 
-test("live runtime sends post-setup text through realtime input", async () => {
+test("live runtime uses realtime text for passive updates and completed client turns for audible internal bridges", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
-  const sendTextToModel = source.match(/function sendTextToModel\(text\) \{[\s\S]*?\n  \}/)?.[0] || "";
+  const sendTextToModel = source.match(/function sendTextToModel\(text, \{ forceModelTurn = false \} = \{\}\) \{[\s\S]*?\n  \}/)?.[0] || "";
 
   assert.match(sendTextToModel, /realtimeInput: \{ text: clean \}/);
-  assert.doesNotMatch(sendTextToModel, /clientContent:/);
+  assert.match(sendTextToModel, /clientContent:/);
+  assert.match(sendTextToModel, /turnComplete: true/);
+  assert.match(source, /INTERNAL FACT-CHECK BRIDGE — NOT USER SPEECH[\s\S]*?forceModelTurn: true/);
 });
 
 test("voice prompt keeps direct user context bounded", () => {
@@ -171,11 +174,15 @@ test("voice prompt permits one quiet acknowledgement during a long user thought"
 });
 
 
-test("Voice policy marks officeholders and changing facts as evidence-required", () => {
+test("Voice policy marks officeholders and changing facts as evidence-required but excludes local time", () => {
   assert.equal(requiresVerifiedVoiceEvidence("Who is the mayor of New York?"), true);
   assert.equal(requiresVerifiedVoiceEvidence("What is the weather today in Cairo?"), true);
   assert.equal(requiresVerifiedVoiceEvidence("مين رئيس الوزراء الحالي؟"), true);
   assert.equal(requiresVerifiedVoiceEvidence("What is a sales channel?"), false);
+  assert.equal(isVoiceLocalTimeRequest("Can you tell me what is the time right now?"), true);
+  assert.equal(isVoiceLocalTimeRequest("الساعة كام دلوقتي؟"), true);
+  assert.equal(requiresVerifiedVoiceEvidence("Can you tell me what is the time right now?"), false);
+  assert.equal(requiresVerifiedVoiceEvidence("الساعة كام دلوقتي؟"), false);
 });
 
 test("Voice idle policy never checks in while either party or evidence work is active", () => {
@@ -302,4 +309,30 @@ test("Voice overlay surfaces verified-fact and resumption states without persist
   assert.match(source, /Keeping our conversation connected…/);
   assert.match(source, /Restoring the thread…/);
   assert.match(source, /interactionTag = ""/);
+});
+
+
+test("Voice runtime resolves local time after yield without entering the verified-web path", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /isVoiceLocalTimeRequest\(inputText\)\) queueLocalTimeResponse\(inputText\)/);
+  assert.match(source, /function queueLocalTimeResponse\(transcript\)/);
+  assert.match(source, /INTERNAL LOCAL DEVICE TIME — NOT USER SPEECH/);
+  assert.match(source, /executeToolClientSide\("current_time", \{\}, null\)/);
+  assert.match(source, /forceModelTurn: true/);
+  assert.match(source, /_localTimeGateUntilTurnComplete/);
+});
+
+test("Voice runtime applies supported native capture constraints and confirmed-speech noise gating", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /getSupportedConstraints\?\.\(\) \|\| \{\}/);
+  assert.match(source, /echoCancellation: true/);
+  assert.match(source, /noiseSuppression: true/);
+  assert.match(source, /autoGainControl: false/);
+  assert.match(source, /if \(supported\.voiceIsolation\) audioConstraints\.voiceIsolation = true/);
+  assert.match(source, /function updateAdaptiveSpeechGate\(rms\)/);
+  assert.match(source, /confirmedSpeech: state\._speechFrameStreak >= 2/);
+  assert.match(source, /state\.isAiSpeaking && confirmedSpeech && shouldInterruptForBargeIn\(rms\)/);
+  assert.match(source, /if \(confirmedSpeech\) \{/);
 });
