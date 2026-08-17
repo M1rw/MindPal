@@ -102,6 +102,10 @@ def check_html_ids_and_assets() -> tuple[int, int]:
         relative = ref.split("?", 1)[0].split("#", 1)[0]
         if not relative:
             continue
+        # Extensionless absolute links are client routes (for example /privacy),
+        # not files inside the frontend build. Keep all file-like references strict.
+        if relative.startswith("/") and not Path(relative).suffix:
+            continue
         target = FRONTEND / relative.lstrip("/") if relative.startswith("/") else FRONTEND / relative
         checked += 1
         if not target.exists():

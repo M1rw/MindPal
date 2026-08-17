@@ -12,6 +12,7 @@
     "build:brain": "esbuild frontend/js/brain_page.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/brain.bundle.js",
     "test": "node --test tests/*.mjs",
     "audit:frontend": "python scripts/audit_frontend.py",
+    "audit:syntax": "python3 scripts/audit_syntax_integrity.py",
     "verify:prebuilt": "python scripts/verify_prebuilt_frontend.py"
   },
   "dependencies": {
