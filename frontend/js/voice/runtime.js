@@ -1027,6 +1027,7 @@ export function createVoiceSessionController() {
     onSessionEnd = null,
     onVolume = null,
     onTurnComplete = null,
+    onBackgroundTask = null,
     token = null,
     refreshAuthToken = null,
     getAppCheckToken = null,
@@ -1043,8 +1044,8 @@ export function createVoiceSessionController() {
     state._onAudioState = onAudioState;
     state._onSessionEnd = onSessionEnd;
     state._onVolume = onVolume;
-    state._onTurnComplete = options.onTurnComplete || null;
-    state._onBackgroundTask = options.onBackgroundTask || null;
+    state._onTurnComplete = onTurnComplete;
+    state._onBackgroundTask = onBackgroundTask;
     state._backgroundTasks.clear();
     state._backgroundTaskSequence = 0;
     state._conversationEpoch = 0;
