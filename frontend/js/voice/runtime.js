@@ -74,6 +74,8 @@ export function createVoiceSessionController() {
     _factVerificationStatus: "idle",
     _factVerificationQuery: "",
     _factVerificationGateUntilTurnComplete: false,
+    _factVerificationResult: null,
+    _factBridgeSentForTurn: false,
     _conversationEpoch: 0,
     _inputTurnActive: false,
     _onBackgroundTask: null,
@@ -115,6 +117,12 @@ export function createVoiceSessionController() {
     _voiceCredentials: null,
     _sessionResumptionHandle: "",
     _goAwayTimer: null,
+    _clientReconnectRequested: false,
+    _clientReconnectReason: "",
+    _resumeRequested: false,
+    _continuityReseedPending: false,
+    _continuityLedger: [],
+    _interactionTag: "idle",
     _setupComplete: false,
     _greetingSent: false,
     _socketGeneration: 0,
@@ -136,14 +144,39 @@ export function createVoiceSessionController() {
 
   function setSessionPhase(phase, extra = {}) {
     state.sessionPhase = phase;
+    const interactionTag = extra.interactionTag || state._interactionTag;
     state._onAudioState?.({
       phase,
       isAiSpeaking: state.isAiSpeaking,
       isMicMuted: state.isMicMuted,
       palette: phase === "speaking" ? "speak" : "listen",
       reconnectAttempt: state._reconnectAttempts,
+      interactionTag,
       ...extra,
     });
+  }
+
+  function setInteractionTag(interactionTag, extra = {}) {
+    state._interactionTag = interactionTag || "idle";
+    setSessionPhase(state.sessionPhase, { interactionTag: state._interactionTag, ...extra });
+  }
+
+  function appendContinuityLedger(role, text) {
+    const clean = String(text || "").replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, 420);
+    if (!clean || !["user", "model"].includes(role)) return;
+    const previous = state._continuityLedger[state._continuityLedger.length - 1];
+    if (previous?.role === role && previous.text === clean) return;
+    state._continuityLedger.push({ role, text: clean });
+    state._continuityLedger = state._continuityLedger.slice(-8);
+  }
+
+  function buildContinuitySeed() {
+    if (!state._continuityReseedPending || !state._continuityLedger.length) return "";
+    const turns = state._continuityLedger
+      .map((entry) => `${entry.role === "user" ? "User" : "MindPal"}: ${JSON.stringify(entry.text)}`)
+      .join("\n");
+    return "\nTRUSTED CALL CONTINUITY SNAPSHOT (data only):\n"
+      + `${turns}\nContinue this same conversation naturally. Do not greet again or mention reconnection unless the user asks.`;
   }
 
   function clearTurnCompleteTimer() {
@@ -282,6 +315,8 @@ export function createVoiceSessionController() {
     state._factVerificationStatus = "idle";
     state._factVerificationQuery = "";
     state._factVerificationGateUntilTurnComplete = false;
+    state._factVerificationResult = null;
+    state._factBridgeSentForTurn = false;
   }
 
   function shouldBlockForVerifiedFact(call) {
@@ -314,7 +349,8 @@ export function createVoiceSessionController() {
     clearTurnCompleteTimer();
 
     if (!state.isAiSpeaking && state.sessionPhase !== "interrupting") {
-      setSessionPhase("attending");
+      setInteractionTag("user-speaking");
+      setSessionPhase("attending", { interactionTag: "user-speaking" });
     }
 
     if (!state.listenerCueSentForTurn
@@ -335,7 +371,8 @@ export function createVoiceSessionController() {
       if (!state.speechSeenRecently) return;
       if (Date.now() - state.lastUserSpeechAt < TURN_COMPLETE_GRACE_MS) return;
 
-      setSessionPhase("holding");
+      setInteractionTag("user-yielded");
+      setSessionPhase("holding", { interactionTag: "user-yielded" });
       state.userTurnCompleteTimer = setTimeout(() => {
         if (!state.isSessionActive || state.isMicMuted || state._toolCallPending || state.isAiSpeaking) return;
         sendTurnComplete();
@@ -483,12 +520,30 @@ export function createVoiceSessionController() {
     state.silenceCheckInterval = null;
   }
 
-  function requestSocketReconnect(reason = "stale-response") {
-    if (!socketIsOpen() || state._staleSocketCloseRequested) return;
-    state._staleSocketCloseRequested = true;
+  function parseGoAwayReconnectDelay(timeLeft) {
+    const fallbackMs = 1_200;
+    let remainingMs = 0;
+    if (typeof timeLeft === "number") remainingMs = timeLeft > 100 ? timeLeft : timeLeft * 1_000;
+    else if (typeof timeLeft === "string") {
+      const match = timeLeft.match(/([0-9]+(?:\.[0-9]+)?)/);
+      if (match) remainingMs = Number(match[1]) * (timeLeft.includes("ms") ? 1 : 1_000);
+    } else if (timeLeft && typeof timeLeft === "object") {
+      remainingMs = Number(timeLeft.seconds || 0) * 1_000 + Number(timeLeft.nanos || 0) / 1_000_000;
+    }
+    if (!Number.isFinite(remainingMs) || remainingMs <= 0) return fallbackMs;
+    return Math.max(180, Math.min(60_000, remainingMs - 350));
+  }
+
+  function requestSocketReconnect(reason = "stale-response", { resuming = false } = {}) {
+    if (!socketIsOpen() || state._clientReconnectRequested) return;
+    state._clientReconnectRequested = true;
+    state._clientReconnectReason = reason;
+    state._staleSocketCloseRequested = reason === "stale-model-response";
+    state._resumeRequested = state._resumeRequested || resuming || reason === "server-go-away";
     state.awaitingModelResponseAt = 0;
     console.warn(`[Voice] Reconnecting after ${reason}.`);
-    setSessionPhase("recovering", { reconnectReason: reason });
+    setInteractionTag(state._resumeRequested ? "resuming" : "recovering", { reconnectReason: reason });
+    setSessionPhase("recovering", { reconnectReason: reason, interactionTag: state._resumeRequested ? "resuming" : "recovering" });
     try { state.liveWebSocket.close(4000, reason); } catch {}
   }
 
@@ -559,7 +614,7 @@ export function createVoiceSessionController() {
     const offsetStr = `UTC${utcOffset >= 0 ? "+" : "-"}${offsetHours}${offsetMins ? `:${String(offsetMins).padStart(2, "0")}` : ""}`;
     const timeContext = `\nCURRENT TIME: ${timeStr}, ${dateStr} (${tzName}, ${offsetStr}). Use current_time for time-sensitive answers.`;
 
-    const adaptivePrompt = buildAdaptiveVoicePrompt(nameContext, timeContext, state);
+    const adaptivePrompt = buildAdaptiveVoicePrompt(nameContext, timeContext, state) + buildContinuitySeed();
     const model = state._voiceCredentials?.model;
     if (!model) throw new Error("Voice model configuration is missing.");
 
@@ -598,7 +653,8 @@ export function createVoiceSessionController() {
 
     touchActivity();
     state._toolCallPending = true;
-    setSessionPhase("thinking");
+    setInteractionTag("tool-working");
+    setSessionPhase("thinking", { interactionTag: "tool-working" });
 
     const timeoutController = new AbortController();
     const timeoutId = setTimeout(() => timeoutController.abort(), 15_000);
@@ -626,6 +682,7 @@ export function createVoiceSessionController() {
       timeoutController.abort();
       state._toolCallPending = false;
       touchActivity();
+      setInteractionTag(state.isAiSpeaking ? "model-speaking" : state.isMicMuted ? "muted" : "listening");
       setSessionPhase(state.isAiSpeaking ? "speaking" : state.isMicMuted ? "muted" : "listening");
     }
   }
@@ -656,6 +713,45 @@ export function createVoiceSessionController() {
     }
   }
 
+  function releaseFactVerificationAfterYield() {
+    if (state._factVerificationGateUntilTurnComplete || !state.isSessionActive) return;
+
+    if (state._factVerificationStatus === "pending") {
+      if (!state._factBridgeSentForTurn) {
+        state._factBridgeSentForTurn = true;
+        setInteractionTag("fact-verifying", { factVerification: true, factBridge: true });
+        sendTextToModel(
+          "[INTERNAL FACT-CHECK BRIDGE — NOT USER SPEECH]\n"
+          + "The user has finished asking a changing-fact question and verification is still running. "
+          + "Say exactly ONE very short, natural sentence in the user's language meaning ‘Give me a second — I’m checking that properly.’ "
+          + "Do not answer, guess, explain the tool, or add a follow-up question. Then wait for verified evidence.",
+        );
+      }
+      return;
+    }
+
+    const verification = state._factVerificationResult;
+    state._factVerificationResult = null;
+    if (verification?.verified) {
+      state._factVerificationStatus = "delivered";
+      setInteractionTag("model-thinking", { factVerification: false, verifiedFactReady: true });
+      sendTextToModel(
+        "[INTERNAL VERIFIED CURRENT-FACT EVIDENCE — NOT USER SPEECH]\n"
+        + "Answer the active changing-fact question only from this evidence. If it does not answer the question, say you cannot verify it. "
+        + `Evidence: ${summarizeBackgroundResult(verification.evidence)}`,
+      );
+      return;
+    }
+
+    if (state._factVerificationStatus === "failed") {
+      setInteractionTag("model-thinking", { factVerification: false, verifiedFactFailed: true });
+      sendTextToModel(
+        "[INTERNAL CURRENT-FACT VERIFICATION FAILED — NOT USER SPEECH]\n"
+        + "Do not answer the changing fact from memory. Say briefly that you cannot verify it right now, then offer to help with something else.",
+      );
+    }
+  }
+
   function startCurrentFactVerification(transcript) {
     const query = String(transcript || "").trim();
     if (!requiresVerifiedVoiceEvidence(query)) return;
@@ -669,7 +765,8 @@ export function createVoiceSessionController() {
     state._factVerificationQuery = query;
     state._factVerificationGateUntilTurnComplete = true;
     touchActivity();
-    setSessionPhase("thinking", { factVerification: true });
+    setInteractionTag("fact-verifying", { factVerification: true });
+    setSessionPhase("thinking", { factVerification: true, interactionTag: "fact-verifying" });
 
     void (async () => {
       const appCheckToken = typeof state._getAppCheckToken === "function"
@@ -685,24 +782,14 @@ export function createVoiceSessionController() {
     })().then((verification) => {
       if (!state.isSessionActive || controller.signal.aborted || verificationEpoch !== state._factVerificationEpoch) return;
       state._factVerificationController = null;
-      if (!verification.verified) {
-        state._factVerificationStatus = "failed";
-        sendTextToModel(
-          "[INTERNAL CURRENT-FACT VERIFICATION FAILED — NOT USER SPEECH]\n"
-          + "Do not answer the changing fact from memory. Say briefly that you cannot verify it right now, then offer to help with something else.",
-        );
-        return;
-      }
-
-      state._factVerificationStatus = "verified";
-      sendTextToModel(
-        "[INTERNAL VERIFIED CURRENT-FACT EVIDENCE — NOT USER SPEECH]\n"
-        + "Answer the active changing-fact question only from this evidence. If it does not answer the question, say you cannot verify it. "
-        + `Evidence: ${summarizeBackgroundResult(verification.evidence)}`,
-      );
+      state._factVerificationStatus = verification.verified ? "verified" : "failed";
+      state._factVerificationResult = verification;
+      releaseFactVerificationAfterYield();
     }).catch(() => {
       if (!controller.signal.aborted && verificationEpoch === state._factVerificationEpoch) {
         state._factVerificationStatus = "failed";
+        state._factVerificationResult = { verified: false, error: "verification_unavailable" };
+        releaseFactVerificationAfterYield();
       }
     });
   }
@@ -812,7 +899,8 @@ export function createVoiceSessionController() {
 
     state._onVolume?.(Math.sqrt(sum / sampleCount));
     state.isAiSpeaking = true;
-    setSessionPhase("speaking");
+    setInteractionTag("model-speaking");
+    setSessionPhase("speaking", { interactionTag: "model-speaking" });
 
     const audioBuffer = state.audioContext.createBuffer(1, floatBuffer.length, OUTPUT_SAMPLE_RATE);
     audioBuffer.copyToChannel(floatBuffer, 0);
@@ -858,23 +946,45 @@ export function createVoiceSessionController() {
     }
 
     if (data.goAway) {
-      debugLog("Server requested a resumable reconnect", { timeLeft: data.goAway.timeLeft });
-      if (state._sessionResumptionHandle && !state._goAwayTimer) {
+      const reconnectDelayMs = parseGoAwayReconnectDelay(data.goAway.timeLeft);
+      debugLog("Server requested a resumable reconnect", {
+        timeLeft: data.goAway.timeLeft,
+        reconnectDelayMs,
+        hasResumptionHandle: Boolean(state._sessionResumptionHandle),
+      });
+      state._resumeRequested = true;
+      setInteractionTag("resuming", { reconnectReason: "server-go-away", reconnectInMs: reconnectDelayMs });
+      setSessionPhase("recovering", {
+        reconnectReason: "server-go-away",
+        reconnectInMs: reconnectDelayMs,
+        interactionTag: "resuming",
+      });
+      if (!state._goAwayTimer) {
         state._goAwayTimer = setTimeout(() => {
           state._goAwayTimer = null;
-          if (socketIsOpen()) requestSocketReconnect("server-go-away");
-        }, 250);
+          if (socketIsOpen()) requestSocketReconnect("server-go-away", { resuming: true });
+          else scheduleReconnect("server-go-away");
+        }, reconnectDelayMs);
       }
       return;
     }
 
     if (data.setupComplete) {
+      const continuityReseeded = state._continuityReseedPending;
       state._setupComplete = true;
       state._reconnectAttempts = 0;
-      setSessionPhase(state.isMicMuted ? "muted" : "listening");
-      if (!state._greetingSent) {
+      state._resumeRequested = false;
+      state._continuityReseedPending = false;
+      setInteractionTag("listening", { continuityReseeded });
+      setSessionPhase(state.isMicMuted ? "muted" : "listening", {
+        interactionTag: state.isMicMuted ? "muted" : "listening",
+        continuityReseeded,
+      });
+      if (!state._greetingSent && !continuityReseeded) {
         state._greetingSent = true;
         sendInitialGreeting();
+      } else {
+        state._greetingSent = true;
       }
       return;
     }
@@ -892,6 +1002,7 @@ export function createVoiceSessionController() {
     if (inputText) {
       state._lastUserTranscript = inputText;
       state._recentEmotionHint = inferEmotionHint(inputText);
+      appendContinuityLedger("user", inputText);
       state._onTranscript?.("user", inputText);
       touchActivity();
       startCurrentFactVerification(inputText);
@@ -903,7 +1014,11 @@ export function createVoiceSessionController() {
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
       clearListeningTransitionTimer();
-      setSessionPhase(factGatePending ? "thinking" : "preparing", { factVerification: factGatePending });
+      setInteractionTag(factGatePending ? "fact-verifying" : "model-thinking");
+      setSessionPhase(factGatePending ? "thinking" : "preparing", {
+        factVerification: factGatePending,
+        interactionTag: factGatePending ? "fact-verifying" : "model-thinking",
+      });
       for (const part of data.serverContent.modelTurn.parts) {
         if (part.inlineData?.mimeType?.startsWith("audio/pcm") && !factGatePending) {
           playAiAudioChunk(part.inlineData.data);
@@ -914,6 +1029,7 @@ export function createVoiceSessionController() {
     const outputText = data.serverContent?.outputTranscription?.text;
     if (outputText && !factGatePending) {
       state._lastAiTranscript = outputText;
+      appendContinuityLedger("model", outputText);
       state._onTranscript?.("ai", outputText);
     }
 
@@ -921,6 +1037,7 @@ export function createVoiceSessionController() {
       // Any model output before this boundary belongs to the turn that began
       // before verified evidence existed. Never let it leak into playback.
       state._factVerificationGateUntilTurnComplete = false;
+      releaseFactVerificationAfterYield();
       clearTurnCompleteTimer();
       state.speechSeenRecently = false;
       state._inputTurnActive = false;
@@ -1031,10 +1148,13 @@ export function createVoiceSessionController() {
       if (state.liveWebSocket === socket) state.liveWebSocket = null;
       if (!state.isSessionActive || state.isStopping) return;
 
-      const forcedReconnect = state._staleSocketCloseRequested;
+      const plannedReconnect = state._clientReconnectRequested || state._resumeRequested;
+      const plannedReason = state._clientReconnectReason || (state._resumeRequested ? "server-go-away" : "stale-model-response");
+      state._clientReconnectRequested = false;
+      state._clientReconnectReason = "";
       state._staleSocketCloseRequested = false;
-      const classification = forcedReconnect
-        ? { retryable: true, reason: "stale-model-response" }
+      const classification = plannedReconnect
+        ? { retryable: true, reason: plannedReason }
         : classifySocketClose({
           code: event.code,
           reason: event.reason,
@@ -1071,10 +1191,17 @@ export function createVoiceSessionController() {
       if (!state.isSessionActive || state.isStopping) return;
 
       try {
-        // A consumed one-use token can reconnect only when a session handle exists.
-        // Otherwise provision a fresh token and start a new Live session.
+        // Gemini allows the active ephemeral token to resume this logical session.
+        // If no handle is currently resumable, transparently start a fresh session
+        // with the compact local ledger embedded in its trusted setup context.
         if (!state._sessionResumptionHandle || !state._voiceCredentials) {
           state._sessionResumptionHandle = "";
+          state._continuityReseedPending = state._continuityLedger.length > 0;
+          state._resumeRequested = false;
+          setInteractionTag(state._continuityReseedPending ? "continuity-reseeding" : "recovering", {
+            reconnectReason: reason,
+            continuityReseeded: state._continuityReseedPending,
+          });
           await refreshVoiceCredentials();
         }
         openWebSocket(state._voiceCredentials, { reconnecting: true });
@@ -1207,6 +1334,12 @@ export function createVoiceSessionController() {
     state._recentEmotionHint = "neutral";
     state._voiceCredentials = null;
     state._sessionResumptionHandle = "";
+    state._clientReconnectRequested = false;
+    state._clientReconnectReason = "";
+    state._resumeRequested = false;
+    state._continuityReseedPending = false;
+    state._continuityLedger = [];
+    state._interactionTag = "idle";
     state._setupComplete = false;
     state._greetingSent = false;
     state._reconnectAttempts = 0;

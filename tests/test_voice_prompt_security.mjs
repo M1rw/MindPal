@@ -144,8 +144,8 @@ test("voice runtime never treats an active long user turn as a stale socket", as
   assert.match(source, /awaitingModelResponseAt/);
   assert.match(source, /!state\.isAiSpeaking\n        && !state\._toolCallPending\n        && !state\.speechSeenRecently/);
   assert.doesNotMatch(source, /elapsed > 45_000/);
-  assert.match(source, /_staleSocketCloseRequested/);
-  assert.match(source, /\? \{ retryable: true, reason: "stale-model-response" \}/);
+  assert.match(source, /_staleSocketCloseRequested = reason === "stale-model-response"/);
+  assert.match(source, /const plannedReconnect = state\._clientReconnectRequested \|\| state\._resumeRequested/);
 });
 
 test("voice runtime softens barge-in audio and exposes a single long-turn listener cue", async () => {
@@ -255,4 +255,51 @@ test("Voice runtime gates speculative volatile-fact audio and uses shared idle o
   assert.match(source, /getVoiceIdleAction\(/);
   assert.match(source, /hasActiveConversationWork\(\)/);
   assert.doesNotMatch(source, /The user has been silent for 30 seconds/);
+});
+
+
+test("Voice prompt permits exactly one natural fact-check bridge after the user yields", () => {
+  const prompt = buildAdaptiveVoicePrompt("", "", {
+    _lastUserTranscript: "Who is the mayor of New York?",
+    _lastAiTranscript: "",
+    _recentEmotionHint: "neutral",
+    _contextProvider: null,
+  });
+
+  assert.match(prompt, /INTERNAL FACT-CHECK BRIDGE/);
+  assert.match(prompt, /exactly one short, language-matched acknowledgement/);
+  assert.match(prompt, /Do not guess, explain internal tools, repeat the bridge/);
+});
+
+test("Voice runtime treats GoAway and its following normal close as a resumable continuation", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /function parseGoAwayReconnectDelay\(timeLeft\)/);
+  assert.match(source, /requestSocketReconnect\("server-go-away", \{ resuming: true \}\)/);
+  assert.match(source, /state\._resumeRequested = true/);
+  assert.match(source, /const plannedReconnect = state\._clientReconnectRequested \|\| state\._resumeRequested/);
+  assert.match(source, /state\._resumeRequested = false/);
+  assert.match(source, /continuity-reseeding/);
+  assert.match(source, /TRUSTED CALL CONTINUITY SNAPSHOT/);
+  assert.match(source, /appendContinuityLedger\("user", inputText\)/);
+  assert.match(source, /appendContinuityLedger\("model", outputText\)/);
+});
+
+test("Voice runtime releases evidence only after its original fact-gated turn and bridges a pending check", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /function releaseFactVerificationAfterYield\(\)/);
+  assert.match(source, /_factBridgeSentForTurn/);
+  assert.match(source, /INTERNAL FACT-CHECK BRIDGE — NOT USER SPEECH/);
+  assert.match(source, /releaseFactVerificationAfterYield\(\);/);
+  assert.match(source, /_factVerificationGateUntilTurnComplete = false;/);
+});
+
+test("Voice overlay surfaces verified-fact and resumption states without persistent decoration", async () => {
+  const source = await readFile(new URL("../frontend/js/voice_live.js", import.meta.url), "utf8");
+
+  assert.match(source, /Checking that properly…/);
+  assert.match(source, /Keeping our conversation connected…/);
+  assert.match(source, /Restoring the thread…/);
+  assert.match(source, /interactionTag = ""/);
 });
