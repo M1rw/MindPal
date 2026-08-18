@@ -213,55 +213,10 @@ export function executeToolClientSide(name, args, contextProvider) {
       };
     }
     case "web_search":
-      console.info(`[TOOL_CALL] web_search falling back to CLIENT-SIDE DDG for: "${args.query || ""}"`);
-      return clientSideWebSearch(args.query || "");
+      return { error: "Verified web search must run through the authenticated evidence gate." };
     case "date_calculator":
       return { error: "Date calculator is temporarily unavailable. Please calculate the date manually from the current time context." };
     default:
       return { error: `Tool ${name} is not available right now. Please respond without it.` };
-  }
-}
-
-export async function clientSideWebSearch(query) {
-  if (!query) return { error: "Search query is required" };
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-
-    if (!res.ok) return { error: "Search temporarily unavailable" };
-
-    const data = await res.json();
-    const results = [];
-
-    if (data.AbstractText && data.AbstractURL) {
-      results.push({
-        title: data.AbstractSource || "DuckDuckGo",
-        snippet: data.AbstractText.slice(0, 300),
-        url: data.AbstractURL,
-      });
-    }
-
-    if (data.Answer) {
-      results.push({ title: "Direct Answer", snippet: String(data.Answer).slice(0, 300), url: "" });
-    }
-
-    for (const topic of (data.RelatedTopics || []).slice(0, 5)) {
-      if (topic && topic.Text && topic.FirstURL) {
-        results.push({ title: topic.Text.split(" - ")[0].slice(0, 80), snippet: topic.Text.slice(0, 200), url: topic.FirstURL });
-      }
-    }
-
-    if (!results.length) {
-      return { query, results: [], note: "No instant results found. Try rephrasing the query." };
-    }
-
-    return { query, results, result_count: results.length, source: "client_fallback" };
-  } catch (err) {
-    return { error: "Search temporarily unavailable — " + (err.name === "AbortError" ? "timeout" : "network error") };
   }
 }

@@ -15,6 +15,7 @@ test("Voice v2 facade exposes the compatibility controller surface before activa
   assert.equal(controller.sendTextToModel("hello"), false);
   assert.equal(controller.getMicMuted(), false);
   assert.equal(controller.getAiSpeaking(), false);
+  assert.deepEqual(controller.getTranscriptSnapshot(), { userTranscript: "", aiTranscript: "" });
 });
 
 test("Voice v2 preserves mute state before the microphone adapter is ready", () => {
@@ -27,6 +28,15 @@ test("Voice v2 preserves mute state before the microphone adapter is ready", () 
   assert.equal(controller.getSessionState().isMicMuted, true);
   assert.equal(controller.setMuted(false), false);
   assert.equal(controller.getMicMuted(), false);
+});
+
+test("Voice v2 integrates canonical transcript assembly and terminal recovery notification", async () => {
+  const source = await readFile(new URL("../frontend/js/voice_session_v2.js", import.meta.url), "utf8");
+  assert.match(source, /createTranscriptAssembler/);
+  assert.match(source, /userTranscriptAssembler\.append/);
+  assert.match(source, /recovery\.failed/);
+  assert.match(source, /notifySessionEndOnce\("recovery-exhausted"\)/);
+  assert.match(source, /sessionEndNotified/);
 });
 
 test("Voice v2 projects lifecycle events through a safe orchestrator state accessor", async () => {

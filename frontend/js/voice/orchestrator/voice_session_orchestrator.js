@@ -109,6 +109,22 @@ export function createVoiceSessionOrchestrator({
     return ready.length;
   }
 
+  function beginRecovery(reason, event = {}) {
+    if (!started || !recoverySupervisor) return false;
+    dispatch({ type: VOICE_ACTIONS.RECOVERY_STARTED, sessionGeneration: state.sessionGeneration });
+    void recoverySupervisor.recover({
+      reason,
+      resumeHandle: event.resumeHandle || latestResumeHandle || null,
+      continuity: { turnId: state.activeTurnId, providerResponseId: state.activeProviderResponseId },
+    }).then((result) => {
+      if (result.ok) dispatch({ type: VOICE_ACTIONS.RECOVERY_READY, sessionGeneration: state.sessionGeneration });
+      else dispatch({ type: VOICE_ACTIONS.RECOVERY_FAILED, sessionGeneration: state.sessionGeneration, error: result.error });
+    }).catch((error) => {
+      dispatch({ type: VOICE_ACTIONS.RECOVERY_FAILED, sessionGeneration: state.sessionGeneration, error: error?.message || "voice-recovery-failed" });
+    });
+    return true;
+  }
+
   function handleProviderEvent(event) {
     if (!event || !event.type) return;
     switch (event.type) {
@@ -209,13 +225,20 @@ export function createVoiceSessionOrchestrator({
         void toolGateway.execute(call.name, call.args || call.arguments || {}, { identity })
           .then((result) => {
             if (identity.sessionGeneration !== state.sessionGeneration || identity.turnId !== state.activeTurnId) return;
-            dispatch({ type: VOICE_ACTIONS.TOOL_RESOLVED, sessionGeneration: state.sessionGeneration });
+            dispatch({ type: result?.error ? VOICE_ACTIONS.TOOL_FAILED : VOICE_ACTIONS.TOOL_RESOLVED, sessionGeneration: state.sessionGeneration });
             const response = {
               id: call.id,
               name: call.name,
-              response: { result },
+              response: { result: result || { error: "empty-tool-result" } },
             };
-            pendingToolResults.push({ identity, result, response, scheduling });
+            pendingToolResults.push({ identity, result: result || { error: "empty-tool-result" }, response, scheduling });
+            if (scheduling === "IMMEDIATE") flushPendingToolResults();
+          })
+          .catch((error) => {
+            if (identity.sessionGeneration !== state.sessionGeneration || identity.turnId !== state.activeTurnId) return;
+            const result = { error: error?.message || "tool-execution-failed" };
+            dispatch({ type: VOICE_ACTIONS.TOOL_FAILED, sessionGeneration: state.sessionGeneration });
+            pendingToolResults.push({ identity, result, response: { id: call.id, name: call.name, response: { result } }, scheduling });
             if (scheduling === "IMMEDIATE") flushPendingToolResults();
           });
         return;
@@ -225,25 +248,17 @@ export function createVoiceSessionOrchestrator({
         emit(event);
         return;
       case VOICE_EVENTS.PROVIDER_GO_AWAY:
-        dispatch({ type: VOICE_ACTIONS.RECOVERY_STARTED, sessionGeneration: state.sessionGeneration });
-        if (recoverySupervisor) {
-          void recoverySupervisor.recover({
-            reason: "provider-go-away",
-            resumeHandle: event.resumeHandle || latestResumeHandle || null,
-            continuity: { turnId: state.activeTurnId },
-          }).then((result) => {
-            if (result.ok) dispatch({ type: VOICE_ACTIONS.RECOVERY_READY, sessionGeneration: state.sessionGeneration });
-            else dispatch({ type: VOICE_ACTIONS.RECOVERY_FAILED, sessionGeneration: state.sessionGeneration, error: result.error });
-          });
-        }
+        beginRecovery("provider-go-away", event);
         emit(event);
         return;
       case VOICE_EVENTS.PROVIDER_ERROR:
-        dispatch({ type: VOICE_ACTIONS.FAILED, sessionGeneration: state.sessionGeneration, error: event.error });
+        if (!beginRecovery("provider-error", event)) {
+          dispatch({ type: VOICE_ACTIONS.FAILED, sessionGeneration: state.sessionGeneration, error: event.error });
+        }
         emit(event);
         return;
       case VOICE_EVENTS.PROVIDER_CLOSED:
-        if (started) dispatch({ type: VOICE_ACTIONS.RECOVERY_STARTED, sessionGeneration: state.sessionGeneration });
+        beginRecovery("provider-closed", event);
         emit(event);
         return;
       default:

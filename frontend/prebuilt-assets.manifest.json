@@ -5,8 +5,8 @@
       "sha256": "7a716cc976794c8da3444fc6c97e17afdbfe5a5040e003c3d23ea02938169e10"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 480714,
-      "sha256": "894fe1ee68706a915b807c3325a2daa417b12a3af6eb66a625ed7ef978247cab"
+      "bytes": 484873,
+      "sha256": "def20694bf19afcca5a36dca27d3c490cebe8be30a738fbbbbdf32ab94e8d088"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "d896598d50e8bf229e316c20c345c2c40baecc038f6de2bf05863717d62949f1",
+  "source_digest": "3cdb47de87909c50f7f4a36a4746480751c2d4c9e5501c84ac203c84048ec223",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -82,6 +82,7 @@
     "frontend/js/voice/startup_helpers.mjs",
     "frontend/js/voice/tools.js",
     "frontend/js/voice/tools/tool_gateway.js",
+    "frontend/js/voice/transcript_assembler.js",
     "frontend/js/voice/transport/recovery_supervisor.js",
     "frontend/js/voice_live.js",
     "frontend/js/voice_session.js",

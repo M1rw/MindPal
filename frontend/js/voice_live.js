@@ -11,6 +11,7 @@ import {
   getSessionState,
   setSpeakerMuted,
   getSpeakerMuted,
+  getTranscriptSnapshot,
 } from "./voice_session.js";
 import {
   startVisualizer,
@@ -207,6 +208,9 @@ export function stopLiveVoice() {
   if (!isLiveActive) return;
   isLiveActive = false;
 
+  const canonicalTranscript = getTranscriptSnapshot?.() || {};
+  const persistedUserTranscript = canonicalTranscript.userTranscript || userTranscript;
+  const persistedAiTranscript = canonicalTranscript.aiTranscript || aiTranscript;
   stopSession();
   stopVisualizer();
 
@@ -221,11 +225,11 @@ export function stopLiveVoice() {
 
   // A private-from-chat call still runs through the authenticated live session;
   // this control only blocks post-call transcript, memory, and cloud-chat persistence.
-  if (!isIncognito && onChatSyncCallback && (userTranscript.trim() || aiTranscript.trim())) {
+  if (!isIncognito && onChatSyncCallback && (persistedUserTranscript.trim() || persistedAiTranscript.trim())) {
     const endTime = new Date();
     onChatSyncCallback({
-      userTranscript: userTranscript.trim(),
-      aiTranscript: aiTranscript.trim(),
+      userTranscript: persistedUserTranscript.trim(),
+      aiTranscript: persistedAiTranscript.trim(),
       startTime: callStartTime?.toISOString() || endTime.toISOString(),
       endTime: endTime.toISOString(),
       durationMs: callStartTime ? endTime.getTime() - callStartTime.getTime() : 0,
