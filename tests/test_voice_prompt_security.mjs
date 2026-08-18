@@ -141,6 +141,10 @@ test("voice runtime preserves captions through transcription fallback and aggreg
   assert.match(source, /const outputText = providerOutputText \|\| modelTextFallback/);
   assert.match(source, /state\._deliveryTelemetry\.outputTranscriptionEvents \+= 1/);
   assert.match(source, /state\._deliveryTelemetry\.audioParts \+= 1/);
+  assert.match(source, /function queuePacedCaptionTranscript\(text\)/);
+  assert.match(source, /function clearPacedCaptionQueue\(/);
+  assert.match(source, /queuePacedCaptionTranscript\(outputText\)/);
+  assert.doesNotMatch(source, /_onTranscript\?\.\("ai", outputText\)/);
   assert.match(source, /function reportVoiceDeliverySummary\(endReason = "client_stop"\)/);
   assert.match(source, /\/voice\/delivery-diagnostic/);
   assert.match(source, /reportVoiceDeliverySummary\("client_stop"\)/);
@@ -361,7 +365,8 @@ test("Voice runtime treats GoAway and its following normal close as a resumable 
   assert.match(source, /continuity-reseeding/);
   assert.match(source, /TRUSTED CALL CONTINUITY SNAPSHOT/);
   assert.match(source, /appendContinuityLedger\("user", inputText\)/);
-  assert.match(source, /appendContinuityLedger\("model", outputText\)/);
+  assert.match(source, /function queuePacedCaptionTranscript\(text\)/);
+  assert.match(source, /appendContinuityLedger\("model", delta\)/);
 });
 
 test("Voice runtime turns a credential 429 into one shared, server-timed recovery pause", async () => {
