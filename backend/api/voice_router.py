@@ -109,6 +109,27 @@ class VoiceTransportDiagnosticRequest(BaseModel):
         return sanitize_text(str(value or ""), 500)
 
 
+class VoiceDeliveryDiagnosticRequest(BaseModel):
+    """Aggregate Live delivery counters for caption and turn debugging only."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model: str = Field(min_length=1, max_length=120)
+    audio_parts: int = Field(ge=0, le=100_000)
+    input_transcription_events: int = Field(ge=0, le=10_000)
+    output_transcription_events: int = Field(ge=0, le=10_000)
+    transcript_callback_events: int = Field(ge=0, le=10_000)
+    model_text_parts: int = Field(ge=0, le=100_000)
+    turn_complete_events: int = Field(ge=0, le=10_000)
+    interrupted_events: int = Field(ge=0, le=10_000)
+    fact_gated_audio_parts: int = Field(ge=0, le=100_000)
+    end_reason: str = Field(min_length=1, max_length=40, pattern=r"^[a-z_]+$")
+
+    @field_validator("model", "end_reason", mode="before")
+    @classmethod
+    def _clean_delivery_detail(cls, value: object) -> str:
+        return sanitize_text(str(value or ""), 120)
+
+
 class VoiceVerifiedFactRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     query: str = Field(min_length=1, max_length=MAX_VOICE_FACT_QUERY_CHARS)
@@ -452,6 +473,30 @@ async def report_voice_transport_diagnostic(
         payload.greeting_sent,
         payload.duration_ms,
         payload.close_reason,
+        context.request_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/delivery-diagnostic", status_code=status.HTTP_204_NO_CONTENT)
+async def report_voice_delivery_diagnostic(
+    payload: VoiceDeliveryDiagnosticRequest,
+    context: AuthenticatedRequestContextDep,
+) -> Response:
+    """Record aggregate delivery counters without receiving private Voice content."""
+    assert_authenticated(context)
+    logger.info(
+        "Voice Live delivery: model=%s audio_parts=%s input_tx=%s output_tx=%s callbacks=%s text_parts=%s turns=%s interruptions=%s fact_gated_audio=%s end=%s request_id=%s",
+        payload.model,
+        payload.audio_parts,
+        payload.input_transcription_events,
+        payload.output_transcription_events,
+        payload.transcript_callback_events,
+        payload.model_text_parts,
+        payload.turn_complete_events,
+        payload.interrupted_events,
+        payload.fact_gated_audio_parts,
+        payload.end_reason,
         context.request_id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
