@@ -111,6 +111,7 @@ export function createGeminiLiveAdapter({
   WebSocketImpl = globalThis.WebSocket,
   now = () => Date.now(),
   onEvent = () => {},
+  onDiagnostic = () => {},
 } = {}) {
   let socket = null;
   let connected = false;
@@ -140,7 +141,8 @@ export function createGeminiLiveAdapter({
     socket.onopen = () => {
       if (thisSocketGeneration !== socketGeneration) return;
       connected = true;
-      if (setup) send({ setup });
+      const setupSent = setup ? send({ setup }) : false;
+      onDiagnostic(Object.freeze({ type: "voice.socket-open", setupSent, at: now() }));
     };
     socket.onmessage = (message) => {
       if (thisSocketGeneration !== socketGeneration) return;
@@ -150,13 +152,27 @@ export function createGeminiLiveAdapter({
       const eventContext = { ...context, sessionResumptionHandle };
       for (const event of normalizeGeminiServerMessage(decoded, eventContext)) emit(event);
     };
-    socket.onerror = (error) => emit(createVoiceEvent(VOICE_EVENTS.PROVIDER_ERROR, {
-      identity: identityFromContext(context),
-      error,
-    }));
+    socket.onerror = (error) => {
+      onDiagnostic(Object.freeze({
+        type: "voice.socket-error",
+        message: error?.message || "WebSocket error",
+        at: now(),
+      }));
+      emit(createVoiceEvent(VOICE_EVENTS.PROVIDER_ERROR, {
+        identity: identityFromContext(context),
+        error,
+      }));
+    };
     socket.onclose = (closeEvent) => {
       if (thisSocketGeneration !== socketGeneration) return;
       connected = false;
+      onDiagnostic(Object.freeze({
+        type: "voice.socket-closed",
+        code: closeEvent?.code ?? null,
+        reason: closeEvent?.reason || "closed",
+        wasClean: closeEvent?.wasClean === true,
+        at: now(),
+      }));
       emit(createVoiceEvent(VOICE_EVENTS.PROVIDER_CLOSED, {
         identity: identityFromContext(context),
         code: closeEvent?.code,

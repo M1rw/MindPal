@@ -393,6 +393,7 @@ export function createVoiceSessionV2({
     provider = createGeminiLiveAdapter({
       WebSocketImpl,
       onEvent: (event) => providerEventHandler?.(event),
+      onDiagnostic,
     });
     await prepareTransport();
     audio = await createBrowserAudioAdapter({

@@ -159,10 +159,11 @@ export async function startLiveVoice(contextProvider = null) {
       onBackgroundTask: handleBackgroundTask,
       onDiagnostic: (event) => {
         console.warn("[MindPal Voice]", event);
-        if (event?.type === "voice.provider-ready-timeout" || event?.type === "provider.error" || event?.type === "provider.closed") {
-          const diagnosticStatus = document.getElementById("voice-live-status");
-          if (diagnosticStatus) diagnosticStatus.textContent = "Voice connection failed — please try again";
-        }
+        const diagnosticStatus = document.getElementById("voice-live-status");
+        if (!diagnosticStatus) return;
+        if (event?.type === "voice.socket-open") diagnosticStatus.textContent = event.setupSent ? "Configuring Voice…" : "Voice socket opened";
+        else if (event?.type === "voice.socket-error" || event?.type === "voice.socket-closed") diagnosticStatus.textContent = `Voice transport failed${event.code ? ` (${event.code})` : ""} — please try again`;
+        else if (event?.type === "voice.provider-ready-timeout" || event?.type === "provider.error" || event?.type === "provider.closed") diagnosticStatus.textContent = "Voice connection failed — please try again";
       },
       onVolume: feedVolume,
       token,
