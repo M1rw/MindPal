@@ -7,6 +7,7 @@ import {
   classifySocketClose,
   classifyVoiceStartupFailure,
   fetchVoiceTokenWithRetry,
+  parseVoiceRetryAfterMs,
 } from '../frontend/js/voice/startup_helpers.mjs';
 import {
   MAX_TRANSIENT_RECONNECT_ATTEMPTS,
@@ -69,6 +70,38 @@ test('fetchVoiceTokenWithRetry rejects incomplete responses', async () => {
       maxAttempts: 1,
     }),
     /incomplete/i,
+  );
+});
+
+test('token 429 honors Retry-After and never multiplies a credential request', async () => {
+  let calls = 0;
+  await assert.rejects(
+    fetchVoiceTokenWithRetry({
+      baseUrl: 'https://example.com/api',
+      maxAttempts: 3,
+      fetchImpl: async () => {
+        calls += 1;
+        return {
+          ok: false,
+          status: 429,
+          headers: { get: (name) => name === 'Retry-After' ? '125' : null },
+        };
+      },
+    }),
+    (error) => {
+      assert.equal(error.status, 429);
+      assert.equal(error.retryAfterMs, 125_000);
+      return true;
+    },
+  );
+  assert.equal(calls, 1, 'a 429 must not fan out into helper retries');
+});
+
+test('parseVoiceRetryAfterMs accepts both delta-seconds and an HTTP date', () => {
+  assert.equal(parseVoiceRetryAfterMs({ headers: { get: () => '7' } }), 7_000);
+  assert.equal(
+    parseVoiceRetryAfterMs({ headers: { get: () => 'Wed, 21 Oct 2015 07:28:00 GMT' } }, Date.parse('Wed, 21 Oct 2015 07:27:00 GMT')),
+    60_000,
   );
 });
 
@@ -158,4 +191,21 @@ test('transient network retries pause rather than automatically end a live call'
   assert.equal(recovery.reason, 'network-recovery-pause');
   assert.equal(recovery.next.transientAttempts, 0);
   assert.equal(recovery.next.recoveryCycles, 1);
+});
+
+test('credential rate limiting pauses at the server delay without consuming resumption state', () => {
+  const recovery = planVoiceRecovery({
+    reason: 'credential-rate-limited',
+    rateLimitRetryAfterMs: 125_000,
+    resumptionAttempts: 1,
+    transientAttempts: 3,
+    recoveryCycles: 2,
+  });
+
+  assert.equal(recovery.action, 'pause');
+  assert.equal(recovery.reason, 'credential-rate-limit');
+  assert.equal(recovery.delayMs, 125_000);
+  assert.equal(recovery.next.resumptionAttempts, 1);
+  assert.equal(recovery.next.transientAttempts, 3);
+  assert.equal(recovery.next.recoveryCycles, 3);
 });

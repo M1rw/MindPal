@@ -529,7 +529,23 @@ def http_error_from_app_error(
     if request_id:
         detail["request_id"] = request_id
 
+    retry_after = details.get("retry_after_seconds") if isinstance(details, dict) else None
+    if retry_after is None and isinstance(details, dict):
+        usage = details.get("usage")
+        if isinstance(usage, dict):
+            # Quota exhaustion is also a 429. Expose its actual reset time so a
+            # resilient client pauses instead of hammering a provider operation.
+            retry_after = usage.get("reset_5h_seconds")
+    headers = None
+    try:
+        retry_after_seconds = max(1, int(retry_after)) if retry_after is not None else 0
+        if retry_after_seconds:
+            headers = {"Retry-After": str(retry_after_seconds)}
+    except (TypeError, ValueError):
+        headers = None
+
     return HTTPException(
         status_code=status_code,
         detail=detail,
+        headers=headers,
     )

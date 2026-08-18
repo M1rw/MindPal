@@ -61,6 +61,29 @@ export function classifyVoiceStartupFailure(error) {
   return { retryable: false, reason: "unknown", status };
 }
 
+export function parseVoiceRetryAfterMs(response, now = Date.now()) {
+  const headers = response?.headers;
+  const raw = typeof headers?.get === "function"
+    ? headers.get("Retry-After")
+    : (headers?.["Retry-After"] ?? headers?.["retry-after"] ?? "");
+  const value = String(raw || "").trim();
+  if (!value) return 0;
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1_000);
+
+  const retryAt = Date.parse(value);
+  return Number.isFinite(retryAt) ? Math.max(0, retryAt - now) : 0;
+}
+
+function tokenFetchError(response) {
+  const error = new Error(`Voice token fetch failed with status ${response.status}`);
+  error.status = response.status;
+  const retryAfterMs = parseVoiceRetryAfterMs(response);
+  if (retryAfterMs > 0) error.retryAfterMs = retryAfterMs;
+  return error;
+}
+
 function validateVoiceCredentials(data) {
   const credentials = {
     token: String(data?.token || "").trim(),
@@ -105,7 +128,11 @@ export async function fetchVoiceTokenWithRetry({
         signal,
       });
       if (!response.ok) {
-        const classification = classifyVoiceStartupFailure({ status: response.status });
+        const error = tokenFetchError(response);
+        const classification = classifyVoiceStartupFailure(error);
+        // A 429 is a server-directed wait, not a transient network failure. Do
+        // not consume this function's retry budget while the server says wait.
+        if (classification.reason === "rate-limit") throw error;
         if (attempt < maxAttempts && classification.retryable) {
           if (classification.reason === "authentication") {
             if (typeof refreshToken === "function") currentToken = await refreshToken();
@@ -113,8 +140,6 @@ export async function fetchVoiceTokenWithRetry({
           }
           continue;
         }
-        const error = new Error(`Voice token fetch failed with status ${response.status}`);
-        error.status = response.status;
         throw error;
       }
 
@@ -123,6 +148,9 @@ export async function fetchVoiceTokenWithRetry({
       lastError = error;
       if (signal?.aborted) throw error;
       const classification = classifyVoiceStartupFailure(error);
+      // Preserve rate-limit metadata for the recovery scheduler and never retry
+      // it here. A retry here would amplify a single 429 into a token storm.
+      if (classification.reason === "rate-limit") throw error;
       if (attempt < maxAttempts && classification.retryable) {
         if (classification.reason === "authentication") {
           if (typeof refreshToken === "function") currentToken = await refreshToken();
