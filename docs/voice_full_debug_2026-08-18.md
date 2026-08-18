@@ -27,31 +27,33 @@ The overlay resets `#voice-transcript-panel` only when a **new call** starts. Du
 
 The model audio pipeline and caption pipeline are separate. `playAiAudioChunk()` plays `modelTurn.parts[].inlineData` PCM audio, while the caption panel updates only from `serverContent.outputTranscription.text`. Therefore MindPal can audibly speak while no caption appears if the provider does not emit output transcription in the expected server event shape, if it arrives after an event is gated, or if CSS makes the rendered caption effectively invisible.
 
-### Active hypotheses
+### Production evidence and resulting correction
 
-| Hypothesis | Evidence so far | Required proof | Priority |
-|---|---|---|---|
-| The native model produces audio but no `outputTranscription` events on the constrained transport | A live browser validation showed **MindPal is speaking** without visible caption text; code only captions output transcription | Aggregate provider-event telemetry: audio chunk count, output-transcription chunk count, and caption-render count, with no transcript content | Critical |
-| The CSS design makes prior or current captions appear lost | Older captions have low-contrast color; the track uses top and bottom transparent mask zones; only the active line is large and dark | Rendered-session inspection with a non-empty caption and computed geometry/visibility | High |
-| The caption turn reset creates an overly fragmented or off-screen caption stream | `currentCaption` is reset for each user transcript and on provider turn completion | Event timeline correlating provider turn completion with caption node creation and scroll position | High |
-| User means the post-call card loses the spoken text | Voice calls are reduced into a summary card after stop; the live panel is intentionally hidden | Inspect the `app.js` persistence/summarization path and actual stored call artifact | Medium |
+A privacy-safe diagnostic release recorded one controlled native call. The provider produced **45 audio PCM parts**, but emitted **zero input-transcription events**, **zero output-transcription events**, and **zero caption callbacks**. The same trace recorded two model text parts, but no caption-eligible output on the current turn. The user-visible result matched the telemetry: MindPal spoke and then listened, while the AI caption surface stayed empty.
+
+> This is a transport delivery failure, not an opacity-only explanation. MindPal requests `responseModalities: ["AUDIO"]`, `inputAudioTranscription: {}`, and `outputAudioTranscription: {}` exactly as the official Live documentation prescribes. [1] [5]
+
+The native preview is therefore removed as the **production default** until it can prove output-transcript delivery on MindPal's secure constrained session. Production returns to `gemini-3.1-flash-live-preview`, which has already produced the transcript path required by the caption UI. The native policy is retained but cannot be represented as a working captioned call today.
+
+The caption UI is also corrected independently: its aggressive top-and-bottom fade mask is removed, retained AI lines are higher contrast, and scroll padding keeps the current large line clear of the visual edges and controls. This prevents a valid legacy transcript from appearing to slide away.
 
 ## 4. Response-quality diagnosis: initial findings
 
 The current Voice prompt has good safety boundaries but attempts to control persona, rhythm, empathy, practical advice, emotional categories, research, safety, language, mode behavior, and output style in one large static instruction. It simultaneously insists on one-to-three sentences, emotional warmth, a precise response, a useful move, natural questioning, voice-tone adaptation, and different background behaviors. This overload gives the model many safe generic patterns to choose from, especially phrases such as *"That sounds really tough"* or a broad follow-up question.
 
-The revised design will use a compact base personality plus a deterministic **turn response plan** generated from the latest provider transcription. The plan will specify an appropriate response shape—not a canned answer—such as direct answer, concrete practical move, reflective insight, short connection, fact-verification bridge, or safety escalation. The model will still author the words, but it will be prohibited from using generic empathy as a substitute for a specific observation, distinction, or next action. This aligns with dialogue-quality research that emphasizes context-conditioned empathy, coherent turn-level strategy, and intentional follow-up selection. [3] [4]
+The response-quality correction is now implemented as a compact base personality plus a deterministic **turn response plan** generated from the latest provider transcription. The plan selects an appropriate shape—not a canned answer—such as direct answer, concrete practical move, reflective insight, short connection, fact-verification bridge, or safety escalation. The model still authors the words, but generic empathy cannot substitute for a specific observation, distinction, or next action. Golden tests cover greetings, verified facts, practical dilemmas, emotional focus conflicts, direct questions, and Egyptian Arabic. This follows dialogue-quality research emphasizing context-conditioned empathy, coherent turn-level strategy, and intentional follow-up selection. [3] [4]
 
 ## 5. Provider boundary
 
-| Behavior | Current free-tier constrained native transport | Product posture |
+| Behavior | Native preview on current constrained path | Production posture |
 |---|---|---|
-| Native voice, Kore identity, multilingual audio | Confirmed startup and Listening state | Enabled |
-| Continuous microphone and provider VAD barge-in | Implemented; requires real-speech validation | Enabled with tests |
-| AI-only captions | Implemented but not yet proven to receive native output-transcription events | Under active debug |
-| Spoken response after the user yields | Supported through native audio | Enabled |
-| Spoken bridge after verified fact work | Runtime path exists; real delivery must be tested | Under active debug |
-| Provider-driven acknowledgement while the user is still talking | Constrained endpoint rejects the required `proactivity` setup field | Not claimed or faked |
+| Native voice, Kore identity, multilingual audio | Setup and audio are delivered | Retained for future validation, not the default call path |
+| Native AI-only captions | Provider delivered 45 audio parts and zero output transcripts in controlled production trace | Not claimed as working |
+| Captioned Voice | Legacy Live transport has the required transcript delivery path | Production default |
+| Continuous microphone and provider VAD barge-in | Implemented for both transports; real-speech validation still required | Enabled with tests |
+| Spoken response after the user yields | Supported | Enabled |
+| Spoken bridge after verified fact work | Runtime path exists; real delivery must be tested | Under active validation |
+| Provider-driven acknowledgement while the user is still talking | Constrained endpoint rejected the required `proactivity` setup field | Not claimed or faked |
 | Provider functions / non-blocking functions | Disabled during native preview stabilization | Current facts use backend evidence route |
 
 ## References
@@ -60,12 +62,11 @@ The revised design will use a compact base personality plus a deterministic **tu
 [2]: https://ai.google.dev/api/live "Gemini Live API WebSocket reference"
 [3]: https://aclanthology.org/2022.acl-long.211/ "A taxonomy of empathetic questions in social dialogs"
 [4]: https://aclanthology.org/W19-8608/ "Towards coherent and engaging spoken dialog response generation using automatic conversation evaluators"
+[5]: https://firebase.google.com/docs/ai-logic/live-api/configuration "Firebase AI Logic Live API configuration"
 
-## Next evidence collection
+## Next validation
 
-The next production diagnostic release will report aggregate, content-free per-turn values: provider audio parts received, output-transcription parts received, input-transcription parts received, rendered AI-caption count, caption character count, turn-complete count, and whether a fact gate was active. It will explicitly reject transcript or audio payload fields. This distinguishes delivery failure from rendering failure without collecting private spoken content.
-
-The subsequent response-quality release will introduce an audited response-plan selector and golden Voice transcripts for personal dilemmas, practical questions, factual questions, short social turns, Arabic turns, and interruptions.
+The next production release will validate the caption-capable transport through **Connecting → speaking → caption text → Listening**, then run a real spoken call that exercises a natural answer, barge-in, and a verified changing-fact question. The content-free delivery counters remain available for future provider regressions and explicitly reject transcript or audio payload fields.
 
 ## Limitations
 
