@@ -135,6 +135,19 @@ test("live runtime uses the documented realtime text channel for every post-setu
   assert.doesNotMatch(source, /forceModelTurn/);
 });
 
+test("voice runtime preserves captions through transcription fallback and aggregate-only delivery diagnostics", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /const outputText = providerOutputText \|\| modelTextFallback/);
+  assert.match(source, /state\._deliveryTelemetry\.outputTranscriptionEvents \+= 1/);
+  assert.match(source, /state\._deliveryTelemetry\.audioParts \+= 1/);
+  assert.match(source, /function reportVoiceDeliverySummary\(endReason = "client_stop"\)/);
+  assert.match(source, /\/voice\/delivery-diagnostic/);
+  assert.match(source, /reportVoiceDeliverySummary\("client_stop"\)/);
+  assert.doesNotMatch(source, /delivery-diagnostic[\s\S]{0,500}transcript:/);
+  assert.doesNotMatch(source, /delivery-diagnostic[\s\S]{0,500}audio_base64/);
+});
+
 test("voice prompt keeps direct user context bounded", () => {
   const oversizedTurn = "x".repeat(300);
   const prompt = buildAdaptiveVoicePrompt("", "", {
