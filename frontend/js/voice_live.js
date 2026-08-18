@@ -59,6 +59,9 @@ export function initLiveVoice({ onChatSync } = {}) {
       ccVisible = !ccVisible;
       const panel = document.getElementById("voice-transcript-panel");
       if (panel) panel.style.opacity = ccVisible ? "1" : "0";
+      ccBtn.setAttribute("aria-pressed", String(ccVisible));
+      ccBtn.setAttribute("aria-label", ccVisible ? "Hide captions" : "Show captions");
+      ccBtn.setAttribute("title", ccVisible ? "Hide captions" : "Show captions");
     });
   }
 
@@ -111,6 +114,10 @@ export async function startLiveVoice(contextProvider = null) {
   userTranscript = "";
   aiTranscript = "";
   ccVisible = true;
+  const ccBtn = document.getElementById("voice-cc-toggle");
+  ccBtn?.setAttribute("aria-pressed", "true");
+  ccBtn?.setAttribute("aria-label", "Hide captions");
+  ccBtn?.setAttribute("title", "Hide captions");
   callStartTime = new Date();
   currentCaption = null;
   if (captionScrollFrame) cancelAnimationFrame(captionScrollFrame);

@@ -118,6 +118,25 @@ test("playback manager rejects stale generations and flushes active output", () 
   assert.ok(events.some((event) => event.type === "playback.flushed"));
 });
 
+test("playback manager preserves Gemini's documented 24 kHz output sample rate", () => {
+  const buffers = [];
+  const context = {
+    currentTime: 0,
+    destination: {},
+    createAnalyser: () => ({ connect() {}, fftSize: 256, smoothingTimeConstant: 0 }),
+    createBuffer: (_channels, length, sampleRate) => {
+      const buffer = { duration: length / sampleRate, sampleRate, copyToChannel() {} };
+      buffers.push(buffer);
+      return buffer;
+    },
+    createBufferSource: () => ({ connect() {}, start() {}, stop() {} }),
+    createGain: () => ({ gain: { value: 1, setTargetAtTime() {} }, connect() {} }),
+  };
+  const playback = createPlaybackManager({ audioContext: context });
+  assert.equal(playback.schedule("AQI=", { generation: 1 }), true);
+  assert.equal(buffers[0].sampleRate, 24_000);
+});
+
 test("orchestrator owns session state and translates provider interruption into playback invalidation", () => {
   const providerEvents = [];
   const provider = {
