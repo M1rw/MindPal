@@ -66,6 +66,7 @@ export function createVoiceSessionV2({
   let activeToolGateway = null;
   let activeEvidenceGate = null;
   let activeResponseStagingManager = null;
+  let activeBackchannelManager = null;
   let currentUserTurnId = null;
   let currentUserTurnText = "";
   let finalizedTurnIds = new Set();
@@ -73,6 +74,7 @@ export function createVoiceSessionV2({
   let operationsByTurn = new Map();
   let activeOperationController = null;
   let activeOperationTurnId = null;
+  const pendingNativeCueRequests = new Map();
 
   function getToken() {
     return typeof getAuthToken === "function" ? getAuthToken() : getAuthToken;
@@ -104,6 +106,51 @@ export function createVoiceSessionV2({
     if (!provider?.sendClientContent) return false;
     const text = internalResultText({ plan, result, error });
     return provider.sendClientContent([{ role: "user", parts: [{ text }] }], true);
+  }
+
+  function armNativeCueConfirmation({ key, kind, request, operationId = null } = {}) {
+    const timeout = setTimeout(() => {
+      const pending = pendingNativeCueRequests.get(key);
+      if (!pending) return;
+      pendingNativeCueRequests.delete(key);
+      onDiagnostic({ type: "voice.native-cue-timeout", kind, operationId, request });
+    }, 3_500);
+    pendingNativeCueRequests.set(key, { key, kind, request, operationId, timeout, audioSeen: false, transcriptSeen: false });
+  }
+
+  function tryConfirmNativeCue(pending) {
+    if (!pending || !pending.audioSeen || !pending.transcriptSeen) return false;
+    clearTimeout(pending.timeout);
+    pendingNativeCueRequests.delete(pending.key);
+    if (pending.kind === "backchannel") {
+      activeBackchannelManager?.markEmitted?.(pending.request);
+    } else if (pending.operationId) {
+      activeResponseStagingManager?.markCueEmitted?.(pending.operationId);
+      onBackgroundTask({ status: "started", name: pending.request?.kind || "voice-operation" });
+    }
+    onDiagnostic({ type: "voice.native-cue-audio-delivered", kind: pending.kind, operationId: pending.operationId });
+    return true;
+  }
+
+  function observeNativeCueAudio() {
+    const pending = pendingNativeCueRequests.values().next().value;
+    if (!pending) return false;
+    pending.audioSeen = true;
+    return tryConfirmNativeCue(pending);
+  }
+
+  function observeNativeCueTranscript(text) {
+    const pending = pendingNativeCueRequests.values().next().value;
+    if (!pending) return false;
+    if (!/\b(?:mm[- ]?hm|yeah|go on|i hear you|sounds really hard|let me|give me a second|checking|look back|work that out)\b/i.test(String(text || ""))) return false;
+    pending.transcriptSeen = true;
+    return tryConfirmNativeCue(pending);
+  }
+
+  function cancelPendingNativeCues(reason = "cancelled") {
+    for (const pending of pendingNativeCueRequests.values()) clearTimeout(pending.timeout);
+    pendingNativeCueRequests.clear();
+    onDiagnostic({ type: "voice.native-cue-cancelled", reason });
   }
 
   function cancelActiveOperation(reason = "cancelled") {
@@ -143,7 +190,6 @@ export function createVoiceSessionV2({
       expectedLatencyMs: operation.expectedLatencyMs,
       language: "en-US",
     });
-    if (stageDecision?.stage === "thinking-cue") onBackgroundTask({ status: "started", name: plan.kind });
     const controller = new AbortController();
     activeOperationController = controller;
     activeOperationTurnId = turnId;
@@ -181,6 +227,9 @@ export function createVoiceSessionV2({
 
   function handleEvent(event, state) {
     projectState(state);
+    if (event.type === VOICE_EVENTS.PROVIDER_AUDIO) {
+      observeNativeCueAudio();
+    }
     if (event.type === VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT) {
       lastUserTranscript = `${lastUserTranscript} ${event.text || ""}`.trim();
       currentUserTurnId = currentUserTurnId || `voice-turn-${Date.now().toString(36)}`;
@@ -188,13 +237,16 @@ export function createVoiceSessionV2({
       onTranscript("user", event.text || "");
       if (event.finished === true) void finalizeUserTurn({ turnId: currentUserTurnId, text: currentUserTurnText });
     } else if (event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT) {
+      observeNativeCueTranscript(event.text || "");
       lastAiTranscript = `${lastAiTranscript} ${event.text || ""}`.trim();
       onTranscript("ai", event.text || "");
     } else if (event.type === VOICE_EVENTS.PROVIDER_TURN_COMPLETE) {
       if (currentUserTurnText) void finalizeUserTurn({ turnId: currentUserTurnId, text: currentUserTurnText });
       onTurnComplete();
     } else if (event.type === VOICE_EVENTS.TOOL_STARTED) {
-      onBackgroundTask({ status: "started", name: event.name });
+      // Tool execution alone is not a spoken thinking cue. The UI status is
+      // promoted only after native Gemini cue audio is confirmed.
+      if (!event.identity?.operationId) onBackgroundTask({ status: "started", name: event.name });
     } else if ([VOICE_EVENTS.TOOL_RESOLVED, VOICE_EVENTS.TOOL_FAILED].includes(event.type)) {
       onBackgroundTask({ status: event.type === VOICE_EVENTS.TOOL_RESOLVED ? "ready" : "failed", name: event.name });
     } else if (event.type === VOICE_EVENTS.PROVIDER_INTERRUPTED) {
@@ -356,7 +408,7 @@ export function createVoiceSessionV2({
           return;
         }
         void backchannelProvider.request({ kind: request.kind }).then((result) => {
-          if (result?.ok) backchannelManager.markEmitted(request);
+          if (result?.ok) armNativeCueConfirmation({ key: `backchannel:${request.turnId}`, kind: "backchannel", request });
           else backchannelManager.cancel("native-cue-unavailable");
         });
       },
@@ -369,11 +421,14 @@ export function createVoiceSessionV2({
         const kind = request.cueIntent || "thinking";
         if (globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_LOCAL_CUES === true) {
           const local = localCueManager.play(kind, { language: request.language || "en-US" });
-          if (local.ok) responseStagingManager?.markCueEmitted?.(request.operationId);
+          if (local.ok) {
+            responseStagingManager?.markCueEmitted?.(request.operationId);
+            onBackgroundTask({ status: "started", name: request.kind });
+          }
           return;
         }
         void backchannelProvider.request({ kind: kind === "checking" ? "attentive" : "attentive" }).then((result) => {
-          if (result?.ok) responseStagingManager?.markCueEmitted?.(request.operationId);
+          if (result?.ok) armNativeCueConfirmation({ key: `staging:${request.operationId}`, kind: "staging", operationId: request.operationId, request });
         });
       },
       onCancel: () => localCueManager.cancel("operation-cancelled"),
@@ -382,6 +437,7 @@ export function createVoiceSessionV2({
       persist: async () => true,
     });
     activeResponseStagingManager = responseStagingManager;
+    activeBackchannelManager = backchannelManager;
     recovery = createRecoverySupervisor({
       reconnect: async ({ resumeHandle }) => connectTransport({ resumeHandle }),
       reseed: async () => connectTransport(),
@@ -423,6 +479,7 @@ export function createVoiceSessionV2({
     orchestrator = null;
     recovery = null;
     cancelActiveOperation("session-stop");
+    cancelPendingNativeCues("session-stop");
     operationsByTurn.clear();
     finalizedTurnIds.clear();
     activeOperationTurnId = null;
