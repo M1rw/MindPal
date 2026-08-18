@@ -9,11 +9,15 @@ function createAnalyser(audioContext, source, fftSize = 256) {
   return analyser;
 }
 
+export function getDefaultWorkletUrl(baseHref = globalThis.location?.href || "http://localhost/") {
+  return new URL("/js/voice/pcm_capture_worklet.js", baseHref);
+}
+
 export async function createBrowserAudioAdapter({
   onAudio = () => {},
   onQuality = () => {},
   onVolume = () => {},
-  workletUrl = new URL("../pcm_capture_worklet.js", import.meta.url),
+  workletUrl = null,
   frameSize = 2_048,
 } = {}) {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone access is unavailable in this browser.");
@@ -49,9 +53,11 @@ export async function createBrowserAudioAdapter({
     capture.processFrame(frame);
   };
 
+  const resolvedWorkletUrl = workletUrl || getDefaultWorkletUrl();
+
   try {
     if (audioContext.audioWorklet?.addModule && typeof AudioWorkletNode === "function") {
-      await audioContext.audioWorklet.addModule(workletUrl);
+      await audioContext.audioWorklet.addModule(resolvedWorkletUrl);
       workletNode = new AudioWorkletNode(audioContext, "mindpal-pcm-processor", {
         processorOptions: { frameSize },
       });
