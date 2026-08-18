@@ -68,7 +68,7 @@ test("voice prompt carries the selected HRO mode and Pro provenance rule", () =>
   });
 
   assert.match(guidedCoachPrompt, /LIVE VOICE RESPONSE CONTRACT \(Guided Coach\)/);
-  assert.match(guidedCoachPrompt, /identify the bottleneck with a brief concrete fork/);
+  assert.match(guidedCoachPrompt, /Identify the bottleneck with a brief concrete fork/);
   assert.match(cognitiveToolsPrompt, /LIVE VOICE RESPONSE CONTRACT \(Cognitive Tools\)/);
   assert.match(cognitiveToolsPrompt, /State explanations as possibilities, not diagnoses/);
   assert.match(cognitiveToolsPrompt, /never repeat an assistant inference as if the user said it/);
@@ -425,6 +425,9 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
   assert.match(markup, /voice-caption-track/);
   assert.match(styles, /\.voice-caption--active/);
   assert.match(styles, /\.voice-caption\[dir="rtl"\]/);
+  assert.match(styles, /scroll-padding-block: 2rem/);
+  assert.match(styles, /color: rgba\(45, 45, 49, 0\.64\)/);
+  assert.doesNotMatch(styles, /mask-image: linear-gradient\(to bottom, transparent 0/);
   assert.doesNotMatch(styles, /\.voice-msg-user/);
 });
 
