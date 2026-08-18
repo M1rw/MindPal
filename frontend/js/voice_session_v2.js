@@ -31,6 +31,16 @@ function phaseProjection(phase = "idle", isAiSpeaking = false) {
   return { phase: "listening", palette: "listen" };
 }
 
+function createOutputAudioContext() {
+  const AudioContextImpl = globalThis.AudioContext || globalThis.webkitAudioContext;
+  if (typeof AudioContextImpl !== "function") return null;
+  try {
+    return new AudioContextImpl({ latencyHint: "interactive" });
+  } catch {
+    try { return new AudioContextImpl(); } catch { return null; }
+  }
+}
+
 export function createVoiceSessionV2({
   fetchImpl = fetch,
   WebSocketImpl = globalThis.WebSocket,
@@ -49,6 +59,7 @@ export function createVoiceSessionV2({
 } = {}) {
   let provider = null;
   let audio = null;
+  let playbackAudioContext = null;
   let playback = null;
   let orchestrator = null;
   let recovery = null;
@@ -388,6 +399,10 @@ export function createVoiceSessionV2({
     if (nextGetAppCheckToken) getAppCheckToken = nextGetAppCheckToken;
     if (nextRefreshAppCheckToken) refreshAppCheckToken = nextRefreshAppCheckToken;
     sessionId = `voice-${Date.now().toString(36)}`;
+    playbackAudioContext = createOutputAudioContext();
+    if (playbackAudioContext?.state === "suspended") {
+      await playbackAudioContext.resume().catch(() => {});
+    }
 
     let providerEventHandler = null;
     provider = createGeminiLiveAdapter({
@@ -401,7 +416,16 @@ export function createVoiceSessionV2({
       onQuality: (quality) => orchestrator?.handleCaptureQuality(quality),
       onVolume,
     });
-    playback = createPlaybackManager({ audioContext: audio.getAudioContext() });
+    playback = createPlaybackManager({
+      audioContext: playbackAudioContext || audio.getAudioContext(),
+      outputSampleRate: 24_000,
+    });
+    onDiagnostic({
+      type: "voice.audio-output-ready",
+      contextSampleRate: playbackAudioContext?.sampleRate || audio.getAudioContext()?.sampleRate || null,
+      outputSampleRate: 24_000,
+      separateContext: Boolean(playbackAudioContext),
+    });
 
     const model = currentCredentials.model;
     const capabilities = getLiveProviderCapabilities(model);
@@ -517,11 +541,16 @@ export function createVoiceSessionV2({
     active = false;
     settleProviderReady({ error: new Error("Voice session stopped before Gemini setup completed.") });
     orchestrator?.stop();
+    playback?.flush?.({ reason: "session-stop" });
     await audio?.dispose?.();
+    if (playbackAudioContext && playbackAudioContext !== audio?.getAudioContext?.()) {
+      await playbackAudioContext.close?.().catch(() => {});
+    }
     clearCredentialRefreshTimer();
     preloadedCredentials = null;
     provider = null;
     audio = null;
+    playbackAudioContext = null;
     playback = null;
     orchestrator = null;
     recovery = null;

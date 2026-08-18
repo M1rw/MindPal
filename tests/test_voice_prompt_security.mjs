@@ -429,6 +429,9 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
   assert.match(source, /detectCaptionDirection/);
   assert.doesNotMatch(source, /voice-msg-user/);
   assert.match(markup, /aria-label="MindPal spoken captions"/);
+  assert.match(markup, /id="voice-cc-toggle"/);
+  assert.match(markup, /aria-label="Hide captions"/);
+  assert.match(markup, />CC<\/span>/);
   assert.match(markup, /voice-caption-track/);
   assert.match(styles, /\.voice-caption--active/);
   assert.match(styles, /\.voice-caption\[dir="rtl"\]/);

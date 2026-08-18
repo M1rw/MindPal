@@ -580,9 +580,12 @@
                     <i data-lucide="eye" class="w-5 h-5"></i>
                 </button>
                 <button id="voice-cc-toggle"
-                        class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
-                        title="Toggle captions">
+                        class="min-w-10 h-10 px-2 flex items-center justify-center gap-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
+                        title="Hide captions"
+                        aria-label="Hide captions"
+                        aria-pressed="true">
                     <i data-lucide="captions" class="w-5 h-5"></i>
+                    <span class="text-[10px] font-semibold tracking-wide">CC</span>
                 </button>
             </div>
         </header>
