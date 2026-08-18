@@ -69,6 +69,22 @@ test("Gemini adapter sends setup and rejects stale sockets", () => {
   assert.equal(events.length, 1);
 });
 
+test("Gemini adapter decodes Blob setup responses from browser WebSockets", async () => {
+  class BlobWebSocket {
+    static OPEN = 1;
+    constructor() { this.readyState = BlobWebSocket.OPEN; }
+    send() {}
+    close() { this.readyState = 3; }
+  }
+  const events = [];
+  const adapter = createGeminiLiveAdapter({ WebSocketImpl: BlobWebSocket, onEvent: (event) => events.push(event) });
+  const socket = adapter.connect({ url: "wss://example.test/live", setup: { model: "models/test" }, identity: { sessionGeneration: 1 } });
+  socket.onopen();
+  socket.onmessage({ data: new Blob([JSON.stringify({ setupComplete: {} })], { type: "application/json" }) });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(events[0].type, VOICE_EVENTS.PROVIDER_READY);
+});
+
 test("capture adapter encodes PCM and never emits while muted or stopped", () => {
   const audio = [];
   const quality = [];
