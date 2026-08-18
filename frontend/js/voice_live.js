@@ -184,7 +184,9 @@ export async function startLiveVoice(contextProvider = null) {
   } catch (error) {
     console.error("Failed to start Live Voice", error);
     if (statusEl) statusEl.textContent = "Error: " + (error.message || "Failed to connect");
-    setTimeout(stopLiveVoice, 3000);
+    // Keep the failure visible so the user can read the concrete cause and
+    // manually close or retry instead of seeing an unexplained spinner vanish.
+    setTimeout(stopLiveVoice, 30_000);
   }
 }
 
