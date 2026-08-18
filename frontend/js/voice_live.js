@@ -143,7 +143,8 @@ export async function startLiveVoice(contextProvider = null) {
   overlay.classList.remove("opacity-0");
   overlay.classList.add("pointer-events-auto");
 
-  updateMicUI(false);
+  // Preserve a mute request made while the provider is still connecting.
+  updateMicUI(getMicMuted());
 
   try {
     // Get auth token for authenticated API calls
@@ -260,7 +261,28 @@ function appendTranscriptChunk(existing, chunk) {
 }
 
 function detectCaptionDirection(text) {
-  return /[\u0590-\u08FF]/.test(String(text || "")) ? "rtl" : "ltr";
+  const value = String(text || "");
+  const arabicIndex = value.search(/[\u0590-\u08FF]/);
+  const latinIndex = value.search(/[A-Za-z]/);
+  if (arabicIndex >= 0 && (latinIndex < 0 || arabicIndex < latinIndex)) return "rtl";
+  return "ltr";
+}
+
+function isolateMixedScriptRuns(text, direction) {
+  const value = String(text || "");
+  // Unicode directional isolates keep embedded names, URLs, numbers, and
+  // translated phrases from reordering the surrounding Arabic/English line.
+  if (direction === "rtl") {
+    return value.replace(/([A-Za-z][A-Za-z0-9@._:/+%#?=&-]*(?:[ ]+[A-Za-z0-9@._:/+%#?=&-]+)*)/g, (_, match) => `${String.fromCodePoint(0x2066)}${match}${String.fromCodePoint(0x2069)}`);
+  }
+  return value.replace(/[\u0590-\u08FF][\u0590-\u08FF0-9\u0660-\u0669@._:/+%#?=&-]*(?:[ ]+[\u0590-\u08FF0-9\u0660-\u0669@._:/+%#?=&-]+)*/g, (match) => `${String.fromCodePoint(0x2067)}${match}${String.fromCodePoint(0x2069)}`);
+}
+
+function renderCaptionText(caption, rawText) {
+  const direction = detectCaptionDirection(rawText);
+  caption.dir = direction;
+  caption.setAttribute("aria-label", rawText);
+  caption.textContent = isolateMixedScriptRuns(rawText, direction);
 }
 
 function handleTranscript(type, text) {
@@ -282,9 +304,9 @@ function handleTranscript(type, text) {
   if (!currentCaption) currentCaption = createAiCaption();
   if (!currentCaption) return;
 
-  const captionText = appendTranscriptChunk(currentCaption.textContent || "", cleaned);
-  currentCaption.textContent = captionText;
-  currentCaption.dir = detectCaptionDirection(captionText);
+  const captionText = appendTranscriptChunk(currentCaption.dataset.rawText || "", cleaned);
+  currentCaption.dataset.rawText = captionText;
+  renderCaptionText(currentCaption, captionText);
   aiTranscript = appendTranscriptChunk(aiTranscript, cleaned);
   scrollTranscript();
 }
@@ -320,6 +342,7 @@ function handleAudioState({
   };
 
   if (overlay) overlay.dataset.voicePhase = phase || "idle";
+  if (typeof muted === "boolean") updateMicUI(muted);
   setPalette(palette);
   renderMinimalVoiceStatus();
 }
@@ -352,6 +375,8 @@ function createAiCaption() {
   const caption = document.createElement("p");
   caption.className = "voice-caption voice-caption--active";
   caption.setAttribute("aria-atomic", "true");
+  caption.setAttribute("dir", "ltr");
+  caption.dataset.rawText = "";
   panel.appendChild(caption);
   return caption;
 }

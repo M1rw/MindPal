@@ -427,6 +427,10 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
   assert.match(source, /voice-caption voice-caption--active/);
   assert.match(source, /panel\.scrollTo\(\{ top: panel\.scrollHeight, behavior: "smooth" \}\)/);
   assert.match(source, /detectCaptionDirection/);
+  assert.match(source, /isolateMixedScriptRuns/);
+  assert.match(source, /dataset\.rawText/);
+  assert.match(source, /String\.fromCodePoint\(0x2066\)/);
+  assert.match(source, /String\.fromCodePoint\(0x2067\)/);
   assert.doesNotMatch(source, /voice-msg-user/);
   assert.match(markup, /aria-label="MindPal spoken captions"/);
   assert.match(markup, /id="voice-cc-toggle"/);
@@ -437,7 +441,11 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
   assert.match(styles, /\.voice-caption\[dir="rtl"\]/);
   assert.match(styles, /scroll-padding-block: 2rem/);
   assert.match(styles, /color: rgba\(45, 45, 49, 0\.64\)/);
-  assert.match(styles, /padding: clamp\(3rem, 10vh, 6rem\) 0 clamp\(5rem, 14vh, 8rem\)/);
+  assert.match(styles, /width: min\(100%, 40rem\)/);
+  assert.match(styles, /font-size: clamp\(1\.12rem, 4\.2vw, 2\.2rem\)/);
+  assert.match(styles, /unicode-bidi: plaintext/);
+  assert.match(styles, /overflow-wrap: anywhere/);
+  assert.match(styles, /padding: 1\.75rem 0 4\.25rem/);
   assert.match(styles, /mask-image: linear-gradient\(to bottom, transparent 0, rgba\(0, 0, 0, 0\.74\) 7%, #000 16%, #000 100%/);
   assert.doesNotMatch(styles, /#000 87%, rgba\(0, 0, 0, 0\.74\) 95%/);
   assert.doesNotMatch(styles, /\.voice-msg-user/);
