@@ -1,0 +1,108 @@
+flowchart TD
+  U[User taps Voice / voice_live.js:startLiveVoice] --> UI[Voice overlay enters connecting state\nvoice_live.js:120-140]
+  UI --> AUTH[getIdToken + App Check callbacks\nvoice_live.js:141-165]
+  AUTH --> MIC[setupAudioCapture\nAudioContext + getUserMedia\nruntime.js:1424-1455]
+  MIC --> GRAPH[Audio graph\nMediaStreamSource -> AudioWorklet\nScriptProcessor fallback -> analyser]
+  GRAPH --> CREDS[GET /api/voice/token\nAuthorization + X-Firebase-AppCheck]
+
+  subgraph BACKEND[FastAPI backend]
+    CREDS --> AUTHZ[assert_authenticated]
+    AUTHZ --> RL[voice_token rate limit]
+    RL --> IDEMP[idempotency claim]
+    IDEMP --> QUOTA[reserve voice session quota]
+    QUOTA --> GEMINI[Create one-use ephemeral token\nGEMINI_API_KEY stays server-side]
+    GEMINI --> RESP[Return token, model, websocket_url, expiry]
+  end
+
+  RESP --> WS[Browser builds WSS URL\naccess_token query parameter]
+  WS --> OPEN[WebSocket opens]
+  OPEN --> SETUP[Send Live setup\nmodel, AUDIO, Kore, VAD, resumption, compression, transcriptions]
+  SETUP --> READY{setupComplete?}
+  READY -->|yes| GREET[Send initial greeting as realtimeInput text]
+  READY -->|no/error| RECOVER[Recovery / reconnect supervisor\nimplemented inside runtime.js]
+  GREET --> LISTEN[Session listening]
+
+  subgraph CAPTURE[Capture and provider input]
+    LISTEN --> FRAME[AudioWorklet frame]
+    FRAME --> RMS[Resample to 16 kHz + RMS + adaptive noise gate]
+    RMS -->|candidate/confirmed speech| PCM[Send realtimeInput audio PCM]
+    RMS -->|below gate| SILENCE[Send throttled silence frames]
+    PCM --> VAD[Provider automatic VAD\nSTART_OF_ACTIVITY_INTERRUPTS]
+    SILENCE --> VAD
+  end
+
+  VAD --> EVENTS[WebSocket server events]
+  EVENTS --> INTRANS[inputTranscription]
+  EVENTS --> OUTTRANS[outputTranscription]
+  EVENTS --> MODEL[modelTurn parts]
+  EVENTS --> TURN[turnComplete / interrupted]
+  EVENTS --> TOOL[toolCall.functionCalls]
+
+  INTRANS --> SEM[Mark semantic user turn\nlast transcript + emotion hint + continuity ledger]
+  SEM --> LOCAL{local time request?}
+  LOCAL -->|yes| LOCALGATE[Hold until provider yield\nthen local current_time result]
+  LOCAL -->|no| FACT{volatile/current fact?}
+  FACT -->|yes| VERIFY[POST /api/voice/verify-current-fact]
+  FACT -->|no| NORMAL[Normal conversation path]
+
+  subgraph EVIDENCE[Freshness and tool branch]
+    VERIFY --> BACKENDSEARCH[Authenticated backend web_search\nrate limits + registry + non-empty results]
+    BACKENDSEARCH --> VERIFIED{verified?}
+    VERIFIED -->|yes| EVIDENCEWAIT[Hold answer until turn boundary\nthen inject verified evidence]
+    VERIFIED -->|no| FAILCUE[Inject cannot-verify instruction]
+  end
+
+  TOOL --> CLASSIFY{background web_search?}
+  CLASSIFY -->|yes, non-volatile| BG[Background task map\nmax 2, timeout 12s, epoch cancellation]
+  CLASSIFY -->|blocking/local| BLOCK[Blocking tool executor\nbackend /tools/execute, no browser fallback]
+  BG --> BGUPDATE[Inject background result as realtimeInput text]
+  BLOCK --> TOOLRESP[Send toolResponse.functionResponses]
+
+  NORMAL --> MODEL
+  LOCALGATE --> LOCALRESULT[Inject local time result]
+  EVIDENCEWAIT --> MODEL
+  FAILCUE --> MODEL
+  BGUPDATE --> MODEL
+  TOOLRESP --> MODEL
+
+  MODEL --> GATE{fact gate pending?}
+  GATE -->|yes, non-bridge audio| DROP[Drop speculative audio/transcript]
+  GATE -->|no or trusted bridge| AUDIO[Decode PCM 24 kHz]
+  AUDIO --> QUEUE[Schedule AudioBufferSource nodes\nnextPlaybackTime queue]
+  QUEUE --> PLAY[Compressor -> analyser -> gain -> speakers]
+  PLAY --> UI2[Speaking state + AI captions + visualizer]
+
+  TURN --> INT{interrupted?}
+  INT -->|yes| FLUSH[120 ms fade + flush playback\nprovider owns interruption]
+  INT -->|turnComplete| RELEASE[Release local/fact gates\nreset semantic/capture turn state]
+  FLUSH --> LISTEN
+  RELEASE --> LISTEN
+
+  subgraph RECOVERY[Asynchronous recovery branches]
+    EVENTS --> GOAWAY[goAway / resumption handle]
+    GOAWAY --> R1[Close socket -> refresh one-use token]
+    R1 --> RESUME{resumption attempt available?}
+    RESUME -->|yes| WS
+    RESUME -->|no| RESEED[Clear handle + continuity ledger reseed]
+    RESEED --> WS
+    EVENTS --> CLOSE[onclose / onerror / offline / stale-response]
+    CLOSE --> RETRY[backoff retry up to 4]
+    RETRY --> PAUSE[recovery pause after budget / 429 server delay]
+    PAUSE --> WS
+  end
+
+  subgraph END[End of call]
+    STOP[User closes / timeout / mic track ends] --> CLEAN[cleanupResources\nstop timers, socket, tasks, tracks, AudioContext]
+    CLEAN --> SYNC{incognito?}
+    SYNC -->|no| HISTORY[onChatSync callback with user+AI transcripts]
+    SYNC -->|yes| DONE[No post-call chat sync]
+  end
+
+  classDef weak fill:#ffe0e0,stroke:#b42318,stroke-width:2px,color:#4a0b0b;
+  classDef boundary fill:#fff4cc,stroke:#9a6700,stroke-width:2px,color:#4a3500;
+  classDef normal fill:#e8f3ff,stroke:#2367a1,color:#0b2a44;
+  classDef backend fill:#e9f7ef,stroke:#1f7a45,color:#123d24;
+
+  class UI,AUTH,GRAPH,RECOVER,SEM,LOCALGATE,VERIFY,CLASSIFY,BG,BLOCK,QUEUE,CLEAN weak;
+  class CREDS,WS,SETUP,PCM,VAD,EVENTS,EVIDENCEWAIT,PLAY,HISTORY boundary;
+  class BACKEND,AUTHZ,RL,IDEMP,QUOTA,GEMINI,RESP,BACKENDSEARCH,VERIFIED backend;

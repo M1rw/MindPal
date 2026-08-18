@@ -1,7 +1,7 @@
 # MindPal Backend Resilience Audit
 
-**Author:** Manus AI  
-**Audit date:** 2026-08-13  
+**Author:** Manus AI
+**Audit date:** 2026-08-13
 **Scope:** MindPal backend architecture, authorization boundaries, deterministic safety routing, output safety, RAG trust boundaries, multilingual handling, bounded local load, static analysis, and production dependency vulnerability checks.
 
 ## Executive summary

@@ -1,7 +1,7 @@
 # MindPal Backend API Controlled Load-Test Report
 
-**Author:** Manus AI  
-**Date:** 2026-08-13  
+**Author:** Manus AI
+**Date:** 2026-08-13
 **Scope:** Local in-process FastAPI/ASGI test environment only. No request was sent to Vercel, Firebase, or an external language-model provider.
 
 ## Executive summary

@@ -1,8 +1,10 @@
-// frontend/js/voice_session.js — compatibility layer over the modular voice runtime
+// frontend/js/voice_session.js — stable public Voice facade with reversible V2 rollout.
 
 import { createVoiceSessionController } from "./voice/runtime.js";
+import { createVoiceSessionV2 } from "./voice_session_v2.js";
 
-const controller = createVoiceSessionController();
+const useVoiceV2 = Boolean(globalThis.window?.MINDPAL_CONFIG?.VOICE_ARCHITECTURE_V2);
+const controller = useVoiceV2 ? createVoiceSessionV2() : createVoiceSessionController();
 
 export function getSessionState() {
   return controller.getSessionState();

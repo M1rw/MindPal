@@ -1,0 +1,104 @@
+sequenceDiagram
+  autonumber
+  participant User
+  participant UI as voice_live.js
+  participant Runtime as voice/runtime.js
+  participant API as FastAPI voice_router.py
+  participant Gemini as Gemini Live WebSocket
+  participant Tools as /api/tools/execute
+  participant Verify as /api/voice/verify-current-fact
+  participant History as onChatSync / chat persistence
+
+  User->>UI: Tap Voice
+  UI->>UI: Show overlay: connecting
+  UI->>Runtime: startSession(callbacks, auth, App Check)
+  Runtime->>Runtime: getUserMedia + AudioContext + Worklet
+  Runtime->>API: GET /api/voice/token
+  API->>API: Auth + rate limit + idempotency + quota reserve
+  API->>Gemini: Create one-use ephemeral auth token (server key)
+  Gemini-->>API: token name + expiry
+  API-->>Runtime: token + model + websocket_url
+  Runtime->>Gemini: WSS ?access_token=ephemeral token
+  Gemini-->>Runtime: open
+  Runtime->>Gemini: setup(model, AUDIO, Kore, VAD, resumption, transcriptions)
+  Gemini-->>Runtime: setupComplete
+  Runtime->>Gemini: realtimeInput.text greeting
+  Gemini-->>Runtime: modelTurn audio + output transcription
+  Runtime->>Runtime: Decode 24 kHz PCM -> queue AudioBufferSource
+  Runtime-->>UI: speaking + AI caption + visualizer
+
+  loop Mic frame
+    User->>Runtime: microphone PCM frame
+    Runtime->>Runtime: resample 16 kHz + RMS + adaptive gate
+    alt gate open
+      Runtime->>Gemini: realtimeInput.audio PCM
+    else gate closed
+      Runtime->>Gemini: throttled silence audio
+    end
+  end
+
+  Gemini-->>Runtime: inputTranscription chunk
+  Runtime->>Runtime: mark semantic turn + append continuity + infer emotion
+  alt local time request
+    Runtime->>Runtime: hold until provider turnComplete
+    Runtime->>Runtime: local current_time
+    Runtime->>Gemini: internal realtimeInput.text with local result
+  else volatile/current fact
+    Runtime->>Verify: POST query + auth + App Check
+    Verify->>Tools: authenticated web_search registry execution
+    Tools-->>Verify: results or failure
+    Verify-->>Runtime: verified evidence or cannot verify
+    Runtime->>Runtime: hold speculative model audio until yield
+  else normal conversation
+    Runtime->>Runtime: allow model response path
+  end
+
+  Gemini-->>Runtime: toolCall.functionCalls
+  alt blocking/local tool
+    Runtime->>Tools: POST /api/tools/execute
+    Tools-->>Runtime: tool result
+    Runtime->>Gemini: toolResponse.functionResponses
+  else non-volatile background web search
+    Runtime->>Tools: POST /api/tools/execute in background
+    Tools-->>Runtime: result
+    Runtime->>Gemini: internal realtimeInput.text research update
+  end
+
+  Gemini-->>Runtime: modelTurn parts
+  Runtime->>Runtime: fact gate check
+  alt allowed audio
+    Runtime->>Runtime: schedule PCM chunks and update speaking state
+    Runtime-->>UI: AI caption + playback state
+  else speculative fact audio
+    Runtime->>Runtime: drop audio and output transcription
+  end
+
+  Gemini-->>Runtime: turnComplete or interrupted
+  alt interrupted
+    Runtime->>Runtime: 120 ms fade + clear playback queue
+    Runtime-->>UI: listening / next user turn
+  else turnComplete
+    Runtime->>Runtime: release gates + reset turn flags
+    Runtime-->>UI: turn complete
+  end
+
+  opt GoAway, network, stale response, or socket close
+    Gemini-->>Runtime: goAway / close / error
+    Runtime->>Runtime: choose resume, reseed, retry, or pause
+    Runtime->>API: mint fresh one-use token for new socket
+    Runtime->>Gemini: reconnect WSS + setup + optional resume handle
+  end
+
+  User->>UI: Stop call / timeout / mic track ends
+  UI->>Runtime: stopSession
+  Runtime->>Runtime: abort tools, stop tracks, close socket, close AudioContext
+  alt not incognito
+    UI->>History: persist accumulated user/AI transcripts
+  else incognito
+    UI->>UI: discard post-call sync
+  end
+
+  Note over Runtime,Gemini: Weak boundary A: internal text notices share realtimeInput with user audio.
+  Note over Runtime,Verify: Weak boundary B: verification starts from inputTranscription chunks, not an explicit finalized TurnContext.
+  Note over Runtime,Tools: Weak boundary C: tool executor contains backend path and browser fallback in one module.
+  Note over Runtime: Weak boundary D: one mutable runtime owns capture, transport, turns, tools, playback, recovery, teardown.

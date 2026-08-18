@@ -1,7 +1,7 @@
 # MindPal Frontend-to-Backend Workflow Map
 
-**Author:** Manus AI  
-**Mapped on:** 2026-08-13  
+**Author:** Manus AI
+**Mapped on:** 2026-08-13
 **Scope:** Browser application bootstrap, authenticated cloud hydration, text chat streaming, memory and chat synchronization, backend orchestration, and post-generation persistence.
 
 ## System flow

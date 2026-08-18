@@ -1,0 +1,68 @@
+flowchart LR
+  UI[Voice UI\nvoice_live.js] --> API[VoiceSession API]
+  API --> ORCH[VoiceSessionOrchestrator\nsole lifecycle/state authority]
+
+  subgraph BROWSER[Browser full-duplex runtime]
+    CAP[CaptureAdapter\ncontinuous mic PCM\nlocal quality only]
+    TRANSPORT[TransportSupervisor\nWebSocket + token renewal\nresumption + retry]
+    PROVIDER[GeminiLiveAdapter\n2.5 Native Audio / v1beta\nnormalized provider events]
+    TURN[TurnManager\nTurnContext + semantic ownership]
+    EVIDENCE[EvidenceGate\nvolatile-fact policy\nturn-scoped release]
+    TOOLS[ToolGateway\nlocal tools / backend tools\nno implicit browser fallback]
+    PLAY[PlaybackManager\nmain + backchannel PCM queues\ngeneration fence + barge-in flush]
+    BACK[BackchannelManager\ncontext-aware sparse acknowledgements\ncooldown + safety gates]
+    BACKPROVIDER[BackchannelProvider\nsame-session probe or same-model lane]
+    LIFE[LifecycleManager\n15-min provider renewal\n30-min product session\ninactivity]
+    TRACE[VoiceTrace\nprivacy-safe event telemetry]
+  end
+
+  ORCH --> CAP
+  ORCH --> TRANSPORT
+  TRANSPORT <--> PROVIDER
+  CAP -->|audio.in| PROVIDER
+  PROVIDER -->|normalized events| ORCH
+  ORCH --> TURN
+  TURN --> EVIDENCE
+  TURN --> TOOLS
+  TURN --> BACK
+  BACK --> BACKPROVIDER
+  BACKPROVIDER -->|short ack audio| PLAY
+  PROVIDER -->|main audio.out| PLAY
+  TURN --> PLAY
+  PLAY --> UI
+  LIFE --> ORCH
+  ORCH --> TRACE
+
+  subgraph SERVER[MindPal backend]
+    TOKEN[/api/voice/token\nauth + App Check\nrate limit + quota\none-use token/]
+    VERIFY[/api/voice/verify-current-fact\nbackend search + evidence/]
+    EXEC[/api/tools/execute\nauthenticated registry/]
+    SAVE[Structured call persistence]
+  end
+
+  TRANSPORT --> TOKEN
+  EVIDENCE --> VERIFY
+  TOOLS --> EXEC
+  ORCH --> SAVE
+
+  subgraph RULES[Non-negotiable invariants]
+    R1[Mic capture never finalizes semantic turns]
+    R2[Provider interrupted event owns playback cancellation]
+    R3[Async results require current session + turn + response identity]
+    R4[Volatile answers require verified evidence before playback]
+    R5[Old playback generation cannot mutate current state]
+  end
+
+  RULES -.-> ORCH
+  RULES -.-> TURN
+  RULES -.-> EVIDENCE
+  RULES -.-> PLAY
+
+  classDef authority fill:#d9eaff,stroke:#175cd3,stroke-width:2px,color:#0b1f4d;
+  classDef adapter fill:#e9f7ef,stroke:#1f7a45,stroke-width:2px,color:#123d24;
+  classDef boundary fill:#fff4cc,stroke:#9a6700,stroke-width:2px,color:#4a3500;
+  classDef rule fill:#ffe0e0,stroke:#b42318,stroke-width:2px,color:#4a0b0b;
+  class ORCH,TURN,EVIDENCE,PLAY,BACK authority;
+  class CAP,TRANSPORT,PROVIDER,BACKPROVIDER,TOOLS,LIFE,TRACE adapter;
+  class TOKEN,VERIFY,EXEC,SAVE boundary;
+  class R1,R2,R3,R4,R5 rule;
