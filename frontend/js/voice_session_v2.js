@@ -21,7 +21,7 @@ import {
 import { VOICE_EVENTS } from "./voice/architecture/events.js";
 import { classifyFinalizedVoiceTurn, buildOperationIdentity } from "./voice/intent/finalized_turn_router.js";
 
-function phaseProjection(phase, isAiSpeaking) {
+function phaseProjection(phase = "idle", isAiSpeaking = false) {
   if (phase === "connecting") return { phase: "connecting", palette: "listen" };
   if (phase === "recovering") return { phase: "recovering", palette: "listen" };
   if (phase === "thinking" || phase === "tool-pending") return { phase: "thinking", palette: "listen" };
@@ -84,15 +84,20 @@ export function createVoiceSessionV2({
     return typeof getAppCheckToken === "function" ? getAppCheckToken() : getAppCheckToken;
   }
 
-  function projectState(state) {
-    const projection = phaseProjection(state.phase, state.isModelSpeaking);
+  function getOrchestratorState() {
+    return orchestrator?.getState?.() || {};
+  }
+
+  function projectState(state = null) {
+    const safeState = state || getOrchestratorState();
+    const projection = phaseProjection(safeState.phase, safeState.isModelSpeaking);
     onAudioState({
       phase: projection.phase,
       palette: projection.palette,
-      isAiSpeaking: state.isModelSpeaking,
+      isAiSpeaking: Boolean(safeState.isModelSpeaking),
       isMicMuted: audio?.isMuted?.() || false,
-      reconnectAttempt: state.reconnectCount,
-      interactionTag: state.isBackchannelPlaying ? "backchannel" : state.isThinkingCuePlaying ? "thinking-cue" : "",
+      reconnectAttempt: safeState.reconnectCount || 0,
+      interactionTag: safeState.isBackchannelPlaying ? "backchannel" : safeState.isThinkingCuePlaying ? "thinking-cue" : "",
     });
   }
 
@@ -177,7 +182,7 @@ export function createVoiceSessionV2({
 
     const operationId = `voice-op-${Date.now().toString(36)}-${++operationSequence}`;
     const identity = buildOperationIdentity({
-      sessionGeneration: orchestrator?.getState?.().sessionGeneration || 0,
+      sessionGeneration: getOrchestratorState().sessionGeneration || 0,
       turnId,
       operationId,
     });
@@ -307,11 +312,11 @@ export function createVoiceSessionV2({
 
   async function connectTransport({ resumeHandle = null } = {}) {
     await prepareTransport({ resumeHandle });
-    provider.updateContext?.({ sessionGeneration: orchestrator?.getState?.().sessionGeneration || 1 });
+    provider.updateContext?.({ sessionGeneration: getOrchestratorState().sessionGeneration || 1 });
     provider.connect({
       url: buildEphemeralVoiceWebSocketUrl(currentCredentials),
       setup: currentSetup,
-      identity: { sessionGeneration: orchestrator?.getState?.().sessionGeneration || 1, sessionId },
+      identity: { sessionGeneration: getOrchestratorState().sessionGeneration || 1, sessionId },
     });
     return true;
   }
@@ -378,7 +383,7 @@ export function createVoiceSessionV2({
         fetchImpl,
         signal: options.signal,
       }),
-      onEvent: (event) => handleEvent(event, orchestrator?.getState?.() || {}),
+      onEvent: (event) => handleEvent(event, getOrchestratorState()),
     });
     const evidenceGate = createEvidenceGate({
       verifier: async (query, options) => verifyCurrentVoiceFact({
@@ -389,7 +394,7 @@ export function createVoiceSessionV2({
         fetchImpl,
         signal: options.signal,
       }),
-      onEvent: (event) => handleEvent(event, orchestrator?.getState?.() || {}),
+      onEvent: (event) => handleEvent(event, getOrchestratorState()),
     });
     const backchannelProvider = createBackchannelProvider({
       provider,
@@ -441,7 +446,7 @@ export function createVoiceSessionV2({
     recovery = createRecoverySupervisor({
       reconnect: async ({ resumeHandle }) => connectTransport({ resumeHandle }),
       reseed: async () => connectTransport(),
-      onEvent: (event) => handleEvent(event, orchestrator?.getState?.() || {}),
+      onEvent: (event) => handleEvent(event, getOrchestratorState()),
     });
     orchestrator = createVoiceSessionOrchestrator({
       provider,
@@ -453,7 +458,7 @@ export function createVoiceSessionV2({
       evidenceGate,
       recoverySupervisor: recovery,
       persistence,
-      onEvent: handleEvent,
+      onEvent: (event) => handleEvent(event, getOrchestratorState()),
     });
     providerEventHandler = (event) => orchestrator.handleProviderEvent(event);
     active = true;
@@ -506,18 +511,21 @@ export function createVoiceSessionV2({
     setMuted,
     setSpeakerMuted,
     sendTextToModel: (text) => orchestrator?.sendText(text) || false,
-    getSessionState: () => ({
-      isActive: active,
-      isMicMuted: audio?.isMuted?.() || false,
-      isAiSpeaking: orchestrator?.getState?.().isModelSpeaking || false,
-      isSpeakerMuted: speakerMuted,
-      phase: orchestrator?.getState?.().phase || "idle",
-      reconnectAttempts: orchestrator?.getState?.().reconnectCount || 0,
-      micAnalyser: audio?.getMicAnalyser?.() || null,
-      aiAnalyser: playback?.getOutputAnalyser?.() || null,
-    }),
+    getSessionState: () => {
+      const state = getOrchestratorState();
+      return {
+        isActive: active,
+        isMicMuted: audio?.isMuted?.() || false,
+        isAiSpeaking: Boolean(state.isModelSpeaking),
+        isSpeakerMuted: speakerMuted,
+        phase: state.phase || "idle",
+        reconnectAttempts: state.reconnectCount || 0,
+        micAnalyser: audio?.getMicAnalyser?.() || null,
+        aiAnalyser: playback?.getOutputAnalyser?.() || null,
+      };
+    },
     getMicMuted: () => audio?.isMuted?.() || false,
-    getAiSpeaking: () => orchestrator?.getState?.().isModelSpeaking || false,
+    getAiSpeaking: () => Boolean(getOrchestratorState().isModelSpeaking),
     getSpeakerMuted: () => speakerMuted,
   });
 }
