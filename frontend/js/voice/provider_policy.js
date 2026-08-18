@@ -24,6 +24,9 @@ export function getLiveProviderCapabilities(model) {
     // must not claim or send proactive-listening configuration on this path.
     // Native voice quality, barge-in, continuous capture, and v1beta remain.
     proactiveAudio: false,
+    // Native cue requests use the existing realtime text channel and remain
+    // separate from the unsupported setup.proactivity field.
+    nativeListeningCues: nativeAudio,
     affectiveDialog: false,
     // The free-tier preview closed MindPal's WebSocket after the first greeting
     // when provider-declared functions were present. Keep provider functions off

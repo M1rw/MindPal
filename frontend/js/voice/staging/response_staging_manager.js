@@ -15,6 +15,8 @@ export function createResponseStagingManager({
   onCancel = () => {},
   now = () => Date.now(),
   policyOptions = {},
+  setTimeoutImpl = globalThis.setTimeout,
+  clearTimeoutImpl = globalThis.clearTimeout,
 } = {}) {
   const operations = new Map();
 
@@ -32,20 +34,29 @@ export function createResponseStagingManager({
       cancelled: false,
     });
     operations.set(request.operationId, operation);
-    if (decision.stage === "thinking-cue") onRequest(operation);
+    if (decision.stage === "thinking-cue") {
+      const delay = Math.max(0, Number(policyOptions.minimumCueLatencyMs ?? 500) || 0);
+      const timer = setTimeoutImpl?.(() => {
+        const current = operations.get(request.operationId);
+        if (current && !current.cancelled && !current.cueEmitted) onRequest(current);
+      }, delay);
+      operations.set(request.operationId, Object.freeze({ ...operation, cueTimer: timer }));
+    }
     return Object.freeze({ ...decision, operation });
   }
 
   function markCueEmitted(operationId) {
     const operation = operations.get(operationId);
     if (!operation || operation.cancelled || !operation.cueRequested) return false;
-    operations.set(operationId, Object.freeze({ ...operation, cueEmitted: true }));
+    if (operation.cueTimer != null) clearTimeoutImpl?.(operation.cueTimer);
+    operations.set(operationId, Object.freeze({ ...operation, cueEmitted: true, cueTimer: null }));
     return true;
   }
 
   function complete(operationId, result = {}) {
     const operation = operations.get(operationId);
     if (!operation) return false;
+    if (operation.cueTimer != null) clearTimeoutImpl?.(operation.cueTimer);
     operations.delete(operationId);
     return Object.freeze({ operation, result, completedAt: now() });
   }
@@ -53,6 +64,7 @@ export function createResponseStagingManager({
   function cancel(operationId, reason = "cancelled") {
     const operation = operations.get(operationId);
     if (!operation) return false;
+    if (operation.cueTimer != null) clearTimeoutImpl?.(operation.cueTimer);
     operations.delete(operationId);
     const cancelled = Object.freeze({ ...operation, cancelled: true, reason, cancelledAt: now() });
     onCancel(cancelled);

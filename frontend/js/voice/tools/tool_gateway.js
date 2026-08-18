@@ -1,4 +1,4 @@
-const LOCAL_TOOLS = new Set(["current_time", "date_calculator", "calculate_expression"]);
+const LOCAL_TOOLS = new Set(["current_time"]);
 const VERIFIED_FACT_TOOLS = new Set(["web_search", "verify_current_fact"]);
 
 function normalizeError(error) {
