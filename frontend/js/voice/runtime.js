@@ -136,6 +136,8 @@ export function createVoiceSessionController() {
     _transientReconnectAttempts: 0,
     _transientRecoveryCycles: 0,
     _reconnectInFlight: false,
+    _sessionGeneration: 0,
+    _credentialRefreshPromise: null,
   };
 
   const toolExecutor = createToolExecutor({
@@ -1084,36 +1086,56 @@ export function createVoiceSessionController() {
   }
 
   async function refreshVoiceCredentials() {
-    if (typeof state._refreshAuthToken === "function") {
-      const refreshed = await state._refreshAuthToken();
-      if (refreshed) state._authToken = refreshed;
-    }
+    // A socket credential is one-use, but only one physical socket can be
+    // established at a time. Sharing the in-flight request prevents concurrent
+    // close/online/server events from minting a burst of duplicate tokens.
+    if (state._credentialRefreshPromise) return state._credentialRefreshPromise;
 
-    const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
-    const appCheckToken = typeof state._getAppCheckToken === "function"
-      ? await state._getAppCheckToken()
-      : null;
-    const credentials = await fetchVoiceTokenWithRetry({
-      baseUrl,
-      token: state._authToken,
-      appCheckToken,
-      refreshToken: async () => {
-        if (typeof state._refreshAuthToken !== "function") return state._authToken;
+    const sessionGeneration = state._sessionGeneration;
+    const refreshPromise = (async () => {
+      if (typeof state._refreshAuthToken === "function") {
         const refreshed = await state._refreshAuthToken();
         if (refreshed) state._authToken = refreshed;
-        return state._authToken;
-      },
-      refreshAppCheckToken: async () => {
-        if (typeof state._refreshAppCheckToken !== "function") {
-          return typeof state._getAppCheckToken === "function" ? state._getAppCheckToken() : null;
-        }
-        return state._refreshAppCheckToken();
-      },
-      maxAttempts: 3,
-    });
+      }
 
-    state._voiceCredentials = credentials;
-    return credentials;
+      const baseUrl = window.MINDPAL_CONFIG?.API_BASE_URL || "";
+      const appCheckToken = typeof state._getAppCheckToken === "function"
+        ? await state._getAppCheckToken()
+        : null;
+      const credentials = await fetchVoiceTokenWithRetry({
+        baseUrl,
+        token: state._authToken,
+        appCheckToken,
+        refreshToken: async () => {
+          if (typeof state._refreshAuthToken !== "function") return state._authToken;
+          const refreshed = await state._refreshAuthToken();
+          if (refreshed) state._authToken = refreshed;
+          return state._authToken;
+        },
+        refreshAppCheckToken: async () => {
+          if (typeof state._refreshAppCheckToken !== "function") {
+            return typeof state._getAppCheckToken === "function" ? state._getAppCheckToken() : null;
+          }
+          return state._refreshAppCheckToken();
+        },
+        maxAttempts: 3,
+      });
+
+      if (!state.isSessionActive || state._sessionGeneration !== sessionGeneration) {
+        const error = new DOMException("Voice session is no longer active", "AbortError");
+        error.status = 0;
+        throw error;
+      }
+      state._voiceCredentials = credentials;
+      return credentials;
+    })();
+
+    state._credentialRefreshPromise = refreshPromise;
+    try {
+      return await refreshPromise;
+    } finally {
+      if (state._credentialRefreshPromise === refreshPromise) state._credentialRefreshPromise = null;
+    }
   }
 
   function openWebSocket(credentials, { reconnecting = false } = {}) {
@@ -1203,7 +1225,7 @@ export function createVoiceSessionController() {
     state._reconnectAttempts = next.resumptionAttempts + next.transientAttempts;
   }
 
-  function scheduleReconnect(reason = "transient") {
+  function scheduleReconnect(reason = "transient", { rateLimitRetryAfterMs = 0 } = {}) {
     if (!state.isSessionActive || state.isStopping || state._reconnectTimer) return;
 
     const recovery = planVoiceRecovery({
@@ -1214,6 +1236,7 @@ export function createVoiceSessionController() {
       resumptionAttempts: state._resumptionAttempts,
       transientAttempts: state._transientReconnectAttempts,
       recoveryCycles: state._transientRecoveryCycles,
+      rateLimitRetryAfterMs,
     });
     applyRecoveryCounters(recovery.next);
     setSessionPhase("recovering", {
@@ -1244,6 +1267,10 @@ export function createVoiceSessionController() {
         openWebSocket(state._voiceCredentials, { reconnecting: true });
       } catch (error) {
         console.warn("[Voice] Recovery credential refresh failed:", error);
+        if (Number(error?.status) === 429) {
+          scheduleReconnect("credential-rate-limited", { rateLimitRetryAfterMs: Number(error?.retryAfterMs) || 0 });
+          return;
+        }
         scheduleReconnect("credential-refresh-failed");
       }
     }, recovery.delayMs);
@@ -1394,6 +1421,8 @@ export function createVoiceSessionController() {
     state._noiseFloorRms = 0.0025;
     state._speechFrameStreak = 0;
     state._noiseGateThreshold = NOISE_GATE_THRESHOLD;
+    state._sessionGeneration += 1;
+    state._credentialRefreshPromise = null;
     state.isSessionActive = true;
     state.isStopping = false;
     state.isMicMuted = false;
@@ -1431,6 +1460,8 @@ export function createVoiceSessionController() {
     const shouldNotify = notify && state.isSessionActive;
     state.isStopping = true;
     state.isSessionActive = false;
+    state._sessionGeneration += 1;
+    state._credentialRefreshPromise = null;
     state._socketGeneration += 1;
 
     clearTurnCompleteTimer();

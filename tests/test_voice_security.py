@@ -8,8 +8,11 @@ from pydantic import SecretStr
 
 import importlib
 
+from backend.api.dependencies import http_error_from_app_error
+from backend.core.config import Settings
+from backend.core.errors import RateLimitError
 from backend.services.idempotency_service import IdempotencyClaim
-from backend.services.quota_service import QuotaSnapshot
+from backend.services.quota_service import QuotaExceededError, QuotaSnapshot
 
 voice_router = importlib.import_module("backend.api.voice_router")
 
@@ -90,6 +93,25 @@ async def test_voice_token_endpoint_returns_ephemeral_token_not_provider_key(mon
     assert "v1alpha.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
     assert result.model == "gemini-3.1-flash-live-preview"
     assert response.headers["cache-control"] == "no-store, private"
+
+
+def test_voice_rate_and_quota_errors_preserve_retry_after_for_recovery_clients() -> None:
+    rate_error = http_error_from_app_error(
+        RateLimitError("Too many requests", details={"retry_after_seconds": 73}),
+        request_id="req-rate",
+    )
+    quota_error = http_error_from_app_error(
+        QuotaExceededError("Usage limit reached", details={"usage": {"reset_5h_seconds": 301}}),
+        request_id="req-quota",
+    )
+
+    assert rate_error.headers == {"Retry-After": "73"}
+    assert quota_error.headers == {"Retry-After": "301"}
+
+
+def test_voice_long_call_defaults_allow_provider_socket_renewal() -> None:
+    assert Settings.model_fields["VOICE_TOKEN_RATE_LIMIT_PER_HOUR"].default == 16
+    assert Settings.model_fields["VOICE_SESSION_QUOTA_COST"].default == 1
 
 
 @pytest.mark.asyncio

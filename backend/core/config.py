@@ -242,10 +242,14 @@ class Settings(BaseSettings):
     TOOL_RATE_LIMIT_PER_MINUTE: int = Field(default=20, ge=1, le=10_000)
     WEB_SEARCH_RATE_LIMIT_PER_HOUR: int = Field(default=10, ge=1, le=10_000)
     VOICE_RATE_LIMIT_PER_MINUTE: int = Field(default=10, ge=1, le=10_000)
-    VOICE_TOKEN_RATE_LIMIT_PER_HOUR: int = Field(default=8, ge=1, le=10_000)
+    # A Live connection can require a fresh one-use token roughly every ten
+    # minutes. Sixteen per hour covers normal renewal plus bounded recovery.
+    VOICE_TOKEN_RATE_LIMIT_PER_HOUR: int = Field(default=16, ge=1, le=10_000)
     TTS_RATE_LIMIT_PER_MINUTE: int = Field(default=15, ge=1, le=10_000)
     SAFETY_DIAGNOSTIC_RATE_LIMIT_PER_MINUTE: int = Field(default=10, ge=1, le=10_000)
-    VOICE_SESSION_QUOTA_COST: int = Field(default=2, ge=1, le=100)
+    # This is charged per one-use transport credential. Reconnects are part of
+    # one user call, so keep the credential cost low enough for long sessions.
+    VOICE_SESSION_QUOTA_COST: int = Field(default=1, ge=1, le=100)
     PROVIDER_OPERATION_QUOTA_COST: int = Field(default=1, ge=1, le=100)
     MAX_CONCURRENT_CHAT_REQUESTS_PER_USER: int = Field(default=2, ge=1, le=20)
     CHAT_CONCURRENCY_QUEUE_TIMEOUT_SECONDS: float = Field(default=0.10, ge=0.0, le=5.0)

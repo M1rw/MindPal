@@ -294,6 +294,16 @@ test("Voice runtime treats GoAway and its following normal close as a resumable 
   assert.match(source, /appendContinuityLedger\("model", outputText\)/);
 });
 
+test("Voice runtime turns a credential 429 into one shared, server-timed recovery pause", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /_credentialRefreshPromise: null/);
+  assert.match(source, /if \(state\._credentialRefreshPromise\) return state\._credentialRefreshPromise/);
+  assert.match(source, /Number\(error\?\.status\) === 429/);
+  assert.match(source, /scheduleReconnect\("credential-rate-limited", \{ rateLimitRetryAfterMs: Number\(error\?\.retryAfterMs\) \|\| 0 \}\)/);
+  assert.match(source, /_sessionGeneration \+= 1/);
+});
+
 test("Voice runtime releases evidence only after its original fact-gated turn and bridges a pending check", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
 

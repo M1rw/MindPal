@@ -5,6 +5,8 @@
 export const MAX_RESUMPTION_ATTEMPTS = 1;
 export const MAX_TRANSIENT_RECONNECT_ATTEMPTS = 4;
 export const RECOVERY_PAUSE_BASE_MS = 5_000;
+export const MIN_RATE_LIMIT_RECOVERY_PAUSE_MS = 60_000;
+export const MAX_RATE_LIMIT_RECOVERY_PAUSE_MS = 3_600_000;
 
 export function isExpectedResumptionReason(reason) {
   return /(?:go-away|resum(?:e|ption)|session-reset)/i.test(String(reason || ""));
@@ -23,8 +25,25 @@ export function planVoiceRecovery({
   resumptionAttempts = 0,
   transientAttempts = 0,
   recoveryCycles = 0,
+  rateLimitRetryAfterMs = 0,
   now = Date.now(),
 } = {}) {
+  if (reason === "credential-rate-limited") {
+    const serverDelay = Number.isFinite(rateLimitRetryAfterMs) && rateLimitRetryAfterMs > 0
+      ? rateLimitRetryAfterMs
+      : MIN_RATE_LIMIT_RECOVERY_PAUSE_MS;
+    return {
+      action: "pause",
+      reason: "credential-rate-limit",
+      delayMs: Math.min(MAX_RATE_LIMIT_RECOVERY_PAUSE_MS, Math.max(MIN_RATE_LIMIT_RECOVERY_PAUSE_MS, Math.ceil(serverDelay))),
+      next: {
+        resumptionAttempts,
+        transientAttempts,
+        recoveryCycles: recoveryCycles + 1,
+      },
+    };
+  }
+
   const expectedResumption = resumeRequested || isExpectedResumptionReason(reason);
   // Runtime refreshes the one-use ephemeral credential for every physical socket.
   // A provider resumption handle has its own lifecycle, so token expiry must not
