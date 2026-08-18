@@ -86,3 +86,19 @@ The existing suites cover token security, retry budgets, status vocabulary, prom
 [1] [Google Gemini Live API capabilities](https://ai.google.dev/gemini-api/docs/live-api/capabilities)
 [2] [Google Gemini Live API tool use](https://ai.google.dev/gemini-api/docs/live-api/tools)
 [3] [MindPal provider capability findings](./voice_provider_capability_findings_2026-08-18.md)
+
+## Native-audio capability and production status
+
+The original `gemini-3.1-flash-live-preview` configuration cannot use proactive audio, affective dialog, or asynchronous function calling. The official Live API capability comparison states that the Gemini 2.5 Flash Live native-audio model supports proactive audio and asynchronous functions, while Gemini 3.1 does not. The Gemini API catalog identifies the exact native-audio endpoint as `gemini-2.5-flash-native-audio-preview-12-2025`. MindPal retains a capability-aware implementation for that model: it selects `v1beta`, enables `proactivity.proactiveAudio`, sends real `realtimeInput` listening-presence cues, and declares applicable functions as `NON_BLOCKING`.
+
+On 2026-08-18, production accepted the secure native-audio token and completed setup, but the provider then cleanly ended fresh calls shortly after the greeting. This was reproduced in the authenticated production browser: the overlay showed `Connecting…`, a greeting was recorded, and the session closed at approximately 24 seconds. Since the provider’s native-only conversational capabilities cannot be truthfully delivered while that session path is unstable, the production default has been restored to the previously validated `gemini-3.1-flash-live-preview` transport. The capability policy and native token regression remain in place for reactivation only after a stable account-level live test.
+
+This fallback deliberately does **not** claim proactive acknowledgement, native full-duplex tool behavior, or spoken background bridges that the selected legacy provider cannot support. It preserves continuous microphone capture, barge-in handling, AI-only captions, lifecycle safety, verified fact routing, timezone context, and the conversation firewall.
+
+[4] [Gemini Live API capabilities guide](https://ai.google.dev/gemini-api/docs/live-api/capabilities)
+[5] [Gemini Live API tool use guide](https://ai.google.dev/gemini-api/docs/live-api/tools)
+[6] [Gemini API model catalog](https://ai.google.dev/gemini-api/docs/models)
+
+## Release validation — stability fallback
+
+The deterministic release gate must pass again after the fallback: the JavaScript regressions, prescribed Python suite, syntax/import audit, frontend audit, production build, and immutable-asset verification. A final authenticated production call must confirm that the stable provider reliably reaches `Listening`. Native-audio acknowledgement and spoken background-bridge validation remain intentionally pending until the provider session can stay open reliably.
