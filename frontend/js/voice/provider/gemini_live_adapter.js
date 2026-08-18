@@ -13,6 +13,16 @@ function decodeMessage(raw) {
   throw new TypeError("Unsupported Gemini provider message");
 }
 
+function decodeSocketMessage(raw) {
+  const value = raw?.data ?? raw;
+  if (typeof Blob !== "undefined" && value instanceof Blob) {
+    return value.text().then((text) => JSON.parse(text));
+  }
+  if (value instanceof ArrayBuffer) return JSON.parse(new TextDecoder().decode(value));
+  if (ArrayBuffer.isView(value)) return JSON.parse(new TextDecoder().decode(value));
+  return decodeMessage(raw);
+}
+
 function identityFromContext(context = {}) {
   return {
     sessionGeneration: context.sessionGeneration ?? 0,
@@ -138,19 +148,31 @@ export function createGeminiLiveAdapter({
     socketGeneration += 1;
     const thisSocketGeneration = socketGeneration;
     socket = new WebSocketImpl(url);
+    try { socket.binaryType = "arraybuffer"; } catch { /* browser implementation may not expose binaryType */ }
     socket.onopen = () => {
       if (thisSocketGeneration !== socketGeneration) return;
       connected = true;
       const setupSent = setup ? send({ setup }) : false;
       onDiagnostic(Object.freeze({ type: "voice.socket-open", setupSent, at: now() }));
     };
-    socket.onmessage = (message) => {
+    const handleMessage = (decoded) => {
       if (thisSocketGeneration !== socketGeneration) return;
-      const decoded = decodeMessage(message);
       const update = decoded.sessionResumptionUpdate || decoded.session_resumption_update;
       if (update?.newHandle || update?.new_handle) sessionResumptionHandle = String(update.newHandle || update.new_handle);
       const eventContext = { ...context, sessionResumptionHandle };
       for (const event of normalizeGeminiServerMessage(decoded, eventContext)) emit(event);
+    };
+    socket.onmessage = (message) => {
+      if (thisSocketGeneration !== socketGeneration) return;
+      try {
+        const decoded = decodeSocketMessage(message);
+        if (decoded?.then) decoded.then(handleMessage).catch((error) => {
+          onDiagnostic(Object.freeze({ type: "voice.message-error", message: error?.message || "Malformed provider message", at: now() }));
+        });
+        else handleMessage(decoded);
+      } catch (error) {
+        onDiagnostic(Object.freeze({ type: "voice.message-error", message: error?.message || "Malformed provider message", at: now() }));
+      }
     };
     socket.onerror = (error) => {
       onDiagnostic(Object.freeze({
