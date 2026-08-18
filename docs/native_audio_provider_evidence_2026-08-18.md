@@ -32,7 +32,9 @@ Source: [Native-audio function-calling disconnect investigation](https://zenn.de
 
 ## MindPal production observations
 
-MindPal’s native migration successfully received a v1beta ephemeral token, connected, completed setup, and produced an initial greeting. Fresh sessions then closed around 23–24 seconds. Removing provider function declarations and tool instructions did not restore sustained production connectivity. As of the last attempt, the UI still failed before a usable second user turn. A metadata-only authenticated `/api/voice/transport-diagnostic` endpoint is being added to collect the next provider WebSocket close code, reason, clean flag, setup/greeting state, duration, and model; it does not accept audio, transcript, prompt, or profile fields.
+MindPal’s native migration successfully obtained a v1beta ephemeral token, but instrumented production telemetry captured the actual failure on 2026-08-18: WebSocket close code `1007`, clean close, `setup_complete=false`, `greeting_sent=false`, duration 160 ms, with provider reason: `Invalid JSON payload received. Unknown name "proactivity" at 'setup': Cannot find field.` This isolates the startup failure to the `setup.proactivity` field when the app uses the **constrained** ephemeral-token WebSocket endpoint. It is not a free-tier entitlement failure and it occurs before audio or any function call.
+
+Google’s SDK-oriented capability guide documents `proactivity: { proactiveAudio: true }` for a v1beta Live connection. The raw constrained endpoint used by MindPal’s secure browser ephemeral-token flow rejected that field in production. MindPal must therefore omit `setup.proactivity` on this transport, and must not claim provider-driven spoken acknowledgements during user speech. The native model, v1beta transport, stable Kore voice, 16 kHz input / 24 kHz output, VAD-driven barge-in, continuous microphone, and audio transcripts remain available. The transport-diagnostic endpoint accepts only the model, close code, close reason, clean flag, setup/greeting flags, and duration; it does not accept audio, transcript, prompt, or profile fields.
 
 ## Sources
 

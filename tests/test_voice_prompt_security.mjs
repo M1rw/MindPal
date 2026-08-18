@@ -172,7 +172,7 @@ test("voice runtime softens barge-in audio and exposes a single long-turn listen
   assert.doesNotMatch(source, /listenerCue: "I’m with you — keep going\."/);
 });
 
-test("voice prompt permits one quiet acknowledgement during a long user thought", () => {
+test("constrained native prompt listens fully and acknowledges after user yield", () => {
   const prompt = buildAdaptiveVoicePrompt("", "", {
     _lastUserTranscript: "I need to explain something important.",
     _lastAiTranscript: "",
@@ -180,10 +180,10 @@ test("voice prompt permits one quiet acknowledgement during a long user thought"
     _contextProvider: null,
   });
 
-  assert.match(prompt, /Native-audio conversation presence/);
-  assert.match(prompt, /fits a natural gap/);
-  assert.match(prompt, /Never perform acknowledgements on a timer/);
-  assert.match(prompt, /User speech and interruption always take priority/);
+  assert.match(prompt, /Listen fully while the user is talking/);
+  assert.match(prompt, /Do not begin a spoken reply until the user has yielded/);
+  assert.doesNotMatch(prompt, /Native-audio conversation presence/);
+  assert.doesNotMatch(prompt, /acknowledgements on a timer/);
 });
 
 
@@ -231,10 +231,11 @@ test("native-audio provider policy enables real presence without unstable provid
 
   assert.equal(isMindPalNativeAudioLiveModel(nativeModel), true);
   assert.equal(isMindPalNativeAudioLiveModel(legacyModel), false);
-  assert.deepEqual(getProviderSetupCapabilities(nativeModel), { proactivity: { proactiveAudio: true } });
+  assert.deepEqual(getProviderSetupCapabilities(nativeModel), {});
+  assert.equal(getLiveProviderCapabilities(nativeModel).proactiveAudio, false);
   assert.equal(getLiveProviderCapabilities(nativeModel).providerFunctions, false);
   assert.equal(getLiveProviderCapabilities(nativeModel).nonBlockingFunctions, false);
-  assert.equal(getLiveProviderCapabilities(nativeModel).speakListeningPresence, true);
+  assert.equal(getLiveProviderCapabilities(nativeModel).speakListeningPresence, false);
   assert.equal(getLiveProviderCapabilities(legacyModel).providerFunctions, true);
   assert.match(runtime, /providerCapabilities\.providerFunctions \? \{/);
   assert.equal(getToolResponseScheduling({ currentFact: true }), "SILENT");
@@ -255,6 +256,8 @@ test("native-audio prompts never request unavailable provider functions", () => 
 
   assert.doesNotMatch(nativePrompt, /TOOLS:/);
   assert.doesNotMatch(nativePrompt, /get_user_profile/);
+  assert.doesNotMatch(nativePrompt, /Native-audio conversation presence/);
+  assert.match(nativePrompt, /Listen fully while the user is talking/);
   assert.match(legacyPrompt, /TOOLS:/);
   assert.match(legacyPrompt, /get_user_profile/);
 });

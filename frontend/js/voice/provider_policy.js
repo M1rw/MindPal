@@ -19,9 +19,11 @@ export function getLiveProviderCapabilities(model) {
     model: normalizeLiveModelName(model),
     nativeAudio,
     apiVersion: nativeAudio ? "v1beta" : "v1alpha",
-    // Native 2.5 Live supports proactive audio. Gemini 3.1 Live does not, so
-    // the runtime must not send unsupported setup fields or claim full duplex.
-    proactiveAudio: nativeAudio,
+    // The direct ephemeral-token WebSocket uses Gemini's constrained setup
+    // schema. Production returned 1007 for `setup.proactivity`, so native audio
+    // must not claim or send proactive-listening configuration on this path.
+    // Native voice quality, barge-in, continuous capture, and v1beta remain.
+    proactiveAudio: false,
     affectiveDialog: false,
     // The free-tier preview closed MindPal's WebSocket after the first greeting
     // when provider-declared functions were present. Keep provider functions off
@@ -29,20 +31,15 @@ export function getLiveProviderCapabilities(model) {
     // stable. Verified current facts still use MindPal's authenticated backend.
     providerFunctions: !nativeAudio,
     nonBlockingFunctions: false,
-    speakListeningPresence: nativeAudio,
+    speakListeningPresence: false,
   };
 }
 
 export function getProviderSetupCapabilities(model) {
-  const capabilities = getLiveProviderCapabilities(model);
-  const setup = {};
-  if (capabilities.proactiveAudio) setup.proactivity = { proactiveAudio: true };
-  // Proactive Audio and Affective Dialog are deliberately not combined. The
-  // product needs natural, interruption-safe conversational presence first;
-  // emotion remains guided by the system prompt until a provider-supported
-  // combined configuration is explicitly validated.
-  if (capabilities.affectiveDialog) setup.enableAffectiveDialog = true;
-  return setup;
+  // Keep this explicit for future supported transports. The current browser
+  // ephemeral-token constrained endpoint rejects `setup.proactivity`.
+  void model;
+  return {};
 }
 
 export function getToolResponseScheduling({ currentFact = false } = {}) {
