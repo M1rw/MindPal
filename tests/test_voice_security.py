@@ -76,7 +76,7 @@ def _services() -> SimpleNamespace:
 @pytest.mark.asyncio
 async def test_voice_token_endpoint_returns_ephemeral_token_not_provider_key(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_create(**kwargs: object) -> str:
-        assert kwargs["api_version"] == "v1beta"
+        assert kwargs["api_version"] == "v1alpha"
         return "ephemeral-session-token"
 
     monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", fake_create)
@@ -91,7 +91,7 @@ async def test_voice_token_endpoint_returns_ephemeral_token_not_provider_key(mon
 
     assert result.token == "ephemeral-session-token"
     assert result.token != services.settings.GEMINI_API_KEY.get_secret_value()
-    assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
+    assert "v1alpha.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
     assert result.model == "gemini-3.1-flash-live-preview"
     assert response.headers["cache-control"] == "no-store, private"
 
