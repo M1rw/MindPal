@@ -59,7 +59,7 @@ class _Quota:
 def _services() -> SimpleNamespace:
     settings = SimpleNamespace(
         GEMINI_API_KEY=SecretStr("permanent-provider-secret"),
-        GEMINI_LIVE_MODEL="gemini-3.1-flash-live-preview",
+        GEMINI_LIVE_MODEL="gemini-2.5-flash-native-audio-preview-12-2025",
         VOICE_TOKEN_TTL_SECONDS=1800,
         VOICE_NEW_SESSION_TTL_SECONDS=60,
         VOICE_TOKEN_RATE_LIMIT_PER_HOUR=8,
@@ -76,7 +76,7 @@ def _services() -> SimpleNamespace:
 @pytest.mark.asyncio
 async def test_voice_token_endpoint_returns_ephemeral_token_not_provider_key(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_create(**kwargs: object) -> str:
-        assert kwargs["api_version"] == "v1alpha"
+        assert kwargs["api_version"] == "v1beta"
         return "ephemeral-session-token"
 
     monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", fake_create)
@@ -91,8 +91,8 @@ async def test_voice_token_endpoint_returns_ephemeral_token_not_provider_key(mon
 
     assert result.token == "ephemeral-session-token"
     assert result.token != services.settings.GEMINI_API_KEY.get_secret_value()
-    assert "v1alpha.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
-    assert result.model == "gemini-3.1-flash-live-preview"
+    assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
+    assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
     assert response.headers["cache-control"] == "no-store, private"
 
 
@@ -174,7 +174,7 @@ def test_voice_rate_and_quota_errors_preserve_retry_after_for_recovery_clients()
 def test_voice_long_call_defaults_allow_provider_socket_renewal() -> None:
     assert Settings.model_fields["VOICE_TOKEN_RATE_LIMIT_PER_HOUR"].default == 16
     assert Settings.model_fields["VOICE_SESSION_QUOTA_COST"].default == 1
-    assert Settings.model_fields["GEMINI_LIVE_MODEL"].default == "gemini-3.1-flash-live-preview"
+    assert Settings.model_fields["GEMINI_LIVE_MODEL"].default == "gemini-2.5-flash-native-audio-preview-12-2025"
 
 
 @pytest.mark.asyncio

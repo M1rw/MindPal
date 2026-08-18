@@ -135,12 +135,9 @@ class Settings(BaseSettings):
 
     # ── LLM Provider Secrets ─────────────────────────────────────
     GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
-    # The native-audio preview starts on the free tier but, on MindPal's secure
-    # constrained-session path, can emit PCM audio without output transcripts.
-    # Captions are a core Voice contract, so production defaults to the transport
-    # validated to deliver them. The native provider policy stays available for
-    # future activation when the provider transcript path is verified end-to-end.
-    GEMINI_LIVE_MODEL: str = Field(default="gemini-3.1-flash-live-preview", min_length=1, max_length=120)
+    # Voice v2 is built around Gemini 2.5 Native Audio so model audio, backchannels,
+    # and same-voice staging cues all use the selected native provider voice.
+    GEMINI_LIVE_MODEL: str = Field(default="gemini-2.5-flash-native-audio-preview-12-2025", min_length=1, max_length=120)
     GEMINI_TRANSCRIPTION_MODEL: str = Field(default="gemini-3.1-flash-lite", min_length=1, max_length=120)
     VOICE_TOKEN_TTL_SECONDS: int = Field(default=1800, ge=300, le=1800)
     VOICE_NEW_SESSION_TTL_SECONDS: int = Field(default=60, ge=30, le=60)
