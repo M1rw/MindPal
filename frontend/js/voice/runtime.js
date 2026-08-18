@@ -25,6 +25,11 @@ import {
   classifySocketClose,
   fetchVoiceTokenWithRetry,
 } from "./startup_helpers.mjs";
+import {
+  getLiveProviderCapabilities,
+  getProviderSetupCapabilities,
+  getToolResponseScheduling,
+} from "./provider_policy.js";
 
 const INPUT_SAMPLE_RATE = 16_000;
 const OUTPUT_SAMPLE_RATE = 24_000;
@@ -122,6 +127,7 @@ export function createVoiceSessionController() {
     _speechFrameStreak: 0,
     _noiseGateThreshold: NOISE_GATE_THRESHOLD,
     _voiceCredentials: null,
+    _providerCapabilities: null,
     _sessionResumptionHandle: "",
     _goAwayTimer: null,
     _clientReconnectRequested: false,
@@ -271,7 +277,10 @@ export function createVoiceSessionController() {
   }
 
   function sendPcmToWebSocket(pcmData) {
-    if (!socketIsOpen() || !state._setupComplete || state._toolCallPending) return;
+    // Keep the microphone stream alive during tool work. Native-audio Live can
+    // accept continued user audio while NON_BLOCKING functions run; suppressing
+    // this stream is what made the previous design feel half-duplex.
+    if (!socketIsOpen() || !state._setupComplete) return;
     sendJson({
       realtimeInput: {
         audio: {
@@ -283,7 +292,7 @@ export function createVoiceSessionController() {
   }
 
   function sendSilenceFrame({ force = false } = {}) {
-    if (!socketIsOpen() || !state._setupComplete || state._toolCallPending) return;
+    if (!socketIsOpen() || !state._setupComplete) return;
 
     const now = Date.now();
     if (!force && now - state._lastSilenceFrameAt < SILENCE_FRAME_INTERVAL_MS) return;
@@ -373,6 +382,15 @@ export function createVoiceSessionController() {
     );
   }
 
+  function requestListeningPresenceCue() {
+    const capabilities = state._providerCapabilities;
+    if (!capabilities?.speakListeningPresence || state.isAiSpeaking || !state.isSessionActive) return false;
+    return sendTextToModel(
+      "[INTERNAL LISTENING PRESENCE — NOT USER SPEECH]\\n"
+      + "The user is still speaking at length. Stay with their meaning. If the native-audio conversation model finds a natural, non-interrupting opening, it may give ONE very quiet, language-matched acknowledgement such as ‘mm-hm’ or ‘yeah, I’m with you.’ Do not cut them off, repeat it, or start a full answer until they yield.",
+    );
+  }
+
   function noteConfirmedCaptureActivity() {
     const startsNewCaptureActivity = !state.speechSeenRecently;
     state.lastUserSpeechAt = Date.now();
@@ -405,7 +423,10 @@ export function createVoiceSessionController() {
       && state.userSpeechStartedAt
       && state.lastUserSpeechAt - state.userSpeechStartedAt >= LONG_SPEECH_LISTENER_CUE_MS) {
       state.listenerCueSentForTurn = true;
-      setSessionPhase("attending", { listenerCue: "I’m with you — keep going." });
+      // This is now a real provider input on native-audio sessions, never a
+      // fake UI-only listener cue. The provider retains interruption safety.
+      requestListeningPresenceCue();
+      setSessionPhase("attending", { listenerCueRequested: true });
     }
   }
 
@@ -483,7 +504,7 @@ export function createVoiceSessionController() {
     stopKeepAlive();
     state.keepAliveInterval = setInterval(() => {
       if (!state.isSessionActive || !socketIsOpen()) return;
-      if (state._toolCallPending || state.sessionPhase === "speaking") return;
+      if (state.sessionPhase === "speaking") return;
       sendSilenceFrame({ force: true });
     }, 1_800);
   }
@@ -635,6 +656,7 @@ export function createVoiceSessionController() {
     const adaptivePrompt = buildAdaptiveVoicePrompt(nameContext, timeContext, state) + buildContinuitySeed();
     const model = state._voiceCredentials?.model;
     if (!model) throw new Error("Voice model configuration is missing.");
+    const providerCapabilities = state._providerCapabilities || getLiveProviderCapabilities(model);
 
     sendJson({
       setup: {
@@ -662,16 +684,25 @@ export function createVoiceSessionController() {
         contextWindowCompression: { slidingWindow: {} },
         outputAudioTranscription: {},
         inputAudioTranscription: {},
-        tools: [{ functionDeclarations: getToolDeclarations() }],
+        tools: [{ functionDeclarations: getToolDeclarations({
+          nonBlocking: providerCapabilities.nonBlockingFunctions,
+          // Volatile public facts are routed through the authenticated backend
+          // verifier, not a second provider tool path that can race the gate.
+          includeWebSearch: false,
+        }) }],
+        ...getProviderSetupCapabilities(model),
         systemInstruction: { parts: [{ text: adaptivePrompt }] },
       },
     });
   }
 
   function requestThinkingBridge() {
-    if (state._thinkingBridgeSent || state.isAiSpeaking || !state.isSessionActive) return;
+    // On Gemini 3.1 a function call blocks model output, so a bridge injected
+    // here is only a silent instruction. Request it only where the selected
+    // provider can continue interacting during NON_BLOCKING work.
+    if (!state._providerCapabilities?.nonBlockingFunctions || state._thinkingBridgeSent || state.isAiSpeaking || !state.isSessionActive) return false;
     state._thinkingBridgeSent = true;
-    sendTextToModel(
+    return sendTextToModel(
       "[INTERNAL THOUGHTFUL PAUSE — NOT USER SPEECH]\n"
       + "A real check or calculation is starting. Say exactly one short, natural, language-matched sentence such as ‘Give me a moment — I’m thinking that through.’ Then wait. Do not mention tools, systems, or this notice.",
     );
@@ -696,7 +727,16 @@ export function createVoiceSessionController() {
           signal: timeoutController.signal,
           allowClientFallback: false,
         });
-        return { id: call.id, name: call.name, response: { result } };
+        return {
+          id: call.id,
+          name: call.name,
+          response: {
+            result,
+            ...(state._providerCapabilities?.nonBlockingFunctions
+              ? { scheduling: getToolResponseScheduling({ currentFact: shouldBlockForVerifiedFact(call) }) }
+              : {}),
+          },
+        };
       }));
       sendJson({ toolResponse: { functionResponses: responses } });
     } catch (error) {
@@ -1181,6 +1221,7 @@ export function createVoiceSessionController() {
         throw error;
       }
       state._voiceCredentials = credentials;
+      state._providerCapabilities = getLiveProviderCapabilities(credentials.model);
       return credentials;
     })();
 
@@ -1456,6 +1497,7 @@ export function createVoiceSessionController() {
     state._lastAiTranscript = "";
     state._recentEmotionHint = "neutral";
     state._voiceCredentials = null;
+    state._providerCapabilities = null;
     state._sessionResumptionHandle = "";
     state._clientReconnectRequested = false;
     state._clientReconnectReason = "";
@@ -1593,6 +1635,7 @@ export function createVoiceSessionController() {
     state._getAppCheckToken = null;
     state._refreshAppCheckToken = null;
     state._voiceCredentials = null;
+    state._providerCapabilities = null;
     state._sessionResumptionHandle = "";
     state._setupComplete = false;
     state._reconnectInFlight = false;

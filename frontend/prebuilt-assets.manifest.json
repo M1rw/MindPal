@@ -5,8 +5,8 @@
       "sha256": "70dce26f6076f529a1094d1e51dde098907ed24d8acc9453861c0f8332ad5e19"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 417803,
-      "sha256": "0e71fd6a76d2b00ddd7c6b9c1cd5fb85fa19ae4113b70c59f3f3661ac3779824"
+      "bytes": 419428,
+      "sha256": "58b02e048ad22323ecd01f3fc2f6b81cc2ae5e4adb8cfd7dec6a88704bc863c8"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "44d3247bec258610d77c5a3105d06e8a14cd778562cfb4660b4056bf049ff08e",
+  "source_digest": "04e1016954bb194ec14f9f105deea01b9dfd2e44491de7d40c810577ee477aa1",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -51,6 +51,7 @@
     "frontend/js/voice/fact_verifier.js",
     "frontend/js/voice/pcm_capture_worklet.js",
     "frontend/js/voice/prompts.js",
+    "frontend/js/voice/provider_policy.js",
     "frontend/js/voice/recovery_policy.js",
     "frontend/js/voice/runtime.js",
     "frontend/js/voice/session_policy.js",

@@ -1,5 +1,5 @@
-export function getToolDeclarations() {
-  return [
+export function getToolDeclarations({ nonBlocking = false, includeWebSearch = true } = {}) {
+  const declarations = [
     {
       name: "get_user_profile",
       description: "Get the current user's profile including their name, communication preferences, tone, language, and response style preferences. Call this when you need to know who you're talking to or how they prefer to be spoken to.",
@@ -78,6 +78,12 @@ export function getToolDeclarations() {
       },
     },
   ];
+  const selected = includeWebSearch
+    ? declarations
+    : declarations.filter((declaration) => declaration.name !== "web_search");
+  return nonBlocking
+    ? selected.map((declaration) => ({ ...declaration, behavior: "NON_BLOCKING" }))
+    : selected;
 }
 
 export function createToolExecutor({ getAuthToken, getAppCheckToken, contextProvider, apiBaseUrl }) {

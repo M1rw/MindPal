@@ -2,8 +2,8 @@
 // independently of Web Audio and provider WebSocket events.
 
 const VOLATILE_OFFICEHOLDER_RE = /\b(?:mayor|president|prime minister|governor|senator|representative|member of parliament|mp|ceo|chair(?:man|woman)?|minister|commissioner)\b/i;
-const VOLATILE_FACT_RE = /\b(?:current|latest|today(?:'s)?|right now|now|price|cost|weather|score|standings?|election|officeholder)\b/i;
-const VOLATILE_FACT_ARABIC_RE = /(?:عمدة|رئيس|رئيس الوزراء|محافظ|وزير|سعر|الطقس|نتيجة|الآن|حاليًا|اليوم)/;
+const VOLATILE_FACT_RE = /\b(?:current|latest|today(?:'s)?|right now|now|news|breaking|happening|update|price|cost|weather|score|standings?|election|officeholder)\b/i;
+const VOLATILE_FACT_ARABIC_RE = /(?:عمدة|رئيس|رئيس الوزراء|محافظ|وزير|أخبار|خبر|تحديث|بيحصل|ماذا يحدث|سعر|الطقس|نتيجة|الآن|حاليًا|اليوم)/;
 const LOCAL_TIME_EN_RE = /\b(?:what(?:\s+is|'s)\s+(?:the\s+)?time|tell\s+me\s+(?:the\s+)?time|current\s+time|time\s+(?:right\s+)?now|what\s+time\s+is\s+it)\b/i;
 const LOCAL_TIME_AR_RE = /(?:الساعة\s*(?:كام|كم|دلوقتي|الآن)?|الوقت\s*(?:دلوقتي|الآن)?|كم\s+الساعة)/;
 

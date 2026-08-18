@@ -27,6 +27,7 @@ MAX_AUDIO_BASE64_CHARS = 15_000_000
 MAX_TRANSCRIPT_CHARS = 4_000
 MAX_MIME_TYPE_CHARS = 80
 MAX_VOICE_FACT_QUERY_CHARS = 500
+NATIVE_AUDIO_LIVE_MODEL_PREFIX = "gemini-2.5-flash-native-audio"
 
 _summarize_tool = VoiceSummarizeTool()
 _transcribe_tool = VoiceTranscribeTool()
@@ -295,7 +296,9 @@ async def verify_current_voice_fact(
         services=services,
     )
     result = await _get_verified_fact_registry().execute("web_search", {"query": query}, tool_context)
-    if not result.ok:
+    evidence = result.to_dict() if result.ok else {}
+    search_results = evidence.get("data", {}).get("results") if isinstance(evidence.get("data"), dict) else None
+    if not result.ok or not isinstance(search_results, list) or not search_results:
         return VoiceVerifiedFactResponse(
             query=query,
             required=True,
@@ -308,7 +311,7 @@ async def verify_current_voice_fact(
         query=query,
         required=True,
         verified=True,
-        evidence=result.to_dict(),
+        evidence=evidence,
         request_id=context.request_id,
     )
 
@@ -361,9 +364,12 @@ async def get_voice_token(
         now = dt.datetime.now(tz=dt.timezone.utc)
         expires_at = now + dt.timedelta(seconds=int(services.settings.VOICE_TOKEN_TTL_SECONDS))
         new_session_expires_at = now + dt.timedelta(seconds=int(services.settings.VOICE_NEW_SESSION_TTL_SECONDS))
+        live_model = services.settings.GEMINI_LIVE_MODEL
+        api_version = _live_api_version(live_model)
         token_name = await _create_ephemeral_voice_token(
             api_key=api_key,
-            model=services.settings.GEMINI_LIVE_MODEL,
+            model=live_model,
+            api_version=api_version,
             expires_at=expires_at,
             new_session_expires_at=new_session_expires_at,
         )
@@ -373,11 +379,8 @@ async def get_voice_token(
         response.headers["Pragma"] = "no-cache"
         return VoiceTokenResponse(
             token=token_name,
-            model=services.settings.GEMINI_LIVE_MODEL,
-            websocket_url=(
-                "wss://generativelanguage.googleapis.com/ws/"
-                "google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained"
-            ),
+            model=live_model,
+            websocket_url=_live_websocket_url(api_version),
             expires_at=expires_at.isoformat().replace("+00:00", "Z"),
             new_session_expires_at=new_session_expires_at.isoformat().replace("+00:00", "Z"),
             usage=usage.to_dict(),
@@ -428,13 +431,14 @@ async def _create_ephemeral_voice_token(
     *,
     api_key: str,
     model: str,
+    api_version: str,
     expires_at: dt.datetime,
     new_session_expires_at: dt.datetime,
 ) -> str:
     def create() -> str:
         from google import genai
 
-        client = genai.Client(api_key=api_key, http_options={"api_version": "v1alpha"})
+        client = genai.Client(api_key=api_key, http_options={"api_version": api_version})
         try:
             token = client.auth_tokens.create(
                 config={
@@ -445,7 +449,7 @@ async def _create_ephemeral_voice_token(
                         "model": model,
                         "config": {"session_resumption": {}, "response_modalities": ["AUDIO"]},
                     },
-                    "http_options": {"api_version": "v1alpha"},
+                    "http_options": {"api_version": api_version},
                 }
             )
             name = str(getattr(token, "name", "") or "").strip()
@@ -456,6 +460,18 @@ async def _create_ephemeral_voice_token(
             client.close()
 
     return await asyncio.to_thread(create)
+
+
+def _live_api_version(model: str) -> str:
+    normalized = sanitize_text(model, 120).lower()
+    return "v1beta" if normalized.startswith(NATIVE_AUDIO_LIVE_MODEL_PREFIX) else "v1alpha"
+
+
+def _live_websocket_url(api_version: str) -> str:
+    return (
+        "wss://generativelanguage.googleapis.com/ws/"
+        f"google.ai.generativelanguage.{api_version}.GenerativeService.BidiGenerateContentConstrained"
+    )
 
 
 def _tool_context(context: Any, services: Any) -> ToolContext:
