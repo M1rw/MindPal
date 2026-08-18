@@ -256,9 +256,14 @@ export function createVoiceSessionController() {
     // from onclose so provider cleanup can never be delayed by observability.
     void (async () => {
       try {
-        const appCheckToken = typeof state._getAppCheckToken === "function"
-          ? await state._getAppCheckToken()
-          : null;
+        const refreshedAuthToken = typeof state._refreshAuthToken === "function"
+          ? await state._refreshAuthToken()
+          : state._authToken;
+        if (refreshedAuthToken) state._authToken = refreshedAuthToken;
+        if (!state._authToken) return;
+        const appCheckToken = typeof state._refreshAppCheckToken === "function"
+          ? await state._refreshAppCheckToken()
+          : (typeof state._getAppCheckToken === "function" ? await state._getAppCheckToken() : null);
         const headers = { "Content-Type": "application/json", Authorization: `Bearer ${state._authToken}` };
         if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
         await fetch(`${window.MINDPAL_CONFIG?.API_BASE_URL || ""}/voice/transport-diagnostic`, {
