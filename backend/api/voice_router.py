@@ -547,8 +547,12 @@ async def _create_ephemeral_voice_token(
 
 
 def _live_api_version(model: str) -> str:
-    normalized = sanitize_text(model, 120).lower()
-    return "v1beta" if normalized.startswith(NATIVE_AUDIO_LIVE_MODEL_PREFIX) else "v1alpha"
+    # Gemini ephemeral tokens are accepted by the browser Live API only on the
+    # v1beta constrained WebSocket transport. Keep model capability routing
+    # separate from the authentication/API-version contract.
+    void_model = sanitize_text(model, 120)
+    del void_model
+    return "v1beta"
 
 
 def _live_websocket_url(api_version: str) -> str:
