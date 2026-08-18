@@ -71,6 +71,7 @@ export function createVoiceSessionV2({
   let lastAiTranscript = "";
   let sessionId = null;
   let speakerMuted = false;
+  let micMuted = false;
   let credentialRefreshTimer = null;
   let preloadedCredentials = null;
   let localCueManager = null;
@@ -412,10 +413,15 @@ export function createVoiceSessionV2({
     });
     await prepareTransport();
     audio = await createBrowserAudioAdapter({
-      onAudio: ({ base64Data, mimeType }) => provider?.sendAudio(base64Data, mimeType),
+      onAudio: ({ base64Data, mimeType }) => {
+        // Capture already suppresses muted frames; this second boundary protects
+        // against worklet frames that were queued immediately before the toggle.
+        if (!micMuted) provider?.sendAudio(base64Data, mimeType);
+      },
       onQuality: (quality) => orchestrator?.handleCaptureQuality(quality),
       onVolume,
     });
+    audio.setMuted(micMuted);
     playback = createPlaybackManager({
       audioContext: playbackAudioContext || audio.getAudioContext(),
       outputSampleRate: 24_000,
@@ -562,13 +568,17 @@ export function createVoiceSessionV2({
     activeToolGateway = null;
     activeEvidenceGate = null;
     activeResponseStagingManager = null;
+    micMuted = false;
     localCueManager?.cancel("session-stop");
     localCueManager = null;
     return true;
   }
 
   function setMuted(muted) {
-    audio?.setMuted(muted);
+    micMuted = Boolean(muted);
+    audio?.setMuted(micMuted);
+    projectState();
+    return micMuted;
   }
 
   function setSpeakerMuted(muted) {
@@ -586,7 +596,7 @@ export function createVoiceSessionV2({
       const state = getOrchestratorState();
       return {
         isActive: active,
-        isMicMuted: audio?.isMuted?.() || false,
+        isMicMuted: micMuted,
         isAiSpeaking: Boolean(state.isModelSpeaking),
         isSpeakerMuted: speakerMuted,
         phase: state.phase || "idle",
@@ -595,7 +605,7 @@ export function createVoiceSessionV2({
         aiAnalyser: playback?.getOutputAnalyser?.() || null,
       };
     },
-    getMicMuted: () => audio?.isMuted?.() || false,
+    getMicMuted: () => micMuted,
     getAiSpeaking: () => Boolean(getOrchestratorState().isModelSpeaking),
     getSpeakerMuted: () => speakerMuted,
   });
