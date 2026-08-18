@@ -1,7 +1,7 @@
 # MindPal Comprehensive System Quality Audit
 
-**Author:** Manus AI  
-**Date:** 2026-08-13  
+**Author:** Manus AI
+**Date:** 2026-08-13
 **Repository scope:** Frontend, FastAPI backend, API contracts, local persistence, safety, memory, voice, configuration, and delivery artifacts.
 
 ## Assessment statement

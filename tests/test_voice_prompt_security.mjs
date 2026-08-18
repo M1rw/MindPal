@@ -75,7 +75,7 @@ test("voice prompt carries the selected HRO mode and Pro provenance rule", () =>
 });
 
 test("live runtime binds optional callbacks from the start-session signature", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
   assert.match(source, /async function startSession\(\{[\s\S]*?onTurnComplete = null,[\s\S]*?onBackgroundTask = null,/);
   assert.match(source, /state\._onTurnComplete = onTurnComplete/);
   assert.match(source, /state\._onBackgroundTask = onBackgroundTask/);
@@ -83,7 +83,7 @@ test("live runtime binds optional callbacks from the start-session signature", a
 });
 
 test("live runtime delegates web research without pausing audio input", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /BACKGROUND_TOOL_NAMES = new Set\(\["web_search"\]\)/);
   assert.match(source, /status: "background_started"/);
@@ -94,7 +94,7 @@ test("live runtime delegates web research without pausing audio input", async ()
 });
 
 test("voice session preserves verified research while native setup avoids provider tools", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
   assert.match(source, /providerCapabilities\.providerFunctions \? \{/);
   assert.match(source, /getToolDeclarations\(\{[\s\S]*?nonBlocking: providerCapabilities\.nonBlockingFunctions,[\s\S]*?includeWebSearch: false,/);
   assert.match(source, /getProviderSetupCapabilities\(model\)/);
@@ -127,7 +127,7 @@ test("voice prompt tells the model how to use background research", async () => 
 });
 
 test("live runtime uses the documented realtime text channel for every post-setup update", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
   const sendTextToModel = source.match(/function sendTextToModel\(text\) \{[\s\S]*?\n  \}/)?.[0] || "";
 
   assert.match(sendTextToModel, /realtimeInput: \{ text: clean \}/);
@@ -150,7 +150,7 @@ test("voice prompt keeps direct user context bounded", () => {
 
 
 test("voice runtime never treats an active long user turn as a stale socket", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /const STALE_MODEL_RESPONSE_MS = 45_000/);
   assert.match(source, /awaitingModelResponseAt/);
@@ -161,7 +161,7 @@ test("voice runtime never treats an active long user turn as a stale socket", as
 });
 
 test("voice runtime softens barge-in audio and exposes a single long-turn listener cue", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /const BARGE_IN_FADE_MS = 120/);
   assert.match(source, /linearRampToValueAtTime\(0\.0001, now \+ BARGE_IN_FADE_MS \/ 1000\)/);
@@ -212,7 +212,7 @@ test("Voice inactivity never warns or ends while either party or evidence work i
 });
 
 test("Voice lifecycle treats provider transcription, not raw microphone energy, as user participation", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /_semanticUserTurnActive: false/);
   assert.match(source, /function hasActiveConversationWork\(\{ semanticOnly = false \} = \{\}\)/);
@@ -227,7 +227,7 @@ test("Voice lifecycle treats provider transcription, not raw microphone energy, 
 test("native-audio provider policy enables real presence without unstable provider functions", async () => {
   const nativeModel = "gemini-2.5-flash-native-audio-preview-12-2025";
   const legacyModel = "gemini-3.1-flash-live-preview";
-  const runtime = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const runtime = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.equal(isMindPalNativeAudioLiveModel(nativeModel), true);
   assert.equal(isMindPalNativeAudioLiveModel(legacyModel), false);
@@ -307,7 +307,7 @@ test("Voice prompt handles ordinary overwhelm as a human conversation, not a cli
 });
 
 test("Voice runtime gates speculative volatile-fact audio and uses shared idle ownership", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /startCurrentFactVerification\(inputText\)/);
   assert.match(source, /INTERNAL VERIFIED CURRENT-FACT EVIDENCE/);
@@ -338,7 +338,7 @@ test("Voice prompt permits exactly one natural fact-check bridge after the user 
 });
 
 test("Voice runtime treats GoAway and its following normal close as a resumable continuation", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /function parseGoAwayReconnectDelay\(timeLeft\)/);
   assert.match(source, /requestSocketReconnect\("server-go-away", \{ resuming: true \}\)/);
@@ -352,7 +352,7 @@ test("Voice runtime treats GoAway and its following normal close as a resumable 
 });
 
 test("Voice runtime turns a credential 429 into one shared, server-timed recovery pause", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /_credentialRefreshPromise: null/);
   assert.match(source, /if \(state\._credentialRefreshPromise\) return state\._credentialRefreshPromise/);
@@ -364,7 +364,7 @@ test("Voice runtime turns a credential 429 into one shared, server-timed recover
 });
 
 test("Voice runtime releases evidence only after its original fact-gated turn and bridges a pending check", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /function releaseFactVerificationAfterYield\(\)/);
   assert.match(source, /_factBridgeSentForTurn/);
@@ -416,7 +416,7 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
 });
 
 test("Voice runtime resolves local time after yield without entering the verified-web path", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /isVoiceLocalTimeRequest\(inputText\)\) queueLocalTimeResponse\(inputText\)/);
   assert.match(source, /function queueLocalTimeResponse\(transcript\)/);
@@ -427,7 +427,7 @@ test("Voice runtime resolves local time after yield without entering the verifie
 });
 
 test("Voice runtime applies supported native capture constraints and provider-owned interruption", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.match(source, /getSupportedConstraints\?\.\(\) \|\| \{\}/);
   assert.match(source, /echoCancellation: true/);

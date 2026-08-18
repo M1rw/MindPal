@@ -361,6 +361,8 @@ def _install_frontend_routes(app: FastAPI) -> None:
         payload = {
             "API_BASE_URL": api_base_url,
             "VOICE_DEBUG": False,
+            "VOICE_ARCHITECTURE_V2": True,
+            "VOICE_V2_BACKCHANNEL": False,
             "SHOW_RESPONSE_DEBUG": False,
             "FIREBASE_APPCHECK_SITE_KEY": str(
                 getattr(settings, "FIREBASE_APPCHECK_SITE_KEY", "") or ""

@@ -1,7 +1,7 @@
 # MindPal Comprehensive Production-Readiness Test Matrix
 
-**Author:** Manus AI  
-**Date:** 2026-08-13  
+**Author:** Manus AI
+**Date:** 2026-08-13
 **Purpose:** Define the bounded, repeatable sandbox scenarios required to assess every implemented MindPal product feature and its frontend-to-backend contracts.
 
 ## Scope and quality standard
