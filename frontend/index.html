@@ -600,12 +600,12 @@
             <span class="voice-startup-spinner__ring"></span>
         </div>
 
-        <!-- ── Chat-style transcript ── -->
-        <div class="relative z-20 flex-1 overflow-hidden flex flex-col w-full max-w-2xl mx-auto px-4">
-            <div id="voice-transcript-panel"
-                 class="flex-1 overflow-y-auto flex flex-col gap-3 py-4 transition-opacity duration-300"
+        <!-- ── MindPal spoken captions ── -->
+        <div class="relative z-20 flex-1 overflow-hidden flex flex-col w-full max-w-3xl mx-auto px-5 sm:px-8">
+            <div id="voice-transcript-panel" role="log" aria-live="polite" aria-label="MindPal spoken captions"
+                 class="voice-caption-track flex-1 overflow-y-auto transition-opacity duration-300"
                  style="scrollbar-width:none; -webkit-overflow-scrolling:touch;">
-                <!-- Bubbles are dynamically injected here in chronological order -->
+                <!-- MindPal captions are dynamically injected here; user speech stays private from the live surface. -->
             </div>
         </div>
 

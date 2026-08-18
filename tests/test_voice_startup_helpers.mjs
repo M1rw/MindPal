@@ -13,6 +13,13 @@ import {
   MAX_TRANSIENT_RECONNECT_ATTEMPTS,
   planVoiceRecovery,
 } from '../frontend/js/voice/recovery_policy.js';
+import {
+  VOICE_MAX_CALL_MS,
+  VOICE_MAX_CALL_WARNING_MS,
+  VOICE_USER_INACTIVITY_END_MS,
+  VOICE_USER_INACTIVITY_WARNING_MS,
+  getVoiceSessionLifecycleAction,
+} from '../frontend/js/voice/session_policy.js';
 
 test('buildVoiceTokenUrl normalizes API origins', () => {
   assert.equal(buildVoiceTokenUrl('https://example.com/api'), 'https://example.com/api/voice/token');
@@ -208,4 +215,36 @@ test('credential rate limiting pauses at the server delay without consuming resu
   assert.equal(recovery.next.resumptionAttempts, 1);
   assert.equal(recovery.next.transientAttempts, 3);
   assert.equal(recovery.next.recoveryCycles, 3);
+});
+
+test('Voice call lifecycle warns at twenty-eight minutes and ends at thirty without regard to transport renewals', () => {
+  const startedAt = 1_000_000;
+  assert.equal(
+    getVoiceSessionLifecycleAction({ now: startedAt + VOICE_MAX_CALL_WARNING_MS, sessionStartedAt: startedAt, lastUserActivityAt: startedAt, sessionWarningSent: false }),
+    'session-warning',
+  );
+  assert.equal(
+    getVoiceSessionLifecycleAction({ now: startedAt + VOICE_MAX_CALL_MS, sessionStartedAt: startedAt, lastUserActivityAt: startedAt + 10_000, sessionWarningSent: true }),
+    'session-end',
+  );
+});
+
+test('Voice call lifecycle warns a genuinely inactive user at two minutes then ends at three', () => {
+  const startedAt = 1_000_000;
+  assert.equal(
+    getVoiceSessionLifecycleAction({ now: startedAt + VOICE_USER_INACTIVITY_WARNING_MS, sessionStartedAt: startedAt, lastUserActivityAt: startedAt, inactivityWarningSent: false }),
+    'inactive-warning',
+  );
+  assert.equal(
+    getVoiceSessionLifecycleAction({ now: startedAt + VOICE_USER_INACTIVITY_END_MS, sessionStartedAt: startedAt, lastUserActivityAt: startedAt, inactivityWarningSent: true }),
+    'inactive-end',
+  );
+});
+
+test('Voice inactivity does not end an active response or provider operation', () => {
+  const startedAt = 1_000_000;
+  assert.equal(
+    getVoiceSessionLifecycleAction({ now: startedAt + VOICE_USER_INACTIVITY_END_MS + 20_000, sessionStartedAt: startedAt, lastUserActivityAt: startedAt, isBusy: true, inactivityWarningSent: true }),
+    'none',
+  );
 });

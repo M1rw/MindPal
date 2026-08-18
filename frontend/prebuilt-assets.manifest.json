@@ -1,12 +1,12 @@
 {
   "outputs": {
     "frontend/css/tailwind.generated.css": {
-      "bytes": 36537,
-      "sha256": "27ae009acff0a5104827b9960e4d63fd2f6f1832a02d28b87d467bd64ad4f324"
+      "bytes": 36510,
+      "sha256": "70dce26f6076f529a1094d1e51dde098907ed24d8acc9453861c0f8332ad5e19"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 414566,
-      "sha256": "9e13da61b305e46c7a12d00d84a878bb411957c1b459a98db47175595ac7c27f"
+      "bytes": 416943,
+      "sha256": "dc16de22c3f9bda2ab919f1152c81791391cf3ff7ec29966a2b0c538f02df2a1"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "bc1ca58d76bfe41177f2d2fcedce37185ca9de6e82e9f86bf8ec57573f3a76d0",
+  "source_digest": "3d54c827212fe584102bb7d222109cdc2d29f2e8c98673205d47f546eede6252",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -53,6 +53,7 @@
     "frontend/js/voice/prompts.js",
     "frontend/js/voice/recovery_policy.js",
     "frontend/js/voice/runtime.js",
+    "frontend/js/voice/session_policy.js",
     "frontend/js/voice/startup_helpers.mjs",
     "frontend/js/voice/tools.js",
     "frontend/js/voice_live.js",

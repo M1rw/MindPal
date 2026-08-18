@@ -1081,43 +1081,80 @@ button:active,
 
 /* Remove duplicate color utilities — keeping single source of truth above */
 
-/* ── Voice overlay message bubbles ── */
-.voice-msg {
-  max-width: 85%;
-  padding: 12px 18px;
-  border-radius: 20px;
-  font-size: 15px;
-  line-height: 1.55;
-  transition: opacity 0.2s ease;
-  word-break: break-word;
+/* ── Voice overlay spoken captions ──
+   A single assistant-led caption stream: the active spoken line is large and
+   clear, while older MindPal lines remain as calm, low-emphasis context. */
+.voice-caption-track {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.85rem;
+  padding: clamp(3.5rem, 12vh, 8rem) 0 clamp(7rem, 18vh, 11rem);
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 9%, #000 86%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 9%, #000 86%, transparent 100%);
 }
 
-.voice-msg:empty {
+.voice-caption {
+  width: 100%;
+  margin: 0;
+  color: rgba(45, 45, 49, 0.35);
+  font-size: clamp(1.05rem, 2.55vw, 1.35rem);
+  font-weight: 560;
+  line-height: 1.32;
+  letter-spacing: -0.018em;
+  text-align: left;
+  text-wrap: balance;
+  word-break: break-word;
+  transform: translateY(0) scale(0.985);
+  transform-origin: left center;
+  transition: color 180ms cubic-bezier(0.23, 1, 0.32, 1), font-size 180ms cubic-bezier(0.23, 1, 0.32, 1), opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.voice-caption:empty {
   display: none;
 }
 
-/* Voice overlay is theme-aware */
-.voice-msg-ai {
-  align-self: flex-start;
-  background: transparent;
-  color: #1f1f1f;
-  font-weight: 400;
+.voice-caption--active {
+  color: #202124;
+  font-size: clamp(1.65rem, 5.4vw, 3.45rem);
+  font-weight: 620;
+  line-height: 1.13;
+  letter-spacing: -0.042em;
+  transform: translateY(0) scale(1);
 }
 
-.dark .voice-msg-ai {
-  color: rgba(255, 255, 255, 0.85);
+.voice-caption[dir="rtl"] {
+  text-align: right;
+  transform-origin: right center;
+  letter-spacing: 0;
 }
 
-.voice-msg-user {
-  align-self: flex-end;
-  background: rgba(0, 0, 0, 0.04);
-  color: #1f1f1f;
-  border-radius: 24px;
+.dark .voice-caption {
+  color: rgba(255, 255, 255, 0.34);
 }
 
-.dark .voice-msg-user {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.9);
+.dark .voice-caption--active {
+  color: rgba(255, 255, 255, 0.96);
+}
+
+@media (max-width: 640px) {
+  .voice-caption-track {
+    gap: 0.72rem;
+    padding-top: 3rem;
+    padding-bottom: 8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-caption-track {
+    scroll-behavior: auto;
+  }
+
+  .voice-caption {
+    transition: none;
+  }
 }
 
 /* Dialog animations */
