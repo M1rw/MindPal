@@ -78,6 +78,7 @@ export function createVoiceSessionController() {
     _factBridgeSentForTurn: false,
     _conversationEpoch: 0,
     _inputTurnActive: false,
+    _semanticUserTurnActive: false,
     _onBackgroundTask: null,
     gateOpenUntil: 0,
     bargeInStartedAt: 0,
@@ -310,13 +311,19 @@ export function createVoiceSessionController() {
     }
   }
 
-  function hasActiveConversationWork() {
+  function hasActiveConversationWork({ semanticOnly = false } = {}) {
+    // Raw microphone energy remains useful for provider VAD and the visible
+    // Listening state, but it is not proof that the person is participating.
+    // Lifecycle decisions deliberately require provider-recognized semantics.
+    const lifecyclePhase = semanticOnly && ["attending", "interrupting"].includes(state.sessionPhase)
+      ? "listening"
+      : state.sessionPhase;
     return isVoiceConversationBusy({
-      isUserTurnActive: state._inputTurnActive,
-      speechSeenRecently: state.speechSeenRecently,
+      isUserTurnActive: semanticOnly ? state._semanticUserTurnActive : state._inputTurnActive,
+      speechSeenRecently: semanticOnly ? false : state.speechSeenRecently,
       isAiSpeaking: state.isAiSpeaking,
       queuedAudioCount: state.activeAudioSources.length,
-      sessionPhase: state.sessionPhase,
+      sessionPhase: lifecyclePhase,
       toolCallPending: state._toolCallPending,
       backgroundTaskCount: state._backgroundTasks.size,
       awaitingModelResponseAt: state.awaitingModelResponseAt,
@@ -367,7 +374,9 @@ export function createVoiceSessionController() {
   function noteConfirmedCaptureActivity() {
     const startsNewCaptureActivity = !state.speechSeenRecently;
     state.lastUserSpeechAt = Date.now();
-    touchActivity({ user: true });
+    // Confirmed browser capture is a quality signal, not a semantic user turn.
+    // It must never reset the inactivity clock by itself.
+    touchActivity();
     state.speechSeenRecently = true;
 
     if (startsNewCaptureActivity) {
@@ -496,7 +505,7 @@ export function createVoiceSessionController() {
       const action = getVoiceSessionLifecycleAction({
         sessionStartedAt: state.sessionStartedAt,
         lastUserActivityAt: state.lastUserActivityAt,
-        isBusy: hasActiveConversationWork(),
+        isBusy: hasActiveConversationWork({ semanticOnly: true }),
         sessionWarningSent: state.sessionWarningSent,
         inactivityWarningSent: state.inactivityWarningSent,
       });
@@ -1027,6 +1036,8 @@ export function createVoiceSessionController() {
     // any speculative model audio is allowed into the playback queue.
     const inputText = data.serverContent?.inputTranscription?.text;
     if (inputText) {
+      // Provider transcription is the semantic proof of user participation.
+      state._semanticUserTurnActive = true;
       state._lastUserTranscript = inputText;
       state._recentEmotionHint = inferEmotionHint(inputText);
       appendContinuityLedger("user", inputText);
@@ -1082,6 +1093,7 @@ export function createVoiceSessionController() {
       state._localTimeGateUntilTurnComplete = false;
       releaseLocalTimeAfterYield();
       releaseFactVerificationAfterYield();
+      state._semanticUserTurnActive = false;
       clearTurnCompleteTimer();
       if (providerTurn.clearCaptureActivity) {
         state.speechSeenRecently = false;
@@ -1421,6 +1433,7 @@ export function createVoiceSessionController() {
     state._factVerificationEpoch = 0;
     state._conversationEpoch = 0;
     state._inputTurnActive = false;
+    state._semanticUserTurnActive = false;
     state._lastUserTranscript = "";
     state._lastAiTranscript = "";
     state._recentEmotionHint = "neutral";

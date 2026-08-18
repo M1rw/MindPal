@@ -200,6 +200,19 @@ test("Voice inactivity never warns or ends while either party or evidence work i
   }), "none");
 });
 
+test("Voice lifecycle treats provider transcription, not raw microphone energy, as user participation", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+
+  assert.match(source, /_semanticUserTurnActive: false/);
+  assert.match(source, /function hasActiveConversationWork\(\{ semanticOnly = false \} = \{\}\)/);
+  assert.match(source, /isBusy: hasActiveConversationWork\(\{ semanticOnly: true \}\)/);
+  assert.match(source, /Provider transcription is the semantic proof of user participation/);
+  assert.match(source, /state\._semanticUserTurnActive = true;/);
+  assert.match(source, /state\._semanticUserTurnActive = false;/);
+  assert.match(source, /Confirmed browser capture is a quality signal, not a semantic user turn/);
+  assert.doesNotMatch(source, /noteConfirmedCaptureActivity\(\)[\s\S]{0,700}touchActivity\(\{ user: true \}\)/);
+});
+
 test("Voice fact verifier accepts only authenticated backend evidence and never browser-search fallback", async () => {
   let request = null;
   const result = await verifyCurrentVoiceFact({
@@ -255,7 +268,7 @@ test("Voice runtime gates speculative volatile-fact audio and uses shared idle o
   assert.match(source, /getVoiceSessionLifecycleAction\(/);
   assert.match(source, /startSessionLifecycle\(\)/);
   assert.match(source, /lastUserActivityAt/);
-  assert.match(source, /hasActiveConversationWork\(\)/);
+  assert.match(source, /hasActiveConversationWork\(\{ semanticOnly: true \}\)/);
   assert.match(source, /INTERNAL INACTIVITY NOTICE/);
   assert.doesNotMatch(source, /The user has been silent for 30 seconds/);
 });
