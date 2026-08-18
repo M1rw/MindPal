@@ -113,7 +113,7 @@ def test_voice_rate_and_quota_errors_preserve_retry_after_for_recovery_clients()
 def test_voice_long_call_defaults_allow_provider_socket_renewal() -> None:
     assert Settings.model_fields["VOICE_TOKEN_RATE_LIMIT_PER_HOUR"].default == 16
     assert Settings.model_fields["VOICE_SESSION_QUOTA_COST"].default == 1
-    assert Settings.model_fields["GEMINI_LIVE_MODEL"].default == "gemini-2.5-flash-native-audio-preview-12-2025"
+    assert Settings.model_fields["GEMINI_LIVE_MODEL"].default == "gemini-3.1-flash-live-preview"
 
 
 @pytest.mark.asyncio

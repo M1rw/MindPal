@@ -135,7 +135,10 @@ class Settings(BaseSettings):
 
     # ── LLM Provider Secrets ─────────────────────────────────────
     GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
-    GEMINI_LIVE_MODEL: str = Field(default="gemini-2.5-flash-native-audio-preview-12-2025", min_length=1, max_length=120)
+    # Keep the production default on the verified stable Live transport. The native-audio
+    # preview remains supported through the provider policy when its account-level
+    # session stability has been validated end-to-end.
+    GEMINI_LIVE_MODEL: str = Field(default="gemini-3.1-flash-live-preview", min_length=1, max_length=120)
     GEMINI_TRANSCRIPTION_MODEL: str = Field(default="gemini-3.1-flash-lite", min_length=1, max_length=120)
     VOICE_TOKEN_TTL_SECONDS: int = Field(default=1800, ge=300, le=1800)
     VOICE_NEW_SESSION_TTL_SECONDS: int = Field(default=60, ge=30, le=60)
