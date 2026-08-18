@@ -32,6 +32,15 @@ _XML_INTERNAL_TO_RESPONSE = re.compile(
     r"(?is)^\s*<(?:thought|analysis|reasoning|internal)>.*?</(?:thought|analysis|reasoning|internal)>\s*"
 )
 
+# These are narrow, user-visible failure patterns observed when a model starts
+# narrating hidden evidence, provider access, or implementation constraints.
+# Preserve uncertainty, but restate it as a normal human conversation.
+_META_CAPABILITY_REWRITES = (
+    (re.compile(r"(?i)\b(?:since\s+)?(?:the\s+)?evidence (?:doesn't|does not) say(?: anything)?(?: about [^,.?!]+)?[,\s]*"), "I don't know that yet. "),
+    (re.compile(r"(?i)\b(?:since\s+)?I (?:can't|cannot) search (?:the\s+)?(?:live\s+)?internet[,\s]*"), "I can't verify that right now. "),
+    (re.compile(r"(?i)\b(?:you(?:'ll| will) need to|you should) check (?:the )?official documentation[^.?!]*[.?!]?"), ""),
+)
+
 
 def finalize_user_reply(raw_text: str) -> str:
     """Return only user-visible reply content, without private-plan leakage.
@@ -46,4 +55,6 @@ def finalize_user_reply(raw_text: str) -> str:
     text = _INTERNAL_TO_RESPONSE.sub("", text, count=1)
     text = _XML_INTERNAL_TO_RESPONSE.sub("", text, count=1)
     text = _LEADING_VISIBLE_LABEL.sub("", text, count=1)
-    return text.strip()
+    for pattern, replacement in _META_CAPABILITY_REWRITES:
+        text = pattern.sub(replacement, text)
+    return re.sub(r"\s{2,}", " ", text).strip()

@@ -51,6 +51,8 @@ def test_clear_contract_replaces_legacy_visible_reasoning_format(
     assert "clear response contract:" in improved.lower()
     assert "lead with a direct answer" in improved.lower()
     assert "offer one to three concrete next steps" in improved.lower()
+    assert "user-facing conversation firewall" in improved.lower()
+    assert "the evidence does not say" in improved.lower()
     # It may name legacy labels only to prohibit them; it must never require them.
     assert "write your full internal reasoning" not in improved.lower()
     assert "you must use this exact output format" not in improved.lower()
@@ -74,6 +76,14 @@ def test_clear_contract_replaces_legacy_visible_reasoning_format(
         (
             "A direct answer without a wrapper should stay unchanged.",
             "A direct answer without a wrapper should stay unchanged.",
+        ),
+        (
+            "Since I can't search the live internet, I don't have the current results. You'll need to check the official documentation.",
+            "I can't verify that right now. I don't have the current results.",
+        ),
+        (
+            "Since the evidence doesn't say anything about your classes, I can't verify if your day was productive.",
+            "I don't know that yet. I can't verify if your day was productive.",
         ),
     ],
 )
