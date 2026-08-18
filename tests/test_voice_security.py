@@ -123,6 +123,40 @@ async def test_voice_transport_diagnostic_records_only_sanitized_socket_metadata
         )
 
 
+@pytest.mark.asyncio
+async def test_voice_delivery_diagnostic_accepts_counters_but_rejects_voice_content() -> None:
+    payload = voice_router.VoiceDeliveryDiagnosticRequest(
+        model="gemini-2.5-flash-native-audio-preview-12-2025",
+        audio_parts=12,
+        input_transcription_events=2,
+        output_transcription_events=3,
+        transcript_callback_events=3,
+        model_text_parts=0,
+        turn_complete_events=2,
+        interrupted_events=1,
+        fact_gated_audio_parts=0,
+        end_reason="client_stop",
+    )
+
+    response = await voice_router.report_voice_delivery_diagnostic(payload=payload, context=_context())
+
+    assert response.status_code == 204
+    with pytest.raises(ValidationError):
+        voice_router.VoiceDeliveryDiagnosticRequest(
+            model="gemini-2.5-flash-native-audio-preview-12-2025",
+            audio_parts=12,
+            input_transcription_events=2,
+            output_transcription_events=3,
+            transcript_callback_events=3,
+            model_text_parts=0,
+            turn_complete_events=2,
+            interrupted_events=1,
+            fact_gated_audio_parts=0,
+            end_reason="client_stop",
+            transcript="spoken content must never be accepted",
+        )
+
+
 def test_voice_rate_and_quota_errors_preserve_retry_after_for_recovery_clients() -> None:
     rate_error = http_error_from_app_error(
         RateLimitError("Too many requests", details={"retry_after_seconds": 73}),
@@ -140,7 +174,7 @@ def test_voice_rate_and_quota_errors_preserve_retry_after_for_recovery_clients()
 def test_voice_long_call_defaults_allow_provider_socket_renewal() -> None:
     assert Settings.model_fields["VOICE_TOKEN_RATE_LIMIT_PER_HOUR"].default == 16
     assert Settings.model_fields["VOICE_SESSION_QUOTA_COST"].default == 1
-    assert Settings.model_fields["GEMINI_LIVE_MODEL"].default == "gemini-2.5-flash-native-audio-preview-12-2025"
+    assert Settings.model_fields["GEMINI_LIVE_MODEL"].default == "gemini-3.1-flash-live-preview"
 
 
 @pytest.mark.asyncio
