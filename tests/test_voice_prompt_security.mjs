@@ -68,7 +68,7 @@ test("voice prompt carries the selected HRO mode and Pro provenance rule", () =>
   });
 
   assert.match(guidedCoachPrompt, /LIVE VOICE RESPONSE CONTRACT \(Guided Coach\)/);
-  assert.match(guidedCoachPrompt, /identify the bottleneck with a brief concrete fork/);
+  assert.match(guidedCoachPrompt, /Identify the bottleneck with a brief concrete fork/);
   assert.match(cognitiveToolsPrompt, /LIVE VOICE RESPONSE CONTRACT \(Cognitive Tools\)/);
   assert.match(cognitiveToolsPrompt, /State explanations as possibilities, not diagnoses/);
   assert.match(cognitiveToolsPrompt, /never repeat an assistant inference as if the user said it/);
@@ -133,6 +133,23 @@ test("live runtime uses the documented realtime text channel for every post-setu
   assert.match(sendTextToModel, /realtimeInput: \{ text: clean \}/);
   assert.doesNotMatch(sendTextToModel, /clientContent:/);
   assert.doesNotMatch(source, /forceModelTurn/);
+});
+
+test("voice runtime preserves captions through transcription fallback and aggregate-only delivery diagnostics", async () => {
+  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
+
+  assert.match(source, /const outputText = providerOutputText \|\| modelTextFallback/);
+  assert.match(source, /state\._deliveryTelemetry\.outputTranscriptionEvents \+= 1/);
+  assert.match(source, /state\._deliveryTelemetry\.audioParts \+= 1/);
+  assert.match(source, /function queuePacedCaptionTranscript\(text\)/);
+  assert.match(source, /function clearPacedCaptionQueue\(/);
+  assert.match(source, /queuePacedCaptionTranscript\(outputText\)/);
+  assert.doesNotMatch(source, /_onTranscript\?\.\("ai", outputText\)/);
+  assert.match(source, /function reportVoiceDeliverySummary\(endReason = "client_stop"\)/);
+  assert.match(source, /\/voice\/delivery-diagnostic/);
+  assert.match(source, /reportVoiceDeliverySummary\("client_stop"\)/);
+  assert.doesNotMatch(source, /delivery-diagnostic[\s\S]{0,500}transcript:/);
+  assert.doesNotMatch(source, /delivery-diagnostic[\s\S]{0,500}audio_base64/);
 });
 
 test("voice prompt keeps direct user context bounded", () => {
@@ -348,7 +365,8 @@ test("Voice runtime treats GoAway and its following normal close as a resumable 
   assert.match(source, /continuity-reseeding/);
   assert.match(source, /TRUSTED CALL CONTINUITY SNAPSHOT/);
   assert.match(source, /appendContinuityLedger\("user", inputText\)/);
-  assert.match(source, /appendContinuityLedger\("model", outputText\)/);
+  assert.match(source, /function queuePacedCaptionTranscript\(text\)/);
+  assert.match(source, /appendContinuityLedger\("model", delta\)/);
 });
 
 test("Voice runtime turns a credential 429 into one shared, server-timed recovery pause", async () => {
@@ -412,6 +430,11 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
   assert.match(markup, /voice-caption-track/);
   assert.match(styles, /\.voice-caption--active/);
   assert.match(styles, /\.voice-caption\[dir="rtl"\]/);
+  assert.match(styles, /scroll-padding-block: 2rem/);
+  assert.match(styles, /color: rgba\(45, 45, 49, 0\.64\)/);
+  assert.match(styles, /padding: clamp\(3rem, 10vh, 6rem\) 0 clamp\(5rem, 14vh, 8rem\)/);
+  assert.match(styles, /mask-image: linear-gradient\(to bottom, transparent 0, rgba\(0, 0, 0, 0\.74\) 7%, #000 16%, #000 100%/);
+  assert.doesNotMatch(styles, /#000 87%, rgba\(0, 0, 0, 0\.74\) 95%/);
   assert.doesNotMatch(styles, /\.voice-msg-user/);
 });
 

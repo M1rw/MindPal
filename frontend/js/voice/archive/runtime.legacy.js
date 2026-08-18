@@ -30,6 +30,11 @@ import {
   getProviderSetupCapabilities,
   getToolResponseScheduling,
 } from "../provider_policy.js";
+import {
+  extractNovelTranscript,
+  mergeIncrementalTranscript,
+  planPacedCaptionSegments,
+} from "../caption_sync_policy.js";
 
 const INPUT_SAMPLE_RATE = 16_000;
 const OUTPUT_SAMPLE_RATE = 24_000;
@@ -67,6 +72,15 @@ export function createVoiceSessionController() {
     sessionPhase: "idle",
     nextPlaybackTime: 0,
     activeAudioSources: [],
+    _captionPlaybackCursorTime: 0,
+    _captionReleaseTimers: new Set(),
+    _captionSourceTranscript: "",
+    _captionPendingText: "",
+    _captionQueueEpoch: 0,
+    _captionAudioTurnStartTime: 0,
+    _captionAudioTurnEndTime: 0,
+    _captionTurnHasScheduledOutput: false,
+    _captionTurnCompleteTimer: null,
     outputGainNode: null,
     outputCompressorNode: null,
     _toolCallPending: false,
@@ -149,6 +163,19 @@ export function createVoiceSessionController() {
     _sessionGeneration: 0,
     _credentialRefreshPromise: null,
     _socketOpenedAt: 0,
+    _deliveryTelemetry: {
+      audioParts: 0,
+      inputTranscriptionEvents: 0,
+      outputTranscriptionEvents: 0,
+      transcriptCallbackEvents: 0,
+      captionScheduledSegments: 0,
+      captionReleasedSegments: 0,
+      modelTextParts: 0,
+      turnCompleteEvents: 0,
+      interruptedEvents: 0,
+      factGatedAudioParts: 0,
+      reported: false,
+    },
   };
 
   const toolExecutor = createToolExecutor({
@@ -238,6 +265,22 @@ export function createVoiceSessionController() {
     }
   }
 
+  function resetVoiceDeliveryTelemetry() {
+    state._deliveryTelemetry = {
+      audioParts: 0,
+      inputTranscriptionEvents: 0,
+      outputTranscriptionEvents: 0,
+      transcriptCallbackEvents: 0,
+      captionScheduledSegments: 0,
+      captionReleasedSegments: 0,
+      modelTextParts: 0,
+      turnCompleteEvents: 0,
+      interruptedEvents: 0,
+      factGatedAudioParts: 0,
+      reported: false,
+    };
+  }
+
   function reportVoiceTransportClose(event) {
     const model = String(state._voiceCredentials?.model || "").trim();
     if (!model || !state._authToken) return;
@@ -276,6 +319,53 @@ export function createVoiceSessionController() {
         });
       } catch {
         // Diagnostics are optional and must remain invisible to the caller.
+      }
+    })();
+  }
+
+  function reportVoiceDeliverySummary(endReason = "client_stop") {
+    const telemetry = state._deliveryTelemetry;
+    const model = String(state._voiceCredentials?.model || "").trim();
+    const authToken = state._authToken;
+    const refreshAuthToken = state._refreshAuthToken;
+    const getAppCheckToken = state._getAppCheckToken;
+    const refreshAppCheckToken = state._refreshAppCheckToken;
+    if (!telemetry || telemetry.reported || !model || !authToken) return;
+    telemetry.reported = true;
+    const payload = {
+      model,
+      audio_parts: telemetry.audioParts,
+      input_transcription_events: telemetry.inputTranscriptionEvents,
+      output_transcription_events: telemetry.outputTranscriptionEvents,
+      transcript_callback_events: telemetry.transcriptCallbackEvents,
+      model_text_parts: telemetry.modelTextParts,
+      turn_complete_events: telemetry.turnCompleteEvents,
+      interrupted_events: telemetry.interruptedEvents,
+      fact_gated_audio_parts: telemetry.factGatedAudioParts,
+      end_reason: String(endReason || "client_stop").replace(/[^a-z_]/gi, "_").toLowerCase().slice(0, 40) || "client_stop",
+    };
+
+    // This detached report contains counters only. It intentionally excludes
+    // microphone data, transcription text, prompts, profile data, and context.
+    void (async () => {
+      try {
+        const token = typeof refreshAuthToken === "function" ? await refreshAuthToken() : authToken;
+        if (!token) return;
+        const appCheckToken = typeof refreshAppCheckToken === "function"
+          ? await refreshAppCheckToken()
+          : (typeof getAppCheckToken === "function" ? await getAppCheckToken() : null);
+        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+        if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
+        await fetch(`${window.MINDPAL_CONFIG?.API_BASE_URL || ""}/voice/delivery-diagnostic`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+          cache: "no-store",
+          credentials: "omit",
+          keepalive: true,
+        });
+      } catch {
+        // Diagnostic delivery must never affect the call or cleanup path.
       }
     })();
   }
@@ -473,7 +563,100 @@ export function createVoiceSessionController() {
     }
   }
 
+  function clearPacedCaptionQueue({ preserveSource = false } = {}) {
+    state._captionQueueEpoch += 1;
+    for (const timer of state._captionReleaseTimers) clearTimeout(timer);
+    state._captionReleaseTimers.clear();
+    if (state._captionTurnCompleteTimer) clearTimeout(state._captionTurnCompleteTimer);
+    state._captionTurnCompleteTimer = null;
+    state._captionPlaybackCursorTime = 0;
+    state._captionAudioTurnStartTime = 0;
+    state._captionAudioTurnEndTime = 0;
+    state._captionTurnHasScheduledOutput = false;
+    if (!preserveSource) {
+      state._captionSourceTranscript = "";
+      state._captionPendingText = "";
+    }
+  }
+
+  function releasePacedCaptionSegments(text, audioWindow = {}) {
+    const delta = String(text || "").trim();
+    if (!delta) return false;
+
+    const now = state.audioContext?.currentTime || 0;
+    const segments = planPacedCaptionSegments({
+      text: delta,
+      audioStartTime: audioWindow.startTime || state._captionAudioTurnStartTime || now,
+      nextCaptionTime: state._captionPlaybackCursorTime,
+      now,
+    });
+    if (!segments.length) return false;
+
+    const epoch = state._captionQueueEpoch;
+    state._captionTurnHasScheduledOutput = true;
+    state._captionPlaybackCursorTime = segments.at(-1).startTime + segments.at(-1).duration;
+    state._deliveryTelemetry.captionScheduledSegments += segments.length;
+    appendContinuityLedger("model", delta);
+
+    for (const segment of segments) {
+      const delayMs = Math.max(0, (segment.startTime - now) * 1000);
+      let timer = null;
+      timer = setTimeout(() => {
+        state._captionReleaseTimers.delete(timer);
+        if (epoch !== state._captionQueueEpoch || !state.isSessionActive || state.isStopping) return;
+        state._deliveryTelemetry.transcriptCallbackEvents += 1;
+        state._deliveryTelemetry.captionReleasedSegments += 1;
+        state._onTranscript?.("ai", segment.text);
+      }, delayMs);
+      state._captionReleaseTimers.add(timer);
+    }
+    return true;
+  }
+
+  function queuePacedCaptionTranscript(text) {
+    const { merged, delta } = extractNovelTranscript(state._captionSourceTranscript, text);
+    state._captionSourceTranscript = merged;
+    state._lastAiTranscript = merged;
+    if (!delta.trim()) return false;
+    if (!state._captionAudioTurnStartTime) {
+      state._captionPendingText = mergeIncrementalTranscript(state._captionPendingText, delta);
+      return false;
+    }
+    return releasePacedCaptionSegments(delta, {
+      startTime: state._captionAudioTurnStartTime,
+      endTime: state._captionAudioTurnEndTime,
+    });
+  }
+
+  function completeCaptionTurnAtPlaybackEnd() {
+    if (!state._captionTurnHasScheduledOutput) {
+      state._captionSourceTranscript = "";
+      state._captionPendingText = "";
+      state._captionAudioTurnStartTime = 0;
+      state._captionAudioTurnEndTime = 0;
+      state._captionPlaybackCursorTime = 0;
+      state._onTurnComplete?.();
+      return;
+    }
+    const now = state.audioContext?.currentTime || 0;
+    const delayMs = Math.max(0, (state._captionPlaybackCursorTime - now) * 1000) + 20;
+    const epoch = state._captionQueueEpoch;
+    if (state._captionTurnCompleteTimer) clearTimeout(state._captionTurnCompleteTimer);
+    state._captionTurnCompleteTimer = setTimeout(() => {
+      state._captionTurnCompleteTimer = null;
+      if (epoch !== state._captionQueueEpoch || !state.isSessionActive || state.isStopping) return;
+      state._captionSourceTranscript = "";
+      state._captionPendingText = "";
+      state._captionTurnHasScheduledOutput = false;
+      state._captionAudioTurnStartTime = 0;
+      state._captionAudioTurnEndTime = 0;
+      state._captionPlaybackCursorTime = 0;
+      state._onTurnComplete?.();
+    }, delayMs);
+  }
+
   function flushAiAudio({ updatePhase = true } = {}) {
+    clearPacedCaptionQueue();
     for (const source of state.activeAudioSources) {
       try {
         const gainNode = source._gainNode;
@@ -1039,8 +1222,19 @@ export function createVoiceSessionController() {
     gainNode.gain.linearRampToValueAtTime(1, now + cadenceHint);
 
     if (state.nextPlaybackTime < now) state.nextPlaybackTime = now;
-    source.start(state.nextPlaybackTime);
+    const scheduledStartTime = state.nextPlaybackTime;
+    if (!state._captionAudioTurnStartTime) state._captionAudioTurnStartTime = scheduledStartTime;
+    source.start(scheduledStartTime);
     state.nextPlaybackTime += audioBuffer.duration;
+    state._captionAudioTurnEndTime = state.nextPlaybackTime;
+    if (state._captionPendingText) {
+      const pendingText = state._captionPendingText;
+      state._captionPendingText = "";
+      releasePacedCaptionSegments(pendingText, {
+        startTime: state._captionAudioTurnStartTime,
+        endTime: state._captionAudioTurnEndTime,
+      });
+    }
 
     source._gainNode = gainNode;
     state.activeAudioSources.push(source);
@@ -1130,6 +1324,7 @@ export function createVoiceSessionController() {
     // any speculative model audio is allowed into the playback queue.
     const inputText = data.serverContent?.inputTranscription?.text;
     if (inputText) {
+      state._deliveryTelemetry.inputTranscriptionEvents += 1;
       // Provider transcription is the semantic proof of user participation.
       state._semanticUserTurnActive = true;
       state._lastUserTranscript = inputText;
@@ -1145,6 +1340,7 @@ export function createVoiceSessionController() {
     // The bridge is trusted, deliberately requested MindPal audio. Earlier
     // speculative audio remains blocked until verified evidence is ready.
     const isFactBridgeTurn = factGatePending && state._factBridgeAwaitingCompletion;
+    let modelTextFallback = "";
     if (data.serverContent?.modelTurn?.parts) {
       touchActivity();
       clearTurnCompleteTimer();
@@ -1156,20 +1352,33 @@ export function createVoiceSessionController() {
         interactionTag: factGatePending ? "fact-verifying" : "model-thinking",
       });
       for (const part of data.serverContent.modelTurn.parts) {
-        if (part.inlineData?.mimeType?.startsWith("audio/pcm") && (!factGatePending || isFactBridgeTurn)) {
-          playAiAudioChunk(part.inlineData.data);
+        if (typeof part.text === "string" && part.text.trim()) {
+          state._deliveryTelemetry.modelTextParts += 1;
+          modelTextFallback = mergeIncrementalTranscript(modelTextFallback, part.text);
+        }
+        if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
+          if (!factGatePending || isFactBridgeTurn) {
+            state._deliveryTelemetry.audioParts += 1;
+            playAiAudioChunk(part.inlineData.data);
+          } else {
+            state._deliveryTelemetry.factGatedAudioParts += 1;
+          }
         }
       }
     }
 
-    const outputText = data.serverContent?.outputTranscription?.text;
+    const providerOutputText = data.serverContent?.outputTranscription?.text;
+    if (providerOutputText) state._deliveryTelemetry.outputTranscriptionEvents += 1;
+    const outputText = providerOutputText || modelTextFallback;
     if (outputText && (!factGatePending || isFactBridgeTurn)) {
-      state._lastAiTranscript = outputText;
-      appendContinuityLedger("model", outputText);
-      state._onTranscript?.("ai", outputText);
+      // Provider transcription commonly arrives ahead of the PCM audio queue. Release
+      // it on the same scheduled timeline as playback so captions follow MindPal's voice.
+      queuePacedCaptionTranscript(outputText);
     }
 
     if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
+      if (data.serverContent?.turnComplete) state._deliveryTelemetry.turnCompleteEvents += 1;
+      if (data.serverContent?.interrupted) state._deliveryTelemetry.interruptedEvents += 1;
       const completedFactBridge = Boolean(
         data.serverContent?.turnComplete
         && !data.serverContent?.interrupted
@@ -1206,7 +1415,7 @@ export function createVoiceSessionController() {
         state._inputTurnActive = false;
       }
       if (providerTurn.nextPhase) setSessionPhase(providerTurn.nextPhase);
-      state._onTurnComplete?.();
+      completeCaptionTurnAtPlaybackEnd();
     }
 
     if (data.toolCall?.functionCalls) {
@@ -1572,6 +1781,8 @@ export function createVoiceSessionController() {
     state._sessionGeneration += 1;
     state._credentialRefreshPromise = null;
     state._socketOpenedAt = 0;
+    resetVoiceDeliveryTelemetry();
+    clearPacedCaptionQueue();
     state.isSessionActive = true;
     state.isStopping = false;
     state.isMicMuted = false;
@@ -1618,6 +1829,7 @@ export function createVoiceSessionController() {
     state._socketOpenedAt = 0;
     state._socketGeneration += 1;
 
+    reportVoiceDeliverySummary("client_stop");
     clearTurnCompleteTimer();
     clearListeningTransitionTimer();
     clearReconnectTimer();

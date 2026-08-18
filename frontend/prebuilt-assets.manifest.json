@@ -5,8 +5,8 @@
       "sha256": "4057b986f5e18e1eecd081ae8996a7da90294e4cd209729e86119e4914fb5f87"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 420791,
-      "sha256": "07d3983772c6f8d0fde07be5cfae958d6d87c4d8d62cdf26c36fdf1e21d8f446"
+      "bytes": 424433,
+      "sha256": "386535211832df93fcf4a59270d3d0f4ec10bb3da8888c3752bd8479f07c6292"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "045ae1045de9e3f249dde2446e11c3106999364185a660f35afb2ff867f73cda",
+  "source_digest": "4c2cdc812e560d54eaa6fd45aeb6a619b3b2599afce67f15185570794efa67d0",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -46,6 +46,7 @@
     "frontend/js/utils/tts.js",
     "frontend/js/utils/voice_summary.js",
     "frontend/js/vendor/lucide_global.js",
+    "frontend/js/voice/caption_sync_policy.js",
     "frontend/js/voice/constants.js",
     "frontend/js/voice/conversation_policy.js",
     "frontend/js/voice/fact_verifier.js",
@@ -53,6 +54,7 @@
     "frontend/js/voice/prompts.js",
     "frontend/js/voice/provider_policy.js",
     "frontend/js/voice/recovery_policy.js",
+    "frontend/js/voice/response_director.js",
     "frontend/js/voice/runtime.js",
     "frontend/js/voice/session_policy.js",
     "frontend/js/voice/startup_helpers.mjs",
