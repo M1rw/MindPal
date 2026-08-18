@@ -19,6 +19,7 @@ import {
   fetchVoiceTokenWithRetry,
 } from "./voice/startup_helpers.mjs";
 import { VOICE_EVENTS } from "./voice/architecture/events.js";
+import { classifyFinalizedVoiceTurn, buildOperationIdentity } from "./voice/intent/finalized_turn_router.js";
 
 function phaseProjection(phase, isAiSpeaking) {
   if (phase === "connecting") return { phase: "connecting", palette: "listen" };
@@ -62,6 +63,16 @@ export function createVoiceSessionV2({
   let credentialRefreshTimer = null;
   let preloadedCredentials = null;
   let localCueManager = null;
+  let activeToolGateway = null;
+  let activeEvidenceGate = null;
+  let activeResponseStagingManager = null;
+  let currentUserTurnId = null;
+  let currentUserTurnText = "";
+  let finalizedTurnIds = new Set();
+  let operationSequence = 0;
+  let operationsByTurn = new Map();
+  let activeOperationController = null;
+  let activeOperationTurnId = null;
 
   function getToken() {
     return typeof getAuthToken === "function" ? getAuthToken() : getAuthToken;
@@ -83,20 +94,111 @@ export function createVoiceSessionV2({
     });
   }
 
+  function internalResultText({ plan, result, error = null } = {}) {
+    const payload = error ? { status: "failed", error } : { status: "ready", result };
+    const planId = plan?.responsePlan?.id || plan?.kind || "conversation";
+    return `[INTERNAL VOICE OPERATION — NOT USER SPEECH]\nResponse plan: ${planId}\nUse this trusted operation result only if it still answers the active user turn. Do not mention this internal message or tools.\n${JSON.stringify(payload).slice(0, 9_000)}`;
+  }
+
+  function sendInternalResult({ plan, result, error = null } = {}) {
+    if (!provider?.sendClientContent) return false;
+    const text = internalResultText({ plan, result, error });
+    return provider.sendClientContent([{ role: "user", parts: [{ text }] }], true);
+  }
+
+  function cancelActiveOperation(reason = "cancelled") {
+    activeOperationController?.abort(reason);
+    activeOperationController = null;
+    const turnId = activeOperationTurnId || currentUserTurnId;
+    if (turnId) {
+      activeResponseStagingManager?.cancelForTurn?.(turnId, reason);
+      activeEvidenceGate?.cancelForTurn?.(turnId);
+    }
+  }
+
+  async function finalizeUserTurn({ turnId = currentUserTurnId, text = currentUserTurnText } = {}) {
+    const cleanText = String(text || "").trim();
+    if (!cleanText || !turnId || finalizedTurnIds.has(turnId) || !activeToolGateway) return null;
+    finalizedTurnIds.add(turnId);
+    const plan = classifyFinalizedVoiceTurn({ text: cleanText, mood: "neutral", mode: contextProvider?.getVoiceResponseContract?.()?.mode || "Active Listen" });
+    currentUserTurnText = "";
+    currentUserTurnId = null;
+    if (!plan.operation) {
+      if (plan.responsePlan?.id) provider?.sendClientContent?.([{ role: "user", parts: [{ text: `[INTERNAL RESPONSE PLAN — NOT USER SPEECH]\n${plan.responsePlan.instruction}` }] }], false);
+      return plan;
+    }
+
+    const operationId = `voice-op-${Date.now().toString(36)}-${++operationSequence}`;
+    const identity = buildOperationIdentity({
+      sessionGeneration: orchestrator?.getState?.().sessionGeneration || 0,
+      turnId,
+      operationId,
+    });
+    const operation = plan.operation;
+    const stageDecision = activeResponseStagingManager?.start({
+      operationId,
+      turnId,
+      sessionGeneration: identity.sessionGeneration,
+      kind: operation.cueKind || plan.kind,
+      expectedLatencyMs: operation.expectedLatencyMs,
+      language: "en-US",
+    });
+    if (stageDecision?.stage === "thinking-cue") onBackgroundTask({ status: "started", name: plan.kind });
+    const controller = new AbortController();
+    activeOperationController = controller;
+    activeOperationTurnId = turnId;
+    operationsByTurn.set(turnId, { identity, controller, plan });
+    try {
+      let result;
+      if (operation.evidenceQuery) {
+        result = await activeEvidenceGate?.verify(operation.evidenceQuery, identity, { signal: controller.signal }) || { status: "failed", error: "evidence-gate-unavailable" };
+        if (result.status === "verified") result = { verified: true, evidence: result.evidence, query: result.query };
+        else result = { error: result.error || "verification-unavailable" };
+      } else {
+        result = await activeToolGateway.execute(operation.tool, operation.args, { identity, signal: controller.signal, timeoutMs: 12_000 });
+      }
+      const current = operationsByTurn.get(turnId);
+      if (!current || controller.signal.aborted || current.identity.operationId !== identity.operationId) return null;
+      if (activeResponseStagingManager) activeResponseStagingManager.complete(operationId, result);
+      sendInternalResult({ plan, result });
+      onBackgroundTask({ status: result?.error ? "failed" : "ready", name: plan.kind });
+      return result;
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        activeResponseStagingManager?.complete(operationId, { error: error?.message || "operation-failed" });
+        sendInternalResult({ plan, error: error?.message || "operation-failed" });
+        onBackgroundTask({ status: "failed", name: plan.kind });
+      }
+      return null;
+    } finally {
+      operationsByTurn.delete(turnId);
+      if (activeOperationController === controller) {
+        activeOperationController = null;
+        activeOperationTurnId = null;
+      }
+    }
+  }
+
   function handleEvent(event, state) {
     projectState(state);
     if (event.type === VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT) {
       lastUserTranscript = `${lastUserTranscript} ${event.text || ""}`.trim();
+      currentUserTurnId = currentUserTurnId || `voice-turn-${Date.now().toString(36)}`;
+      currentUserTurnText = `${currentUserTurnText} ${event.text || ""}`.trim();
       onTranscript("user", event.text || "");
+      if (event.finished === true) void finalizeUserTurn({ turnId: currentUserTurnId, text: currentUserTurnText });
     } else if (event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT) {
       lastAiTranscript = `${lastAiTranscript} ${event.text || ""}`.trim();
       onTranscript("ai", event.text || "");
     } else if (event.type === VOICE_EVENTS.PROVIDER_TURN_COMPLETE) {
+      if (currentUserTurnText) void finalizeUserTurn({ turnId: currentUserTurnId, text: currentUserTurnText });
       onTurnComplete();
     } else if (event.type === VOICE_EVENTS.TOOL_STARTED) {
       onBackgroundTask({ status: "started", name: event.name });
     } else if ([VOICE_EVENTS.TOOL_RESOLVED, VOICE_EVENTS.TOOL_FAILED].includes(event.type)) {
       onBackgroundTask({ status: event.type === VOICE_EVENTS.TOOL_RESOLVED ? "ready" : "failed", name: event.name });
+    } else if (event.type === VOICE_EVENTS.PROVIDER_INTERRUPTED) {
+      cancelActiveOperation("user-interrupted");
     } else if ([VOICE_EVENTS.PROVIDER_ERROR, VOICE_EVENTS.PROVIDER_CLOSED].includes(event.type)) {
       onDiagnostic(event);
     }
@@ -237,26 +339,49 @@ export function createVoiceSessionV2({
       }),
       onEvent: (event) => handleEvent(event, orchestrator?.getState?.() || {}),
     });
-    const backchannelManager = createBackchannelManager();
     const backchannelProvider = createBackchannelProvider({
       provider,
-      capabilities: { sameSessionBackchannel: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_BACKCHANNEL === true && capabilities.proactiveAudio },
+      capabilities: { sameSessionBackchannel: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_BACKCHANNEL === true && capabilities.nativeListeningCues === true },
     });
     localCueManager = createLocalCueManager({
       audioUrls: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_CUE_AUDIO || {},
       allowSpeechSynthesis: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_LOCAL_CUES === true,
     });
+    const backchannelManager = createBackchannelManager({
+      onRequest: (request) => {
+        if (globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_LOCAL_CUES === true) {
+          const local = localCueManager?.play(request.kind, { language: request.context?.language || "en-US", volume: 0.58 });
+          if (local?.ok) backchannelManager.markEmitted(request);
+          else backchannelManager.cancel("local-cue-unavailable");
+          return;
+        }
+        void backchannelProvider.request({ kind: request.kind }).then((result) => {
+          if (result?.ok) backchannelManager.markEmitted(request);
+          else backchannelManager.cancel("native-cue-unavailable");
+        });
+      },
+      onCancel: () => localCueManager?.cancel("backchannel-cancelled"),
+    });
+    activeToolGateway = toolGateway;
+    activeEvidenceGate = evidenceGate;
     const responseStagingManager = createResponseStagingManager({
       onRequest: (request) => {
         const kind = request.cueIntent || "thinking";
-        const local = localCueManager.play(kind, { language: request.language || "en-US" });
-        if (!local.ok) void backchannelProvider.request({ kind: "attentive" });
+        if (globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_LOCAL_CUES === true) {
+          const local = localCueManager.play(kind, { language: request.language || "en-US" });
+          if (local.ok) responseStagingManager?.markCueEmitted?.(request.operationId);
+          return;
+        }
+        void backchannelProvider.request({ kind: kind === "checking" ? "attentive" : "attentive" }).then((result) => {
+          if (result?.ok) responseStagingManager?.markCueEmitted?.(request.operationId);
+        });
       },
       onCancel: () => localCueManager.cancel("operation-cancelled"),
     });
     const persistence = createVoiceSessionPersistence({
       persist: async () => true,
     });
+    activeResponseStagingManager = responseStagingManager;
     recovery = createRecoverySupervisor({
       reconnect: async ({ resumeHandle }) => connectTransport({ resumeHandle }),
       reseed: async () => connectTransport(),
@@ -297,6 +422,13 @@ export function createVoiceSessionV2({
     playback = null;
     orchestrator = null;
     recovery = null;
+    cancelActiveOperation("session-stop");
+    operationsByTurn.clear();
+    finalizedTurnIds.clear();
+    activeOperationTurnId = null;
+    activeToolGateway = null;
+    activeEvidenceGate = null;
+    activeResponseStagingManager = null;
     localCueManager?.cancel("session-stop");
     localCueManager = null;
     return true;

@@ -64,11 +64,12 @@ test("response staging skips fast operations and stages slow work", () => {
   assert.equal(classifyResponseStage({ kind: "reasoning", expectedLatencyMs: 2_000, safetyGate: "crisis" }).stage, "skip");
 });
 
-test("response staging tracks one cue per operation and cancels stale work", () => {
+test("response staging tracks one cue per operation and cancels stale work", async () => {
   const requests = [];
   const cancellations = [];
   const manager = createResponseStagingManager({
     now: () => 20_000,
+    policyOptions: { minimumCueLatencyMs: 0 },
     onRequest: (request) => requests.push(request),
     onCancel: (request) => cancellations.push(request),
   });
@@ -80,6 +81,7 @@ test("response staging tracks one cue per operation and cancels stale work", () 
     expectedLatencyMs: 1_000,
     language: "en",
   });
+  await new Promise((resolve) => setTimeout(resolve, 5));
   assert.equal(decision.stage, "thinking-cue");
   assert.equal(requests[0].cueIntent, "remembering");
   assert.equal(manager.markCueEmitted("operation-1"), true);

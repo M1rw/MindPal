@@ -10,6 +10,7 @@ export * from "../orchestrator/voice_session_orchestrator.js";
 export * from "../backchannel/backchannel_policy.js";
 export * from "../backchannel/backchannel_manager.js";
 export * from "../staging/staging_policy.js";
+export * from "../intent/finalized_turn_router.js";
 export * from "../staging/response_staging_manager.js";
 export * from "../tools/tool_gateway.js";
 export * from "../evidence/evidence_gate.js";

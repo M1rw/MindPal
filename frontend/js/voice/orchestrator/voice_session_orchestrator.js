@@ -37,6 +37,7 @@ export function createVoiceSessionOrchestrator({
   let localBargeInPending = false;
   let noiseFloorRms = 0.0025;
   let latestResumeHandle = "";
+  let activeTurnStartedAt = 0;
   const pendingToolResults = [];
 
   function emit(event) {
@@ -63,6 +64,7 @@ export function createVoiceSessionOrchestrator({
   function ensureTurn() {
     if (state.activeTurnId) return state.activeTurnId;
     const turnId = identityFactory.nextTurnId();
+    activeTurnStartedAt = now();
     dispatch({
       type: VOICE_ACTIONS.CAPTURE_SPEECH_STARTED,
       sessionGeneration: state.sessionGeneration,
@@ -126,13 +128,14 @@ export function createVoiceSessionOrchestrator({
           backchannelManager.consider({
             sessionGeneration: state.sessionGeneration,
             turnId,
-            speechDurationMs: event.speechDurationMs || 0,
+            speechDurationMs: event.speechDurationMs || Math.max(0, now() - activeTurnStartedAt),
             pauseDurationMs: event.pauseDurationMs || 0,
             transcriptConfidence: event.transcriptConfidence ?? 1,
             topic: event.topic || "story",
             emotion: event.emotion || "neutral",
-            userHasYielded: false,
-            isModelSpeaking: state.isModelSpeaking,
+        userHasYielded: false,
+        isModelSpeaking: state.isModelSpeaking,
+        safetyGate: event.safetyGate || "none",
           });
         }
         emit(Object.freeze({ ...event, turnId }));
@@ -184,6 +187,7 @@ export function createVoiceSessionOrchestrator({
       case VOICE_EVENTS.PROVIDER_TURN_COMPLETE:
         backchannelManager?.cancel("turn-complete");
         flushPendingToolResults();
+        activeTurnStartedAt = 0;
         dispatch({ type: VOICE_ACTIONS.TURN_COMPLETE, sessionGeneration: state.sessionGeneration });
         emit(event);
         return;
@@ -268,6 +272,7 @@ export function createVoiceSessionOrchestrator({
     dispatch({ type: VOICE_ACTIONS.STOP_REQUESTED, sessionGeneration: state.sessionGeneration });
     pendingToolResults.length = 0;
     latestResumeHandle = "";
+    activeTurnStartedAt = 0;
     capture.stop();
     provider.close();
     playback.flush({ reason: "session-stop" });
