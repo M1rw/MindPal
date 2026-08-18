@@ -18,7 +18,9 @@ export function getLiveProviderCapabilities(model) {
   return {
     model: normalizeLiveModelName(model),
     nativeAudio,
-    apiVersion: nativeAudio ? "v1beta" : "v1alpha",
+    // Ephemeral-token browser sessions use the constrained v1beta endpoint for
+    // both native-audio and legacy Live model capability profiles.
+    apiVersion: "v1beta",
     // The direct ephemeral-token WebSocket uses Gemini's constrained setup
     // schema. Production returned 1007 for `setup.proactivity`, so native audio
     // must not claim or send proactive-listening configuration on this path.
