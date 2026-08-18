@@ -5,8 +5,8 @@
       "sha256": "4057b986f5e18e1eecd081ae8996a7da90294e4cd209729e86119e4914fb5f87"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 477385,
-      "sha256": "a75788a6262cac4111d42e6664ab08fa663c9637759e1606675ee10cd05d2765"
+      "bytes": 476710,
+      "sha256": "e87e46c72cd9cdf6b5dd3bf9c95032459e053637f9970401a0cdfd0c72e70063"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,

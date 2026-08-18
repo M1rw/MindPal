@@ -1,7 +1,7 @@
 .*
 !.npmrc
 docs
-archive
+/archive
 docker-compose.yml
 Dockerfile
 README_LEGACY.md
