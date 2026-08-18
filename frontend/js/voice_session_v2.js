@@ -75,6 +75,39 @@ export function createVoiceSessionV2({
   let activeOperationController = null;
   let activeOperationTurnId = null;
   const pendingNativeCueRequests = new Map();
+  let providerReadyGate = null;
+
+  function clearProviderReadyGate() {
+    if (providerReadyGate?.timer) clearTimeout(providerReadyGate.timer);
+    providerReadyGate = null;
+  }
+
+  function createProviderReadyGate(timeoutMs = 15_000) {
+    clearProviderReadyGate();
+    let resolveGate;
+    let rejectGate;
+    const promise = new Promise((resolve, reject) => {
+      resolveGate = resolve;
+      rejectGate = reject;
+    });
+    const timer = setTimeout(() => {
+      const gate = providerReadyGate;
+      if (!gate) return;
+      providerReadyGate = null;
+      onDiagnostic({ type: "voice.provider-ready-timeout", timeoutMs });
+      gate.reject(new Error("Voice connection timed out before Gemini setup completed."));
+    }, timeoutMs);
+    providerReadyGate = { resolve: resolveGate, reject: rejectGate, timer };
+    return promise;
+  }
+
+  function settleProviderReady({ error = null } = {}) {
+    const gate = providerReadyGate;
+    if (!gate) return;
+    clearProviderReadyGate();
+    if (error) gate.reject(error instanceof Error ? error : new Error(String(error)));
+    else gate.resolve(true);
+  }
 
   function getToken() {
     return typeof getAuthToken === "function" ? getAuthToken() : getAuthToken;
@@ -232,6 +265,11 @@ export function createVoiceSessionV2({
 
   function handleEvent(event, state) {
     projectState(state);
+    if (event.type === VOICE_EVENTS.PROVIDER_READY) settleProviderReady();
+    if (event.type === VOICE_EVENTS.PROVIDER_ERROR) settleProviderReady({ error: new Error("Gemini Live reported a provider error before setup completed.") });
+    if (event.type === VOICE_EVENTS.PROVIDER_CLOSED && !getOrchestratorState().isReady) {
+      settleProviderReady({ error: new Error(`Gemini Live closed before setup completed${event.code ? ` (code ${event.code})` : ""}.`) });
+    }
     if (event.type === VOICE_EVENTS.PROVIDER_AUDIO) {
       observeNativeCueAudio();
     }
@@ -462,18 +500,21 @@ export function createVoiceSessionV2({
     });
     providerEventHandler = (event) => orchestrator.handleProviderEvent(event);
     active = true;
+    const providerReadyPromise = createProviderReadyGate();
     orchestrator.start({
       url: buildEphemeralVoiceWebSocketUrl(currentCredentials),
       setup: currentSetup,
       identity: { sessionId, incognito },
     });
     audio.start();
+    await providerReadyPromise;
     return true;
   }
 
   async function stopSession() {
     if (!active) return false;
     active = false;
+    settleProviderReady({ error: new Error("Voice session stopped before Gemini setup completed.") });
     orchestrator?.stop();
     await audio?.dispose?.();
     clearCredentialRefreshTimer();
