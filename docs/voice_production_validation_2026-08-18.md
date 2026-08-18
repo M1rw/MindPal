@@ -22,3 +22,11 @@ The current Live provider supports provider-owned automatic VAD and post-setup `
 ## Controlled Inactivity Observation
 
 A second production session was opened without intentionally providing user speech and observed for just over two minutes. At that observation point, the overlay still showed **Listening…** and the greeting caption remained visible; the **Inactive** warning was not observed. Because this check ran against the connected browser’s real microphone, ambient input may have been classified as user activity. The three-minute end threshold was not yet observed at this point.
+
+## Semantic Inactivity Remediation
+
+The failed controlled observation identified raw confirmed microphone capture as incorrectly resetting `lastUserActivityAt` and marking the call busy. Commit `bc76613` separates capture quality from user participation: only non-empty provider input transcription now resets the inactivity clock or blocks the lifecycle. The fix passed the complete release gate: 63 JavaScript tests, all prescribed Python tests, production build, immutable-asset verification, syntax audit, and frontend audit. A fresh controlled production retest has started from Vercel deployment `dpl_6oXjzs5chsx3yQi2h7A47MJtJ7iq` without intentional user speech.
+
+### Corrected Controlled Result
+
+The fresh production session on commit `bc76613` displayed the required assistant caption at the two-minute threshold: “I’ll be wrapping up in a moment, unless you’d like to keep chatting?” The Voice overlay then closed automatically after the one-minute grace interval; the normal application page and Voice launch control were visible again. This confirms the live two-minute inactivity warning and three-minute graceful end behavior on the corrected release.
