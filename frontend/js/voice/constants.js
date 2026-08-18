@@ -1,7 +1,7 @@
 export const SILENCE_ASK_MS = 30_000;
 // The provider receives this exact profile on every initial setup and session
 // resumption. Keep the identity anchored to one supported prebuilt voice.
-export const MINDPAL_PREBUILT_VOICE_NAME = "Aoede";
+export const MINDPAL_PREBUILT_VOICE_NAME = "Kore";
 
 export const NOISE_GATE_THRESHOLD = 0.008;
 export const NOISE_GATE_HOLD_MS = 600;

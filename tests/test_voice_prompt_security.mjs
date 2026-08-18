@@ -13,6 +13,12 @@ import {
 } from "../frontend/js/voice/conversation_policy.js";
 import { verifyCurrentVoiceFact } from "../frontend/js/voice/fact_verifier.js";
 import { getVoiceSessionLifecycleAction } from "../frontend/js/voice/session_policy.js";
+import {
+  getLiveProviderCapabilities,
+  getProviderSetupCapabilities,
+  getToolResponseScheduling,
+  isMindPalNativeAudioLiveModel,
+} from "../frontend/js/voice/provider_policy.js";
 
 function buildPromptWithUntrustedContext() {
   return buildAdaptiveVoicePrompt(
@@ -83,19 +89,18 @@ test("live runtime delegates web research without pausing audio input", async ()
   assert.match(source, /status: "background_started"/);
   assert.match(source, /cancelStaleBackgroundTasks\(\)/);
   assert.match(source, /INTERNAL BACKGROUND RESEARCH UPDATE — NOT USER SPEECH/);
-  assert.match(source, /if \(!socketIsOpen\(\) \|\| !state\._setupComplete \|\| state\._toolCallPending\) return;/);
-  assert.doesNotMatch(source, /state\._toolCallPending \|\| state\._backgroundTasks\.size/);
+  assert.match(source, /function sendPcmToWebSocket\(pcmData\) \{[\s\S]{0,360}if \(!socketIsOpen\(\) \|\| !state\._setupComplete\) return;/);
+  assert.doesNotMatch(source, /!socketIsOpen\(\) \|\| !state\._setupComplete \|\| state\._toolCallPending/);
 });
 
 test("voice session keeps verified research through one barge-in on the stable setup payload", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
-  assert.match(source, /tools: \[\{ functionDeclarations: getToolDeclarations\(\) \}\]/);
+  assert.match(source, /getToolDeclarations\(\{[\s\S]*?nonBlocking: providerCapabilities\.nonBlockingFunctions,[\s\S]*?includeWebSearch: false,/);
+  assert.match(source, /getProviderSetupCapabilities\(model\)/);
+  assert.match(source, /getToolResponseScheduling\(\{ currentFact: shouldBlockForVerifiedFact\(call\) \}\)/);
   assert.match(source, /task\.epoch \+ 1 < state\._conversationEpoch/);
   assert.match(source, /Superseded by a newer topic/);
   assert.doesNotMatch(source, /googleSearch: \{\}/);
-  assert.doesNotMatch(source, /behavior: "NON_BLOCKING"/);
-  assert.doesNotMatch(source, /enableAffectiveDialog: true/);
-  assert.doesNotMatch(source, /proactivity: \{ proactiveAudio: true \}/);
 });
 
 test("voice prompt tells the model how to use background research", async () => {
@@ -107,7 +112,7 @@ test("voice prompt tells the model how to use background research", async () => 
   });
 
   assert.match(prompt, /BACKGROUND RESEARCH:/);
-  assert.match(prompt, /background_started/);
+  assert.match(prompt, /When live tool work begins/);
   assert.match(prompt, /trusted verified-current-information update/);
   assert.match(prompt, /automatically detected from the user's device timezone/);
   assert.match(prompt, /NEVER ask the user what timezone they are in/);
@@ -161,7 +166,9 @@ test("voice runtime softens barge-in audio and exposes a single long-turn listen
   assert.match(source, /linearRampToValueAtTime\(0\.0001, now \+ BARGE_IN_FADE_MS \/ 1000\)/);
   assert.match(source, /const LONG_SPEECH_LISTENER_CUE_MS = 2_400/);
   assert.match(source, /listenerCueSentForTurn/);
-  assert.match(source, /listenerCue: "I’m with you — keep going\."/);
+  assert.match(source, /function requestListeningPresenceCue\(\)/);
+  assert.match(source, /INTERNAL LISTENING PRESENCE — NOT USER SPEECH/);
+  assert.doesNotMatch(source, /listenerCue: "I’m with you — keep going\."/);
 });
 
 test("voice prompt permits one quiet acknowledgement during a long user thought", () => {
@@ -172,15 +179,17 @@ test("voice prompt permits one quiet acknowledgement during a long user thought"
     _contextProvider: null,
   });
 
-  assert.match(prompt, /Provider automatic turn detection owns the speaking boundary/);
-  assert.match(prompt, /Once the provider signals that the user has yielded/);
-  assert.match(prompt, /Never stack acknowledgments or react on a timer/);
+  assert.match(prompt, /Native-audio conversation presence/);
+  assert.match(prompt, /fits a natural gap/);
+  assert.match(prompt, /Never perform acknowledgements on a timer/);
+  assert.match(prompt, /User speech and interruption always take priority/);
 });
 
 
 test("Voice policy marks officeholders and changing facts as evidence-required but excludes local time", () => {
   assert.equal(requiresVerifiedVoiceEvidence("Who is the mayor of New York?"), true);
   assert.equal(requiresVerifiedVoiceEvidence("What is the weather today in Cairo?"), true);
+  assert.equal(requiresVerifiedVoiceEvidence("What is the latest news between Moscow and Ukraine?"), true);
   assert.equal(requiresVerifiedVoiceEvidence("مين رئيس الوزراء الحالي؟"), true);
   assert.equal(requiresVerifiedVoiceEvidence("What is a sales channel?"), false);
   assert.equal(isVoiceLocalTimeRequest("Can you tell me what is the time right now?"), true);
@@ -212,6 +221,19 @@ test("Voice lifecycle treats provider transcription, not raw microphone energy, 
   assert.match(source, /state\._semanticUserTurnActive = false;/);
   assert.match(source, /Confirmed browser capture is a quality signal, not a semantic user turn/);
   assert.doesNotMatch(source, /noteConfirmedCaptureActivity\(\)[\s\S]{0,700}touchActivity\(\{ user: true \}\)/);
+});
+
+test("native-audio provider policy enables only supported conversational-presence capabilities", () => {
+  const nativeModel = "gemini-2.5-flash-native-audio-preview-12-2025";
+  const legacyModel = "gemini-3.1-flash-live-preview";
+
+  assert.equal(isMindPalNativeAudioLiveModel(nativeModel), true);
+  assert.equal(isMindPalNativeAudioLiveModel(legacyModel), false);
+  assert.deepEqual(getProviderSetupCapabilities(nativeModel), { proactivity: { proactiveAudio: true } });
+  assert.equal(getLiveProviderCapabilities(nativeModel).nonBlockingFunctions, true);
+  assert.equal(getLiveProviderCapabilities(legacyModel).nonBlockingFunctions, false);
+  assert.equal(getToolResponseScheduling({ currentFact: true }), "SILENT");
+  assert.equal(getToolResponseScheduling({ currentFact: false }), "WHEN_IDLE");
 });
 
 test("Voice fact verifier accepts only authenticated backend evidence and never browser-search fallback", async () => {
