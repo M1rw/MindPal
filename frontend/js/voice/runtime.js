@@ -148,6 +148,7 @@ export function createVoiceSessionController() {
     _reconnectInFlight: false,
     _sessionGeneration: 0,
     _credentialRefreshPromise: null,
+    _socketOpenedAt: 0,
   };
 
   const toolExecutor = createToolExecutor({
@@ -235,6 +236,43 @@ export function createVoiceSessionController() {
       console.warn("[Voice] Failed to send WebSocket payload:", error);
       return false;
     }
+  }
+
+  function reportVoiceTransportClose(event) {
+    const model = String(state._voiceCredentials?.model || "").trim();
+    if (!model || !state._authToken) return;
+    const payload = {
+      model,
+      close_code: Math.max(0, Number(event?.code) || 0),
+      close_reason: String(event?.reason || "").slice(0, 500),
+      was_clean: Boolean(event?.wasClean),
+      setup_complete: Boolean(state._setupComplete),
+      greeting_sent: Boolean(state._greetingSent),
+      duration_ms: Math.max(0, Date.now() - Number(state._socketOpenedAt || Date.now())),
+    };
+
+    // Diagnostics carry transport metadata only: never audio, transcription,
+    // user profile, prompt, or tool data. The request is deliberately detached
+    // from onclose so provider cleanup can never be delayed by observability.
+    void (async () => {
+      try {
+        const appCheckToken = typeof state._getAppCheckToken === "function"
+          ? await state._getAppCheckToken()
+          : null;
+        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${state._authToken}` };
+        if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
+        await fetch(`${window.MINDPAL_CONFIG?.API_BASE_URL || ""}/voice/transport-diagnostic`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+          cache: "no-store",
+          credentials: "omit",
+          keepalive: true,
+        });
+      } catch {
+        // Diagnostics are optional and must remain invisible to the caller.
+      }
+    })();
   }
 
   function floatToPcm16(inputData) {
@@ -1254,6 +1292,7 @@ export function createVoiceSessionController() {
     socket.onopen = () => {
       if (generation !== state._socketGeneration || !state.isSessionActive) return;
       state._lastWsMessageTime = Date.now();
+      state._socketOpenedAt = Date.now();
       try {
         sendSetupMessage();
       } catch (error) {
@@ -1289,6 +1328,7 @@ export function createVoiceSessionController() {
       if (generation !== state._socketGeneration) return;
       if (state.liveWebSocket === socket) state.liveWebSocket = null;
       if (!state.isSessionActive || state.isStopping) return;
+      reportVoiceTransportClose(event);
 
       const reconnectSetupFailed = state._reconnectInFlight && !state._setupComplete;
       const plannedReconnect = state._clientReconnectRequested || state._resumeRequested || reconnectSetupFailed;
@@ -1526,6 +1566,7 @@ export function createVoiceSessionController() {
     state._noiseGateThreshold = NOISE_GATE_THRESHOLD;
     state._sessionGeneration += 1;
     state._credentialRefreshPromise = null;
+    state._socketOpenedAt = 0;
     state.isSessionActive = true;
     state.isStopping = false;
     state.isMicMuted = false;
@@ -1569,6 +1610,7 @@ export function createVoiceSessionController() {
     state.isSessionActive = false;
     state._sessionGeneration += 1;
     state._credentialRefreshPromise = null;
+    state._socketOpenedAt = 0;
     state._socketGeneration += 1;
 
     clearTurnCompleteTimer();
