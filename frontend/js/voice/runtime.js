@@ -76,6 +76,7 @@ export function createVoiceSessionController() {
     _localTimeQuestion: "",
     _factVerificationResult: null,
     _factBridgeSentForTurn: false,
+    _factBridgeAwaitingCompletion: false,
     _conversationEpoch: 0,
     _inputTurnActive: false,
     _semanticUserTurnActive: false,
@@ -341,6 +342,7 @@ export function createVoiceSessionController() {
     state._localTimeQuestion = "";
     state._factVerificationResult = null;
     state._factBridgeSentForTurn = false;
+    state._factBridgeAwaitingCompletion = false;
   }
 
   function shouldBlockForVerifiedFact(call) {
@@ -748,15 +750,19 @@ export function createVoiceSessionController() {
       if (!state._factBridgeSentForTurn) {
         state._factBridgeSentForTurn = true;
         setInteractionTag("fact-verifying", { factVerification: true, factBridge: true });
-        sendTextToModel(
+        state._factBridgeAwaitingCompletion = sendTextToModel(
           "[INTERNAL FACT-CHECK BRIDGE — NOT USER SPEECH]\n"
           + "The user has finished asking a changing-fact question and verification is still running. "
           + "Say exactly ONE very short, natural sentence in the user's language meaning ‘Give me a second — I’m checking that properly.’ "
-          + "Do not answer, guess, explain the tool, or add a follow-up question. Then wait for verified evidence.",
+          + "Do not answer, guess, explain the check, or add a follow-up question. Then wait for verified information.",
         );
       }
       return;
     }
+
+    // Do not deliver the verified result over the bridge. Waiting for the
+    // provider turn boundary guarantees that the user hears the natural pause.
+    if (state._factBridgeAwaitingCompletion) return;
 
     const verification = state._factVerificationResult;
     state._factVerificationResult = null;
@@ -1048,6 +1054,9 @@ export function createVoiceSessionController() {
     }
 
     const factGatePending = state._factVerificationGateUntilTurnComplete || state._localTimeGateUntilTurnComplete;
+    // The bridge is trusted, deliberately requested MindPal audio. Earlier
+    // speculative audio remains blocked until verified evidence is ready.
+    const isFactBridgeTurn = factGatePending && state._factBridgeAwaitingCompletion;
     if (data.serverContent?.modelTurn?.parts) {
       touchActivity();
       clearTurnCompleteTimer();
@@ -1059,20 +1068,25 @@ export function createVoiceSessionController() {
         interactionTag: factGatePending ? "fact-verifying" : "model-thinking",
       });
       for (const part of data.serverContent.modelTurn.parts) {
-        if (part.inlineData?.mimeType?.startsWith("audio/pcm") && !factGatePending) {
+        if (part.inlineData?.mimeType?.startsWith("audio/pcm") && (!factGatePending || isFactBridgeTurn)) {
           playAiAudioChunk(part.inlineData.data);
         }
       }
     }
 
     const outputText = data.serverContent?.outputTranscription?.text;
-    if (outputText && !factGatePending) {
+    if (outputText && (!factGatePending || isFactBridgeTurn)) {
       state._lastAiTranscript = outputText;
       appendContinuityLedger("model", outputText);
       state._onTranscript?.("ai", outputText);
     }
 
     if (data.serverContent?.turnComplete || data.serverContent?.interrupted) {
+      const completedFactBridge = Boolean(
+        data.serverContent?.turnComplete
+        && !data.serverContent?.interrupted
+        && state._factBridgeAwaitingCompletion,
+      );
       // Gemini automatic VAD owns semantic yield and interruption. Capture RMS may
       // mark quality activity, but it cannot clear model playback on its own.
       const providerTurn = reduceProviderTurnEvent({
@@ -1093,6 +1107,10 @@ export function createVoiceSessionController() {
       state._localTimeGateUntilTurnComplete = false;
       releaseLocalTimeAfterYield();
       releaseFactVerificationAfterYield();
+      if (completedFactBridge) {
+        state._factBridgeAwaitingCompletion = false;
+        releaseFactVerificationAfterYield();
+      }
       state._semanticUserTurnActive = false;
       clearTurnCompleteTimer();
       if (providerTurn.clearCaptureActivity) {

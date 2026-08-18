@@ -108,13 +108,14 @@ test("voice prompt tells the model how to use background research", async () => 
 
   assert.match(prompt, /BACKGROUND RESEARCH:/);
   assert.match(prompt, /background_started/);
-  assert.match(prompt, /INTERNAL BACKGROUND RESEARCH UPDATE/);
+  assert.match(prompt, /trusted verified-current-information update/);
   assert.match(prompt, /automatically detected from the user's device timezone/);
   assert.match(prompt, /NEVER ask the user what timezone they are in/);
   assert.match(prompt, /elected officials/);
   assert.match(prompt, /NEVER answer from memory alone/);
-  assert.match(prompt, /INTERNAL VERIFIED CURRENT-FACT EVIDENCE/);
-  assert.match(prompt, /CURRENT-FACT VERIFICATION FAILED/);
+  assert.match(prompt, /USER-FACING CONVERSATION FIREWALL/);
+  assert.doesNotMatch(prompt, /INTERNAL VERIFIED CURRENT-FACT EVIDENCE/);
+  assert.doesNotMatch(prompt, /CURRENT-FACT VERIFICATION FAILED/);
   assert.doesNotMatch(prompt, /Google Search grounding/);
   assert.match(prompt, /briefly interrupts or clarifies the same subject/);
 });
@@ -264,7 +265,8 @@ test("Voice runtime gates speculative volatile-fact audio and uses shared idle o
   assert.match(source, /INTERNAL VERIFIED CURRENT-FACT EVIDENCE/);
   assert.match(source, /INTERNAL CURRENT-FACT VERIFICATION FAILED/);
   assert.match(source, /_factVerificationGateUntilTurnComplete/);
-  assert.match(source, /if \(part\.inlineData\?\.mimeType\?\.startsWith\("audio\/pcm"\) && !factGatePending\)/);
+  assert.match(source, /const isFactBridgeTurn = factGatePending && state\._factBridgeAwaitingCompletion/);
+  assert.match(source, /\(!factGatePending \|\| isFactBridgeTurn\)/);
   assert.match(source, /getVoiceSessionLifecycleAction\(/);
   assert.match(source, /startSessionLifecycle\(\)/);
   assert.match(source, /lastUserActivityAt/);
@@ -282,9 +284,9 @@ test("Voice prompt permits exactly one natural fact-check bridge after the user 
     _contextProvider: null,
   });
 
-  assert.match(prompt, /INTERNAL FACT-CHECK BRIDGE/);
+  assert.match(prompt, /fact-check bridge arrives after the user has yielded/);
   assert.match(prompt, /exactly one short, language-matched acknowledgement/);
-  assert.match(prompt, /Do not guess, explain internal tools, repeat the bridge/);
+  assert.match(prompt, /Do not guess, explain the check, repeat the bridge/);
 });
 
 test("Voice runtime treats GoAway and its following normal close as a resumable continuation", async () => {
@@ -318,7 +320,10 @@ test("Voice runtime releases evidence only after its original fact-gated turn an
 
   assert.match(source, /function releaseFactVerificationAfterYield\(\)/);
   assert.match(source, /_factBridgeSentForTurn/);
+  assert.match(source, /_factBridgeAwaitingCompletion/);
   assert.match(source, /INTERNAL FACT-CHECK BRIDGE — NOT USER SPEECH/);
+  assert.match(source, /The bridge is trusted, deliberately requested MindPal audio/);
+  assert.match(source, /completedFactBridge/);
   assert.match(source, /releaseFactVerificationAfterYield\(\);/);
   assert.match(source, /_factVerificationGateUntilTurnComplete = false;/);
 });
