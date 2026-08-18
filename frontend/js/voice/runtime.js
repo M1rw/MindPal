@@ -684,12 +684,17 @@ export function createVoiceSessionController() {
         contextWindowCompression: { slidingWindow: {} },
         outputAudioTranscription: {},
         inputAudioTranscription: {},
-        tools: [{ functionDeclarations: getToolDeclarations({
-          nonBlocking: providerCapabilities.nonBlockingFunctions,
-          // Volatile public facts are routed through the authenticated backend
-          // verifier, not a second provider tool path that can race the gate.
-          includeWebSearch: false,
-        }) }],
+        // The native-audio preview is validated here with a tool-free provider
+        // setup. Current facts retain the authenticated verifier path below, so
+        // removing provider function declarations does not permit stale answers.
+        ...(providerCapabilities.providerFunctions ? {
+          tools: [{ functionDeclarations: getToolDeclarations({
+            nonBlocking: providerCapabilities.nonBlockingFunctions,
+            // Volatile public facts are routed through the authenticated backend
+            // verifier, not a second provider tool path that can race the gate.
+            includeWebSearch: false,
+          }) }],
+        } : {}),
         ...getProviderSetupCapabilities(model),
         systemInstruction: { parts: [{ text: adaptivePrompt }] },
       },
