@@ -18,13 +18,15 @@ export function createBackchannelProvider({
       return { ok: false, skipped: true, reason: "capability-not-validated" };
     }
     const prompt = BACKCHANNEL_PROMPTS[request.kind] || BACKCHANNEL_PROMPTS.attentive;
-    const sent = provider.sendText?.(`[LISTENING_ACK_ONLY] ${prompt}`) === true;
+    const cueText = `[LISTENING_ACK_ONLY] ${prompt} Speak only the short acknowledgement now, in the same voice and language as the active conversation.`;
+    const sent = provider.sendClientContent?.([{ role: "user", parts: [{ text: cueText }] }], true) === true
+      || provider.sendText?.(cueText) === true;
     if (!sent) {
       onEvent({ type: "backchannel.skipped", reason: "provider-not-ready", request });
       return { ok: false, skipped: true, reason: "provider-not-ready" };
     }
-    onEvent({ type: "backchannel.requested", request });
-    return { ok: true, request };
+    onEvent({ type: "backchannel.requested", request, transport: provider.sendClientContent ? "client-content" : "realtime-text" });
+    return { ok: true, request, transport: provider.sendClientContent ? "client-content" : "realtime-text" };
   }
 
   return Object.freeze({ request, getPrompt: (kind) => BACKCHANNEL_PROMPTS[kind] || BACKCHANNEL_PROMPTS.attentive });
