@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createVoiceToolGateway, classifyVoiceTool } from "../frontend/js/voice/tools/tool_gateway.js";
+import { executeToolClientSide } from "../frontend/js/voice/tools.js";
 import { createEvidenceGate } from "../frontend/js/voice/evidence/evidence_gate.js";
 import { createRecoverySupervisor } from "../frontend/js/voice/transport/recovery_supervisor.js";
 
@@ -19,6 +20,11 @@ test("tool gateway routes local, backend, and verified evidence without fallback
   assert.deepEqual(await gateway.execute("search_memory"), { value: 2 });
   assert.deepEqual(await gateway.execute("web_search"), { value: 3 });
   assert.deepEqual(calls, [["local", "current_time"], ["backend", "search_memory"], ["evidence", "web_search"]]);
+});
+
+test("client-side Voice executor refuses browser web search", async () => {
+  const result = await executeToolClientSide("web_search", { query: "latest news" }, {});
+  assert.match(result.error, /authenticated evidence gate/);
 });
 
 test("tool gateway returns a typed error when no trusted executor exists", async () => {

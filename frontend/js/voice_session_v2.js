@@ -20,6 +20,11 @@ import {
 } from "./voice/startup_helpers.mjs";
 import { VOICE_EVENTS } from "./voice/architecture/events.js";
 import { classifyFinalizedVoiceTurn, buildOperationIdentity } from "./voice/intent/finalized_turn_router.js";
+import { createTranscriptAssembler } from "./voice/transcript_assembler.js";
+
+function detectVoiceLanguage(text = "") {
+  return /[\u0600-\u06FF]/.test(String(text || "")) ? "ar" : "en-US";
+}
 
 function phaseProjection(phase = "idle", isAiSpeaking = false) {
   if (phase === "connecting") return { phase: "connecting", palette: "listen" };
@@ -67,6 +72,8 @@ export function createVoiceSessionV2({
   let currentSetup = null;
   let contextProvider = null;
   let active = false;
+  const userTranscriptAssembler = createTranscriptAssembler();
+  const aiTranscriptAssembler = createTranscriptAssembler();
   let lastUserTranscript = "";
   let lastAiTranscript = "";
   let sessionId = null;
@@ -86,8 +93,50 @@ export function createVoiceSessionV2({
   let operationsByTurn = new Map();
   let activeOperationController = null;
   let activeOperationTurnId = null;
+  let activePersistence = null;
   const pendingNativeCueRequests = new Map();
   let providerReadyGate = null;
+  let sessionEndNotified = false;
+  const deliveryTelemetry = {
+    audioParts: 0,
+    inputTranscriptionEvents: 0,
+    outputTranscriptionEvents: 0,
+    transcriptCallbackEvents: 0,
+    modelTextParts: 0,
+    turnCompleteEvents: 0,
+    interruptedEvents: 0,
+    factGatedAudioParts: 0,
+  };
+
+  function resetDeliveryTelemetry() {
+    for (const key of Object.keys(deliveryTelemetry)) deliveryTelemetry[key] = 0;
+  }
+
+  async function reportDeliveryDiagnostic(endReason = "client_stop") {
+    const baseUrl = apiBaseUrl();
+    const model = currentCredentials?.model;
+    if (!baseUrl || !model) return;
+    const token = await Promise.resolve(getToken()).catch(() => null);
+    const appCheckToken = await Promise.resolve(getAppToken()).catch(() => null);
+    const payload = { model, ...deliveryTelemetry, end_reason: String(endReason).replace(/[^a-z_]/g, "_").slice(0, 40) || "client_stop" };
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
+    await fetch(`${baseUrl}/voice/delivery-diagnostic`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      credentials: "omit",
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  function notifySessionEndOnce(reason = "transport-failure") {
+    if (sessionEndNotified) return false;
+    sessionEndNotified = true;
+    try { onSessionEnd({ reason, sessionId }); } catch (error) { onDiagnostic({ type: "voice.session-end-callback-failed", error }); }
+    return true;
+  }
 
   function clearProviderReadyGate() {
     if (providerReadyGate?.timer) clearTimeout(providerReadyGate.timer);
@@ -192,7 +241,7 @@ export function createVoiceSessionV2({
   function observeNativeCueTranscript(text) {
     const pending = pendingNativeCueRequests.values().next().value;
     if (!pending) return false;
-    if (!/\b(?:mm[- ]?hm|yeah|go on|i hear you|sounds really hard|let me|give me a second|checking|look back|work that out)\b/i.test(String(text || ""))) return false;
+    if (!/\b(?:mm[- ]?hm|yeah|go on|i hear you|sounds really hard|let me|give me a second|checking|look back|work that out|calculat|research|second)\b|(?:هممم|مممم|اهه|أيوه|حاضر|ثانية|لحظة|براجع|بشوف|هتحقق|هحسب|فاكر|فاكرة|نكمل|سامعك|حاسس بيك)/i.test(String(text || ""))) return false;
     pending.transcriptSeen = true;
     return tryConfirmNativeCue(pending);
   }
@@ -238,7 +287,7 @@ export function createVoiceSessionV2({
       sessionGeneration: identity.sessionGeneration,
       kind: operation.cueKind || plan.kind,
       expectedLatencyMs: operation.expectedLatencyMs,
-      language: "en-US",
+      language: detectVoiceLanguage(cleanText),
     });
     const controller = new AbortController();
     activeOperationController = controller;
@@ -277,26 +326,49 @@ export function createVoiceSessionV2({
 
   function handleEvent(event, state) {
     projectState(state);
+    if (event.type === "recovery.failed") notifySessionEndOnce("recovery-exhausted");
     if (event.type === VOICE_EVENTS.PROVIDER_READY) settleProviderReady();
     if (event.type === VOICE_EVENTS.PROVIDER_ERROR) settleProviderReady({ error: new Error("Gemini Live reported a provider error before setup completed.") });
     if (event.type === VOICE_EVENTS.PROVIDER_CLOSED && !getOrchestratorState().isReady) {
       settleProviderReady({ error: new Error(`Gemini Live closed before setup completed${event.code ? ` (code ${event.code})` : ""}.`) });
     }
     if (event.type === VOICE_EVENTS.PROVIDER_AUDIO) {
+      deliveryTelemetry.audioParts += 1;
       observeNativeCueAudio();
     }
     if (event.type === VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT) {
-      lastUserTranscript = `${lastUserTranscript} ${event.text || ""}`.trim();
+      deliveryTelemetry.inputTranscriptionEvents += 1;
+      deliveryTelemetry.transcriptCallbackEvents += 1;
+      const eventKey = event.raw?.serverContent?.inputTranscription?.text
+        ? `${event.identity?.sessionGeneration || 0}:input:${event.raw.serverContent.inputTranscription.text}:${event.finished ? "final" : "partial"}`
+        : "";
+      const assembled = userTranscriptAssembler.append(event.text || "", {
+        mode: event.finished === true ? "snapshot" : "auto",
+        eventKey,
+      });
       currentUserTurnId = currentUserTurnId || `voice-turn-${Date.now().toString(36)}`;
-      currentUserTurnText = `${currentUserTurnText} ${event.text || ""}`.trim();
+      currentUserTurnText = assembled;
+      lastUserTranscript = assembled;
+      activePersistence?.update({ userTranscript: assembled });
       onTranscript("user", event.text || "");
-      if (event.finished === true) void finalizeUserTurn({ turnId: currentUserTurnId, text: currentUserTurnText });
+      if (event.finished === true) void finalizeUserTurn({ turnId: currentUserTurnId, text: userTranscriptAssembler.finalize(event.text || "") });
     } else if (event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT) {
+      deliveryTelemetry.outputTranscriptionEvents += 1;
+      deliveryTelemetry.transcriptCallbackEvents += 1;
+      if (event.fallback) deliveryTelemetry.modelTextParts += 1;
       observeNativeCueTranscript(event.text || "");
-      lastAiTranscript = `${lastAiTranscript} ${event.text || ""}`.trim();
+      const assembled = aiTranscriptAssembler.append(event.text || "", {
+        mode: event.finished === true ? "snapshot" : "auto",
+        eventKey: event.fallback ? "" : `${event.identity?.sessionGeneration || 0}:output:${event.text || ""}:${event.finished ? "final" : "partial"}`,
+      });
+      lastAiTranscript = assembled;
+      activePersistence?.update({ aiTranscript: assembled });
       onTranscript("ai", event.text || "");
-    } else if (event.type === VOICE_EVENTS.PROVIDER_TURN_COMPLETE) {
-      if (currentUserTurnText) void finalizeUserTurn({ turnId: currentUserTurnId, text: currentUserTurnText });
+        } else if (event.type === VOICE_EVENTS.PROVIDER_TURN_COMPLETE) {
+      deliveryTelemetry.turnCompleteEvents += 1;
+      if (currentUserTurnText) void finalizeUserTurn({ turnId: currentUserTurnId, text: userTranscriptAssembler.finalize(currentUserTurnText) });
+      userTranscriptAssembler.reset();
+      activePersistence?.update({ completedTurnCount: (activePersistence.getActive?.()?.completedTurnCount || 0) + 1 });
       onTurnComplete();
     } else if (event.type === VOICE_EVENTS.TOOL_STARTED) {
       // Tool execution alone is not a spoken thinking cue. The UI status is
@@ -305,9 +377,12 @@ export function createVoiceSessionV2({
     } else if ([VOICE_EVENTS.TOOL_RESOLVED, VOICE_EVENTS.TOOL_FAILED].includes(event.type)) {
       onBackgroundTask({ status: event.type === VOICE_EVENTS.TOOL_RESOLVED ? "ready" : "failed", name: event.name });
     } else if (event.type === VOICE_EVENTS.PROVIDER_INTERRUPTED) {
+      deliveryTelemetry.interruptedEvents += 1;
       cancelActiveOperation("user-interrupted");
     } else if ([VOICE_EVENTS.PROVIDER_ERROR, VOICE_EVENTS.PROVIDER_CLOSED].includes(event.type)) {
       onDiagnostic(event);
+      if (event.type === VOICE_EVENTS.PROVIDER_ERROR && !recovery) notifySessionEndOnce("provider-error");
+      if (event.type === VOICE_EVENTS.PROVIDER_CLOSED && !recovery) notifySessionEndOnce("provider-closed");
     }
   }
 
@@ -362,12 +437,14 @@ export function createVoiceSessionV2({
 
   async function connectTransport({ resumeHandle = null } = {}) {
     await prepareTransport({ resumeHandle });
+    const readyPromise = createProviderReadyGate();
     provider.updateContext?.({ sessionGeneration: getOrchestratorState().sessionGeneration || 1 });
     provider.connect({
       url: buildEphemeralVoiceWebSocketUrl(currentCredentials),
       setup: currentSetup,
       identity: { sessionGeneration: getOrchestratorState().sessionGeneration || 1, sessionId },
     });
+    await readyPromise;
     return true;
   }
 
@@ -400,6 +477,8 @@ export function createVoiceSessionV2({
     if (nextGetAppCheckToken) getAppCheckToken = nextGetAppCheckToken;
     if (nextRefreshAppCheckToken) refreshAppCheckToken = nextRefreshAppCheckToken;
     sessionId = `voice-${Date.now().toString(36)}`;
+    sessionEndNotified = false;
+    resetDeliveryTelemetry();
     playbackAudioContext = createOutputAudioContext();
     if (playbackAudioContext?.state === "suspended") {
       await playbackAudioContext.resume().catch(() => {});
@@ -481,7 +560,7 @@ export function createVoiceSessionV2({
           else backchannelManager.cancel("local-cue-unavailable");
           return;
         }
-        void backchannelProvider.request({ kind: request.kind }).then((result) => {
+        void backchannelProvider.request({ kind: request.kind, language: request.context?.language || detectVoiceLanguage(currentUserTurnText) }).then((result) => {
           if (result?.ok) armNativeCueConfirmation({ key: `backchannel:${request.turnId}`, kind: "backchannel", request });
           else backchannelManager.cancel("native-cue-unavailable");
         });
@@ -501,15 +580,29 @@ export function createVoiceSessionV2({
           }
           return;
         }
-        void backchannelProvider.request({ kind: kind === "checking" ? "attentive" : "attentive" }).then((result) => {
+        void backchannelProvider.request({ kind, language: request.language || detectVoiceLanguage(currentUserTurnText) }).then((result) => {
           if (result?.ok) armNativeCueConfirmation({ key: `staging:${request.operationId}`, kind: "staging", operationId: request.operationId, request });
         });
       },
       onCancel: () => localCueManager.cancel("operation-cancelled"),
     });
     const persistence = createVoiceSessionPersistence({
-      persist: async () => true,
+      persist: async (record) => {
+        if (record.incognito || typeof globalThis.localStorage === "undefined") return true;
+        const key = "mindpal.voice.sessions.v2";
+        try {
+          const existing = JSON.parse(globalThis.localStorage.getItem(key) || "[]");
+          const sessions = Array.isArray(existing) ? existing : [];
+          sessions.push(record);
+          globalThis.localStorage.setItem(key, JSON.stringify(sessions.slice(-20)));
+        } catch (error) {
+          onDiagnostic({ type: "voice.session-persistence-failed", error });
+          throw error;
+        }
+        return true;
+      },
     });
+    activePersistence = persistence;
     activeResponseStagingManager = responseStagingManager;
     activeBackchannelManager = backchannelManager;
     recovery = createRecoverySupervisor({
@@ -545,6 +638,8 @@ export function createVoiceSessionV2({
   async function stopSession() {
     if (!active) return false;
     active = false;
+    sessionEndNotified = true;
+    reportDeliveryDiagnostic("client_stop");
     settleProviderReady({ error: new Error("Voice session stopped before Gemini setup completed.") });
     orchestrator?.stop();
     playback?.flush?.({ reason: "session-stop" });
@@ -564,10 +659,15 @@ export function createVoiceSessionV2({
     cancelPendingNativeCues("session-stop");
     operationsByTurn.clear();
     finalizedTurnIds.clear();
+    userTranscriptAssembler.reset();
+    aiTranscriptAssembler.reset();
+    lastUserTranscript = "";
+    lastAiTranscript = "";
     activeOperationTurnId = null;
     activeToolGateway = null;
     activeEvidenceGate = null;
     activeResponseStagingManager = null;
+    activePersistence = null;
     micMuted = false;
     localCueManager?.cancel("session-stop");
     localCueManager = null;
@@ -608,5 +708,9 @@ export function createVoiceSessionV2({
     getMicMuted: () => micMuted,
     getAiSpeaking: () => Boolean(getOrchestratorState().isModelSpeaking),
     getSpeakerMuted: () => speakerMuted,
+    getTranscriptSnapshot: () => ({
+      userTranscript: userTranscriptAssembler.getText() || lastUserTranscript,
+      aiTranscript: aiTranscriptAssembler.getText() || lastAiTranscript,
+    }),
   });
 }

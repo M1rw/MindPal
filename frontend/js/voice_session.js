@@ -13,6 +13,7 @@ export function getSessionState() {
 export function getMicMuted() { return controller.getMicMuted(); }
 export function getAiSpeaking() { return controller.getAiSpeaking(); }
 export function getSpeakerMuted() { return controller.getSpeakerMuted(); }
+export function getTranscriptSnapshot() { return controller.getTranscriptSnapshot?.() || { userTranscript: "", aiTranscript: "" }; }
 
 export function setSpeakerMuted(muted) {
   return controller.setSpeakerMuted(muted);
