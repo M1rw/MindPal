@@ -19,11 +19,16 @@ export function getLiveProviderCapabilities(model) {
     model: normalizeLiveModelName(model),
     nativeAudio,
     apiVersion: nativeAudio ? "v1beta" : "v1alpha",
-    // Native 2.5 Live supports these features. Gemini 3.1 Live does not, so
+    // Native 2.5 Live supports proactive audio. Gemini 3.1 Live does not, so
     // the runtime must not send unsupported setup fields or claim full duplex.
     proactiveAudio: nativeAudio,
     affectiveDialog: false,
-    nonBlockingFunctions: nativeAudio,
+    // The free-tier preview closed MindPal's WebSocket after the first greeting
+    // when provider-declared functions were present. Keep provider functions off
+    // this transport until the account/model combination is proven multi-turn
+    // stable. Verified current facts still use MindPal's authenticated backend.
+    providerFunctions: !nativeAudio,
+    nonBlockingFunctions: false,
     speakListeningPresence: nativeAudio,
   };
 }

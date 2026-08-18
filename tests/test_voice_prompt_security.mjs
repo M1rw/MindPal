@@ -93,8 +93,9 @@ test("live runtime delegates web research without pausing audio input", async ()
   assert.doesNotMatch(source, /!socketIsOpen\(\) \|\| !state\._setupComplete \|\| state\._toolCallPending/);
 });
 
-test("voice session keeps verified research through one barge-in on the stable setup payload", async () => {
+test("voice session preserves verified research while native setup avoids provider tools", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
+  assert.match(source, /providerCapabilities\.providerFunctions \? \{/);
   assert.match(source, /getToolDeclarations\(\{[\s\S]*?nonBlocking: providerCapabilities\.nonBlockingFunctions,[\s\S]*?includeWebSearch: false,/);
   assert.match(source, /getProviderSetupCapabilities\(model\)/);
   assert.match(source, /getToolResponseScheduling\(\{ currentFact: shouldBlockForVerifiedFact\(call\) \}\)/);
@@ -223,17 +224,39 @@ test("Voice lifecycle treats provider transcription, not raw microphone energy, 
   assert.doesNotMatch(source, /noteConfirmedCaptureActivity\(\)[\s\S]{0,700}touchActivity\(\{ user: true \}\)/);
 });
 
-test("native-audio provider policy enables only supported conversational-presence capabilities", () => {
+test("native-audio provider policy enables real presence without unstable provider functions", async () => {
   const nativeModel = "gemini-2.5-flash-native-audio-preview-12-2025";
   const legacyModel = "gemini-3.1-flash-live-preview";
+  const runtime = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");
 
   assert.equal(isMindPalNativeAudioLiveModel(nativeModel), true);
   assert.equal(isMindPalNativeAudioLiveModel(legacyModel), false);
   assert.deepEqual(getProviderSetupCapabilities(nativeModel), { proactivity: { proactiveAudio: true } });
-  assert.equal(getLiveProviderCapabilities(nativeModel).nonBlockingFunctions, true);
-  assert.equal(getLiveProviderCapabilities(legacyModel).nonBlockingFunctions, false);
+  assert.equal(getLiveProviderCapabilities(nativeModel).providerFunctions, false);
+  assert.equal(getLiveProviderCapabilities(nativeModel).nonBlockingFunctions, false);
+  assert.equal(getLiveProviderCapabilities(nativeModel).speakListeningPresence, true);
+  assert.equal(getLiveProviderCapabilities(legacyModel).providerFunctions, true);
+  assert.match(runtime, /providerCapabilities\.providerFunctions \? \{/);
   assert.equal(getToolResponseScheduling({ currentFact: true }), "SILENT");
   assert.equal(getToolResponseScheduling({ currentFact: false }), "WHEN_IDLE");
+});
+
+test("native-audio prompts never request unavailable provider functions", () => {
+  const makeState = (model) => ({
+    _lastUserTranscript: "",
+    _lastAiTranscript: "",
+    _recentEmotionHint: "neutral",
+    _providerCapabilities: getLiveProviderCapabilities(model),
+    _contextProvider: { getMemoryLines: () => [], getRecentChat: () => [] },
+  });
+
+  const nativePrompt = buildAdaptiveVoicePrompt("", "", makeState("gemini-2.5-flash-native-audio-preview-12-2025"));
+  const legacyPrompt = buildAdaptiveVoicePrompt("", "", makeState("gemini-3.1-flash-live-preview"));
+
+  assert.doesNotMatch(nativePrompt, /TOOLS:/);
+  assert.doesNotMatch(nativePrompt, /get_user_profile/);
+  assert.match(legacyPrompt, /TOOLS:/);
+  assert.match(legacyPrompt, /get_user_profile/);
 });
 
 test("Voice fact verifier accepts only authenticated backend evidence and never browser-search fallback", async () => {
