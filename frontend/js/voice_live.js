@@ -157,6 +157,13 @@ export async function startLiveVoice(contextProvider = null) {
       onSessionEnd: handleSessionEnd,
       onTurnComplete: handleTurnComplete,
       onBackgroundTask: handleBackgroundTask,
+      onDiagnostic: (event) => {
+        console.warn("[MindPal Voice]", event);
+        if (event?.type === "voice.provider-ready-timeout" || event?.type === "provider.error" || event?.type === "provider.closed") {
+          const diagnosticStatus = document.getElementById("voice-live-status");
+          if (diagnosticStatus) diagnosticStatus.textContent = "Voice connection failed — please try again";
+        }
+      },
       onVolume: feedVolume,
       token,
       refreshAuthToken: () => getIdToken({ forceRefresh: true }),
