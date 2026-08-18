@@ -35,6 +35,30 @@ test("Gemini adapter normalizes setup, transcripts, audio, interruption, and com
   assert.equal(events[4].identity.turnId, "turn-1");
 });
 
+test("Gemini adapter falls back to model-turn text for visible captions", () => {
+  const events = normalizeGeminiServerMessage({
+    serverContent: {
+      modelTurn: { parts: [{ text: "I hear you clearly." }, { inlineData: { data: "AQI=", mimeType: "audio/pcm;rate=24000" } }] },
+      turnComplete: true,
+    },
+  });
+  const transcripts = events.filter((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT);
+  assert.equal(transcripts.length, 1);
+  assert.equal(transcripts[0].text, "I hear you clearly.");
+  assert.equal(transcripts[0].fallback, true);
+
+  const withProviderTranscript = normalizeGeminiServerMessage({
+    serverContent: {
+      outputTranscription: { text: "Provider caption." },
+      modelTurn: { parts: [{ text: "Duplicate model text." }] },
+    },
+  });
+  assert.deepEqual(
+    withProviderTranscript.filter((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT).map((event) => event.text),
+    ["Provider caption."],
+  );
+});
+
 test("Gemini adapter sends setup and rejects stale sockets", () => {
   class FakeWebSocket {
     static OPEN = 1;

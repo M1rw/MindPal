@@ -61,16 +61,21 @@ export function normalizeGeminiServerMessage(message, context = {}) {
     }));
   }
 
+  const providerOutputText = serverContent.outputTranscription?.text || "";
   if (serverContent.outputTranscription) {
     events.push(createVoiceEvent(VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT, {
       identity,
-      text: serverContent.outputTranscription.text || "",
+      text: providerOutputText,
       finished: Boolean(serverContent.turnComplete),
       raw: data,
     }));
   }
 
+  let modelTextFallback = "";
   for (const part of serverContent.modelTurn?.parts || []) {
+    if (typeof part.text === "string" && part.text.trim()) {
+      modelTextFallback = modelTextFallback ? `${modelTextFallback} ${part.text.trim()}` : part.text.trim();
+    }
     const inlineData = part.inlineData || part.inline_data;
     if (inlineData?.data) {
       events.push(createProviderAudioEvent({
@@ -87,6 +92,16 @@ export function normalizeGeminiServerMessage(message, context = {}) {
         raw: data,
       }));
     }
+  }
+
+  if (!providerOutputText && modelTextFallback) {
+    events.push(createVoiceEvent(VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT, {
+      identity,
+      text: modelTextFallback,
+      finished: Boolean(serverContent.turnComplete),
+      fallback: true,
+      raw: data,
+    }));
   }
 
   if (serverContent.interrupted === true) {
