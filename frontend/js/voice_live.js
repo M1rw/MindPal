@@ -35,9 +35,10 @@ let liveVoiceInitialized = false;
 let backgroundTaskCount = 0;
 let lastAudioProjection = { phase: "idle", isAiSpeaking: false, isMicMuted: false };
 
-// Transcript bubble tracking
-let lastSpeaker = null;
-let currentBubble = null;
+// AI-only caption tracking. User speech remains available for optional call
+// history, but the live surface stays focused on MindPal's spoken captions.
+let currentCaption = null;
+let captionScrollFrame = null;
 
 // ═══════════════════════════════════════════════════════════════
 // Init (called once on page load)
@@ -71,14 +72,8 @@ export function initLiveVoice({ onChatSync } = {}) {
       refreshIcons();
 
       incognitoBtn.setAttribute("aria-pressed", String(isIncognito));
-      const statusEl = document.getElementById("voice-live-status");
-      if (statusEl) {
-        const prev = statusEl.textContent;
-        statusEl.textContent = isIncognito ? "Call won’t be added to chat" : "Call will be added to chat";
-        setTimeout(() => {
-          if (statusEl.textContent === "Call won’t be added to chat" || statusEl.textContent === "Call will be added to chat") statusEl.textContent = prev;
-        }, 1800);
-      }
+      incognitoBtn.setAttribute("aria-label", isIncognito ? "Private call is on" : "Do not add this call to chat history");
+      incognitoBtn.setAttribute("title", isIncognito ? "Private call is on" : "Do not add this call to chat history");
 
     });
   }
@@ -117,8 +112,9 @@ export async function startLiveVoice(contextProvider = null) {
   aiTranscript = "";
   ccVisible = true;
   callStartTime = new Date();
-  lastSpeaker = null;
-  currentBubble = null;
+  currentCaption = null;
+  if (captionScrollFrame) cancelAnimationFrame(captionScrollFrame);
+  captionScrollFrame = null;
   backgroundTaskCount = 0;
 
   // Prepare UI
@@ -234,6 +230,22 @@ export function stopLiveVoice() {
 // Callbacks from session
 // ═══════════════════════════════════════════════════════════════
 
+function appendTranscriptChunk(existing, chunk) {
+  const previous = String(existing || "");
+  const next = String(chunk || "");
+  if (!previous) return next;
+  if (!next || previous.endsWith(next)) return previous;
+  // Gemini transcription messages may be cumulative rather than deltas.
+  if (next.startsWith(previous)) return next;
+  if (previous.startsWith(next)) return previous;
+  if (/\s$/.test(previous) || /^\s/.test(next) || /^[,.;:!?،؟]/.test(next)) return previous + next;
+  return `${previous} ${next}`;
+}
+
+function detectCaptionDirection(text) {
+  return /[\u0590-\u08FF]/.test(String(text || "")) ? "rtl" : "ltr";
+}
+
 function handleTranscript(type, text) {
   if (!text) return;
 
@@ -241,41 +253,32 @@ function handleTranscript(type, text) {
   const cleaned = text.replace(/<noise>/gi, "");
   if (!cleaned?.trim()) return;
 
-  // New speaker → new bubble
-  if (lastSpeaker !== type || !currentBubble) {
-    currentBubble = createBubble(type);
-    lastSpeaker = type;
+  if (type === "user") {
+    userTranscript = appendTranscriptChunk(userTranscript, cleaned);
+    // Never display a duplicate user bubble. The next MindPal sentence begins a
+    // fresh caption so the live visual remains unambiguously assistant-led.
+    currentCaption = null;
+    return;
   }
+  if (type !== "ai") return;
 
-  const appendChunk = (existing, chunk) => {
-    const previous = String(existing || "");
-    const next = String(chunk || "");
-    if (!previous) return next;
-    if (!next || previous.endsWith(next)) return previous;
-    // Gemini transcription messages may be cumulative rather than deltas.
-    if (next.startsWith(previous)) return next;
-    if (previous.startsWith(next)) return previous;
-    if (/\s$/.test(previous) || /^\s/.test(next) || /^[,.;:!?،؟]/.test(next)) return previous + next;
-    return `${previous} ${next}`;
-  };
+  if (!currentCaption) currentCaption = createAiCaption();
+  if (!currentCaption) return;
 
-  if (currentBubble) {
-    currentBubble.textContent = appendChunk(currentBubble.textContent || "", cleaned);
-  }
-
-  if (type === "ai") aiTranscript = appendChunk(aiTranscript, cleaned);
-  else if (type === "user") userTranscript = appendChunk(userTranscript, cleaned);
-
+  const captionText = appendTranscriptChunk(currentCaption.textContent || "", cleaned);
+  currentCaption.textContent = captionText;
+  currentCaption.dir = detectCaptionDirection(captionText);
+  aiTranscript = appendTranscriptChunk(aiTranscript, cleaned);
   scrollTranscript();
 }
 
-function resolveMinimalVoiceStatus({ phase, isAiSpeaking: aiSpeaking } = {}) {
+export function resolveMinimalVoiceStatus({ phase, isAiSpeaking: aiSpeaking } = {}) {
   // Product-facing state intentionally stays small. Runtime interaction tags and
   // telemetry remain available for diagnostics but never become user copy.
   if (["connecting", "recovering"].includes(phase)) return "Connecting…";
-  if (aiSpeaking || backgroundTaskCount > 0 || ["thinking", "preparing", "interrupting"].includes(phase)) {
-    return "Thinking…";
-  }
+  if (phase === "inactive") return "Inactive";
+  if (aiSpeaking || phase === "speaking") return "MindPal is speaking…";
+  if (backgroundTaskCount > 0 || ["thinking", "preparing", "interrupting"].includes(phase)) return "Thinking…";
   return "Listening…";
 }
 
@@ -317,26 +320,33 @@ function handleSessionEnd() {
 }
 
 function handleTurnComplete() {
-  // Force a new bubble for the next transcript message
-  currentBubble = null;
+  // Force a fresh large caption for the next MindPal response.
+  currentCaption = null;
 }
 
 // ═══════════════════════════════════════════════════════════════
 // DOM helpers
 // ═══════════════════════════════════════════════════════════════
 
-function createBubble(type) {
+function createAiCaption() {
   const panel = document.getElementById("voice-transcript-panel");
   if (!panel) return null;
-  const div = document.createElement("div");
-  div.className = `voice-msg voice-msg-${type}`;
-  panel.appendChild(div);
-  return div;
+  panel.querySelectorAll(".voice-caption--active").forEach((caption) => caption.classList.remove("voice-caption--active"));
+  const caption = document.createElement("p");
+  caption.className = "voice-caption voice-caption--active";
+  caption.setAttribute("aria-atomic", "true");
+  panel.appendChild(caption);
+  return caption;
 }
 
 function scrollTranscript() {
   const panel = document.getElementById("voice-transcript-panel");
-  if (panel) panel.scrollTop = panel.scrollHeight;
+  if (!panel) return;
+  if (captionScrollFrame) cancelAnimationFrame(captionScrollFrame);
+  captionScrollFrame = requestAnimationFrame(() => {
+    captionScrollFrame = null;
+    panel.scrollTo({ top: panel.scrollHeight, behavior: "smooth" });
+  });
 }
 
 function updateMicUI(muted) {

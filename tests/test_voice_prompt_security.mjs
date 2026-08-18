@@ -6,13 +6,13 @@ import { buildAdaptiveVoicePrompt } from "../frontend/js/voice/prompts.js";
 import {
   advanceVoiceNoiseGate,
   getVoiceCapturePolicy,
-  getVoiceIdleAction,
   isVoiceConversationBusy,
   isVoiceLocalTimeRequest,
   reduceProviderTurnEvent,
   requiresVerifiedVoiceEvidence,
 } from "../frontend/js/voice/conversation_policy.js";
 import { verifyCurrentVoiceFact } from "../frontend/js/voice/fact_verifier.js";
+import { getVoiceSessionLifecycleAction } from "../frontend/js/voice/session_policy.js";
 
 function buildPromptWithUntrustedContext() {
   return buildAdaptiveVoicePrompt(
@@ -171,8 +171,9 @@ test("voice prompt permits one quiet acknowledgement during a long user thought"
     _contextProvider: null,
   });
 
-  assert.match(prompt, /During one genuinely long, emotional, or explanatory user thought/);
-  assert.match(prompt, /Never stack acknowledgments, react on a timer, or interrupt a short thought/);
+  assert.match(prompt, /Provider automatic turn detection owns the speaking boundary/);
+  assert.match(prompt, /Once the provider signals that the user has yielded/);
+  assert.match(prompt, /Never stack acknowledgments or react on a timer/);
 });
 
 
@@ -187,26 +188,16 @@ test("Voice policy marks officeholders and changing facts as evidence-required b
   assert.equal(requiresVerifiedVoiceEvidence("الساعة كام دلوقتي؟"), false);
 });
 
-test("Voice idle policy never checks in while either party or evidence work is active", () => {
+test("Voice inactivity never warns or ends while either party or evidence work is active", () => {
   const busy = isVoiceConversationBusy({ isAiSpeaking: true, queuedAudioCount: 2, sessionPhase: "speaking" });
   assert.equal(busy, true);
-  assert.equal(getVoiceIdleAction({
-    now: 120_000,
-    lastActivityTime: 0,
+  assert.equal(getVoiceSessionLifecycleAction({
+    now: 200_000,
+    sessionStartedAt: 0,
+    lastUserActivityAt: 0,
     isBusy: busy,
-    askAfterMs: 30_000,
-    warnAfterMs: 60_000,
-    endAfterMs: 90_000,
+    inactivityWarningSent: true,
   }), "none");
-
-  assert.equal(getVoiceIdleAction({
-    now: 35_000,
-    lastActivityTime: 0,
-    isBusy: false,
-    askAfterMs: 30_000,
-    warnAfterMs: 60_000,
-    endAfterMs: 90_000,
-  }), "ask");
 });
 
 test("Voice fact verifier accepts only authenticated backend evidence and never browser-search fallback", async () => {
@@ -261,8 +252,11 @@ test("Voice runtime gates speculative volatile-fact audio and uses shared idle o
   assert.match(source, /INTERNAL CURRENT-FACT VERIFICATION FAILED/);
   assert.match(source, /_factVerificationGateUntilTurnComplete/);
   assert.match(source, /if \(part\.inlineData\?\.mimeType\?\.startsWith\("audio\/pcm"\) && !factGatePending\)/);
-  assert.match(source, /getVoiceIdleAction\(/);
+  assert.match(source, /getVoiceSessionLifecycleAction\(/);
+  assert.match(source, /startSessionLifecycle\(\)/);
+  assert.match(source, /lastUserActivityAt/);
   assert.match(source, /hasActiveConversationWork\(\)/);
+  assert.match(source, /INTERNAL INACTIVITY NOTICE/);
   assert.doesNotMatch(source, /The user has been silent for 30 seconds/);
 });
 
@@ -302,6 +296,8 @@ test("Voice runtime turns a credential 429 into one shared, server-timed recover
   assert.match(source, /Number\(error\?\.status\) === 429/);
   assert.match(source, /scheduleReconnect\("credential-rate-limited", \{ rateLimitRetryAfterMs: Number\(error\?\.retryAfterMs\) \|\| 0 \}\)/);
   assert.match(source, /_sessionGeneration \+= 1/);
+  assert.match(source, /MINDPAL_PREBUILT_VOICE_NAME/);
+  assert.match(source, /INTERNAL THOUGHTFUL PAUSE/);
 });
 
 test("Voice runtime releases evidence only after its original fact-gated turn and bridges a pending check", async () => {
@@ -314,21 +310,44 @@ test("Voice runtime releases evidence only after its original fact-gated turn an
   assert.match(source, /_factVerificationGateUntilTurnComplete = false;/);
 });
 
-test("Voice overlay maps all runtime detail to the three-state human vocabulary", async () => {
+test("Voice overlay maps runtime detail to the five-state human vocabulary", async () => {
   const source = await readFile(new URL("../frontend/js/voice_live.js", import.meta.url), "utf8");
 
-  assert.match(source, /function resolveMinimalVoiceStatus/);
+  assert.match(source, /export function resolveMinimalVoiceStatus/);
   assert.match(source, /return "Connecting…"/);
+  assert.match(source, /return "MindPal is speaking…"/);
   assert.match(source, /return "Thinking…"/);
   assert.match(source, /return "Listening…"/);
+  assert.match(source, /return "Inactive"/);
   assert.match(source, /function renderMinimalVoiceStatus/);
   assert.match(source, /lastAudioProjection/);
   assert.doesNotMatch(source, /Checking that properly…/);
   assert.doesNotMatch(source, /Keeping our conversation connected…/);
   assert.doesNotMatch(source, /Restoring the thread…/);
-  assert.doesNotMatch(source, /MindPal is speaking…/);
 });
 
+
+test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic direction support", async () => {
+  const [source, markup, styles] = await Promise.all([
+    readFile(new URL("../frontend/js/voice_live.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/css/style.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /if \(type === "user"\) \{/);
+  assert.match(source, /userTranscript = appendTranscriptChunk/);
+  assert.match(source, /currentCaption = null/);
+  assert.match(source, /function createAiCaption\(\)/);
+  assert.match(source, /voice-caption voice-caption--active/);
+  assert.match(source, /panel\.scrollTo\(\{ top: panel\.scrollHeight, behavior: "smooth" \}\)/);
+  assert.match(source, /detectCaptionDirection/);
+  assert.doesNotMatch(source, /voice-msg-user/);
+  assert.match(markup, /aria-label="MindPal spoken captions"/);
+  assert.match(markup, /voice-caption-track/);
+  assert.match(styles, /\.voice-caption--active/);
+  assert.match(styles, /\.voice-caption\[dir="rtl"\]/);
+  assert.doesNotMatch(styles, /\.voice-msg-user/);
+});
 
 test("Voice runtime resolves local time after yield without entering the verified-web path", async () => {
   const source = await readFile(new URL("../frontend/js/voice/runtime.js", import.meta.url), "utf8");

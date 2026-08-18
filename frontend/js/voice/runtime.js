@@ -1,9 +1,7 @@
 import {
+  MINDPAL_PREBUILT_VOICE_NAME,
   NOISE_GATE_HOLD_MS,
   NOISE_GATE_THRESHOLD,
-  SILENCE_ASK_MS,
-  SILENCE_AUTO_END_MS,
-  SILENCE_WARN_MS,
 } from "./constants.js";
 import { buildAdaptiveVoicePrompt, inferEmotionHint } from "./prompts.js";
 import {
@@ -20,6 +18,7 @@ import {
   planVoiceRecovery,
   resetVoiceRecoveryState,
 } from "./recovery_policy.js";
+import { getVoiceSessionLifecycleAction } from "./session_policy.js";
 import { createToolExecutor, executeToolClientSide, getToolDeclarations } from "./tools.js";
 import {
   buildEphemeralVoiceWebSocketUrl,
@@ -90,11 +89,13 @@ export function createVoiceSessionController() {
     awaitingModelResponseAt: 0,
     _staleSocketCloseRequested: false,
     lastActivityTime: 0,
-    silenceCheckInterval: null,
+    lastUserActivityAt: 0,
+    sessionStartedAt: 0,
+    sessionLifecycleInterval: null,
+    sessionWarningSent: false,
+    inactivityWarningSent: false,
     keepAliveInterval: null,
     listeningTransitionTimer: null,
-    silenceAskedOnce: false,
-    silenceWarnedOnce: false,
     _networkHandlers: null,
     _lastWsMessageTime: 0,
     _networkCheckInterval: null,
@@ -127,6 +128,7 @@ export function createVoiceSessionController() {
     _continuityReseedPending: false,
     _continuityLedger: [],
     _interactionTag: "idle",
+    _thinkingBridgeSent: false,
     _setupComplete: false,
     _greetingSent: false,
     _socketGeneration: 0,
@@ -299,10 +301,13 @@ export function createVoiceSessionController() {
     });
   }
 
-  function touchActivity() {
-    state.lastActivityTime = Date.now();
-    state.silenceAskedOnce = false;
-    state.silenceWarnedOnce = false;
+  function touchActivity({ user = false } = {}) {
+    const now = Date.now();
+    state.lastActivityTime = now;
+    if (user) {
+      state.lastUserActivityAt = now;
+      state.inactivityWarningSent = false;
+    }
   }
 
   function hasActiveConversationWork() {
@@ -362,6 +367,7 @@ export function createVoiceSessionController() {
   function noteConfirmedCaptureActivity() {
     const startsNewCaptureActivity = !state.speechSeenRecently;
     state.lastUserSpeechAt = Date.now();
+    touchActivity({ user: true });
     state.speechSeenRecently = true;
 
     if (startsNewCaptureActivity) {
@@ -369,6 +375,7 @@ export function createVoiceSessionController() {
       state._inputTurnActive = true;
       state.userSpeechStartedAt = state.lastUserSpeechAt;
       state.listenerCueSentForTurn = false;
+      state._thinkingBridgeSent = false;
       state.awaitingModelResponseAt = 0;
       resetFactVerification({ abort: true });
       state._localTimeGateUntilTurnComplete = false;
@@ -446,7 +453,6 @@ export function createVoiceSessionController() {
     // quiet speech. Only confirmed speech alters client state or visual activity.
     if (signal.candidateSpeech) state.gateOpenUntil = Date.now() + NOISE_GATE_HOLD_MS;
     if (signal.confirmedSpeech) {
-      touchActivity();
       noteConfirmedCaptureActivity();
       if (capturePolicy.awaitProviderInterruption) {
         setInteractionTag("barge-in-pending");
@@ -477,42 +483,48 @@ export function createVoiceSessionController() {
     state.keepAliveInterval = null;
   }
 
-  function startSilenceChecker() {
-    stopSilenceChecker();
-    touchActivity();
+  function startSessionLifecycle() {
+    stopSessionLifecycle();
+    const now = Date.now();
+    // Socket resumption invokes setup again. The product call clock must survive
+    // those transport renewals rather than granting a new thirty-minute call.
+    if (!state.sessionStartedAt) state.sessionStartedAt = now;
+    if (!state.lastUserActivityAt) state.lastUserActivityAt = now;
 
-    state.silenceCheckInterval = setInterval(() => {
-      if (!state.isSessionActive || !socketIsOpen()) return;
-      const idleAction = getVoiceIdleAction({
-        lastActivityTime: state.lastActivityTime,
+    state.sessionLifecycleInterval = setInterval(() => {
+      if (!state.isSessionActive) return;
+      const action = getVoiceSessionLifecycleAction({
+        sessionStartedAt: state.sessionStartedAt,
+        lastUserActivityAt: state.lastUserActivityAt,
         isBusy: hasActiveConversationWork(),
-        silenceAskedOnce: state.silenceAskedOnce,
-        silenceWarnedOnce: state.silenceWarnedOnce,
-        askAfterMs: SILENCE_ASK_MS,
-        warnAfterMs: SILENCE_WARN_MS,
-        endAfterMs: SILENCE_AUTO_END_MS,
+        sessionWarningSent: state.sessionWarningSent,
+        inactivityWarningSent: state.inactivityWarningSent,
       });
 
-      if (idleAction === "end") {
+      if (action === "session-end" || action === "inactive-end") {
         stopSession();
         return;
       }
-      if (idleAction === "warn") {
-        state.silenceWarnedOnce = true;
-        sendTextToModel("The call has been genuinely quiet for a while. In one calm sentence, say you will end the call soon unless the user wants to continue.");
+      if (action === "session-warning") {
+        if (!socketIsOpen()) return;
+        setInteractionTag("session-ending-soon", { sessionEndingSoon: true });
+        setSessionPhase("thinking", { interactionTag: "session-ending-soon", sessionEndingSoon: true });
+        state.sessionWarningSent = sendTextToModel("[INTERNAL SESSION NOTICE — NOT USER SPEECH] The call has about two minutes remaining. Say one brief, warm, language-matched sentence that gives the user a clear heads-up, then return to the conversation. Do not mention systems, providers, or a technical limit.");
         return;
       }
-      if (idleAction === "ask") {
-        state.silenceAskedOnce = true;
-        sendTextToModel("The conversation has been genuinely quiet for a while. Give one brief, warm check-in only if no one is currently speaking or waiting for a result.");
+      if (action === "inactive-warning") {
+        if (!socketIsOpen()) return;
+        setInteractionTag("inactive", { inactivityWarning: true });
+        setSessionPhase("inactive", { interactionTag: "inactive", inactivityWarning: true });
+        state.inactivityWarningSent = sendTextToModel("[INTERNAL INACTIVITY NOTICE — NOT USER SPEECH] The user has been quiet for nearly two minutes. Say one short, warm, language-matched sentence: you will end the call in about a minute unless they want to continue. Do not mention systems or repeat this notice.");
       }
     }, 5_000);
   }
 
-  function stopSilenceChecker() {
-    if (!state.silenceCheckInterval) return;
-    clearInterval(state.silenceCheckInterval);
-    state.silenceCheckInterval = null;
+  function stopSessionLifecycle() {
+    if (!state.sessionLifecycleInterval) return;
+    clearInterval(state.sessionLifecycleInterval);
+    state.sessionLifecycleInterval = null;
   }
 
   function parseGoAwayReconnectDelay(timeLeft) {
@@ -618,7 +630,9 @@ export function createVoiceSessionController() {
         model: `models/${model.replace(/^models\//, "")}`,
         generationConfig: {
           responseModalities: ["AUDIO"],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } },
+          // Identity anchor: this same supported voice is sent after every
+          // provider transport renewal, not only on the first socket.
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: MINDPAL_PREBUILT_VOICE_NAME } } },
         },
         realtimeInputConfig: {
           automaticActivityDetection: {
@@ -643,6 +657,15 @@ export function createVoiceSessionController() {
     });
   }
 
+  function requestThinkingBridge() {
+    if (state._thinkingBridgeSent || state.isAiSpeaking || !state.isSessionActive) return;
+    state._thinkingBridgeSent = true;
+    sendTextToModel(
+      "[INTERNAL THOUGHTFUL PAUSE — NOT USER SPEECH]\n"
+      + "A real check or calculation is starting. Say exactly one short, natural, language-matched sentence such as ‘Give me a moment — I’m thinking that through.’ Then wait. Do not mention tools, systems, or this notice.",
+    );
+  }
+
   async function handleBlockingToolCalls(functionCalls) {
     if (!Array.isArray(functionCalls) || functionCalls.length === 0) return;
 
@@ -650,6 +673,7 @@ export function createVoiceSessionController() {
     state._toolCallPending = true;
     setInteractionTag("tool-working");
     setSessionPhase("thinking", { interactionTag: "tool-working" });
+    requestThinkingBridge();
 
     const timeoutController = new AbortController();
     const timeoutId = setTimeout(() => timeoutController.abort(), 15_000);
@@ -1007,7 +1031,7 @@ export function createVoiceSessionController() {
       state._recentEmotionHint = inferEmotionHint(inputText);
       appendContinuityLedger("user", inputText);
       state._onTranscript?.("user", inputText);
-      touchActivity();
+      touchActivity({ user: true });
       if (isVoiceLocalTimeRequest(inputText)) queueLocalTimeResponse(inputText);
       else startCurrentFactVerification(inputText);
     }
@@ -1161,7 +1185,7 @@ export function createVoiceSessionController() {
         try { socket.close(1011, "setup-failed"); } catch {}
         return;
       }
-      startSilenceChecker();
+      startSessionLifecycle();
       startKeepAlive();
       startNetworkMonitor();
       touchActivity();
@@ -1408,6 +1432,7 @@ export function createVoiceSessionController() {
     state._continuityReseedPending = false;
     state._continuityLedger = [];
     state._interactionTag = "idle";
+    state._thinkingBridgeSent = false;
     state._setupComplete = false;
     state._greetingSent = false;
     const recoveryState = resetVoiceRecoveryState();
@@ -1434,6 +1459,10 @@ export function createVoiceSessionController() {
     state.bargeInStartedAt = 0;
     state.speechSeenRecently = false;
     state.lastUserSpeechAt = 0;
+    state.lastUserActivityAt = 0;
+    state.sessionStartedAt = 0;
+    state.sessionWarningSent = false;
+    state.inactivityWarningSent = false;
     state.userSpeechStartedAt = 0;
     state.listenerCueSentForTurn = false;
     state.awaitingModelResponseAt = 0;
@@ -1467,7 +1496,7 @@ export function createVoiceSessionController() {
     clearTurnCompleteTimer();
     clearListeningTransitionTimer();
     clearReconnectTimer();
-    stopSilenceChecker();
+    stopSessionLifecycle();
     stopKeepAlive();
     stopNetworkMonitor();
     flushAiAudio({ updatePhase: false });
