@@ -91,6 +91,24 @@ class VoiceTokenResponse(BaseModel):
     usage: dict[str, int] | None = None
 
 
+class VoiceTransportDiagnosticRequest(BaseModel):
+    """Sanitized client-side Live transport metadata for production diagnosis."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model: str = Field(min_length=1, max_length=120)
+    close_code: int = Field(ge=0, le=5_000)
+    close_reason: str = Field(default="", max_length=500)
+    was_clean: bool
+    setup_complete: bool
+    greeting_sent: bool
+    duration_ms: int = Field(ge=0, le=1_800_000)
+
+    @field_validator("model", "close_reason", mode="before")
+    @classmethod
+    def _clean_transport_detail(cls, value: object) -> str:
+        return sanitize_text(str(value or ""), 500)
+
+
 class VoiceVerifiedFactRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     query: str = Field(min_length=1, max_length=MAX_VOICE_FACT_QUERY_CHARS)
@@ -416,6 +434,27 @@ async def get_voice_token(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"code": "voice_token_provision_failed", "message": "Could not start a secure voice session", "request_id": context.request_id},
         ) from exc
+
+
+@router.post("/transport-diagnostic", status_code=status.HTTP_204_NO_CONTENT)
+async def report_voice_transport_diagnostic(
+    payload: VoiceTransportDiagnosticRequest,
+    context: AuthenticatedRequestContextDep,
+) -> Response:
+    """Record sanitized close metadata without accepting speech or transcript data."""
+    assert_authenticated(context)
+    logger.warning(
+        "Voice Live transport closed: model=%s code=%s clean=%s setup=%s greeting=%s duration_ms=%s reason=%s request_id=%s",
+        payload.model,
+        payload.close_code,
+        payload.was_clean,
+        payload.setup_complete,
+        payload.greeting_sent,
+        payload.duration_ms,
+        payload.close_reason,
+        context.request_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/key", status_code=status.HTTP_410_GONE)

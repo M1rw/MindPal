@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException, Response
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 import importlib
 
@@ -94,6 +94,33 @@ async def test_voice_token_endpoint_returns_ephemeral_token_not_provider_key(mon
     assert "v1alpha.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
     assert result.model == "gemini-3.1-flash-live-preview"
     assert response.headers["cache-control"] == "no-store, private"
+
+
+@pytest.mark.asyncio
+async def test_voice_transport_diagnostic_records_only_sanitized_socket_metadata() -> None:
+    payload = voice_router.VoiceTransportDiagnosticRequest(
+        model="gemini-2.5-flash-native-audio-preview-12-2025",
+        close_code=1008,
+        close_reason="Policy violation",
+        was_clean=True,
+        setup_complete=True,
+        greeting_sent=True,
+        duration_ms=23_000,
+    )
+
+    response = await voice_router.report_voice_transport_diagnostic(payload=payload, context=_context())
+
+    assert response.status_code == 204
+    with pytest.raises(ValidationError):
+        voice_router.VoiceTransportDiagnosticRequest(
+            model="gemini-2.5-flash-native-audio-preview-12-2025",
+            close_code=1008,
+            was_clean=True,
+            setup_complete=True,
+            greeting_sent=True,
+            duration_ms=23_000,
+            transcript="user speech must never be accepted",
+        )
 
 
 def test_voice_rate_and_quota_errors_preserve_retry_after_for_recovery_clients() -> None:
