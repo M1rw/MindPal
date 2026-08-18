@@ -427,7 +427,8 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
   assert.match(styles, /\.voice-caption\[dir="rtl"\]/);
   assert.match(styles, /scroll-padding-block: 2rem/);
   assert.match(styles, /color: rgba\(45, 45, 49, 0\.64\)/);
-  assert.doesNotMatch(styles, /mask-image: linear-gradient\(to bottom, transparent 0/);
+  assert.match(styles, /padding: clamp\(3rem, 10vh, 6rem\) 0 clamp\(5rem, 14vh, 8rem\)/);
+  assert.match(styles, /mask-image: linear-gradient\(to bottom, transparent 0, rgba\(0, 0, 0, 0\.74\) 7%, #000 16%, #000 87%/);
   assert.doesNotMatch(styles, /\.voice-msg-user/);
 });
 

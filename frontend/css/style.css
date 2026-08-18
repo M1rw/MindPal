@@ -1089,10 +1089,13 @@ button:active,
   flex-direction: column;
   justify-content: flex-end;
   gap: 0.9rem;
-  padding: clamp(3rem, 10vh, 6rem) 0 clamp(3.75rem, 10vh, 6rem);
+  padding: clamp(3rem, 10vh, 6rem) 0 clamp(5rem, 14vh, 8rem);
   overscroll-behavior: contain;
   scroll-behavior: smooth;
   scroll-padding-block: 2rem;
+  /* Depth at both edges, while the active line rests in the opaque centre. */
+  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.74) 7%, #000 16%, #000 87%, rgba(0, 0, 0, 0.74) 95%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.74) 7%, #000 16%, #000 87%, rgba(0, 0, 0, 0.74) 95%, transparent 100%);
 }
 
 .voice-caption {
@@ -1142,7 +1145,7 @@ button:active,
   .voice-caption-track {
     gap: 0.72rem;
     padding-top: 2.5rem;
-    padding-bottom: 4rem;
+    padding-bottom: 5.5rem;
   }
 }
 
