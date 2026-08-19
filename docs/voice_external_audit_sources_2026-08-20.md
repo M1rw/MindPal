@@ -39,3 +39,11 @@ MindPal’s current architecture is client-to-Gemini WebSocket with a Vercel bac
 [4]: https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens
 [5]: https://ai.google.dev/gemini-api/docs/live-api/capabilities
 
+
+## Post-fix verification
+
+Commit dd824a8 removed both optional setup fields from the Gemini 2.5 constrained WebSocket payload and changed the HTML asset query from rich-response-20260814 to voice-duplex-20260820. A direct HTTP fetch of https://mindpal-demo.vercel.app/?v=voice-duplex-20260820 returned HTTP 200 with cache-control: no-cache and the new asset references. Vercel deployment dpl_AcrRKBX9kxEhWdvG1C8Wyv8FQC9n is READY. Vercel grouped runtime errors for the last two hours returned no runtime errors.
+
+The deterministic synthetic suite has four passing tests. It validates mono PCM16 16 kHz fixtures, mute suppression, background-noise rejection before sustained speech, optimistic ducking/release driven by real orchestrator capture-quality handling, and a 10.4-second story pause entering the 180-1200 ms listening-cue eligibility window without requiring a user yield. The synthetic interruption harness observes ducking within one 20 ms capture frame and release after the interruption gap.
+
+The connected browser extension timed out while trying to close the persisted Settings modal during the final cache-busted browser check. Therefore, direct HTTP freshness and Vercel runtime-error absence are verified, while a human-spoken long-story cue test remains unverified in this pass.
