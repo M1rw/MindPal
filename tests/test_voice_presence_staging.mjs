@@ -160,6 +160,25 @@ test("native backchannel provider keeps the active user turn open", async () => 
   assert.match(sent[0].turns[0].parts[0].text, /Speak only the short acknowledgement now/);
 });
 
+test("Gemini 2.5 Live backchannel uses clientContent without closing the active user turn", async () => {
+  const sent = [];
+  const live = createBackchannelProvider({
+    provider: {
+      sendClientContent: (turns, turnComplete) => {
+        sent.push({ turns, turnComplete });
+        return true;
+      },
+      sendText: () => { throw new Error("Gemini 2.5 must not use realtime text"); },
+    },
+    capabilities: { sameSessionBackchannel: true, preferRealtimeText: false },
+  });
+  const result = await live.request({ kind: "encouragement", language: "en-US" });
+  assert.equal(result.ok, true);
+  assert.equal(result.transport, "client-content");
+  assert.equal(sent[0].turnComplete, false);
+  assert.match(sent[0].turns[0].parts[0].text, /LISTENING_ACK_ONLY/);
+});
+
 test("Gemini 3.1 backchannel never falls back to clientContent", async () => {
   let clientContentCalls = 0;
   const live = createBackchannelProvider({
