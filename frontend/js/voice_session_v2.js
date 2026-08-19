@@ -177,13 +177,14 @@ export function createVoiceSessionV2({
     // A cue must never be sent from local RMS alone. Without provider transcript
     // context, realtime text can become a new user turn and swallow the real one.
     if (!active || !orchestrator || !turnId || !localSpeechActive || !String(languageText || "").trim() || longTurnPresenceTimer) return;
-    if (liveCapabilities?.proactiveAudio) {
-      if (proactivePresenceLoggedTurnId !== turnId) {
-        proactivePresenceLoggedTurnId = turnId;
-        onDiagnostic({ type: "voice.long-turn-presence", decision: "provider-proactive-audio", localAudio: true });
-      }
-      return;
+    if (liveCapabilities?.proactiveAudio && proactivePresenceLoggedTurnId !== turnId) {
+      proactivePresenceLoggedTurnId = turnId;
+      onDiagnostic({ type: "voice.long-turn-presence", decision: "provider-proactive-audio-plus-manual-cue", localAudio: true });
     }
+    // Proactive audio is an opt-in provider behavior, not a guaranteed
+    // mid-speech acknowledgement. Keep the explicit cue scheduler enabled for
+    // validated transports, while unknown providers remain fail-closed.
+    if (liveCapabilities?.nativeListeningCues !== true) return;
     if (!longTurnStartedAt) longTurnStartedAt = Date.now();
     longTurnPresenceTimer = setTimeout(() => {
       longTurnPresenceTimer = null;
@@ -768,7 +769,7 @@ export function createVoiceSessionV2({
       provider,
       capabilities: {
         sameSessionBackchannel: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_BACKCHANNEL === true && capabilities.nativeListeningCues === true,
-        preferRealtimeText: capabilities.nativeAudio !== true,
+        preferRealtimeText: capabilities.preferRealtimeText === true,
       },
       onEvent: (event) => onDiagnostic({ ...event, type: `voice.${event.type}` }),
     });

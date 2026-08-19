@@ -319,6 +319,36 @@ test("orchestrator keeps cue audio classified when cue transcript precedes PCM",
   assert.equal(scheduled[1].audioClass, "main");
 });
 
+test("orchestrator preserves the active user turn after a non-completing listening cue", () => {
+  const scheduled = [];
+  const provider = { connect: () => {}, close: () => {} };
+  const capture = createCaptureAdapter();
+  let pending = true;
+  const backchannelManager = {
+    hasPending: () => pending,
+    consider: () => ({ offer: false, reason: "fixture" }),
+    cancel: () => { pending = false; },
+  };
+  const playback = {
+    schedule: (_data, options) => { scheduled.push(options); return true; },
+    handleInterruption: () => 1,
+    flush: () => 1,
+  };
+  const orchestrator = createVoiceSessionOrchestrator({ provider, capture, playback, backchannelManager });
+  orchestrator.start({ url: "wss://example.test", setup: {} });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_READY, identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT, text: "I have been trying to explain this story", identity: { sessionGeneration: 1 } });
+  const activeTurnId = orchestrator.getState().activeTurnId;
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_AUDIO, base64Data: "AQI=", identity: { sessionGeneration: 1 } });
+  assert.equal(scheduled[0].audioClass, "backchannel");
+  pending = false;
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT, text: "and the difficult part is", identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_AUDIO, base64Data: "AQI=", identity: { sessionGeneration: 1 } });
+  assert.equal(scheduled[1].audioClass, "main");
+  assert.equal(orchestrator.getState().activeTurnId, activeTurnId);
+  assert.equal(orchestrator.getState().phase, VOICE_PHASES.MODEL_SPEAKING);
+});
+
 test("playback manager emits one turn start and chunk scheduling diagnostics per audio class", () => {
   const events = [];
   const context = {

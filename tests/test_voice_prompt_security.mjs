@@ -257,10 +257,12 @@ test("native-audio provider policy enables real presence without unstable provid
   assert.equal(getLiveProviderCapabilities(nativeModel).nativeListeningCues, true);
   assert.equal(getLiveProviderCapabilities(proactiveModel).apiVersion, "v1beta");
   assert.equal(getLiveProviderCapabilities(proactiveModel).proactiveAudio, true);
-  assert.equal(getLiveProviderCapabilities(proactiveModel).nativeListeningCues, false);
+  assert.equal(getLiveProviderCapabilities(proactiveModel).nativeListeningCues, true);
+  assert.equal(getLiveProviderCapabilities(proactiveModel).preferRealtimeText, false);
   assert.equal(getLiveProviderCapabilities(proactiveModel).nonBlockingFunctions, true);
   assert.deepEqual(getProviderSetupCapabilities(proactiveModel), { proactivity: { proactiveAudio: true }, enableAffectiveDialog: true });
   assert.equal(getLiveProviderCapabilities(legacyModel).nativeListeningCues, true);
+  assert.equal(getLiveProviderCapabilities(legacyModel).preferRealtimeText, true);
   assert.equal(getLiveProviderCapabilities(legacyModel).providerFunctions, true);
   assert.match(runtime, /providerCapabilities\.providerFunctions \? \{/);
   assert.equal(getToolResponseScheduling({ currentFact: true }), "SILENT");

@@ -18,17 +18,22 @@ export function getLiveProviderCapabilities(model) {
   const normalizedModel = normalizeLiveModelName(model);
   const gemini25Live = /^gemini-2\.5-flash-live(?:-|$)/i.test(normalizedModel);
   const gemini31Live = /^gemini-3\.1-flash-live(?:-|$)/i.test(normalizedModel);
-  const sameSessionListeningCues = nativeAudio || gemini31Live;
+  // Gemini 2.5 Flash Live supports clientContent updates throughout an active
+  // conversation (turnComplete=false), which is the safe explicit cue
+  // transport while the user turn remains open. Gemini 3.1 uses realtime text.
+  const sameSessionListeningCues = nativeAudio || gemini25Live || gemini31Live;
   return {
     model: normalizedModel,
     nativeAudio,
     apiVersion: nativeAudio || gemini25Live ? "v1beta" : "v1alpha",
     // Gemini 2.5 Flash Live supports the documented proactive-audio path on
-    // v1beta. Native Audio and Gemini 3.1 use explicit manual cue policies.
+    // v1beta, but proactive audio is not a reliable mid-speech acknowledgement
+    // mechanism. The explicit client-content cue path remains enabled too.
     proactiveAudio: gemini25Live,
-    // Manual cue requests use realtime text/clientContent only on transports
-    // where same-session cue behavior has been explicitly validated.
+    // Manual cue requests use clientContent for Gemini 2.5/Native Audio and
+    // realtime text for Gemini 3.1.
     nativeListeningCues: sameSessionListeningCues,
+    preferRealtimeText: gemini31Live,
     affectiveDialog: gemini25Live,
     // The free-tier preview closed MindPal's WebSocket after the first greeting
     // when provider-declared functions were present. Keep provider functions off
