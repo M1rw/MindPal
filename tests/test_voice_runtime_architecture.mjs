@@ -59,6 +59,24 @@ test("Gemini adapter falls back to model-turn text for visible captions", () => 
   );
 });
 
+test("Gemini adapter filters internal reasoning from model-text caption fallback", () => {
+  const thoughtPart = normalizeGeminiServerMessage({
+    serverContent: {
+      modelTurn: { parts: [
+        { text: "**Greeting the User** I am deciding how to respond.", thought: true },
+        { text: "**Formulating Pleasantries** A friendly greeting is being formulated." },
+      ] },
+      turnComplete: true,
+    },
+  });
+  assert.equal(thoughtPart.filter((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT).length, 0);
+
+  const spokenFallback = normalizeGeminiServerMessage({
+    serverContent: { modelTurn: { parts: [{ text: "Hello, how are you today?" }] } },
+  });
+  assert.equal(spokenFallback.find((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT)?.text, "Hello, how are you today?");
+});
+
 test("Gemini adapter sends setup and rejects stale sockets", () => {
   class FakeWebSocket {
     static OPEN = 1;
