@@ -94,6 +94,53 @@ inline PriceResult price_per_gb(double price_ex_vat, double quota_gb, double vat
     return out;
 }
 
+enum class TrafficClass { Realtime, Bulk, General, Management };
+
+struct WanPath {
+    std::string name;
+    bool healthy{};
+    bool satellite{};
+    double latency_ms{};
+    double loss_percent{};
+    double estimated_cost_per_gb{};
+    double quota_remaining_gb{};
+};
+
+struct RouteDecision {
+    std::string wan;
+    bool allowed{};
+    std::string reason;
+};
+
+inline double health_score(const WanPath& path, TrafficClass traffic) {
+    double score = path.latency_ms + (path.loss_percent * 20.0);
+    if (traffic == TrafficClass::Realtime && path.satellite) score += 25.0;
+    if (traffic == TrafficClass::Bulk) score += path.estimated_cost_per_gb * 10.0;
+    return score;
+}
+
+inline RouteDecision choose_route(const std::vector<WanPath>& paths,
+                                  TrafficClass traffic,
+                                  bool allow_satellite_bulk = true) {
+    const WanPath* best = nullptr;
+    for (const auto& path : paths) {
+        if (!path.healthy) continue;
+        if (path.quota_remaining_gb <= 0.0) continue;
+        if (traffic == TrafficClass::Bulk && path.satellite && !allow_satellite_bulk) continue;
+        if (!best || health_score(path, traffic) < health_score(*best, traffic)) best = &path;
+    }
+    if (!best) return {"", false, "no healthy eligible WAN with remaining allowance"};
+    std::string reason = "selected by latency/loss";
+    if (traffic == TrafficClass::Bulk) reason = "selected by cost-aware bulk-transfer score";
+    if (best->satellite) reason += "; satellite allowed by policy";
+    return {best->name, true, reason};
+}
+
+inline bool should_failover(bool primary_healthy, int consecutive_failures, int threshold = 3) {
+    if (threshold < 1) throw std::invalid_argument("failover threshold must be positive");
+    return !primary_healthy && consecutive_failures >= threshold;
+}
+
 inline std::string safe_policy_summary() {
     return "read-only discovery; dry-run recommendations; owner approval for each change; local-only binding; append-only audit log; no quota or billing evasion";
 }
