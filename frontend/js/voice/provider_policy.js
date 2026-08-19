@@ -48,11 +48,12 @@ export function getLiveProviderCapabilities(model) {
 export function getProviderSetupCapabilities(model) {
   const capabilities = getLiveProviderCapabilities(model);
   if (!capabilities.proactiveAudio) return {};
-  // The deployed v1beta WebSocket currently rejects the documented
-  // `proactivity` setup field with code 1007. Keep the model capability flag
-  // for prompt/cue policy, but omit the unsupported wire field so startup is
-  // reliable; explicit clientContent cues provide listening presence instead.
-  return { enableAffectiveDialog: true };
+  // This constrained WebSocket has rejected both documented optional fields
+  // (`proactivity` and `enableAffectiveDialog`) with code 1007 in production.
+  // Keep the capability metadata for local/manual cue policy, but send only
+  // the universally accepted setup fields; explicit clientContent cues provide
+  // listening presence without risking setup-time schema failure.
+  return {};
 }
 
 export function getToolResponseScheduling({ currentFact = false } = {}) {
