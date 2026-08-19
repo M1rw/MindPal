@@ -2,8 +2,9 @@
 
 **Date:** 20 August 2026
 **Repository:** `M1rw/MindPal`
-**Latest commit:** `dd824a8`
-**Latest production deployment:** `dpl_AcrRKBX9kxEhWdvG1C8Wyv8FQC9n`
+**Latest Voice implementation commit:** `dd824a8`
+**Final origin/main commit:** `928f289`
+**Latest production deployment:** `dpl_DkmLGLWDvvZNzjNWtWPUPjQUNdFV`
 
 ## Executive result
 
@@ -108,7 +109,7 @@ The cue path is still subject to an important provider behavior boundary: a clie
 | Synthetic WAV fixture suite | **4 passed** |
 | Synthetic interruption ducking latency | **Within 20 ms capture frame** |
 | Fresh production HTML asset query | **Verified: `voice-duplex-20260820`** |
-| Vercel deployment dd824a8 | **READY** |
+| Vercel deployment dd824a8 lineage / final deployment dpl_DkmLGLWDvvZNzjNWtWPUPjQUNdFV | **READY** |
 | Vercel grouped runtime errors, last two hours | **None found** |
 | Fresh human long-story cue acceptance on newest browser bundle | **Not completed**: connected browser extension timed out on Settings-modal interaction |
 
