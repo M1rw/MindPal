@@ -25,11 +25,12 @@ function decodeSocketMessage(raw) {
 
 const INTERNAL_REASONING_HEADING = /\*\*\s*(?:Greeting|Formulating|Analyzing|Planning|Thinking|Reasoning|Deciding|Preparing|Interpreting|Evaluating|Considering|Identifying|Selecting|Crafting|Checking|Understanding|Responding|Answering|Assessing|Generating)[^*]*\*\*/i;
 const INTERNAL_REASONING_BLOCK = /<think>[\s\S]*?<\/think>/gi;
+const INTERNAL_VOICE_MARKER = /\[(?:INTERNAL\s+(?:RESPONSE\s+PLAN|VOICE\s+OPERATION|LISTENING\s+PRESENCE)|USER-FACING\s+RESPONSE\s+PLAN)\b[^\]]*\]/i;
 
 function sanitizeCaptionFallbackText(text, part = {}) {
   if (part.thought === true || part.isThought === true) return "";
   let value = String(text || "").replace(INTERNAL_REASONING_BLOCK, "").trim();
-  if (!value) return "";
+  if (!value || INTERNAL_VOICE_MARKER.test(value)) return "";
 
   // Gemini can put a hidden planning section and spoken text in one model-text
   // part. Split at bold headings so only sections whose heading is internal
@@ -82,8 +83,8 @@ export function normalizeGeminiServerMessage(message, context = {}) {
     }));
   }
 
-  const providerOutputText = serverContent.outputTranscription?.text || "";
-  if (serverContent.outputTranscription) {
+  const providerOutputText = sanitizeCaptionFallbackText(serverContent.outputTranscription?.text || "");
+  if (serverContent.outputTranscription && providerOutputText) {
     events.push(createVoiceEvent(VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT, {
       identity,
       text: providerOutputText,

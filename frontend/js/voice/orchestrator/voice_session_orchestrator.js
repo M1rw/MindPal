@@ -38,7 +38,9 @@ export function createVoiceSessionOrchestrator({
   let noiseFloorRms = 0.0025;
   let latestResumeHandle = "";
   let activeTurnStartedAt = 0;
+  let activeBackchannelResponse = false;
   const pendingToolResults = [];
+  const BACKCHANNEL_OUTPUT_PATTERN = /\b(?:mm[- ]?hm|yeah|go on|i hear you|sounds really hard|give me a second|checking|look back|work that out|calculat|research|one second)\b|(?:هممم|مممم|اهه|أيوه|حاضر|ثانية|لحظة|براجع|بشوف|هتحقق|هحسب|فاكر|فاكرة|نكمل|سامعك|حاسس بيك)/i;
 
   function emit(event) {
     onEvent(event);
@@ -158,6 +160,7 @@ export function createVoiceSessionOrchestrator({
         return;
       }
       case VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT:
+        if (BACKCHANNEL_OUTPUT_PATTERN.test(String(event.text || ""))) activeBackchannelResponse = true;
         emit(event);
         return;
       case VOICE_EVENTS.PROVIDER_AUDIO: {
@@ -173,7 +176,7 @@ export function createVoiceSessionOrchestrator({
         const playbackGeneration = state.playbackGeneration || identityFactory.nextPlaybackGeneration();
         const identity = currentIdentity({ playbackGeneration });
         if (event.identity?.sessionGeneration != null && event.identity.sessionGeneration !== state.sessionGeneration) return;
-        const audioClass = backchannelManager?.hasPending?.() ? "backchannel" : "main";
+        const audioClass = backchannelManager?.hasPending?.() || activeBackchannelResponse ? "backchannel" : "main";
         playback.schedule(event.base64Data, {
           generation: playbackGeneration,
           audioClass,
@@ -184,13 +187,14 @@ export function createVoiceSessionOrchestrator({
           type: VOICE_ACTIONS.AUDIO_RECEIVED,
           sessionGeneration: state.sessionGeneration,
           playbackGeneration,
-          audioClass: "main",
+          audioClass,
         });
         emit(Object.freeze({ ...event, identity }));
         return;
       }
       case VOICE_EVENTS.PROVIDER_INTERRUPTED: {
         localBargeInPending = false;
+        activeBackchannelResponse = false;
         // A user interruption cancels the main answer, but a pending listening
         // acknowledgement is intentionally allowed to finish as a short cue.
         responseStagingManager?.cancelForTurn(state.activeTurnId, "provider-interrupted");
@@ -205,6 +209,7 @@ export function createVoiceSessionOrchestrator({
       }
       case VOICE_EVENTS.PROVIDER_TURN_COMPLETE:
         backchannelManager?.cancel("turn-complete");
+        activeBackchannelResponse = false;
         flushPendingToolResults();
         activeTurnStartedAt = 0;
         dispatch({ type: VOICE_ACTIONS.TURN_COMPLETE, sessionGeneration: state.sessionGeneration });
