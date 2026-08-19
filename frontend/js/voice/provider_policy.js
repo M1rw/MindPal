@@ -16,36 +16,37 @@ export function isMindPalNativeAudioLiveModel(value) {
 export function getLiveProviderCapabilities(model) {
   const nativeAudio = isMindPalNativeAudioLiveModel(model);
   const normalizedModel = normalizeLiveModelName(model);
-  const sameSessionListeningCues = nativeAudio || /^gemini-3\.1-flash-live(?:-|$)/i.test(normalizedModel);
+  const gemini25Live = /^gemini-2\.5-flash-live(?:-|$)/i.test(normalizedModel);
+  const gemini31Live = /^gemini-3\.1-flash-live(?:-|$)/i.test(normalizedModel);
+  const sameSessionListeningCues = nativeAudio || gemini31Live;
   return {
     model: normalizedModel,
     nativeAudio,
-    apiVersion: nativeAudio ? "v1beta" : "v1alpha",
-    // The direct ephemeral-token WebSocket uses Gemini's constrained setup
-    // schema. Production returned 1007 for `setup.proactivity`, so native audio
-    // must not claim or send proactive-listening configuration on this path.
-    // Native voice quality, barge-in, continuous capture, and v1beta remain.
-    proactiveAudio: false,
-    // Cue requests use the existing realtime text channel and remain separate
-    // from the unsupported setup.proactivity field. This is validated for both
-    // the native preview and the caption-capable Gemini 3.1 Live transport.
+    apiVersion: nativeAudio || gemini25Live ? "v1beta" : "v1alpha",
+    // Gemini 2.5 Flash Live supports the documented proactive-audio path on
+    // v1beta. Native Audio and Gemini 3.1 use explicit manual cue policies.
+    proactiveAudio: gemini25Live,
+    // Manual cue requests use realtime text/clientContent only on transports
+    // where same-session cue behavior has been explicitly validated.
     nativeListeningCues: sameSessionListeningCues,
-    affectiveDialog: false,
+    affectiveDialog: gemini25Live,
     // The free-tier preview closed MindPal's WebSocket after the first greeting
     // when provider-declared functions were present. Keep provider functions off
     // this transport until the account/model combination is proven multi-turn
     // stable. Verified current facts still use MindPal's authenticated backend.
     providerFunctions: !nativeAudio,
-    nonBlockingFunctions: false,
-    speakListeningPresence: false,
+    nonBlockingFunctions: gemini25Live,
+    speakListeningPresence: gemini25Live,
   };
 }
 
 export function getProviderSetupCapabilities(model) {
-  // Keep this explicit for future supported transports. The current browser
-  // ephemeral-token constrained endpoint rejects `setup.proactivity`.
-  void model;
-  return {};
+  const capabilities = getLiveProviderCapabilities(model);
+  if (!capabilities.proactiveAudio) return {};
+  return {
+    proactivity: { proactiveAudio: true },
+    enableAffectiveDialog: true,
+  };
 }
 
 export function getToolResponseScheduling({ currentFact = false } = {}) {

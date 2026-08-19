@@ -174,7 +174,24 @@ def test_voice_rate_and_quota_errors_preserve_retry_after_for_recovery_clients()
 def test_voice_long_call_defaults_allow_provider_socket_renewal() -> None:
     assert Settings.model_fields["VOICE_TOKEN_RATE_LIMIT_PER_HOUR"].default == 16
     assert Settings.model_fields["VOICE_SESSION_QUOTA_COST"].default == 1
-    assert Settings.model_fields["GEMINI_LIVE_MODEL"].default == "gemini-3.1-flash-live-preview"
+    assert Settings.model_fields["GEMINI_LIVE_MODEL"].default == "gemini-2.5-flash-live-preview"
+
+
+@pytest.mark.asyncio
+async def test_gemini_25_live_voice_token_uses_v1beta_websocket(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_create(**kwargs: object) -> str:
+        assert kwargs["model"] == "gemini-2.5-flash-live-preview"
+        assert kwargs["api_version"] == "v1beta"
+        return "live-25-ephemeral-token"
+
+    services = _services()
+    services.settings.GEMINI_LIVE_MODEL = "gemini-2.5-flash-live-preview"
+    monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", fake_create)
+
+    result = await voice_router.get_voice_token(response=Response(), services=services, context=_context())
+
+    assert result.model == "gemini-2.5-flash-live-preview"
+    assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
 
 
 @pytest.mark.asyncio

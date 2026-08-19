@@ -95,6 +95,7 @@ export function createVoiceSessionV2({
   let recovery = null;
   let currentCredentials = null;
   let currentSetup = null;
+  let liveCapabilities = null;
   let contextProvider = null;
   let active = false;
   const userTranscriptAssembler = createTranscriptAssembler();
@@ -129,6 +130,7 @@ export function createVoiceSessionV2({
   let localSpeechStartedAt = 0;
   let localSpeechSilenceStartedAt = 0;
   let localSpeechTurnId = null;
+  let proactivePresenceLoggedTurnId = null;
   let localNoiseFloorRms = 0.008;
   const LONG_TURN_PRESENCE_DELAY_MS = 8_000;
   const LOCAL_SPEECH_START_RMS = 0.022;
@@ -157,6 +159,7 @@ export function createVoiceSessionV2({
     localSpeechStartedAt = 0;
     localSpeechSilenceStartedAt = 0;
     localSpeechTurnId = null;
+    proactivePresenceLoggedTurnId = null;
     localNoiseFloorRms = 0.008;
   }
 
@@ -164,6 +167,13 @@ export function createVoiceSessionV2({
     // A cue must never be sent from local RMS alone. Without provider transcript
     // context, realtime text can become a new user turn and swallow the real one.
     if (!active || !orchestrator || !turnId || !localSpeechActive || !String(languageText || "").trim() || longTurnPresenceTimer) return;
+    if (liveCapabilities?.proactiveAudio) {
+      if (proactivePresenceLoggedTurnId !== turnId) {
+        proactivePresenceLoggedTurnId = turnId;
+        onDiagnostic({ type: "voice.long-turn-presence", decision: "provider-proactive-audio", localAudio: true });
+      }
+      return;
+    }
     if (!longTurnStartedAt) longTurnStartedAt = Date.now();
     longTurnPresenceTimer = setTimeout(() => {
       longTurnPresenceTimer = null;
@@ -696,6 +706,7 @@ export function createVoiceSessionV2({
 
     const model = currentCredentials.model;
     const capabilities = getLiveProviderCapabilities(model);
+    liveCapabilities = capabilities;
     const toolExecutor = createToolExecutor({
       getAuthToken: getToken,
       getAppCheckToken: getAppToken,
@@ -836,9 +847,10 @@ export function createVoiceSessionV2({
     return true;
   }
 
-  async function stopSession() {
+  async   function stopSession() {
     if (!active) return false;
     active = false;
+    liveCapabilities = null;
     sessionEndNotified = true;
     reportDeliveryDiagnostic("client_stop");
     settleProviderReady({ error: new Error("Voice session stopped before Gemini setup completed.") });
@@ -882,13 +894,11 @@ export function createVoiceSessionV2({
     micMuted = nextMuted;
     audio?.setMuted(micMuted);
     if (micMuted && changed) {
-      // Google recommends audioStreamEnd when an audio stream pauses for more
-      // than a second, including microphone mute, so cached VAD audio cannot
-      // become a late input transcript or trigger a stale response.
-      provider?.sendAudioStreamEnd?.();
-      clearLongTurnPresenceTimer();
-      activeBackchannelManager?.cancel?.("microphone-muted");
-      cancelPendingNativeCues("microphone-muted");
+      // Mute is a local privacy boundary. Do not send audioStreamEnd or cancel
+      // provider state here: Gemini must keep the same connection, voice,
+      // response, and pending cue state. Capture and the second onAudio guard
+      // already prevent microphone frames from reaching the provider.
+      onDiagnostic({ type: "voice.microphone-muted", localOnly: true });
     }
     projectState();
     return micMuted;

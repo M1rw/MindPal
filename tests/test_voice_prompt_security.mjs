@@ -243,6 +243,7 @@ test("Voice lifecycle treats provider transcription, not raw microphone energy, 
 
 test("native-audio provider policy enables real presence without unstable provider functions", async () => {
   const nativeModel = "gemini-2.5-flash-native-audio-preview-12-2025";
+  const proactiveModel = "gemini-2.5-flash-live-preview";
   const legacyModel = "gemini-3.1-flash-live-preview";
   const runtime = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
@@ -254,6 +255,11 @@ test("native-audio provider policy enables real presence without unstable provid
   assert.equal(getLiveProviderCapabilities(nativeModel).nonBlockingFunctions, false);
   assert.equal(getLiveProviderCapabilities(nativeModel).speakListeningPresence, false);
   assert.equal(getLiveProviderCapabilities(nativeModel).nativeListeningCues, true);
+  assert.equal(getLiveProviderCapabilities(proactiveModel).apiVersion, "v1beta");
+  assert.equal(getLiveProviderCapabilities(proactiveModel).proactiveAudio, true);
+  assert.equal(getLiveProviderCapabilities(proactiveModel).nativeListeningCues, false);
+  assert.equal(getLiveProviderCapabilities(proactiveModel).nonBlockingFunctions, true);
+  assert.deepEqual(getProviderSetupCapabilities(proactiveModel), { proactivity: { proactiveAudio: true }, enableAffectiveDialog: true });
   assert.equal(getLiveProviderCapabilities(legacyModel).nativeListeningCues, true);
   assert.equal(getLiveProviderCapabilities(legacyModel).providerFunctions, true);
   assert.match(runtime, /providerCapabilities\.providerFunctions \? \{/);
