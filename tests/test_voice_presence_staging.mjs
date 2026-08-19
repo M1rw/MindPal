@@ -20,10 +20,22 @@ test("backchannel policy allows sparse context-aware acknowledgement after a lon
   assert.equal(decision.kind, "empathy");
 });
 
+test("backchannel policy requires a real pause instead of firing on continuous partial speech", () => {
+  const base = {
+    turnId: "turn-1",
+    speechDurationMs: 12_000,
+    transcriptConfidence: 0.9,
+    userHasYielded: false,
+  };
+  assert.equal(getBackchannelDecision({ ...base, pauseDurationMs: 0 }).reason, "pause-too-short");
+  assert.equal(getBackchannelDecision({ ...base, pauseDurationMs: 220 }).offer, true);
+});
+
 test("backchannel policy suppresses unsafe or disruptive situations", () => {
   const base = {
     turnId: "turn-1",
     speechDurationMs: 20_000,
+    pauseDurationMs: 300,
     transcriptConfidence: 0.9,
   };
   assert.equal(getBackchannelDecision({ ...base, safetyGate: "crisis" }).reason, "safety-gate");
@@ -44,6 +56,7 @@ test("backchannel manager emits one request and cancels it when the turn changes
     sessionGeneration: 1,
     turnId: "turn-1",
     speechDurationMs: 10_000,
+    pauseDurationMs: 300,
     transcriptConfidence: 0.9,
     topic: "story",
     emotion: "neutral",
@@ -145,6 +158,20 @@ test("native backchannel provider keeps the active user turn open", async () => 
   assert.equal(result.ok, true);
   assert.equal(sent[0].turnComplete, false);
   assert.match(sent[0].turns[0].parts[0].text, /Speak only the short acknowledgement now/);
+});
+
+test("Gemini 3.1 backchannel never falls back to clientContent", async () => {
+  let clientContentCalls = 0;
+  const live = createBackchannelProvider({
+    provider: {
+      sendClientContent: () => { clientContentCalls += 1; return true; },
+      sendText: () => false,
+    },
+    capabilities: { sameSessionBackchannel: true, preferRealtimeText: true },
+  });
+  const result = await live.request({ kind: "encouragement" });
+  assert.equal(result.ok, false);
+  assert.equal(clientContentCalls, 0);
 });
 
 test("Gemini 3.1 backchannel uses realtime text after setup", async () => {

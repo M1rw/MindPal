@@ -29,6 +29,7 @@ export function buildGeminiLiveSetup({
   const cleanModel = String(model || "").trim().replace(/^models\//, "");
   if (!cleanModel) throw new TypeError("Gemini Live model is required");
   const capabilities = getLiveProviderCapabilities(cleanModel);
+  const usesThinkingLevel = /^gemini-3\.1-flash-live(?:-|$)/i.test(cleanModel);
   const profile = contextProvider?.getUserProfile?.() || {};
   const name = quote(profile.name, 120);
   const gender = quote(profile.gender, 40);
@@ -48,10 +49,10 @@ export function buildGeminiLiveSetup({
     model: `models/${cleanModel}`,
     generationConfig: {
       responseModalities: ["AUDIO"],
-      // Gemini 2.5 enables dynamic thinking by default. Keep internal
-      // reasoning out of the model text fallback used for captions; spoken
-      // output remains available through outputAudioTranscription.
-      thinkingConfig: { thinkingBudget: 0 },
+      // Gemini 2.5 uses thinkingBudget; Gemini 3.1 uses thinkingLevel.
+      // Keep the default latency low and prevent hidden planning from leaking
+      // into any text fallback used for captions.
+      thinkingConfig: usesThinkingLevel ? { thinkingLevel: "minimal" } : { thinkingBudget: 0 },
       speechConfig: {
         voiceConfig: { prebuiltVoiceConfig: { voiceName: MINDPAL_PREBUILT_VOICE_NAME } },
       },

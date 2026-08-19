@@ -252,6 +252,10 @@ export function createGeminiLiveAdapter({
     return send({ realtimeInput: { audio: { data: base64Data, mimeType } } });
   }
 
+  function sendAudioStreamEnd() {
+    return send({ realtimeInput: { audioStreamEnd: {} } });
+  }
+
   function sendText(text) {
     if (!text) return false;
     return send({ realtimeInput: { text } });
@@ -280,6 +284,7 @@ export function createGeminiLiveAdapter({
     close,
     updateContext,
     sendAudio,
+    sendAudioStreamEnd,
     sendText,
     sendClientContent,
     sendToolResponse,

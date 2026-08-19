@@ -6,10 +6,19 @@ import {
   createGeminiLiveAdapter,
 } from "../frontend/js/voice/provider/gemini_live_adapter.js";
 import { createCaptureAdapter } from "../frontend/js/voice/capture/capture_adapter.js";
+import { createBrowserAudioAdapter } from "../frontend/js/voice/capture/browser_audio_adapter.js";
 import { createPlaybackManager } from "../frontend/js/voice/playback/playback_manager.js";
 import { createVoiceSessionOrchestrator } from "../frontend/js/voice/orchestrator/voice_session_orchestrator.js";
 import { VOICE_EVENTS } from "../frontend/js/voice/architecture/events.js";
 import { VOICE_PHASES } from "../frontend/js/voice/architecture/state.js";
+import { buildGeminiLiveSetup } from "../frontend/js/voice/provider/gemini_setup_builder.js";
+
+test("Gemini setup uses the model-specific thinking control", () => {
+  const live31 = buildGeminiLiveSetup({ model: "gemini-3.1-flash-live-preview" });
+  assert.deepEqual(live31.generationConfig.thinkingConfig, { thinkingLevel: "minimal" });
+  const native25 = buildGeminiLiveSetup({ model: "gemini-2.5-flash-native-audio-preview-12-2025" });
+  assert.deepEqual(native25.generationConfig.thinkingConfig, { thinkingBudget: 0 });
+});
 
 test("Gemini adapter normalizes setup, transcripts, audio, interruption, and completion", () => {
   const events = normalizeGeminiServerMessage({
@@ -117,6 +126,8 @@ test("Gemini adapter sends setup and rejects stale sockets", () => {
   });
   socket.onopen();
   assert.deepEqual(socket.sent[0], { setup: { model: "models/test", generationConfig: { responseModalities: ["AUDIO"] } } });
+  assert.equal(adapter.sendAudioStreamEnd(), true);
+  assert.deepEqual(socket.sent.at(-1), { realtimeInput: { audioStreamEnd: {} } });
   socket.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
   assert.equal(events[0].type, VOICE_EVENTS.PROVIDER_READY);
 
@@ -140,6 +151,62 @@ test("Gemini adapter decodes Blob setup responses from browser WebSockets", asyn
   socket.onmessage({ data: new Blob([JSON.stringify({ setupComplete: {} })], { type: "application/json" }) });
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(events[0].type, VOICE_EVENTS.PROVIDER_READY);
+});
+
+test("browser audio adapter wires worklet frames, mute suppression, unmute, and disposal", async () => {
+  const originalNavigator = globalThis.navigator;
+  const originalAudioContext = globalThis.AudioContext;
+  const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+  const state = { modules: [], audio: 0, quality: 0, tracks: [{ enabled: true, stop() { this.stopped = true; } }] };
+  const source = { connect() {}, disconnect() {} };
+  const stream = { getAudioTracks: () => state.tracks, getTracks: () => state.tracks };
+  class FakeAudioContext {
+    constructor() {
+      this.state = "running";
+      this.destination = {};
+      this.audioWorklet = { addModule: async (url) => state.modules.push(String(url)) };
+    }
+    createMediaStreamSource() { return source; }
+    createAnalyser() { return { fftSize: 0, smoothingTimeConstant: 0, connect() {} }; }
+    createGain() { return { gain: { value: 1 }, connect() {}, disconnect() {} }; }
+    async close() { this.state = "closed"; }
+  }
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: { mediaDevices: { getUserMedia: async () => stream } } });
+  globalThis.AudioContext = FakeAudioContext;
+  globalThis.AudioWorkletNode = class {
+    constructor() { this.port = { onmessage: null }; }
+    connect() {}
+    disconnect() {}
+  };
+  try {
+    const adapter = await createBrowserAudioAdapter({
+      workletUrl: "https://example.test/pcm_capture_worklet.js",
+      onAudio: () => { state.audio += 1; },
+      onQuality: () => { state.quality += 1; },
+    });
+    assert.equal(state.modules.length, 1);
+    adapter.start();
+    assert.equal(adapter.isActive(), true);
+    adapter.processFrame(new Float32Array([0.1, -0.1]));
+    assert.equal(state.audio, 1);
+    assert.equal(state.quality, 1);
+    adapter.setMuted(true);
+    adapter.processFrame(new Float32Array([0.2, -0.2]));
+    assert.equal(state.audio, 1);
+    adapter.setMuted(false);
+    adapter.processFrame(new Float32Array([0.2, -0.2]));
+    assert.equal(state.audio, 2);
+    await adapter.dispose();
+    assert.equal(adapter.isActive(), false);
+    assert.equal(state.tracks[0].stopped, true);
+  } finally {
+    if (originalNavigator === undefined) delete globalThis.navigator;
+    else Object.defineProperty(globalThis, "navigator", { configurable: true, value: originalNavigator });
+    if (originalAudioContext === undefined) delete globalThis.AudioContext;
+    else globalThis.AudioContext = originalAudioContext;
+    if (originalAudioWorkletNode === undefined) delete globalThis.AudioWorkletNode;
+    else globalThis.AudioWorkletNode = originalAudioWorkletNode;
+  }
 });
 
 test("capture adapter encodes PCM and never emits while muted or stopped", () => {
@@ -235,13 +302,34 @@ test("orchestrator keeps cue audio classified when cue transcript precedes PCM",
     handleInterruption: () => 2,
     flush: () => 2,
   };
-  const backchannelManager = { hasPending: () => false, cancel: () => {} };
+  let pending = true;
+  const backchannelManager = { hasPending: () => pending, cancel: () => { pending = false; } };
   const orchestrator = createVoiceSessionOrchestrator({ provider, capture, playback, backchannelManager });
   orchestrator.start({ url: "wss://example.test", setup: {} });
   orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_READY, identity: { sessionGeneration: 1 } });
   orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT, text: "Yeah, go on.", identity: { sessionGeneration: 1 } });
   orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_AUDIO, base64Data: "AQI=", identity: { sessionGeneration: 1 } });
   assert.equal(scheduled[0].audioClass, "backchannel");
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_INTERRUPTED, identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_AUDIO, base64Data: "AQI=", identity: { sessionGeneration: 1 } });
+  assert.equal(scheduled[1].audioClass, "main");
+});
+
+test("playback manager emits one turn start and chunk scheduling diagnostics per audio class", () => {
+  const events = [];
+  const context = {
+    currentTime: 0,
+    destination: {},
+    createAnalyser: () => ({ fftSize: 0, smoothingTimeConstant: 0, connect() {} }),
+    createBuffer: (_channels, length, sampleRate) => ({ duration: length / sampleRate, sampleRate, copyToChannel() {} }),
+    createBufferSource: () => ({ connect() {}, start() {}, stop() {} }),
+    createGain: () => ({ gain: { value: 1 }, connect() {} }),
+  };
+  const playback = createPlaybackManager({ audioContext: context, onEvent: (event) => events.push(event) });
+  playback.schedule("AQI=", { generation: 1, audioClass: "main" });
+  playback.schedule("AQI=", { generation: 1, audioClass: "main" });
+  assert.equal(events.filter((event) => event.type === "playback.started").length, 1);
+  assert.equal(events.filter((event) => event.type === "playback.chunk-scheduled").length, 1);
 });
 
 test("playback manager ducks active model audio and restores it before provider interruption", () => {
