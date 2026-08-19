@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-import { createVoiceSessionV2 } from "../frontend/js/voice_session_v2.js";
+import { createVoiceSessionV2, buildDeliveryDiagnosticPayload } from "../frontend/js/voice_session_v2.js";
 
 test("Voice v2 facade exposes the compatibility controller surface before activation", () => {
   const controller = createVoiceSessionV2({
@@ -16,6 +16,32 @@ test("Voice v2 facade exposes the compatibility controller surface before activa
   assert.equal(controller.getMicMuted(), false);
   assert.equal(controller.getAiSpeaking(), false);
   assert.deepEqual(controller.getTranscriptSnapshot(), { userTranscript: "", aiTranscript: "" });
+});
+
+test("Voice v2 builds a FastAPI-compatible aggregate diagnostic payload", () => {
+  const payload = buildDeliveryDiagnosticPayload("gemini-2.5-flash-native-audio-preview-12-2025", {
+    audioParts: 3,
+    inputTranscriptionEvents: 2,
+    outputTranscriptionEvents: 4,
+    transcriptCallbackEvents: 5,
+    modelTextParts: 1,
+    turnCompleteEvents: 2,
+    interruptedEvents: 1,
+    factGatedAudioParts: 0,
+  }, "transport-failure");
+  assert.deepEqual(payload, {
+    model: "gemini-2.5-flash-native-audio-preview-12-2025",
+    audio_parts: 3,
+    input_transcription_events: 2,
+    output_transcription_events: 4,
+    transcript_callback_events: 5,
+    model_text_parts: 1,
+    turn_complete_events: 2,
+    interrupted_events: 1,
+    fact_gated_audio_parts: 0,
+    end_reason: "transport_failure",
+  });
+  assert.equal(Object.keys(payload).some((key) => /[A-Z]/.test(key)), false);
 });
 
 test("Voice v2 preserves mute state before the microphone adapter is ready", () => {
