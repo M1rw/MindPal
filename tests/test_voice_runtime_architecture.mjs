@@ -75,6 +75,13 @@ test("Gemini adapter filters internal reasoning from model-text caption fallback
     serverContent: { modelTurn: { parts: [{ text: "Hello, how are you today?" }] } },
   });
   assert.equal(spokenFallback.find((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT)?.text, "Hello, how are you today?");
+
+  const mixedFallback = normalizeGeminiServerMessage({
+    serverContent: { modelTurn: { parts: [{ text: "**Planning** I am preparing a response.\\n**Spoken** Hello, I am here with you." }] } },
+  });
+  const mixedText = mixedFallback.find((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT)?.text || "";
+  assert.doesNotMatch(mixedText, /I am preparing a response/i);
+  assert.match(mixedText, /Hello, I am here with you/i);
 });
 
 test("Gemini adapter sends setup and rejects stale sockets", () => {

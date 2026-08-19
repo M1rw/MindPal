@@ -39,6 +39,7 @@ let lastAudioProjection = { phase: "idle", isAiSpeaking: false, isMicMuted: fals
 // AI-only caption tracking. User speech remains available for optional call
 // history, but the live surface stays focused on MindPal's spoken captions.
 let currentCaption = null;
+let captionTurnComplete = false;
 let captionScrollFrame = null;
 
 // ═══════════════════════════════════════════════════════════════
@@ -59,7 +60,11 @@ export function initLiveVoice({ onChatSync } = {}) {
     ccBtn.addEventListener("click", () => {
       ccVisible = !ccVisible;
       const panel = document.getElementById("voice-transcript-panel");
-      if (panel) panel.style.opacity = ccVisible ? "1" : "0";
+      if (panel) {
+        panel.style.opacity = ccVisible ? "1" : "0";
+        panel.style.visibility = ccVisible ? "visible" : "hidden";
+        panel.setAttribute("aria-hidden", String(!ccVisible));
+      }
       ccBtn.setAttribute("aria-pressed", String(ccVisible));
       ccBtn.setAttribute("aria-label", ccVisible ? "Hide captions" : "Show captions");
       ccBtn.setAttribute("title", ccVisible ? "Hide captions" : "Show captions");
@@ -121,6 +126,7 @@ export async function startLiveVoice(contextProvider = null) {
   ccBtn?.setAttribute("title", "Hide captions");
   callStartTime = new Date();
   currentCaption = null;
+  captionTurnComplete = false;
   if (captionScrollFrame) cancelAnimationFrame(captionScrollFrame);
   captionScrollFrame = null;
   backgroundTaskCount = 0;
@@ -130,7 +136,13 @@ export async function startLiveVoice(contextProvider = null) {
   const statusEl = document.getElementById("voice-live-status");
   const panel = document.getElementById("voice-transcript-panel");
 
-  if (panel) { panel.innerHTML = ""; panel.style.opacity = "1"; }
+  if (panel) {
+    panel.innerHTML = "";
+    panel.style.opacity = "1";
+    panel.style.visibility = "visible";
+    panel.style.display = "";
+    panel.setAttribute("aria-hidden", "false");
+  }
   if (statusEl) statusEl.textContent = "Connecting…";
 
   if (!overlay) {
@@ -300,6 +312,9 @@ function handleTranscript(type, text) {
 
   if (type === "user") {
     userTranscript = appendTranscriptChunk(userTranscript, cleaned);
+    // Keep the prior assistant caption on screen, but make the next assistant
+    // transcript start a new caption instead of appending across turns.
+    captionTurnComplete = true;
     // Never display a duplicate user bubble. The next MindPal sentence begins a
     // fresh caption so the live visual remains unambiguously assistant-led.
     currentCaption = null;
@@ -307,7 +322,17 @@ function handleTranscript(type, text) {
   }
   if (type !== "ai") return;
 
-  if (!currentCaption) currentCaption = createAiCaption();
+  const panel = document.getElementById("voice-transcript-panel");
+  if (panel && ccVisible) {
+    panel.style.opacity = "1";
+    panel.style.visibility = "visible";
+    panel.style.display = "";
+    panel.setAttribute("aria-hidden", "false");
+  }
+  if (!currentCaption || captionTurnComplete) {
+    currentCaption = createAiCaption();
+    captionTurnComplete = false;
+  }
   if (!currentCaption) return;
 
   const captionText = appendTranscriptChunk(currentCaption.dataset.rawText || "", cleaned);
@@ -366,8 +391,10 @@ function handleSessionEnd() {
 }
 
 function handleTurnComplete() {
-  // Force a fresh large caption for the next MindPal response.
-  currentCaption = null;
+  // Do not remove the completed caption: it is the only visible transcript
+  // until the next response starts. Mark the boundary and create the next DOM
+  // node lazily when the next AI transcript actually arrives.
+  captionTurnComplete = true;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -377,6 +404,12 @@ function handleTurnComplete() {
 function createAiCaption() {
   const panel = document.getElementById("voice-transcript-panel");
   if (!panel) return null;
+  if (ccVisible) {
+    panel.style.opacity = "1";
+    panel.style.visibility = "visible";
+    panel.style.display = "";
+    panel.setAttribute("aria-hidden", "false");
+  }
   panel.querySelectorAll(".voice-caption--active").forEach((caption) => caption.classList.remove("voice-caption--active"));
   const caption = document.createElement("p");
   caption.className = "voice-caption voice-caption--active";

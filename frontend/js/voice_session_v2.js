@@ -61,9 +61,13 @@ function createOutputAudioContext() {
   const AudioContextImpl = globalThis.AudioContext || globalThis.webkitAudioContext;
   if (typeof AudioContextImpl !== "function") return null;
   try {
-    return new AudioContextImpl({ latencyHint: "interactive" });
+    // Gemini Native Audio PCM is 24 kHz. Requesting the matching context keeps
+    // the decoded buffer on one known clock before the device output stage.
+    return new AudioContextImpl({ sampleRate: 24_000, latencyHint: "interactive" });
   } catch {
-    try { return new AudioContextImpl(); } catch { return null; }
+    try { return new AudioContextImpl({ latencyHint: "interactive" }); } catch {
+      try { return new AudioContextImpl(); } catch { return null; }
+    }
   }
 }
 
