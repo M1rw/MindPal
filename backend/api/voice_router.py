@@ -28,6 +28,7 @@ MAX_TRANSCRIPT_CHARS = 4_000
 MAX_MIME_TYPE_CHARS = 80
 MAX_VOICE_FACT_QUERY_CHARS = 500
 NATIVE_AUDIO_LIVE_MODEL_PREFIX = "gemini-2.5-flash-native-audio"
+GEMINI_25_LIVE_MODEL_PREFIX = "gemini-2.5-flash-live"
 
 _summarize_tool = VoiceSummarizeTool()
 _transcribe_tool = VoiceTranscribeTool()
@@ -548,9 +549,9 @@ async def _create_ephemeral_voice_token(
 
 def _live_api_version(model: str) -> str:
     normalized = sanitize_text(model, 120).lower()
-    # Keep the production-validated Gemini 3.1 constrained transport on v1alpha;
-    # the native-audio preview uses the v1beta constrained transport.
-    return "v1beta" if normalized.startswith(NATIVE_AUDIO_LIVE_MODEL_PREFIX) else "v1alpha"
+    # Gemini 2.5 Live and Native Audio capabilities documented for proactive
+    # audio use v1beta. Gemini 3.1 remains on its v1alpha constrained transport.
+    return "v1beta" if normalized.startswith((NATIVE_AUDIO_LIVE_MODEL_PREFIX, GEMINI_25_LIVE_MODEL_PREFIX)) else "v1alpha"
 
 
 def _live_websocket_url(api_version: str) -> str:

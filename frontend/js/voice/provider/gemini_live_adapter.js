@@ -253,7 +253,7 @@ export function createGeminiLiveAdapter({
   }
 
   function sendAudioStreamEnd() {
-    return send({ realtimeInput: { audioStreamEnd: {} } });
+    return send({ realtimeInput: { audioStreamEnd: true } });
   }
 
   function sendText(text) {

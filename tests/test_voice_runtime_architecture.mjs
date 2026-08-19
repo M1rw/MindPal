@@ -14,6 +14,10 @@ import { VOICE_PHASES } from "../frontend/js/voice/architecture/state.js";
 import { buildGeminiLiveSetup } from "../frontend/js/voice/provider/gemini_setup_builder.js";
 
 test("Gemini setup uses the model-specific thinking control", () => {
+  const live25 = buildGeminiLiveSetup({ model: "gemini-2.5-flash-live-preview" });
+  assert.deepEqual(live25.generationConfig.thinkingConfig, { thinkingBudget: 0 });
+  assert.deepEqual(live25.proactivity, { proactiveAudio: true });
+  assert.equal(live25.enableAffectiveDialog, true);
   const live31 = buildGeminiLiveSetup({ model: "gemini-3.1-flash-live-preview" });
   assert.deepEqual(live31.generationConfig.thinkingConfig, { thinkingLevel: "minimal" });
   const native25 = buildGeminiLiveSetup({ model: "gemini-2.5-flash-native-audio-preview-12-2025" });
@@ -127,7 +131,7 @@ test("Gemini adapter sends setup and rejects stale sockets", () => {
   socket.onopen();
   assert.deepEqual(socket.sent[0], { setup: { model: "models/test", generationConfig: { responseModalities: ["AUDIO"] } } });
   assert.equal(adapter.sendAudioStreamEnd(), true);
-  assert.deepEqual(socket.sent.at(-1), { realtimeInput: { audioStreamEnd: {} } });
+  assert.deepEqual(socket.sent.at(-1), { realtimeInput: { audioStreamEnd: true } });
   socket.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
   assert.equal(events[0].type, VOICE_EVENTS.PROVIDER_READY);
 

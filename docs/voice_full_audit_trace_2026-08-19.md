@@ -71,3 +71,11 @@ A deterministic fake-WebAudio integration test has now been added for browser ca
 ## Validation after this pass
 
 The focused Voice suite currently passes 36 tests after the fixes. Repository frontend and syntax audits also pass. Full build, complete JavaScript/Python suites, generated-asset verification, commit, deployment, and browser acceptance remain the final gates for this audit pass.
+
+## Follow-up production trace — mute termination and long-story suppression
+
+The second browser trace shows that assistant captions and main audio are present, but the long-story path requests a realtime-text backchannel, then records `voice.native-cue-timeout`. Subsequent local-presence checks report `already-pending`, and the user’s next output is explicitly cancelled as `non-cue-output` before the normal answer begins. This confirms that manual same-session cue injection is racing the active Gemini 3.1 turn rather than functioning as a non-blocking listener.
+
+The trace also shows the mute control reaching a state where the call is reported as ended after the second mute interaction. The previous implementation sent `realtimeInput.audioStreamEnd` immediately on a UI mute and cancelled pending cue state. That violated the requested product semantics: mute should be a local microphone privacy boundary, not a provider turn or connection operation. The new implementation leaves the Live socket, assistant audio, response identity, and pending AI state untouched; it only disables the local media track and capture forwarding. The `audioStreamEnd` helper remains available for explicit transport use and now uses the documented boolean wire value, but the UI mute path does not invoke it.
+
+For long-story presence, production now defaults to `gemini-2.5-flash-live-preview` with v1beta, documented output/input transcription, proactive audio, and affective dialog. The local scheduler does not inject manual realtime text for this model; it records one provider-proactive diagnostic per local turn and lets Gemini’s own proactive-audio capability decide whether to acknowledge. Native Audio remains an explicit override, while Gemini 3.1 remains available with its manual cue path for compatibility.

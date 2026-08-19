@@ -80,5 +80,8 @@ test("Voice v2 projects lifecycle events through a safe orchestrator state acces
   assert.match(source, /let micMuted = false/);
   assert.match(source, /if \(!micMuted\) provider\?\.sendAudio/);
   assert.match(source, /audio\.setMuted\(micMuted\)/);
+  assert.match(source, /localOnly: true/);
+  assert.doesNotMatch(source, /if \(micMuted && changed\)[\s\S]{0,420}sendAudioStreamEnd/);
+  assert.doesNotMatch(source, /if \(micMuted && changed\)[\s\S]{0,420}cancelPendingNativeCues/);
   assert.doesNotMatch(source, /orchestrator\?\.getState\?\.\(\)\.phase/);
 });
