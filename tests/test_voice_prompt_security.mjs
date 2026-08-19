@@ -254,7 +254,7 @@ test("native-audio provider policy enables real presence without unstable provid
   assert.equal(getLiveProviderCapabilities(nativeModel).nonBlockingFunctions, false);
   assert.equal(getLiveProviderCapabilities(nativeModel).speakListeningPresence, false);
   assert.equal(getLiveProviderCapabilities(nativeModel).nativeListeningCues, true);
-  assert.equal(getLiveProviderCapabilities(legacyModel).nativeListeningCues, false);
+  assert.equal(getLiveProviderCapabilities(legacyModel).nativeListeningCues, true);
   assert.equal(getLiveProviderCapabilities(legacyModel).providerFunctions, true);
   assert.match(runtime, /providerCapabilities\.providerFunctions \? \{/);
   assert.equal(getToolResponseScheduling({ currentFact: true }), "SILENT");

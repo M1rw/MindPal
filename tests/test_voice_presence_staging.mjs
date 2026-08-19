@@ -146,3 +146,19 @@ test("native backchannel provider keeps the active user turn open", async () => 
   assert.equal(sent[0].turnComplete, false);
   assert.match(sent[0].turns[0].parts[0].text, /Speak only the short acknowledgement now/);
 });
+
+test("Gemini 3.1 backchannel uses realtime text after setup", async () => {
+  const sent = [];
+  const provider = {
+    sendClientContent: () => { throw new Error("clientContent is not valid for this path"); },
+    sendText: (text) => { sent.push(text); return true; },
+  };
+  const live = createBackchannelProvider({
+    provider,
+    capabilities: { sameSessionBackchannel: true, preferRealtimeText: true },
+  });
+  const result = await live.request({ kind: "encouragement" });
+  assert.equal(result.ok, true);
+  assert.equal(result.transport, "realtime-text");
+  assert.match(sent[0], /LISTENING_ACK_ONLY/);
+});

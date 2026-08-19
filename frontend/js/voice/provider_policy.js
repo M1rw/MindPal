@@ -15,8 +15,10 @@ export function isMindPalNativeAudioLiveModel(value) {
 
 export function getLiveProviderCapabilities(model) {
   const nativeAudio = isMindPalNativeAudioLiveModel(model);
+  const normalizedModel = normalizeLiveModelName(model);
+  const sameSessionListeningCues = nativeAudio || /^gemini-3\.1-flash-live(?:-|$)/i.test(normalizedModel);
   return {
-    model: normalizeLiveModelName(model),
+    model: normalizedModel,
     nativeAudio,
     apiVersion: nativeAudio ? "v1beta" : "v1alpha",
     // The direct ephemeral-token WebSocket uses Gemini's constrained setup
@@ -24,9 +26,10 @@ export function getLiveProviderCapabilities(model) {
     // must not claim or send proactive-listening configuration on this path.
     // Native voice quality, barge-in, continuous capture, and v1beta remain.
     proactiveAudio: false,
-    // Native cue requests use the existing realtime text channel and remain
-    // separate from the unsupported setup.proactivity field.
-    nativeListeningCues: nativeAudio,
+    // Cue requests use the existing realtime text channel and remain separate
+    // from the unsupported setup.proactivity field. This is validated for both
+    // the native preview and the caption-capable Gemini 3.1 Live transport.
+    nativeListeningCues: sameSessionListeningCues,
     affectiveDialog: false,
     // The free-tier preview closed MindPal's WebSocket after the first greeting
     // when provider-declared functions were present. Keep provider functions off
