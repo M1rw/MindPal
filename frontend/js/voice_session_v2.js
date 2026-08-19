@@ -26,6 +26,22 @@ function detectVoiceLanguage(text = "") {
   return /[\u0600-\u06FF]/.test(String(text || "")) ? "ar" : "en-US";
 }
 
+export function buildDeliveryDiagnosticPayload(model, telemetry = {}, endReason = "client_stop") {
+  const safeReason = String(endReason).toLowerCase().replace(/[^a-z_]/g, "_").slice(0, 40) || "client_stop";
+  return {
+    model: String(model || "").slice(0, 120),
+    audio_parts: Number(telemetry.audioParts || 0),
+    input_transcription_events: Number(telemetry.inputTranscriptionEvents || 0),
+    output_transcription_events: Number(telemetry.outputTranscriptionEvents || 0),
+    transcript_callback_events: Number(telemetry.transcriptCallbackEvents || 0),
+    model_text_parts: Number(telemetry.modelTextParts || 0),
+    turn_complete_events: Number(telemetry.turnCompleteEvents || 0),
+    interrupted_events: Number(telemetry.interruptedEvents || 0),
+    fact_gated_audio_parts: Number(telemetry.factGatedAudioParts || 0),
+    end_reason: safeReason,
+  };
+}
+
 function phaseProjection(phase = "idle", isAiSpeaking = false) {
   if (phase === "connecting") return { phase: "connecting", palette: "listen" };
   if (phase === "recovering") return { phase: "recovering", palette: "listen" };
@@ -118,7 +134,7 @@ export function createVoiceSessionV2({
     if (!baseUrl || !model) return;
     const token = await Promise.resolve(getToken()).catch(() => null);
     const appCheckToken = await Promise.resolve(getAppToken()).catch(() => null);
-    const payload = { model, ...deliveryTelemetry, end_reason: String(endReason).replace(/[^a-z_]/g, "_").slice(0, 40) || "client_stop" };
+    const payload = buildDeliveryDiagnosticPayload(model, deliveryTelemetry, endReason);
     const headers = { "Content-Type": "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
     if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
