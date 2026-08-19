@@ -23,6 +23,17 @@ function decodeSocketMessage(raw) {
   return decodeMessage(raw);
 }
 
+const INTERNAL_REASONING_BLOCK = /(?:<think>[\s\S]*?<\/think>|\*\*\s*(?:Greeting|Formulating|Analyzing|Planning|Thinking|Reasoning|Deciding|Preparing|Interpreting|Evaluating|Considering|Identifying|Selecting|Crafting|Checking|Understanding|Responding|Answering|Assessing|Generating)[^*]*\*\*)/i;
+
+function isCaptionSafeText(text, part = {}) {
+  if (part.thought === true || part.isThought === true) return false;
+  const value = String(text || "").trim();
+  if (!value) return false;
+  // Gemini output transcription is authoritative. This guard is only for the
+  // modelTurn text fallback used by older/constrained transports.
+  return !INTERNAL_REASONING_BLOCK.test(value);
+}
+
 function identityFromContext(context = {}) {
   return {
     sessionGeneration: context.sessionGeneration ?? 0,
@@ -73,8 +84,9 @@ export function normalizeGeminiServerMessage(message, context = {}) {
 
   let modelTextFallback = "";
   for (const part of serverContent.modelTurn?.parts || []) {
-    if (typeof part.text === "string" && part.text.trim()) {
-      modelTextFallback = modelTextFallback ? `${modelTextFallback} ${part.text.trim()}` : part.text.trim();
+    if (typeof part.text === "string" && isCaptionSafeText(part.text, part)) {
+      const text = part.text.trim();
+      modelTextFallback = modelTextFallback ? `${modelTextFallback} ${text}` : text;
     }
     const inlineData = part.inlineData || part.inline_data;
     if (inlineData?.data) {

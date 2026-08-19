@@ -48,6 +48,10 @@ export function buildGeminiLiveSetup({
     model: `models/${cleanModel}`,
     generationConfig: {
       responseModalities: ["AUDIO"],
+      // Gemini 2.5 enables dynamic thinking by default. Keep internal
+      // reasoning out of the model text fallback used for captions; spoken
+      // output remains available through outputAudioTranscription.
+      thinkingConfig: { thinkingBudget: 0 },
       speechConfig: {
         voiceConfig: { prebuiltVoiceConfig: { voiceName: MINDPAL_PREBUILT_VOICE_NAME } },
       },
