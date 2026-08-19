@@ -1,0 +1,3 @@
+device,category,rx_bytes,tx_bytes,ps5
+ps5,console,3000000000,500000000,true
+laptop,computer,800000000,200000000,false
