@@ -404,15 +404,37 @@ async def get_voice_token(
         now = dt.datetime.now(tz=dt.timezone.utc)
         expires_at = now + dt.timedelta(seconds=int(services.settings.VOICE_TOKEN_TTL_SECONDS))
         new_session_expires_at = now + dt.timedelta(seconds=int(services.settings.VOICE_NEW_SESSION_TTL_SECONDS))
-        live_model = services.settings.GEMINI_LIVE_MODEL
+        primary_model = sanitize_text(services.settings.GEMINI_LIVE_MODEL, 120)
+        fallback_model = sanitize_text(services.settings.GEMINI_LIVE_FALLBACK_MODEL, 120)
+        candidate_models = [primary_model]
+        if fallback_model and fallback_model != primary_model:
+            candidate_models.append(fallback_model)
+
+        token_name = ""
+        live_model = primary_model
+        last_provision_error: Exception | None = None
+        for candidate_model in candidate_models:
+            api_version = _live_api_version(candidate_model)
+            try:
+                token_name = await _create_ephemeral_voice_token(
+                    api_key=api_key,
+                    model=candidate_model,
+                    api_version=api_version,
+                    expires_at=expires_at,
+                    new_session_expires_at=new_session_expires_at,
+                )
+                live_model = candidate_model
+                break
+            except Exception as exc:
+                last_provision_error = exc
+                if candidate_model != candidate_models[-1]:
+                    logger.warning("Primary Gemini Live model provisioning failed; trying fallback model=%s", fallback_model)
+                    continue
+                raise
+        if not token_name:
+            raise last_provision_error or RuntimeError("Gemini returned an empty ephemeral token")
+
         api_version = _live_api_version(live_model)
-        token_name = await _create_ephemeral_voice_token(
-            api_key=api_key,
-            model=live_model,
-            api_version=api_version,
-            expires_at=expires_at,
-            new_session_expires_at=new_session_expires_at,
-        )
         usage = await services.quota.commit(user_id_hash=context.session.user_id_hash, request_id=operation_id)
         await services.idempotency.complete(claim=claim, response={"completed": True})
         response.headers["Cache-Control"] = "no-store, private"
