@@ -1093,9 +1093,12 @@ button:active,
   overscroll-behavior: contain;
   scroll-behavior: smooth;
   scroll-padding-block: 2rem;
-  /* A top-edge fade gives caption depth; the active-caption zone stays opaque. */
-  mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.74) 7%, #000 16%, #000 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, 0.74) 7%, #000 16%, #000 100%);
+  /* Keep the live caption zone readable on every device; do not mask the only
+     active line while the panel is being scrolled or reflowed. */
+  mask-image: none;
+  -webkit-mask-image: none;
+  min-height: 0;
+  isolation: isolate;
 }
 
 .voice-caption {
@@ -1114,6 +1117,10 @@ button:active,
   unicode-bidi: plaintext;
   transform: translateY(0) scale(0.985);
   transform-origin: center center;
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+  z-index: 1;
   transition: color 180ms cubic-bezier(0.23, 1, 0.32, 1), font-size 180ms cubic-bezier(0.23, 1, 0.32, 1), opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
@@ -1130,6 +1137,10 @@ button:active,
   letter-spacing: -0.012em;
   text-align: center;
   transform: translateY(0) scale(1);
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+  z-index: 2;
 }
 
 .voice-caption[dir="rtl"] {
