@@ -173,10 +173,12 @@ export function createVoiceSessionOrchestrator({
         const playbackGeneration = state.playbackGeneration || identityFactory.nextPlaybackGeneration();
         const identity = currentIdentity({ playbackGeneration });
         if (event.identity?.sessionGeneration != null && event.identity.sessionGeneration !== state.sessionGeneration) return;
+        const audioClass = backchannelManager?.hasPending?.() ? "backchannel" : "main";
         playback.schedule(event.base64Data, {
           generation: playbackGeneration,
-          audioClass: "main",
+          audioClass,
           identity,
+          gain: audioClass === "backchannel" ? 0.72 : 1,
         });
         dispatch({
           type: VOICE_ACTIONS.AUDIO_RECEIVED,
@@ -189,7 +191,8 @@ export function createVoiceSessionOrchestrator({
       }
       case VOICE_EVENTS.PROVIDER_INTERRUPTED: {
         localBargeInPending = false;
-        backchannelManager?.cancel("provider-interrupted");
+        // A user interruption cancels the main answer, but a pending listening
+        // acknowledgement is intentionally allowed to finish as a short cue.
         responseStagingManager?.cancelForTurn(state.activeTurnId, "provider-interrupted");
         const playbackGeneration = playback.handleInterruption(event.identity || currentIdentity());
         dispatch({
