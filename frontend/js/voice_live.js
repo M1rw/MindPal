@@ -20,6 +20,7 @@ import {
   setPalette,
   setAnalysers,
 } from "./voice_visualizer.js";
+import { planPacedCaptionSegments } from "./voice/caption_sync_policy.js";
 
 // ═══════════════════════════════════════════════════════════════
 // State
@@ -41,6 +42,14 @@ let lastAudioProjection = { phase: "idle", isAiSpeaking: false, isMicMuted: fals
 let currentCaption = null;
 let captionTurnComplete = false;
 let captionScrollFrame = null;
+let captionReleaseTimer = null;
+let captionFallbackTimer = null;
+let captionQueue = [];
+let captionBufferedText = "";
+let captionPendingText = "";
+let captionNextReleaseAtMs = 0;
+let captionAudioStartAtMs = 0;
+let captionTurnSerial = 0;
 
 // ═══════════════════════════════════════════════════════════════
 // Init (called once on page load)
@@ -127,6 +136,16 @@ export async function startLiveVoice(contextProvider = null) {
   callStartTime = new Date();
   currentCaption = null;
   captionTurnComplete = false;
+  captionTurnSerial += 1;
+  captionQueue = [];
+  captionBufferedText = "";
+  captionPendingText = "";
+  captionNextReleaseAtMs = 0;
+  captionAudioStartAtMs = 0;
+  if (captionReleaseTimer) clearTimeout(captionReleaseTimer);
+  if (captionFallbackTimer) clearTimeout(captionFallbackTimer);
+  captionReleaseTimer = null;
+  captionFallbackTimer = null;
   if (captionScrollFrame) cancelAnimationFrame(captionScrollFrame);
   captionScrollFrame = null;
   backgroundTaskCount = 0;
@@ -178,15 +197,7 @@ export async function startLiveVoice(contextProvider = null) {
       onSessionEnd: handleSessionEnd,
       onTurnComplete: handleTurnComplete,
       onBackgroundTask: handleBackgroundTask,
-      onDiagnostic: (event) => {
-        console.debug("[MindPal Voice][diagnostic]", event);
-        if (["voice.socket-error", "voice.socket-closed", "provider.error", "provider.closed"].includes(event?.type)) console.warn("[MindPal Voice]", event);
-        const diagnosticStatus = document.getElementById("voice-live-status");
-        if (!diagnosticStatus) return;
-        if (event?.type === "voice.socket-open") diagnosticStatus.textContent = event.setupSent ? "Configuring Voice…" : "Voice socket opened";
-        else if (event?.type === "voice.socket-error" || event?.type === "voice.socket-closed") diagnosticStatus.textContent = `Voice transport failed${event.code ? ` (${event.code})` : ""} — please try again`;
-        else if (event?.type === "voice.provider-ready-timeout" || event?.type === "provider.error" || event?.type === "provider.closed") diagnosticStatus.textContent = "Voice connection failed — please try again";
-      },
+      onDiagnostic: handleVoiceDiagnostic,
       onVolume: feedVolume,
       token,
       refreshAuthToken: () => getIdToken({ forceRefresh: true }),
@@ -220,6 +231,7 @@ export async function startLiveVoice(contextProvider = null) {
 export function stopLiveVoice() {
   if (!isLiveActive) return;
   isLiveActive = false;
+  clearCaptionReleaseQueue();
 
   const canonicalTranscript = getTranscriptSnapshot?.() || {};
   const persistedUserTranscript = canonicalTranscript.userTranscript || userTranscript;
@@ -302,26 +314,91 @@ function renderCaptionText(caption, rawText) {
   caption.textContent = isolateMixedScriptRuns(rawText, direction);
 }
 
-function handleTranscript(type, text) {
-  if (!text) return;
-  console.debug("[MindPal Voice][caption]", { type, text: String(text).slice(0, 240) });
+function isInternalCaptionText(text) {
+  return /\[(?:INTERNAL\s+(?:RESPONSE\s+PLAN|VOICE\s+OPERATION|LISTENING\s+PRESENCE)|USER-FACING\s+RESPONSE\s+PLAN)\b[^\]]*\]/i.test(String(text || ""));
+}
 
-  // Filter noise markers
-  const cleaned = text.replace(/<noise>/gi, "");
-  if (!cleaned?.trim()) return;
+function clearCaptionReleaseQueue({ preserveSource = false } = {}) {
+  captionTurnSerial += 1;
+  if (captionReleaseTimer) clearTimeout(captionReleaseTimer);
+  if (captionFallbackTimer) clearTimeout(captionFallbackTimer);
+  captionReleaseTimer = null;
+  captionFallbackTimer = null;
+  captionQueue = [];
+  captionPendingText = "";
+  captionNextReleaseAtMs = 0;
+  captionAudioStartAtMs = 0;
+  if (!preserveSource) captionBufferedText = "";
+}
 
-  if (type === "user") {
-    userTranscript = appendTranscriptChunk(userTranscript, cleaned);
-    // Keep the prior assistant caption on screen, but make the next assistant
-    // transcript start a new caption instead of appending across turns.
-    captionTurnComplete = true;
-    // Never display a duplicate user bubble. The next MindPal sentence begins a
-    // fresh caption so the live visual remains unambiguously assistant-led.
-    currentCaption = null;
-    return;
-  }
-  if (type !== "ai") return;
+function scheduleCaptionRelease() {
+  if (captionReleaseTimer || !captionQueue.length) return;
+  const serial = captionTurnSerial;
+  const release = () => {
+    captionReleaseTimer = null;
+    if (serial !== captionTurnSerial || !isLiveActive) return;
+    const now = Date.now();
+    const next = captionQueue[0];
+    if (!next) return;
+    if (next.startTime * 1000 > now) {
+      captionReleaseTimer = setTimeout(release, Math.max(0, next.startTime * 1000 - now));
+      return;
+    }
+    captionQueue.shift();
+    renderAiCaptionChunk(next.text);
+    scheduleCaptionRelease();
+  };
+  release();
+}
 
+function queuePacedCaptionTranscript(text, { audioStartMs = 0 } = {}) {
+  const cleaned = String(text || "").replace(/<noise>/gi, "").trim();
+  if (!cleaned || isInternalCaptionText(cleaned)) return false;
+  const merged = appendTranscriptChunk(captionBufferedText, cleaned);
+  const delta = merged.startsWith(captionBufferedText) ? merged.slice(captionBufferedText.length) : cleaned;
+  captionBufferedText = merged;
+  if (!delta.trim()) return false;
+
+  const nowMs = Date.now();
+  const startMs = Math.max(nowMs, Number(audioStartMs) || 0, captionNextReleaseAtMs);
+  const segments = planPacedCaptionSegments({
+    text: delta,
+    audioStartTime: startMs / 1000,
+    nextCaptionTime: captionNextReleaseAtMs / 1000,
+    now: nowMs / 1000,
+  });
+  if (!segments.length) return false;
+  captionQueue.push(...segments);
+  const last = segments[segments.length - 1];
+  captionNextReleaseAtMs = last.startTime * 1000 + last.duration * 1000;
+  scheduleCaptionRelease();
+  return true;
+}
+
+function flushPendingCaptionText({ audioStartMs = 0 } = {}) {
+  if (!captionPendingText) return false;
+  const pending = captionPendingText;
+  captionPendingText = "";
+  return queuePacedCaptionTranscript(pending, { audioStartMs });
+}
+
+function armCaptionFallback() {
+  if (captionFallbackTimer || !captionPendingText) return;
+  const serial = captionTurnSerial;
+  captionFallbackTimer = setTimeout(() => {
+    captionFallbackTimer = null;
+    if (serial !== captionTurnSerial || !isLiveActive || captionAudioStartAtMs) return;
+    flushPendingCaptionText({ audioStartMs: Date.now() });
+  }, 650);
+}
+
+function handleMainPlaybackStarted() {
+  captionAudioStartAtMs ||= Date.now();
+  flushPendingCaptionText({ audioStartMs: captionAudioStartAtMs });
+}
+
+function renderAiCaptionChunk(cleaned) {
+  if (!cleaned || isInternalCaptionText(cleaned)) return;
   const panel = document.getElementById("voice-transcript-panel");
   if (panel && ccVisible) {
     panel.style.opacity = "1";
@@ -334,12 +411,37 @@ function handleTranscript(type, text) {
     captionTurnComplete = false;
   }
   if (!currentCaption) return;
-
   const captionText = appendTranscriptChunk(currentCaption.dataset.rawText || "", cleaned);
   currentCaption.dataset.rawText = captionText;
   renderCaptionText(currentCaption, captionText);
-  aiTranscript = appendTranscriptChunk(aiTranscript, cleaned);
   scrollTranscript();
+}
+
+function handleTranscript(type, text) {
+  if (!text) return;
+  console.debug("[MindPal Voice][caption]", { type, text: String(text).slice(0, 240) });
+  const cleaned = String(text).replace(/<noise>/gi, "");
+  if (!cleaned.trim()) return;
+
+  if (type === "user") {
+    userTranscript = appendTranscriptChunk(userTranscript, cleaned);
+    captionTurnComplete = true;
+    currentCaption = null;
+    return;
+  }
+  if (type !== "ai" || isInternalCaptionText(cleaned)) return;
+
+  if (captionTurnComplete) {
+    clearCaptionReleaseQueue();
+    currentCaption = null;
+    captionTurnComplete = false;
+  }
+  // Preserve the complete transcript for history immediately, but reveal it
+  // only through the queue so visible words follow actual playback cadence.
+  aiTranscript = appendTranscriptChunk(aiTranscript, cleaned);
+  captionPendingText = appendTranscriptChunk(captionPendingText, cleaned);
+  if (captionAudioStartAtMs) flushPendingCaptionText({ audioStartMs: captionAudioStartAtMs });
+  else armCaptionFallback();
 }
 
 export function resolveMinimalVoiceStatus({ phase, isAiSpeaking: aiSpeaking } = {}) {
@@ -355,6 +457,26 @@ export function resolveMinimalVoiceStatus({ phase, isAiSpeaking: aiSpeaking } = 
 function renderMinimalVoiceStatus() {
   const statusEl = document.getElementById("voice-live-status");
   if (statusEl) statusEl.textContent = resolveMinimalVoiceStatus(lastAudioProjection);
+}
+
+function handleVoiceDiagnostic(event = {}) {
+  console.debug("[MindPal Voice][diagnostic]", event);
+  if (["voice.socket-error", "voice.socket-closed", "provider.error", "provider.closed"].includes(event?.type)) console.warn("[MindPal Voice]", event);
+  if (event?.type === "voice.playback.started" && event.audioClass === "main") handleMainPlaybackStarted();
+  if (event?.type === "voice.playback.ended" && event.audioClass === "main" && !captionQueue.length && !captionPendingText) {
+    captionAudioStartAtMs = 0;
+    captionNextReleaseAtMs = 0;
+    captionBufferedText = "";
+  }
+  if (event?.type === "voice.playback.flushed" && event.reason === "provider-interrupted") {
+    clearCaptionReleaseQueue({ preserveSource: true });
+    captionTurnComplete = true;
+  }
+  const diagnosticStatus = document.getElementById("voice-live-status");
+  if (!diagnosticStatus) return;
+  if (event?.type === "voice.socket-open") diagnosticStatus.textContent = event.setupSent ? "Configuring Voice…" : "Voice socket opened";
+  else if (event?.type === "voice.socket-error" || event?.type === "voice.socket-closed") diagnosticStatus.textContent = `Voice transport failed${event.code ? ` (${event.code})` : ""} — please try again`;
+  else if (event?.type === "voice.provider-ready-timeout" || event?.type === "provider.error" || event?.type === "provider.closed") diagnosticStatus.textContent = "Voice connection failed — please try again";
 }
 
 function handleAudioState({

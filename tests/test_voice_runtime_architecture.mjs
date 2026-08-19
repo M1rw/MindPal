@@ -82,6 +82,14 @@ test("Gemini adapter filters internal reasoning from model-text caption fallback
   const mixedText = mixedFallback.find((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT)?.text || "";
   assert.doesNotMatch(mixedText, /I am preparing a response/i);
   assert.match(mixedText, /Hello, I am here with you/i);
+
+  const internalOutput = normalizeGeminiServerMessage({
+    serverContent: {
+      outputTranscription: { text: "[INTERNAL RESPONSE PLAN — NOT USER SPEECH] Answer the user's explicit question." },
+      turnComplete: true,
+    },
+  });
+  assert.equal(internalOutput.filter((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT).length, 0);
 });
 
 test("Gemini adapter sends setup and rejects stale sockets", () => {
@@ -214,6 +222,27 @@ test("orchestrator owns session state and translates provider interruption into 
   assert.equal(orchestrator.getState().phase, VOICE_PHASES.IDLE);
 });
 
+
+test("orchestrator keeps cue audio classified when cue transcript precedes PCM", () => {
+  const scheduled = [];
+  const provider = {
+    connect: () => {},
+    close: () => {},
+  };
+  const capture = createCaptureAdapter();
+  const playback = {
+    schedule: (_data, options) => { scheduled.push(options); return true; },
+    handleInterruption: () => 2,
+    flush: () => 2,
+  };
+  const backchannelManager = { hasPending: () => false, cancel: () => {} };
+  const orchestrator = createVoiceSessionOrchestrator({ provider, capture, playback, backchannelManager });
+  orchestrator.start({ url: "wss://example.test", setup: {} });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_READY, identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT, text: "Yeah, go on.", identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_AUDIO, base64Data: "AQI=", identity: { sessionGeneration: 1 } });
+  assert.equal(scheduled[0].audioClass, "backchannel");
+});
 
 test("playback manager ducks active model audio and restores it before provider interruption", () => {
   const events = [];
