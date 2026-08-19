@@ -2,6 +2,7 @@ const DEFAULTS = Object.freeze({
   minimumSpeechMs: 8_000,
   minimumCooldownMs: 5_000,
   minimumConfidence: 0.55,
+  minimumPauseMs: 180,
   maximumPauseMs: 1_200,
 });
 
@@ -21,6 +22,7 @@ export function getBackchannelDecision(context = {}, now = Date.now(), options =
   if (context.mainResponseStarted || context.isModelSpeaking) return { offer: false, reason: "main-response-active" };
   if (context.pendingBackchannel) return { offer: false, reason: "already-pending" };
   if (speechDurationMs < config.minimumSpeechMs) return { offer: false, reason: "story-too-short" };
+  if (pauseDurationMs < config.minimumPauseMs) return { offer: false, reason: "pause-too-short" };
   if (pauseDurationMs > config.maximumPauseMs) return { offer: false, reason: "pause-too-long" };
   if (hasConfidence && transcriptConfidence < config.minimumConfidence) return { offer: false, reason: "low-transcript-confidence" };
   if (lastBackchannelAt > 0 && now - lastBackchannelAt < config.minimumCooldownMs) {

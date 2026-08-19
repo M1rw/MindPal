@@ -52,6 +52,7 @@ export function createPlaybackManager({
   }
   let nextStartTime = 0;
   let playing = false;
+  const startedAudioClasses = new Set();
   let sources = new Set();
   let muted = false;
   let optimisticallyDucked = false;
@@ -98,6 +99,7 @@ export function createPlaybackManager({
     if (targetGeneration === activeGeneration) {
       activeGeneration += 1;
       nextStartTime = 0;
+      startedAudioClasses.clear();
       playing = sources.size > 0;
     }
     emit("playback.flushed", { generation: targetGeneration, activeGeneration, reason });
@@ -159,16 +161,25 @@ export function createPlaybackManager({
     };
     sourceNode.start(startAt);
     nextStartTime = startAt + (buffer.duration || 0);
-    emit("playback.started", { generation, audioClass, identity, durationMs });
+    const classKey = `${generation}:${audioClass}`;
+    if (!startedAudioClasses.has(classKey)) {
+      startedAudioClasses.add(classKey);
+      emit("playback.started", { generation, audioClass, identity, durationMs, queuedSourceCount: sources.size });
+    } else {
+      emit("playback.chunk-scheduled", { generation, audioClass, identity, durationMs, queuedSourceCount: sources.size });
+    }
     return true;
   }
 
   function handleInterruption(identity = {}) {
     setOptimisticDucked(false);
+    // Gemini marks the current generation as cancelled on barge-in. Do not
+    // preserve a listening cue: it would continue speaking over the user and
+    // can make the next answer appear to be missing.
     return flush({
       generation: identity.playbackGeneration ?? activeGeneration,
       reason: "provider-interrupted",
-      preserveAudioClasses: ["backchannel"],
+      preserveAudioClasses: [],
     });
   }
 

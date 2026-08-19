@@ -389,7 +389,7 @@ function armCaptionFallback() {
     captionFallbackTimer = null;
     if (serial !== captionTurnSerial || !isLiveActive || captionAudioStartAtMs) return;
     flushPendingCaptionText({ audioStartMs: Date.now() });
-  }, 650);
+  }, 1_800);
 }
 
 function handleMainPlaybackStarted() {
@@ -425,6 +425,9 @@ function handleTranscript(type, text) {
 
   if (type === "user") {
     userTranscript = appendTranscriptChunk(userTranscript, cleaned);
+    // User speech starts a new response boundary. Retire any queued captions
+    // from an interrupted answer so they cannot appear inside the next answer.
+    clearCaptionReleaseQueue();
     captionTurnComplete = true;
     currentCaption = null;
     return;

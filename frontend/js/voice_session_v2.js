@@ -377,7 +377,17 @@ export function createVoiceSessionV2({
     if (!pending) return false;
     if (!/\b(?:mm[- ]?hm|yeah|go on|i hear you|sounds really hard|let me|give me a second|checking|look back|work that out|calculat|research|second)\b|(?:هممم|مممم|اهه|أيوه|حاضر|ثانية|لحظة|براجع|بشوف|هتحقق|هحسب|فاكر|فاكرة|نكمل|سامعك|حاسس بيك)/i.test(String(text || ""))) return false;
     pending.transcriptSeen = true;
-    return tryConfirmNativeCue(pending);
+    tryConfirmNativeCue(pending);
+    return true;
+  }
+
+  function cancelPendingNativeCue(key, reason = "cancelled") {
+    const pending = pendingNativeCueRequests.get(key);
+    if (!pending) return false;
+    clearTimeout(pending.timeout);
+    pendingNativeCueRequests.delete(key);
+    onDiagnostic({ type: "voice.native-cue-cancelled", reason, kind: pending.kind, operationId: pending.operationId });
+    return true;
   }
 
   function cancelPendingNativeCues(reason = "cancelled") {
@@ -498,7 +508,11 @@ export function createVoiceSessionV2({
       deliveryTelemetry.outputTranscriptionEvents += 1;
       deliveryTelemetry.transcriptCallbackEvents += 1;
       if (event.fallback) deliveryTelemetry.modelTextParts += 1;
-      observeNativeCueTranscript(event.text || "");
+      const cueTextMatched = observeNativeCueTranscript(event.text || "");
+      if (activeBackchannelManager?.hasPending?.() && String(event.text || "").trim() && !cueTextMatched) {
+        activeBackchannelManager.cancel("non-cue-output");
+        cancelPendingNativeCues("non-cue-output");
+      }
       const assembled = aiTranscriptAssembler.append(event.text || "", {
         mode: event.finished === true ? "snapshot" : "auto",
         eventKey: event.fallback ? "" : `${event.identity?.sessionGeneration || 0}:output:${event.text || ""}:${event.finished ? "final" : "partial"}`,
@@ -511,6 +525,7 @@ export function createVoiceSessionV2({
       if (currentUserTurnText) void finalizeUserTurn({ turnId: currentUserTurnId, text: userTranscriptAssembler.finalize(currentUserTurnText) });
       userTranscriptAssembler.reset();
       clearLongTurnPresenceTimer();
+      cancelPendingNativeCues("turn-complete");
       currentUserTurnId = null;
       currentUserTurnText = "";
       activePersistence?.update({ completedTurnCount: (activePersistence.getActive?.()?.completedTurnCount || 0) + 1 });
@@ -523,6 +538,8 @@ export function createVoiceSessionV2({
       onBackgroundTask({ status: event.type === VOICE_EVENTS.TOOL_RESOLVED ? "ready" : "failed", name: event.name });
     } else if (event.type === VOICE_EVENTS.PROVIDER_INTERRUPTED) {
       deliveryTelemetry.interruptedEvents += 1;
+      activeBackchannelManager?.cancel?.("user-interrupted");
+      cancelPendingNativeCues("user-interrupted");
       cancelActiveOperation("user-interrupted");
     } else if ([VOICE_EVENTS.PROVIDER_ERROR, VOICE_EVENTS.PROVIDER_CLOSED].includes(event.type)) {
       onDiagnostic(event);
@@ -729,9 +746,18 @@ export function createVoiceSessionV2({
           else backchannelManager.cancel("local-cue-unavailable");
           return;
         }
+        const key = `backchannel:${request.sessionGeneration}:${request.turnId}:${request.requestedAt}`;
+        // Arm before the network send: Gemini can answer quickly enough that
+        // registering in .then() loses the first transcript/audio events.
+        armNativeCueConfirmation({ key, kind: "backchannel", request });
         void backchannelProvider.request({ kind: request.kind, language: request.context?.language || detectVoiceLanguage(currentUserTurnText) }).then((result) => {
-          if (result?.ok) armNativeCueConfirmation({ key: `backchannel:${request.turnId}`, kind: "backchannel", request });
-          else backchannelManager.cancel("native-cue-unavailable");
+          if (!result?.ok) {
+            cancelPendingNativeCue(key, "native-cue-unavailable");
+            backchannelManager.cancel("native-cue-unavailable");
+          }
+        }).catch(() => {
+          cancelPendingNativeCue(key, "native-cue-request-failed");
+          backchannelManager.cancel("native-cue-request-failed");
         });
       },
       onCancel: () => localCueManager?.cancel("backchannel-cancelled"),
@@ -749,9 +775,11 @@ export function createVoiceSessionV2({
           }
           return;
         }
+        const key = `staging:${request.sessionGeneration}:${request.operationId}`;
+        armNativeCueConfirmation({ key, kind: "staging", operationId: request.operationId, request });
         void backchannelProvider.request({ kind, language: request.language || detectVoiceLanguage(currentUserTurnText) }).then((result) => {
-          if (result?.ok) armNativeCueConfirmation({ key: `staging:${request.operationId}`, kind: "staging", operationId: request.operationId, request });
-        });
+          if (!result?.ok) cancelPendingNativeCue(key, "staging-cue-unavailable");
+        }).catch(() => cancelPendingNativeCue(key, "staging-cue-request-failed"));
       },
       onCancel: () => localCueManager.cancel("operation-cancelled"),
     });
@@ -849,9 +877,15 @@ export function createVoiceSessionV2({
   }
 
   function setMuted(muted) {
-    micMuted = Boolean(muted);
+    const nextMuted = Boolean(muted);
+    const changed = nextMuted !== micMuted;
+    micMuted = nextMuted;
     audio?.setMuted(micMuted);
-    if (micMuted) {
+    if (micMuted && changed) {
+      // Google recommends audioStreamEnd when an audio stream pauses for more
+      // than a second, including microphone mute, so cached VAD audio cannot
+      // become a late input transcript or trigger a stale response.
+      provider?.sendAudioStreamEnd?.();
       clearLongTurnPresenceTimer();
       activeBackchannelManager?.cancel?.("microphone-muted");
       cancelPendingNativeCues("microphone-muted");

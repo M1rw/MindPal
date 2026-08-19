@@ -31,14 +31,14 @@ export function createBackchannelProvider({
     // preview retains clientContent support, so the transport is explicit.
     const preferRealtimeText = capabilities.preferRealtimeText === true;
     const realtimeSent = preferRealtimeText && provider.sendText?.(cueText) === true;
-    const clientContentSent = !realtimeSent
-      && provider.sendClientContent?.([{ role: "user", parts: [{ text: cueText }] }], false) === true;
-    const sent = realtimeSent || clientContentSent || provider.sendText?.(cueText) === true;
+    const clientContentSent = !preferRealtimeText && provider.sendClientContent?.([{ role: "user", parts: [{ text: cueText }] }], false) === true;
+    const fallbackTextSent = !preferRealtimeText && !clientContentSent && provider.sendText?.(cueText) === true;
+    const sent = realtimeSent || clientContentSent || fallbackTextSent;
     if (!sent) {
       onEvent({ type: "backchannel.skipped", reason: "provider-not-ready", request });
       return { ok: false, skipped: true, reason: "provider-not-ready" };
     }
-    const transport = realtimeSent || (!clientContentSent && !preferRealtimeText) ? "realtime-text" : "client-content";
+    const transport = realtimeSent || fallbackTextSent ? "realtime-text" : "client-content";
     onEvent({ type: "backchannel.requested", request, transport });
     return { ok: true, request, transport };
   }
