@@ -106,6 +106,7 @@ export function createVoiceSessionV2({
   let speakerMuted = false;
   let micMuted = false;
   let credentialRefreshTimer = null;
+  let muteKeepAliveTimer = null;
   let preloadedCredentials = null;
   let localCueManager = null;
   let activeToolGateway = null;
@@ -136,6 +137,15 @@ export function createVoiceSessionV2({
   const LOCAL_SPEECH_START_RMS = 0.022;
   const LOCAL_SPEECH_RELEASE_RMS = 0.011;
   const LOCAL_SPEECH_RELEASE_HOLD_MS = 1_500;
+  const MUTE_KEEPALIVE_FRAME = (() => {
+    if (typeof globalThis.btoa !== "function") return "";
+    const bytes = new Uint8Array(640); // 20 ms of 16 kHz mono PCM silence.
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    return globalThis.btoa(binary);
+  })();
   const deliveryTelemetry = {
     audioParts: 0,
     inputTranscriptionEvents: 0,
@@ -558,6 +568,23 @@ export function createVoiceSessionV2({
     }
   }
 
+  function clearMuteKeepAlive() {
+    if (muteKeepAliveTimer) clearTimeout(muteKeepAliveTimer);
+    muteKeepAliveTimer = null;
+  }
+
+  function armMuteKeepAlive() {
+    clearMuteKeepAlive();
+    if (!MUTE_KEEPALIVE_FRAME) return;
+    const tick = () => {
+      muteKeepAliveTimer = null;
+      if (!active || !micMuted || !provider?.isConnected?.()) return;
+      provider.sendAudio?.(MUTE_KEEPALIVE_FRAME, "audio/pcm;rate=16000");
+      muteKeepAliveTimer = setTimeout(tick, 250);
+    };
+    muteKeepAliveTimer = setTimeout(tick, 250);
+  }
+
   function clearCredentialRefreshTimer() {
     if (credentialRefreshTimer) clearTimeout(credentialRefreshTimer);
     credentialRefreshTimer = null;
@@ -851,6 +878,7 @@ export function createVoiceSessionV2({
     if (!active) return false;
     active = false;
     liveCapabilities = null;
+    clearMuteKeepAlive();
     sessionEndNotified = true;
     reportDeliveryDiagnostic("client_stop");
     settleProviderReady({ error: new Error("Voice session stopped before Gemini setup completed.") });
@@ -899,6 +927,9 @@ export function createVoiceSessionV2({
       // response, and pending cue state. Capture and the second onAudio guard
       // already prevent microphone frames from reaching the provider.
       onDiagnostic({ type: "voice.microphone-muted", localOnly: true });
+      armMuteKeepAlive();
+    } else if (!micMuted && changed) {
+      clearMuteKeepAlive();
     }
     projectState();
     return micMuted;
