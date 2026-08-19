@@ -68,17 +68,18 @@ export function createPlaybackManager({
     return optimisticallyDucked;
   }
 
-  function flush({ generation = null, reason = "flush" } = {}) {
+  function flush({ generation = null, reason = "flush", preserveAudioClasses = [] } = {}) {
     const targetGeneration = generation == null ? activeGeneration : generation;
+    const preserved = new Set(preserveAudioClasses);
     for (const source of sources) {
-      if (source.generation !== targetGeneration) continue;
+      if (source.generation !== targetGeneration || preserved.has(source.audioClass)) continue;
       try { source.node.stop(); } catch { /* already ended */ }
       sources.delete(source);
     }
     if (targetGeneration === activeGeneration) {
       activeGeneration += 1;
       nextStartTime = 0;
-      playing = false;
+      playing = sources.size > 0;
     }
     emit("playback.flushed", { generation: targetGeneration, activeGeneration, reason });
     return activeGeneration;
@@ -132,7 +133,7 @@ export function createPlaybackManager({
     playing = true;
     sourceNode.onended = () => {
       sources.delete(entry);
-      if (generation === activeGeneration && sources.size === 0) {
+      if (sources.size === 0) {
         playing = false;
         emit("playback.ended", { generation, audioClass });
       }
@@ -145,7 +146,11 @@ export function createPlaybackManager({
 
   function handleInterruption(identity = {}) {
     setOptimisticDucked(false);
-    return flush({ generation: identity.playbackGeneration ?? activeGeneration, reason: "provider-interrupted" });
+    return flush({
+      generation: identity.playbackGeneration ?? activeGeneration,
+      reason: "provider-interrupted",
+      preserveAudioClasses: ["backchannel"],
+    });
   }
 
   return Object.freeze({
