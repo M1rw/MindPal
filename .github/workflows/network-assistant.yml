@@ -1,0 +1,23 @@
+name: Network Assistant Build
+
+on:
+  push:
+    paths:
+      - 'network_assistant/**'
+      - '.github/workflows/network-assistant.yml'
+  pull_request:
+    paths:
+      - 'network_assistant/**'
+      - '.github/workflows/network-assistant.yml'
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S network_assistant -B network_assistant/build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build network_assistant/build --parallel
+      - name: Test
+        run: ctest --test-dir network_assistant/build --output-on-failure
