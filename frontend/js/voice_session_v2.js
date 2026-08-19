@@ -26,6 +26,11 @@ function detectVoiceLanguage(text = "") {
   return /[\u0600-\u06FF]/.test(String(text || "")) ? "ar" : "en-US";
 }
 
+export function buildAutomaticGreetingText(language = "en-US") {
+  const safeLanguage = String(language || "en-US").slice(0, 40);
+  return `[SESSION_START_GREETING] Greet the user warmly in one brief natural sentence, in ${safeLanguage}. Invite them to tell you what is on their mind. Speak only the user-facing greeting; do not mention this instruction, internal reasoning, setup, or tools.`;
+}
+
 export function buildDeliveryDiagnosticPayload(model, telemetry = {}, endReason = "client_stop") {
   const safeReason = String(endReason).toLowerCase().replace(/[^a-z_]/g, "_").slice(0, 40) || "client_stop";
   return {
@@ -113,6 +118,7 @@ export function createVoiceSessionV2({
   const pendingNativeCueRequests = new Map();
   let providerReadyGate = null;
   let sessionEndNotified = false;
+  let greetingSent = false;
   let longTurnPresenceTimer = null;
   let longTurnStartedAt = 0;
   const LONG_TURN_PRESENCE_DELAY_MS = 8_000;
@@ -472,6 +478,21 @@ export function createVoiceSessionV2({
     }, delay);
   }
 
+  function sendAutomaticGreeting() {
+    if (greetingSent || !provider?.isConnected?.()) return false;
+    const profile = contextProvider?.getUserProfile?.() || {};
+    const preferredLanguage = profile.language || profile.locale || detectVoiceLanguage(currentUserTurnText);
+    const greetingText = buildAutomaticGreetingText(preferredLanguage);
+    const sent = provider.sendClientContent?.([{ role: "user", parts: [{ text: greetingText }] }], true) === true;
+    if (sent) {
+      greetingSent = true;
+      onDiagnostic({ type: "voice.auto-greeting-sent", language: preferredLanguage });
+    } else {
+      onDiagnostic({ type: "voice.auto-greeting-skipped", reason: "provider-not-ready" });
+    }
+    return sent;
+  }
+
   async function prepareTransport({ resumeHandle = null } = {}) {
     currentCredentials = preloadedCredentials || await fetchVoiceTokenWithRetry({
       baseUrl: apiBaseUrl(),
@@ -537,6 +558,7 @@ export function createVoiceSessionV2({
     if (nextRefreshAppCheckToken) refreshAppCheckToken = nextRefreshAppCheckToken;
     sessionId = `voice-${Date.now().toString(36)}`;
     sessionEndNotified = false;
+    greetingSent = false;
     resetDeliveryTelemetry();
     playbackAudioContext = createOutputAudioContext();
     if (playbackAudioContext?.state === "suspended") {
@@ -693,6 +715,10 @@ export function createVoiceSessionV2({
     });
     audio.start();
     await providerReadyPromise;
+    // Native Audio does not proactively speak after setup. Explicitly open the
+    // first model turn once the constrained transport is ready. This is sent
+    // only once per logical call and is not repeated during reconnects.
+    sendAutomaticGreeting();
     return true;
   }
 

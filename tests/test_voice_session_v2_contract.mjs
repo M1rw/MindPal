@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-import { createVoiceSessionV2, buildDeliveryDiagnosticPayload } from "../frontend/js/voice_session_v2.js";
+import { createVoiceSessionV2, buildDeliveryDiagnosticPayload, buildAutomaticGreetingText } from "../frontend/js/voice_session_v2.js";
 
 test("Voice v2 facade exposes the compatibility controller surface before activation", () => {
   const controller = createVoiceSessionV2({
@@ -16,6 +16,14 @@ test("Voice v2 facade exposes the compatibility controller surface before activa
   assert.equal(controller.getMicMuted(), false);
   assert.equal(controller.getAiSpeaking(), false);
   assert.deepEqual(controller.getTranscriptSnapshot(), { userTranscript: "", aiTranscript: "" });
+});
+
+test("Voice v2 builds a user-facing automatic startup greeting", () => {
+  const greeting = buildAutomaticGreetingText("ar");
+  assert.match(greeting, /SESSION_START_GREETING/);
+  assert.match(greeting, /in ar/);
+  assert.match(greeting, /user-facing greeting/);
+  assert.doesNotMatch(greeting, /internal reasoning.*expose/i);
 });
 
 test("Voice v2 builds a FastAPI-compatible aggregate diagnostic payload", () => {
