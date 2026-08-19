@@ -16,7 +16,7 @@ import { buildGeminiLiveSetup } from "../frontend/js/voice/provider/gemini_setup
 test("Gemini setup uses the model-specific thinking control", () => {
   const live25 = buildGeminiLiveSetup({ model: "gemini-2.5-flash-live-preview" });
   assert.deepEqual(live25.generationConfig.thinkingConfig, { thinkingBudget: 0 });
-  assert.deepEqual(live25.proactivity, { proactiveAudio: true });
+  assert.equal(live25.proactivity, undefined);
   assert.equal(live25.enableAffectiveDialog, true);
   const live31 = buildGeminiLiveSetup({ model: "gemini-3.1-flash-live-preview" });
   assert.deepEqual(live31.generationConfig.thinkingConfig, { thinkingLevel: "minimal" });
