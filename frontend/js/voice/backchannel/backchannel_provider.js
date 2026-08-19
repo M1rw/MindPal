@@ -27,14 +27,20 @@ export function createBackchannelProvider({
     const cueText = `[LISTENING_ACK_ONLY] ${prompt} The detected conversation language is ${language}. Speak only the short acknowledgement now, in the same voice and language as the active conversation.`;
     // A listening cue must not close the user turn. Setting turnComplete=true
     // converts the cue into a normal answer request and defeats full duplex.
-    const sent = provider.sendClientContent?.([{ role: "user", parts: [{ text: cueText }] }], false) === true
-      || provider.sendText?.(cueText) === true;
+    // Gemini 3.1 accepts post-setup text through realtimeInput; the Native Audio
+    // preview retains clientContent support, so the transport is explicit.
+    const preferRealtimeText = capabilities.preferRealtimeText === true;
+    const realtimeSent = preferRealtimeText && provider.sendText?.(cueText) === true;
+    const clientContentSent = !realtimeSent
+      && provider.sendClientContent?.([{ role: "user", parts: [{ text: cueText }] }], false) === true;
+    const sent = realtimeSent || clientContentSent || provider.sendText?.(cueText) === true;
     if (!sent) {
       onEvent({ type: "backchannel.skipped", reason: "provider-not-ready", request });
       return { ok: false, skipped: true, reason: "provider-not-ready" };
     }
-    onEvent({ type: "backchannel.requested", request, transport: provider.sendClientContent ? "client-content" : "realtime-text" });
-    return { ok: true, request, transport: provider.sendClientContent ? "client-content" : "realtime-text" };
+    const transport = realtimeSent || (!clientContentSent && !preferRealtimeText) ? "realtime-text" : "client-content";
+    onEvent({ type: "backchannel.requested", request, transport });
+    return { ok: true, request, transport };
   }
 
   return Object.freeze({ request, getPrompt: (kind) => BACKCHANNEL_PROMPTS[kind] || BACKCHANNEL_PROMPTS.attentive });

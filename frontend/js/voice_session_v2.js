@@ -125,7 +125,15 @@ export function createVoiceSessionV2({
   let greetingSent = false;
   let longTurnPresenceTimer = null;
   let longTurnStartedAt = 0;
+  let localSpeechActive = false;
+  let localSpeechStartedAt = 0;
+  let localSpeechSilenceStartedAt = 0;
+  let localSpeechTurnId = null;
+  let localNoiseFloorRms = 0.008;
   const LONG_TURN_PRESENCE_DELAY_MS = 8_000;
+  const LOCAL_SPEECH_START_RMS = 0.022;
+  const LOCAL_SPEECH_RELEASE_RMS = 0.011;
+  const LOCAL_SPEECH_RELEASE_HOLD_MS = 900;
   const deliveryTelemetry = {
     audioParts: 0,
     inputTranscriptionEvents: 0,
@@ -145,32 +153,81 @@ export function createVoiceSessionV2({
     if (longTurnPresenceTimer) clearTimeout(longTurnPresenceTimer);
     longTurnPresenceTimer = null;
     longTurnStartedAt = 0;
+    localSpeechActive = false;
+    localSpeechStartedAt = 0;
+    localSpeechSilenceStartedAt = 0;
+    localSpeechTurnId = null;
+    localNoiseFloorRms = 0.008;
   }
 
-  function armLongTurnPresence() {
-    if (!active || !orchestrator || !currentUserTurnId || !currentUserTurnText || longTurnPresenceTimer) return;
-    const turnId = currentUserTurnId;
+  function armLongTurnPresence({ turnId = currentUserTurnId || localSpeechTurnId, languageText = currentUserTurnText || lastUserTranscript } = {}) {
+    if (!active || !orchestrator || !turnId || !localSpeechActive || longTurnPresenceTimer) return;
     if (!longTurnStartedAt) longTurnStartedAt = Date.now();
     longTurnPresenceTimer = setTimeout(() => {
       longTurnPresenceTimer = null;
-      if (!active || turnId !== currentUserTurnId || !currentUserTurnText) return;
+      const activeTurnId = currentUserTurnId || localSpeechTurnId;
+      if (!active || !localSpeechActive || turnId !== activeTurnId) return;
       const state = getOrchestratorState();
       if (state.isModelSpeaking) {
-        armLongTurnPresence();
+        armLongTurnPresence({ turnId, languageText });
         return;
       }
       const decision = orchestrator.considerBackchannel({
         turnId,
-        speechDurationMs: Date.now() - longTurnStartedAt,
+        speechDurationMs: Date.now() - (localSpeechStartedAt || longTurnStartedAt),
         pauseDurationMs: 0,
         transcriptConfidence: 1,
         userHasYielded: false,
         topic: "story",
         emotion: "neutral",
-        language: detectVoiceLanguage(currentUserTurnText),
+        language: detectVoiceLanguage(languageText),
       });
-      onDiagnostic({ type: "voice.long-turn-presence", decision: decision?.reason || "requested" });
+      onDiagnostic({ type: "voice.long-turn-presence", decision: decision?.reason || "requested", localAudio: true });
+      if (decision?.offer) {
+        // Start a fresh cadence after a delivered cue; the backchannel manager
+        // independently enforces its cooldown and pending-request guard.
+        localSpeechStartedAt = Date.now();
+        longTurnStartedAt = localSpeechStartedAt;
+      }
+      armLongTurnPresence({ turnId, languageText });
     }, LONG_TURN_PRESENCE_DELAY_MS);
+  }
+
+  function handleLocalCaptureQuality({ rms = 0 } = {}) {
+    if (!active || micMuted) return false;
+    const level = Math.max(0, Number(rms) || 0);
+    const now = Date.now();
+    if (!localSpeechActive) {
+      // Track a slow ambient baseline only while the user is not speaking.
+      localNoiseFloorRms = Math.min(0.08, localNoiseFloorRms * 0.98 + level * 0.02);
+      const startThreshold = Math.max(LOCAL_SPEECH_START_RMS, localNoiseFloorRms * 3.5);
+      if (level < startThreshold) return false;
+      localSpeechActive = true;
+      localSpeechStartedAt = now;
+      longTurnStartedAt = now;
+      localSpeechTurnId = currentUserTurnId || `local-turn-${now.toString(36)}`;
+      currentUserTurnId = currentUserTurnId || localSpeechTurnId;
+      localSpeechSilenceStartedAt = 0;
+      onDiagnostic({ type: "voice.local-speech-start", rms: level, threshold: startThreshold, turnId: localSpeechTurnId });
+      armLongTurnPresence({ turnId: localSpeechTurnId, languageText: currentUserTurnText || lastUserTranscript });
+      return true;
+    }
+
+    if (level <= LOCAL_SPEECH_RELEASE_RMS) {
+      localSpeechSilenceStartedAt ||= now;
+      if (now - localSpeechSilenceStartedAt >= LOCAL_SPEECH_RELEASE_HOLD_MS) {
+        localSpeechActive = false;
+        localSpeechSilenceStartedAt = 0;
+        if (longTurnPresenceTimer) clearTimeout(longTurnPresenceTimer);
+        longTurnPresenceTimer = null;
+        onDiagnostic({ type: "voice.local-speech-end", turnId: localSpeechTurnId });
+        return false;
+      }
+    } else {
+      localSpeechSilenceStartedAt = 0;
+    }
+    armLongTurnPresence({ turnId: localSpeechTurnId, languageText: currentUserTurnText || lastUserTranscript });
+    return true;
   }
 
   async function reportDeliveryDiagnostic(endReason = "client_stop") {
@@ -582,7 +639,10 @@ export function createVoiceSessionV2({
         // against worklet frames that were queued immediately before the toggle.
         if (!micMuted) provider?.sendAudio(base64Data, mimeType);
       },
-      onQuality: (quality) => orchestrator?.handleCaptureQuality(quality),
+      onQuality: (quality) => {
+        orchestrator?.handleCaptureQuality(quality);
+        handleLocalCaptureQuality(quality);
+      },
       onVolume,
     });
     audio.setMuted(micMuted);
@@ -632,7 +692,10 @@ export function createVoiceSessionV2({
     });
     const backchannelProvider = createBackchannelProvider({
       provider,
-      capabilities: { sameSessionBackchannel: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_BACKCHANNEL === true && capabilities.nativeListeningCues === true },
+      capabilities: {
+        sameSessionBackchannel: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_BACKCHANNEL === true && capabilities.nativeListeningCues === true,
+        preferRealtimeText: capabilities.nativeAudio !== true,
+      },
       onEvent: (event) => onDiagnostic({ ...event, type: `voice.${event.type}` }),
     });
     localCueManager = createLocalCueManager({
