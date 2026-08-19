@@ -167,7 +167,8 @@ export async function startLiveVoice(contextProvider = null) {
       onTurnComplete: handleTurnComplete,
       onBackgroundTask: handleBackgroundTask,
       onDiagnostic: (event) => {
-        console.warn("[MindPal Voice]", event);
+        console.debug("[MindPal Voice][diagnostic]", event);
+        if (["voice.socket-error", "voice.socket-closed", "provider.error", "provider.closed"].includes(event?.type)) console.warn("[MindPal Voice]", event);
         const diagnosticStatus = document.getElementById("voice-live-status");
         if (!diagnosticStatus) return;
         if (event?.type === "voice.socket-open") diagnosticStatus.textContent = event.setupSent ? "Configuring Voice…" : "Voice socket opened";
@@ -291,6 +292,7 @@ function renderCaptionText(caption, rawText) {
 
 function handleTranscript(type, text) {
   if (!text) return;
+  console.debug("[MindPal Voice][caption]", { type, text: String(text).slice(0, 240) });
 
   // Filter noise markers
   const cleaned = text.replace(/<noise>/gi, "");
