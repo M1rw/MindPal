@@ -446,8 +446,9 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
   assert.match(styles, /unicode-bidi: plaintext/);
   assert.match(styles, /overflow-wrap: anywhere/);
   assert.match(styles, /padding: 1\.75rem 0 4\.25rem/);
-  assert.match(styles, /mask-image: linear-gradient\(to bottom, transparent 0, rgba\(0, 0, 0, 0\.74\) 7%, #000 16%, #000 100%/);
-  assert.doesNotMatch(styles, /#000 87%, rgba\(0, 0, 0, 0\.74\) 95%/);
+  assert.match(styles, /mask-image: none/);
+  assert.match(styles, /\.voice-caption--active[\s\S]*?opacity: 1/);
+  assert.match(styles, /\.voice-caption--active[\s\S]*?visibility: visible/);
   assert.doesNotMatch(styles, /\.voice-msg-user/);
 });
 

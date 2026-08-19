@@ -113,6 +113,9 @@ export function createVoiceSessionV2({
   const pendingNativeCueRequests = new Map();
   let providerReadyGate = null;
   let sessionEndNotified = false;
+  let longTurnPresenceTimer = null;
+  let longTurnStartedAt = 0;
+  const LONG_TURN_PRESENCE_DELAY_MS = 8_000;
   const deliveryTelemetry = {
     audioParts: 0,
     inputTranscriptionEvents: 0,
@@ -126,6 +129,38 @@ export function createVoiceSessionV2({
 
   function resetDeliveryTelemetry() {
     for (const key of Object.keys(deliveryTelemetry)) deliveryTelemetry[key] = 0;
+  }
+
+  function clearLongTurnPresenceTimer() {
+    if (longTurnPresenceTimer) clearTimeout(longTurnPresenceTimer);
+    longTurnPresenceTimer = null;
+    longTurnStartedAt = 0;
+  }
+
+  function armLongTurnPresence() {
+    if (!active || !orchestrator || !currentUserTurnId || !currentUserTurnText || longTurnPresenceTimer) return;
+    const turnId = currentUserTurnId;
+    if (!longTurnStartedAt) longTurnStartedAt = Date.now();
+    longTurnPresenceTimer = setTimeout(() => {
+      longTurnPresenceTimer = null;
+      if (!active || turnId !== currentUserTurnId || !currentUserTurnText) return;
+      const state = getOrchestratorState();
+      if (state.isModelSpeaking) {
+        armLongTurnPresence();
+        return;
+      }
+      const decision = orchestrator.considerBackchannel({
+        turnId,
+        speechDurationMs: Date.now() - longTurnStartedAt,
+        pauseDurationMs: 0,
+        transcriptConfidence: 1,
+        userHasYielded: false,
+        topic: "story",
+        emotion: "neutral",
+        language: detectVoiceLanguage(currentUserTurnText),
+      });
+      onDiagnostic({ type: "voice.long-turn-presence", decision: decision?.reason || "requested" });
+    }, LONG_TURN_PRESENCE_DELAY_MS);
   }
 
   async function reportDeliveryDiagnostic(endReason = "client_stop") {
@@ -363,11 +398,16 @@ export function createVoiceSessionV2({
         eventKey,
       });
       currentUserTurnId = currentUserTurnId || `voice-turn-${Date.now().toString(36)}`;
+      if (!longTurnStartedAt) longTurnStartedAt = Date.now();
       currentUserTurnText = assembled;
       lastUserTranscript = assembled;
+      armLongTurnPresence();
       activePersistence?.update({ userTranscript: assembled });
       onTranscript("user", event.text || "");
-      if (event.finished === true) void finalizeUserTurn({ turnId: currentUserTurnId, text: userTranscriptAssembler.finalize(event.text || "") });
+      if (event.finished === true) {
+        clearLongTurnPresenceTimer();
+        void finalizeUserTurn({ turnId: currentUserTurnId, text: userTranscriptAssembler.finalize(event.text || "") });
+      }
     } else if (event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT) {
       deliveryTelemetry.outputTranscriptionEvents += 1;
       deliveryTelemetry.transcriptCallbackEvents += 1;
@@ -384,6 +424,9 @@ export function createVoiceSessionV2({
       deliveryTelemetry.turnCompleteEvents += 1;
       if (currentUserTurnText) void finalizeUserTurn({ turnId: currentUserTurnId, text: userTranscriptAssembler.finalize(currentUserTurnText) });
       userTranscriptAssembler.reset();
+      clearLongTurnPresenceTimer();
+      currentUserTurnId = null;
+      currentUserTurnText = "";
       activePersistence?.update({ completedTurnCount: (activePersistence.getActive?.()?.completedTurnCount || 0) + 1 });
       onTurnComplete();
     } else if (event.type === VOICE_EVENTS.TOOL_STARTED) {
@@ -673,6 +716,7 @@ export function createVoiceSessionV2({
     recovery = null;
     cancelActiveOperation("session-stop");
     cancelPendingNativeCues("session-stop");
+    clearLongTurnPresenceTimer();
     operationsByTurn.clear();
     finalizedTurnIds.clear();
     userTranscriptAssembler.reset();
