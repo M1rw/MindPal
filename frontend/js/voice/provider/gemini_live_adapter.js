@@ -23,15 +23,25 @@ function decodeSocketMessage(raw) {
   return decodeMessage(raw);
 }
 
-const INTERNAL_REASONING_BLOCK = /(?:<think>[\s\S]*?<\/think>|\*\*\s*(?:Greeting|Formulating|Analyzing|Planning|Thinking|Reasoning|Deciding|Preparing|Interpreting|Evaluating|Considering|Identifying|Selecting|Crafting|Checking|Understanding|Responding|Answering|Assessing|Generating)[^*]*\*\*)/i;
+const INTERNAL_REASONING_HEADING = /\*\*\s*(?:Greeting|Formulating|Analyzing|Planning|Thinking|Reasoning|Deciding|Preparing|Interpreting|Evaluating|Considering|Identifying|Selecting|Crafting|Checking|Understanding|Responding|Answering|Assessing|Generating)[^*]*\*\*/i;
+const INTERNAL_REASONING_BLOCK = /<think>[\s\S]*?<\/think>/gi;
+
+function sanitizeCaptionFallbackText(text, part = {}) {
+  if (part.thought === true || part.isThought === true) return "";
+  let value = String(text || "").replace(INTERNAL_REASONING_BLOCK, "").trim();
+  if (!value) return "";
+
+  // Gemini can put a hidden planning section and spoken text in one model-text
+  // part. Split at bold headings so only sections whose heading is internal
+  // reasoning are removed; later user-facing sections remain available.
+  if (INTERNAL_REASONING_HEADING.test(value)) {
+    value = value.replace(/\*\*\s*(?:Greeting|Formulating|Analyzing|Planning|Thinking|Reasoning|Deciding|Preparing|Interpreting|Evaluating|Considering|Identifying|Selecting|Crafting|Checking|Understanding|Responding|Answering|Assessing|Generating)[^*]*\*\*[\s\S]*?(?=\s*\*\*\s*[^*]+\*\*|$)/gi, " ").trim();
+  }
+  return value;
+}
 
 function isCaptionSafeText(text, part = {}) {
-  if (part.thought === true || part.isThought === true) return false;
-  const value = String(text || "").trim();
-  if (!value) return false;
-  // Gemini output transcription is authoritative. This guard is only for the
-  // modelTurn text fallback used by older/constrained transports.
-  return !INTERNAL_REASONING_BLOCK.test(value);
+  return Boolean(sanitizeCaptionFallbackText(text, part));
 }
 
 function identityFromContext(context = {}) {
@@ -85,7 +95,8 @@ export function normalizeGeminiServerMessage(message, context = {}) {
   let modelTextFallback = "";
   for (const part of serverContent.modelTurn?.parts || []) {
     if (typeof part.text === "string" && isCaptionSafeText(part.text, part)) {
-      const text = part.text.trim();
+      const text = sanitizeCaptionFallbackText(part.text, part);
+      if (!text) continue;
       modelTextFallback = modelTextFallback ? `${modelTextFallback} ${text}` : text;
     }
     const inlineData = part.inlineData || part.inline_data;

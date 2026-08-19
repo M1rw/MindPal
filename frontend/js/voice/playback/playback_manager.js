@@ -28,17 +28,36 @@ export function createPlaybackManager({
 } = {}) {
   let activeGeneration = 0;
   let sharedOutputAnalyser = outputAnalyser || (audioContext?.createAnalyser ? audioContext.createAnalyser() : null);
+  let masterCompressor = null;
   if (sharedOutputAnalyser) {
-    sharedOutputAnalyser.fftSize = sharedOutputAnalyser.fftSize || 256;
-    sharedOutputAnalyser.smoothingTimeConstant = 0.82;
-    try { sharedOutputAnalyser.connect(audioContext.destination); } catch { /* already connected */ }
+    sharedOutputAnalyser.fftSize = sharedOutputAnalyser.fftSize || 2_048;
+    sharedOutputAnalyser.smoothingTimeConstant = 0.75;
+    if (typeof audioContext?.createDynamicsCompressor === "function") {
+      masterCompressor = audioContext.createDynamicsCompressor();
+      masterCompressor.threshold.value = -18;
+      masterCompressor.knee.value = 24;
+      masterCompressor.ratio.value = 3;
+      masterCompressor.attack.value = 0.003;
+      masterCompressor.release.value = 0.18;
+      try {
+        sharedOutputAnalyser.connect(masterCompressor);
+        masterCompressor.connect(audioContext.destination);
+      } catch {
+        masterCompressor = null;
+        try { sharedOutputAnalyser.connect(audioContext.destination); } catch { /* already connected */ }
+      }
+    } else {
+      try { sharedOutputAnalyser.connect(audioContext.destination); } catch { /* already connected */ }
+    }
   }
   let nextStartTime = 0;
   let playing = false;
   let sources = new Set();
   let muted = false;
   let optimisticallyDucked = false;
-  const optimisticDuckGain = 0.12;
+  // Keep barge-in audible while the provider confirms interruption. The old
+  // 0.12 gain was an aggressive ~18 dB cut and made Native Audio sound distant.
+  const optimisticDuckGain = 0.32;
 
   function emit(type, payload = {}) {
     onEvent(Object.freeze({ type, at: now(), ...payload }));
@@ -164,5 +183,6 @@ export function createPlaybackManager({
     getActiveGeneration: () => activeGeneration,
     getQueuedSourceCount: () => sources.size,
     getOutputAnalyser: () => sharedOutputAnalyser,
+    getOutputSampleRate: () => audioContext?.sampleRate || outputSampleRate,
   });
 }
