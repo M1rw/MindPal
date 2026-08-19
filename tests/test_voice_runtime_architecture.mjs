@@ -17,7 +17,7 @@ test("Gemini setup uses the model-specific thinking control", () => {
   const live25 = buildGeminiLiveSetup({ model: "gemini-2.5-flash-live-preview" });
   assert.deepEqual(live25.generationConfig.thinkingConfig, { thinkingBudget: 0 });
   assert.equal(live25.proactivity, undefined);
-  assert.equal(live25.enableAffectiveDialog, true);
+  assert.equal(live25.enableAffectiveDialog, undefined);
   const live31 = buildGeminiLiveSetup({ model: "gemini-3.1-flash-live-preview" });
   assert.deepEqual(live31.generationConfig.thinkingConfig, { thinkingLevel: "minimal" });
   const native25 = buildGeminiLiveSetup({ model: "gemini-2.5-flash-native-audio-preview-12-2025" });
