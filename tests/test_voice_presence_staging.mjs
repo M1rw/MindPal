@@ -132,7 +132,7 @@ test("local cue manager never invokes remote/provider audio and is cancellable",
 });
 
 
-test("native backchannel provider uses a response-triggering Gemini client-content turn", async () => {
+test("native backchannel provider keeps the active user turn open", async () => {
   const sent = [];
   const provider = {
     sendClientContent: (turns, turnComplete) => {
@@ -143,6 +143,6 @@ test("native backchannel provider uses a response-triggering Gemini client-conte
   const native = createBackchannelProvider({ provider, capabilities: { sameSessionBackchannel: true } });
   const result = await native.request({ kind: "thinking" });
   assert.equal(result.ok, true);
-  assert.equal(sent[0].turnComplete, true);
+  assert.equal(sent[0].turnComplete, false);
   assert.match(sent[0].turns[0].parts[0].text, /Speak only the short acknowledgement now/);
 });

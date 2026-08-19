@@ -563,6 +563,7 @@ export function createVoiceSessionV2({
     playback = createPlaybackManager({
       audioContext: playbackAudioContext || audio.getAudioContext(),
       outputSampleRate: 24_000,
+      onEvent: (event) => onDiagnostic({ ...event, type: `voice.${event.type}` }),
     });
     onDiagnostic({
       type: "voice.audio-output-ready",
@@ -606,6 +607,7 @@ export function createVoiceSessionV2({
     const backchannelProvider = createBackchannelProvider({
       provider,
       capabilities: { sameSessionBackchannel: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_BACKCHANNEL === true && capabilities.nativeListeningCues === true },
+      onEvent: (event) => onDiagnostic({ ...event, type: `voice.${event.type}` }),
     });
     localCueManager = createLocalCueManager({
       audioUrls: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_CUE_AUDIO || {},

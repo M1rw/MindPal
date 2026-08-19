@@ -25,7 +25,9 @@ export function createBackchannelProvider({
     const prompt = BACKCHANNEL_PROMPTS[request.kind] || BACKCHANNEL_PROMPTS.attentive;
     const language = request.language || "auto";
     const cueText = `[LISTENING_ACK_ONLY] ${prompt} The detected conversation language is ${language}. Speak only the short acknowledgement now, in the same voice and language as the active conversation.`;
-    const sent = provider.sendClientContent?.([{ role: "user", parts: [{ text: cueText }] }], true) === true
+    // A listening cue must not close the user turn. Setting turnComplete=true
+    // converts the cue into a normal answer request and defeats full duplex.
+    const sent = provider.sendClientContent?.([{ role: "user", parts: [{ text: cueText }] }], false) === true
       || provider.sendText?.(cueText) === true;
     if (!sent) {
       onEvent({ type: "backchannel.skipped", reason: "provider-not-ready", request });
