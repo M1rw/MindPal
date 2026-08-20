@@ -14,7 +14,7 @@ import { VOICE_PHASES } from "../frontend/js/voice/architecture/state.js";
 import { buildGeminiLiveSetup } from "../frontend/js/voice/provider/gemini_setup_builder.js";
 
 test("Gemini setup uses the model-specific thinking control", () => {
-  const live25 = buildGeminiLiveSetup({ model: "gemini-2.5-flash-live-preview" });
+  const live25 = buildGeminiLiveSetup({ model: "gemini-2.5-flash-native-audio-preview-12-2025" });
   assert.deepEqual(live25.generationConfig.thinkingConfig, { thinkingBudget: 0 });
   assert.equal(live25.proactivity, undefined);
   assert.equal(live25.enableAffectiveDialog, undefined);

@@ -269,7 +269,7 @@ test('fetchVoiceTokenWithRetry can request a fallback grant without retrying the
         status: 200,
         json: async () => ({
           token: 'fallback-ephemeral',
-          model: 'gemini-2.5-flash-live-preview',
+          model: 'gemini-2.5-flash-native-audio-preview-12-2025',
           websocket_url: 'wss://example.com/v1beta/live',
           expires_at: '2026-07-10T18:30:00Z',
           new_session_expires_at: '2026-07-10T18:01:00Z',
@@ -279,7 +279,7 @@ test('fetchVoiceTokenWithRetry can request a fallback grant without retrying the
       };
     },
   });
-  assert.equal(result.model, 'gemini-2.5-flash-live-preview');
+  assert.equal(result.model, 'gemini-2.5-flash-native-audio-preview-12-2025');
   assert.equal(result.fallback_grant, 'grant-from-server');
   assert.equal(result.fallback_used, true);
   assert.equal(calls.length, 1);
