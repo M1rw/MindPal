@@ -89,7 +89,7 @@ async def test_primary_success_does_not_probe_or_charge_fallback(monkeypatch: py
         calls.append((str(kwargs["model"]), str(kwargs["api_version"])))
         return "primary-token"
 
-    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-live-preview")
+    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-native-audio-preview-12-2025")
     monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", create)
 
     result = await voice_router.get_voice_token(Response(), service, context())
@@ -113,16 +113,16 @@ async def test_primary_31_failure_falls_back_once_to_25_and_commits_once(monkeyp
             raise RuntimeError("3.1 provisioning unavailable")
         return "fallback-25-token"
 
-    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-live-preview")
+    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-native-audio-preview-12-2025")
     monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", create)
 
     result = await voice_router.get_voice_token(Response(), service, context())
 
     assert calls == [
         ("gemini-3.1-flash-live-preview", "v1alpha"),
-        ("gemini-2.5-flash-live-preview", "v1beta"),
+        ("gemini-2.5-flash-native-audio-preview-12-2025", "v1beta"),
     ]
-    assert result.model == "gemini-2.5-flash-live-preview"
+    assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
     assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
     assert service.quota.reserve_count == 1
     assert service.quota.commit_count == 1
@@ -139,14 +139,14 @@ async def test_same_primary_and_fallback_is_attempted_once(monkeypatch: pytest.M
         calls.append(str(kwargs["model"]))
         raise RuntimeError("model unavailable")
 
-    service = services("gemini-2.5-flash-live-preview", "gemini-2.5-flash-live-preview")
+    service = services("gemini-2.5-flash-native-audio-preview-12-2025", "gemini-2.5-flash-native-audio-preview-12-2025")
     monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", create)
 
     with pytest.raises(HTTPException) as error:
         await voice_router.get_voice_token(Response(), service, context())
 
     assert error.value.status_code == 502
-    assert calls == ["gemini-2.5-flash-live-preview"]
+    assert calls == ["gemini-2.5-flash-native-audio-preview-12-2025"]
     assert service.quota.reserve_count == 1
     assert service.quota.commit_count == 0
     assert service.quota.refund_count == 1
@@ -204,7 +204,7 @@ async def test_primary_31_issues_signed_grant_and_fallback_reuses_no_quota(monke
         calls.append(str(kwargs["model"]))
         return f"token-{len(calls)}"
 
-    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-live-preview")
+    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-native-audio-preview-12-2025")
     monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", create)
 
     primary = await voice_router.get_voice_token(Response(), service, context())
@@ -214,11 +214,11 @@ async def test_primary_31_issues_signed_grant_and_fallback_reuses_no_quota(monke
 
     fallback = await voice_router.get_voice_token(Response(), service, context(), fallback_grant=primary.fallback_grant)
 
-    assert fallback.model == "gemini-2.5-flash-live-preview"
+    assert fallback.model == "gemini-2.5-flash-native-audio-preview-12-2025"
     assert fallback.fallback_used is True
     assert fallback.usage is None
     assert fallback.fallback_grant is None
-    assert calls == ["gemini-3.1-flash-live-preview", "gemini-2.5-flash-live-preview"]
+    assert calls == ["gemini-3.1-flash-live-preview", "gemini-2.5-flash-native-audio-preview-12-2025"]
     assert service.quota.reserve_count == 1
     assert service.quota.commit_count == 1
     assert service.quota.refund_count == 0
@@ -232,13 +232,35 @@ async def test_invalid_fallback_grant_is_rejected_before_provider_call(monkeypat
         calls.append(str(kwargs["model"]))
         return "should-not-be-issued"
 
-    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-live-preview")
+    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-native-audio-preview-12-2025")
     monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", create)
 
     with pytest.raises(HTTPException) as error:
         await voice_router.get_voice_token(Response(), service, context(), fallback_grant="invalid-grant-that-is-long-enough")
 
     assert error.value.status_code == 403
+    assert calls == []
+    assert service.quota.reserve_count == 0
+    assert service.quota.commit_count == 0
+    assert service.quota.refund_count == 0
+
+
+@pytest.mark.asyncio
+async def test_retired_gemini_25_alias_is_rejected_before_provider_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    async def create(**kwargs: object) -> str:
+        calls.append(str(kwargs["model"]))
+        return "should-not-be-issued"
+
+    service = services("gemini-2.5-flash-live-preview", "gemini-2.5-flash-live-preview")
+    monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", create)
+
+    with pytest.raises(HTTPException) as error:
+        await voice_router.get_voice_token(Response(), service, context())
+
+    assert error.value.status_code == 503
+    assert error.value.detail["code"] == "gemini_live_model_unsupported"
     assert calls == []
     assert service.quota.reserve_count == 0
     assert service.quota.commit_count == 0

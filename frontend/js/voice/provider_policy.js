@@ -16,21 +16,21 @@ export function isMindPalNativeAudioLiveModel(value) {
 export function getLiveProviderCapabilities(model) {
   const nativeAudio = isMindPalNativeAudioLiveModel(model);
   const normalizedModel = normalizeLiveModelName(model);
-  const gemini25Live = /^gemini-2\.5-flash-live(?:-|$)/i.test(normalizedModel);
+  const gemini25Live = false; // Retired 2.5 Live aliases are not Gemini API Live models.
   const gemini31Live = /^gemini-3\.1-flash-live(?:-|$)/i.test(normalizedModel);
-  // Gemini 2.5 Flash Live supports clientContent updates throughout an active
-  // conversation (turnComplete=false), which is the safe explicit cue
+  // Gemini 2.5 native audio supports clientContent updates throughout an
+  // active conversation (turnComplete=false), which is the safe explicit cue
   // transport while the user turn remains open. Gemini 3.1 uses realtime text.
-  const sameSessionListeningCues = nativeAudio || gemini25Live || gemini31Live;
+  const sameSessionListeningCues = nativeAudio || gemini31Live;
   return {
     model: normalizedModel,
     nativeAudio,
     apiVersion: nativeAudio || gemini25Live ? "v1beta" : "v1alpha",
-    // Gemini 2.5 Flash Live supports the documented proactive-audio path on
+    // Gemini 2.5 native audio supports the documented proactive-audio path on
     // v1beta, but proactive audio is not a reliable mid-speech acknowledgement
     // mechanism. The explicit client-content cue path remains enabled too.
     proactiveAudio: gemini25Live,
-    // Manual cue requests use clientContent for Gemini 2.5/Native Audio and
+    // Manual cue requests use clientContent for Gemini 2.5 native audio and
     // realtime text for Gemini 3.1.
     nativeListeningCues: sameSessionListeningCues,
     preferRealtimeText: gemini31Live,

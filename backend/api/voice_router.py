@@ -34,7 +34,8 @@ MAX_MIME_TYPE_CHARS = 80
 MAX_VOICE_FACT_QUERY_CHARS = 500
 FALLBACK_GRANT_TTL_SECONDS = 120
 NATIVE_AUDIO_LIVE_MODEL_PREFIX = "gemini-2.5-flash-native-audio"
-GEMINI_25_LIVE_MODEL_PREFIX = "gemini-2.5-flash-live"
+GEMINI_25_LIVE_MODEL_PREFIX = NATIVE_AUDIO_LIVE_MODEL_PREFIX
+GEMINI_31_LIVE_MODEL_PREFIX = "gemini-3.1-flash-live"
 
 _summarize_tool = VoiceSummarizeTool()
 _transcribe_tool = VoiceTranscribeTool()
@@ -392,6 +393,9 @@ async def get_voice_token(
         new_session_expires_at = now + dt.timedelta(seconds=int(services.settings.VOICE_NEW_SESSION_TTL_SECONDS))
         primary_model = sanitize_text(services.settings.GEMINI_LIVE_MODEL, 120)
         fallback_model = sanitize_text(services.settings.GEMINI_LIVE_FALLBACK_MODEL, 120)
+        invalid_models = [model for model in (primary_model, fallback_model) if model and not _is_supported_gemini_api_live_model(model)]
+        if invalid_models:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail={"code": "gemini_live_model_unsupported", "message": "Configured Voice model is not supported by the Gemini API Live WebSocket", "request_id": context.request_id})
         if fallback_only:
             grant_payload = _verify_fallback_grant(
                 grant=fallback_grant or "",
@@ -611,11 +615,16 @@ async def _create_ephemeral_voice_token(
     return await asyncio.to_thread(create)
 
 
+def _is_supported_gemini_api_live_model(model: str) -> bool:
+    normalized = sanitize_text(model, 120).lower()
+    return normalized.startswith((NATIVE_AUDIO_LIVE_MODEL_PREFIX, GEMINI_31_LIVE_MODEL_PREFIX))
+
+
 def _live_api_version(model: str) -> str:
     normalized = sanitize_text(model, 120).lower()
-    # Gemini 2.5 Live and Native Audio capabilities documented for proactive
-    # audio use v1beta. Gemini 3.1 remains on its v1alpha constrained transport.
-    return "v1beta" if normalized.startswith((NATIVE_AUDIO_LIVE_MODEL_PREFIX, GEMINI_25_LIVE_MODEL_PREFIX)) else "v1alpha"
+    # Gemini API 2.5 native audio uses v1beta; Gemini 3.1 remains on its
+    # v1alpha constrained transport.
+    return "v1beta" if normalized.startswith(NATIVE_AUDIO_LIVE_MODEL_PREFIX) else "v1alpha"
 
 
 def _live_websocket_url(api_version: str) -> str:

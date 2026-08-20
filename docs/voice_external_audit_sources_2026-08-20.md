@@ -47,3 +47,9 @@ Commit dd824a8 removed both optional setup fields from the Gemini 2.5 constraine
 The deterministic synthetic suite has four passing tests. It validates mono PCM16 16 kHz fixtures, mute suppression, background-noise rejection before sustained speech, optimistic ducking/release driven by real orchestrator capture-quality handling, and a 10.4-second story pause entering the 180-1200 ms listening-cue eligibility window without requiring a user yield. The synthetic interruption harness observes ducking within one 20 ms capture frame and release after the interruption gap.
 
 The connected browser extension timed out while trying to close the persisted Settings modal during the final cache-busted browser check. Therefore, direct HTTP freshness and Vercel runtime-error absence are verified, while a human-spoken long-story cue test remains unverified in this pass.
+
+## Production model identifier correction (20 August 2026)
+
+The production trace rejects `models/gemini-2.5-flash-live-preview` with WebSocket close code 1008 because that identifier is not available or supported for `bidiGenerateContent`. Google’s current Gemini API model catalog lists Gemini 2.5 Flash Live under the Gemini API endpoint identifier `gemini-2.5-flash-native-audio-preview-12-2025`, while the separate Google Cloud Agent Platform catalog lists `gemini-live-2.5-flash-native-audio` for that platform. MindPal uses the Gemini API ephemeral-token/WebSocket path, so its Gemini 2.5 configuration must use `gemini-2.5-flash-native-audio-preview-12-2025`, not the rejected `gemini-2.5-flash-live-preview` alias. Gemini 3.1 Flash Live remains `gemini-3.1-flash-live-preview`.
+
+Sources: [Google Gemini API model catalog](https://ai.google.dev/gemini-api/docs/models), [Google Gemini Live API overview](https://ai.google.dev/gemini-api/docs/live-api), [Google Cloud Agent Platform Live API model catalog](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/live-api).

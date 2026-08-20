@@ -2,8 +2,8 @@
 
 **Date:** 20 August 2026
 **Repository:** `M1rw/MindPal`
-**Primary production default:** `gemini-2.5-flash-live-preview`
-**Fallback default:** `gemini-2.5-flash-live-preview`
+**Primary production default:** `gemini-2.5-flash-native-audio-preview-12-2025`
+**Fallback default:** `gemini-2.5-flash-native-audio-preview-12-2025`
 
 ## Executive conclusion
 
