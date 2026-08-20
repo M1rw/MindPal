@@ -11,7 +11,7 @@ The Gemini fallback implementation is correct and resilient for **ephemeral-toke
 
 Quota and idempotency accounting are also safe at the token boundary. One request reserves quota once. A successful primary or fallback commits once and completes idempotency once. A dual failure refunds once and fails idempotency once. No partial token response is returned.
 
-The important boundary is that this is **not a mid-session model switch**. If Gemini 3.1 successfully issues a token but later rejects the WebSocket setup or closes during the session, the current frontend recovery supervisor reconnects or reseeds with the backend’s normal configured model. It does not request a fallback-only token. This is intentional in the current architecture because changing models mid-session requires rebuilding provider capabilities, setup, cue transport, and transcript continuity; silently doing that would be riskier than ending or recovering the current session. The provisioning fallback is therefore proven; post-token setup fallback remains an explicit future enhancement rather than an unverified claim.
+The fallback now covers two bounded startup failures. Token provisioning still falls back server-side before the session starts. In addition, when a Gemini 3.1 token is issued but the provider fails before setup completes, the browser can consume a short-lived, signed, one-use fallback grant and request a Gemini 2.5-only credential. V2 rebuilds the returned model’s setup and backchannel capability metadata before replacing the failed startup socket. The grant is not available after the conversation becomes ready, is attempted once, and is never used for an established-session close. This prevents model switching from corrupting transcript continuity or creating a recovery loop.
 
 ## Effective model hierarchy
 
@@ -59,7 +59,7 @@ A new adversarial suite, `tests/test_voice_fallback_resilience.py`, covers five 
 | Both candidates fail | HTTP 502; one quota refund; no commit; idempotency failure recorded once. |
 | Native Audio is the fallback | Fallback receives v1beta and returned URL is v1beta constrained transport. |
 
-The test suite passed with **5/5** adversarial fallback tests. Existing backend voice-security tests passed with **13/13**, frontend startup/recovery tests passed with **16/16**, and the full repository suites passed with **169 Python tests** and **146 JavaScript tests**.
+The adversarial fallback suite now contains **7 tests**, including signed-grant issuance, fallback-only reuse without a second quota reservation, and invalid-grant rejection. Existing backend voice-security tests and frontend startup/recovery tests continue to pass, and the full repository suites pass after the generated frontend bundle is rebuilt.
 
 ## Accounting and security review
 
@@ -76,14 +76,10 @@ The current implementation handles errors in the following order:
 1. **Primary token provisioning failure:** try the configured fallback exactly once when distinct.
 2. **Fallback token provisioning failure:** refund the single reservation, fail the idempotency claim, and return a controlled 502.
 3. **Browser token-fetch network/auth failure:** bounded client retry; refresh auth/App Check on authentication failures; never multiply a 429 because of `Retry-After`.
-4. **Post-token WebSocket close:** recovery supervisor attempts resumption and then reseeding with bounded attempts, preserving handles and transcript continuity.
-5. **Post-token model setup rejection:** currently treated as a transport/setup failure and recovered using the same configured model; there is no silent mid-session switch to 2.5.
+4. **Post-token WebSocket close after setup:** the recovery supervisor attempts resumption and then reseeding with bounded attempts, preserving handles and transcript continuity. It does not change models after readiness.
+5. **Post-token model setup rejection before readiness:** V2 suppresses the normal startup-ready rejection long enough for the recovery supervisor to consume the signed grant once, fetch a fallback-only Gemini 2.5 token without a second quota reservation, update model-dependent capabilities, and replace the failed socket. If that attempt fails, the ready gate rejects immediately and the session ends cleanly.
 
-The fifth point is the only material limitation found. It means a 3.1 token that provisions successfully but fails at setup does not automatically consume the 2.5 fallback. This is not a false-positive test gap: the current fallback contract is token-provisioning fallback, not provider-session fallback. Extending it safely would require an explicit fallback-token request, one-time startup-only switching, teardown of the old provider, capability reinitialization, and protection against recovery loops.
-
-## Recommended next enhancement
-
-If runtime setup fallback is required, implement it as a **startup-only, one-shot fallback transaction**, not as another generic reconnect. The browser should request a server-issued fallback-only credential after a pre-setup 3.1 failure, mark the attempt in session state, rebuild `liveCapabilities`, setup, backchannel transport, and provider identity from the returned 2.5 model, and never switch models after meaningful user transcript/audio has been accepted. The server should expose a narrowly controlled fallback preference that can select only the configured fallback, preserve the same quota/idempotency transaction semantics, and reject repeated fallback attempts.
+The remaining limitation is intentional: this fallback is only for the pre-conversation startup window. It cannot and should not switch an already-established conversation from Gemini 3.1 to Gemini 2.5. A mid-session change would require a new continuity contract and could alter voice, turn ownership, and transcript semantics.
 
 ## References
 

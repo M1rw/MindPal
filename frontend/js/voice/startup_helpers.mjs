@@ -1,9 +1,11 @@
 const DEFAULT_VOICE_TOKEN_PATH = "/voice/token";
 
-export function buildVoiceTokenUrl(baseUrl) {
+export function buildVoiceTokenUrl(baseUrl, { fallbackGrant = null } = {}) {
   const normalized = String(baseUrl || "").trim();
-  if (!normalized) return DEFAULT_VOICE_TOKEN_PATH;
-  return `${normalized.replace(/\/$/, "")}${DEFAULT_VOICE_TOKEN_PATH}`;
+  const endpoint = normalized ? `${normalized.replace(/\/$/, "")}${DEFAULT_VOICE_TOKEN_PATH}` : DEFAULT_VOICE_TOKEN_PATH;
+  if (!fallbackGrant) return endpoint;
+  const separator = endpoint.includes("?") ? "&" : "?";
+  return `${endpoint}${separator}fallback_grant=${encodeURIComponent(String(fallbackGrant))}`;
 }
 
 export function buildEphemeralVoiceWebSocketUrl(credentials) {
@@ -91,6 +93,8 @@ function validateVoiceCredentials(data) {
     websocket_url: String(data?.websocket_url || "").trim(),
     expires_at: String(data?.expires_at || "").trim(),
     new_session_expires_at: String(data?.new_session_expires_at || "").trim(),
+    fallback_grant: String(data?.fallback_grant || "").trim(),
+    fallback_used: data?.fallback_used === true,
   };
   if (!credentials.token || !credentials.model || !credentials.websocket_url) {
     const error = new Error("Voice token response was incomplete.");
@@ -109,6 +113,7 @@ export async function fetchVoiceTokenWithRetry({
   fetchImpl = fetch,
   maxAttempts = 2,
   signal = null,
+  fallbackGrant = null,
 }) {
   let currentToken = token;
   let currentAppCheckToken = appCheckToken;
@@ -120,7 +125,7 @@ export async function fetchVoiceTokenWithRetry({
     if (currentAppCheckToken) headers["X-Firebase-AppCheck"] = currentAppCheckToken;
 
     try {
-      const response = await fetchImpl(buildVoiceTokenUrl(baseUrl), {
+      const response = await fetchImpl(buildVoiceTokenUrl(baseUrl, { fallbackGrant }), {
         method: "GET",
         headers,
         cache: "no-store",
