@@ -8,6 +8,7 @@ import {
   planPacedCaptionSegments,
   splitCaptionForPlayback,
 } from '../frontend/js/voice/caption_sync_policy.js';
+import { shouldPreserveCaptionQueueOnUserTranscript } from '../frontend/js/voice_live.js';
 
 test('caption segments wait for the scheduled audio start and never release ahead of it', () => {
   const segments = planPacedCaptionSegments({
@@ -41,6 +42,12 @@ test('incremental provider transcripts only release novel caption text', () => {
   assert.equal(first.delta, 'Good evening, Miljte');
   assert.equal(cumulative.delta, ', how can I help?');
   assert.equal(duplicate.delta, '');
+});
+
+test('partial user transcription does not erase pending assistant captions before provider interruption', () => {
+  assert.equal(shouldPreserveCaptionQueueOnUserTranscript(), true);
+  assert.equal(shouldPreserveCaptionQueueOnUserTranscript({ providerInterrupted: false }), true);
+  assert.equal(shouldPreserveCaptionQueueOnUserTranscript({ providerInterrupted: true }), false);
 });
 
 test('caption planning respects already queued speech so later transcripts cannot overtake it', () => {

@@ -417,6 +417,16 @@ function renderAiCaptionChunk(cleaned) {
   scrollTranscript();
 }
 
+export function shouldPreserveCaptionQueueOnUserTranscript({ providerInterrupted = false } = {}) {
+  // Input transcription is not authoritative proof that the model was
+  // interrupted: native-audio echo, stale worklet frames, and partial VAD
+  // updates can arrive while an answer is still being released. The provider's
+  // interrupted event is the authoritative boundary for discarding queued AI
+  // captions. Preserving here prevents a valid caption from disappearing before
+  // the 1.8s fallback or the main-audio playback-start signal can render it.
+  return providerInterrupted !== true;
+}
+
 function handleTranscript(type, text) {
   if (!text) return;
   console.debug("[MindPal Voice][caption]", { type, text: String(text).slice(0, 240) });
@@ -425,9 +435,13 @@ function handleTranscript(type, text) {
 
   if (type === "user") {
     userTranscript = appendTranscriptChunk(userTranscript, cleaned);
-    // User speech starts a new response boundary. Retire any queued captions
-    // from an interrupted answer so they cannot appear inside the next answer.
-    clearCaptionReleaseQueue();
+    // Do not clear queued assistant captions here. Input transcription can be
+    // an echoed/late partial while the assistant is still speaking. A genuine
+    // barge-in is handled by PROVIDER_INTERRUPTED, which clears the queue at
+    // the transport boundary and preserves the already-visible source text.
+    if (!shouldPreserveCaptionQueueOnUserTranscript()) {
+      clearCaptionReleaseQueue();
+    }
     captionTurnComplete = true;
     currentCaption = null;
     return;
