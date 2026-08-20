@@ -194,3 +194,52 @@ async def test_fallback_success_preserves_model_identity_for_frontend_setup(monk
 
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
     assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContentConstrained")
+
+
+@pytest.mark.asyncio
+async def test_primary_31_issues_signed_grant_and_fallback_reuses_no_quota(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    async def create(**kwargs: object) -> str:
+        calls.append(str(kwargs["model"]))
+        return f"token-{len(calls)}"
+
+    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-live-preview")
+    monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", create)
+
+    primary = await voice_router.get_voice_token(Response(), service, context())
+    assert primary.fallback_grant
+    assert primary.fallback_used is False
+    assert primary.model == "gemini-3.1-flash-live-preview"
+
+    fallback = await voice_router.get_voice_token(Response(), service, context(), fallback_grant=primary.fallback_grant)
+
+    assert fallback.model == "gemini-2.5-flash-live-preview"
+    assert fallback.fallback_used is True
+    assert fallback.usage is None
+    assert fallback.fallback_grant is None
+    assert calls == ["gemini-3.1-flash-live-preview", "gemini-2.5-flash-live-preview"]
+    assert service.quota.reserve_count == 1
+    assert service.quota.commit_count == 1
+    assert service.quota.refund_count == 0
+
+
+@pytest.mark.asyncio
+async def test_invalid_fallback_grant_is_rejected_before_provider_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    async def create(**kwargs: object) -> str:
+        calls.append(str(kwargs["model"]))
+        return "should-not-be-issued"
+
+    service = services("gemini-3.1-flash-live-preview", "gemini-2.5-flash-live-preview")
+    monkeypatch.setattr(voice_router, "_create_ephemeral_voice_token", create)
+
+    with pytest.raises(HTTPException) as error:
+        await voice_router.get_voice_token(Response(), service, context(), fallback_grant="invalid-grant-that-is-long-enough")
+
+    assert error.value.status_code == 403
+    assert calls == []
+    assert service.quota.reserve_count == 0
+    assert service.quota.commit_count == 0
+    assert service.quota.refund_count == 0

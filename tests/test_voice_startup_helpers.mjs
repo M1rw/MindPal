@@ -248,3 +248,40 @@ test('Voice inactivity does not end an active response or provider operation', (
     'none',
   );
 });
+
+
+test('buildVoiceTokenUrl encodes a server-issued fallback grant', () => {
+  const url = buildVoiceTokenUrl('https://example.com/api', { fallbackGrant: 'signed grant/one' });
+  assert.equal(url, 'https://example.com/api/voice/token?fallback_grant=signed%20grant%2Fone');
+});
+
+test('fetchVoiceTokenWithRetry can request a fallback grant without retrying the provider transaction', async () => {
+  const calls = [];
+  const result = await fetchVoiceTokenWithRetry({
+    baseUrl: 'https://example.com/api',
+    token: 'fresh',
+    fallbackGrant: 'signed-grant',
+    maxAttempts: 1,
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          token: 'fallback-ephemeral',
+          model: 'gemini-2.5-flash-live-preview',
+          websocket_url: 'wss://example.com/v1beta/live',
+          expires_at: '2026-07-10T18:30:00Z',
+          new_session_expires_at: '2026-07-10T18:01:00Z',
+          fallback_grant: 'grant-from-server',
+          fallback_used: true,
+        }),
+      };
+    },
+  });
+  assert.equal(result.model, 'gemini-2.5-flash-live-preview');
+  assert.equal(result.fallback_grant, 'grant-from-server');
+  assert.equal(result.fallback_used, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://example.com/api/voice/token?fallback_grant=signed-grant');
+});

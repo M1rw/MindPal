@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import datetime as dt
+import hashlib
+import hmac
+import json
 import logging
+import secrets
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -27,6 +32,7 @@ MAX_AUDIO_BASE64_CHARS = 15_000_000
 MAX_TRANSCRIPT_CHARS = 4_000
 MAX_MIME_TYPE_CHARS = 80
 MAX_VOICE_FACT_QUERY_CHARS = 500
+FALLBACK_GRANT_TTL_SECONDS = 120
 NATIVE_AUDIO_LIVE_MODEL_PREFIX = "gemini-2.5-flash-native-audio"
 GEMINI_25_LIVE_MODEL_PREFIX = "gemini-2.5-flash-live"
 
@@ -90,8 +96,8 @@ class VoiceTokenResponse(BaseModel):
     expires_at: str
     new_session_expires_at: str
     usage: dict[str, int] | None = None
-
-
+    fallback_grant: str | None = None
+    fallback_used: bool = False
 class VoiceTransportDiagnosticRequest(BaseModel):
     """Sanitized client-side Live transport metadata for production diagnosis."""
 
@@ -361,40 +367,20 @@ async def get_voice_token(
     response: Response,
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
+    fallback_grant: str | None = None,
 ) -> VoiceTokenResponse:
     assert_authenticated(context)
     operation_id = _operation_id(context.request_id, "voice-token")
     claim = None
     reserved = False
+    fallback_only = bool(fallback_grant)
     try:
         await services.rate_limits.consume(
-            scope="voice_token",
+            scope="voice_token_fallback" if fallback_only else "voice_token",
             subject=context.session.user_id_hash,
             limit=services.settings.VOICE_TOKEN_RATE_LIMIT_PER_HOUR,
             window_seconds=3600,
         )
-        claim = await services.idempotency.claim(
-            user_id_hash=context.session.user_id_hash,
-            key=context.request_id,
-            operation="voice_live_token",
-            payload_hash=services.idempotency.payload_hash({"model": services.settings.GEMINI_LIVE_MODEL}),
-        )
-        if claim.completed:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "code": "idempotent_result_not_replayable",
-                    "message": "This voice token request already completed; request a new token with a new request ID",
-                    "request_id": context.request_id,
-                },
-            )
-        await services.quota.reserve(
-            user_id_hash=context.session.user_id_hash,
-            request_id=operation_id,
-            cost=services.settings.VOICE_SESSION_QUOTA_COST,
-            operation="voice_live_session",
-        )
-        reserved = True
         api_key = _secret_value(services.settings.GEMINI_API_KEY)
         if not api_key:
             raise HTTPException(
@@ -406,12 +392,56 @@ async def get_voice_token(
         new_session_expires_at = now + dt.timedelta(seconds=int(services.settings.VOICE_NEW_SESSION_TTL_SECONDS))
         primary_model = sanitize_text(services.settings.GEMINI_LIVE_MODEL, 120)
         fallback_model = sanitize_text(services.settings.GEMINI_LIVE_FALLBACK_MODEL, 120)
-        candidate_models = [primary_model]
-        if fallback_model and fallback_model != primary_model:
-            candidate_models.append(fallback_model)
+        if fallback_only:
+            grant_payload = _verify_fallback_grant(
+                grant=fallback_grant or "",
+                secret=api_key,
+                user_id_hash=context.session.user_id_hash,
+                expected_primary=primary_model,
+                expected_fallback=fallback_model,
+                now=now,
+            )
+            if not primary_model.startswith("gemini-3.1-") or not fallback_model or fallback_model == primary_model:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "voice_fallback_unavailable", "message": "No distinct configured Voice fallback is available"})
+            operation_id = _operation_id(str(grant_payload["nonce"]), "voice-token-fallback")
+            claim = await services.idempotency.claim(
+                user_id_hash=context.session.user_id_hash,
+                key=str(grant_payload["nonce"]),
+                operation="voice_live_token_fallback",
+                payload_hash=services.idempotency.payload_hash({"grant": fallback_grant, "model": fallback_model}),
+            )
+            if claim.completed:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "voice_fallback_already_used", "message": "This Voice fallback grant was already used"})
+            candidate_models = [fallback_model]
+        else:
+            claim = await services.idempotency.claim(
+                user_id_hash=context.session.user_id_hash,
+                key=context.request_id,
+                operation="voice_live_token",
+                payload_hash=services.idempotency.payload_hash({"model": primary_model}),
+            )
+            if claim.completed:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "code": "idempotent_result_not_replayable",
+                        "message": "This voice token request already completed; request a new token with a new request ID",
+                        "request_id": context.request_id,
+                    },
+                )
+            await services.quota.reserve(
+                user_id_hash=context.session.user_id_hash,
+                request_id=operation_id,
+                cost=services.settings.VOICE_SESSION_QUOTA_COST,
+                operation="voice_live_session",
+            )
+            reserved = True
+            candidate_models = [primary_model]
+            if fallback_model and fallback_model != primary_model:
+                candidate_models.append(fallback_model)
 
         token_name = ""
-        live_model = primary_model
+        live_model = candidate_models[0]
         last_provision_error: Exception | None = None
         for candidate_model in candidate_models:
             api_version = _live_api_version(candidate_model)
@@ -435,17 +465,29 @@ async def get_voice_token(
             raise last_provision_error or RuntimeError("Gemini returned an empty ephemeral token")
 
         api_version = _live_api_version(live_model)
-        usage = await services.quota.commit(user_id_hash=context.session.user_id_hash, request_id=operation_id)
+        usage = None if fallback_only else await services.quota.commit(user_id_hash=context.session.user_id_hash, request_id=operation_id)
         await services.idempotency.complete(claim=claim, response={"completed": True})
         response.headers["Cache-Control"] = "no-store, private"
         response.headers["Pragma"] = "no-cache"
+        grant = None
+        if not fallback_only and primary_model.startswith("gemini-3.1-") and fallback_model and fallback_model != primary_model and live_model == primary_model:
+            grant = _create_fallback_grant(
+                secret=api_key,
+                user_id_hash=context.session.user_id_hash,
+                primary_model=primary_model,
+                fallback_model=fallback_model,
+                request_id=context.request_id,
+                now=now,
+            )
         return VoiceTokenResponse(
             token=token_name,
             model=live_model,
             websocket_url=_live_websocket_url(api_version),
             expires_at=expires_at.isoformat().replace("+00:00", "Z"),
             new_session_expires_at=new_session_expires_at.isoformat().replace("+00:00", "Z"),
-            usage=usage.to_dict(),
+            usage=usage.to_dict() if usage else None,
+            fallback_grant=grant,
+            fallback_used=live_model != primary_model,
         )
     except AppError as exc:
         if reserved:
@@ -601,3 +643,44 @@ def _secret_value(value: Any) -> str:
     if hasattr(value, "get_secret_value"):
         return str(value.get_secret_value() or "").strip()
     return str(value or "").strip()
+
+
+def _create_fallback_grant(*, secret: str, user_id_hash: str, primary_model: str, fallback_model: str, request_id: str, now: dt.datetime) -> str:
+    payload = {
+        "v": 1,
+        "nonce": secrets.token_urlsafe(18),
+        "user": sanitize_text(user_id_hash, 120),
+        "primary": sanitize_text(primary_model, 120),
+        "fallback": sanitize_text(fallback_model, 120),
+        "request": sanitize_text(request_id, 120),
+        "exp": int((now + dt.timedelta(seconds=FALLBACK_GRANT_TTL_SECONDS)).timestamp()),
+    }
+    encoded = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    signature = hmac.new(secret.encode("utf-8"), encoded, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(encoded + b"." + signature).decode("ascii").rstrip("=")
+
+
+def _verify_fallback_grant(*, grant: str, secret: str, user_id_hash: str, expected_primary: str, expected_fallback: str, now: dt.datetime) -> dict[str, Any]:
+    try:
+        padded = str(grant or "") + "=" * (-len(str(grant or "")) % 4)
+        decoded = base64.urlsafe_b64decode(padded.encode("ascii"))
+        encoded, supplied_signature = decoded.rsplit(b".", 1)
+        expected_signature = hmac.new(secret.encode("utf-8"), encoded, hashlib.sha256).digest()
+        if not hmac.compare_digest(supplied_signature, expected_signature):
+            raise ValueError("invalid signature")
+        payload = json.loads(encoded.decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("grant payload must be an object")
+        if payload.get("v") != 1 or int(payload.get("exp", 0)) <= int(now.timestamp()):
+            raise ValueError("expired grant")
+        if payload.get("user") != sanitize_text(user_id_hash, 120):
+            raise ValueError("grant user mismatch")
+        if payload.get("primary") != sanitize_text(expected_primary, 120):
+            raise ValueError("grant primary mismatch")
+        if payload.get("fallback") != sanitize_text(expected_fallback, 120):
+            raise ValueError("grant fallback mismatch")
+        if not sanitize_text(str(payload.get("nonce") or ""), 120):
+            raise ValueError("grant nonce missing")
+        return payload
+    except (ValueError, TypeError, KeyError, OverflowError, json.JSONDecodeError, UnicodeError) as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "voice_fallback_grant_invalid", "message": "Voice fallback authorization is invalid or expired"}) from exc

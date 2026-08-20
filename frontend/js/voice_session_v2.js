@@ -96,6 +96,8 @@ export function createVoiceSessionV2({
   let currentCredentials = null;
   let currentSetup = null;
   let liveCapabilities = null;
+  let backchannelCapabilities = null;
+  let startupFallbackAttempted = false;
   let contextProvider = null;
   let active = false;
   const userTranscriptAssembler = createTranscriptAssembler();
@@ -313,7 +315,7 @@ export function createVoiceSessionV2({
       onDiagnostic({ type: "voice.provider-ready-timeout", timeoutMs });
       gate.reject(new Error("Voice connection timed out before Gemini setup completed."));
     }, timeoutMs);
-    providerReadyGate = { resolve: resolveGate, reject: rejectGate, timer };
+    providerReadyGate = { resolve: resolveGate, reject: rejectGate, timer, promise };
     return promise;
   }
 
@@ -491,10 +493,15 @@ export function createVoiceSessionV2({
 
   function handleEvent(event, state) {
     projectState(state);
-    if (event.type === "recovery.failed") notifySessionEndOnce("recovery-exhausted");
+    if (event.type === "recovery.failed") {
+      notifySessionEndOnce("recovery-exhausted");
+      if (!getOrchestratorState().isReady) settleProviderReady({ error: new Error("Gemini Live startup fallback failed.") });
+    }
     if (event.type === VOICE_EVENTS.PROVIDER_READY) settleProviderReady();
-    if (event.type === VOICE_EVENTS.PROVIDER_ERROR) settleProviderReady({ error: new Error("Gemini Live reported a provider error before setup completed.") });
-    if (event.type === VOICE_EVENTS.PROVIDER_CLOSED && !getOrchestratorState().isReady) {
+    if (event.type === VOICE_EVENTS.PROVIDER_ERROR && !shouldUseStartupFallback()) {
+      settleProviderReady({ error: new Error("Gemini Live reported a provider error before setup completed.") });
+    }
+    if (event.type === VOICE_EVENTS.PROVIDER_CLOSED && !getOrchestratorState().isReady && !shouldUseStartupFallback()) {
       settleProviderReady({ error: new Error(`Gemini Live closed before setup completed${event.code ? ` (code ${event.code})` : ""}.`) });
     }
     if (event.type === VOICE_EVENTS.PROVIDER_AUDIO) {
@@ -628,15 +635,35 @@ export function createVoiceSessionV2({
     return sent;
   }
 
-  async function prepareTransport({ resumeHandle = null } = {}) {
-    currentCredentials = preloadedCredentials || await fetchVoiceTokenWithRetry({
-      baseUrl: apiBaseUrl(),
-      token: await getToken(),
-      refreshToken: refreshAuthToken,
-      appCheckToken: await getAppToken(),
-      refreshAppCheckToken,
-      fetchImpl,
-    });
+  function shouldUseStartupFallback() {
+    return !startupFallbackAttempted
+      && !orchestrator?.getState?.().isReady
+      && String(currentCredentials?.model || "").startsWith("gemini-3.1-")
+      && Boolean(currentCredentials?.fallback_grant);
+  }
+
+  async function prepareTransport({ resumeHandle = null, fallbackOnly = false } = {}) {
+    const fallbackGrant = fallbackOnly ? currentCredentials?.fallback_grant : null;
+    if (fallbackOnly && !fallbackGrant) throw new Error("Voice startup fallback grant is unavailable.");
+    currentCredentials = fallbackOnly
+      ? await fetchVoiceTokenWithRetry({
+        baseUrl: apiBaseUrl(),
+        token: await getToken(),
+        refreshToken: refreshAuthToken,
+        appCheckToken: await getAppToken(),
+        refreshAppCheckToken,
+        fetchImpl,
+        maxAttempts: 1,
+        fallbackGrant,
+      })
+      : (preloadedCredentials || await fetchVoiceTokenWithRetry({
+        baseUrl: apiBaseUrl(),
+        token: await getToken(),
+        refreshToken: refreshAuthToken,
+        appCheckToken: await getAppToken(),
+        refreshAppCheckToken,
+        fetchImpl,
+      }));
     preloadedCredentials = null;
     scheduleCredentialPrefetch();
     const model = currentCredentials.model;
@@ -647,12 +674,19 @@ export function createVoiceSessionV2({
       previousAiTranscript: lastAiTranscript,
       sessionResumptionHandle: resumeHandle || "",
     });
+    const capabilities = getLiveProviderCapabilities(model);
+    liveCapabilities = capabilities;
+    if (backchannelCapabilities) {
+      Object.assign(backchannelCapabilities, {
+        sameSessionBackchannel: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_BACKCHANNEL === true && capabilities.nativeListeningCues === true,
+        preferRealtimeText: capabilities.preferRealtimeText === true,
+      });
+    }
     return true;
   }
-
-  async function connectTransport({ resumeHandle = null } = {}) {
-    await prepareTransport({ resumeHandle });
-    const readyPromise = createProviderReadyGate();
+  async function connectTransport({ resumeHandle = null, fallbackOnly = false } = {}) {
+    await prepareTransport({ resumeHandle, fallbackOnly });
+    const readyPromise = providerReadyGate?.promise || createProviderReadyGate();
     provider.updateContext?.({ sessionGeneration: getOrchestratorState().sessionGeneration || 1 });
     provider.connect({
       url: buildEphemeralVoiceWebSocketUrl(currentCredentials),
@@ -693,6 +727,7 @@ export function createVoiceSessionV2({
     if (nextRefreshAppCheckToken) refreshAppCheckToken = nextRefreshAppCheckToken;
     sessionId = `voice-${Date.now().toString(36)}`;
     sessionEndNotified = false;
+    startupFallbackAttempted = false;
     greetingSent = false;
     resetDeliveryTelemetry();
     playbackAudioContext = createOutputAudioContext();
@@ -765,12 +800,13 @@ export function createVoiceSessionV2({
       }),
       onEvent: (event) => handleEvent(event, getOrchestratorState()),
     });
+    backchannelCapabilities = {
+      sameSessionBackchannel: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_BACKCHANNEL === true && capabilities.nativeListeningCues === true,
+      preferRealtimeText: capabilities.preferRealtimeText === true,
+    };
     const backchannelProvider = createBackchannelProvider({
       provider,
-      capabilities: {
-        sameSessionBackchannel: globalThis.window?.MINDPAL_CONFIG?.VOICE_V2_BACKCHANNEL === true && capabilities.nativeListeningCues === true,
-        preferRealtimeText: capabilities.preferRealtimeText === true,
-      },
+      capabilities: backchannelCapabilities,
       onEvent: (event) => onDiagnostic({ ...event, type: `voice.${event.type}` }),
     });
     localCueManager = createLocalCueManager({
@@ -842,8 +878,22 @@ export function createVoiceSessionV2({
     activeResponseStagingManager = responseStagingManager;
     activeBackchannelManager = backchannelManager;
     recovery = createRecoverySupervisor({
-      reconnect: async ({ resumeHandle }) => connectTransport({ resumeHandle }),
-      reseed: async () => connectTransport(),
+      reconnect: async ({ resumeHandle }) => {
+        if (shouldUseStartupFallback()) {
+          startupFallbackAttempted = true;
+          onDiagnostic({ type: "voice.startup-fallback-attempted", fromModel: currentCredentials?.model, toModel: "configured-fallback" });
+          return connectTransport({ fallbackOnly: true });
+        }
+        return connectTransport({ resumeHandle });
+      },
+      reseed: async () => {
+        if (shouldUseStartupFallback()) {
+          startupFallbackAttempted = true;
+          onDiagnostic({ type: "voice.startup-fallback-attempted", fromModel: currentCredentials?.model, toModel: "configured-fallback" });
+          return connectTransport({ fallbackOnly: true });
+        }
+        return connectTransport();
+      },
       onEvent: (event) => handleEvent(event, getOrchestratorState()),
     });
     orchestrator = createVoiceSessionOrchestrator({
@@ -879,6 +929,8 @@ export function createVoiceSessionV2({
     if (!active) return false;
     active = false;
     liveCapabilities = null;
+    backchannelCapabilities = null;
+    startupFallbackAttempted = false;
     clearMuteKeepAlive();
     sessionEndNotified = true;
     reportDeliveryDiagnostic("client_stop");
