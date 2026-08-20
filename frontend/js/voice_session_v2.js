@@ -916,12 +916,14 @@ export function createVoiceSessionV2({
       setup: currentSetup,
       identity: { sessionId, incognito },
     });
-    audio.start();
     await providerReadyPromise;
-    // Native Audio does not proactively speak after setup. Explicitly open the
-    // first model turn once the constrained transport is ready. This is sent
-    // only once per logical call and is not repeated during reconnects.
+    // Native Audio does not proactively speak after setup. Send the first
+    // complete client-content turn before opening realtime microphone input.
+    // Starting capture first can interleave user audio frames with this turn
+    // while the constrained transport is still establishing its turn owner,
+    // leaving the session in Listening with no model audio or transcript.
     sendAutomaticGreeting();
+    audio.start();
     return true;
   }
 

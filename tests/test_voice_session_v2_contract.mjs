@@ -64,6 +64,14 @@ test("Voice v2 preserves mute state before the microphone adapter is ready", () 
   assert.equal(controller.getMicMuted(), false);
 });
 
+test("Voice v2 sends the startup greeting before microphone capture begins", async () => {
+  const source = await readFile(new URL("../frontend/js/voice_session_v2.js", import.meta.url), "utf8");
+  const greetingIndex = source.indexOf("sendAutomaticGreeting();");
+  const audioStartIndex = source.indexOf("audio.start();", greetingIndex);
+  assert.ok(greetingIndex >= 0);
+  assert.ok(audioStartIndex > greetingIndex);
+});
+
 test("Voice v2 integrates canonical transcript assembly and terminal recovery notification", async () => {
   const source = await readFile(new URL("../frontend/js/voice_session_v2.js", import.meta.url), "utf8");
   assert.match(source, /createTranscriptAssembler/);
