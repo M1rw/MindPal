@@ -14,7 +14,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The same commands work on Windows with a CMake generator such as Visual Studio or Ninja. No third-party library is required beyond a C++17 compiler and CMake.
+The same commands work on Windows with a CMake generator such as Visual Studio or Ninja. No third-party library is required beyond a C++17 compiler and CMake. The `route` command is a deterministic simulation using example WAN metrics; it does not touch a router or create a satellite connection.
 
 ## Usage
 
@@ -22,6 +22,8 @@ The same commands work on Windows with a CMake generator such as Visual Studio o
 ./build/netassist usage data/before.csv data/after.csv
 ./build/netassist sqm 100 20 10 40
 ./build/netassist plan-cost 120 150
+./build/netassist route realtime 1
+./build/netassist route bulk 0
 ```
 
 Snapshot CSV format:
@@ -38,7 +40,7 @@ After the router model and firmware are known, add an adapter under `src/adapter
 
 ## Safe quota-saving actions
 
-The future policy layer may recommend local DNS caching and malware/ad blocking, disabling automatic video autoplay, scheduling PS5 downloads and system updates, using wired Ethernet, identifying duplicate cloud backups, and applying SQM to reduce latency under load. These actions can reduce waste or improve responsiveness; none can increase the ISP allowance.
+The future policy layer may recommend local DNS caching and malware/ad blocking, disabling automatic video autoplay, scheduling PS5 downloads and system updates, using wired Ethernet, identifying duplicate cloud backups, applying SQM to reduce latency under load, and using provider-authorized multi-WAN failover. The current prototype’s route simulator treats WE, 4G/5G, and satellite as separate WANs, pins a class of traffic to one selected path, and can prohibit satellite for bulk traffic by policy. These actions can reduce waste or improve resilience; none can increase the ISP allowance.
 
 ## Explicitly excluded
 
