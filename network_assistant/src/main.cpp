@@ -84,12 +84,34 @@ static void plan_report(double price, double quota) {
               << "egp_per_gb_inc_vat=" << netassist::format_double(p.egp_per_gb_inc_vat) << '\n';
 }
 
+static netassist::TrafficClass parse_traffic(const std::string& value) {
+    if (value == "realtime") return netassist::TrafficClass::Realtime;
+    if (value == "bulk") return netassist::TrafficClass::Bulk;
+    if (value == "general") return netassist::TrafficClass::General;
+    if (value == "management") return netassist::TrafficClass::Management;
+    throw std::invalid_argument("traffic class must be realtime, bulk, general, or management");
+}
+
+static void route_report(const std::string& traffic, bool allow_satellite_bulk) {
+    std::vector<netassist::WanPath> paths = {
+        {"WE", true, false, 18.0, 0.5, 1.25, 100.0},
+        {"4G5G", true, false, 45.0, 1.5, 2.50, 20.0},
+        {"SATELLITE", true, true, 75.0, 1.0, 1.80, 80.0},
+    };
+    auto decision = netassist::choose_route(paths, parse_traffic(traffic), allow_satellite_bulk);
+    std::cout << "allowed=" << (decision.allowed ? "true" : "false") << '\n'
+              << "wan=" << decision.wan << '\n'
+              << "reason=" << decision.reason << '\n'
+              << "mode=dry-run\n";
+}
+
 static void help() {
     std::cout << "MindPal Network Assistant safe prototype\n"
               << "Commands:\n"
               << "  usage <before.csv> <after.csv>\n"
               << "  sqm <down_mbps> <up_mbps> <idle_latency_ms> <loaded_latency_ms>\n"
               << "  plan-cost <price_ex_vat_egp> <quota_gb>\n"
+              << "  route <realtime|bulk|general|management> <allow_satellite_bulk:0|1>\n"
               << "\nCSV header: device,category,rx_bytes,tx_bytes,ps5\n"
               << "All router writes are intentionally absent; this build is read-only/dry-run.\n";
 }
@@ -101,6 +123,7 @@ int main(int argc, char** argv) {
         if (command == "usage" && argc == 4) usage_report(argv[2], argv[3]);
         else if (command == "sqm" && argc == 6) sqm_report(std::stod(argv[2]), std::stod(argv[3]), std::stod(argv[4]), std::stod(argv[5]));
         else if (command == "plan-cost" && argc == 4) plan_report(std::stod(argv[2]), std::stod(argv[3]));
+        else if (command == "route" && argc == 4) route_report(argv[2], std::string(argv[3]) == "1");
         else { help(); return 2; }
     } catch (const std::exception& ex) {
         std::cerr << "error: " << ex.what() << '\n';
