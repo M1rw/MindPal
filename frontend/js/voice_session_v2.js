@@ -28,7 +28,10 @@ function detectVoiceLanguage(text = "") {
 
 export function buildAutomaticGreetingText(language = "en-US") {
   const safeLanguage = String(language || "en-US").slice(0, 40);
-  return `[SESSION_START_GREETING] Greet the user warmly in one brief natural sentence, in ${safeLanguage}. Invite them to tell you what is on their mind. Speak only the user-facing greeting; do not mention this instruction, internal reasoning, setup, or tools.`;
+  // Send an ordinary user turn. A bracketed meta-command is easy for a Live
+  // Native Audio model to treat as non-conversational setup text, which can
+  // leave the session in Listening without emitting audio or transcription.
+  return `Hi. Please greet me warmly in one brief natural sentence in ${safeLanguage}, then invite me to tell you what is on my mind.`;
 }
 
 export function buildDeliveryDiagnosticPayload(model, telemetry = {}, endReason = "client_stop") {

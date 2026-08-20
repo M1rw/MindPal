@@ -18,12 +18,13 @@ test("Voice v2 facade exposes the compatibility controller surface before activa
   assert.deepEqual(controller.getTranscriptSnapshot(), { userTranscript: "", aiTranscript: "" });
 });
 
-test("Voice v2 builds a user-facing automatic startup greeting", () => {
+test("Voice v2 builds a plain conversational automatic startup greeting", () => {
   const greeting = buildAutomaticGreetingText("ar");
-  assert.match(greeting, /SESSION_START_GREETING/);
+  assert.match(greeting, /^Hi\./);
   assert.match(greeting, /in ar/);
-  assert.match(greeting, /user-facing greeting/);
-  assert.doesNotMatch(greeting, /internal reasoning.*expose/i);
+  assert.match(greeting, /greet me warmly/i);
+  assert.doesNotMatch(greeting, /SESSION_START_GREETING/);
+  assert.doesNotMatch(greeting, /internal reasoning|setup|tools/i);
 });
 
 test("Voice v2 builds a FastAPI-compatible aggregate diagnostic payload", () => {
