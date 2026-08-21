@@ -822,10 +822,11 @@ def _is_supported_gemini_api_live_model(model: str) -> bool:
 
 
 def _live_api_version(model: str) -> str:
-    normalized = sanitize_text(model, 120).lower()
-    # Gemini API 2.5 native audio uses v1beta; Gemini 3.1 remains on its
-    # v1alpha constrained transport.
-    return "v1beta" if normalized.startswith(NATIVE_AUDIO_LIVE_MODEL_PREFIX) else "v1alpha"
+    # Ephemeral browser tokens are documented for the v1beta constrained
+    # transport. Keep the same endpoint version for both the Gemini 3.1
+    # primary and Gemini 2.5 native-audio fallback models.
+    _ = model
+    return "v1beta"
 
 
 def _live_websocket_url(api_version: str) -> str:
