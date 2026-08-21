@@ -11,6 +11,25 @@ type ReviewStatus = "unreviewed" | "pass" | "fail" | "unsure";
 type ReviewResult = { status: ReviewStatus; comments: string; requested: boolean; scheduled: boolean };
 type ReviewMap = Record<string, ReviewResult>;
 type ReviewSession = { app: VoiceV3App; persona: string };
+type VoiceV3AuthBridge = {
+  initializeVoiceV3Auth: () => Promise<void>;
+  getVoiceV3IdToken: (options?: { readonly forceRefresh?: boolean }) => Promise<string | null>;
+  getVoiceV3AppCheckToken: (options?: { readonly forceRefresh?: boolean }) => Promise<string | null>;
+  hasVoiceV3AuthConfiguration: () => Promise<boolean>;
+};
+
+declare global {
+  interface Window {
+    __MINDPAL_V3_AUTH__?: VoiceV3AuthBridge;
+  }
+}
+
+function loadVoiceV3AuthBridge(): Promise<VoiceV3AuthBridge> {
+  const bridge = window.__MINDPAL_V3_AUTH__;
+  return bridge
+    ? Promise.resolve(bridge)
+    : Promise.reject(new Error("MindPal authentication bridge did not load"));
+}
 
 function VoiceV3DebugApp() {
   const [providerMode, setProviderMode] = useState<VoiceProviderMode>("mock");
@@ -73,19 +92,32 @@ function VoiceV3ReviewPage() {
 
   const startSession = async (persona: string): Promise<void> => {
     session?.app.dispose();
-    const nextApp = createVoiceV3App({
-      providerMode: "real",
-      productionMode: true,
-      voicePersona: persona,
-      // The review route is an explicitly gated internal harness. Production
-      // users still inherit the normal disabled-by-default V3 flag state.
-      featureFlags: { ...DEFAULT_VOICE_V3_FEATURE_FLAGS, VOICE_V3_ENABLED: true },
-    });
     setError(null);
     setEvents([]);
     setActivePersona(null);
     setSession(null);
+    let nextApp: VoiceV3App | null = null;
     try {
+      const auth = await loadVoiceV3AuthBridge();
+      await auth.initializeVoiceV3Auth();
+      if (!(await auth.hasVoiceV3AuthConfiguration())) {
+        throw new Error("MindPal Firebase authentication is not configured on this deployment");
+      }
+      if (!(await auth.getVoiceV3IdToken())) {
+        throw new Error("Sign in to MindPal on this preview before starting Gemini review");
+      }
+      nextApp = createVoiceV3App({
+        providerMode: "real",
+        productionMode: true,
+        voicePersona: persona,
+        getAuthToken: () => auth.getVoiceV3IdToken(),
+        getAppCheckToken: () => auth.getVoiceV3AppCheckToken(),
+        refreshAuthToken: () => auth.getVoiceV3IdToken({ forceRefresh: true }),
+        refreshAppCheckToken: () => auth.getVoiceV3AppCheckToken({ forceRefresh: true }),
+        // The review route is an explicitly gated internal harness. Production
+        // users still inherit the normal disabled-by-default V3 flag state.
+        featureFlags: { ...DEFAULT_VOICE_V3_FEATURE_FLAGS, VOICE_V3_ENABLED: true },
+      });
       await nextApp.start({ startCapture: false });
       if (!nextApp.transportManager.isReady) {
         throw new Error("Gemini Live transport did not complete setup");
@@ -94,7 +126,7 @@ function VoiceV3ReviewPage() {
       setSession({ app: nextApp, persona });
       setEvents([`Gemini Live ready · ${persona}`]);
     } catch (reason: unknown) {
-      nextApp.dispose();
+      nextApp?.dispose();
       setSession(null);
       setActivePersona(null);
       setError(reason instanceof Error ? reason.message : "Gemini Live session failed to start");

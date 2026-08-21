@@ -10,6 +10,7 @@
     "build:icons": "esbuild frontend/js/vendor/lucide_global.js --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=frontend/dist/lucide.bundle.js",
     "build:app": "esbuild frontend/js/app.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/app.bundle.js",
     "build:brain": "esbuild frontend/js/brain_page.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/brain.bundle.js",
+    "build:voice-v3-auth": "esbuild frontend/js/voice/v3_auth_bridge.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/voice-v3-auth.bundle.js",
     "test": "node --test tests/*.mjs",
     "audit:frontend": "python scripts/audit_frontend.py",
     "audit:syntax": "python3 scripts/audit_syntax_integrity.py",
