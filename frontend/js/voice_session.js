@@ -1,37 +1,71 @@
-// frontend/js/voice_session.js — stable public Voice facade with reversible V2 rollout.
+// MindPal production voice facade.
+// Voice V3 is now the active implementation. The former V2 facade remains
+// available under frontend/js/voice/archive for rollback and contract tests.
 
-import { createVoiceSessionController } from "./voice/runtime.js";
-import { createVoiceSessionV2 } from "./voice_session_v2.js";
+const EMPTY_STATE = Object.freeze({
+  isActive: false,
+  isMicMuted: false,
+  isAiSpeaking: false,
+  isSpeakerMuted: false,
+  phase: "idle",
+  reconnectAttempts: 0,
+  micAnalyser: null,
+  aiAnalyser: null,
+});
 
-const useVoiceV2 = Boolean(globalThis.window?.MINDPAL_CONFIG?.VOICE_ARCHITECTURE_V2);
-const controller = useVoiceV2 ? createVoiceSessionV2() : createVoiceSessionController();
+let controller = null;
+let controllerPromise = null;
 
-export function getSessionState() {
-  return controller.getSessionState();
+async function loadController() {
+  if (controller) return controller;
+  if (!controllerPromise) {
+    const runtimeUrl = new URL("../voice-v3/assets/runtime.js", import.meta.url);
+    controllerPromise = import(runtimeUrl.href)
+      .then((runtime) => {
+        const factory = runtime.createVoiceV3Controller || globalThis.window?.__MINDPAL_VOICE_V3_RUNTIME__?.createVoiceV3Controller;
+        if (typeof factory !== "function") throw new Error("MindPal Voice V3 runtime did not expose a controller factory");
+        controller = factory();
+        return controller;
+      })
+      .catch((error) => {
+        controllerPromise = null;
+        throw error;
+      });
+  }
+  return controllerPromise;
 }
 
-export function getMicMuted() { return controller.getMicMuted(); }
-export function getAiSpeaking() { return controller.getAiSpeaking(); }
-export function getSpeakerMuted() { return controller.getSpeakerMuted(); }
-export function getTranscriptSnapshot() { return controller.getTranscriptSnapshot?.() || { userTranscript: "", aiTranscript: "" }; }
+export function getSessionState() {
+  return controller?.getSessionState?.() || EMPTY_STATE;
+}
+
+export function getMicMuted() { return controller?.getMicMuted?.() || false; }
+export function getAiSpeaking() { return controller?.getAiSpeaking?.() || false; }
+export function getSpeakerMuted() { return controller?.getSpeakerMuted?.() || false; }
+export function getTranscriptSnapshot() {
+  return controller?.getTranscriptSnapshot?.() || { userTranscript: "", aiTranscript: "" };
+}
 
 export function setSpeakerMuted(muted) {
-  return controller.setSpeakerMuted(muted);
+  if (!controller) return Boolean(muted);
+  return controller.setSpeakerMuted(Boolean(muted));
 }
 
 export function setMuted(muted) {
-  return controller.setMuted(muted);
+  if (!controller) return Boolean(muted);
+  return controller.setMuted(Boolean(muted));
 }
 
 export async function startSession(options = {}) {
-  return controller.startSession(options);
+  const activeController = await loadController();
+  return activeController.startSession(options);
 }
 
-export function stopSession() {
+export async function stopSession() {
+  if (!controller) return false;
   return controller.stopSession();
 }
 
 export function sendTextToModel(text) {
-  return controller.sendTextToModel(text);
+  return controller?.sendTextToModel?.(String(text || "")) || false;
 }
-

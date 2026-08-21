@@ -376,8 +376,9 @@ def _install_frontend_routes(app: FastAPI) -> None:
         payload = {
             "API_BASE_URL": api_base_url,
             "VOICE_DEBUG": False,
-            "VOICE_ARCHITECTURE_V2": True,
-            "VOICE_V2_BACKCHANNEL": True,
+            "VOICE_ARCHITECTURE_V2": False,
+            "VOICE_ARCHITECTURE_V3": True,
+            "VOICE_V2_BACKCHANNEL": False,
             "VOICE_V2_LOCAL_CUES": False,
             "VOICE_V2_CUE_AUDIO": {},
             "SHOW_RESPONSE_DEBUG": False,

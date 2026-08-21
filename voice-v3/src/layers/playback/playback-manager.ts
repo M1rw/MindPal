@@ -258,6 +258,21 @@ export class PlaybackManager {
     this.emitSnapshot();
   }
 
+  public setSpeakerMuted(muted: boolean): void {
+    const context = this.ensureGraph();
+    const now = context.currentTime;
+    const targetMain = muted ? 0 : MAIN_GAIN;
+    const targetBackchannel = muted ? 0 : this.backchannelGainTarget;
+    for (const [gainNode, target] of [[this.mainGainNode, targetMain], [this.backchannelGainNode, targetBackchannel]] as const) {
+      const gain = gainNode?.gain;
+      if (!gain) continue;
+      gain.cancelScheduledValues(now);
+      gain.setValueAtTime(gain.value, now);
+      gain.linearRampToValueAtTime(target, now + 0.02);
+    }
+    this.emitSnapshot();
+  }
+
   public setProsodyState(state: ProsodyState): void {
     const context = this.ensureGraph();
     const now = context.currentTime;
