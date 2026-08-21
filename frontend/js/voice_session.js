@@ -21,7 +21,9 @@ let controllerPromise = null;
 // failure mode where import() reports a generic "failed to fetch dynamically
 // imported module" error even though the asset itself is reachable.
 const V3_RUNTIME_PATH = "/voice-v3/assets/runtime.js";
-const V3_RUNTIME_VERSION = "voice-v3-runtime-20260822";
+// Keep this deployment-scoped so a cached runtime cannot reference a chunk
+// hash from a previous immutable Vercel deployment.
+const V3_RUNTIME_VERSION = "voice-v3-runtime-90fb8d4";
 const V3_RUNTIME_SCRIPT_ATTRIBUTE = "data-mindpal-voice-v3-runtime";
 
 function getRuntimeFactory() {
