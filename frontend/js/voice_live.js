@@ -21,6 +21,7 @@ import {
   setAnalysers,
 } from "./voice_visualizer.js";
 import { planPacedCaptionSegments } from "./voice/caption_sync_policy.js";
+import { findCaptionHighlightRange } from "./voice/caption_highlight_policy.js";
 
 // ═══════════════════════════════════════════════════════════════
 // State
@@ -47,6 +48,12 @@ let captionFallbackTimer = null;
 let captionQueue = [];
 let captionBufferedText = "";
 let captionPendingText = "";
+// The complete assistant response is rendered immediately. These offsets only
+// control the moving spoken-word highlight, so transcript visibility never
+// waits for the pacing queue.
+let captionSourceText = "";
+let captionHighlightStartChar = 0;
+let captionHighlightEndChar = 0;
 let captionNextReleaseAtMs = 0;
 let captionAudioStartAtMs = 0;
 let captionTurnSerial = 0;
@@ -140,6 +147,9 @@ export async function startLiveVoice(contextProvider = null) {
   captionQueue = [];
   captionBufferedText = "";
   captionPendingText = "";
+  captionSourceText = "";
+  captionHighlightStartChar = 0;
+  captionHighlightEndChar = 0;
   captionNextReleaseAtMs = 0;
   captionAudioStartAtMs = 0;
   if (captionReleaseTimer) clearTimeout(captionReleaseTimer);
@@ -307,11 +317,27 @@ function isolateMixedScriptRuns(text, direction) {
   return value.replace(/[\u0590-\u08FF][\u0590-\u08FF0-9\u0660-\u0669@._:/+%#?=&-]*(?:[ ]+[\u0590-\u08FF0-9\u0660-\u0669@._:/+%#?=&-]+)*/g, (match) => `${String.fromCodePoint(0x2067)}${match}${String.fromCodePoint(0x2069)}`);
 }
 
-function renderCaptionText(caption, rawText) {
-  const direction = detectCaptionDirection(rawText);
+function renderCaptionText(caption, rawText, { highlightStart = 0, highlightEnd = 0 } = {}) {
+  const value = String(rawText || "");
+  const direction = detectCaptionDirection(value);
+  const start = Math.max(0, Math.min(value.length, Number(highlightStart) || 0));
+  const end = Math.max(start, Math.min(value.length, Number(highlightEnd) || 0));
   caption.dir = direction;
-  caption.setAttribute("aria-label", rawText);
-  caption.textContent = isolateMixedScriptRuns(rawText, direction);
+  caption.setAttribute("aria-label", value);
+  caption.replaceChildren();
+
+  const addRun = (text, className) => {
+    if (!text) return;
+    const span = document.createElement("span");
+    span.className = className;
+    span.dir = direction;
+    span.textContent = isolateMixedScriptRuns(text, direction);
+    caption.appendChild(span);
+  };
+
+  addRun(value.slice(0, start), "voice-caption__spoken");
+  addRun(value.slice(start, end), "voice-caption__current");
+  addRun(value.slice(end), "voice-caption__upcoming");
 }
 
 function isInternalCaptionText(text) {
@@ -328,7 +354,12 @@ function clearCaptionReleaseQueue({ preserveSource = false } = {}) {
   captionPendingText = "";
   captionNextReleaseAtMs = 0;
   captionAudioStartAtMs = 0;
-  if (!preserveSource) captionBufferedText = "";
+  captionHighlightStartChar = 0;
+  captionHighlightEndChar = 0;
+  if (!preserveSource) {
+    captionBufferedText = "";
+    captionSourceText = "";
+  }
 }
 
 function scheduleCaptionRelease() {
@@ -411,9 +442,18 @@ function renderAiCaptionChunk(cleaned) {
     captionTurnComplete = false;
   }
   if (!currentCaption) return;
-  const captionText = appendTranscriptChunk(currentCaption.dataset.rawText || "", cleaned);
-  currentCaption.dataset.rawText = captionText;
-  renderCaptionText(currentCaption, captionText);
+
+  const captionText = currentCaption.dataset.rawText || captionSourceText || "";
+  const segment = String(cleaned).trim();
+  if (!captionText || !segment) return;
+  const range = findCaptionHighlightRange(captionText, segment, captionHighlightEndChar);
+  if (!range) return;
+  captionHighlightStartChar = range.start;
+  captionHighlightEndChar = range.end;
+  renderCaptionText(currentCaption, captionText, {
+    highlightStart: captionHighlightStartChar,
+    highlightEnd: captionHighlightEndChar,
+  });
   scrollTranscript();
 }
 
@@ -453,9 +493,22 @@ function handleTranscript(type, text) {
     currentCaption = null;
     captionTurnComplete = false;
   }
-  // Preserve the complete transcript for history immediately, but reveal it
-  // only through the queue so visible words follow actual playback cadence.
+  // Keep history and the complete visible response immediate. The pacing queue
+  // now controls only which range receives the spoken highlight.
   aiTranscript = appendTranscriptChunk(aiTranscript, cleaned);
+  const mergedSource = appendTranscriptChunk(captionSourceText, cleaned);
+  if (mergedSource !== captionSourceText) {
+    captionSourceText = mergedSource;
+    if (!currentCaption) currentCaption = createAiCaption();
+    if (currentCaption) {
+      currentCaption.dataset.rawText = captionSourceText;
+      renderCaptionText(currentCaption, captionSourceText, {
+        highlightStart: captionHighlightStartChar,
+        highlightEnd: captionHighlightEndChar,
+      });
+      scrollTranscript();
+    }
+  }
   captionPendingText = appendTranscriptChunk(captionPendingText, cleaned);
   if (captionAudioStartAtMs) flushPendingCaptionText({ audioStartMs: captionAudioStartAtMs });
   else armCaptionFallback();
