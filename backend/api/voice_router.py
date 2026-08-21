@@ -5,9 +5,11 @@ import base64
 import datetime as dt
 import hashlib
 import hmac
+import io
 import json
 import logging
 import secrets
+import wave
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -22,6 +24,8 @@ from backend.api.dependencies import (
 from backend.core.errors import AppError
 from backend.core.freshness import requires_verified_web_search
 from backend.core.security import sanitize_text
+from backend.models.schemas import TTSFormat
+from backend.services.persona_voice_catalog import PersonaVoiceCatalog
 from backend.tools import ToolContext, build_default_registry
 from backend.tools.voice_tools import VoiceSummarizeTool, VoiceTranscribeTool
 
@@ -40,6 +44,18 @@ GEMINI_31_LIVE_MODEL_PREFIX = "gemini-3.1-flash-live"
 _summarize_tool = VoiceSummarizeTool()
 _transcribe_tool = VoiceTranscribeTool()
 _verified_fact_registry = None
+_REALTIME_TTS_CACHE: dict[tuple[str, str, str, int], tuple[str, int, str]] = {}
+_PERSONA_VOICE_CATALOG: PersonaVoiceCatalog | None = None
+_REALTIME_TTS_CACHE_MAX_ENTRIES = 32
+_REALTIME_TTS_COMMON_CUES = frozenset({"mhm", "yeah", "aha", "right", "okay"})
+_REALTIME_TTS_EMOTIONS = frozenset({"neutral", "calm", "empathetic", "concerned", "attentive", "soft"})
+
+
+def _get_persona_voice_catalog() -> PersonaVoiceCatalog:
+    global _PERSONA_VOICE_CATALOG
+    if _PERSONA_VOICE_CATALOG is None:
+        _PERSONA_VOICE_CATALOG = PersonaVoiceCatalog()
+    return _PERSONA_VOICE_CATALOG
 
 
 def _get_verified_fact_registry():
@@ -99,6 +115,30 @@ class VoiceTokenResponse(BaseModel):
     usage: dict[str, int] | None = None
     fallback_grant: str | None = None
     fallback_used: bool = False
+class RealtimeVoiceTtsRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid", populate_by_name=True)
+    text: str = Field(min_length=1, max_length=40)
+    persona: str = Field(min_length=1, max_length=120)
+    emotion: str = Field(default="neutral", max_length=40)
+    format: str = Field(default="pcm16", pattern=r"^pcm16$")
+    sample_rate: int = Field(default=24_000, alias="sampleRate", serialization_alias="sampleRate", ge=24_000, le=24_000)
+
+    @field_validator("text", "persona", "emotion", mode="before")
+    @classmethod
+    def _clean_realtime_tts_text(cls, value: object) -> str:
+        return sanitize_text(str(value or ""), 120)
+
+
+class RealtimeVoiceTtsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    audio_base64: str = Field(default="", min_length=0, alias="audioBase64", serialization_alias="audioBase64")
+    duration_ms: int = Field(gt=0, le=2_000, alias="durationMs", serialization_alias="durationMs")
+    cached: bool = False
+    voice_id: str | None = Field(default=None, alias="voiceId", serialization_alias="voiceId")
+    persona: str
+    fallback: str | None = None
+
+
 class VoiceTransportDiagnosticRequest(BaseModel):
     """Sanitized client-side Live transport metadata for production diagnosis."""
 
@@ -526,6 +566,96 @@ async def get_voice_token(
         ) from exc
 
 
+@router.get("/v3/personas")
+async def list_realtime_voice_personas(
+    context: AuthenticatedRequestContextDep,
+) -> dict[str, Any]:
+    """Return non-secret persona voice metadata for internal human review."""
+    assert_authenticated(context)
+    return _get_persona_voice_catalog().public_config()
+
+
+@router.post("/v3/tts", response_model=RealtimeVoiceTtsResponse)
+async def synthesize_realtime_voice_tts(
+    payload: RealtimeVoiceTtsRequest,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> RealtimeVoiceTtsResponse:
+    """Generate a short cue only when the persona has an explicit voice mapping."""
+    assert_authenticated(context)
+    catalog = _get_persona_voice_catalog()
+    voice = catalog.resolve(payload.persona)
+    if voice is None or not voice.voice_id:
+        logger.warning("tts.persona_mapping_missing persona=%s request_id=%s", sanitize_text(payload.persona, 120), context.request_id)
+        logger.info("tts.fallback.nonverbal reason=persona_mapping_missing request_id=%s", context.request_id)
+        return _nonverbal_tts_response(payload.persona)
+
+    text = payload.text.lower()
+    emotion = sanitize_text(payload.emotion, 40).lower() or "neutral"
+    cache_key = (voice.persona.lower(), emotion, text, payload.sample_rate)
+    if text in _REALTIME_TTS_COMMON_CUES:
+        cached = _REALTIME_TTS_CACHE.get(cache_key)
+        if cached:
+            logger.info("tts.cache.hit persona=%s emotion=%s request_id=%s", voice.persona, emotion, context.request_id)
+            return RealtimeVoiceTtsResponse(
+                audioBase64=cached[0], durationMs=cached[1], cached=True, voiceId=cached[2], persona=voice.persona,
+            )
+    logger.info("tts.cache.miss persona=%s emotion=%s request_id=%s", voice.persona, emotion, context.request_id)
+    logger.info("tts.request.started persona=%s emotion=%s request_id=%s", voice.persona, emotion, context.request_id)
+
+    await services.rate_limits.consume(
+        scope="tts",
+        subject=context.session.user_id_hash,
+        limit=services.settings.TTS_RATE_LIMIT_PER_MINUTE,
+        window_seconds=60,
+    )
+    emotion_supported = emotion == "neutral" or (emotion in _REALTIME_TTS_EMOTIONS and voice.supports_emotion)
+    if emotion != "neutral" and not emotion_supported:
+        logger.info("tts.emotion_unsupported persona=%s provider=%s emotion=%s request_id=%s", voice.persona, voice.tts_provider, emotion, context.request_id)
+    response_mode = emotion if emotion_supported else "normal_support"
+    try:
+        result = await services.tts.synthesize_text(
+            text=payload.text,
+            locale=getattr(context, "locale", "auto"),
+            response_mode=response_mode,
+            safety_level="safe",
+            voice_id=voice.voice_id,
+            format=TTSFormat.WAV,
+            speaking_rate=1.0,
+            allow_external_for_crisis=False,
+        )
+        if result.fallback_to_browser or not result.audio_base64:
+            logger.info("tts.fallback.nonverbal reason=provider_unavailable request_id=%s", context.request_id)
+            return _nonverbal_tts_response(voice.persona, voice.voice_id)
+        try:
+            source_bytes = base64.b64decode(result.audio_base64, validate=True)
+            pcm_bytes, source_rate = _wav_to_pcm16(source_bytes)
+            normalized_pcm = _resample_pcm16_mono(pcm_bytes, source_rate, payload.sample_rate)
+        except (ValueError, wave.Error, EOFError) as exc:
+            logger.warning("tts.request.failed code=malformed_audio request_id=%s", context.request_id)
+            logger.info("tts.fallback.nonverbal reason=malformed_audio request_id=%s", context.request_id)
+            return _nonverbal_tts_response(voice.persona, voice.voice_id)
+        encoded = base64.b64encode(normalized_pcm).decode("ascii")
+        duration_ms = max(1, round(len(normalized_pcm) / 2 / payload.sample_rate * 1_000))
+        if text in _REALTIME_TTS_COMMON_CUES:
+            _REALTIME_TTS_CACHE[cache_key] = (encoded, duration_ms, voice.voice_id)
+            while len(_REALTIME_TTS_CACHE) > _REALTIME_TTS_CACHE_MAX_ENTRIES:
+                _REALTIME_TTS_CACHE.pop(next(iter(_REALTIME_TTS_CACHE)))
+        logger.info("tts.request.success persona=%s provider=%s request_id=%s", voice.persona, voice.tts_provider, context.request_id)
+        logger.info("tts.duration_ms value=%s persona=%s request_id=%s", duration_ms, voice.persona, context.request_id)
+        return RealtimeVoiceTtsResponse(
+            audioBase64=encoded, durationMs=duration_ms, cached=False, voiceId=voice.voice_id, persona=voice.persona,
+        )
+    except AppError as exc:
+        logger.warning("tts.request.failed code=%s request_id=%s", sanitize_text(exc.code, 120), context.request_id)
+        logger.info("tts.fallback.nonverbal reason=service_error request_id=%s", context.request_id)
+        return _nonverbal_tts_response(voice.persona, voice.voice_id)
+    except Exception as exc:
+        logger.exception("tts.request.failed request_id=%s", context.request_id)
+        logger.info("tts.fallback.nonverbal reason=unexpected_error request_id=%s", context.request_id)
+        return _nonverbal_tts_response(voice.persona, voice.voice_id)
+
+
 @router.post("/transport-diagnostic", status_code=status.HTTP_204_NO_CONTENT)
 async def report_voice_transport_diagnostic(
     payload: VoiceTransportDiagnosticRequest,
@@ -613,6 +743,56 @@ async def _create_ephemeral_voice_token(
             client.close()
 
     return await asyncio.to_thread(create)
+
+
+def _nonverbal_tts_response(persona: str, voice_id: str | None = None) -> RealtimeVoiceTtsResponse:
+    return RealtimeVoiceTtsResponse(
+        audioBase64="",
+        durationMs=300,
+        cached=False,
+        voiceId=voice_id,
+        persona=sanitize_text(persona, 120) or "unknown",
+        fallback="non_verbal_hum",
+    )
+
+
+def _wav_to_pcm16(audio_bytes: bytes) -> tuple[bytes, int]:
+    with wave.open(io.BytesIO(audio_bytes), "rb") as wav_file:
+        channels = wav_file.getnchannels()
+        sample_width = wav_file.getsampwidth()
+        sample_rate = wav_file.getframerate()
+        if channels < 1 or sample_width != 2 or sample_rate <= 0:
+            raise ValueError("TTS audio must be signed 16-bit PCM")
+        frames = wav_file.readframes(wav_file.getnframes())
+    if not frames:
+        raise ValueError("TTS audio was empty")
+    if channels == 1:
+        return frames, sample_rate
+    samples = memoryview(frames).cast("h")
+    mono = bytearray()
+    for index in range(0, len(samples), channels):
+        available = min(channels, len(samples) - index)
+        total = sum(int(samples[index + channel]) for channel in range(available))
+        mono.extend(int(total / available).to_bytes(2, "little", signed=True))
+    return bytes(mono), sample_rate
+
+
+def _resample_pcm16_mono(audio_bytes: bytes, source_rate: int, target_rate: int) -> bytes:
+    if source_rate == target_rate:
+        return audio_bytes
+    if len(audio_bytes) % 2:
+        raise ValueError("PCM16 audio has an incomplete sample")
+    source_samples = memoryview(audio_bytes).cast("h")
+    target_length = max(1, round(len(source_samples) * target_rate / source_rate))
+    output = bytearray(target_length * 2)
+    for index in range(target_length):
+        source_position = index * (len(source_samples) - 1) / max(1, target_length - 1)
+        left = int(source_position)
+        right = min(left + 1, len(source_samples) - 1)
+        fraction = source_position - left
+        sample = round(source_samples[left] + (source_samples[right] - source_samples[left]) * fraction)
+        output[index * 2:index * 2 + 2] = int(max(-32768, min(32767, sample))).to_bytes(2, "little", signed=True)
+    return bytes(output)
 
 
 def _is_supported_gemini_api_live_model(model: str) -> bool:

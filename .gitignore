@@ -69,3 +69,6 @@ secrets/firebase-service-account.json
 # Production frontend bundles are release artifacts and must be committed/deployed.
 !frontend/dist/
 !frontend/dist/**
+
+# Voice V3 internal human review artifacts
+artifacts/voice-persona-review/
