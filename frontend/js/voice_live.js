@@ -294,6 +294,12 @@ function appendTranscriptChunk(existing, chunk) {
   return `${previous} ${next}`;
 }
 
+function isSameOrCumulativeCaption(previous, next) {
+  const prior = String(previous || "").trim();
+  const current = String(next || "").trim();
+  return Boolean(prior && current && (prior === current || prior.startsWith(current) || current.startsWith(prior)));
+}
+
 function detectCaptionDirection(text) {
   const value = String(text || "");
   const arabicIndex = value.search(/[\u0590-\u08FF]/);
@@ -455,12 +461,16 @@ function handleTranscript(type, text) {
   if (type !== "ai" || isInternalCaptionText(cleaned)) return;
 
   if (captionTurnComplete) {
-    clearCaptionReleaseQueue();
-    currentCaption = null;
+    // Gemini can deliver the final cumulative output-transcription snapshot
+    // after turnComplete. It belongs to the completed response, not a new one.
+    if (!isSameOrCumulativeCaption(captionSourceText, cleaned)) {
+      clearCaptionReleaseQueue();
+      currentCaption = null;
+    }
     captionTurnComplete = false;
   }
-  // Keep history and the complete visible response immediate. The pacing queue
-  // now controls only which range receives the spoken highlight.
+  // Keep the complete visible response immediate. The pacing queue is retained
+  // only for delivery ordering and never creates another caption node.
   aiTranscript = appendTranscriptChunk(aiTranscript, cleaned);
   const mergedSource = appendTranscriptChunk(captionSourceText, cleaned);
   if (mergedSource !== captionSourceText) {

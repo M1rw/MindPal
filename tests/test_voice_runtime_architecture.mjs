@@ -310,6 +310,35 @@ test("orchestrator owns session state and translates provider interruption into 
 });
 
 
+test("orchestrator drops stale audio after a completed response until a new turn begins", () => {
+  const scheduled = [];
+  const diagnostics = [];
+  const provider = { connect: () => {}, close: () => {} };
+  const capture = createCaptureAdapter();
+  const playback = {
+    schedule: (_data, options) => { scheduled.push(options); return true; },
+    handleInterruption: () => 2,
+    flush: () => 2,
+  };
+  const orchestrator = createVoiceSessionOrchestrator({
+    provider,
+    capture,
+    playback,
+    onDiagnostic: (event) => diagnostics.push(event),
+  });
+  orchestrator.start({ url: "wss://example.test", setup: {} });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_READY, identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT, text: "hello", identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_AUDIO, base64Data: "AQI=", identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_TURN_COMPLETE, identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_AUDIO, base64Data: "AQI=", identity: { sessionGeneration: 1 } });
+  assert.equal(scheduled.length, 1);
+  assert.ok(diagnostics.some((event) => event.type === "voice.stale-provider-audio-dropped"));
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT, text: "again", identity: { sessionGeneration: 1 } });
+  orchestrator.handleProviderEvent({ type: VOICE_EVENTS.PROVIDER_AUDIO, base64Data: "AQI=", identity: { sessionGeneration: 1 } });
+  assert.equal(scheduled.length, 2);
+});
+
 test("orchestrator keeps cue audio classified when cue transcript precedes PCM", () => {
   const scheduled = [];
   const provider = {

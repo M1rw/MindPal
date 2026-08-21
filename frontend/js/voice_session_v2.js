@@ -945,6 +945,7 @@ export function createVoiceSessionV2({
       recoverySupervisor: recovery,
       persistence,
       onEvent: (event) => handleEvent(event, getOrchestratorState()),
+      onDiagnostic,
     });
     providerEventHandler = (event) => orchestrator.handleProviderEvent(event);
     active = true;
