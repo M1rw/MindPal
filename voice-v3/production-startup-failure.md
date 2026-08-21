@@ -86,3 +86,7 @@ References: https://ai.google.dev/api/live; https://ai.google.dev/gemini-api/doc
 ## Confirmed stale production bundle on `a44a2e2`
 
 The first browser test against deployment `dpl_3qidy1sdZKSgmyw7V5SDcStDyHFM` did not exercise the new code. The live overlay explicitly displayed `MindPal Voice V3 runtime failed to load: .../runtime.js?v=voice-v3-runtime-f71bc37`; `frontend/js/voice_session.js` and `frontend/index.html` still contained the prior `f71bc37` cache keys. This is a confirmed deployment-cache bug, not evidence that the fallback logic failed. Both keys and the loader regression test are now updated to `a44a2e2`; a follow-up commit and production deployment are required before retesting.
+
+## Fallback lifecycle finding after cache correction
+
+After deployment `dpl_EcYbEmgX4RUgzanbXnu9Tq5hAS77` for `f1253e5` became READY, the browser no longer showed the stale runtime-load error. The active production attempt reached the V3 overlay but ended with `Error: transport did not become ready`. Production logs confirmed two successful `/api/voice/token` calls and the current V3 assets from that deployment, which is consistent with the newly added primary-to-fallback path being exercised. The transport timeout cleanup used `close()` in a way that marked the old socket as user-closed while its close event could still race the fallback connection. The follow-up patch detaches the old socket before fallback token acquisition, uses a local connection promise, and adds a regression test for timeout → fallback setup completion.
