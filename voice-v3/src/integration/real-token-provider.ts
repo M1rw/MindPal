@@ -52,7 +52,10 @@ export class RealTokenProvider implements TokenProvider {
 
   public constructor(options: RealTokenProviderOptions = {}) {
     this.baseUrl = (options.baseUrl ?? "").replace(/\/$/, "");
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    // Calling a detached `window.fetch` as `this.fetchImpl(...)` makes the
+    // browser reject it with "Illegal invocation". Keep the native receiver
+    // intact while retaining injectable fetch implementations for tests.
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
     this.getAuthToken = options.getAuthToken ?? (async () => null);
     this.getAppCheckToken = options.getAppCheckToken ?? (async () => null);
     this.refreshAuthToken = options.refreshAuthToken;

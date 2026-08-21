@@ -874,7 +874,12 @@ def _verify_fallback_grant(*, grant: str, secret: str, user_id_hash: str, expect
     try:
         padded = str(grant or "") + "=" * (-len(str(grant or "")) % 4)
         decoded = base64.urlsafe_b64decode(padded.encode("ascii"))
-        encoded, supplied_signature = decoded.rsplit(b".", 1)
+        signature_size = hashlib.sha256().digest_size
+        separator_index = len(decoded) - signature_size - 1
+        if separator_index <= 0 or decoded[separator_index:separator_index + 1] != b".":
+            raise ValueError("invalid grant framing")
+        encoded = decoded[:separator_index]
+        supplied_signature = decoded[separator_index + 1:]
         expected_signature = hmac.new(secret.encode("utf-8"), encoded, hashlib.sha256).digest()
         if not hmac.compare_digest(supplied_signature, expected_signature):
             raise ValueError("invalid signature")
