@@ -214,7 +214,7 @@ async def test_live_voice_token_falls_back_to_gemini_25_once(monkeypatch: pytest
     result = await voice_router.get_voice_token(response=Response(), services=services, context=_context())
 
     assert calls == [
-        ("gemini-3.1-flash-live-preview", "v1alpha"),
+        ("gemini-3.1-flash-live-preview", "v1beta"),
         ("gemini-2.5-flash-native-audio-preview-12-2025", "v1beta"),
     ]
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"

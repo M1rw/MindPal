@@ -94,7 +94,7 @@ async def test_primary_success_does_not_probe_or_charge_fallback(monkeypatch: py
 
     result = await voice_router.get_voice_token(Response(), service, context())
 
-    assert calls == [("gemini-3.1-flash-live-preview", "v1alpha")]
+    assert calls == [("gemini-3.1-flash-live-preview", "v1beta")]
     assert result.model == "gemini-3.1-flash-live-preview"
     assert service.quota.reserve_count == 1
     assert service.quota.commit_count == 1
@@ -119,7 +119,7 @@ async def test_primary_31_failure_falls_back_once_to_25_and_commits_once(monkeyp
     result = await voice_router.get_voice_token(Response(), service, context())
 
     assert calls == [
-        ("gemini-3.1-flash-live-preview", "v1alpha"),
+        ("gemini-3.1-flash-live-preview", "v1beta"),
         ("gemini-2.5-flash-native-audio-preview-12-2025", "v1beta"),
     ]
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
@@ -170,7 +170,7 @@ async def test_dual_failure_refunds_once_and_does_not_return_partial_credentials
 
     assert error.value.status_code == 502
     assert calls == [
-        ("gemini-3.1-flash-live-preview", "v1alpha"),
+        ("gemini-3.1-flash-live-preview", "v1beta"),
         ("gemini-2.5-flash-native-audio-preview-12-2025", "v1beta"),
     ]
     assert service.quota.reserve_count == 1

@@ -55,3 +55,7 @@ Commit `ad3284d` was pushed to `main` and Vercel marked deployment `dpl_8hgidqdz
 ## Confirmed root cause
 
 The final production browser retry exposed the exact failure: `WebSocket closed: 1007 Invalid JSON payload received. Unknown name "speechConfig" at 'setup': Cannot find field.` The V3 transport sent `speechConfig` as a sibling of `generationConfig`, while Gemini’s Live API schema requires it inside `generationConfig`. The setup builder also contained a duplicate conditional `systemInstruction` key that could overwrite the MindPal instruction when setup context existed. Both issues are corrected, and the exact transport test now asserts the valid schema.
+
+## Confirmed setup-timeout cause
+
+After the payload-schema fix, the browser reached the native runtime but reported `Gemini setupComplete timeout`. Google’s current WebSocket quickstart specifies `v1beta.GenerativeService.BidiGenerateContentConstrained` for ephemeral tokens, including when the model is `gemini-3.1-flash-live-preview`. The backend had selected `v1alpha` for Gemini 3.1 and `v1beta` only for the 2.5 fallback. The mapping is now `v1beta` for both models, with backend security and fallback tests updated to enforce this requirement.
