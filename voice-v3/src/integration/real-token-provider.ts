@@ -80,7 +80,9 @@ export class RealTokenProvider implements TokenProvider {
           method: "GET",
           headers: buildHeaders(authToken, appCheckToken),
           cache: "no-store",
-          credentials: "omit",
+          // The Vercel preview uses same-origin SSO cookies. Keep cookies for
+          // same-origin token calls, but do not send them cross-origin.
+          credentials: "same-origin",
         });
         if (!response.ok) {
           const error = await responseToError(response, this.nowMs());

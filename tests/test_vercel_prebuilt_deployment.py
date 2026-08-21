@@ -14,7 +14,7 @@ def test_vercel_rebuilds_and_verifies_frontend() -> None:
     assert config["installCommand"].startswith("python -m pip install")
     assert (
         config["buildCommand"]
-        == "npm ci && npm run build && python scripts/verify_prebuilt_frontend.py"
+        == "npm ci && npm run build:vercel && python scripts/verify_prebuilt_frontend.py"
     )
     assert "outputDirectory" not in config
 

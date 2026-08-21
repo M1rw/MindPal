@@ -570,9 +570,30 @@ async def get_voice_token(
 async def list_realtime_voice_personas(
     context: AuthenticatedRequestContextDep,
 ) -> dict[str, Any]:
-    """Return non-secret persona voice metadata for internal human review."""
+    """Return non-secret Gemini Native Audio persona metadata for internal review."""
     assert_authenticated(context)
-    return _get_persona_voice_catalog().public_config()
+    return {
+        "provider": "gemini-native-audio",
+        "persona_voice_catalog": {
+            "Kore": {
+                "persona": "Kore",
+                "voice_name": "Kore",
+                "voice_id": "Kore",
+                "provider": "gemini",
+                "gender": "unspecified",
+                "style": "native-audio",
+            },
+            "Charon": {
+                "persona": "Charon",
+                "voice_name": "Charon",
+                "voice_id": "Charon",
+                "provider": "gemini",
+                "gender": "unspecified",
+                "style": "native-audio",
+            },
+        },
+        "fallback_policy": "No external voice fallback is used by the Gemini-only V3 path.",
+    }
 
 
 @router.post("/v3/tts", response_model=RealtimeVoiceTtsResponse)

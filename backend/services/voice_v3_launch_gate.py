@@ -7,6 +7,9 @@ from backend.core.config import Settings
 from backend.services.persona_voice_catalog import PersonaVoiceCatalog
 
 
+GEMINI_NATIVE_VOICE_NAMES = frozenset({"kore", "charon"})
+
+
 @dataclass(frozen=True, slots=True)
 class VoiceV3LaunchValidation:
     enabled: bool
@@ -32,21 +35,23 @@ def validate_production_voice_configuration(
 ) -> VoiceV3LaunchValidation:
     enabled = bool(getattr(settings, "VOICE_V3_ENABLED", False))
     personas = _enabled_personas(getattr(settings, "VOICE_V3_ENABLED_PERSONAS", "Kore,Charon"))
-    voice_catalog = catalog or PersonaVoiceCatalog(settings=settings)
+    # The catalog argument is retained for callers that still collect legacy
+    # diagnostics, but Gemini prebuilt voice names are the source of truth.
+    _ = catalog or PersonaVoiceCatalog(settings=settings)
     mapped: list[str] = []
     missing: list[str] = []
     errors: list[str] = []
 
     if enabled:
         for persona in personas:
-            if voice_catalog.is_configured(persona):
+            if persona.lower() in GEMINI_NATIVE_VOICE_NAMES:
                 mapped.append(persona)
             else:
                 missing.append(persona)
-                errors.append(f"tts.persona_mapping_missing:{persona}")
+                errors.append(f"gemini.voice_name_unsupported:{persona}")
 
-    endpoint_reachable = None if endpoint_probe is None else _safe_probe(endpoint_probe, "tts.endpoint_unreachable", errors)
-    cache_warm_success = None if cache_warm_probe is None else _safe_probe(cache_warm_probe, "tts.cache_warm_failed", errors)
+    endpoint_reachable = None if endpoint_probe is None else _safe_probe(endpoint_probe, "gemini.token_or_setup_probe_failed", errors)
+    cache_warm_success = None if cache_warm_probe is None else _safe_probe(cache_warm_probe, "gemini.native_cue_probe_failed", errors)
     verbal_cues_enabled = enabled and not missing and (endpoint_reachable is not False) and (cache_warm_success is not False)
 
     return VoiceV3LaunchValidation(

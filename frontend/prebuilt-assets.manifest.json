@@ -5,8 +5,8 @@
       "sha256": "7a716cc976794c8da3444fc6c97e17afdbfe5a5040e003c3d23ea02938169e10"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 496755,
-      "sha256": "9082c673d7ad30200303717c1613ffa0f8c2cb9263c56c2e64a8c834b7387c68"
+      "bytes": 356615,
+      "sha256": "454d605864e53c4e94a3e52ed1063cb09813e15a8148b2fff05c236fa8576353"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "fb960d6a65d0f29bb35b9a4dcade96ed41d3397129ed8befc61ce72d0832daa3",
+  "source_digest": "85e7cc3748253462e9f29635ca9834ff486603b15050ab0b8a19c01085b3b164",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -52,6 +52,7 @@
     "frontend/js/voice/architecture/invariants.js",
     "frontend/js/voice/architecture/state.js",
     "frontend/js/voice/archive/runtime.legacy.js",
+    "frontend/js/voice/archive/voice_session_v2.legacy.js",
     "frontend/js/voice/backchannel/backchannel_manager.js",
     "frontend/js/voice/backchannel/backchannel_policy.js",
     "frontend/js/voice/backchannel/backchannel_provider.js",
@@ -84,6 +85,7 @@
     "frontend/js/voice/tools/tool_gateway.js",
     "frontend/js/voice/transcript_assembler.js",
     "frontend/js/voice/transport/recovery_supervisor.js",
+    "frontend/js/voice/v3_auth_bridge.js",
     "frontend/js/voice_live.js",
     "frontend/js/voice_session.js",
     "frontend/js/voice_session_v2.js",

@@ -44,6 +44,7 @@ describe("RealTokenProvider", () => {
     expect(calls).toBe(2);
     expect(fetchImpl.mock.calls[0]?.[1]).toMatchObject({
       method: "GET",
+      credentials: "same-origin",
       headers: expect.objectContaining({
         Authorization: "Bearer firebase-id-token",
         "X-Firebase-AppCheck": "app-check-token",

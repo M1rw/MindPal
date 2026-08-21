@@ -125,6 +125,12 @@ export class MockGeminiServer {
       }
       return;
     }
+    const cueText = readNativeCueText(message);
+    if (cueText) {
+      const responseId = `cue-response-${++this.responseCounter}`;
+      socket.deliver(this.responseMessage(cueText, responseId, "turn-1", true));
+      return;
+    }
     if (isAudioMessage(message)) {
       this.speechFrameCount += 1;
       if (this.speechFrameCount >= 150 && !this.userResponseEmitted) {
@@ -158,7 +164,7 @@ export class MockGeminiServer {
         modelTurn: {
           parts: [
             { text, isFinal: complete, cumulative: true },
-            { inlineData: { mimeType: "audio/pcm;rate=24000", data: "AAAA" } },
+            { inlineData: { mimeType: "audio/pcm;rate=24000", data: "AAAAAA==" } },
           ],
         },
         ...(complete ? { turnComplete: true } : {}),
@@ -228,6 +234,14 @@ function isGreetingCommand(value: unknown): boolean {
 function isAudioMessage(value: unknown): boolean {
   if (!isRecord(value) || !isRecord(value.realtimeInput)) return false;
   return isRecord(value.realtimeInput.audio);
+}
+
+function readNativeCueText(value: unknown): string | null {
+  if (!isRecord(value) || !isRecord(value.realtimeInput)) return null;
+  const text = value.realtimeInput.text;
+  if (typeof text !== "string" || !text.startsWith("VOICE_CUE_REQUEST:")) return null;
+  const cue = text.slice("VOICE_CUE_REQUEST:".length).trim();
+  return cue ? cue.slice(0, 80) : null;
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

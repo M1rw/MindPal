@@ -130,9 +130,35 @@ describe("BackchannelConductor", () => {
 
     expect(requests).toHaveLength(1);
     expect(requests[0]?.reason).toBe("natural-pause");
-    expect(requests[0]?.cue.audioLane).toBe("backchannel");
+    const request = requests[0];
+    expect(request && "cue" in request ? request.cue.audioLane : undefined).toBe("backchannel");
     expect(conductor.snapshot.cuesTriggered).toBe(1);
     expect(conductor.state).toBe("COOLDOWN");
+  });
+
+  it("emits a Gemini-native cue intent without creating prebuilt audio", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const requests: BackchannelCueRequestPayload[] = [];
+    bus.subscribe<BackchannelCueRequestPayload>((envelope) => requests.push(envelope.payload), { topic: "voice.playback", messageType: "BACKCHANNEL_CUE_REQUESTED" });
+    const conductor = new BackchannelConductor({
+      bus,
+      cueProvider: new SyntheticCueProvider(),
+      nativeGeminiCues: true,
+      cueTextSelector: () => "mhm",
+      nowMono: () => now,
+    });
+    publishFrame(bus, now, 0.1);
+    for (now = 20; now <= 2_520; now += 20) publishFrame(bus, now, 0.1);
+    now = 2_650;
+    publishFrame(bus, now, 0);
+    now = 2_850;
+    publishFrame(bus, now, 0.1);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.delivery).toBe("gemini-native");
+    expect(requests[0] && "cue" in requests[0]).toBe(false);
+    expect(requests[0]?.cueText).toBe("mhm");
+    conductor.dispose();
   });
 
   it("respects the four-second cooldown and three-cue rolling window in a 15-second monologue", () => {

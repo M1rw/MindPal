@@ -59,6 +59,7 @@ export class VoiceOrchestrator {
   private operationId: string | null = null;
   private greetingSentValue = false;
   private providerResponseClosedValue = false;
+  private nativeCuePending = false;
   private staleEventsRejectedValue = 0;
   private sessionCounter = 1;
   private turnCounter = 0;
@@ -199,6 +200,13 @@ export class VoiceOrchestrator {
     if (!event) return;
     if (!this.acceptIdentity(event.type, event.identity)) return;
 
+    if (this.nativeCuePending && event.type === "PROVIDER_TURN_COMPLETE") {
+      this.nativeCuePending = false;
+      this.publish("ORCHESTRATOR_GEMINI_CUE_COMPLETE", "voice.provider", "provider-adapter", "high", {
+        identity: this.identity,
+      });
+      return;
+    }
     const stamped = this.stampEvent(event);
     this.debug("identity stamped", stamped);
     this.applyProviderTransition(stamped);
@@ -212,12 +220,22 @@ export class VoiceOrchestrator {
       if (!request) return;
       if (!this.acceptIdentity("BACKCHANNEL_CUE_REQUESTED", envelope.identity)) return;
       const identity = this.stampIdentity(envelope.identity);
-      this.publish("ORCHESTRATOR_BACKCHANNEL_CUE", "voice.playback", "playback", "high", {
-        ...request,
-        cueIdentity: { ...request.cueIdentity, ...identity },
-        cue: { ...request.cue, identity },
-        identity,
-      });
+      if (request.delivery === "gemini-native") {
+          this.nativeCuePending = true;
+        this.publish("ORCHESTRATOR_GEMINI_CUE_REQUESTED", "voice.provider", "provider-adapter", "high", {
+          cueText: request.cueText,
+          cueIdentity: { ...request.cueIdentity, ...identity },
+          delivery: request.delivery,
+          identity,
+        });
+      } else if (request.cue) {
+        this.publish("ORCHESTRATOR_BACKCHANNEL_CUE", "voice.playback", "playback", "high", {
+          ...request,
+          cueIdentity: { ...request.cueIdentity, ...identity },
+          cue: { ...request.cue, identity },
+          identity,
+        });
+      }
       return;
     }
 
@@ -395,6 +413,7 @@ export class VoiceOrchestrator {
     const oldPlaybackGeneration = this.playbackGeneration;
     const nextPlaybackGeneration = this.nextPlaybackGeneration();
     this.providerResponseClosedValue = false;
+    this.nativeCuePending = false;
     this.playbackGeneration = nextPlaybackGeneration;
     this.transition({ kind: "interrupted" });
     this.publish("ORCHESTRATOR_FLUSH_PLAYBACK", "voice.playback", "playback", "critical", {
@@ -407,6 +426,7 @@ export class VoiceOrchestrator {
   private handleTurnComplete(): void {
     if (this.turnId !== null) this.closedTurnIds.add(this.turnId);
     this.providerResponseClosedValue = true;
+    this.nativeCuePending = false;
     this.playbackGeneration = null;
     this.operationId = null;
     this.transition({ kind: "turn-complete" });
@@ -524,7 +544,10 @@ function parseVoiceEvent(value: unknown): VoiceEvent | null {
 function parseCueRequest(value: unknown): BackchannelCueRequestPayload | null {
   if (typeof value !== "object" || value === null) return null;
   const candidate = value as Partial<BackchannelCueRequestPayload>;
-  return candidate.cue && candidate.cueIdentity && candidate.reason === "natural-pause"
+  return candidate.cueIdentity &&
+    typeof candidate.cueText === "string" &&
+    (candidate.delivery === "gemini-native" || (candidate.delivery === "prebuilt-audio" && candidate.cue)) &&
+    candidate.reason === "natural-pause"
     ? (candidate as BackchannelCueRequestPayload)
     : null;
 }

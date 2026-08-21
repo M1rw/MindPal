@@ -1,6 +1,6 @@
 # MindPal Voice V3 Integration Guide
 
-MindPal Voice V3 is an isolated TypeScript engine under `voice-v3/`. Voice V2 remains the production default until the V3 integration has been validated in a staging deployment. The recommended rollout is to mount V3 behind a feature flag, verify authentication, microphone permissions, token acquisition, cue assets, captions, interruption behavior, and telemetry, and only then switch the product entry point.
+MindPal Voice V3 is an isolated TypeScript engine under `voice-v3/`. Voice V2 remains the production default until the V3 integration has been validated in a staging deployment. The recommended rollout is to mount V3 behind a feature flag, verify authentication, microphone permissions, Gemini voice-name setup, native cue behavior, captions, interruption behavior, and telemetry, and only then switch the product entry point.
 
 ## 1. Add the integration files
 
@@ -21,8 +21,6 @@ export function LiveVoicePanel() {
     },
     voicePersona: "Kore",
     voiceEmotion: "neutral",
-    // Optional: inject a preloaded WASM/Piper adapter through realtimeTtsOptions.
-    realtimeTtsOptions: { localModel: preloadedPiperAdapter },
     autoStart: false,
     startCapture: true,
   });
@@ -53,67 +51,29 @@ The hook creates `VoiceV3App` inside `useEffect`, subscribes to LayerLink snapsh
 
 The token endpoint response must contain `token`, `model`, `websocket_url`, `expires_at`, and `new_session_expires_at`. Expiry values may be epoch seconds, epoch milliseconds, or ISO timestamps. The V3 browser code never sends audio or transcript data to the token endpoint.
 
-## 3. Realtime TTS backchannel endpoint
+## 3. Gemini-native backchannel and thinking cues
 
-Production verbal cues use `RealtimeTTSProvider`; `StaticAssetCueProvider` is only a fallback for environments that deliberately choose it. The backend must expose an authenticated `POST /api/voice/v3/tts` route with this exact JSON request:
+V3 uses Gemini Native Audio as the sole production voice source. The Live setup sends `speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName` with the selected Gemini prebuilt voice name, normally `Kore` or `Charon`. Normal assistant responses and approved short cues therefore use the same Gemini session and the same persona voice; no CAMB ID, external TTS request, local voice model, or synthetic audio is required for the production path.
 
-```json
-{
-  "text": "mhm",
-  "persona": "Kore",
-  "emotion": "neutral",
-  "format": "pcm16",
-  "sampleRate": 24000
-}
-```
+The `BackchannelConductor` remains responsible for policy rather than audio generation. It observes RMS continuity, natural pauses, main-lane playback, cooldowns, rolling-window limits, final transcripts, and turn completion. When a cue is eligible, it emits a `gemini-native` intent. The composition root sends a bounded `realtimeInput.text` value in the form `VOICE_CUE_REQUEST: <cue>`, and Gemini returns the short acknowledgement through its configured Native Audio voice. The application generation-fences that response, routes its audio to the backchannel lane, and does not treat its transcript as a normal assistant caption turn.
 
-The response must be:
+The setup instruction constrains the response to one short acknowledgement such as `mhm`, `yeah`, `I hear you`, or `go on`; it must not answer the user’s topic or start a second full response. The same instruction also asks Gemini to produce a brief natural thinking phrase before a tool/search operation when appropriate, such as `Let me check that for you`, followed by the tool operation. The application still cancels or fences output on barge-in and turn completion.
 
-```json
-{
-  "audioBase64": "<mono PCM16 little-endian bytes>",
-  "durationMs": 300
-}
-```
+The existing `RealtimeTTSProvider`, `/api/voice/v3/tts` endpoint, static assets, and synthetic cue provider remain available only as explicit lower-level compatibility/test seams. The default V3 composition root never constructs or contacts them. A cue is not approved merely because a provider can synthesize audio; it must satisfy the conductor’s pause, playback, cooldown, and identity rules.
 
-The backend should route this request through the same TTS engine and voice identity used by the active Gemini voice persona. It should authenticate the request with the same Firebase/App Check headers as the token endpoint, enforce short cue-text and duration limits, and cache generated PCM16 for common persona/emotion/cue combinations such as `mhm` and `yeah`. Do not cache across personas or emotional styles.
+## 4. Gemini persona configuration and live review
 
-`RealtimeTTSProvider` sends the network request first and uses a bounded network timeout. If the endpoint is slow or unavailable, it calls an injected local model adapter. The adapter represents a preloaded WebAssembly/Piper-style model and must implement `initialize()` once plus `generate(request)`. If both paths fail, the provider emits a short, gender-neutral 220 Hz hum rather than blocking the conversation. The provider also keeps a bounded browser cache for repeated cues.
+Gemini persona identity is configured in the Live setup payload, not through CAMB or another external voice catalog. The supported review names are the Gemini prebuilt voice names `Kore` and `Charon`. The transport sends the selected name exactly as `voiceName`; it does not synthesize or infer a provider-specific ID.
 
-The conductor begins a background generation request at the 150 ms RMS-decay point. If the user resumes before the 600 ms approval boundary, the pending audio is discarded. If silence reaches 600 ms and the generated chunk is ready, it is sent immediately through the existing LayerLink playback command path. This keeps the cue decision separate from playback and prevents a stale prefetch from leaking into a resumed user turn.
+The internal `/voice-v3-review` page starts an authenticated real Gemini Live session for either persona. The reviewer can request the common cue set (`mhm`, `yeah`, `aha`, `right`, and `okay`) through the active session, listen to the returned Native Audio, and record pass/fail/unsure comments. The review is a live conversational test, not a one-shot external TTS sample test, because the final product path is stateful Gemini Live audio.
 
-## 4. Persona voice catalog and live TTS validation
-
-Sprint 12 requires an explicit backend mapping between every enabled Gemini persona and its TTS provider voice ID. Configure the current catalog with the following backend environment variables:
-
-```text
-CAMB_KORE_VOICE_ID=<explicit CAMB voice ID>
-CAMB_CHARON_VOICE_ID=<explicit CAMB voice ID>
-```
-
-There is deliberately no default voice ID. If an ID is missing or the persona is unknown, `POST /api/voice/v3/tts` returns an empty-audio response with `fallback: "non_verbal_hum"`, logs `tts.persona_mapping_missing`, and the browser plays the non-verbal hum. Provider API keys and credentials remain backend-only. The catalog’s public diagnostic representation uses `REQUIRED` instead of exposing unset or secret values.
-
-The endpoint resolves the persona before invoking TTS and uses a cache key containing the normalized persona, emotion, cue text, and sample rate. Common cues are `mhm`, `yeah`, `aha`, `right`, and `okay`; repeated requests for the same persona/style are served from the bounded cache. The response may include `cached`, `voiceId`, and `persona` metadata for internal diagnostics.
-
-The current CAMB catalog entries do not advertise emotional-style support. The backend therefore ignores the requested emotion gracefully, keeps the resolved persona voice, and logs `tts.emotion_unsupported`. If a provider or older backend rejects a non-neutral emotion, the client retries once with `neutral`; it never substitutes a default persona voice. Malformed audio, missing mappings, unavailable providers, and exhausted fallback paths all result in the non-verbal hum.
-
-Run the persona verification utility after configuring voice IDs and authentication. It exercises `mhm/neutral`, `okay/calm`, `yeah/excited`, and `aha/attentive` for each selected persona, saves reviewable mono 24 kHz PCM16 WAV samples, and writes a metadata manifest without storing the Firebase or App Check tokens:
-
-```bash
-python scripts/verify_voice_personas.py \
-  --base-url https://mindpal.example.com \
-  --token "$FIREBASE_ID_TOKEN" \
-  --app-check "$FIREBASE_APP_CHECK_TOKEN" \
-  --output-dir voice-persona-samples
-```
-
-Human review must confirm that each sample’s voice matches the active Gemini persona. A successful HTTP response alone is not evidence of voice identity.
+No credentials are embedded in the frontend. The existing token endpoint continues to issue the short-lived Gemini Live token, and the selected persona is only a non-secret prebuilt voice name. Human review must verify that each cue sounds like the same persona as the main assistant response and that the cue does not become a full answer or a duplicate caption.
 
 ## 5. Production feature flags and launch gate
 
 V3 is controlled by five flags: `VOICE_V3_ENABLED`, `VOICE_V3_VERBAL_CUES_ENABLED`, `VOICE_V3_PROSODY_CONTEXT_ENABLED`, `VOICE_V3_MEMORY_ENABLED`, and `VOICE_V3_CLARIFICATION_ENABLED`. They can be supplied through Vite `VITE_` variables, a runtime `__MINDPAL_VOICE_V3_FLAGS__` object, or explicit user/session overrides. Session overrides take precedence over user overrides, which take precedence over environment values. When `VOICE_V3_ENABLED=false`, the hook does not create a V3 app and the existing V2 integration remains responsible for voice. Disabling verbal cues selects the non-verbal provider; disabling prosody context prevents any context note from reaching Gemini.
 
-The backend mirrors the flags as typed settings and supports deterministic rollout through `VOICE_V3_ROLLOUT_PERCENT` plus user/session overrides. The backend startup launch gate validates every enabled persona against `PersonaVoiceCatalog`. It records missing mappings, endpoint probe failures, and cache-warm failures, and marks verbal cues unavailable for the affected launch without crashing the service or blocking V2.
+The backend mirrors the flags as typed settings and supports deterministic rollout through `VOICE_V3_ROLLOUT_PERCENT` plus user/session overrides. The launch gate should validate that every enabled persona is an allowed Gemini prebuilt voice name and that the token/setup path is reachable; it must not require CAMB IDs or an external TTS cache warm. A failed Gemini gate disables V3 for that launch without crashing the service or blocking V2.
 
 Required production settings are:
 
@@ -121,11 +81,10 @@ Required production settings are:
 VOICE_V3_ENABLED=false
 VOICE_V3_ROLLOUT_PERCENT=0
 VOICE_V3_ENABLED_PERSONAS=Kore,Charon
-CAMB_KORE_VOICE_ID=<explicit configured provider voice ID>
-CAMB_CHARON_VOICE_ID=<explicit configured provider voice ID>
+# No CAMB voice IDs are required for Gemini Native Audio.
 ```
 
-Enable `VOICE_V3_ENABLED` only after the voice IDs are configured, the endpoint is reachable, the neutral common-cue warm step succeeds, and human review confirms each persona’s samples. A failed gate must result in verbal cues being disabled, not in a guessed provider voice.
+Enable `VOICE_V3_ENABLED` only after the Gemini token/setup path is reachable, the selected Gemini voice names are accepted by the target model, native cue requests remain short and fenced, and human review confirms each persona’s main response and cue audio. A failed gate must disable V3, not substitute another voice source.
 
 ## 6. Local prosody and emotional context
 
@@ -161,13 +120,13 @@ For bandwidth, keep cues short and trim leading/trailing silence. WAV is the saf
 
 ## 8. Production mode and rollout
 
-Use `providerMode: "real"` with a `RealTokenProvider` in production. `PRODUCTION_MODE` defaults to Vite’s production build flag, while an explicit `productionMode` option can be used by a staging harness. The mock transport and synthetic cue path remain available for local deterministic tests.
+Use `providerMode: "real"` with a `RealTokenProvider` in production. `PRODUCTION_MODE` defaults to Vite’s production build flag, while an explicit `productionMode` option can be used by a staging harness. The mock transport and explicit prebuilt-audio compatibility path remain available for local deterministic tests; the default app uses Gemini-native cue intents even in the real-mode composition root.
 
-The first staging pass should use a feature flag and record the following operational checks: authenticated token success, WebSocket setup completion, AudioContext resume after the user gesture, microphone permission handling, realtime TTS request authentication, persona/voice matching, network-to-local timeout behavior, non-verbal fallback, predictive prefetch at 150 ms, discard on resumed speech, approval at 600 ms, PCM playback at 24 kHz, caption release after scheduled playback, barge-in flush, reconnect behavior, and telemetry POST status.
+The first staging pass should use a feature flag and record the following operational checks: authenticated token success, WebSocket setup completion, exact Gemini `voiceName` setup, AudioContext resume after the user gesture, microphone permission handling, native cue request/response behavior, persona/voice matching, cue-response generation fencing, discard on resumed speech, approval at the natural-pause boundary, PCM playback at 24 kHz, caption release after scheduled playback, barge-in flush, reconnect behavior, and telemetry POST status. CAMB/TTS endpoint checks are not part of the Gemini-only launch gate.
 
-## 9. Local WASM model setup
+## 9. Legacy external-cue compatibility
 
-The local model is intentionally injected rather than hard-coded to a browser-specific WASM package. Load the model weights before the first voice session, keep them in memory for the session, and adapt its output to `RealtimeTtsResponse` with mono PCM16 at 24 kHz. The adapter must not send user speech or assistant transcripts to the local model; it receives only the short, policy-approved cue text, persona, and emotion. If model loading fails, leave the adapter unavailable and allow the non-verbal fallback to handle the cue.
+The injected local model and `RealtimeTTSProvider` are retained only for isolated regression tests or an explicitly approved legacy experiment. They are not part of the Gemini-only production path, are not constructed by the default `VoiceV3App`, and must not be used to claim that Gemini persona identity has been reviewed. Any future external-cue experiment must remain behind a separate flag and must prove that it cannot mix voices with the active Gemini session.
 
 ## 10. Telemetry privacy checklist
 
@@ -201,9 +160,9 @@ Do not pass raw transcripts to analytics or external extraction services. If a p
 
 ## 13. Internal human voice review
 
-The isolated V3 entrypoint serves `/voice-v3-review` as a review-only page. It calls authenticated `GET /api/voice/v3/personas` for the public catalog representation, which reports `REQUIRED` for missing mappings rather than exposing credentials. For configured Kore and Charon personas, the reviewer can fetch the common cue set (`mhm`, `yeah`, `aha`, `right`, and `okay`) through the existing authenticated `POST /api/voice/v3/tts` contract, play mono 24 kHz PCM16 samples, record pass/fail/unsure comments, and export a JSON review artifact.
+The isolated V3 entrypoint serves `/voice-v3-review` as a review-only page. It starts an authenticated Gemini Live session with the selected prebuilt voice name, requests the common cue set (`mhm`, `yeah`, `aha`, `right`, and `okay`) through `realtimeInput.text`, plays the returned 24 kHz Native Audio through the normal backchannel lane, records pass/fail/unsure comments, and exports a JSON review artifact.
 
-The review page is not a rollout control. A `GO` result requires configured mappings, loaded samples, and a pass for every cue; missing mappings or any failed cue remain `NO-GO`/pending. Save exported artifacts under `artifacts/voice-persona-review/`, which is ignored by Git.
+The review page is not a rollout control. A `GO` result requires successful Gemini setup for both selected persona names, scheduled native cue responses, and a pass for every cue; any failed or missing cue remains `PENDING`/`NO-GO`. Save exported artifacts under `artifacts/voice-persona-review/`, which is ignored by Git.
 
 ## 14. Validation
 
