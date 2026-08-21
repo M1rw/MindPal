@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "fb960d6a65d0f29bb35b9a4dcade96ed41d3397129ed8befc61ce72d0832daa3",
+  "source_digest": "c21be2e0ba9f2f51a54a9d22f9739e1eb0cd7b69ddc27e80a840c4cfa2b699a6",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -84,6 +84,7 @@
     "frontend/js/voice/tools/tool_gateway.js",
     "frontend/js/voice/transcript_assembler.js",
     "frontend/js/voice/transport/recovery_supervisor.js",
+    "frontend/js/voice/v3_auth_bridge.js",
     "frontend/js/voice_live.js",
     "frontend/js/voice_session.js",
     "frontend/js/voice_session_v2.js",

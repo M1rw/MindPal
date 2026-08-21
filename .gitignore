@@ -74,3 +74,4 @@ secrets/firebase-service-account.json
 artifacts/voice-persona-review/
 # Vercel-generated Voice V3 preview bundle
 frontend/voice-v3/
+voice-v3/public/voice-v3-auth.bundle.js
