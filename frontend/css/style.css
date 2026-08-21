@@ -1128,6 +1128,27 @@ button:active,
   display: none;
 }
 
+.voice-caption > span {
+  transition: color 120ms ease, background-color 120ms ease, opacity 120ms ease, box-shadow 120ms ease;
+}
+
+.voice-caption__spoken {
+  color: currentColor;
+  opacity: 0.72;
+}
+
+.voice-caption__current {
+  color: #111827;
+  background: linear-gradient(transparent 58%, rgba(129, 140, 248, 0.34) 58%);
+  border-radius: 0.18em;
+  box-shadow: 0 0.08em 0 rgba(129, 140, 248, 0.12);
+}
+
+.voice-caption__upcoming {
+  color: currentColor;
+  opacity: 0.46;
+}
+
 .voice-caption--active {
   color: #202124;
   /* Readable on phones without turning one long response into a full-screen wall. */
@@ -1158,6 +1179,12 @@ button:active,
   color: rgba(255, 255, 255, 0.96);
 }
 
+.dark .voice-caption__current {
+  color: #ffffff;
+  background: linear-gradient(transparent 58%, rgba(129, 140, 248, 0.46) 58%);
+  box-shadow: 0 0.08em 0 rgba(165, 180, 252, 0.2);
+}
+
 @media (max-width: 640px) {
   .voice-caption-track {
     gap: 0.72rem;
@@ -1174,6 +1201,10 @@ button:active,
     font-size: clamp(1.12rem, 5.4vw, 1.55rem);
     line-height: 1.3;
   }
+
+  .voice-caption__current {
+    box-shadow: 0 0.06em 0 rgba(129, 140, 248, 0.14);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1181,7 +1212,8 @@ button:active,
     scroll-behavior: auto;
   }
 
-  .voice-caption {
+  .voice-caption,
+  .voice-caption > span {
     transition: none;
   }
 }
