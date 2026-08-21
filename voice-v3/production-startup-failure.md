@@ -19,3 +19,31 @@ After the new deployment, the live UI still shows `Failed to fetch dynamically i
 ## Root-cause isolation and remediation
 
 The response headers are valid for native ESM (`content-type: text/javascript; charset=utf-8`) and both generated modules evaluate successfully in a clean local module loader. The failure is therefore not a missing file, wrong MIME type, missing relative chunk, or a local syntax/evaluation error. The production facade will stop using `import()` and instead inject the same-origin `/voice-v3/assets/runtime.js` as a native `<script type="module">`. The loader validates the existing `window.__MINDPAL_VOICE_V3_RUNTIME__` factory, appends a cache-busting version, removes failed script tags, and permits a clean retry. This keeps the runtime lazy while using the browser’s normal module-script loading path.
+
+## Live browser checkpoint after commit 8f6d458
+
+The main branch commit `8f6d458` produced Vercel deployment `dpl_ChdURzF3LsBAMMgjnnzRubqWP54T`, which reached `READY` in production. The live `/dist/app.bundle.js` contains `data-mindpal-voice-v3-runtime` and `voice-v3-runtime-20260822`; the cache-busted runtime request returns HTTP 200 with `text/javascript`. In My Browser, clicking Voice no longer shows the prior `Failed to fetch dynamically imported module` banner: the overlay reaches `Connecting…`. The overlay then returns to the home surface, so module loading is no longer the observed error, but the downstream startup result still requires investigation (likely token, permission, or transport startup). No Vercel server-side runtime errors were reported in the last hour.
+
+A second and third live click on the new production build consistently opened the Voice overlay at `Connecting…` without the old dynamic-import error, then returned to the home screen. This confirms the facade now gets past the former module-loader failure. Because the overlay’s 3-second guest-auth path and 30-second exception path both close asynchronously, the exact downstream status is not visible in the delayed browser snapshot; the remaining issue is now below module loading and must be separated between Firebase token availability, microphone permission, and Gemini transport startup.
+
+## Authentication check
+
+The connected production browser is authenticated: the Account panel shows `Connected`, the user profile `Miljte`, and the Firebase account email. Therefore the short-lived Connecting state is not explained by the intentional guest-mode branch in `voice_live.js`; the remaining failure is in V3 startup after token acquisition, most likely microphone permission, AudioWorklet loading, or Gemini transport setup.
+
+The Account panel in My Browser explicitly reports `Connected` for the active Firebase user. After closing settings, the home surface remains stable; the production voice control opens the Connecting overlay but does not expose the old module-import error. A standalone clean-browser module probe is now being run to verify the runtime asset itself under Chromium’s native ESM loader.
+
+## Latest browser retry
+
+With the Account panel confirming a connected Firebase user, a fresh Voice click again showed the overlay briefly, but the next page snapshot had returned to home without a visible concrete error. This is consistent with either the auth readiness timeout path or an asynchronous startup failure that the current UI snapshot misses. The standalone Chromium probe independently reports `runtime-module-ok` for the production runtime, so the module-loader remediation itself is verified.
+
+## Backend correlation
+
+Vercel production logs show four `GET /api/voice/token` requests on deployment `dpl_ChdURzF3LsBAMMgjnnzRubqWP54T`, all returning HTTP 200 and successfully receiving HTTP 200 from Gemini’s `auth_tokens` endpoint. One request took 8.28 seconds, but token issuance completed. This proves the authenticated browser reaches the backend and the remaining startup failure occurs after token acquisition, in client capture or the direct Gemini Live WebSocket handshake.
+
+## Clean-page retry
+
+After a cache-busted navigation, the authenticated browser again opened the Voice overlay at `Connecting…` with no dynamic-import error. The next diagnostic query will correlate this attempt with backend token logs and, if present, the client’s post-token startup failure.
+
+## Current verification boundary
+
+The exact production runtime passes a clean Chromium native-module probe (`runtime-module-ok`). The production browser is authenticated, and Vercel logs show successful Gemini auth-token creation. The live UI still transitions from `Connecting…` back to home without a surfaced error in the browser snapshot. This means the original dynamic-import blocker is fixed and the remaining issue is a separate client-side failure after token creation, which cannot be reliably diagnosed from the available browser snapshot alone because the browser console is not exposed by the current session interface.

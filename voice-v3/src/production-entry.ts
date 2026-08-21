@@ -69,6 +69,7 @@ export function createVoiceV3Controller(): ProductionController {
   let callbacks: ProductionSessionOptions = {};
   let unsubscribe: (() => void) | null = null;
   let sessionEndNotified = false;
+  let startupPending = false;
 
   const emitAudioState = (): void => {
     callbacks.onAudioState?.({
@@ -93,7 +94,11 @@ export function createVoiceV3Controller(): ProductionController {
     if (snapshot.state === "RECOVERING" || snapshot.state === "RESUMING") reconnectAttempts += 1;
     if (snapshot.state === "FAILED") {
       callbacks.onDiagnostic?.({ type: "voice.provider-error", reason: "voice-v3-failed" });
-      notifySessionEnd("voice-v3-failed");
+      // During startup, let startSession() catch and surface the original
+      // transport/capture error. Calling onSessionEnd here would run the UI
+      // cleanup path first and hide the concrete failure behind a closed
+      // overlay. Once startup has completed, FAILED is a real session end.
+      if (!startupPending) notifySessionEnd("voice-v3-failed");
     }
     if (snapshot.state === "CLOSED") notifySessionEnd("voice-v3-closed");
     emitAudioState();
@@ -121,7 +126,7 @@ export function createVoiceV3Controller(): ProductionController {
         callbacks.onDiagnostic?.({ type: "voice.playback.flushed", reason: "provider-interrupted" });
       } else if (event.type === "PROVIDER_ERROR") {
         callbacks.onDiagnostic?.({ type: "provider.error", error: event.payload.error });
-        notifySessionEnd("provider-error");
+        if (!startupPending) notifySessionEnd("provider-error");
       }
       return;
     }
@@ -157,6 +162,7 @@ export function createVoiceV3Controller(): ProductionController {
       if (active) return false;
       callbacks = options;
       active = true;
+      startupPending = true;
       sessionEndNotified = false;
       reconnectAttempts = 0;
       userTranscript = "";
@@ -178,6 +184,7 @@ export function createVoiceV3Controller(): ProductionController {
       unsubscribe = app.bus.subscribe(handleEvent, {});
       try {
         await app.start({ startCapture: true });
+        startupPending = false;
         app.setMuted(micMuted);
         app.playbackManager.setSpeakerMuted(speakerMuted);
         phase = "listening";
@@ -185,6 +192,7 @@ export function createVoiceV3Controller(): ProductionController {
         callbacks.onDiagnostic?.({ type: "voice.socket-open", setupSent: true, architecture: "voice-v3" });
         return true;
       } catch (error) {
+        startupPending = false;
         active = false;
         unsubscribe?.();
         unsubscribe = null;
@@ -200,6 +208,7 @@ export function createVoiceV3Controller(): ProductionController {
 
     async stopSession(): Promise<boolean> {
       if (!active) return false;
+      startupPending = false;
       active = false;
       await app?.stop().catch(() => undefined);
       unsubscribe?.();
