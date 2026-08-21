@@ -16,8 +16,6 @@ def settings(**overrides: object) -> SimpleNamespace:
         "VOICE_V3_CLARIFICATION_ENABLED": True,
         "VOICE_V3_ENABLED_PERSONAS": "Kore,Charon",
         "VOICE_V3_ROLLOUT_PERCENT": 100,
-        "CAMB_KORE_VOICE_ID": "kore-id",
-        "CAMB_CHARON_VOICE_ID": "charon-id",
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -54,7 +52,7 @@ def test_disabled_v3_does_not_require_persona_mapping_or_probe() -> None:
     assert result.errors == ()
 
 
-def test_enabled_personas_require_explicit_voice_ids_and_probe_success() -> None:
+def test_enabled_gemini_personas_require_only_supported_voice_names_and_probe_success() -> None:
     result = validate_production_voice_configuration(
         settings(),
         catalog=catalog(),
@@ -67,12 +65,12 @@ def test_enabled_personas_require_explicit_voice_ids_and_probe_success() -> None
     assert result.cache_warm_success is True
 
 
-def test_missing_mapping_disables_verbal_cues_without_crashing() -> None:
+def test_unsupported_gemini_voice_name_disables_verbal_cues_without_crashing() -> None:
     result = validate_production_voice_configuration(
-        settings(VOICE_V3_ENABLED_PERSONAS="Kore,Charon"),
-        catalog=PersonaVoiceCatalog({"Kore": PersonaVoice("Kore", "camb", "kore-id", "female", "warm_natural")}),
+        settings(VOICE_V3_ENABLED_PERSONAS="Kore,Unknown"),
+        catalog=PersonaVoiceCatalog({}),
     )
     assert result.enabled is True
     assert result.verbal_cues_enabled is False
-    assert result.missing_personas == ("Charon",)
-    assert "tts.persona_mapping_missing:Charon" in result.errors
+    assert result.missing_personas == ("Unknown",)
+    assert "gemini.voice_name_unsupported:Unknown" in result.errors

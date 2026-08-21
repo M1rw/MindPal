@@ -40,11 +40,20 @@ export type SuppressionReason =
   | "pause-too-long"
   | "not-natural-pause";
 
-export type BackchannelCueRequestPayload = {
-  readonly cue: ReturnType<CueProvider["createCue"]>;
-  readonly cueIdentity: BackchannelCueIdentity;
-  readonly reason: "natural-pause";
-};
+export type BackchannelCueRequestPayload =
+  | {
+      readonly cueText: string;
+      readonly delivery: "gemini-native";
+      readonly cueIdentity: BackchannelCueIdentity;
+      readonly reason: "natural-pause";
+    }
+  | {
+      readonly cue: ReturnType<CueProvider["createCue"]>;
+      readonly cueText: string;
+      readonly delivery: "prebuilt-audio";
+      readonly cueIdentity: BackchannelCueIdentity;
+      readonly reason: "natural-pause";
+    };
 
 export type ConductorEvent =
   | { readonly type: "backchannel.state.changed"; readonly state: ConductorState }
@@ -100,6 +109,7 @@ export type BackchannelConductorOptions = {
   readonly speechRmsThreshold?: number;
   readonly voicePersona?: string;
   readonly emotion?: TtsEmotion;
+  readonly nativeGeminiCues?: boolean;
   readonly cueTextSelector?: (cueIndex: number) => string;
   readonly setTimer?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   readonly clearTimer?: (timer: ReturnType<typeof setTimeout>) => void;
@@ -118,6 +128,7 @@ export class BackchannelConductor {
   private readonly speechRmsThreshold: number;
   private readonly voicePersona: string;
   private readonly emotion: TtsEmotion;
+  private readonly nativeGeminiCues: boolean;
   private readonly cueTextSelector: (cueIndex: number) => string;
   private readonly setTimer: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   private readonly clearTimer: (timer: ReturnType<typeof setTimeout>) => void;
@@ -153,10 +164,11 @@ export class BackchannelConductor {
     this.speechRmsThreshold = options.speechRmsThreshold ?? SPEECH_RMS_THRESHOLD;
     this.voicePersona = options.voicePersona ?? "Kore";
     this.emotion = options.emotion ?? "neutral";
+    this.nativeGeminiCues = options.nativeGeminiCues ?? false;
     this.cueTextSelector = options.cueTextSelector ?? ((cueIndex) => ["mhm", "yeah", "aha", "right"][cueIndex % 4] ?? "mhm");
     this.setTimer = options.setTimer ?? ((callback, delayMs) => setTimeout(callback, delayMs));
     this.clearTimer = options.clearTimer ?? ((timer) => clearTimeout(timer));
-    this.predictiveProvider = isPredictiveCueProvider(this.cueProvider) ? this.cueProvider : null;
+    this.predictiveProvider = !this.nativeGeminiCues && isPredictiveCueProvider(this.cueProvider) ? this.cueProvider : null;
 
     this.unsubscribers.push(
       this.bus.subscribe<unknown>(
@@ -507,20 +519,28 @@ export class BackchannelConductor {
     const cueIdentity: BackchannelCueIdentity = {
       ...identity,
       cueId,
-      cueSource: generated ? sourceToCueSource(generated.source) : "local-audio",
+      cueSource: this.nativeGeminiCues ? "native" : generated ? sourceToCueSource(generated.source) : "local-audio",
       cueLane: "backchannel",
       createdAtMono: now,
       expiresAtMono,
     };
-    const cue = generated
-      ? { ...generated.chunk, chunkId: cueId, identity }
-      : this.cueProvider.createCue(identity, cueId);
     if (generated) this.lastCueSourceValue = generated.source;
-    const request: BackchannelCueRequestPayload = {
-      cue,
-      cueIdentity,
-      reason: "natural-pause",
-    };
+    const request: BackchannelCueRequestPayload = this.nativeGeminiCues
+      ? {
+          cueText: this.selectCueText(),
+          delivery: "gemini-native",
+          cueIdentity,
+          reason: "natural-pause",
+        }
+      : {
+          cue: generated
+            ? { ...generated.chunk, chunkId: cueId, identity }
+            : this.cueProvider.createCue(identity, cueId),
+          cueText: this.selectCueText(),
+          delivery: "prebuilt-audio",
+          cueIdentity,
+          reason: "natural-pause",
+        };
     this.bus.publish(
       createEventEnvelope({
         messageId: `${cueId}-request`,
