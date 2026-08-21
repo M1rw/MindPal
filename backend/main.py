@@ -33,6 +33,7 @@ MAX_HEADER_CHARS = 120
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
+VOICE_V3_DIR = FRONTEND_DIR / "voice-v3"
 logger = logging.getLogger("mindpal.request")
 
 
@@ -334,6 +335,7 @@ def _install_frontend_routes(app: FastAPI) -> None:
         "/js": FRONTEND_DIR / "js",
         "/dist": FRONTEND_DIR / "dist",
         "/assets": FRONTEND_DIR / "assets",
+        "/voice-v3/assets": VOICE_V3_DIR / "assets",
     }
 
     for prefix, directory in static_mounts.items():
@@ -374,8 +376,9 @@ def _install_frontend_routes(app: FastAPI) -> None:
         payload = {
             "API_BASE_URL": api_base_url,
             "VOICE_DEBUG": False,
-            "VOICE_ARCHITECTURE_V2": True,
-            "VOICE_V2_BACKCHANNEL": True,
+            "VOICE_ARCHITECTURE_V2": False,
+            "VOICE_ARCHITECTURE_V3": True,
+            "VOICE_V2_BACKCHANNEL": False,
             "VOICE_V2_LOCAL_CUES": False,
             "VOICE_V2_CUE_AUDIO": {},
             "SHOW_RESPONSE_DEBUG": False,
@@ -425,6 +428,14 @@ def _install_frontend_routes(app: FastAPI) -> None:
     @app.get("/sitemap.xml", include_in_schema=False)
     async def sitemap_xml() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "sitemap.xml", media_type="application/xml")
+
+    @app.get("/voice-v3-review", include_in_schema=False)
+    async def voice_v3_review_page() -> FileResponse:
+        return FileResponse(
+            VOICE_V3_DIR / "index.html",
+            media_type="text/html; charset=utf-8",
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/privacy", include_in_schema=False)
     async def privacy_page() -> FileResponse:

@@ -67,6 +67,7 @@ export type WsManagerOptions = {
   readonly keepaliveMs?: number;
   readonly setupTimeoutMs?: number;
   readonly onProviderMessage?: (message: unknown) => void;
+  readonly voicePersona?: string;
   readonly getSetupContext?: () => Promise<string | null>;
   readonly onEvent?: (event: TransportEvent) => void;
   readonly onSnapshot?: (snapshot: TransportSnapshot) => void;
@@ -88,6 +89,7 @@ export class WebSocketTransportManager {
   private readonly keepaliveMs: number;
   private readonly setupTimeoutMs: number;
   private readonly onProviderMessage: ((message: unknown) => void) | undefined;
+  private readonly voicePersona: string;
   private readonly getSetupContext: (() => Promise<string | null>) | undefined;
   private readonly onEvent: ((event: TransportEvent) => void) | undefined;
   private readonly onSnapshot: ((snapshot: TransportSnapshot) => void) | undefined;
@@ -120,6 +122,7 @@ export class WebSocketTransportManager {
     this.keepaliveMs = options.keepaliveMs ?? TRANSPORT_KEEPALIVE_MS;
     this.setupTimeoutMs = options.setupTimeoutMs ?? TRANSPORT_SETUP_TIMEOUT_MS;
     this.onProviderMessage = options.onProviderMessage;
+    this.voicePersona = options.voicePersona?.trim() || "Kore";
     this.getSetupContext = options.getSetupContext;
     this.onEvent = options.onEvent;
     this.onSnapshot = options.onSnapshot;
@@ -277,6 +280,21 @@ export class WebSocketTransportManager {
         generationConfig: {
           responseModalities: ["AUDIO"],
           thinkingConfig: { thinkingLevel: "minimal" },
+        },
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: this.voicePersona,
+            },
+          },
+        },
+        systemInstruction: {
+          parts: [
+            {
+              text: `You are MindPal. Use the configured Gemini Native Audio voice consistently. Stay in an active listening conversation: do not interrupt user speech, but during an approved natural pause you may produce one brief context-appropriate acknowledgement such as “mhm”, “yeah”, “I hear you”, or “go on”. When the application sends a VOICE_CUE_REQUEST, produce only the requested short acknowledgement in this same voice; do not explain the instruction, answer the topic, or start a second full response.`,
+            },
+            ...(this.setupContext ? [{ text: this.setupContext }] : []),
+          ],
         },
         inputAudioTranscription: {},
         outputAudioTranscription: {},

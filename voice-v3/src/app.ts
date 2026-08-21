@@ -24,7 +24,7 @@ import { CaptionPacer } from "./layers/caption/pacer";
 import { MockGeminiServer } from "./debug/mock-gemini-server";
 import { SyntheticCueProvider, type CueProvider } from "./layers/backchannel/cue-provider";
 import { RealTokenProvider, type RealTokenProviderOptions } from "./integration/real-token-provider";
-import { RealtimeTTSProvider, type RealtimeTTSProviderOptions, type TtsProviderEvent } from "./layers/backchannel/realtime-tts-provider";
+import type { RealtimeTTSProviderOptions } from "./layers/backchannel/realtime-tts-provider";
 import type { TtsEmotion } from "./integration/tts-endpoint-contract";
 import { ProsodyAnalyzer } from "./layers/prosody/prosody-analyzer";
 import { DEFAULT_VOICE_V3_FEATURE_FLAGS, type VoiceV3FeatureFlags } from "./integration/feature-flags";
@@ -49,6 +49,7 @@ export type VoiceV3AppOptions = {
   readonly refreshAppCheckToken?: () => Promise<string | null>;
   readonly voicePersona?: string;
   readonly voiceEmotion?: TtsEmotion;
+  /** @deprecated External TTS is not used by default; inject cueProvider only for legacy tests. */
   readonly realtimeTtsOptions?: Omit<RealtimeTTSProviderOptions, "baseUrl" | "getAuthToken" | "getAppCheckToken">;
   readonly featureFlags?: VoiceV3FeatureFlags;
   readonly memoryUserId?: string;
@@ -95,6 +96,8 @@ export class VoiceV3App {
   private readonly unsubscriber: () => void;
   private started = false;
   private lastUserTranscript: string | null = null;
+  private nativeCueActive = false;
+  private nativeCueResponseId: string | null = null;
   private lastMemoryContext: string | null = null;
   private lastMemoryRecord: LocalMemoryRecord | null = null;
 
@@ -140,6 +143,7 @@ export class VoiceV3App {
         const normalized = adapter?.normalize(rawMessage) ?? [];
         for (const event of normalized) this.publishProviderEvent(event);
       },
+      ...(options.voicePersona === undefined ? {} : { voicePersona: options.voicePersona }),
       ...(this.memoryExtractor === null ? {} : {
         getSetupContext: async () => this.loadMemoryContext(),
       }),
@@ -187,20 +191,10 @@ export class VoiceV3App {
     });
 
     // 8. Backchannel Conductor
-    const realtimeTtsOptions: RealtimeTTSProviderOptions = {
-      ...(options.realtimeTtsOptions ?? {}),
-      ...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
-      ...(options.getAuthToken === undefined ? {} : { getAuthToken: options.getAuthToken }),
-      ...(options.getAppCheckToken === undefined ? {} : { getAppCheckToken: options.getAppCheckToken }),
-      onEvent: (event: TtsProviderEvent) => {
-        options.realtimeTtsOptions?.onEvent?.(event);
-        this.publish("backchannel", event.type, event);
-      },
-    };
-    this.cueProvider = options.cueProvider
-      ?? (productionMode && this.featureFlags.VOICE_V3_VERBAL_CUES_ENABLED
-        ? new RealtimeTTSProvider(realtimeTtsOptions)
-        : new SyntheticCueProvider());
+    // Gemini Native Audio is the sole production voice source. The provider
+    // remains injectable for deterministic legacy tests, but CAMB/TTS is not
+    // constructed or contacted by the default V3 composition root.
+    this.cueProvider = options.cueProvider ?? new SyntheticCueProvider();
     const conductorOptions = {
       bus: this.bus,
       cueProvider: this.cueProvider,
@@ -208,6 +202,7 @@ export class VoiceV3App {
       identity: DEFAULT_IDENTITY,
       ...(options.voicePersona === undefined ? {} : { voicePersona: options.voicePersona }),
       ...(options.voiceEmotion === undefined ? {} : { emotion: options.voiceEmotion }),
+      nativeGeminiCues: true,
     };
     this.conductor = new BackchannelConductor(conductorOptions);
 
@@ -258,6 +253,25 @@ export class VoiceV3App {
 
   public setMuted(muted: boolean): void {
     this.captureManager.setMuted(muted);
+  }
+
+  /** Sends one explicitly bounded acknowledgement request through the active Gemini session. */
+  public requestGeminiNativeCue(cueText: string): boolean {
+    const normalized = cueText.trim().slice(0, 80);
+    if (!normalized) return false;
+    this.nativeCueActive = true;
+    this.nativeCueResponseId = null;
+    const sent = this.transportManager.sendRealtimeText(`VOICE_CUE_REQUEST: ${normalized}`);
+    if (sent) {
+      this.publish("backchannel", "backchannel.native.requested", {
+        cueText: normalized,
+        identity: this.orchestrator.identity,
+      });
+    } else {
+      this.nativeCueActive = false;
+      this.nativeCueResponseId = null;
+    }
+    return sent;
   }
 
   public async clearMemory(): Promise<void> {
@@ -323,7 +337,13 @@ export class VoiceV3App {
     if (envelope.messageType === "ORCHESTRATOR_AUDIO_EVENT") {
       const payload = envelope.payload as { readonly event?: VoiceEvent };
       if (payload.event?.type === "PROVIDER_AUDIO") {
-        void this.playbackManager.enqueueProviderAudio(payload.event.payload, payload.event.identity);
+        const isNativeCue = this.nativeCueActive &&
+          (this.nativeCueResponseId === null || payload.event.identity.providerResponseId === this.nativeCueResponseId);
+        void this.playbackManager.enqueueProviderAudio(
+          payload.event.payload,
+          payload.event.identity,
+          isNativeCue ? "backchannel" : "main",
+        );
       }
       return;
     }
@@ -331,6 +351,19 @@ export class VoiceV3App {
       const payload = envelope.payload as { readonly oldPlaybackGeneration?: string | null };
       if (payload.oldPlaybackGeneration) this.playbackManager.flush(payload.oldPlaybackGeneration);
       this.playbackManager.duckMainLane();
+      return;
+    }
+    if (envelope.messageType === "ORCHESTRATOR_GEMINI_CUE_REQUESTED") {
+      const payload = envelope.payload as { readonly cueText?: unknown; readonly identity?: GenerationIdentity };
+      if (typeof payload.cueText !== "string") return;
+      const cueText = payload.cueText.trim().slice(0, 80);
+      if (!cueText) return;
+      this.requestGeminiNativeCue(cueText);
+      return;
+    }
+    if (envelope.messageType === "ORCHESTRATOR_GEMINI_CUE_COMPLETE") {
+      this.nativeCueActive = false;
+      this.nativeCueResponseId = null;
       return;
     }
     if (envelope.messageType === "ORCHESTRATOR_BACKCHANNEL_CUE") {
@@ -385,8 +418,18 @@ export class VoiceV3App {
   }
 
   private publishProviderEvent(event: VoiceEvent): void {
-    this.publish("provider-adapter", event.type, event);
+    if (this.nativeCueActive && event.type === "PROVIDER_AUDIO") {
+      this.nativeCueResponseId = event.identity.providerResponseId;
+    }
+    const isNativeCueTranscript = this.nativeCueActive &&
+      event.type === "PROVIDER_OUTPUT_TRANSCRIPT" &&
+      (this.nativeCueResponseId === null || event.identity.providerResponseId === this.nativeCueResponseId);
+    if (!isNativeCueTranscript) this.publish("provider-adapter", event.type, event);
     this.publish("provider-adapter", "adapter.event", event);
+    if (event.type === "PROVIDER_TURN_COMPLETE" || event.type === "PROVIDER_INTERRUPTED") {
+      this.nativeCueActive = false;
+      this.nativeCueResponseId = null;
+    }
   }
 
   private publishTransport(event: TransportEvent): void {

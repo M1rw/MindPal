@@ -72,7 +72,7 @@ test("Voice v2 preserves mute state before the microphone adapter is ready", () 
 });
 
 test("Voice v2 sends the startup greeting before microphone capture begins", async () => {
-  const source = await readFile(new URL("../frontend/js/voice_session_v2.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/voice_session_v2.legacy.js", import.meta.url), "utf8");
   const greetingIndex = source.indexOf("sendAutomaticGreeting();");
   const audioStartIndex = source.indexOf("audio.start();", greetingIndex);
   assert.ok(greetingIndex >= 0);
@@ -80,7 +80,7 @@ test("Voice v2 sends the startup greeting before microphone capture begins", asy
 });
 
 test("Voice v2 integrates canonical transcript assembly and terminal recovery notification", async () => {
-  const source = await readFile(new URL("../frontend/js/voice_session_v2.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/voice_session_v2.legacy.js", import.meta.url), "utf8");
   assert.match(source, /createTranscriptAssembler/);
   assert.match(source, /userTranscriptAssembler\.append/);
   assert.match(source, /recovery\.failed/);
@@ -89,7 +89,7 @@ test("Voice v2 integrates canonical transcript assembly and terminal recovery no
 });
 
 test("Voice v2 projects lifecycle events through a safe orchestrator state accessor", async () => {
-  const source = await readFile(new URL("../frontend/js/voice_session_v2.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../frontend/js/voice/archive/voice_session_v2.legacy.js", import.meta.url), "utf8");
   assert.match(source, /function getOrchestratorState\(\) \{[\s\S]*?orchestrator\?\.getState\?\.\(\) \|\| \{\}/);
   assert.match(source, /function projectState\(state = null\) \{[\s\S]*?const safeState = state \|\| getOrchestratorState\(\)/);
   assert.match(source, /let micMuted = false/);
