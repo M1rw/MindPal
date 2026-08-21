@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "3c16475280c6f273ba19b466b39bf9cc8d885292d0a260a40fb2bd482c91c156",
+  "source_digest": "af558dd936693f00f5dd96189d7896b4b9e7d7bf8e2d684fe35f89131bc99865",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
