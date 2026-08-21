@@ -26,6 +26,7 @@ export function createVoiceSessionOrchestrator({
   recoverySupervisor = null,
   persistence = null,
   onEvent = () => {},
+  onDiagnostic = () => {},
 } = {}) {
   if (!provider || typeof provider.connect !== "function") throw new TypeError("provider adapter is required");
   if (!capture || typeof capture.start !== "function") throw new TypeError("capture adapter is required");
@@ -38,6 +39,7 @@ export function createVoiceSessionOrchestrator({
   let noiseFloorRms = 0.0025;
   let latestResumeHandle = "";
   let activeTurnStartedAt = 0;
+  let providerResponseClosed = false;
   const pendingToolResults = [];
 
   function emit(event) {
@@ -129,10 +131,12 @@ export function createVoiceSessionOrchestrator({
     if (!event || !event.type) return;
     switch (event.type) {
       case VOICE_EVENTS.PROVIDER_READY:
+        providerResponseClosed = false;
         dispatch({ type: VOICE_ACTIONS.SESSION_READY, sessionGeneration: state.sessionGeneration });
         emit(event);
         return;
       case VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT: {
+        providerResponseClosed = false;
         const turnId = ensureTurn();
         dispatch({
           type: VOICE_ACTIONS.INPUT_TRANSCRIPT_UPDATED,
@@ -161,6 +165,10 @@ export function createVoiceSessionOrchestrator({
         emit(event);
         return;
       case VOICE_EVENTS.PROVIDER_AUDIO: {
+        if (providerResponseClosed && !backchannelManager?.hasPending?.()) {
+          onDiagnostic({ type: "voice.stale-provider-audio-dropped", identity: event.identity });
+          return;
+        }
         const responseId = state.activeProviderResponseId || identityFactory.nextProviderResponseId();
         if (!state.activeProviderResponseId) {
           dispatch({
@@ -193,6 +201,10 @@ export function createVoiceSessionOrchestrator({
         return;
       }
       case VOICE_EVENTS.PROVIDER_INTERRUPTED: {
+        // Interruption invalidates the old playback generation, but the
+        // provider may immediately deliver the replacement response for the
+        // same user turn. Only a completed turn is a closed response boundary.
+        providerResponseClosed = false;
         localBargeInPending = false;
         backchannelManager?.cancel?.("user-interrupted");
         // A user interruption cancels the main answer, but a pending listening
@@ -208,6 +220,7 @@ export function createVoiceSessionOrchestrator({
         return;
       }
       case VOICE_EVENTS.PROVIDER_TURN_COMPLETE:
+        providerResponseClosed = true;
         backchannelManager?.cancel("turn-complete");
         flushPendingToolResults();
         activeTurnStartedAt = 0;
@@ -294,6 +307,7 @@ export function createVoiceSessionOrchestrator({
     dispatch({ type: VOICE_ACTIONS.STOP_REQUESTED, sessionGeneration: state.sessionGeneration });
     pendingToolResults.length = 0;
     latestResumeHandle = "";
+    providerResponseClosed = true;
     activeTurnStartedAt = 0;
     capture.stop();
     provider.close();
