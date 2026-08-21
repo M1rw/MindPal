@@ -162,6 +162,9 @@ class Settings(BaseSettings):
     # ── Safety / External APIs ───────────────────────────────────
     PERSPECTIVE_API_KEY: SecretStr | None = Field(default=None, repr=False)
     CAMB_API_KEY: SecretStr | None = Field(default=None, repr=False)
+    # Voice IDs are deliberately unset by default; PersonaVoiceCatalog rejects missing mappings.
+    CAMB_KORE_VOICE_ID: str | None = Field(default=None, max_length=120)
+    CAMB_CHARON_VOICE_ID: str | None = Field(default=None, max_length=120)
 
     # ── LLM Provider Order ───────────────────────────────────────
     LLM_PROVIDER_ORDER: str = Field(default="cloudflare,gemini,openrouter,groq")
@@ -204,6 +207,13 @@ class Settings(BaseSettings):
     ENABLE_FIREBASE: bool = False
     ENABLE_PERSPECTIVE: bool = False
     ENABLE_TTS: bool = False
+    VOICE_V3_ENABLED: bool = False
+    VOICE_V3_VERBAL_CUES_ENABLED: bool = True
+    VOICE_V3_PROSODY_CONTEXT_ENABLED: bool = True
+    VOICE_V3_MEMORY_ENABLED: bool = True
+    VOICE_V3_CLARIFICATION_ENABLED: bool = True
+    VOICE_V3_ENABLED_PERSONAS: str = Field(default="Kore,Charon", max_length=500)
+    VOICE_V3_ROLLOUT_PERCENT: int = Field(default=0, ge=0, le=100)
 
     # Service-level feature flags (previously read via os.getenv in dependencies.py)
     ALLOW_ANONYMOUS_SESSIONS: bool = False
