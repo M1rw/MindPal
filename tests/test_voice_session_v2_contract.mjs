@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-import { createVoiceSessionV2, buildDeliveryDiagnosticPayload, buildAutomaticGreetingText } from "../frontend/js/voice_session_v2.js";
+import { createVoiceSessionV2, buildDeliveryDiagnosticPayload, buildAutomaticGreetingText, isDuplicateTranscriptSnapshot } from "../frontend/js/voice_session_v2.js";
 
 test("Voice v2 facade exposes the compatibility controller surface before activation", () => {
   const controller = createVoiceSessionV2({
@@ -25,6 +25,12 @@ test("Voice v2 builds a plain conversational automatic startup greeting", () => 
   assert.match(greeting, /greet me warmly/i);
   assert.doesNotMatch(greeting, /SESSION_START_GREETING/);
   assert.doesNotMatch(greeting, /internal reasoning|setup|tools/i);
+});
+
+test("Voice v2 suppresses identical transcript snapshots but allows new text", () => {
+  assert.equal(isDuplicateTranscriptSnapshot("Hello there", "Hello there"), true);
+  assert.equal(isDuplicateTranscriptSnapshot("Hello there", "Hello there, how are you?"), false);
+  assert.equal(isDuplicateTranscriptSnapshot("", "Hello there"), false);
 });
 
 test("Voice v2 builds a FastAPI-compatible aggregate diagnostic payload", () => {

@@ -34,6 +34,12 @@ export function buildAutomaticGreetingText(language = "en-US") {
   return `Hi. Please greet me warmly in one brief natural sentence in ${safeLanguage}, then invite me to tell you what is on my mind.`;
 }
 
+export function isDuplicateTranscriptSnapshot(previous = "", next = "") {
+  const prior = String(previous || "").trim();
+  const current = String(next || "").trim();
+  return Boolean(prior && current && prior === current);
+}
+
 export function buildDeliveryDiagnosticPayload(model, telemetry = {}, endReason = "client_stop") {
   const safeReason = String(endReason).toLowerCase().replace(/[^a-z_]/g, "_").slice(0, 40) || "client_stop";
   return {
@@ -105,6 +111,7 @@ export function createVoiceSessionV2({
   let active = false;
   const userTranscriptAssembler = createTranscriptAssembler();
   const aiTranscriptAssembler = createTranscriptAssembler();
+  const activeAiTurnAssembler = createTranscriptAssembler();
   let lastUserTranscript = "";
   let lastAiTranscript = "";
   let sessionId = null;
@@ -121,6 +128,7 @@ export function createVoiceSessionV2({
   let currentUserTurnId = null;
   let currentUserTurnText = "";
   let finalizedTurnIds = new Set();
+  const recentFinalizedInputTexts = new Map();
   let operationSequence = 0;
   let operationsByTurn = new Map();
   let activeOperationController = null;
@@ -524,6 +532,22 @@ export function createVoiceSessionV2({
         mode: event.finished === true ? "snapshot" : "auto",
         eventKey,
       });
+      if (event.finished === true) {
+        const normalizedFinalText = String(event.text || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+        const now = Date.now();
+        for (const [text, timestamp] of recentFinalizedInputTexts) {
+          if (now - timestamp > 4_000) recentFinalizedInputTexts.delete(text);
+        }
+        if (normalizedFinalText && recentFinalizedInputTexts.has(normalizedFinalText)) {
+          onDiagnostic({ type: "voice.duplicate-final-input-suppressed", text: normalizedFinalText.slice(0, 120) });
+          return;
+        }
+        if (normalizedFinalText) recentFinalizedInputTexts.set(normalizedFinalText, now);
+      }
+      if (event.finished !== true && isDuplicateTranscriptSnapshot(currentUserTurnText, assembled)) {
+        onDiagnostic({ type: "voice.duplicate-input-transcript-suppressed" });
+        return;
+      }
       currentUserTurnId = currentUserTurnId || `voice-turn-${Date.now().toString(36)}`;
       if (!longTurnStartedAt) longTurnStartedAt = Date.now();
       currentUserTurnText = assembled;
@@ -548,6 +572,15 @@ export function createVoiceSessionV2({
         mode: event.finished === true ? "snapshot" : "auto",
         eventKey: event.fallback ? "" : `${event.identity?.sessionGeneration || 0}:output:${event.text || ""}:${event.finished ? "final" : "partial"}`,
       });
+      const activeTurnBefore = activeAiTurnAssembler.getText();
+      const activeTurnAfter = activeAiTurnAssembler.append(event.text || "", {
+        mode: event.finished === true ? "snapshot" : "auto",
+        eventKey: event.fallback ? "" : `${event.identity?.sessionGeneration || 0}:active-output:${event.text || ""}:${event.finished ? "final" : "partial"}`,
+      });
+      if (isDuplicateTranscriptSnapshot(activeTurnBefore, activeTurnAfter)) {
+        onDiagnostic({ type: "voice.duplicate-output-transcript-suppressed" });
+        return;
+      }
       lastAiTranscript = assembled;
       activePersistence?.update({ aiTranscript: assembled });
       onTranscript("ai", event.text || "");
@@ -555,6 +588,7 @@ export function createVoiceSessionV2({
       deliveryTelemetry.turnCompleteEvents += 1;
       if (currentUserTurnText) void finalizeUserTurn({ turnId: currentUserTurnId, text: userTranscriptAssembler.finalize(currentUserTurnText) });
       userTranscriptAssembler.reset();
+      activeAiTurnAssembler.reset();
       clearLongTurnPresenceTimer();
       cancelPendingNativeCues("turn-complete");
       currentUserTurnId = null;
@@ -571,6 +605,7 @@ export function createVoiceSessionV2({
       deliveryTelemetry.interruptedEvents += 1;
       activeBackchannelManager?.cancel?.("user-interrupted");
       cancelPendingNativeCues("user-interrupted");
+      activeAiTurnAssembler.reset();
       cancelActiveOperation("user-interrupted");
     } else if ([VOICE_EVENTS.PROVIDER_ERROR, VOICE_EVENTS.PROVIDER_CLOSED].includes(event.type)) {
       onDiagnostic(event);
@@ -959,8 +994,10 @@ export function createVoiceSessionV2({
     clearLongTurnPresenceTimer();
     operationsByTurn.clear();
     finalizedTurnIds.clear();
+    recentFinalizedInputTexts.clear();
     userTranscriptAssembler.reset();
     aiTranscriptAssembler.reset();
+    activeAiTurnAssembler.reset();
     lastUserTranscript = "";
     lastAiTranscript = "";
     activeOperationTurnId = null;
