@@ -22,6 +22,10 @@ import {
 } from "./voice_visualizer.js";
 import { planPacedCaptionSegments } from "./voice/caption_sync_policy.js";
 import { findCaptionHighlightRange } from "./voice/caption_highlight_policy.js";
+import {
+  estimateCaptionDurationMs,
+  getCaptionWordAtProgress,
+} from "./voice/caption_word_timeline.js";
 
 // ═══════════════════════════════════════════════════════════════
 // State
@@ -54,6 +58,10 @@ let captionPendingText = "";
 let captionSourceText = "";
 let captionHighlightStartChar = 0;
 let captionHighlightEndChar = 0;
+let captionPlaybackStartedAtMs = 0;
+let captionPlaybackDurationMs = 0;
+let captionHighlightProgress = 0;
+let captionHighlightFrame = null;
 let captionNextReleaseAtMs = 0;
 let captionAudioStartAtMs = 0;
 let captionTurnSerial = 0;
@@ -150,6 +158,11 @@ export async function startLiveVoice(contextProvider = null) {
   captionSourceText = "";
   captionHighlightStartChar = 0;
   captionHighlightEndChar = 0;
+  captionPlaybackStartedAtMs = 0;
+  captionPlaybackDurationMs = 0;
+  captionHighlightProgress = 0;
+  if (captionHighlightFrame) cancelAnimationFrame(captionHighlightFrame);
+  captionHighlightFrame = null;
   captionNextReleaseAtMs = 0;
   captionAudioStartAtMs = 0;
   if (captionReleaseTimer) clearTimeout(captionReleaseTimer);
@@ -356,6 +369,11 @@ function clearCaptionReleaseQueue({ preserveSource = false } = {}) {
   captionAudioStartAtMs = 0;
   captionHighlightStartChar = 0;
   captionHighlightEndChar = 0;
+  captionPlaybackStartedAtMs = 0;
+  captionPlaybackDurationMs = 0;
+  captionHighlightProgress = 0;
+  if (captionHighlightFrame) cancelAnimationFrame(captionHighlightFrame);
+  captionHighlightFrame = null;
   if (!preserveSource) {
     captionBufferedText = "";
     captionSourceText = "";
@@ -423,9 +441,48 @@ function armCaptionFallback() {
   }, 1_800);
 }
 
-function handleMainPlaybackStarted() {
+function renderCaptionWordRange(range) {
+  if (!currentCaption || !captionSourceText || !range) return;
+  captionHighlightStartChar = range.start;
+  captionHighlightEndChar = range.end;
+  renderCaptionText(currentCaption, captionSourceText, {
+    highlightStart: captionHighlightStartChar,
+    highlightEnd: captionHighlightEndChar,
+  });
+}
+
+function startCaptionWordClock() {
+  if (captionHighlightFrame || !captionPlaybackStartedAtMs) return;
+  const tick = () => {
+    captionHighlightFrame = null;
+    if (!isLiveActive || !currentCaption || !captionSourceText || !captionPlaybackStartedAtMs) return;
+
+    // The first PCM chunk often arrives before the remaining transcript/audio
+    // chunks. Use the measured scheduled duration when available and a speech
+    // estimate as a temporary floor; progress is monotonic so later duration
+    // updates can never make the highlight jump backward.
+    const durationMs = Math.max(
+      1,
+      captionPlaybackDurationMs,
+      estimateCaptionDurationMs(captionSourceText),
+    );
+    const elapsedMs = Math.max(0, Date.now() - captionPlaybackStartedAtMs);
+    captionHighlightProgress = Math.max(
+      captionHighlightProgress,
+      Math.min(1, elapsedMs / durationMs),
+    );
+    renderCaptionWordRange(getCaptionWordAtProgress(captionSourceText, captionHighlightProgress));
+    captionHighlightFrame = requestAnimationFrame(tick);
+  };
+  captionHighlightFrame = requestAnimationFrame(tick);
+}
+
+function handleMainPlaybackStarted({ durationMs = 0 } = {}) {
   captionAudioStartAtMs ||= Date.now();
+  captionPlaybackStartedAtMs ||= captionAudioStartAtMs;
+  captionPlaybackDurationMs = Math.max(captionPlaybackDurationMs, Number(durationMs) || 0);
   flushPendingCaptionText({ audioStartMs: captionAudioStartAtMs });
+  startCaptionWordClock();
 }
 
 function renderAiCaptionChunk(cleaned) {
@@ -507,6 +564,7 @@ function handleTranscript(type, text) {
         highlightEnd: captionHighlightEndChar,
       });
       scrollTranscript();
+      startCaptionWordClock();
     }
   }
   captionPendingText = appendTranscriptChunk(captionPendingText, cleaned);
@@ -532,11 +590,19 @@ function renderMinimalVoiceStatus() {
 function handleVoiceDiagnostic(event = {}) {
   console.debug("[MindPal Voice][diagnostic]", event);
   if (["voice.socket-error", "voice.socket-closed", "provider.error", "provider.closed"].includes(event?.type)) console.warn("[MindPal Voice]", event);
-  if (event?.type === "voice.playback.started" && event.audioClass === "main") handleMainPlaybackStarted();
+  if (event?.type === "voice.playback.started" && event.audioClass === "main") handleMainPlaybackStarted(event);
+  if (event?.type === "voice.playback.chunk-scheduled" && event.audioClass === "main") {
+    captionPlaybackDurationMs += Math.max(0, Number(event.durationMs) || 0);
+  }
   if (event?.type === "voice.playback.ended" && event.audioClass === "main" && !captionQueue.length && !captionPendingText) {
     captionAudioStartAtMs = 0;
+    captionPlaybackStartedAtMs = 0;
+    captionPlaybackDurationMs = 0;
+    captionHighlightProgress = 1;
     captionNextReleaseAtMs = 0;
     captionBufferedText = "";
+    if (captionHighlightFrame) cancelAnimationFrame(captionHighlightFrame);
+    captionHighlightFrame = null;
   }
   if (event?.type === "voice.playback.flushed" && event.reason === "provider-interrupted") {
     clearCaptionReleaseQueue({ preserveSource: true });
