@@ -506,7 +506,10 @@ function parseIncoming(raw: unknown): Record<string, unknown> | null {
 }
 
 function isSetupComplete(message: Record<string, unknown>): boolean {
-  return message.setupComplete === true || message.setup_complete === true;
+  const value = message.setupComplete ?? message.setup_complete;
+  // The Live API schema defines setupComplete as an empty message object;
+  // tolerate the legacy boolean shape used by older mocks as well.
+  return value === true || isRecord(value);
 }
 
 function readResumptionHandle(message: Record<string, unknown>): string | null {

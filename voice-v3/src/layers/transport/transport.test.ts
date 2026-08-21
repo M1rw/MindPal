@@ -166,7 +166,7 @@ describe("WebSocketTransportManager", () => {
 
     socket.message(
       JSON.stringify({
-        setupComplete: true,
+        setupComplete: {},
         sessionResumptionUpdate: { resumable: true, newHandle: "resume-1" },
       }),
     );

@@ -59,3 +59,7 @@ The final production browser retry exposed the exact failure: `WebSocket closed:
 ## Confirmed setup-timeout cause
 
 After the payload-schema fix, the browser reached the native runtime but reported `Gemini setupComplete timeout`. Google’s current WebSocket quickstart specifies `v1beta.GenerativeService.BidiGenerateContentConstrained` for ephemeral tokens, including when the model is `gemini-3.1-flash-live-preview`. The backend had selected `v1alpha` for Gemini 3.1 and `v1beta` only for the 2.5 fallback. The mapping is now `v1beta` for both models, with backend security and fallback tests updated to enforce this requirement.
+
+## Confirmed setup acknowledgment parser bug
+
+The v1beta deployment still showed `Gemini setupComplete timeout`, while the socket and token request were both successful. The Live API schema sends `setupComplete` as an empty message object (`{"setupComplete":{}}`), but the client parser only accepted the test-only boolean form (`{"setupComplete":true}`). The parser now accepts the documented object form and keeps boolean compatibility for existing mocks; the transport regression test now uses the real empty-object acknowledgment.
