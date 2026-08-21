@@ -450,8 +450,6 @@ function handleTranscript(type, text) {
     if (!shouldPreserveCaptionQueueOnUserTranscript()) {
       clearCaptionReleaseQueue();
     }
-    captionTurnComplete = true;
-    currentCaption = null;
     return;
   }
   if (type !== "ai" || isInternalCaptionText(cleaned)) return;
