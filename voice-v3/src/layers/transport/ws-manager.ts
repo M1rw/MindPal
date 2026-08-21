@@ -280,11 +280,11 @@ export class WebSocketTransportManager {
         generationConfig: {
           responseModalities: ["AUDIO"],
           thinkingConfig: { thinkingLevel: "minimal" },
-        },
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: this.voicePersona,
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: this.voicePersona,
+              },
             },
           },
         },
@@ -306,7 +306,6 @@ export class WebSocketTransportManager {
           },
         },
         sessionResumption: {},
-        ...(this.setupContext ? { systemInstruction: { parts: [{ text: this.setupContext }] } } : {}),
       },
     };
     this.setupSent = true;

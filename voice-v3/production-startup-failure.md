@@ -47,3 +47,11 @@ After a cache-busted navigation, the authenticated browser again opened the Voic
 ## Current verification boundary
 
 The exact production runtime passes a clean Chromium native-module probe (`runtime-module-ok`). The production browser is authenticated, and Vercel logs show successful Gemini auth-token creation. The live UI still transitions from `Connecting…` back to home without a surfaced error in the browser snapshot. This means the original dynamic-import blocker is fixed and the remaining issue is a separate client-side failure after token creation, which cannot be reliably diagnosed from the available browser snapshot alone because the browser console is not exposed by the current session interface.
+
+## Deployment `ad3284d`
+
+Commit `ad3284d` was pushed to `main` and Vercel marked deployment `dpl_8hgidqdzSFoWfQghFWLeKpm3diyD` READY for production. The public alias serves `/voice-v3/assets/runtime.js` as `text/javascript; charset=utf-8`, and the production `/dist/app.bundle.js` contains the cache-busted native module-script loader marker `voice-v3-runtime-20260822`. The runtime bundle exposes `createVoiceV3Controller`. The next check is the live authenticated browser after this deployment.
+
+## Confirmed root cause
+
+The final production browser retry exposed the exact failure: `WebSocket closed: 1007 Invalid JSON payload received. Unknown name "speechConfig" at 'setup': Cannot find field.` The V3 transport sent `speechConfig` as a sibling of `generationConfig`, while Gemini’s Live API schema requires it inside `generationConfig`. The setup builder also contained a duplicate conditional `systemInstruction` key that could overwrite the MindPal instruction when setup context existed. Both issues are corrected, and the exact transport test now asserts the valid schema.

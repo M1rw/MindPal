@@ -139,11 +139,11 @@ describe("WebSocketTransportManager", () => {
         generationConfig: {
           responseModalities: ["AUDIO"],
           thinkingConfig: { thinkingLevel: "minimal" },
-        },
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: "Kore",
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: "Kore",
+              },
             },
           },
         },
@@ -189,7 +189,7 @@ describe("WebSocketTransportManager", () => {
     await waitForAsyncToken();
     socket.open();
     const setup = JSON.parse(socket.sent[0] ?? "{}");
-    expect(setup.setup.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Charon");
+    expect(setup.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Charon");
     socket.message(JSON.stringify({ setupComplete: true }));
     await connection;
     expect(manager.sendRealtimeText("VOICE_CUE_REQUEST: mhm")).toBe(true);
@@ -214,9 +214,10 @@ describe("WebSocketTransportManager", () => {
     expect(socket.sent).toHaveLength(0);
     socket.open();
     const setup = JSON.parse(socket.sent[0] ?? "{}");
-    expect(setup.setup.systemInstruction).toEqual({
-      parts: [{ text: "User context from previous sessions:\\n- User name is Marwan." }],
-    });
+    expect(setup.setup.systemInstruction.parts).toEqual([
+      { text: expect.stringContaining("You are MindPal.") },
+      { text: "User context from previous sessions:\\n- User name is Marwan." },
+    ]);
     socket.message(JSON.stringify({ setupComplete: true }));
     await connection;
     manager.close();
