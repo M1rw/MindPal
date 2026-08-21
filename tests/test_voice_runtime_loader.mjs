@@ -63,7 +63,7 @@ test("production facade loads V3 through a native module script and exposes a co
     assert.equal(scripts.length, 1);
     assert.equal(scripts[0].type, "module");
     assert.equal(scripts[0].async, true);
-    assert.match(scripts[0].src, /^https:\/\/mindpal-demo\.vercel\.app\/voice-v3\/assets\/runtime\.js\?v=voice-v3-runtime-a779c30$/);
+    assert.match(scripts[0].src, /^https:\/\/mindpal-demo\.vercel\.app\/voice-v3\/assets\/runtime\.js\?v=voice-v3-runtime-f71bc37$/);
     assert.equal(scripts[0].attributes.get("data-mindpal-voice-v3-runtime"), "true");
   } finally {
     globalThis.window = previousWindow;
