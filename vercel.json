@@ -3,7 +3,7 @@
   "version": 2,
   "framework": "fastapi",
   "installCommand": "python -m pip install --disable-pip-version-check --no-input -r requirements.txt",
-  "buildCommand": "npm ci && npm run build && npm run build:voice-v3-auth && mkdir -p voice-v3/public && cp frontend/dist/voice-v3-auth.bundle.js voice-v3/public/voice-v3-auth.bundle.js && npm --prefix voice-v3 ci && npm --prefix voice-v3 run build && rm -rf frontend/voice-v3 && mkdir -p frontend/voice-v3 && cp -R voice-v3/dist/. frontend/voice-v3/ && python scripts/verify_prebuilt_frontend.py",
+  "buildCommand": "npm ci && npm run build:vercel && python scripts/verify_prebuilt_frontend.py",
   "env": {
     "ENVIRONMENT": "production",
     "DEBUG": "false",
