@@ -178,6 +178,21 @@ describe("WebSocketTransportManager", () => {
     manager.close();
   });
 
+  it("surfaces a Gemini server error instead of waiting for setup timeout", async () => {
+    const socket = new FakeSocket();
+    const manager = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider(createToken()),
+      webSocketFactory: () => socket,
+      setupTimeoutMs: 5_000,
+    });
+    const connection = manager.connect();
+    await waitForAsyncToken();
+    socket.open();
+    socket.message(JSON.stringify({ error: { code: 3, message: "Invalid setup field" } }));
+    await expect(connection).rejects.toThrow("Gemini server error: Invalid setup field");
+    expect(manager.state).toBe("CLOSED");
+  });
+
   it("uses the selected Gemini persona voice and sends a bounded native cue request", async () => {
     const socket = new FakeSocket();
     const manager = new WebSocketTransportManager({

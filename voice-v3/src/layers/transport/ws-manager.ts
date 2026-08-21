@@ -327,6 +327,14 @@ export class WebSocketTransportManager {
     this.onProviderMessage?.(raw);
 
     if (!message) return;
+    const providerError = readProviderError(message);
+    if (providerError) {
+      const error = new Error(`Gemini server error: ${providerError}`);
+      this.failConnect(error);
+      this.close(1002, "Gemini server error");
+      return;
+    }
+
     const handle = readResumptionHandle(message);
     if (handle) this.resumptionHandle = handle;
 
@@ -510,6 +518,17 @@ function isSetupComplete(message: Record<string, unknown>): boolean {
   // The Live API schema defines setupComplete as an empty message object;
   // tolerate the legacy boolean shape used by older mocks as well.
   return value === true || isRecord(value);
+}
+
+function readProviderError(message: Record<string, unknown>): string | null {
+  const raw = message.error ?? message.serverError ?? message.server_error;
+  if (typeof raw === "string" && raw.trim()) return raw.trim().slice(0, 500);
+  if (!isRecord(raw)) return null;
+  const messageText = raw.message ?? raw.statusMessage ?? raw.status_message;
+  if (typeof messageText === "string" && messageText.trim()) return messageText.trim().slice(0, 500);
+  const status = raw.status;
+  if (typeof status === "string" && status.trim()) return status.trim().slice(0, 500);
+  return "unknown provider error";
 }
 
 function readResumptionHandle(message: Record<string, unknown>): string | null {

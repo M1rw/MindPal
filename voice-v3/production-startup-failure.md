@@ -63,3 +63,11 @@ After the payload-schema fix, the browser reached the native runtime but reporte
 ## Confirmed setup acknowledgment parser bug
 
 The v1beta deployment still showed `Gemini setupComplete timeout`, while the socket and token request were both successful. The Live API schema sends `setupComplete` as an empty message object (`{"setupComplete":{}}`), but the client parser only accepted the test-only boolean form (`{"setupComplete":true}`). The parser now accepts the documented object form and keeps boolean compatibility for existing mocks; the transport regression test now uses the real empty-object acknowledgment.
+
+## External reference notes
+
+Google’s official Live API WebSocket quickstart states that ephemeral tokens must connect through `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=...`; source: https://ai.google.dev/gemini-api/docs/live-api/get-started-websocket. The official API reference defines `setupComplete` as an output-only empty message object, not a boolean; source: https://ai.google.dev/api/live. Google’s ephemeral-token guide also states that ephemeral tokens only work with the Live API `v1beta` version and documents the `liveConnectConstraints` shape; source: https://ai.google.dev/gemini-api/docs/ephemeral-tokens. The Gemini 3.1 model page confirms `thinkingLevel` values such as `minimal` and the model’s Live API support; source: https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-live-preview.
+
+## Cache-busting and error observability checkpoint
+
+The public HTML and app bundle now use versioned URLs, and live logs show the current `runtime.js` and `app-CQGnRunY.js` being fetched from the READY deployment. The production browser no longer reports the stale dynamic-module loader error, but the session still surfaces `Gemini setupComplete timeout`. The transport now rejects and reports explicit Gemini `error` / `serverError` frames immediately, with a regression test, so the next live attempt will expose the provider’s actual setup rejection if one is being ignored.
