@@ -230,7 +230,15 @@ export class VoiceV3App {
     this.orchestrator.markProvisioning();
     this.orchestrator.markConnecting();
     try {
-      await this.transportManager.connect();
+      try {
+        await this.transportManager.connect();
+      } catch (primaryError) {
+        if (!isFallbackHandshakeFailure(primaryError) || this.providerMode !== "real") throw primaryError;
+        this.debug("[Voice V3] primary Gemini handshake failed; trying configured fallback", {
+          error: primaryError instanceof Error ? primaryError.message : String(primaryError),
+        });
+        await this.transportManager.connectFallback();
+      }
       if (!this.transportManager.isReady) throw new Error("transport did not become ready");
       await initializeCueProvider(this.cueProvider);
       if (this.mockServer) this.orchestrator.markGreetingSent();
@@ -542,6 +550,11 @@ function isProsodyStatePayload(value: unknown): value is import("./layers/prosod
   return typeof candidate.energyLevel === "string" && typeof candidate.speechRate === "string" &&
     typeof candidate.pausePattern === "string" && typeof candidate.emotionalGuess === "string" &&
     typeof candidate.confidence === "number" && typeof candidate.lastChangedAtMono === "number";
+}
+
+function isFallbackHandshakeFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /setupComplete timeout|WebSocket closed:\s*(1006|1011|1013)/i.test(message);
 }
 
 async function initializeCueProvider(provider: CueProvider): Promise<void> {

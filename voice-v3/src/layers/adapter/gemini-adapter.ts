@@ -249,7 +249,10 @@ function extractIdentity(message: Record<string, unknown>): GenerationIdentity {
 }
 
 function isSetupComplete(message: Record<string, unknown>): boolean {
-  return message.setupComplete === true || message.setup_complete === true;
+  const value = message.setupComplete ?? message.setup_complete;
+  // Google defines BidiGenerateContentSetupComplete as an empty message
+  // object. Keep boolean compatibility for older fixtures and mocks.
+  return value === true || (typeof value === "object" && value !== null);
 }
 
 function readResumptionUpdate(

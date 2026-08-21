@@ -178,6 +178,25 @@ describe("WebSocketTransportManager", () => {
     manager.close();
   });
 
+  it("uses the Gemini 2.5 thinking configuration for fallback models", async () => {
+    const socket = new FakeSocket();
+    const manager = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider({
+        ...createToken(),
+        model: "gemini-2.5-flash-native-audio-preview-12-2025",
+      }),
+      webSocketFactory: () => socket,
+    });
+    const connection = manager.connect();
+    await waitForAsyncToken();
+    socket.open();
+    const setup = JSON.parse(socket.sent[0] ?? "{}");
+    expect(setup.setup.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+    socket.message(JSON.stringify({ setupComplete: {} }));
+    await connection;
+    manager.close();
+  });
+
   it("surfaces a Gemini server error instead of waiting for setup timeout", async () => {
     const socket = new FakeSocket();
     const manager = new WebSocketTransportManager({
