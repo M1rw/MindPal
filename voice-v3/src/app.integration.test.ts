@@ -103,6 +103,7 @@ describe("Voice V3 MockGeminiServer integration", () => {
 
     await app.start({ startCapture: false });
     await Promise.resolve();
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
     expect(server.state).toBe("CONNECTED");
     expect(app.transportManager.isReady).toBe(true);
     expect(messages).toContain("PROVIDER_READY");
@@ -110,6 +111,8 @@ describe("Voice V3 MockGeminiServer integration", () => {
     expect(app.orchestrator.state).toBe("LISTENING");
 
     const identity = app.orchestrator.identity;
+    const greetingGeneration = app.playbackManager.snapshot.activeGenerationId;
+    if (greetingGeneration) app.playbackManager.flush(greetingGeneration);
     app.bus.publish(
       createEventEnvelope({
         messageId: "playback-idle",
@@ -140,10 +143,12 @@ describe("Voice V3 MockGeminiServer integration", () => {
     now += 200;
     publishCaptureFrame(app, identity, now, 131, 0.1);
     expect(messages).toContain("BACKCHANNEL_CUE_REQUESTED");
+    expect(messages).toContain("ORCHESTRATOR_GEMINI_CUE_REQUESTED");
 
     server.simulateUserSpeech();
     await Promise.resolve();
     await Promise.resolve();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(messages).toContain("ORCHESTRATOR_AUDIO_EVENT");
     expect(audioContext.scheduledSources.length).toBeGreaterThan(0);
 

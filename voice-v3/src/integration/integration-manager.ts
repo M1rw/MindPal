@@ -4,12 +4,15 @@ import type { TokenProvider } from "../layers/transport/token-provider";
 import { MockTokenProvider } from "../layers/transport/token-provider";
 import { SyntheticCueProvider } from "../layers/backchannel/cue-provider";
 import { RealTokenProvider, type RealTokenProviderOptions } from "./real-token-provider";
-import { RealtimeTTSProvider, type RealtimeTTSProviderOptions } from "../layers/backchannel/realtime-tts-provider";
+import type { RealtimeTTSProviderOptions } from "../layers/backchannel/realtime-tts-provider";
 
 export type IntegrationManagerOptions = {
   readonly mode?: VoiceProviderMode;
   readonly realToken?: RealTokenProviderOptions;
+  /** @deprecated Retained for compatibility; Gemini Native Audio is the default cue source. */
   readonly realtimeTts?: RealtimeTTSProviderOptions;
+  /** Optional explicit legacy cue provider for isolated tests only. */
+  readonly cueProvider?: CueProvider;
   readonly appOptions?: Omit<VoiceV3AppOptions, "providerMode" | "tokenProvider" | "cueProvider">;
 };
 
@@ -18,6 +21,7 @@ export class IntegrationManager {
   private readonly mode: VoiceProviderMode;
   private readonly realTokenOptions: RealTokenProviderOptions;
   private readonly realtimeTtsOptions: RealtimeTTSProviderOptions;
+  private readonly cueProvider: CueProvider | undefined;
   private readonly appOptions: Omit<VoiceV3AppOptions, "providerMode" | "tokenProvider" | "cueProvider">;
   private realTokenProvider: RealTokenProvider | null = null;
 
@@ -25,6 +29,7 @@ export class IntegrationManager {
     this.mode = options.mode ?? "mock";
     this.realTokenOptions = options.realToken ?? {};
     this.realtimeTtsOptions = options.realtimeTts ?? {};
+    this.cueProvider = options.cueProvider;
     this.appOptions = options.appOptions ?? {};
   }
 
@@ -35,8 +40,9 @@ export class IntegrationManager {
   }
 
   public createCueProvider(_audioContextFactory: () => AudioContext | Promise<AudioContext>): CueProvider {
-    if (this.mode === "mock") return new SyntheticCueProvider();
-    return new RealtimeTTSProvider(this.realtimeTtsOptions);
+    // Gemini Native Audio is the default for both modes. A caller may inject a
+    // legacy provider explicitly, but real mode never contacts external TTS here.
+    return this.cueProvider ?? new SyntheticCueProvider();
   }
 
   public async createApp(): Promise<VoiceV3App> {
@@ -46,6 +52,7 @@ export class IntegrationManager {
       ...this.appOptions,
       providerMode: this.mode,
       tokenProvider,
+      ...(this.cueProvider === undefined ? {} : { cueProvider: this.cueProvider }),
     });
     return app;
   }

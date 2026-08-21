@@ -140,6 +140,16 @@ describe("WebSocketTransportManager", () => {
           responseModalities: ["AUDIO"],
           thinkingConfig: { thinkingLevel: "minimal" },
         },
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: "Kore",
+            },
+          },
+        },
+        systemInstruction: {
+          parts: [{ text: "You are MindPal. Use the configured Gemini Native Audio voice consistently. Stay in an active listening conversation: do not interrupt user speech, but during an approved natural pause you may produce one brief context-appropriate acknowledgement such as “mhm”, “yeah”, “I hear you”, or “go on”. When the application sends a VOICE_CUE_REQUEST, produce only the requested short acknowledgement in this same voice; do not explain the instruction, answer the topic, or start a second full response." }],
+        },
         inputAudioTranscription: {},
         outputAudioTranscription: {},
         realtimeInputConfig: {
@@ -165,6 +175,25 @@ describe("WebSocketTransportManager", () => {
     expect(manager.isReady).toBe(true);
     expect(manager.getSessionResumptionHandle()).toBe("resume-1");
     expect(events).toContain("transport.setup.complete");
+    manager.close();
+  });
+
+  it("uses the selected Gemini persona voice and sends a bounded native cue request", async () => {
+    const socket = new FakeSocket();
+    const manager = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider(createToken()),
+      webSocketFactory: () => socket,
+      voicePersona: "Charon",
+    });
+    const connection = manager.connect();
+    await waitForAsyncToken();
+    socket.open();
+    const setup = JSON.parse(socket.sent[0] ?? "{}");
+    expect(setup.setup.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Charon");
+    socket.message(JSON.stringify({ setupComplete: true }));
+    await connection;
+    expect(manager.sendRealtimeText("VOICE_CUE_REQUEST: mhm")).toBe(true);
+    expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual({ realtimeInput: { text: "VOICE_CUE_REQUEST: mhm" } });
     manager.close();
   });
 
