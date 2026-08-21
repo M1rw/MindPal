@@ -74,6 +74,7 @@ export type WsManagerOptions = {
 };
 
 const SOCKET_OPEN = 1;
+const SOCKET_CLOSED = 3;
 
 /**
  * Transport Layer boundary for Gemini Live. It owns socket lifecycle, setup,
@@ -139,6 +140,19 @@ export class WebSocketTransportManager {
   public async connectFallback(): Promise<void> {
     const getFallbackToken = this.tokenProvider.getFallbackToken;
     if (!getFallbackToken) throw new Error("Voice fallback token is unavailable");
+
+    // A timed-out primary socket may still dispatch a late close/message event
+    // while the fallback token is being fetched. Detach it first so those
+    // events cannot mutate or resolve the fallback attempt.
+    const staleSocket = this.socket;
+    this.socket = null;
+    this.clearSocketAndTimers();
+    this.closingByUser = false;
+    if (staleSocket && staleSocket.readyState !== SOCKET_CLOSED) {
+      try { staleSocket.close(1000, "fallback reconnect"); } catch { /* already closed */ }
+    }
+    this.setState("CLOSED");
+
     return this.connectWithToken(() => getFallbackToken.call(this.tokenProvider));
   }
 
@@ -148,10 +162,11 @@ export class WebSocketTransportManager {
 
     this.closingByUser = false;
     this.setState(this.transportState === "RECONNECTING" ? "RECONNECTING" : "CONNECTING");
-    this.connectPromise = new Promise<void>((resolve, reject) => {
+    const connectionPromise = new Promise<void>((resolve, reject) => {
       this.resolveConnect = resolve;
       this.rejectConnect = reject;
     });
+    this.connectPromise = connectionPromise;
 
     try {
       this.token = await getToken();
@@ -168,7 +183,7 @@ export class WebSocketTransportManager {
       this.failConnect(toError(error, "transport connection failed"));
     }
 
-    return this.connectPromise;
+    return connectionPromise;
   }
 
   public async reconnect(): Promise<void> {
@@ -190,7 +205,7 @@ export class WebSocketTransportManager {
     this.clearHeartbeat();
     this.clearSetupTimer();
     const socket = this.socket;
-    if (socket && socket.readyState !== 3) {
+    if (socket && socket.readyState !== SOCKET_CLOSED) {
       this.setState("CLOSING");
       socket.close(code, reason);
     } else {

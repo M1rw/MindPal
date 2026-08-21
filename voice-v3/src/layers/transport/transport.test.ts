@@ -178,6 +178,43 @@ describe("WebSocketTransportManager", () => {
     manager.close();
   });
 
+  it("reconnects with the fallback token after a primary setup timeout", async () => {
+    const primarySocket = new FakeSocket();
+    const fallbackSocket = new FakeSocket();
+    const sockets = [primarySocket, fallbackSocket];
+    const provider: TokenProvider = {
+      async getToken() { return createToken(); },
+      async getFallbackToken() {
+        return {
+          ...createToken(),
+          token: "fallback.jwt",
+          model: "gemini-2.5-flash-native-audio-preview-12-2025",
+        };
+      },
+    };
+    const manager = new WebSocketTransportManager({
+      tokenProvider: provider,
+      webSocketFactory: () => sockets.shift() ?? new FakeSocket(),
+      setupTimeoutMs: 5,
+    });
+
+    const primaryConnection = manager.connect();
+    await waitForAsyncToken();
+    primarySocket.open();
+    await expect(primaryConnection).rejects.toThrow("Gemini setupComplete timeout");
+    expect(primarySocket.closeCalls.length).toBeGreaterThan(0);
+
+    const fallbackConnection = manager.connectFallback();
+    await waitForAsyncToken();
+    fallbackSocket.open();
+    fallbackSocket.message(JSON.stringify({ setupComplete: {} }));
+    await fallbackConnection;
+
+    expect(manager.isReady).toBe(true);
+    expect(manager.snapshot.ready).toBe(true);
+    manager.close();
+  });
+
   it("uses the Gemini 2.5 thinking configuration for fallback models", async () => {
     const socket = new FakeSocket();
     const manager = new WebSocketTransportManager({
