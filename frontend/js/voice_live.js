@@ -60,6 +60,8 @@ let captionHighlightStartChar = 0;
 let captionHighlightEndChar = 0;
 let captionPlaybackStartedAtMs = 0;
 let captionPlaybackDurationMs = 0;
+let captionPlaybackEndAtMs = 0;
+let captionPlaybackFinished = false;
 let captionHighlightProgress = 0;
 let captionHighlightFrame = null;
 let captionNextReleaseAtMs = 0;
@@ -160,6 +162,8 @@ export async function startLiveVoice(contextProvider = null) {
   captionHighlightEndChar = 0;
   captionPlaybackStartedAtMs = 0;
   captionPlaybackDurationMs = 0;
+  captionPlaybackEndAtMs = 0;
+  captionPlaybackFinished = false;
   captionHighlightProgress = 0;
   if (captionHighlightFrame) cancelAnimationFrame(captionHighlightFrame);
   captionHighlightFrame = null;
@@ -371,6 +375,8 @@ function clearCaptionReleaseQueue({ preserveSource = false } = {}) {
   captionHighlightEndChar = 0;
   captionPlaybackStartedAtMs = 0;
   captionPlaybackDurationMs = 0;
+  captionPlaybackEndAtMs = 0;
+  captionPlaybackFinished = false;
   captionHighlightProgress = 0;
   if (captionHighlightFrame) cancelAnimationFrame(captionHighlightFrame);
   captionHighlightFrame = null;
@@ -464,23 +470,29 @@ function startCaptionWordClock() {
     const durationMs = Math.max(
       1,
       captionPlaybackDurationMs,
+      captionPlaybackEndAtMs - captionPlaybackStartedAtMs,
       estimateCaptionDurationMs(captionSourceText),
     );
     const elapsedMs = Math.max(0, Date.now() - captionPlaybackStartedAtMs);
-    captionHighlightProgress = Math.max(
-      captionHighlightProgress,
-      Math.min(1, elapsedMs / durationMs),
-    );
+    const liveProgress = Math.min(0.985, elapsedMs / durationMs);
+    captionHighlightProgress = captionPlaybackFinished
+      ? 1
+      : Math.max(captionHighlightProgress, liveProgress);
     renderCaptionWordRange(getCaptionWordAtProgress(captionSourceText, captionHighlightProgress));
     captionHighlightFrame = requestAnimationFrame(tick);
   };
   captionHighlightFrame = requestAnimationFrame(tick);
 }
 
-function handleMainPlaybackStarted({ durationMs = 0 } = {}) {
-  captionAudioStartAtMs ||= Date.now();
-  captionPlaybackStartedAtMs ||= captionAudioStartAtMs;
-  captionPlaybackDurationMs = Math.max(captionPlaybackDurationMs, Number(durationMs) || 0);
+function handleMainPlaybackStarted({ durationMs = 0, startAtMs = 0, endAtMs = 0 } = {}) {
+  captionAudioStartAtMs ||= Number(startAtMs) || Date.now();
+  captionPlaybackStartedAtMs ||= Number(startAtMs) || captionAudioStartAtMs;
+  captionPlaybackEndAtMs = Math.max(captionPlaybackEndAtMs, Number(endAtMs) || 0);
+  captionPlaybackDurationMs = Math.max(
+    captionPlaybackDurationMs,
+    Number(durationMs) || 0,
+    captionPlaybackEndAtMs - captionPlaybackStartedAtMs,
+  );
   flushPendingCaptionText({ audioStartMs: captionAudioStartAtMs });
   startCaptionWordClock();
 }
@@ -592,13 +604,19 @@ function handleVoiceDiagnostic(event = {}) {
   if (["voice.socket-error", "voice.socket-closed", "provider.error", "provider.closed"].includes(event?.type)) console.warn("[MindPal Voice]", event);
   if (event?.type === "voice.playback.started" && event.audioClass === "main") handleMainPlaybackStarted(event);
   if (event?.type === "voice.playback.chunk-scheduled" && event.audioClass === "main") {
-    captionPlaybackDurationMs += Math.max(0, Number(event.durationMs) || 0);
+    captionPlaybackEndAtMs = Math.max(captionPlaybackEndAtMs, Number(event.endAtMs) || 0);
+    captionPlaybackDurationMs = Math.max(
+      captionPlaybackDurationMs,
+      captionPlaybackEndAtMs - captionPlaybackStartedAtMs,
+    );
   }
   if (event?.type === "voice.playback.ended" && event.audioClass === "main" && !captionQueue.length && !captionPendingText) {
     captionAudioStartAtMs = 0;
     captionPlaybackStartedAtMs = 0;
     captionPlaybackDurationMs = 0;
+    captionPlaybackFinished = true;
     captionHighlightProgress = 1;
+    renderCaptionWordRange(getCaptionWordAtProgress(captionSourceText, 1));
     captionNextReleaseAtMs = 0;
     captionBufferedText = "";
     if (captionHighlightFrame) cancelAnimationFrame(captionHighlightFrame);
