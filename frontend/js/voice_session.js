@@ -23,7 +23,7 @@ let controllerPromise = null;
 const V3_RUNTIME_PATH = "/voice-v3/assets/runtime.js";
 // Keep this deployment-scoped so a cached runtime cannot reference a chunk
 // hash from a previous immutable Vercel deployment.
-const V3_RUNTIME_VERSION = "voice-v3-runtime-f71bc37";
+const V3_RUNTIME_VERSION = "voice-v3-runtime-a44a2e2";
 const V3_RUNTIME_SCRIPT_ATTRIBUTE = "data-mindpal-voice-v3-runtime";
 
 function getRuntimeFactory() {
