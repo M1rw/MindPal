@@ -81,3 +81,8 @@ Google’s current Live API documentation confirms the ephemeral-token endpoint 
 The remaining production uncertainty is whether Gemini is silently rejecting or not acknowledging the primary constrained session, or whether the absence of an adapter readiness event contributes to the observed failure. The next safe change is to deploy the adapter parser correction plus explicit fallback/diagnostic wiring, then retest only on the main production alias.
 
 References: https://ai.google.dev/api/live; https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens; https://ai.google.dev/gemini-api/docs/live-api/get-started-websocket; https://ai.google.dev/gemini-api/docs/live-api/capabilities.
+
+
+## Confirmed stale production bundle on `a44a2e2`
+
+The first browser test against deployment `dpl_3qidy1sdZKSgmyw7V5SDcStDyHFM` did not exercise the new code. The live overlay explicitly displayed `MindPal Voice V3 runtime failed to load: .../runtime.js?v=voice-v3-runtime-f71bc37`; `frontend/js/voice_session.js` and `frontend/index.html` still contained the prior `f71bc37` cache keys. This is a confirmed deployment-cache bug, not evidence that the fallback logic failed. Both keys and the loader regression test are now updated to `a44a2e2`; a follow-up commit and production deployment are required before retesting.
