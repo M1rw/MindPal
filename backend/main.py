@@ -24,6 +24,7 @@ from backend.core.config import Settings, get_settings
 from backend.core.errors import AppError
 from backend.core.middleware import RequestBodyLimitMiddleware
 from backend.core.security import generate_request_id, sanitize_text
+from backend.services.voice_v3_launch_gate import validate_production_voice_configuration
 
 
 MAX_ERROR_MESSAGE_CHARS = 700
@@ -44,6 +45,18 @@ async def lifespan(app: FastAPI):
     not called here.
     """
     try:
+        settings = getattr(app.state, "settings", None) or get_settings()
+        launch_validation = validate_production_voice_configuration(settings)
+        app.state.voice_v3_launch = launch_validation
+        if launch_validation.errors:
+            logger.error(
+                "voice_v3_launch_gate failed enabled=%s verbal_cues_enabled=%s errors=%s",
+                launch_validation.enabled,
+                launch_validation.verbal_cues_enabled,
+                ",".join(launch_validation.errors),
+            )
+        elif launch_validation.enabled:
+            logger.info("voice_v3_launch_gate passed personas=%s", ",".join(launch_validation.enabled_personas))
         yield
     finally:
         container = getattr(app.state, "service_container", None)
