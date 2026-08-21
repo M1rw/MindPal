@@ -380,6 +380,10 @@ test("playback manager emits one turn start and chunk scheduling diagnostics per
   playback.schedule("AQI=", { generation: 1, audioClass: "main" });
   assert.equal(events.filter((event) => event.type === "playback.started").length, 1);
   assert.equal(events.filter((event) => event.type === "playback.chunk-scheduled").length, 1);
+  const started = events.find((event) => event.type === "playback.started");
+  const scheduled = events.find((event) => event.type === "playback.chunk-scheduled");
+  assert.ok(started.startAtMs <= started.endAtMs);
+  assert.ok(scheduled.startAtMs <= scheduled.endAtMs);
 });
 
 test("playback manager ducks active model audio and restores it before provider interruption", () => {
