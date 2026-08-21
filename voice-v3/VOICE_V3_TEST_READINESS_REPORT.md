@@ -1,41 +1,50 @@
-# MindPal Voice V3 — Sprint 15 Test Readiness Report
+# MindPal Voice V3 — Sprint 15 Test-Readiness Report
+
+**Release candidate:** `feature/voice-v3-sprint15-test-ready`  
+**Commit:** `48c1fed8dfec68b73497c3c61271dac8c6923073`  
+**Scope:** Local Voice Memory and internal Voice V3 test-readiness tooling  
+**Author:** Manus AI  
+**Date:** 2026-08-21
 
 ## Executive decision
 
-**Decision: NO-GO for broad production rollout; GO for internal and controlled staging validation.**
+> **NO-GO for broad production rollout; GO for controlled internal and staging validation.**
 
-The Sprint 15 implementation adds bounded browser-local memory, deterministic extraction, setup-context injection, incognito gating, debug visibility, a persona review page, and the authenticated persona metadata endpoint. The release candidate is isolated under `voice-v3/`; Voice V2 remains the live production path. Broad rollout is blocked until human listening review, authenticated staging evidence, and the remaining operational prerequisites are completed.
+Sprint 15 is implemented and committed on an isolated feature branch. The candidate adds bounded browser-local memory, deterministic extraction, pre-connect Gemini setup-context injection, incognito and feature-flag gates, debug visibility, an authenticated persona metadata endpoint, and the `/voice-v3-review` human listening page. Voice V2 remains the production path; no broad rollout was enabled.
 
-## Completed scope
+Automated validation passed. Broad rollout remains blocked because automated tests cannot establish real persona voice identity, browser microphone behavior, device-specific audio quality, authenticated staging reachability, or rollback evidence.
 
-| Area | Status | Evidence / outcome |
+## Implemented scope
+
+| Area | Result | Verification |
 |---|---|---|
-| Sprints 0–14 | Complete | Existing engine layers, orchestration, captions, TTS, prosody, persona catalog, flags, cache warm, launch gate, and soak harness remain in place. |
-| Local memory store | Complete | IndexedDB-backed record with in-memory fallback, 20-fact and 20-preference bounds, de-duplication, and oldest-entry eviction. |
-| Deterministic extractor | Complete | Local regex extraction for explicit name/work/project/preference/dislike statements; ambiguous statements are rejected. No LLM or external extraction call. |
-| Setup injection | Complete | Context is fetched before socket open and added only to Gemini `systemInstruction.parts` when non-empty. |
-| Flag and privacy gates | Complete | `VOICE_V3_MEMORY_ENABLED`, missing user ID, and `incognito` prevent memory read/write/injection. |
-| Debug observability | Complete | Memory counts, bounded lists, last injected context, extraction count, and clear-memory action are visible in the V3 debug panel; label updated to Sprint 15. |
-| Internal voice review | Complete | `/voice-v3-review` fetches public catalog metadata, requests five common cues per enabled persona, plays PCM16 samples, records review decisions, and exports JSON. |
-| Persona catalog API | Complete | Authenticated `GET /api/voice/v3/personas` returns `public_config()` and uses `REQUIRED` for missing mappings. |
-| Documentation and artifact safety | Complete | Internal test plan, integration guide, this report, and ignored review-artifact path added. |
+| Memory store | Complete | IndexedDB-backed record with bounded in-memory fallback, maximum 20 facts and 20 preferences, de-duplication, and oldest-entry eviction. |
+| Deterministic extraction | Complete | Local regex extraction for explicit name, workplace, project, preference, and dislike statements; ambiguous language is rejected. No LLM or external extraction service is used. |
+| Gemini setup injection | Complete | Memory context is loaded before socket open and is sent only under `setup.systemInstruction.parts[0].text` when non-empty. |
+| Privacy gates | Complete | `VOICE_V3_MEMORY_ENABLED`, absent `memoryUserId`, and `incognito` prevent memory read, write, and injection. Memory events contain counts/metadata rather than transcript text. |
+| Debug panel | Complete | Shows memory facts, preferences, injected context, extraction count, and Clear Memory action; label is Sprint 15. |
+| React integration | Complete | `useVoiceV3` accepts and forwards `memoryUserId` and `incognito` with exact-optional-safe option spreads. |
+| Human voice review | Complete | `/voice-v3-review` lists Kore and Charon, displays `configured`/`REQUIRED`, fetches five common cues, plays PCM16, records pass/fail/unsure comments, and exports JSON. |
+| Persona endpoint | Complete | Authenticated `GET /api/voice/v3/personas` returns the catalog’s sanitized `public_config()` with no credentials. |
+| Documentation | Complete | Internal test plan, integration guide section, readiness report, and ignored review-artifact directory are present. |
 
-## Validation status
+## Automated validation evidence
 
-The focused Sprint 15 memory and transport tests passed after correcting the test to match the store’s newest-five context policy. The final automated release-candidate validation was then executed successfully. Manual browser, listening, staging, and rollback evidence remains intentionally pending.
+The following commands were executed from the repository and completed successfully:
 
-| Check | Required command | Current status |
-|---|---|---|
-| Strict TypeScript | `cd voice-v3 && npm run check` | Passed after app, hook, DebugPanel, and review-page integration. |
-| Voice V3 tests | `cd voice-v3 && npm test -- --run` | Passed: 15 files, 75 tests. |
-| Vite build | `cd voice-v3 && npm run build` | Passed: Vite production output generated. |
-| Backend tests | `pytest -q` | Passed: 186 tests, 1 existing deprecation warning. |
-| Backend syntax | `python3 -m py_compile backend/api/voice_router.py` | Passed. |
-| Manual review | `VOICE_V3_INTERNAL_TEST_PLAN.md`, cases A–H | Pending human/staging execution. |
+| Check | Result |
+|---|---|
+| `cd voice-v3 && npm run check` | Passed. |
+| `cd voice-v3 && npm test -- --run` | Passed: 15 test files, 75 tests. |
+| `cd voice-v3 && npm run build` | Passed: Vite production output generated, including the AudioWorklet bundle. |
+| `pytest -q` | Passed: 186 tests, with one existing Starlette/httpx deprecation warning. |
+| `python3 -m py_compile backend/api/voice_router.py` | Passed. |
+| Repository safety scan | No detected API-key/private-key patterns; generated `.diagnostics/` files were excluded from the commit. |
+| Final Git state | Feature branch tracks `origin/feature/voice-v3-sprint15-test-ready`; working tree is clean. |
 
-## Feature-flag handoff state
+The first staged commit attempt correctly failed the repository whitespace check because unrelated generated diagnostics and historical files contained whitespace warnings. The diagnostics were removed from the candidate, the source/test validation was rerun, and the commit was created without force-pushing.
 
-The safe production handoff remains:
+## Safe production handoff state
 
 ```text
 VOICE_V3_ENABLED=false
@@ -44,44 +53,30 @@ VOICE_V3_ENABLED_PERSONAS=Kore,Charon
 VOICE_V3_MEMORY_ENABLED=false
 ```
 
-The memory flag may be enabled only for an explicitly controlled internal or staging session after the product has established a clear consent and deletion experience. Dependent V3 flags must not cause an implicit production rollout. No production V2 entrypoint is changed by this release candidate.
+V3 must remain disabled in production until the release owner closes the prerequisites below. Enabling the internal review route does not enable V3 for product users and does not replace the launch gate.
 
-## Blocking prerequisites
+## Blocking prerequisites for broad rollout
 
-| Prerequisite | Status | Why it blocks broad rollout |
+| Prerequisite | Status | Required evidence |
 |---|---|---|
-| Real explicit Kore and Charon provider voice IDs | Outstanding unless configured in deployment | The implementation refuses to guess a provider voice. |
-| Authenticated persona catalog and TTS reachability | Outstanding staging evidence | The review route must work with the deployed auth/session path. |
-| Human voice-identity review | Outstanding | HTTP success cannot prove that a cue matches the active Gemini persona. |
-| Manual cases A–H | Outstanding | Automated tests cannot cover browser permissions, listening quality, long monologues, or rollback behavior. |
-| Staging soak and telemetry review | Outstanding | Requires real network, token expiry, reconnect, TTS fallback, and device/browser observations. |
-| Rollback rehearsal | Outstanding | Must verify new sessions return to V2 with V3 flags disabled. |
+| Real explicit Kore and Charon provider voice IDs | Outstanding unless configured in deployment | Backend configuration review; no guessed or fabricated IDs. |
+| Authenticated catalog and TTS reachability | Outstanding staging evidence | Successful authenticated catalog request and cue generation from the deployed frontend origin. |
+| Human persona identity and audio-quality review | Outstanding | Reviewer listens to every configured cue and records pass/fail/unsure in the review artifact. |
+| Manual test cases A–H | Outstanding | Completed `VOICE_V3_INTERNAL_TEST_PLAN.md` evidence, including memory deletion and account isolation. |
+| Real staging soak | Outstanding | Ten-minute run covering interruptions, long monologue, reconnect, token expiry, network jitter, TTS fallback, and telemetry. |
+| Rollback rehearsal | Outstanding | With flags disabled, a new session demonstrably returns to V2. |
+| Production rollout | **NO-GO** | All blocking prerequisites must be closed and signed off. |
 
 ## Risk and privacy assessment
 
-Memory stays in the browser storage namespace selected by `memoryUserId`; it is not a server-side profile store. The extractor accepts only explicit deterministic patterns and publishes count/size metadata rather than transcript content. The setup context is bounded before injection. Incognito and disabled-flag sessions bypass the layer. The team must still verify browser-storage deletion, account-switch isolation, private-window behavior, and absence of memory content in telemetry during manual testing.
+The memory layer is browser-local and keyed by the supplied user identifier; it is not a server-side profile system. The extractor accepts only high-confidence explicit patterns, bounds the injected context to five facts and five preferences with a 500-character cap, and does not call an external model. The implementation must still be manually checked for browser-storage deletion, account-switch isolation, private browsing behavior, and absence of memory content in telemetry.
 
-The `/voice-v3-review` page is an internal diagnostic surface, not a launch control. Its exported JSON contains catalog/sample metadata, statuses, comments, and a decision, but it must be reviewed before sharing because comments can still contain sensitive tester-entered text. The ignored path prevents accidental Git commits; it does not replace access control.
-
-## Go/no-go checklist
-
-| Requirement | Decision |
-|---|---|
-| Sprint 15 implementation present and isolated from V2 | Ready |
-| Strict TypeScript check | Passed |
-| Focused memory and transport regression tests | Passed |
-| Full V3 test suite | Passed: 15 files, 75 tests |
-| Production build | Passed |
-| Backend tests and syntax check | Passed: 186 tests; compile passed |
-| Memory disabled by default in production | Ready by configuration |
-| Incognito path does not persist or inject memory | Automated coverage ready; manual verification pending |
-| Persona voice IDs verified by human listening | Outstanding |
-| Authenticated staging and ten-minute soak | Outstanding |
-| Rollback rehearsal | Outstanding |
-| Broad production rollout | **NO-GO** |
+The review page is an internal diagnostic surface. Its JSON export includes reviewer-entered comments, so access to the artifact must be controlled even though `artifacts/voice-persona-review/` is ignored by Git. The page performs no deployment, rollout, purchase, or production configuration action.
 
 ## Rollback and handoff
 
-To roll back, keep `VOICE_V3_ENABLED=false` and `VOICE_V3_ROLLOUT_PERCENT=0`, publish the runtime configuration, and confirm that new sessions use V2. Do not delete V2 files or force-push over the main branch. Preserve only sanitized deployment and counter evidence; never export audio, PCM, transcripts, prompts, memory text, or provider credentials.
+Keep `VOICE_V3_ENABLED=false` and `VOICE_V3_ROLLOUT_PERCENT=0`, publish the runtime configuration, and verify that new sessions use Voice V2. Do not delete V2 files, force-push, or replace the main branch. Preserve only sanitized counters, state names, deployment IDs, and bounded error codes; never export microphone audio, PCM, transcripts, prompt content, memory text, provider tokens, or credentials.
 
-The intended delivery is the feature branch `feature/voice-v3-sprint15-test-ready`. Commit and push only after the complete validation commands pass and a repository diff confirms that no secrets, generated review artifacts, or unrelated production changes are included.
+## References
+
+The operational procedures and manual acceptance cases are defined in [`VOICE_V3_INTERNAL_TEST_PLAN.md`](./VOICE_V3_INTERNAL_TEST_PLAN.md). Integration contracts and privacy boundaries are documented in [`INTEGRATION_GUIDE.md`](./INTEGRATION_GUIDE.md). The existing Gemini active-session text-update rationale remains documented in the integration guide’s reference section.

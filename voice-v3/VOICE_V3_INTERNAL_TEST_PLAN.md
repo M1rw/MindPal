@@ -1,18 +1,20 @@
-# MindPal Voice V3 Internal Test Plan
+# MindPal Voice V3 — Internal Test Plan
 
-**Scope:** Sprint 15 Local Voice Memory and the internal Voice V3 release candidate. **Owner:** Manus AI. **Audience:** MindPal engineering, QA, and human voice reviewers.
+**Release candidate:** Sprint 15 Local Voice Memory and Voice V3 test-readiness tooling  
+**Branch:** `feature/voice-v3-sprint15-test-ready`  
+**Production boundary:** Voice V2 remains live while this plan is executed.
 
 ## Purpose and safety boundary
 
-This plan validates the isolated `voice-v3/` engine and its review tooling. Voice V2 remains the production path during this test cycle. Testers must not enable a broad rollout, paste provider secrets into the browser, or commit generated audio, review comments, tokens, or environment files. Use a dedicated test user when persistence behavior is being verified.
+This plan validates the isolated `voice-v3/` engine, its local memory behavior, and the internal human voice review surface. It is not authorization for a broad rollout. Testers must not paste provider secrets into browser fields, commit generated audio or review exports, or change the production V2 entrypoint. Use a dedicated test account when persistence or account-switch behavior is being checked.
 
-The release candidate is considered **test-ready** when the automated checks pass, the manual cases below have recorded evidence, every configured persona sample has been listened to by a human, and all launch blockers are either closed or explicitly accepted by the release owner.
+A case passes only when the expected behavior is observed and sanitized evidence is recorded. Any privacy leak, stale audio playback, invented persona voice ID, accidental V2 modification, or inability to roll back is immediately blocking.
 
-## Preconditions
+## Preconditions and commands
 
-Use a local or staging deployment with an authenticated session, a working microphone, browser permission granted only to the intended origin, and `VOICE_V3_ENABLED=false` as the safe default. For memory cases, use a unique `memoryUserId`; for incognito cases, use a separate session or clear the record before starting. For persona review, configure only real provider voice IDs in backend secrets and never place those IDs or tokens in committed files.
+Use an authenticated local or staging session, a working microphone, and a browser that supports IndexedDB and Web Audio. Keep the safe production values `VOICE_V3_ENABLED=false` and `VOICE_V3_ROLLOUT_PERCENT=0`. For memory tests, use a unique `memoryUserId`; for incognito tests, use a separate session or clear the record before starting. For persona review, configure only real backend voice IDs and keep all credentials server-side.
 
-Run the deterministic checks before manual work:
+Run the automated gate before manual testing:
 
 ```bash
 cd voice-v3
@@ -24,34 +26,32 @@ pytest -q
 python3 -m py_compile backend/api/voice_router.py
 ```
 
-## Test cases
+## Manual acceptance cases
 
-| ID | Manual test | Procedure | Expected result | Evidence |
-|---|---|---|---|---|
-| A | Feature-flag matrix and V2 safety | Run with `VOICE_V3_ENABLED=false`, then with V3 enabled only in the isolated/debug harness. Exercise start, stop, mute, captions, and reconnect. | With the top-level flag off, V3 does not create its app and V2 remains responsible for voice. No V2 production file is changed by the test. | Flag values, console excerpt, and route/build identifier. |
-| B | Explicit memory extraction | Say: “My name is Marwan. I work at MindPal. I am building Voice V3. I prefer concise answers. I don’t like static audio assets.” End the turn. | The debug panel shows only normalized facts/preferences, extraction count increments, and no raw transcript is emitted as a memory event. Hedged language such as “Maybe I like dark mode” is ignored. | Screenshot of memory panel and sanitized event list. |
-| C | Local persistence, bounds, and deletion | Add more than 20 facts and more than 20 preferences across turns. Stop and restart with the same `memoryUserId`; then press **Clear memory**. | The newest 20 entries remain per category, the record survives restart in IndexedDB, the setup context is bounded to five facts/five preferences and 500 characters, and Clear memory removes the record. | Before/after snapshots; browser IndexedDB record count, with content redacted if shared. |
-| D | Incognito and disabled memory | Run once with `incognito=true`, once with `VOICE_V3_MEMORY_ENABLED=false`, and speak explicit memory statements. Reconnect each time. | Neither mode reads, injects, stores, nor publishes memory snapshots containing user content. The voice session otherwise remains functional. | Configuration and sanitized network/event evidence. |
-| E | Setup injection and isolation | Preload a record, start a real or mock session, and inspect the outbound setup payload in a controlled test environment. Repeat with an empty record. | Non-empty context appears only under `setup.systemInstruction.parts[0].text`; empty, disabled, and incognito sessions send no `systemInstruction`. Audio and transcript payloads are not used to populate setup context. | Redacted setup JSON and transport test result. |
-| F | Persona and cue listening review | Open `/voice-v3-review`. Confirm catalog metadata, then fetch `mhm`, `yeah`, `aha`, `right`, and `okay` for Kore and Charon. Play every returned sample and mark pass/fail/unsure with comments. | Missing mapping is shown as `REQUIRED` and does not invent a voice. Configured responses show duration, cache/fallback metadata, and audible mono 24 kHz PCM16 output. Exported JSON contains review metadata but no credentials. | Exported review JSON under ignored artifacts path plus signed-off reviewer name/date outside the repository. |
-| G | Full-duplex regression and recovery | In mock mode, perform a long monologue with natural pauses, interrupt an assistant response, resume after a cue boundary, mute/unmute the microphone, and force a transport close/reconnect. | Backchannel cues are eligible only during approved pauses, main playback ducks and restores without ending the call, stale audio/captions are rejected, captions remain synchronized to scheduled playback, and a completed turn does not replay the greeting. | Event timeline, playback/conductor snapshots, and browser console errors (expected diagnostic logs separated from failures). |
-| H | Staging acceptance and rollback rehearsal | In staging only, exercise token acquisition, WebSocket setup, AudioContext resume, microphone denial/retry, TTS timeout/fallback, missing mapping, cache warm, network jitter, ten-minute soak, and the telemetry endpoint. Then set V3 off and start a new session. | All required auth and audio paths work, failures are non-fatal, no private content reaches telemetry, and a new session returns to V2 after rollback. Broad rollout remains blocked until human review and launch-gate prerequisites pass. | Staging run ID, sanitized metrics, rollback screenshot, and release-owner sign-off. |
+| ID | Scenario and procedure | Expected acceptance result | Evidence |
+|---|---|---|---|
+| A | **Flag matrix and V2 safety.** Run with `VOICE_V3_ENABLED=false`; then run the isolated harness with V3 enabled. Exercise start, stop, mute, captions, and reconnect. | With the top-level flag off, the V3 hook does not create a V3 app and V2 remains responsible for voice. No V2 production file or route is modified. | Flag values, route/build identifier, and sanitized console excerpt. |
+| B | **Explicit local extraction.** Say: “My name is Marwan. I work at MindPal. I am building Voice V3. I prefer concise answers. I don’t like static audio assets.” End the turn. Then say a hedged statement such as “Maybe I like dark mode, I think.” | Explicit statements become normalized facts/preferences; extraction count increments; hedged language is ignored. Memory events contain bounded metadata, not raw transcript text. | Debug-panel screenshot and sanitized LayerLink event list. |
+| C | **Persistence, limits, and deletion.** Add more than 20 facts and more than 20 preferences, stop, restart with the same `memoryUserId`, then press **Clear memory**. | The newest 20 entries remain per category; the record survives restart in IndexedDB; setup context contains at most five facts and five preferences and no more than 500 characters; Clear memory removes the record. | Redacted before/after snapshots and browser storage observation. |
+| D | **Incognito and disabled memory.** Run once with `incognito=true`, then with `VOICE_V3_MEMORY_ENABLED=false`; speak explicit memory statements and reconnect. | Neither mode reads, injects, stores, or publishes user memory. The rest of the voice session remains functional. | Configuration and sanitized network/event evidence. |
+| E | **Setup injection and isolation.** Preload a record and inspect the outbound setup payload in a controlled mock/staging environment. Repeat with an empty record, disabled memory, and incognito. | Non-empty context appears only at `setup.systemInstruction.parts[0].text`. Empty, disabled, and incognito sessions send no `systemInstruction`; audio and transcripts are never used to build it. | Redacted setup JSON and transport test result. |
+| F | **Human persona and cue review.** Open `/voice-v3-review`, verify catalog metadata, and fetch `mhm`, `yeah`, `aha`, `right`, and `okay` for Kore and Charon. Play every available sample and mark pass/fail/unsure with comments. | Missing mappings display `REQUIRED` and never invent an ID. Configured samples report duration/cache/fallback metadata and play as mono 24 kHz PCM16. Export contains review data but no credentials. | Review JSON under the ignored artifact path and reviewer sign-off stored outside the repository. |
+| G | **Full-duplex regression and recovery.** In mock mode, perform a long monologue with natural pauses, interrupt assistant playback, resume after a cue boundary, mute/unmute the microphone, and force a close/reconnect. | Cues occur only at approved pauses; main playback ducks/restores without ending the call; stale audio/captions are rejected; captions track scheduled playback; completed turns do not replay the greeting. | Event timeline, playback/conductor snapshots, and categorized browser-console output. |
+| H | **Staging acceptance and rollback.** Exercise token acquisition, WebSocket setup, AudioContext resume, denied microphone permission, TTS timeout/fallback, missing mapping, cache warm, jitter, ten-minute soak, telemetry, then disable V3 and start a new session. | Auth and audio paths work; failures are non-fatal; telemetry contains no private content; and the new session returns to V2 after rollback. Broad rollout remains blocked until sign-off. | Staging run ID, sanitized counters, rollback screenshot, and release-owner approval. |
 
-## Pass/fail rules
+## Pass/fail and evidence rules
 
-A case passes only when the expected result is observed and its evidence is recorded. A failure involving privacy leakage, stale audio playback, accidental V2 modification, an invented persona voice ID, or an inability to roll back is immediately blocking. A sample marked **fail** or **unsure** blocks the human voice gate until reviewed and resolved.
+A failed privacy or safety case blocks the candidate regardless of the automated score. A cue marked **fail** or **unsure** blocks the persona gate until the reviewer resolves the issue. The review page is a diagnostic surface and must not be treated as a deployment control.
 
-## Evidence handling
-
-Store only non-sensitive review artifacts in `artifacts/voice-persona-review/`; this path is ignored by Git. Do not store raw microphone audio, PCM buffers, full transcripts, prompt content, auth headers, provider tokens, or secret voice IDs in the repository, issue tracker, screenshots, or exported JSON. Keep staging logs sanitized to counters, state names, bounded error codes, and deployment identifiers.
+Save only sanitized review metadata in `artifacts/voice-persona-review/`, which is ignored by Git. Do not save raw microphone audio, PCM buffers, full transcripts, prompts, auth headers, provider tokens, or secret voice IDs in the repository, screenshots, or exported JSON. Reviewer comments may themselves contain sensitive text and must be handled accordingly.
 
 ## Sign-off record
 
-| Area | Result | Reviewer / date | Notes |
+| Area | Result | Reviewer/date | Notes |
 |---|---|---|---|
-| Automated validation | Pending until final release-candidate run |  |  |
-| Local memory and privacy | Pending manual cases B–E |  |  |
-| Human persona voice identity | Pending case F |  |  |
+| Automated validation | Passed in release-candidate run |  | 15 V3 test files / 75 tests; backend 186 tests. |
+| Memory and privacy | Pending cases B–E |  |  |
+| Persona identity and audio quality | Pending case F |  |  |
 | Full-duplex behavior | Pending case G |  |  |
 | Staging and rollback | Pending case H |  |  |
-| Release decision | **NO-GO for broad rollout until all blockers close** |  |  |
+| Broad production decision | **NO-GO until all blockers close** |  |  |
