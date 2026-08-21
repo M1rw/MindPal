@@ -5,8 +5,8 @@
       "sha256": "7a716cc976794c8da3444fc6c97e17afdbfe5a5040e003c3d23ea02938169e10"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 498270,
-      "sha256": "bc91787a6d11cbb4cc3a948a3706e2775f58a114bd1efd6ff5b93d8c19a9d760"
+      "bytes": 495684,
+      "sha256": "287ee73f9924a7183ab7c655734fce44594f0b53df67c7ba4f05e2e80c002f62"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "69dc179955e7c4dc28f10049777cc704b0a75d8a4511032cc200b13fc5da5c9c",
+  "source_digest": "ef5a2359a146a6de7014632d2f11a87dfff1f3eae8f5fc2539e129e5a489696b",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -55,9 +55,7 @@
     "frontend/js/voice/backchannel/backchannel_manager.js",
     "frontend/js/voice/backchannel/backchannel_policy.js",
     "frontend/js/voice/backchannel/backchannel_provider.js",
-    "frontend/js/voice/caption_highlight_policy.js",
     "frontend/js/voice/caption_sync_policy.js",
-    "frontend/js/voice/caption_word_timeline.js",
     "frontend/js/voice/capture/browser_audio_adapter.js",
     "frontend/js/voice/capture/capture_adapter.js",
     "frontend/js/voice/compatibility/legacy_runtime_bridge.js",
