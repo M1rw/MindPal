@@ -72,19 +72,30 @@ export class RealTokenProvider implements TokenProvider {
 
   public async getToken(): Promise<RealVoiceToken> {
     if (this.cached && this.cached.expiresAt - this.nowMs() > 30_000) return this.cached;
+    const token = await this.fetchToken(null);
+    this.cached = token;
+    return token;
+  }
 
+  public async getFallbackToken(): Promise<RealVoiceToken> {
+    const grant = this.cached?.fallbackGrant ?? this.fallbackGrant?.();
+    if (!grant) throw new VoiceTokenError("Voice fallback grant is unavailable", { retryable: false });
+    const token = await this.fetchToken(grant);
+    this.cached = token;
+    return token;
+  }
+
+  private async fetchToken(fallbackGrant: string | null): Promise<RealVoiceToken> {
     let authToken = await this.getAuthToken();
     let appCheckToken = await this.getAppCheckToken();
     let lastError: unknown = null;
 
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
       try {
-        const response = await this.fetchImpl(this.buildUrl(), {
+        const response = await this.fetchImpl(this.buildUrl(fallbackGrant), {
           method: "GET",
           headers: buildHeaders(authToken, appCheckToken),
           cache: "no-store",
-          // The Vercel preview uses same-origin SSO cookies. Keep cookies for
-          // same-origin token calls, but do not send them cross-origin.
           credentials: "same-origin",
         });
         if (!response.ok) {
@@ -100,10 +111,7 @@ export class RealTokenProvider implements TokenProvider {
           throw error;
         }
 
-        const parsed = await response.json() as unknown;
-        const token = parseVoiceToken(parsed, this.nowMs());
-        this.cached = token;
-        return token;
+        return parseVoiceToken(await response.json() as unknown, this.nowMs());
       } catch (error) {
         lastError = error;
         const normalized = error instanceof VoiceTokenError
@@ -116,8 +124,8 @@ export class RealTokenProvider implements TokenProvider {
     throw lastError instanceof Error ? lastError : new VoiceTokenError("Voice token request failed");
   }
 
-  private buildUrl(): string {
-    const grant = this.fallbackGrant?.();
+  private buildUrl(fallbackGrant: string | null): string {
+    const grant = fallbackGrant ?? this.fallbackGrant?.() ?? null;
     const url = `${this.baseUrl}/api/voice/token`;
     return grant ? `${url}?fallback_grant=${encodeURIComponent(grant)}` : url;
   }

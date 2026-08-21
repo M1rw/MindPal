@@ -132,6 +132,17 @@ export class WebSocketTransportManager {
   }
 
   public async connect(): Promise<void> {
+    return this.connectWithToken(() => this.tokenProvider.getToken());
+  }
+
+  /** Retry once with the provider’s explicitly configured fallback token. */
+  public async connectFallback(): Promise<void> {
+    const getFallbackToken = this.tokenProvider.getFallbackToken;
+    if (!getFallbackToken) throw new Error("Voice fallback token is unavailable");
+    return this.connectWithToken(() => getFallbackToken.call(this.tokenProvider));
+  }
+
+  private async connectWithToken(getToken: () => Promise<VoiceToken>): Promise<void> {
     if (this.transportState === "OPEN") return;
     if (this.connectPromise) return this.connectPromise;
 
@@ -143,7 +154,7 @@ export class WebSocketTransportManager {
     });
 
     try {
-      this.token = await this.tokenProvider.getToken();
+      this.token = await getToken();
       this.setupContext = this.getSetupContext ? await this.getSetupContext() : null;
       if (this.transportState === "CLOSING" || this.transportState === "CLOSED") {
         throw new Error("transport closed while acquiring token");
@@ -152,7 +163,7 @@ export class WebSocketTransportManager {
       this.socket = this.webSocketFactory(url);
       this.attachSocketHandlers(this.socket);
       this.startSetupTimeout();
-      this.debug("[Transport] socket created", { url: redactToken(url) });
+      this.debug("[Transport] socket created", { url: redactToken(url), model: this.token.model });
     } catch (error) {
       this.failConnect(toError(error, "transport connection failed"));
     }
@@ -279,7 +290,7 @@ export class WebSocketTransportManager {
         model,
         generationConfig: {
           responseModalities: ["AUDIO"],
-          thinkingConfig: { thinkingLevel: "minimal" },
+          thinkingConfig: buildThinkingConfig(this.token.model),
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: {
@@ -489,6 +500,10 @@ export class WebSocketTransportManager {
       console.debug(new Date().toISOString(), message, details ?? "");
     }
   }
+}
+
+function buildThinkingConfig(model: string): { readonly thinkingLevel: "minimal" } | { readonly thinkingBudget: 0 } {
+  return /gemini-3\.1/i.test(model) ? { thinkingLevel: "minimal" } : { thinkingBudget: 0 };
 }
 
 function appendAccessToken(url: string, token: string): string {

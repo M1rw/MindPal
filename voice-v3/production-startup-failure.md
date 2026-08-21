@@ -71,3 +71,13 @@ Google’s official Live API WebSocket quickstart states that ephemeral tokens m
 ## Cache-busting and error observability checkpoint
 
 The public HTML and app bundle now use versioned URLs, and live logs show the current `runtime.js` and `app-CQGnRunY.js` being fetched from the READY deployment. The production browser no longer reports the stale dynamic-module loader error, but the session still surfaces `Gemini setupComplete timeout`. The transport now rejects and reports explicit Gemini `error` / `serverError` frames immediately, with a regression test, so the next live attempt will expose the provider’s actual setup rejection if one is being ignored.
+
+## Latest production diagnostic and code audit (2026-08-21)
+
+Deployment `dpl_9iDxzKuGYRipBrJt15YDomAMrNjU` for commit `3488606` reached READY. The authenticated browser fetched the current `runtime.js` and `app-EWyjxJSX.js` from that deployment, obtained a 200 ephemeral token from `/api/voice/token`, opened the Gemini socket, and still displayed `Error: Gemini setupComplete timeout` after 15 seconds. Vercel runtime logs show no provider error frame or socket-close event before the client timeout.
+
+Google’s current Live API documentation confirms the ephemeral-token endpoint must be `v1beta...BidiGenerateContentConstrained`, the setup model uses `models/{model}`, `speechConfig` belongs inside `generationConfig`, and `setupComplete` is an empty object. The active V3 transport handles the empty object, but the V3 Gemini adapter still only accepted the old boolean form; that mismatch is now patched with a regression test. The active V3 app also has infrastructure for server-issued fallback grants, but the production composition root does not currently wire the grant callback, so a silent primary handshake cannot use the configured Gemini 2.5 fallback.
+
+The remaining production uncertainty is whether Gemini is silently rejecting or not acknowledging the primary constrained session, or whether the absence of an adapter readiness event contributes to the observed failure. The next safe change is to deploy the adapter parser correction plus explicit fallback/diagnostic wiring, then retest only on the main production alias.
+
+References: https://ai.google.dev/api/live; https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens; https://ai.google.dev/gemini-api/docs/live-api/get-started-websocket; https://ai.google.dev/gemini-api/docs/live-api/capabilities.

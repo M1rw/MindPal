@@ -8,6 +8,8 @@ export type VoiceToken = {
 
 export interface TokenProvider {
   getToken(): Promise<VoiceToken>;
+  /** Optional one-time fallback exchange using the grant returned with the primary token. */
+  getFallbackToken?(): Promise<VoiceToken>;
 }
 
 export type MockTokenProviderOptions = {
