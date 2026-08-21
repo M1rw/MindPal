@@ -16,21 +16,64 @@ const EMPTY_STATE = Object.freeze({
 let controller = null;
 let controllerPromise = null;
 
+// Keep the V3 runtime out of the main application bundle, but load it through
+// the browser's native module-script pipeline. This avoids the production-only
+// failure mode where import() reports a generic "failed to fetch dynamically
+// imported module" error even though the asset itself is reachable.
+const V3_RUNTIME_PATH = "/voice-v3/assets/runtime.js";
+const V3_RUNTIME_VERSION = "voice-v3-runtime-20260822";
+const V3_RUNTIME_SCRIPT_ATTRIBUTE = "data-mindpal-voice-v3-runtime";
+
+function getRuntimeFactory() {
+  return globalThis.window?.__MINDPAL_VOICE_V3_RUNTIME__?.createVoiceV3Controller;
+}
+
+function createControllerFromGlobal() {
+  const factory = getRuntimeFactory();
+  if (typeof factory !== "function") {
+    throw new Error("MindPal Voice V3 runtime did not expose a controller factory");
+  }
+  controller = factory();
+  return controller;
+}
+
 async function loadController() {
   if (controller) return controller;
   if (!controllerPromise) {
-    const runtimeUrl = new URL("../voice-v3/assets/runtime.js", import.meta.url);
-    controllerPromise = import(runtimeUrl.href)
-      .then((runtime) => {
-        const factory = runtime.createVoiceV3Controller || globalThis.window?.__MINDPAL_VOICE_V3_RUNTIME__?.createVoiceV3Controller;
-        if (typeof factory !== "function") throw new Error("MindPal Voice V3 runtime did not expose a controller factory");
-        controller = factory();
-        return controller;
-      })
-      .catch((error) => {
-        controllerPromise = null;
-        throw error;
-      });
+    controllerPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector(`script[${V3_RUNTIME_SCRIPT_ATTRIBUTE}]`);
+      if (getRuntimeFactory()) {
+        resolve(createControllerFromGlobal());
+        return;
+      }
+      // A failed module script never fires another load event. Remove it so a
+      // subsequent user attempt can make a clean request instead of hanging.
+      existingScript?.remove();
+
+      const script = document.createElement("script");
+      script.type = "module";
+      script.async = true;
+      script.setAttribute(V3_RUNTIME_SCRIPT_ATTRIBUTE, "true");
+      const runtimeUrl = new URL(V3_RUNTIME_PATH, document.baseURI);
+      runtimeUrl.searchParams.set("v", V3_RUNTIME_VERSION);
+      script.src = runtimeUrl.href;
+      script.onload = () => {
+        try {
+          resolve(createControllerFromGlobal());
+        } catch (error) {
+          script.remove();
+          reject(error);
+        }
+      };
+      script.onerror = () => {
+        script.remove();
+        reject(new Error(`MindPal Voice V3 runtime failed to load: ${runtimeUrl.href}`));
+      };
+      document.head.appendChild(script);
+    }).catch((error) => {
+      controllerPromise = null;
+      throw error;
+    });
   }
   return controllerPromise;
 }
