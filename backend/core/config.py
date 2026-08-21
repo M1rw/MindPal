@@ -135,10 +135,11 @@ class Settings(BaseSettings):
 
     # ── LLM Provider Secrets ─────────────────────────────────────
     GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
-    # Gemini API’s current 2.5 Live identifier is the native-audio preview model.
-    # A separate fallback keeps a temporary primary-model provisioning failure
-    # from ending Voice. Cloud Agent Platform model IDs are not valid here.
-    GEMINI_LIVE_MODEL: str = Field(default="gemini-2.5-flash-native-audio-preview-12-2025", min_length=1, max_length=120)
+    # Gemini 3.1 Live is the production primary because the canonical browser
+    # session returned audio but no 2.5 native-audio transcription events.
+    # Keep Gemini 2.5 Native Audio as the bounded startup fallback so the app
+    # preserves the requested Gemini voice path when 3.1 provisioning fails.
+    GEMINI_LIVE_MODEL: str = Field(default="gemini-3.1-flash-live-preview", min_length=1, max_length=120)
     GEMINI_LIVE_FALLBACK_MODEL: str = Field(default="gemini-2.5-flash-native-audio-preview-12-2025", min_length=1, max_length=120)
     GEMINI_TRANSCRIPTION_MODEL: str = Field(default="gemini-3.1-flash-lite", min_length=1, max_length=120)
     VOICE_TOKEN_TTL_SECONDS: int = Field(default=1800, ge=300, le=1800)
