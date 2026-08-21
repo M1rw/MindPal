@@ -150,11 +150,6 @@ export function createPlaybackManager({
     const durationMs = (buffer.duration || 0) * 1000;
     const contextNow = audioContext.currentTime || 0;
     const startAt = Math.max(contextNow, nextStartTime || 0);
-    // Translate the AudioContext schedule into the same wall clock used by
-    // caption highlighting. This includes already-buffered audio, so the
-    // highlight starts when PCM is actually heard, not when the packet arrived.
-    const startAtMs = now() + Math.max(0, (startAt - contextNow) * 1000);
-    const endAtMs = startAtMs + durationMs;
     const entry = { generation, audioClass, identity, node: sourceNode, gainNode, baseGain };
     sources.add(entry);
     playing = true;
@@ -170,9 +165,9 @@ export function createPlaybackManager({
     const classKey = `${generation}:${audioClass}`;
     if (!startedAudioClasses.has(classKey)) {
       startedAudioClasses.add(classKey);
-      emit("playback.started", { generation, audioClass, identity, durationMs, startAtMs, endAtMs, queuedSourceCount: sources.size });
+      emit("playback.started", { generation, audioClass, identity, durationMs, queuedSourceCount: sources.size });
     } else {
-      emit("playback.chunk-scheduled", { generation, audioClass, identity, durationMs, startAtMs, endAtMs, queuedSourceCount: sources.size });
+      emit("playback.chunk-scheduled", { generation, audioClass, identity, durationMs, queuedSourceCount: sources.size });
     }
     return true;
   }

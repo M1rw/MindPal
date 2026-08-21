@@ -21,11 +21,6 @@ import {
   setAnalysers,
 } from "./voice_visualizer.js";
 import { planPacedCaptionSegments } from "./voice/caption_sync_policy.js";
-import { findCaptionHighlightRange } from "./voice/caption_highlight_policy.js";
-import {
-  estimateCaptionDurationMs,
-  getCaptionWordAtProgress,
-} from "./voice/caption_word_timeline.js";
 
 // ═══════════════════════════════════════════════════════════════
 // State
@@ -56,14 +51,6 @@ let captionPendingText = "";
 // control the moving spoken-word highlight, so transcript visibility never
 // waits for the pacing queue.
 let captionSourceText = "";
-let captionHighlightStartChar = 0;
-let captionHighlightEndChar = 0;
-let captionPlaybackStartedAtMs = 0;
-let captionPlaybackDurationMs = 0;
-let captionPlaybackEndAtMs = 0;
-let captionPlaybackFinished = false;
-let captionHighlightProgress = 0;
-let captionHighlightFrame = null;
 let captionNextReleaseAtMs = 0;
 let captionAudioStartAtMs = 0;
 let captionTurnSerial = 0;
@@ -158,15 +145,6 @@ export async function startLiveVoice(contextProvider = null) {
   captionBufferedText = "";
   captionPendingText = "";
   captionSourceText = "";
-  captionHighlightStartChar = 0;
-  captionHighlightEndChar = 0;
-  captionPlaybackStartedAtMs = 0;
-  captionPlaybackDurationMs = 0;
-  captionPlaybackEndAtMs = 0;
-  captionPlaybackFinished = false;
-  captionHighlightProgress = 0;
-  if (captionHighlightFrame) cancelAnimationFrame(captionHighlightFrame);
-  captionHighlightFrame = null;
   captionNextReleaseAtMs = 0;
   captionAudioStartAtMs = 0;
   if (captionReleaseTimer) clearTimeout(captionReleaseTimer);
@@ -334,27 +312,11 @@ function isolateMixedScriptRuns(text, direction) {
   return value.replace(/[\u0590-\u08FF][\u0590-\u08FF0-9\u0660-\u0669@._:/+%#?=&-]*(?:[ ]+[\u0590-\u08FF0-9\u0660-\u0669@._:/+%#?=&-]+)*/g, (match) => `${String.fromCodePoint(0x2067)}${match}${String.fromCodePoint(0x2069)}`);
 }
 
-function renderCaptionText(caption, rawText, { highlightStart = 0, highlightEnd = 0 } = {}) {
+function renderCaptionText(caption, rawText) {
   const value = String(rawText || "");
-  const direction = detectCaptionDirection(value);
-  const start = Math.max(0, Math.min(value.length, Number(highlightStart) || 0));
-  const end = Math.max(start, Math.min(value.length, Number(highlightEnd) || 0));
-  caption.dir = direction;
+  caption.dir = detectCaptionDirection(value);
   caption.setAttribute("aria-label", value);
-  caption.replaceChildren();
-
-  const addRun = (text, className) => {
-    if (!text) return;
-    const span = document.createElement("span");
-    span.className = className;
-    span.dir = direction;
-    span.textContent = isolateMixedScriptRuns(text, direction);
-    caption.appendChild(span);
-  };
-
-  addRun(value.slice(0, start), "voice-caption__spoken");
-  addRun(value.slice(start, end), "voice-caption__current");
-  addRun(value.slice(end), "voice-caption__upcoming");
+  caption.replaceChildren(document.createTextNode(isolateMixedScriptRuns(value, caption.dir)));
 }
 
 function isInternalCaptionText(text) {
@@ -371,15 +333,6 @@ function clearCaptionReleaseQueue({ preserveSource = false } = {}) {
   captionPendingText = "";
   captionNextReleaseAtMs = 0;
   captionAudioStartAtMs = 0;
-  captionHighlightStartChar = 0;
-  captionHighlightEndChar = 0;
-  captionPlaybackStartedAtMs = 0;
-  captionPlaybackDurationMs = 0;
-  captionPlaybackEndAtMs = 0;
-  captionPlaybackFinished = false;
-  captionHighlightProgress = 0;
-  if (captionHighlightFrame) cancelAnimationFrame(captionHighlightFrame);
-  captionHighlightFrame = null;
   if (!preserveSource) {
     captionBufferedText = "";
     captionSourceText = "";
@@ -447,54 +400,9 @@ function armCaptionFallback() {
   }, 1_800);
 }
 
-function renderCaptionWordRange(range) {
-  if (!currentCaption || !captionSourceText || !range) return;
-  captionHighlightStartChar = range.start;
-  captionHighlightEndChar = range.end;
-  renderCaptionText(currentCaption, captionSourceText, {
-    highlightStart: captionHighlightStartChar,
-    highlightEnd: captionHighlightEndChar,
-  });
-}
-
-function startCaptionWordClock() {
-  if (captionHighlightFrame || !captionPlaybackStartedAtMs) return;
-  const tick = () => {
-    captionHighlightFrame = null;
-    if (!isLiveActive || !currentCaption || !captionSourceText || !captionPlaybackStartedAtMs) return;
-
-    // The first PCM chunk often arrives before the remaining transcript/audio
-    // chunks. Use the measured scheduled duration when available and a speech
-    // estimate as a temporary floor; progress is monotonic so later duration
-    // updates can never make the highlight jump backward.
-    const durationMs = Math.max(
-      1,
-      captionPlaybackDurationMs,
-      captionPlaybackEndAtMs - captionPlaybackStartedAtMs,
-      estimateCaptionDurationMs(captionSourceText),
-    );
-    const elapsedMs = Math.max(0, Date.now() - captionPlaybackStartedAtMs);
-    const liveProgress = Math.min(0.985, elapsedMs / durationMs);
-    captionHighlightProgress = captionPlaybackFinished
-      ? 1
-      : Math.max(captionHighlightProgress, liveProgress);
-    renderCaptionWordRange(getCaptionWordAtProgress(captionSourceText, captionHighlightProgress));
-    captionHighlightFrame = requestAnimationFrame(tick);
-  };
-  captionHighlightFrame = requestAnimationFrame(tick);
-}
-
-function handleMainPlaybackStarted({ durationMs = 0, startAtMs = 0, endAtMs = 0 } = {}) {
-  captionAudioStartAtMs ||= Number(startAtMs) || Date.now();
-  captionPlaybackStartedAtMs ||= Number(startAtMs) || captionAudioStartAtMs;
-  captionPlaybackEndAtMs = Math.max(captionPlaybackEndAtMs, Number(endAtMs) || 0);
-  captionPlaybackDurationMs = Math.max(
-    captionPlaybackDurationMs,
-    Number(durationMs) || 0,
-    captionPlaybackEndAtMs - captionPlaybackStartedAtMs,
-  );
+function handleMainPlaybackStarted() {
+  captionAudioStartAtMs ||= Date.now();
   flushPendingCaptionText({ audioStartMs: captionAudioStartAtMs });
-  startCaptionWordClock();
 }
 
 function renderAiCaptionChunk(cleaned) {
@@ -512,17 +420,8 @@ function renderAiCaptionChunk(cleaned) {
   }
   if (!currentCaption) return;
 
-  const captionText = currentCaption.dataset.rawText || captionSourceText || "";
-  const segment = String(cleaned).trim();
-  if (!captionText || !segment) return;
-  const range = findCaptionHighlightRange(captionText, segment, captionHighlightEndChar);
-  if (!range) return;
-  captionHighlightStartChar = range.start;
-  captionHighlightEndChar = range.end;
-  renderCaptionText(currentCaption, captionText, {
-    highlightStart: captionHighlightStartChar,
-    highlightEnd: captionHighlightEndChar,
-  });
+  if (!captionSourceText.trim()) return;
+  renderCaptionText(currentCaption, captionSourceText);
   scrollTranscript();
 }
 
@@ -571,12 +470,8 @@ function handleTranscript(type, text) {
     if (!currentCaption) currentCaption = createAiCaption();
     if (currentCaption) {
       currentCaption.dataset.rawText = captionSourceText;
-      renderCaptionText(currentCaption, captionSourceText, {
-        highlightStart: captionHighlightStartChar,
-        highlightEnd: captionHighlightEndChar,
-      });
+      renderCaptionText(currentCaption, captionSourceText);
       scrollTranscript();
-      startCaptionWordClock();
     }
   }
   captionPendingText = appendTranscriptChunk(captionPendingText, cleaned);
@@ -602,25 +497,11 @@ function renderMinimalVoiceStatus() {
 function handleVoiceDiagnostic(event = {}) {
   console.debug("[MindPal Voice][diagnostic]", event);
   if (["voice.socket-error", "voice.socket-closed", "provider.error", "provider.closed"].includes(event?.type)) console.warn("[MindPal Voice]", event);
-  if (event?.type === "voice.playback.started" && event.audioClass === "main") handleMainPlaybackStarted(event);
-  if (event?.type === "voice.playback.chunk-scheduled" && event.audioClass === "main") {
-    captionPlaybackEndAtMs = Math.max(captionPlaybackEndAtMs, Number(event.endAtMs) || 0);
-    captionPlaybackDurationMs = Math.max(
-      captionPlaybackDurationMs,
-      captionPlaybackEndAtMs - captionPlaybackStartedAtMs,
-    );
-  }
+  if (event?.type === "voice.playback.started" && event.audioClass === "main") handleMainPlaybackStarted();
   if (event?.type === "voice.playback.ended" && event.audioClass === "main" && !captionQueue.length && !captionPendingText) {
     captionAudioStartAtMs = 0;
-    captionPlaybackStartedAtMs = 0;
-    captionPlaybackDurationMs = 0;
-    captionPlaybackFinished = true;
-    captionHighlightProgress = 1;
-    renderCaptionWordRange(getCaptionWordAtProgress(captionSourceText, 1));
     captionNextReleaseAtMs = 0;
     captionBufferedText = "";
-    if (captionHighlightFrame) cancelAnimationFrame(captionHighlightFrame);
-    captionHighlightFrame = null;
   }
   if (event?.type === "voice.playback.flushed" && event.reason === "provider-interrupted") {
     clearCaptionReleaseQueue({ preserveSource: true });

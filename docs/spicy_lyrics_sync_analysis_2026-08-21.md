@@ -17,3 +17,7 @@ MindPal previously rendered only the latest paced transcript chunk and moved the
 The new MindPal path uses `caption_word_timeline.js` for Unicode-safe word tokenization, estimated duration, and progress-to-word mapping. `voice_live.js` renders spans for spoken, current, and upcoming words. A continuous animation frame updates the current range, while provider transcript events only extend the full source text and audio diagnostics establish the clock origin and measured duration. Arabic-English text retains the existing directional isolation logic.
 
 This is an adaptation of the reference’s timing principle, not a copy of its Spotify-specific code or visual implementation.
+
+## Production verification note
+
+Commit `03997bc` deployed as Vercel deployment `dpl_43SX71EJKPgBRZ4H3hcWsWH2chNe`, which reached `READY` and was aliased to `mindpal-demo.vercel.app`. The canonical browser session was opened without a query parameter. The Voice greeting was observed in the live overlay; the available greeting was short enough that one captured frame showed only the partial text `Hel` while the session was speaking. This frame is not sufficient evidence for a long-response word-by-word acceptance test, so the implementation is validated by deterministic timing tests and the deployed playback schedule fields, but long-response visual smoothness should still be checked with a deliberately longer spoken turn.
