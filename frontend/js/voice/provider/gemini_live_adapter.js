@@ -74,17 +74,35 @@ export function normalizeGeminiServerMessage(message, context = {}) {
     }));
   }
 
-  if (serverContent.inputTranscription) {
+  // Raw BidiGenerateContent documents `inputTranscription` and
+  // `outputTranscription`. Some native-audio wrappers/preview surfaces expose
+  // the same payload as `inputAudioTranscription` / `outputAudioTranscription`
+  // (or snake_case) before it is normalized by an SDK. Accept those aliases at
+  // this boundary so captions do not silently disappear when the constrained
+  // endpoint returns the SDK-shaped names.
+  const inputTranscription = serverContent.inputTranscription
+    || serverContent.inputAudioTranscription
+    || serverContent.input_audio_transcription
+    || data.inputTranscription
+    || data.inputAudioTranscription
+    || data.input_audio_transcription;
+  if (inputTranscription) {
     events.push(createVoiceEvent(VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT, {
       identity,
-      text: serverContent.inputTranscription.text || "",
+      text: inputTranscription.text || "",
       finished: Boolean(serverContent.turnComplete),
       raw: data,
     }));
   }
 
-  const providerOutputText = sanitizeCaptionFallbackText(serverContent.outputTranscription?.text || "");
-  if (serverContent.outputTranscription && providerOutputText) {
+  const outputTranscription = serverContent.outputTranscription
+    || serverContent.outputAudioTranscription
+    || serverContent.output_audio_transcription
+    || data.outputTranscription
+    || data.outputAudioTranscription
+    || data.output_audio_transcription;
+  const providerOutputText = sanitizeCaptionFallbackText(outputTranscription?.text || "");
+  if (outputTranscription && providerOutputText) {
     events.push(createVoiceEvent(VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT, {
       identity,
       text: providerOutputText,

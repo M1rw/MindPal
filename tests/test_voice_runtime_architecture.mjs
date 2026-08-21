@@ -72,6 +72,22 @@ test("Gemini adapter falls back to model-turn text for visible captions", () => 
   );
 });
 
+test("Gemini adapter accepts native-audio transcription aliases", () => {
+  const sdkShaped = normalizeGeminiServerMessage({
+    serverContent: {
+      outputAudioTranscription: { text: "Alias caption." },
+      inputAudioTranscription: { text: "Alias input." },
+    },
+  });
+  assert.equal(sdkShaped.find((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT)?.text, "Alias caption.");
+  assert.equal(sdkShaped.find((event) => event.type === VOICE_EVENTS.PROVIDER_INPUT_TRANSCRIPT)?.text, "Alias input.");
+
+  const snakeCase = normalizeGeminiServerMessage({
+    serverContent: { output_audio_transcription: { text: "Snake caption." } },
+  });
+  assert.equal(snakeCase.find((event) => event.type === VOICE_EVENTS.PROVIDER_OUTPUT_TRANSCRIPT)?.text, "Snake caption.");
+});
+
 test("Gemini adapter filters internal reasoning from model-text caption fallback", () => {
   const thoughtPart = normalizeGeminiServerMessage({
     serverContent: {
