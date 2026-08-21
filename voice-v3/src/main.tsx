@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { createVoiceV3App, type VoiceProviderMode, type VoiceV3App } from "./app";
 import { DebugPanel } from "./debug/DebugPanel";
 import { ErrorBoundary } from "./debug/ErrorBoundary";
+import { DEFAULT_VOICE_V3_FEATURE_FLAGS } from "./integration/feature-flags";
 
 const REVIEW_PERSONAS = ["Kore", "Charon"] as const;
 const REVIEW_CUES = ["mhm", "yeah", "aha", "right", "okay"] as const;
@@ -72,17 +73,30 @@ function VoiceV3ReviewPage() {
 
   const startSession = async (persona: string): Promise<void> => {
     session?.app.dispose();
-    const nextApp = createVoiceV3App({ providerMode: "real", productionMode: true, voicePersona: persona });
+    const nextApp = createVoiceV3App({
+      providerMode: "real",
+      productionMode: true,
+      voicePersona: persona,
+      // The review route is an explicitly gated internal harness. Production
+      // users still inherit the normal disabled-by-default V3 flag state.
+      featureFlags: { ...DEFAULT_VOICE_V3_FEATURE_FLAGS, VOICE_V3_ENABLED: true },
+    });
     setError(null);
     setEvents([]);
-    setActivePersona(persona);
-    setSession({ app: nextApp, persona });
+    setActivePersona(null);
+    setSession(null);
     try {
       await nextApp.start({ startCapture: false });
+      if (!nextApp.transportManager.isReady) {
+        throw new Error("Gemini Live transport did not complete setup");
+      }
+      setActivePersona(persona);
+      setSession({ app: nextApp, persona });
       setEvents([`Gemini Live ready · ${persona}`]);
     } catch (reason: unknown) {
       nextApp.dispose();
       setSession(null);
+      setActivePersona(null);
       setError(reason instanceof Error ? reason.message : "Gemini Live session failed to start");
     }
   };
