@@ -750,7 +750,7 @@ async def _create_ephemeral_voice_token(
                     "expire_time": expires_at,
                     "new_session_expire_time": new_session_expires_at,
                     "live_connect_constraints": {
-                        "model": model,
+                        "model": _live_model_resource_name(model),
                         "config": {"session_resumption": {}, "response_modalities": ["AUDIO"]},
                     },
                     "http_options": {"api_version": api_version},
@@ -821,10 +821,15 @@ def _is_supported_gemini_api_live_model(model: str) -> bool:
     return normalized.startswith((NATIVE_AUDIO_LIVE_MODEL_PREFIX, GEMINI_31_LIVE_MODEL_PREFIX))
 
 
+def _live_model_resource_name(model: str) -> str:
+    normalized = sanitize_text(model, 120).strip()
+    return normalized if normalized.startswith("models/") else f"models/{normalized}"
+
+
 def _live_api_version(model: str) -> str:
-    # Ephemeral browser tokens are documented for the v1beta Live API
-    # transport. Keep the same endpoint version for both the Gemini 3.1
-    # primary and Gemini 2.5 native-audio fallback models.
+    # Ephemeral browser tokens use the constrained Live API WebSocket service.
+    # Keep the same v1beta endpoint for both the Gemini 3.1 primary and
+    # Gemini 2.5 native-audio fallback models.
     _ = model
     return "v1beta"
 
@@ -832,7 +837,7 @@ def _live_api_version(model: str) -> str:
 def _live_websocket_url(api_version: str) -> str:
     return (
         "wss://generativelanguage.googleapis.com/ws/"
-        f"google.ai.generativelanguage.{api_version}.GenerativeService.BidiGenerateContent"
+        f"google.ai.generativelanguage.{api_version}.GenerativeService.BidiGenerateContentConstrained"
     )
 
 
