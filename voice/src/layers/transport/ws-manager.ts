@@ -321,6 +321,13 @@ export class WebSocketTransportManager {
         model,
         generationConfig: {
           responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: this.voicePersona || "Kore",
+              },
+            },
+          },
         },
         systemInstruction: {
           parts: [
