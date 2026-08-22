@@ -47,6 +47,7 @@ describe("RealTokenProvider browser fetch binding", () => {
     });
 
     const primary = await provider.getToken();
+    expect(provider.hasFallbackToken()).toBe(true);
     const fallback = await provider.getFallbackToken?.();
 
     expect(primary.model).toBe("gemini-3.1-flash-live-preview");
@@ -55,6 +56,20 @@ describe("RealTokenProvider browser fetch binding", () => {
       "/api/voice/token",
       "/api/voice/token?fallback_grant=fallback-grant-opaque",
     ]);
+  });
+
+  it("reports no fallback capability when the primary response has no grant", async () => {
+    const provider = new RealTokenProvider({
+      fetchImpl: async () => tokenResponse(),
+      getAuthToken: async () => "firebase-id-token",
+      retryDelayMs: 0,
+      maxAttempts: 1,
+    });
+
+    await provider.getToken();
+
+    expect(provider.hasFallbackToken()).toBe(false);
+    await expect(provider.getFallbackToken()).rejects.toThrow("Voice fallback grant is unavailable");
   });
 
   it("invokes the default fetch with the global receiver", async () => {
