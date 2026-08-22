@@ -830,14 +830,10 @@ def _live_model_resource_name(model: str) -> str:
 
 
 def _live_api_version(model: str) -> str:
-    # The current official ephemeral-token reference specifies v1beta, but the
-    # maintained Google ephemeral-token WebSocket sample and developer-thread
-    # resolution use the constrained v1alpha endpoint. Isolate the 2.5 native
-    # audio compatibility experiment here; keep 3.1 on the documented v1beta
-    # path until the 2.5 socket behavior is verified in production.
-    normalized = sanitize_text(model, 120).lower()
-    if normalized.startswith(NATIVE_AUDIO_LIVE_MODEL_PREFIX):
-        return "v1alpha"
+    # Ephemeral tokens are documented for the v1beta constrained Live API
+    # service. Keep one endpoint for both supported Native Audio models so the
+    # token provisioning and browser WebSocket versions cannot diverge.
+    _ = model
     return "v1beta"
 
 

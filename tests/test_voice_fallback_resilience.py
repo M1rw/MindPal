@@ -120,10 +120,10 @@ async def test_primary_31_failure_falls_back_once_to_25_and_commits_once(monkeyp
 
     assert calls == [
         ("gemini-3.1-flash-live-preview", "v1beta"),
-        ("gemini-2.5-flash-native-audio-preview-12-2025", "v1alpha"),
+        ("gemini-2.5-flash-native-audio-preview-12-2025", "v1beta"),
     ]
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
-    assert "v1alpha.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
+    assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
     assert service.quota.reserve_count == 1
     assert service.quota.commit_count == 1
     assert service.quota.refund_count == 0
@@ -171,7 +171,7 @@ async def test_dual_failure_refunds_once_and_does_not_return_partial_credentials
     assert error.value.status_code == 502
     assert calls == [
         ("gemini-3.1-flash-live-preview", "v1beta"),
-        ("gemini-2.5-flash-native-audio-preview-12-2025", "v1alpha"),
+        ("gemini-2.5-flash-native-audio-preview-12-2025", "v1beta"),
     ]
     assert service.quota.reserve_count == 1
     assert service.quota.commit_count == 0
@@ -193,7 +193,7 @@ async def test_fallback_success_preserves_model_identity_for_frontend_setup(monk
     result = await voice_router.get_voice_token(Response(), service, context())
 
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
-    assert result.websocket_url.endswith("v1alpha.GenerativeService.BidiGenerateContentConstrained")
+    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContentConstrained")
 
 
 @pytest.mark.asyncio
