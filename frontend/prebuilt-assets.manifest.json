@@ -1,12 +1,12 @@
 {
   "outputs": {
     "frontend/css/tailwind.generated.css": {
-      "bytes": 36566,
-      "sha256": "7a716cc976794c8da3444fc6c97e17afdbfe5a5040e003c3d23ea02938169e10"
+      "bytes": 36537,
+      "sha256": "29186ff1489a614b80f83516f8ebb9e87ba86118ed4cd2b48fd54f5888b19e1c"
     },
     "frontend/dist/app.bundle.js": {
-      "bytes": 357105,
-      "sha256": "6b433d5e44f80e0dc4934b1f192d08e79547c62f4e917f7b2acef1efc312681e"
+      "bytes": 357244,
+      "sha256": "b24015bbd72df2da76ced4ee0038fd483c8d06cc5b79d5f60ea4618f860d8533"
     },
     "frontend/dist/lucide.bundle.js": {
       "bytes": 16029,
@@ -14,7 +14,7 @@
     }
   },
   "schema_version": 1,
-  "source_digest": "1965270362d5d3c648d488ef70270d5571122c7dfb4c4b546478f08c1e609502",
+  "source_digest": "4ccd3e9a2f89cfff1da3ff857c873670455fea59db51b5c8f4404edc72dab2ba",
   "source_files": [
     "frontend/css/tailwind.input.css",
     "frontend/index.html",
@@ -51,15 +51,13 @@
     "frontend/js/voice/architecture/index.js",
     "frontend/js/voice/architecture/invariants.js",
     "frontend/js/voice/architecture/state.js",
-    "frontend/js/voice/archive/runtime.legacy.js",
-    "frontend/js/voice/archive/voice_session_v2.legacy.js",
+    "frontend/js/voice/auth_bridge.js",
     "frontend/js/voice/backchannel/backchannel_manager.js",
     "frontend/js/voice/backchannel/backchannel_policy.js",
     "frontend/js/voice/backchannel/backchannel_provider.js",
     "frontend/js/voice/caption_sync_policy.js",
     "frontend/js/voice/capture/browser_audio_adapter.js",
     "frontend/js/voice/capture/capture_adapter.js",
-    "frontend/js/voice/compatibility/legacy_runtime_bridge.js",
     "frontend/js/voice/constants.js",
     "frontend/js/voice/conversation_policy.js",
     "frontend/js/voice/evidence/evidence_gate.js",
@@ -76,7 +74,6 @@
     "frontend/js/voice/provider_policy.js",
     "frontend/js/voice/recovery_policy.js",
     "frontend/js/voice/response_director.js",
-    "frontend/js/voice/runtime.js",
     "frontend/js/voice/session_policy.js",
     "frontend/js/voice/staging/response_staging_manager.js",
     "frontend/js/voice/staging/staging_policy.js",
@@ -85,10 +82,8 @@
     "frontend/js/voice/tools/tool_gateway.js",
     "frontend/js/voice/transcript_assembler.js",
     "frontend/js/voice/transport/recovery_supervisor.js",
-    "frontend/js/voice/v3_auth_bridge.js",
     "frontend/js/voice_live.js",
     "frontend/js/voice_session.js",
-    "frontend/js/voice_session_v2.js",
     "frontend/js/voice_visualizer.js",
     "package-lock.json",
     "package.json",

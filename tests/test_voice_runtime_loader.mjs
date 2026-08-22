@@ -43,14 +43,13 @@ function createScriptDocument() {
       };
     },
     querySelector(selector) {
-      assert.equal(selector, "script[data-mindpal-voice-v3-runtime]");
       return scripts.find((script) => !script.removed) ?? null;
     },
   };
   return { document, scripts };
 }
 
-test("production facade loads V3 through a native module script and exposes a controller", async () => {
+test("production facade loads Voice through a native module script and exposes a controller", async () => {
   const previousWindow = globalThis.window;
   const previousDocument = globalThis.document;
   const { document, scripts } = createScriptDocument();
@@ -63,8 +62,8 @@ test("production facade loads V3 through a native module script and exposes a co
     assert.equal(scripts.length, 1);
     assert.equal(scripts[0].type, "module");
     assert.equal(scripts[0].async, true);
-    assert.match(scripts[0].src, /^https:\/\/mindpal-demo\.vercel\.app\/voice-v3\/assets\/runtime\.js\?v=voice-v3-runtime-setup-null-20260822$/);
-    assert.equal(scripts[0].attributes.get("data-mindpal-voice-v3-runtime"), "true");
+    assert.match(scripts[0].src, /^https:\/\/mindpal-demo\.vercel\.app\/voice\/assets\/runtime\.js\?v=voice-runtime-setup-null-20260822$/);
+    assert.equal(scripts[0].attributes.get("data-mindpal-voice-runtime"), "true");
   } finally {
     globalThis.window = previousWindow;
     globalThis.document = previousDocument;

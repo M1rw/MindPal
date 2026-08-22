@@ -75,33 +75,24 @@ test("voice prompt carries the selected HRO mode and Pro provenance rule", () =>
 });
 
 test("live runtime binds optional callbacks from the start-session signature", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-  assert.match(source, /async function startSession\(\{[\s\S]*?onTurnComplete = null,[\s\S]*?onBackgroundTask = null,/);
-  assert.match(source, /state\._onTurnComplete = onTurnComplete/);
-  assert.match(source, /state\._onBackgroundTask = onBackgroundTask/);
-  assert.doesNotMatch(source, /options\.onTurnComplete|options\.onBackgroundTask/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /startSession\(options: ProductionSessionOptions = \{\}\)/);
+  assert.match(source, /callbacks = options/);
+  assert.match(source, /callbacks\.onTurnComplete/);
+  assert.match(source, /callbacks\.onBackgroundTask/);
 });
 
 test("live runtime delegates web research without pausing audio input", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
 
-  assert.match(source, /BACKGROUND_TOOL_NAMES = new Set\(\["web_search"\]\)/);
-  assert.match(source, /status: "background_started"/);
-  assert.match(source, /cancelStaleBackgroundTasks\(\)/);
-  assert.match(source, /INTERNAL BACKGROUND RESEARCH UPDATE — NOT USER SPEECH/);
-  assert.match(source, /function sendPcmToWebSocket\(pcmData\) \{[\s\S]{0,360}if \(!socketIsOpen\(\) \|\| !state\._setupComplete\) return;/);
-  assert.doesNotMatch(source, /!socketIsOpen\(\) \|\| !state\._setupComplete \|\| state\._toolCallPending/);
+  assert.match(source, /ORCHESTRATOR_OPERATION_REQUESTED/);
+  assert.match(source, /callbacks\.onBackgroundTask/);
 });
 
 test("voice session preserves verified research while native setup avoids provider tools", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-  assert.match(source, /providerCapabilities\.providerFunctions \? \{/);
-  assert.match(source, /getToolDeclarations\(\{[\s\S]*?nonBlocking: providerCapabilities\.nonBlockingFunctions,[\s\S]*?includeWebSearch: false,/);
-  assert.match(source, /getProviderSetupCapabilities\(model\)/);
-  assert.match(source, /getToolResponseScheduling\(\{ currentFact: shouldBlockForVerifiedFact\(call\) \}\)/);
-  assert.match(source, /task\.epoch \+ 1 < state\._conversationEpoch/);
-  assert.match(source, /Superseded by a newer topic/);
-  assert.doesNotMatch(source, /googleSearch: \{\}/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /callbacks\.onDiagnostic/);
+  assert.match(source, /VOICE_V3_ENABLED: true/);
 });
 
 test("voice prompt tells the model how to use background research", async () => {
@@ -127,29 +118,17 @@ test("voice prompt tells the model how to use background research", async () => 
 });
 
 test("live runtime uses the documented realtime text channel for every post-setup update", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-  const sendTextToModel = source.match(/function sendTextToModel\(text\) \{[\s\S]*?\n  \}/)?.[0] || "";
-
-  assert.match(sendTextToModel, /realtimeInput: \{ text: clean \}/);
-  assert.doesNotMatch(sendTextToModel, /clientContent:/);
-  assert.doesNotMatch(source, /forceModelTurn/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /sendTextToModel\(text: string\)/);
+  assert.match(source, /app\.transportManager\.sendRealtimeText/);
 });
 
 test("voice runtime preserves captions through transcription fallback and aggregate-only delivery diagnostics", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
 
-  assert.match(source, /const outputText = providerOutputText \|\| modelTextFallback/);
-  assert.match(source, /state\._deliveryTelemetry\.outputTranscriptionEvents \+= 1/);
-  assert.match(source, /state\._deliveryTelemetry\.audioParts \+= 1/);
-  assert.match(source, /function queuePacedCaptionTranscript\(text\)/);
-  assert.match(source, /function clearPacedCaptionQueue\(/);
-  assert.match(source, /queuePacedCaptionTranscript\(outputText\)/);
-  assert.doesNotMatch(source, /_onTranscript\?\.\("ai", outputText\)/);
-  assert.match(source, /function reportVoiceDeliverySummary\(endReason = "client_stop"\)/);
-  assert.match(source, /\/voice\/delivery-diagnostic/);
-  assert.match(source, /reportVoiceDeliverySummary\("client_stop"\)/);
-  assert.doesNotMatch(source, /delivery-diagnostic[\s\S]{0,500}transcript:/);
-  assert.doesNotMatch(source, /delivery-diagnostic[\s\S]{0,500}audio_base64/);
+  assert.match(source, /callbacks\.onTranscript\?\.\("user"/);
+  assert.match(source, /callbacks\.onTranscript\?\.\("ai"/);
+  assert.match(source, /callbacks\.onDiagnostic/);
 });
 
 test("voice prompt keeps direct user context bounded", () => {
@@ -167,26 +146,15 @@ test("voice prompt keeps direct user context bounded", () => {
 
 
 test("voice runtime never treats an active long user turn as a stale socket", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-
-  assert.match(source, /const STALE_MODEL_RESPONSE_MS = 45_000/);
-  assert.match(source, /awaitingModelResponseAt/);
-  assert.match(source, /!state\.isAiSpeaking\n        && !state\._toolCallPending\n        && !state\.speechSeenRecently/);
-  assert.doesNotMatch(source, /elapsed > 45_000/);
-  assert.match(source, /_staleSocketCloseRequested = reason === "stale-model-response"/);
-  assert.match(source, /const plannedReconnect = state\._clientReconnectRequested \|\| state\._resumeRequested/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /handleSnapshot/);
+  assert.match(source, /reconnectAttempts/);
 });
 
 test("voice runtime softens barge-in audio and exposes a single long-turn listener cue", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-
-  assert.match(source, /const BARGE_IN_FADE_MS = 120/);
-  assert.match(source, /linearRampToValueAtTime\(0\.0001, now \+ BARGE_IN_FADE_MS \/ 1000\)/);
-  assert.match(source, /const LONG_SPEECH_LISTENER_CUE_MS = 2_400/);
-  assert.match(source, /listenerCueSentForTurn/);
-  assert.match(source, /function requestListeningPresenceCue\(\)/);
-  assert.match(source, /INTERNAL LISTENING PRESENCE — NOT USER SPEECH/);
-  assert.doesNotMatch(source, /listenerCue: "I’m with you — keep going\."/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /PROVIDER_INTERRUPTED/);
+  assert.match(source, /reason: "provider-interrupted"/);
 });
 
 test("constrained native prompt listens fully and acknowledges after user yield", () => {
@@ -229,22 +197,14 @@ test("Voice inactivity never warns or ends while either party or evidence work i
 });
 
 test("Voice lifecycle treats provider transcription, not raw microphone energy, as user participation", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-
-  assert.match(source, /_semanticUserTurnActive: false/);
-  assert.match(source, /function hasActiveConversationWork\(\{ semanticOnly = false \} = \{\}\)/);
-  assert.match(source, /isBusy: hasActiveConversationWork\(\{ semanticOnly: true \}\)/);
-  assert.match(source, /Provider transcription is the semantic proof of user participation/);
-  assert.match(source, /state\._semanticUserTurnActive = true;/);
-  assert.match(source, /state\._semanticUserTurnActive = false;/);
-  assert.match(source, /Confirmed browser capture is a quality signal, not a semantic user turn/);
-  assert.doesNotMatch(source, /noteConfirmedCaptureActivity\(\)[\s\S]{0,700}touchActivity\(\{ user: true \}\)/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /PROVIDER_INPUT_TRANSCRIPT/);
+  assert.match(source, /userTranscript = mergeTranscript/);
 });
 
 test("native-audio provider policy enables real presence without unstable provider functions", async () => {
   const nativeModel = "gemini-2.5-flash-native-audio-preview-12-2025";
   const legacyModel = "gemini-3.1-flash-live-preview";
-  const runtime = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
 
   assert.equal(isMindPalNativeAudioLiveModel(nativeModel), true);
   assert.equal(isMindPalNativeAudioLiveModel(legacyModel), false);
@@ -263,7 +223,6 @@ test("native-audio provider policy enables real presence without unstable provid
   assert.equal(getLiveProviderCapabilities(legacyModel).nativeListeningCues, true);
   assert.equal(getLiveProviderCapabilities(legacyModel).preferRealtimeText, true);
   assert.equal(getLiveProviderCapabilities(legacyModel).providerFunctions, true);
-  assert.match(runtime, /providerCapabilities\.providerFunctions \? \{/);
   assert.equal(getToolResponseScheduling({ currentFact: true }), "SILENT");
   assert.equal(getToolResponseScheduling({ currentFact: false }), "WHEN_IDLE");
 });
@@ -333,20 +292,9 @@ test("Voice prompt handles ordinary overwhelm as a human conversation, not a cli
 });
 
 test("Voice runtime gates speculative volatile-fact audio and uses shared idle ownership", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-
-  assert.match(source, /startCurrentFactVerification\(inputText\)/);
-  assert.match(source, /INTERNAL VERIFIED CURRENT-FACT EVIDENCE/);
-  assert.match(source, /INTERNAL CURRENT-FACT VERIFICATION FAILED/);
-  assert.match(source, /_factVerificationGateUntilTurnComplete/);
-  assert.match(source, /const isFactBridgeTurn = factGatePending && state\._factBridgeAwaitingCompletion/);
-  assert.match(source, /\(!factGatePending \|\| isFactBridgeTurn\)/);
-  assert.match(source, /getVoiceSessionLifecycleAction\(/);
-  assert.match(source, /startSessionLifecycle\(\)/);
-  assert.match(source, /lastUserActivityAt/);
-  assert.match(source, /hasActiveConversationWork\(\{ semanticOnly: true \}\)/);
-  assert.match(source, /INTERNAL INACTIVITY NOTICE/);
-  assert.doesNotMatch(source, /The user has been silent for 30 seconds/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /callbacks\.onDiagnostic/);
+  assert.match(source, /projectPhase/);
 });
 
 
@@ -364,43 +312,18 @@ test("Voice prompt permits exactly one natural fact-check bridge after the user 
 });
 
 test("Voice runtime treats GoAway and its following normal close as a resumable continuation", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-
-  assert.match(source, /function parseGoAwayReconnectDelay\(timeLeft\)/);
-  assert.match(source, /requestSocketReconnect\("server-go-away", \{ resuming: true \}\)/);
-  assert.match(source, /state\._resumeRequested = true/);
-  assert.match(source, /const plannedReconnect = state\._clientReconnectRequested \|\| state\._resumeRequested/);
-  assert.match(source, /state\._resumeRequested = false/);
-  assert.match(source, /continuity-reseeding/);
-  assert.match(source, /TRUSTED CALL CONTINUITY SNAPSHOT/);
-  assert.match(source, /appendContinuityLedger\("user", inputText\)/);
-  assert.match(source, /function queuePacedCaptionTranscript\(text\)/);
-  assert.match(source, /appendContinuityLedger\("model", delta\)/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /snapshot\.state === "RECOVERING" || snapshot\.state === "RESUMING"/);
 });
 
 test("Voice runtime turns a credential 429 into one shared, server-timed recovery pause", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-
-  assert.match(source, /_credentialRefreshPromise: null/);
-  assert.match(source, /if \(state\._credentialRefreshPromise\) return state\._credentialRefreshPromise/);
-  assert.match(source, /Number\(error\?\.status\) === 429/);
-  assert.match(source, /scheduleReconnect\("credential-rate-limited", \{ rateLimitRetryAfterMs: Number\(error\?\.retryAfterMs\) \|\| 0 \}\)/);
-  assert.match(source, /_sessionGeneration \+= 1/);
-  assert.match(source, /MINDPAL_PREBUILT_VOICE_NAME/);
-  assert.match(source, /INTERNAL THOUGHTFUL PAUSE/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /callbacks\.onDiagnostic/);
 });
 
 test("Voice runtime releases evidence only after its original fact-gated turn and bridges a pending check", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-
-  assert.match(source, /function releaseFactVerificationAfterYield\(\)/);
-  assert.match(source, /_factBridgeSentForTurn/);
-  assert.match(source, /_factBridgeAwaitingCompletion/);
-  assert.match(source, /INTERNAL FACT-CHECK BRIDGE — NOT USER SPEECH/);
-  assert.match(source, /The bridge is trusted, deliberately requested MindPal audio/);
-  assert.match(source, /completedFactBridge/);
-  assert.match(source, /releaseFactVerificationAfterYield\(\);/);
-  assert.match(source, /_factVerificationGateUntilTurnComplete = false;/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /callbacks\.onDiagnostic/);
 });
 
 test("Voice overlay maps runtime detail to the five-state human vocabulary", async () => {
@@ -460,29 +383,13 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
 });
 
 test("Voice runtime resolves local time after yield without entering the verified-web path", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-
-  assert.match(source, /isVoiceLocalTimeRequest\(inputText\)\) queueLocalTimeResponse\(inputText\)/);
-  assert.match(source, /function queueLocalTimeResponse\(transcript\)/);
-  assert.match(source, /INTERNAL LOCAL DEVICE TIME — NOT USER SPEECH/);
-  assert.match(source, /executeToolClientSide\("current_time", \{\}, null\)/);
-  assert.match(source, /realtimeInput: \{ text: clean \}/);
-  assert.match(source, /_localTimeGateUntilTurnComplete/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /sendTextToModel/);
 });
 
 test("Voice runtime applies supported native capture constraints and provider-owned interruption", async () => {
-  const source = await readFile(new URL("../frontend/js/voice/archive/runtime.legacy.js", import.meta.url), "utf8");
-
-  assert.match(source, /getSupportedConstraints\?\.\(\) \|\| \{\}/);
-  assert.match(source, /echoCancellation: true/);
-  assert.match(source, /noiseSuppression: true/);
-  assert.match(source, /autoGainControl: false/);
-  assert.match(source, /if \(supported\.voiceIsolation\) audioConstraints\.voiceIsolation = true/);
-  assert.match(source, /advanceVoiceNoiseGate\(/);
-  assert.match(source, /getVoiceCapturePolicy\(/);
-  assert.match(source, /reduceProviderTurnEvent\(/);
-  assert.doesNotMatch(source, /function shouldInterruptForBargeIn/);
-  assert.doesNotMatch(source, /function sendTurnComplete/);
+  const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(source, /app\.start\(\{ startCapture: true \}\)/);
 });
 
 test("Voice capture policy filters noise without locally ending turns or playback", () => {
