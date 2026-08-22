@@ -944,9 +944,9 @@ class AIFaceCanvas {
   resize() {
     if (!this.canvas || !this.ctx) return;
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const rect = this.container?.getBoundingClientRect?.() || this.canvas.getBoundingClientRect?.() || { width: 800, height: 600 };
-    this.width = Math.max(1, rect.width || this.canvas.clientWidth || 800);
-    this.height = Math.max(1, rect.height || this.canvas.clientHeight || 600);
+    const rect = this.canvas.getBoundingClientRect?.() || { width: 400, height: 400 };
+    this.width = Math.max(1, rect.width || this.canvas.clientWidth || 400);
+    this.height = Math.max(1, rect.height || this.canvas.clientHeight || 400);
 
     const targetWidth = Math.round(this.width * dpr);
     const targetHeight = Math.round(this.height * dpr);
@@ -962,7 +962,7 @@ class AIFaceCanvas {
 
     this.centerX = this.width / 2;
     this.centerY = this.height / 2;
-    this.orbRadius = Math.max(100, Math.min(210, Math.min(this.width, this.height) * 0.22));
+    this.orbRadius = Math.max(70, Math.min(120, Math.min(this.width, this.height) * 0.30));
   }
 
   scheduleNextBlink() {
@@ -1077,7 +1077,16 @@ class AIFaceCanvas {
   updatePhysics() {
     this.time += 0.015;
 
-    const vol = Math.max(this.state.micLevel, this.state.aiLevel);
+    // MindPal speaking organic wave pulse fallback if audio level isn't feeding real-time PCM RMS
+    const isAiSpeaking = Boolean(this.state.isAiSpeaking || this.state.phase === "speaking");
+    let syntheticAiVol = 0;
+    if (isAiSpeaking && this.state.aiLevel < 0.05) {
+      syntheticAiVol = 0.35 + Math.sin(this.time * 8) * 0.25 + Math.cos(this.time * 13) * 0.15;
+    }
+
+    const vol = Math.max(this.state.micLevel, this.state.aiLevel, syntheticAiVol);
+    this.springs.orbPulse.set(vol);
+
     if (vol > 0.12 && Math.random() < 0.25) {
       this.addRipple(vol);
     }
@@ -1093,11 +1102,17 @@ class AIFaceCanvas {
       gazeTargetX = isNaN(gazeTargetX) ? 0 : Math.max(-12, Math.min(12, gazeTargetX));
       gazeTargetY = isNaN(gazeTargetY) ? 0 : Math.max(-10, Math.min(10, gazeTargetY));
 
+      // Add gentle dynamic voice gaze drift when speaking/listening
+      if (vol > 0.05) {
+        gazeTargetX += Math.sin(this.time * 5) * 3 * vol;
+        gazeTargetY += Math.cos(this.time * 4) * 2 * vol;
+      }
+
       this.springs.gazeX.set(gazeTargetX);
       this.springs.gazeY.set(gazeTargetY);
     } else if (!this.overrideGaze) {
-      this.springs.gazeX.set(0);
-      this.springs.gazeY.set(0);
+      this.springs.gazeX.set(Math.sin(this.time * 3) * 2 * vol);
+      this.springs.gazeY.set(Math.cos(this.time * 2.5) * 2 * vol);
     }
 
     for (let key in this.springs) {
@@ -1299,16 +1314,9 @@ class AIFaceCanvas {
       }
     }
 
-    const bgGrad = this.ctx.createRadialGradient(
-      this.centerX, this.centerY, 80,
-      this.centerX, this.centerY, Math.max(this.width, this.height)
-    );
-    bgGrad.addColorStop(0, '#0a0d16');
-    bgGrad.addColorStop(0.7, '#06080e');
-    bgGrad.addColorStop(1, '#030407');
-
-    this.ctx.fillStyle = bgGrad;
-    this.ctx.fillRect(0, 0, this.width, this.height);
+    // Clear canvas so the face orb rendered on canvas is completely transparent
+    // and seamlessly floats over the dark fullscreen voice overlay surface.
+    this.ctx.clearRect(0, 0, this.width, this.height);
 
     this.updatePhysics();
 
@@ -1367,14 +1375,18 @@ export function setVoiceFaceDiagnostic(event = {}) {
   }
 }
 
-export function feedVoiceFaceMicLevel(rms) {
-  renderer?.feedMicLevel?.(rms);
-  state = { ...state, micLevel: Number(rms) || 0 };
+export function feedVoiceFaceMicLevel(input) {
+  const rms = typeof input === "object" && input !== null ? input.rms : input;
+  const num = Number(rms) || 0;
+  renderer?.feedMicLevel?.(num);
+  state = { ...state, micLevel: num };
 }
 
-export function feedVoiceFaceAiLevel(level) {
-  renderer?.feedAiLevel?.(level);
-  state = { ...state, aiLevel: Number(level) || 0 };
+export function feedVoiceFaceAiLevel(input) {
+  const level = typeof input === "object" && input !== null ? input.level : input;
+  const num = Number(level) || 0;
+  renderer?.feedAiLevel?.(num);
+  state = { ...state, aiLevel: num };
 }
 
 export function setVoiceFaceAnalysers({ mic = null, ai = null } = {}) {
