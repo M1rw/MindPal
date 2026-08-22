@@ -829,10 +829,14 @@ def _live_model_resource_name(model: str) -> str:
 
 
 def _live_api_version(model: str) -> str:
-    # Ephemeral browser tokens use the constrained Live API WebSocket service.
-    # Keep the same v1beta endpoint for both the Gemini 3.1 primary and
-    # Gemini 2.5 native-audio fallback models.
-    _ = model
+    # The current official ephemeral-token reference specifies v1beta, but the
+    # maintained Google ephemeral-token WebSocket sample and developer-thread
+    # resolution use the constrained v1alpha endpoint. Isolate the 2.5 native
+    # audio compatibility experiment here; keep 3.1 on the documented v1beta
+    # path until the 2.5 socket behavior is verified in production.
+    normalized = sanitize_text(model, 120).lower()
+    if normalized.startswith(NATIVE_AUDIO_LIVE_MODEL_PREFIX):
+        return "v1alpha"
     return "v1beta"
 
 
