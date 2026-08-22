@@ -822,8 +822,10 @@ def _is_supported_gemini_api_live_model(model: str) -> bool:
 
 
 def _live_model_resource_name(model: str) -> str:
+    # The Python SDK example accepts the bare model ID here and serializes it
+    # directly; the browser setup frame separately uses models/{model}.
     normalized = sanitize_text(model, 120).strip()
-    return normalized if normalized.startswith("models/") else f"models/{normalized}"
+    return normalized.removeprefix("models/")
 
 
 def _live_api_version(model: str) -> str:

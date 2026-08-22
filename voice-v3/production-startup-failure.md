@@ -110,3 +110,7 @@ After the constrained endpoint and full model resource name were deployed, the a
 ## Minimal constrained setup experiment
 
 The current browser result after the documented constrained endpoint, normalized model binding, and removal of `thinkingConfig` remained `Gemini setupComplete timeout`. To isolate the handshake contract, the transport was reduced further to the official minimum: `model`, `generationConfig.responseModalities`, native-audio `speechConfig`, and `systemInstruction`. Input/output transcription, automatic activity detection, and session-resumption setup fields were removed for this probe. Local transport and backend regressions pass; production verification of this narrower frame is the next gate. These optional capabilities must be reintroduced only after the provider handshake is confirmed.
+
+## SDK-native constraint model format experiment
+
+The minimal constrained setup still timed out in production, and production logs confirmed both the primary and fallback token exchanges completed with HTTP 200. The current experiment changes only the model value sent inside `live_connect_constraints`: it now uses the bare model ID, matching Google’s official Python SDK ephemeral-token example and the SDK’s direct serialization behavior. The browser setup frame continues to use the required `models/{model}` resource name. This isolates whether the REST-style resource prefix was invalid for the Python SDK token-creation request.
