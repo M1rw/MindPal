@@ -56,6 +56,11 @@ class _Quota:
         return QuotaSnapshot(0, 50, 100, 0, 500, 1000, 0)
 
 
+def test_live_model_resource_name_is_normalized_for_ephemeral_constraints() -> None:
+    assert voice_router._live_model_resource_name("gemini-3.1-flash-live-preview") == "models/gemini-3.1-flash-live-preview"
+    assert voice_router._live_model_resource_name("models/gemini-2.5-flash-native-audio-preview-12-2025") == "models/gemini-2.5-flash-native-audio-preview-12-2025"
+
+
 def _services() -> SimpleNamespace:
     settings = SimpleNamespace(
         GEMINI_API_KEY=SecretStr("permanent-provider-secret"),
@@ -92,8 +97,7 @@ async def test_voice_token_endpoint_returns_ephemeral_token_not_provider_key(mon
 
     assert result.token == "ephemeral-session-token"
     assert result.token != services.settings.GEMINI_API_KEY.get_secret_value()
-    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContent")
-    assert "BidiGenerateContentConstrained" not in result.websocket_url
+    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContentConstrained")
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
     assert response.headers["cache-control"] == "no-store, private"
 
@@ -194,8 +198,7 @@ async def test_gemini_25_live_voice_token_uses_v1beta_websocket(monkeypatch: pyt
     result = await voice_router.get_voice_token(response=Response(), services=services, context=_context())
 
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
-    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContent")
-    assert "BidiGenerateContentConstrained" not in result.websocket_url
+    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContentConstrained")
 
 
 @pytest.mark.asyncio
@@ -220,8 +223,7 @@ async def test_live_voice_token_falls_back_to_gemini_25_once(monkeypatch: pytest
         ("gemini-2.5-flash-native-audio-preview-12-2025", "v1beta"),
     ]
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
-    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContent")
-    assert "BidiGenerateContentConstrained" not in result.websocket_url
+    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContentConstrained")
 
 
 @pytest.mark.asyncio
@@ -238,8 +240,7 @@ async def test_native_audio_voice_token_uses_v1beta_websocket_and_ephemeral_toke
     result = await voice_router.get_voice_token(response=Response(), services=services, context=_context())
 
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
-    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContent")
-    assert "BidiGenerateContentConstrained" not in result.websocket_url
+    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContentConstrained")
 
 
 @pytest.mark.asyncio
