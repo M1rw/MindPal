@@ -134,3 +134,11 @@ The `007481e` production attempt remained at `Connecting…` beyond the primary 
 ## Vercel settings access limitation during model isolation
 
 The Vercel MCP project metadata confirms the linked production deployment but does not expose environment-variable values. The connected browser’s Vercel settings page initially loaded, then its search/view operations timed out and a fresh navigation redirected to the Vercel login page. No environment variable was changed. Model isolation therefore remains unexecuted until the production setting can be inspected or changed through an authenticated path.
+
+## Gemini 2.5 isolation deployment
+
+Commit `999e618` passed the focused backend tests (22 passed), production build, prebuilt-frontend verification, frontend audit, syntax audit, diff check, and secret-pattern check. Vercel deployment `dpl_HEjE81sM2cUWcBQYAeG4xPd9s6ND` reached READY for production. A fresh main-alias navigation was attempted with `attempt=gemini25-primary`; the connected browser then timed out on page inspection, so no claim about the 2.5 handshake result is made from the browser yet.
+
+## Console-confirmed missing-grant mask
+
+The authenticated browser console confirmed that the 2.5 isolation attempt reached the fallback branch and failed with `VoiceTokenError: Voice fallback grant is unavailable`. This was a secondary error masking the original primary WebSocket handshake failure. The V3 token provider now exposes fallback-grant capability, and the app skips fallback when no grant exists so the browser receives the primary error. The full V3 suite passed (16 files, 85 tests), focused backend tests passed (22 tests), and the production build plus audits passed.

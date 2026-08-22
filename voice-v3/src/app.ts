@@ -93,6 +93,7 @@ export class VoiceV3App {
   public readonly memoryExtractor: MemoryExtractor | null;
 
   private readonly nowMono: () => number;
+  private readonly tokenProvider: TokenProvider;
   private readonly unsubscriber: () => void;
   private started = false;
   private lastUserTranscript: string | null = null;
@@ -131,6 +132,7 @@ export class VoiceV3App {
       ?? (this.providerMode === "real"
         ? createRealTokenProvider(options)
         : new MockTokenProvider({ nowMono: this.nowMono }));
+    this.tokenProvider = tokenProvider;
 
     // 3. Transport Layer
     let adapter: GeminiProviderAdapter | null = null;
@@ -233,7 +235,10 @@ export class VoiceV3App {
       try {
         await this.transportManager.connect();
       } catch (primaryError) {
-        if (!isFallbackHandshakeFailure(primaryError) || this.providerMode !== "real") throw primaryError;
+        const fallbackCapability = this.tokenProvider.hasFallbackToken?.();
+        if (!isFallbackHandshakeFailure(primaryError) || this.providerMode !== "real" || fallbackCapability === false) {
+          throw primaryError;
+        }
         this.debug("[Voice V3] primary Gemini handshake failed; trying configured fallback", {
           error: primaryError instanceof Error ? primaryError.message : String(primaryError),
         });

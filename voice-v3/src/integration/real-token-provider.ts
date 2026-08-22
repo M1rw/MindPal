@@ -70,6 +70,10 @@ export class RealTokenProvider implements TokenProvider {
     return this.cached;
   }
 
+  public hasFallbackToken(): boolean {
+    return Boolean(this.cached?.fallbackGrant ?? this.fallbackGrant?.());
+  }
+
   public async getToken(): Promise<RealVoiceToken> {
     if (this.cached && this.cached.expiresAt - this.nowMs() > 30_000) return this.cached;
     const token = await this.fetchToken(null);
