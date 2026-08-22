@@ -74,6 +74,7 @@ export function createVoiceV3Controller(): ProductionController {
   let startupPending = false;
 
   const emitAudioState = (): void => {
+    const faceState = app?.faceLayer.processPhaseAndState(phase, aiSpeaking, micMuted);
     callbacks.onAudioState?.({
       phase,
       isAiSpeaking: aiSpeaking,
@@ -81,6 +82,9 @@ export function createVoiceV3Controller(): ProductionController {
       palette: aiSpeaking ? "speak" : "listen",
       interactionTag: "",
       reconnectAttempts,
+      faceExpression: faceState?.expression || "neutral",
+      faceTheme: faceState?.theme || "geminiCore",
+      faceState,
     });
   };
 
@@ -107,6 +111,11 @@ export function createVoiceV3Controller(): ProductionController {
   };
 
   const handleEvent = (envelope: LayerLinkEnvelope<unknown>): void => {
+    if (envelope.messageType === "face.expression.updated") {
+      emitAudioState();
+      return;
+    }
+
     if (envelope.messageType === "orchestrator.snapshot.updated") {
       handleSnapshot(envelope.payload as OrchestratorSnapshot);
       return;
