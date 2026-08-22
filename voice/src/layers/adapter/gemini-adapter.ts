@@ -287,8 +287,8 @@ function readTranscriptAlias(
 ): ProviderTranscriptPayload | null {
   const aliases =
     direction === "input"
-      ? ["input_audio_transcription", "inputAudioTranscription", "input_transcription"]
-      : ["output_audio_transcription", "outputAudioTranscription", "output_transcription"];
+      ? ["input_audio_transcription", "inputAudioTranscription", "input_transcription", "inputTranscription"]
+      : ["output_audio_transcription", "outputAudioTranscription", "output_transcription", "outputTranscription"];
   for (const alias of aliases) {
     const value = source[alias];
     if (typeof value === "string") {
