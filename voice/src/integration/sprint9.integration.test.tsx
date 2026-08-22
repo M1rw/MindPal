@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { createRoot, type Root } from "react-dom/client";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi, type MockedFunction } from "vitest";
