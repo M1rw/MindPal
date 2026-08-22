@@ -2,10 +2,10 @@ import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-const runtimeOnly = process.env.VOICE_V3_RUNTIME_ONLY === "1";
+const runtimeOnly = process.env.VOICE_RUNTIME_ONLY === "1" || process.env.VOICE_V3_RUNTIME_ONLY === "1";
 
 export default defineConfig({
-  base: "/voice-v3/",
+  base: "/voice/",
   plugins: [react()],
   build: {
     target: "es2022",
