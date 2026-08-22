@@ -177,8 +177,37 @@ describe("WebSocketTransportManager", () => {
     expect(manager.state).toBe("OPEN");
     expect(manager.isReady).toBe(true);
     expect(manager.getSessionResumptionHandle()).toBe("resume-1");
+    expect(events).toContain("transport.socket.opened");
     expect(events).toContain("transport.setup.complete");
     manager.close();
+  });
+
+  it("emits socket error and close lifecycle metadata without exposing credentials", async () => {
+    const socket = new FakeSocket();
+    const lifecycle: Array<Record<string, unknown>> = [];
+    const manager = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider(createToken()),
+      webSocketFactory: () => socket,
+      onEvent: (event) => {
+        if (event.type === "transport.socket.opened" || event.type === "transport.socket.error" || event.type === "transport.socket.closed") {
+          lifecycle.push(event);
+        }
+      },
+    });
+
+    const connection = manager.connect();
+    await waitForAsyncToken();
+    socket.open();
+    socket.message(JSON.stringify({ setupComplete: true }));
+    await connection;
+    socket.onerror?.(new Event("error"));
+    socket.close(1008, "policy violation with authTokens/secret");
+
+    expect(lifecycle).toEqual([
+      { type: "transport.socket.opened", readyState: 1 },
+      { type: "transport.socket.error", readyState: 1 },
+      { type: "transport.socket.closed", code: 1008, reason: "policy violation with authTokens/<redacted>", wasClean: true },
+    ]);
   });
 
   it("reconnects with the fallback token after a primary setup timeout", async () => {

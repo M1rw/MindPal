@@ -143,6 +143,19 @@ export function createVoiceV3Controller(): ProductionController {
       return;
     }
 
+    if (envelope.messageType.startsWith("transport.")) {
+      const payload = asRecord(envelope.payload);
+      const diagnosticType = envelope.messageType === "transport.socket.opened"
+        ? "voice.socket-opened"
+        : envelope.messageType === "transport.socket.closed"
+          ? "voice.socket-closed"
+          : envelope.messageType === "transport.socket.error"
+            ? "voice.socket-error"
+            : `voice.${envelope.messageType}`;
+      callbacks.onDiagnostic?.({ type: diagnosticType, ...payload });
+      return;
+    }
+
     if (envelope.messageType.startsWith("playback.")) {
       const payload = asRecord(envelope.payload);
       const diagnosticType = envelope.messageType === "playback.chunk-scheduled"

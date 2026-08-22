@@ -168,3 +168,9 @@ The correction passed 16 V3 test files / 85 tests, focused backend security and 
 The v1beta plus full-resource constraint combination still timed out in production. Google’s maintained WebSocket example creates the ephemeral token with only `uses`, expiry fields, and API-version HTTP options, then connects to `BidiGenerateContentConstrained` using the token as `access_token`; it does not add `live_connect_constraints`. The next build matches that token-creation shape, uses v1alpha for Gemini 2.5 because that is the version in the maintained example, and keeps the browser setup frame unchanged. Security remains bounded by single use and short expiry; this experiment removes the additional model/config lock that previously produced no usable setup response.
 
 The change passed the focused backend suite, all 16 V3 test files / 85 tests, 66 root voice contract tests, production build, prebuilt verification, frontend audit, syntax audit, diff check, and secret scan.
+
+## Socket lifecycle instrumentation
+
+The official sample-compatible unconstrained-token build still timed out before any usable Voice state. To separate a socket that never opens from a socket that opens but never receives setupComplete, the transport now publishes sanitized `transport.socket.opened`, `transport.socket.error`, and `transport.socket.closed` events with ready state, close code, bounded reason, and clean-close metadata. The production entrypoint forwards these as `voice.socket-opened`, `voice.socket-error`, and `voice.socket-closed` diagnostics. Auth-token resource names are redacted from close reasons.
+
+The instrumentation passed 16 V3 test files / 86 tests, the focused backend suite, root voice contracts, production build, prebuilt verification, frontend audit, syntax audit, diff check, and secret scan. The next main-production attempt is diagnostic-only and will not be considered a protocol fix unless the socket lifecycle evidence identifies one.
