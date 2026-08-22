@@ -142,3 +142,13 @@ Commit `999e618` passed the focused backend tests (22 passed), production build,
 ## Console-confirmed missing-grant mask
 
 The authenticated browser console confirmed that the 2.5 isolation attempt reached the fallback branch and failed with `VoiceTokenError: Voice fallback grant is unavailable`. This was a secondary error masking the original primary WebSocket handshake failure. The V3 token provider now exposes fallback-grant capability, and the app skips fallback when no grant exists so the browser receives the primary error. The full V3 suite passed (16 files, 85 tests), focused backend tests passed (22 tests), and the production build plus audits passed.
+
+## Official contract cross-check after the primary-error retest
+
+Google’s current documentation states that ephemeral tokens are used only with Live API, only on `v1beta`, and only with `GenerativeService.BidiGenerateContentConstrained`; the token may be passed as an `access_token` query parameter or `Authorization: Token`. The official Python token example uses a bare model ID in `live_connect_constraints.model`, while the REST example shows the equivalent `models/{model}` resource form. The current installed SDK serializes MindPal’s payload exactly as `liveConnectConstraints.model = gemini-2.5-flash-native-audio-preview-12-2025` and `config = {responseModalities:["AUDIO"], sessionResumption:{}}`. The production runtime bundle contains the raw-slash token URL logic. The remaining controlled hypothesis is that the constrained browser session rejects one of the nonessential setup fields despite provisioning success; test the strictest setup frame first, then reintroduce fields one at a time.
+
+## Model-specific v1alpha constrained-endpoint experiment
+
+The authenticated production retry isolated a genuine `Gemini setupComplete timeout` for Gemini 2.5; the fallback-grant masking bug is fixed. Google’s current Live API reference documents v1beta, but Google’s maintained ephemeral-token WebSocket sample and the developer forum’s accepted resolution use `v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=...`. The backend now selects v1alpha only for `gemini-2.5-flash-native-audio-preview-12-2025` and keeps Gemini 3.1 on v1beta. This is a controlled, model-specific compatibility experiment rather than a claim that the current general reference has changed.
+
+The v1alpha selection passed 16 V3 test files / 85 tests, 22 focused backend tests, 66 root voice contract tests, the production build, prebuilt-frontend verification, frontend audit, syntax audit, diff check, and secret-pattern check. The next production test must verify that the returned WebSocket URL is v1alpha and that setupComplete arrives.
