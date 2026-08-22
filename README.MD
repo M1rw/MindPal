@@ -1,88 +1,106 @@
-# MindPal Backend V2
+# MindPal
 
-MindPal Backend V2 is the production-oriented FastAPI/Firebase backend and bundled web client for MindPal. The release replaces the original check-then-charge, dual-memory, ad-hoc provider architecture with explicit trust, billing, concurrency, storage, and deployment boundaries.
+MindPal is an AI-powered mental health support application featuring a production-oriented FastAPI/Firebase backend, canonical Memory Graph V3, and Gemini Live Voice V3 full-duplex conversational audio interface.
 
-## Architecture
+## System Architecture
 
 ```text
-Browser
+Browser Client
   ├─ Firebase Auth ID token
   ├─ Firebase App Check token
   └─ request ID / idempotency key
           │
-          ▼
-FastAPI request boundary
-  ├─ body-size / host / CORS / security headers
-  ├─ authentication + attestation
-  ├─ distributed rate limit + local concurrency bound
-  ├─ idempotency claim
-  ├─ atomic quota reservation
-  ├─ bounded orchestration + pooled provider gateway
-  ├─ output guard
-  └─ transactional persistence
-          ├─ chat/profile store
-          └─ canonical Memory Graph V3
+          ├─────────────────────────────────────────────┐
+          ▼                                             ▼
+FastAPI Request Boundary                     Gemini Live API (Voice V3)
+  ├─ Security / Host / CORS / Headers             ├─ Ephemeral single-use token via /api/voice/token
+  ├─ Authentication & App Check Attestation       ├─ wss://generativelanguage.googleapis.com/...
+  ├─ Quota & Rate Limit Enforcement               ├─ BidiGenerateContentConstrained endpoint
+  ├─ Bounded Orchestration & Provider Gateway     ├─ Direct full-duplex 16kHz in / 24kHz out audio
+  └─ Canonical Memory Graph V3 Persistence        └─ AudioWorklet PCM streaming & caption sync
 ```
 
-The permanent Gemini credential remains server-side. Voice sessions use one-use, constrained Live API tokens. Memory Graph V3 is the only writable memory source; legacy summary views are derived compatibility output.
+The permanent Gemini API credentials remain strictly server-side. Voice sessions use short-lived single-use ephemeral tokens.
 
-## Local setup
+---
 
-Requirements: Python 3.12+, Node.js 20+.
+## Key Features
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.lock
-npm ci --no-audit --no-fund
-Copy-Item .env.production.example .env
+- **Voice System V3**: Real-time full-duplex conversational voice powered by Google Gemini Live API (`gemini-2.5-flash-native-audio-preview` and `gemini-3.1-flash-live-preview`). See `docs/voice_v3_root_cause_analysis.md` for full root-cause analysis and design details.
+- **Memory Graph V3**: Canonical, deterministic memory graph store for user profile, preferences, relationship context, and coping patterns.
+- **FastAPI / Firebase Backend V2**: Rate-limited, idempotency-guaranteed, quota-enforced API infrastructure with Firebase Auth and App Check attestation.
+- **Responsive Web UI**: Built with Tailwind CSS and ESBuild for high performance across desktop and mobile devices.
+
+---
+
+## Directory Structure
+
+```text
+.
+├── api/                   # Vercel serverless entry points
+├── backend/               # FastAPI backend (core, api, services, models, tools)
+├── data/                  # Clinical frameworks & reference data
+├── docs/                  # System documentation & Voice V3 root cause analysis
+├── frontend/              # Frontend web application (JS, CSS, HTML, templates)
+├── scripts/               # Build, verification, and audit scripts
+├── tests/                 # Comprehensive Python and JavaScript test suites
+└── voice-v3/              # Voice V3 TypeScript source and build configurations
 ```
 
-Use development-safe values in `.env` for local work. Production startup intentionally fails when Firebase Auth/App Check, explicit hosts/CORS, HSTS, revoked-token verification, or a remote provider is missing.
+---
 
-Run locally:
+## Local Setup & Development
 
-```powershell
+### Prerequisites
+- Python 3.12+
+- Node.js 20+
+
+### Setup Instructions
+
+```bash
+# Install Python dependencies
+pip install -r requirements.txt -r requirements-dev.lock
+
+# Install Node dependencies
+npm install
+
+# Build frontend assets
 npm run build
+```
+
+### Running Locally
+
+```bash
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-## Release verification
+---
 
-```powershell
-.\Verify-Backend-V2.ps1 -ProjectRoot $PWD
+## Verification & Testing
+
+MindPal features full test suites across Python and JavaScript layers:
+
+```bash
+# Run Python backend tests
+python -m pytest
+
+# Run JavaScript frontend & Voice V3 tests
+npm test
+
+# Verify prebuilt frontend asset manifest
+python scripts/verify_prebuilt_frontend.py
 ```
 
-Network-dependent Python CVE lookup:
+---
 
-```powershell
-.\Verify-Backend-V2.ps1 -ProjectRoot $PWD -OnlineAudit
-```
+## Vercel Deployment
 
-The deterministic gate compiles Python, runs Python and Node tests, runs Ruff and Bandit, rebuilds the frontend, audits browser delivery, checks npm production dependencies, validates architecture invariants, creates a fail-closed production `Settings` instance, and resolves OpenAPI routes.
+Deployment to Vercel uses `npm run build` as the repository Build Command with Vercel mixed-runtime Python support.
 
-## Safe deployment over an existing repository
+Key production configuration requirements:
+- Set environment variables based on `.env.example`.
+- Enable Firebase App Check enforcement.
+- Configure Firestore TTL policies for rate-limiting and idempotency.
 
-```powershell
-Expand-Archive .\MindPal_backend_v2_release.zip -DestinationPath .\MindPal_Backend_V2
-Set-ExecutionPolicy -Scope Process Bypass
-.\MindPal_Backend_V2\MindPal_backend_v2\Apply-Backend-V2.ps1 `
-  -TargetRoot 'E:\Synthos\MindPal'
-```
-
-The apply script backs up only managed source paths, leaves `.env`, credentials, logs, and runtime data untouched, installs locked dependencies, rebuilds, verifies, and rolls source code back automatically on failure.
-
-## Vercel mixed-runtime deployment
-
-Keep `requirements.txt`, `package.json`, `pyproject.toml`, and `vercel.json` in the configured Vercel Root Directory. Do not set a custom Install Command: Vercel must install Python dependencies from `requirements.txt`, while the regular npm dependency set contains the frontend build tools. The repository Build Command is `npm run build`. See `VERCEL_PYTHON_DEPENDENCY_FIX.md`.
-
-## Production requirements
-
-Complete `.env.production.example`, enable Firebase App Check enforcement, create Firestore TTL policies for rate-limit and idempotency records, deny unintended direct client database access, restrict provider/API keys, assign `mindpal_admin=true` only to operational administrators, and run real provider/device/load tests before traffic promotion.
-
-See:
-
-- `BACKEND_V2_ARCHITECTURE.md`
-- `BACKEND_V2_AUDIT.md`
-- `BACKEND_V2_CHANGELOG.md`
-- `DEPLOY_BACKEND_V2.md`
+For Voice V3 architecture details and diagnostic history, see:
+- `docs/voice_v3_root_cause_analysis.md`
