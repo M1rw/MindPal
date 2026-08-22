@@ -114,3 +114,7 @@ The current browser result after the documented constrained endpoint, normalized
 ## SDK-native constraint model format experiment
 
 The minimal constrained setup still timed out in production, and production logs confirmed both the primary and fallback token exchanges completed with HTTP 200. The current experiment changes only the model value sent inside `live_connect_constraints`: it now uses the bare model ID, matching Google’s official Python SDK ephemeral-token example and the SDK’s direct serialization behavior. The browser setup frame continues to use the required `models/{model}` resource name. This isolates whether the REST-style resource prefix was invalid for the Python SDK token-creation request.
+
+## Provider-default voice isolation experiment
+
+The bare-model constraint experiment also timed out in production, with primary and fallback token exchanges both returning HTTP 200. The next probe removes only `generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName`, leaving `models/{model}`, `responseModalities`, `systemInstruction`, and `sessionResumption` intact. The purpose is to determine whether the selected persona voice is unavailable or incompatible with the active preview model. The transport regression now explicitly verifies provider-default voice behavior while preserving cue-text coverage.
