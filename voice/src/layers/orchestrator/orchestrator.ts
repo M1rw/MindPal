@@ -301,17 +301,20 @@ export class VoiceOrchestrator {
       return "stale-turn-id";
     }
     if (
-      this.providerResponseClosedValue &&
-      (eventType === "PROVIDER_AUDIO" ||
-        eventType === "PROVIDER_OUTPUT_TRANSCRIPT" ||
-        eventType === "PROVIDER_TOOL_CALL")
+      eventType === "PROVIDER_AUDIO" ||
+      eventType === "PROVIDER_OUTPUT_TRANSCRIPT" ||
+      eventType === "PROVIDER_TOOL_CALL"
     ) {
       const isClosedTurn = incoming.turnId !== null && this.closedTurnIds.has(incoming.turnId);
       const isClosedResponse =
-        incoming.providerResponseId !== null &&
         this.closedResponseId !== null &&
+        incoming.providerResponseId !== null &&
         incoming.providerResponseId === this.closedResponseId;
+
       if (isClosedTurn || isClosedResponse) {
+        return "closed-response-boundary";
+      }
+      if (this.providerResponseClosedValue && incoming.turnId === null && incoming.providerResponseId === null) {
         return "closed-response-boundary";
       }
     }
@@ -332,7 +335,13 @@ export class VoiceOrchestrator {
         this.beginTurn(incoming.turnId);
       }
     } else if (this.turnId === null) {
-      this.providerResponseClosedValue = false;
+      // Auto-assign a fresh local turn ID if incoming event has no turnId and
+      // we are starting new input/output after a completed response.
+      if (this.providerResponseClosedValue || eventType === "PROVIDER_INPUT_TRANSCRIPT") {
+        this.beginTurn(`turn-${this.turnCounter + 1}`);
+      } else {
+        this.providerResponseClosedValue = false;
+      }
     }
 
     if (incoming.providerResponseId !== null) {
@@ -340,7 +349,7 @@ export class VoiceOrchestrator {
         this.providerResponseId = incoming.providerResponseId;
         this.providerResponseClosedValue = false;
       }
-    } else {
+    } else if (eventType === "PROVIDER_AUDIO" || eventType === "PROVIDER_OUTPUT_TRANSCRIPT") {
       this.providerResponseClosedValue = false;
     }
 
@@ -443,6 +452,8 @@ export class VoiceOrchestrator {
     this.nativeCuePending = false;
     this.playbackGeneration = null;
     this.operationId = null;
+    this.turnId = null;
+    this.providerResponseId = null;
     this.transition({ kind: "turn-complete" });
   }
 
