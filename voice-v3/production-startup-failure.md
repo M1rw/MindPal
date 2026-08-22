@@ -156,3 +156,9 @@ The v1alpha selection passed 16 V3 test files / 85 tests, 22 focused backend tes
 ## Full-resource token constraint experiment
 
 The v1alpha constrained endpoint still timed out, so the next isolated correction aligns the ephemeral token’s `live_connect_constraints.model` with the browser setup frame: both now use `models/{model}`. Google’s current REST reference uses this full resource form, while the Python SDK serializes the supplied string without adding the prefix. The model-specific v1alpha selection remains in place for Gemini 2.5 during this experiment.
+
+## v1beta plus full-resource retest
+
+Production commit `e5e3497` tested v1alpha with the full `models/{model}` token constraint and still ended at `Gemini setupComplete timeout`. The next build restores the currently documented v1beta constrained WebSocket for both Native Audio models while retaining the full resource-form constraint. This isolates endpoint version from resource-name alignment and is the final documented-contract combination not yet tested on the main alias.
+
+The correction passed 16 V3 test files / 85 tests, focused backend security and fallback tests, 66 root voice contract tests, production build, prebuilt verification, frontend audit, syntax audit, diff check, and secret scan.
