@@ -36,11 +36,13 @@ type ProductionController = {
 };
 
 type RuntimeGlobal = {
+  createVoiceController: () => ProductionController;
   createVoiceV3Controller: () => ProductionController;
 };
 
 declare global {
   interface Window {
+    __MINDPAL_VOICE_RUNTIME__?: RuntimeGlobal;
     __MINDPAL_VOICE_V3_RUNTIME__?: RuntimeGlobal;
   }
 }
@@ -307,6 +309,10 @@ function numberOr(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+export const createVoiceController = createVoiceV3Controller;
+
 if (typeof window !== "undefined") {
-  window.__MINDPAL_VOICE_V3_RUNTIME__ = { createVoiceV3Controller };
+  const runtimeGlobal = { createVoiceController, createVoiceV3Controller };
+  window.__MINDPAL_VOICE_RUNTIME__ = runtimeGlobal;
+  window.__MINDPAL_VOICE_V3_RUNTIME__ = runtimeGlobal;
 }

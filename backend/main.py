@@ -33,7 +33,8 @@ MAX_HEADER_CHARS = 120
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
-VOICE_V3_DIR = FRONTEND_DIR / "voice-v3"
+VOICE_DIR = FRONTEND_DIR / "voice"
+VOICE_V3_DIR = VOICE_DIR
 logger = logging.getLogger("mindpal.request")
 
 
@@ -335,7 +336,8 @@ def _install_frontend_routes(app: FastAPI) -> None:
         "/js": FRONTEND_DIR / "js",
         "/dist": FRONTEND_DIR / "dist",
         "/assets": FRONTEND_DIR / "assets",
-        "/voice-v3/assets": VOICE_V3_DIR / "assets",
+        "/voice/assets": VOICE_DIR / "assets",
+        "/voice-v3/assets": VOICE_DIR / "assets",
     }
 
     for prefix, directory in static_mounts.items():
@@ -429,10 +431,11 @@ def _install_frontend_routes(app: FastAPI) -> None:
     async def sitemap_xml() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "sitemap.xml", media_type="application/xml")
 
+    @app.get("/voice-review", include_in_schema=False)
     @app.get("/voice-v3-review", include_in_schema=False)
-    async def voice_v3_review_page() -> FileResponse:
+    async def voice_review_page() -> FileResponse:
         return FileResponse(
-            VOICE_V3_DIR / "index.html",
+            VOICE_DIR / "index.html",
             media_type="text/html; charset=utf-8",
             headers={"Cache-Control": "no-cache"},
         )

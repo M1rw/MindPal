@@ -566,6 +566,7 @@ async def get_voice_token(
         ) from exc
 
 
+@router.get("/personas")
 @router.get("/v3/personas")
 async def list_realtime_voice_personas(
     context: AuthenticatedRequestContextDep,
@@ -596,6 +597,7 @@ async def list_realtime_voice_personas(
     }
 
 
+@router.post("/tts", response_model=RealtimeVoiceTtsResponse)
 @router.post("/v3/tts", response_model=RealtimeVoiceTtsResponse)
 async def synthesize_realtime_voice_tts(
     payload: RealtimeVoiceTtsRequest,
