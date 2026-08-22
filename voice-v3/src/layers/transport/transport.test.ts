@@ -134,6 +134,23 @@ describe("WebSocketTransportManager", () => {
     manager.close();
   });
 
+  it("accepts null-valued setupComplete from JSON empty-message transcoding", async () => {
+    const socket = new FakeSocket();
+    const manager = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider(createToken()),
+      webSocketFactory: () => socket,
+    });
+
+    const connection = manager.connect();
+    await waitForAsyncToken();
+    socket.open();
+    socket.message(JSON.stringify({ setupComplete: null }));
+
+    await connection;
+    expect(manager.isReady).toBe(true);
+    manager.close();
+  });
+
   it("sends the exact Gemini 3.1 setup only after socket open and becomes ready after setupComplete", async () => {
     const socket = new FakeSocket();
     const events: string[] = [];

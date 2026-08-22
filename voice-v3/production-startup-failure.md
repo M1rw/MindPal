@@ -174,3 +174,16 @@ The change passed the focused backend suite, all 16 V3 test files / 85 tests, 66
 The official sample-compatible unconstrained-token build still timed out before any usable Voice state. To separate a socket that never opens from a socket that opens but never receives setupComplete, the transport now publishes sanitized `transport.socket.opened`, `transport.socket.error`, and `transport.socket.closed` events with ready state, close code, bounded reason, and clean-close metadata. The production entrypoint forwards these as `voice.socket-opened`, `voice.socket-error`, and `voice.socket-closed` diagnostics. Auth-token resource names are redacted from close reasons.
 
 The instrumentation passed 16 V3 test files / 86 tests, the focused backend suite, root voice contracts, production build, prebuilt verification, frontend audit, syntax audit, diff check, and secret scan. The next main-production attempt is diagnostic-only and will not be considered a protocol fix unless the socket lifecycle evidence identifies one.
+
+### External references used for the lifecycle experiment
+
+* Google ephemeral-token guide: https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens — documents `v1beta`, `BidiGenerateContentConstrained`, `access_token`, and the constrained-token examples.
+* Google maintained WebSocket example: https://github.com/google-gemini/gemini-live-api-examples/blob/main/gemini-live-ephemeral-tokens-websocket/frontend/geminilive.js — currently constructs the v1alpha constrained endpoint with a raw `access_token` query value and sends setup after `onopen`.
+* Google maintained example server: https://raw.githubusercontent.com/google-gemini/gemini-live-api-examples/main/gemini-live-ephemeral-tokens-websocket/server.py — currently provisions a single-use short-lived token without `live_connect_constraints`.
+* Gemini 2.5 model page: https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-native-audio-preview-12-2025 — confirms Live API support for the configured model.
+
+## Setup-complete presence fix
+
+The lifecycle diagnostic proved the production socket opened and setup was sent, followed by one incoming JSON payload classified as `unknown`; no socket error or close occurred before timeout. The likely wire shape is an empty protobuf message serialized as `setupComplete: null`. The transport now treats the presence of either `setupComplete` or `setup_complete` as authoritative, covering `null`, `{}`, and boolean test fixtures while still rejecting messages where the field is absent.
+
+The correction passed 16 V3 test files / 87 tests, focused backend tests, root voice contracts, production build, prebuilt verification, frontend audit, syntax audit, diff check, and secret scan. The new regression specifically completes a simulated connection from `{ "setupComplete": null }`.
