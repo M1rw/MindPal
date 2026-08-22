@@ -33,7 +33,7 @@ describe("GeminiProviderAdapter", () => {
     expect(normalizeGeminiMessage({ setupComplete: {} })[0]?.type).toBe("PROVIDER_READY");
     expect(normalizeGeminiMessage({ setup_complete: {} })[0]?.type).toBe("PROVIDER_READY");
     expect(normalizeGeminiMessage({ setupComplete: null })[0]?.type).toBe("PROVIDER_READY");
-    expect(normalizeGeminiMessage({})[0]?.type).toBe("PROVIDER_READY");
+    expect(normalizeGeminiMessage({})).toEqual([]);
   });
 
   it("preserves cumulative transcript metadata and attaches provider identities", () => {

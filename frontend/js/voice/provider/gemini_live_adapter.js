@@ -60,7 +60,7 @@ export function normalizeGeminiServerMessage(message, context = {}) {
   const identity = identityFromContext(context);
   const events = [];
 
-  if ("setupComplete" in data || "setup_complete" in data || Object.keys(data).length === 0) {
+  if ("setupComplete" in data || "setup_complete" in data) {
     events.push(createVoiceEvent(VOICE_EVENTS.PROVIDER_READY, { identity, raw: data }));
   }
 

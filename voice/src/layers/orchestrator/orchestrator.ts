@@ -59,6 +59,7 @@ export class VoiceOrchestrator {
   private operationId: string | null = null;
   private greetingSentValue = false;
   private providerResponseClosedValue = false;
+  private closedResponseId: string | null = null;
   private nativeCuePending = false;
   private staleEventsRejectedValue = 0;
   private sessionCounter = 1;
@@ -136,6 +137,7 @@ export class VoiceOrchestrator {
     this.operationId = null;
     this.greetingSentValue = false;
     this.providerResponseClosedValue = false;
+    this.closedResponseId = null;
     this.closedTurnIds.clear();
     this.turnOrder.clear();
     this.transition({ kind: "credential-acquiring" });
@@ -304,7 +306,14 @@ export class VoiceOrchestrator {
         eventType === "PROVIDER_OUTPUT_TRANSCRIPT" ||
         eventType === "PROVIDER_TOOL_CALL")
     ) {
-      return "closed-response-boundary";
+      const isClosedTurn = incoming.turnId !== null && this.closedTurnIds.has(incoming.turnId);
+      const isClosedResponse =
+        incoming.providerResponseId !== null &&
+        this.closedResponseId !== null &&
+        incoming.providerResponseId === this.closedResponseId;
+      if (isClosedTurn || isClosedResponse) {
+        return "closed-response-boundary";
+      }
     }
     return null;
   }
@@ -318,19 +327,23 @@ export class VoiceOrchestrator {
     incoming: GenerationIdentity,
     eventType?: string,
   ): GenerationIdentity {
-    if (incoming.turnId !== null && eventType === "PROVIDER_INPUT_TRANSCRIPT") {
-      if (this.turnId !== incoming.turnId && this.closedTurnIds.has(incoming.turnId)) {
-        return this.identity;
-      }
-      if (this.turnId !== incoming.turnId) {
+    if (incoming.turnId !== null) {
+      if (this.turnId !== incoming.turnId && !this.closedTurnIds.has(incoming.turnId)) {
         this.beginTurn(incoming.turnId);
       }
-    } else if (this.turnId === null && incoming.turnId !== null) {
-      this.beginTurn(incoming.turnId);
+    } else if (this.turnId === null) {
+      this.providerResponseClosedValue = false;
     }
+
     if (incoming.providerResponseId !== null) {
-      this.providerResponseId = incoming.providerResponseId;
+      if (this.providerResponseId !== incoming.providerResponseId) {
+        this.providerResponseId = incoming.providerResponseId;
+        this.providerResponseClosedValue = false;
+      }
+    } else {
+      this.providerResponseClosedValue = false;
     }
+
     if (
       eventType !== "PROVIDER_INPUT_TRANSCRIPT" &&
       (eventType === "PROVIDER_AUDIO" || eventType === "PROVIDER_OUTPUT_TRANSCRIPT") &&
@@ -425,6 +438,7 @@ export class VoiceOrchestrator {
 
   private handleTurnComplete(): void {
     if (this.turnId !== null) this.closedTurnIds.add(this.turnId);
+    this.closedResponseId = this.providerResponseId;
     this.providerResponseClosedValue = true;
     this.nativeCuePending = false;
     this.playbackGeneration = null;
