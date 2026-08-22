@@ -822,10 +822,11 @@ def _is_supported_gemini_api_live_model(model: str) -> bool:
 
 
 def _live_model_resource_name(model: str) -> str:
-    # The Python SDK example accepts the bare model ID here and serializes it
-    # directly; the browser setup frame separately uses models/{model}.
-    normalized = sanitize_text(model, 120).strip()
-    return normalized.removeprefix("models/")
+    # The constrained token must authorize the same resource name that the
+    # browser sends in BidiGenerateContentSetup. The REST reference uses the
+    # full models/{model} form; normalize both bare and prefixed input to it.
+    normalized = sanitize_text(model, 120).strip().removeprefix("models/")
+    return f"models/{normalized}"
 
 
 def _live_api_version(model: str) -> str:
