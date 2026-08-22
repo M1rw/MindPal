@@ -503,7 +503,11 @@ export class WebSocketTransportManager {
 
 function appendAccessToken(url: string, token: string): string {
   const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}access_token=${encodeURIComponent(token)}`;
+  // Gemini returns token.name values such as authTokens/abc123. Keep the
+  // resource slash unescaped in the query value, as in Google’s raw WebSocket
+  // example; encode the remaining characters for URL safety.
+  const encodedToken = encodeURIComponent(token).replace(/%2F/gi, "/");
+  return `${url}${separator}access_token=${encodedToken}`;
 }
 
 function redactToken(url: string): string {

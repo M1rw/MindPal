@@ -118,3 +118,7 @@ The minimal constrained setup still timed out in production, and production logs
 ## Provider-default voice isolation experiment
 
 The bare-model constraint experiment also timed out in production, with primary and fallback token exchanges both returning HTTP 200. The next probe removes only `generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName`, leaving `models/{model}`, `responseModalities`, `systemInstruction`, and `sessionResumption` intact. The purpose is to determine whether the selected persona voice is unavailable or incompatible with the active preview model. The transport regression now explicitly verifies provider-default voice behavior while preserving cue-text coverage.
+
+## Access-token resource-path correction
+
+Google’s current ephemeral-token documentation states that a raw WebSocket client passes `token.name` through the `access_token` query parameter. Gemini token names are resource-like values such as `authTokens/abc123`; the transport now preserves `/` while percent-encoding other token characters. A focused regression verifies `authTokens/abc+123` becomes `access_token=authTokens/abc%2B123`. The production facade and HTML app bundle receive a new cache key so this URL fix is guaranteed to reach Chromium.
