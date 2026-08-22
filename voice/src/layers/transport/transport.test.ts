@@ -151,6 +151,35 @@ describe("WebSocketTransportManager", () => {
     manager.close();
   });
 
+  it("accepts binary-encoded setupComplete payload and top-level empty object {}", async () => {
+    const socket1 = new FakeSocket();
+    const manager1 = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider(createToken()),
+      webSocketFactory: () => socket1,
+    });
+    const connection1 = manager1.connect();
+    await waitForAsyncToken();
+    socket1.open();
+    const binaryMessage = new TextEncoder().encode(JSON.stringify({ setupComplete: {} })).buffer;
+    socket1.message(binaryMessage);
+    await connection1;
+    expect(manager1.isReady).toBe(true);
+    manager1.close();
+
+    const socket2 = new FakeSocket();
+    const manager2 = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider(createToken()),
+      webSocketFactory: () => socket2,
+    });
+    const connection2 = manager2.connect();
+    await waitForAsyncToken();
+    socket2.open();
+    socket2.message("{}");
+    await connection2;
+    expect(manager2.isReady).toBe(true);
+    manager2.close();
+  });
+
   it("sends the exact Gemini 3.1 setup only after socket open and becomes ready after setupComplete", async () => {
     const socket = new FakeSocket();
     const events: string[] = [];
