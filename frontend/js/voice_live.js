@@ -14,12 +14,13 @@ import {
   getTranscriptSnapshot,
 } from "./voice_session.js";
 import {
-  startVisualizer,
-  stopVisualizer,
-  feedVolume,
-  setPalette,
-  setAnalysers,
-} from "./voice_visualizer.js";
+  startVoiceFace,
+  stopVoiceFace,
+  feedVoiceFaceMicLevel,
+  setVoiceFaceState,
+  setVoiceFaceDiagnostic,
+  setVoiceFaceAnalysers,
+} from "./voice/voice_face_visualizer.js";
 import { planPacedCaptionSegments } from "./voice/caption_sync_policy.js";
 
 // ═══════════════════════════════════════════════════════════════
@@ -182,6 +183,17 @@ export async function startLiveVoice(contextProvider = null) {
 
   // Preserve a mute request made while the provider is still connecting.
   updateMicUI(getMicMuted());
+  startVoiceFace({
+    isMicMuted: getMicMuted,
+    isAiSpeaking: getAiSpeaking,
+  });
+  setVoiceFaceState({
+    phase: "connecting",
+    isMicMuted: getMicMuted(),
+    isAiSpeaking: getAiSpeaking(),
+    isSpeakerMuted: getSpeakerMuted(),
+    error: false,
+  });
 
   try {
     // Get auth token for authenticated API calls
@@ -189,6 +201,7 @@ export async function startLiveVoice(contextProvider = null) {
 
     // Voice requires authentication — show friendly message in guest mode
     if (!token) {
+      setVoiceFaceState({ phase: "error", error: true });
       if (statusEl) statusEl.textContent = "Sign in to use voice calls";
       setTimeout(stopLiveVoice, 3000);
       return;
@@ -203,24 +216,21 @@ export async function startLiveVoice(contextProvider = null) {
       onTurnComplete: handleTurnComplete,
       onBackgroundTask: handleBackgroundTask,
       onDiagnostic: handleVoiceDiagnostic,
-      onVolume: feedVolume,
+      onVolume: feedVoiceFaceMicLevel,
       token,
       refreshAuthToken: () => getIdToken({ forceRefresh: true }),
       getAppCheckToken: () => getAppCheckToken(),
       refreshAppCheckToken: () => getAppCheckToken({ forceRefresh: true }),
     });
 
-    // Wire up visualizer with session analysers
+    // Attach the real session analysers after the provider/capture layers exist.
     const { micAnalyser, aiAnalyser } = getSessionState();
-    startVisualizer({
-      isMicMuted: getMicMuted,
-      isAiSpeaking: getAiSpeaking,
-    });
-    setAnalysers({ mic: micAnalyser, ai: aiAnalyser });
+    setVoiceFaceAnalysers({ mic: micAnalyser, ai: aiAnalyser });
 
     // Keep the connection-only spinner visible until the live session itself
     // emits its setup-complete Listening state through handleAudioState().
   } catch (error) {
+    setVoiceFaceState({ phase: "error", error: true });
     console.error("Failed to start Live Voice", error);
     if (statusEl) statusEl.textContent = "Error: " + (error.message || "Failed to connect");
     // Keep the failure visible so the user can read the concrete cause and
@@ -242,7 +252,7 @@ export function stopLiveVoice() {
   const persistedUserTranscript = canonicalTranscript.userTranscript || userTranscript;
   const persistedAiTranscript = canonicalTranscript.aiTranscript || aiTranscript;
   stopSession();
-  stopVisualizer();
+  stopVoiceFace();
 
   // Hide overlay with transition
   const overlay = document.getElementById("voice-live-overlay");
@@ -505,6 +515,7 @@ function renderMinimalVoiceStatus() {
 function handleVoiceDiagnostic(event = {}) {
   console.debug("[MindPal Voice][diagnostic]", event);
   if (["voice.socket-error", "voice.socket-closed", "provider.error", "provider.closed"].includes(event?.type)) console.warn("[MindPal Voice]", event);
+  setVoiceFaceDiagnostic(event);
   if (event?.type === "voice.playback.started" && event.audioClass === "main") handleMainPlaybackStarted();
   if (event?.type === "voice.playback.ended" && event.audioClass === "main" && !captionQueue.length && !captionPendingText) {
     captionAudioStartAtMs = 0;
@@ -539,7 +550,15 @@ function handleAudioState({
 
   if (overlay) overlay.dataset.voicePhase = phase || "idle";
   if (typeof muted === "boolean") updateMicUI(muted);
-  setPalette(palette);
+  setVoiceFaceState({
+    phase: phase || "idle",
+    isAiSpeaking: Boolean(aiSpeaking),
+    isMicMuted: Boolean(muted),
+    isSpeakerMuted: getSpeakerMuted(),
+    interactionTag,
+    backgroundTaskActive: backgroundTaskCount > 0,
+    error: false,
+  });
   renderMinimalVoiceStatus();
 }
 
@@ -548,7 +567,10 @@ function handleBackgroundTask({ status } = {}) {
   if (["ready", "failed", "discarded"].includes(status)) {
     backgroundTaskCount = Math.max(0, backgroundTaskCount - 1);
   }
-  if (isLiveActive) renderMinimalVoiceStatus();
+  if (isLiveActive) {
+    setVoiceFaceState({ backgroundTaskActive: backgroundTaskCount > 0 });
+    renderMinimalVoiceStatus();
+  }
 }
 
 function handleSessionEnd() {

@@ -8,7 +8,7 @@
     <!-- Preload Google Identity Services before any user-initiated cloud sign-in. -->
     <script defer src="https://accounts.google.com/gsi/client" data-mindpal-google-identity></script>
     <link rel="stylesheet" href="./css/tailwind.generated.css?v=voice-duplex-20260820">
-    <link rel="stylesheet" href="./css/style.css?v=voice-duplex-20260820" id="main-css">
+    <link rel="stylesheet" href="./css/style.css?v=voice-face-20260822" id="main-css">
     <script defer src="./dist/lucide.bundle.js"></script>
     <script defer src="./js/bootstrap.js"></script>
 <!-- All component styles consolidated in css/style.css -->
@@ -555,8 +555,11 @@
     <div id="voice-live-overlay"
          class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-500 hidden overflow-hidden font-sans bg-white dark:bg-[#0a0a0f]">
 
-        <!-- Fluid gradient wave — WebGL shader -->
-        <canvas id="voice-wave-canvas" class="absolute inset-0 w-full h-full z-0 pointer-events-none"></canvas>
+        <!-- MindPal Voice face: decorative canvas driven by the real session state. -->
+        <div class="voice-face-layer" aria-hidden="true">
+            <canvas id="voice-face-canvas" class="voice-face-canvas"></canvas>
+            <div id="voice-face-state-label" class="voice-face-state-label" aria-hidden="true">Connecting</div>
+        </div>
 
         <!-- ── Top bar ── -->
         <header class="relative z-20 flex items-center justify-between px-5 pt-safe-top pb-2 w-full">
@@ -634,6 +637,6 @@
             </div>
         </div>
     </div>
-    <script type="module" src="./dist/app.bundle.js?v=voice-duplex-setup-null-20260822"></script>
+    <script type="module" src="./dist/app.bundle.js?v=voice-face-20260822"></script>
 </body>
 </html>
