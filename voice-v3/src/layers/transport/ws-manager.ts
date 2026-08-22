@@ -305,7 +305,6 @@ export class WebSocketTransportManager {
         model,
         generationConfig: {
           responseModalities: ["AUDIO"],
-          thinkingConfig: buildThinkingConfig(this.token.model),
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: {
@@ -517,9 +516,6 @@ export class WebSocketTransportManager {
   }
 }
 
-function buildThinkingConfig(model: string): { readonly thinkingLevel: "minimal" } | { readonly thinkingBudget: 0 } {
-  return /gemini-3\.1/i.test(model) ? { thinkingLevel: "minimal" } : { thinkingBudget: 0 };
-}
 
 function appendAccessToken(url: string, token: string): string {
   const separator = url.includes("?") ? "&" : "?";

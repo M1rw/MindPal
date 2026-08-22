@@ -138,7 +138,6 @@ describe("WebSocketTransportManager", () => {
         model: "models/gemini-3.1-flash-live-preview",
         generationConfig: {
           responseModalities: ["AUDIO"],
-          thinkingConfig: { thinkingLevel: "minimal" },
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: {
@@ -215,7 +214,7 @@ describe("WebSocketTransportManager", () => {
     manager.close();
   });
 
-  it("uses the Gemini 2.5 thinking configuration for fallback models", async () => {
+  it("omits unsupported thinking configuration for fallback models", async () => {
     const socket = new FakeSocket();
     const manager = new WebSocketTransportManager({
       tokenProvider: new FixedTokenProvider({
@@ -228,7 +227,7 @@ describe("WebSocketTransportManager", () => {
     await waitForAsyncToken();
     socket.open();
     const setup = JSON.parse(socket.sent[0] ?? "{}");
-    expect(setup.setup.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+    expect(setup.setup.generationConfig.thinkingConfig).toBeUndefined();
     socket.message(JSON.stringify({ setupComplete: {} }));
     await connection;
     manager.close();
