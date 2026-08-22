@@ -306,6 +306,9 @@ function mergeTranscript(previous: string, next: string): string {
 
 function readVoiceEvent(value: unknown): VoiceEvent | null {
   const payload = asRecord(value);
+  if (typeof payload.type === "string" && payload.type.startsWith("PROVIDER_")) {
+    return payload as unknown as VoiceEvent;
+  }
   const event = asRecord(payload.event);
   return typeof event.type === "string" && event.type.startsWith("PROVIDER_") ? event as unknown as VoiceEvent : null;
 }
