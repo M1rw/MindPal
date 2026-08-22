@@ -2212,3 +2212,73 @@ button:active,
     transition-duration: 1ms;
   }
 }
+
+/* ── MindPal Voice face visualizer ──
+   The canvas is decorative only. Voice state and captions remain semantic DOM. */
+.voice-face-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: clamp(5rem, 13vh, 8rem) 1rem clamp(9rem, 23vh, 13rem);
+}
+
+.voice-face-canvas {
+  display: block;
+  width: min(82vw, 56rem);
+  height: 100%;
+  min-height: 15rem;
+  max-height: 42rem;
+  opacity: 0.96;
+}
+
+.voice-face-state-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, calc(min(27vw, 11rem) + 1.5rem));
+  color: rgba(75, 85, 99, 0.72);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+.dark .voice-face-state-label {
+  color: rgba(203, 213, 225, 0.68);
+}
+
+#voice-live-overlay[data-voice-phase="error"] .voice-face-canvas {
+  opacity: 0.82;
+}
+
+#voice-live-overlay[data-voice-phase="connecting"] .voice-face-canvas {
+  opacity: 0.86;
+}
+
+@media (max-width: 640px) {
+  .voice-face-layer {
+    padding: 5.5rem 0.5rem 8rem;
+  }
+
+  .voice-face-canvas {
+    width: 100vw;
+    min-height: 13rem;
+    max-height: 31rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-face-canvas {
+    opacity: 0.9;
+  }
+
+  .voice-face-state-label {
+    transition: none;
+  }
+}
