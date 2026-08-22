@@ -547,6 +547,23 @@ function parseIncoming(raw: unknown): Record<string, unknown> | null {
       return null;
     }
   }
+
+  if (isBinaryPayload(raw)) {
+    try {
+      const bytes =
+        raw instanceof Uint8Array
+          ? raw
+          : ArrayBuffer.isView(raw)
+            ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
+            : new Uint8Array(raw as ArrayBuffer);
+      const text = new TextDecoder().decode(bytes);
+      return parseIncoming(text);
+    } catch (error) {
+      if (import.meta.env.DEV) console.debug("[Transport] incoming binary JSON parse failed", error);
+      return null;
+    }
+  }
+
   return isRecord(raw) ? raw : null;
 }
 
@@ -554,9 +571,11 @@ function isSetupComplete(message: Record<string, unknown>): boolean {
   // The Live API schema defines setupComplete as an empty message. Depending
   // on the JSON transcoding path, that empty protobuf can arrive as {}, null,
   // or the legacy boolean shape used by older mocks. Presence of either
-  // spelling is therefore authoritative; a missing field is not.
+  // spelling is therefore authoritative; an empty JSON object {} also represents
+  // top-level empty protobuf serialization of BidiGenerateContentSetupComplete.
   if (Object.prototype.hasOwnProperty.call(message, "setupComplete")) return true;
   if (Object.prototype.hasOwnProperty.call(message, "setup_complete")) return true;
+  if (Object.keys(message).length === 0) return true;
   return false;
 }
 

@@ -32,6 +32,8 @@ describe("GeminiProviderAdapter", () => {
   it("recognizes the documented empty-object setup acknowledgment", () => {
     expect(normalizeGeminiMessage({ setupComplete: {} })[0]?.type).toBe("PROVIDER_READY");
     expect(normalizeGeminiMessage({ setup_complete: {} })[0]?.type).toBe("PROVIDER_READY");
+    expect(normalizeGeminiMessage({ setupComplete: null })[0]?.type).toBe("PROVIDER_READY");
+    expect(normalizeGeminiMessage({})[0]?.type).toBe("PROVIDER_READY");
   });
 
   it("preserves cumulative transcript metadata and attaches provider identities", () => {
