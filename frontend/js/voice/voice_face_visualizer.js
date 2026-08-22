@@ -184,8 +184,9 @@ class VoiceFaceRenderer {
       this.resizeObserver = new ResizeObserver(() => this.resize());
       this.resizeObserver.observe(this.container);
     }
-    if (this.frameId === null && !document.hidden) this.frameId = requestAnimationFrame((now) => this.render(now));
     this.updateLabel();
+    this.draw();
+    if (this.frameId === null && !document.hidden) this.frameId = requestAnimationFrame((now) => this.render(now));
     return true;
   }
 
@@ -211,6 +212,7 @@ class VoiceFaceRenderer {
   setState(nextState = {}) {
     this.state = { ...this.state, ...nextState };
     const mapped = deriveVoiceFaceState({ ...this.state, micLevel: this.micLevel.target });
+    if (this.container) this.container.dataset.faceExpression = mapped.expression;
     if (mapped.expression !== this.expression) {
       this.expression = mapped.expression;
       this.pulse.set(this.expression === "error" ? 0.75 : this.expression === "backchannel" ? 0.58 : 0.25);
