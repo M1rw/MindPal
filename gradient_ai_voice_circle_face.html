@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini AI Voice - Gradient Circle Face</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #080a10;
+            color: #e8eaed;
+            overflow: hidden;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Glassmorphism Panels - Google Gemini Aesthetic */
+        .gemini-glass {
+            background: rgba(18, 22, 34, 0.65);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .gemini-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .gemini-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 99px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Custom Modern Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #a8c7fa;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(168, 199, 250, 0.5);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+            background: #d3e3fd;
+        }
+
+        .preset-chip {
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .preset-chip.active {
+            background: rgba(168, 199, 250, 0.15);
+            border-color: rgba(168, 199, 250, 0.4);
+            color: #d3e3fd;
+        }
+
+        /* Pulse ring animation */
+        @keyframes soft-pulse {
+            0% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.08); opacity: 0.2; }
+            100% { transform: scale(1); opacity: 0.6; }
+        }
+        .animate-soft-pulse {
+            animation: soft-pulse 4s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative flex items-center justify-center overflow-hidden">
+
+    <!-- Background Canvas for Interactive AI Orb -->
+    <canvas id="faceCanvas" class="absolute inset-0 w-full h-full z-0 cursor-crosshair"></canvas>
+
+    <!-- Top Status Header (Gemini Pill Style) -->
+    <header class="absolute top-6 left-6 z-10 flex items-center gap-3 pointer-events-auto">
+        <div class="gemini-glass px-4 py-2 rounded-full flex items-center gap-3">
+            <div id="statusDot" class="w-2.5 h-2.5 rounded-full bg-blue-400 animate-soft-pulse"></div>
+            <span id="statusText" class="text-xs font-medium tracking-wide text-slate-300">Gemini Voice</span>
+            <span id="emotionBadge" class="text-[11px] font-medium text-blue-200 bg-blue-500/15 px-2.5 py-0.5 rounded-full border border-blue-400/20">Neutral</span>
+        </div>
+
+        <button id="micToggleBtn" class="gemini-glass px-4 py-2 rounded-full flex items-center gap-2 text-xs font-medium text-slate-200 hover:text-white hover:bg-white/10 transition-all border border-white/10 active:scale-95">
+            <i id="micIcon" class="fa-solid fa-microphone-slash text-slate-400 text-xs"></i>
+            <span id="micStatusText">Enable Mic</span>
+        </button>
+    </header>
+
+    <!-- Top Right Controls (Audio Meter & Settings Toggle) -->
+    <div class="absolute top-6 right-6 z-10 pointer-events-auto flex items-center gap-3">
+        <div class="gemini-glass px-4 py-2 rounded-full flex items-center gap-3">
+            <i class="fa-solid fa-waveform text-blue-400 text-xs"></i>
+            <div class="w-20 h-1.5 bg-slate-800 rounded-full overflow-hidden flex items-center">
+                <div id="audioLevelBar" class="h-full bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 rounded-full w-0 transition-all duration-75"></div>
+            </div>
+            <span id="dbText" class="text-[11px] font-mono text-slate-400 w-8 text-right">0%</span>
+        </div>
+
+        <!-- Toggle Debug Panel Button -->
+        <button id="toggleDebugBtn" class="gemini-glass w-9 h-9 rounded-full flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition-all border border-white/10 active:scale-95" title="Debug Expressions">
+            <i class="fa-solid fa-sliders text-xs"></i>
+        </button>
+    </div>
+
+    <!-- Speech Reaction Visual Caption Pill -->
+    <div id="speechCaption" class="absolute bottom-10 left-1/2 -translate-x-1/2 z-10 pointer-events-none opacity-0 transition-all duration-500 transform translate-y-3">
+        <div class="gemini-glass px-6 py-2.5 rounded-full border border-blue-400/20 text-center max-w-lg shadow-2xl">
+            <p id="captionText" class="text-xs font-medium text-slate-200 tracking-wide">"Listening to your voice..."</p>
+        </div>
+    </div>
+
+    <!-- Debug Panel Drawer -->
+    <aside id="debugPanel" class="gemini-glass fixed top-0 right-0 h-full w-80 md:w-96 z-20 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-l border-white/10">
+        
+        <!-- Header -->
+        <div class="p-5 border-b border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <i class="fa-solid fa-sparkles text-blue-400 text-sm"></i>
+                <h2 class="text-xs font-semibold tracking-wider uppercase text-slate-200">Expression & Voice Controls</h2>
+            </div>
+            <button id="closeDebugBtn" class="text-slate-400 hover:text-white text-xs p-1.5 rounded-full hover:bg-white/10 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Controls Content (Scrollable) -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
+            
+            <!-- Quick Emotion Micro-Expressions -->
+            <div>
+                <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-3">Micro-Expressions</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="preset-chip active px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="neutral">
+                        <span>Neutral (Idle)</span>
+                        <i class="fa-solid fa-circle text-[6px] text-blue-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="listening">
+                        <span>Attentive</span>
+                        <i class="fa-solid fa-ear-listen text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="thinking">
+                        <span>Thinking</span>
+                        <i class="fa-solid fa-brain text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="speaking">
+                        <span>Speaking</span>
+                        <i class="fa-solid fa-comments text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="curious">
+                        <span>Curious</span>
+                        <i class="fa-solid fa-question text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="warm">
+                        <span>Warm / Smile</span>
+                        <i class="fa-solid fa-face-smile text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="receptive">
+                        <span>Receptive</span>
+                        <i class="fa-solid fa-eye text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="sleepy">
+                        <span>Resting</span>
+                        <i class="fa-solid fa-moon text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="surprised">
+                        <span>Surprised</span>
+                        <i class="fa-solid fa-lightbulb text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="amused">
+                        <span>Amused</span>
+                        <i class="fa-solid fa-star text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="skeptical">
+                        <span>Skeptical</span>
+                        <i class="fa-solid fa-scale-balanced text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="focused">
+                        <span>Focused</span>
+                        <i class="fa-solid fa-bullseye text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="sympathetic">
+                        <span>Sympathetic</span>
+                        <i class="fa-solid fa-heart text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="confused">
+                        <span>Confused</span>
+                        <i class="fa-solid fa-arrow-right-arrow-left text-[10px] text-slate-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic Multi-Stage Behaviors -->
+            <div>
+                <label class="text-[11px] font-semibold text-purple-400 uppercase tracking-wider block mb-3">Dynamic Behaviors</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="fightingSleep">
+                        <span>Fight Sleep</span>
+                        <i class="fa-solid fa-battery-quarter text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="scanning">
+                        <span>Scanning</span>
+                        <i class="fa-solid fa-radar text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="glitch">
+                        <span>Glitch</span>
+                        <i class="fa-solid fa-bolt text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="relieved">
+                        <span>Relieved</span>
+                        <i class="fa-solid fa-wind text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="dizzy">
+                        <span>Dizzy</span>
+                        <i class="fa-solid fa-asterisk text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="deepProcessing">
+                        <span>Processing</span>
+                        <i class="fa-solid fa-microchip text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="epiphany">
+                        <span>Epiphany</span>
+                        <i class="fa-solid fa-lightbulb text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="dataScan">
+                        <span>Data Scan</span>
+                        <i class="fa-solid fa-barcode text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between" data-emotion="shy">
+                        <span>Shy</span>
+                        <i class="fa-solid fa-leaf text-[10px] text-slate-400"></i>
+                    </button>
+                    <!-- NEW COMPLEX ANIMATIONS -->
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-blue-500/30 bg-blue-500/5" data-emotion="circleLoading">
+                        <span>Loading Ring</span>
+                        <i class="fa-solid fa-circle-notch text-[10px] text-blue-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-purple-500/30 bg-purple-500/5" data-emotion="questionMark">
+                        <span>Question ?</span>
+                        <i class="fa-solid fa-question text-[10px] text-purple-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-rose-500/30 bg-rose-500/5" data-emotion="exclamation">
+                        <span>Alert !</span>
+                        <i class="fa-solid fa-exclamation text-[10px] text-rose-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-emerald-500/30 bg-emerald-500/5" data-emotion="pingPong">
+                        <span>Ping Pong</span>
+                        <i class="fa-solid fa-table-tennis-paddle-ball text-[10px] text-emerald-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Shape Morphing Behaviors -->
+            <div>
+                <label class="text-[11px] font-semibold text-pink-400 uppercase tracking-wider block mb-3">Shape Morphs</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-pink-500/20 bg-pink-500/5" data-emotion="love">
+                        <span>Love</span> <i class="fa-solid fa-heart text-[10px] text-pink-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-yellow-500/20 bg-yellow-500/5" data-emotion="starstruck">
+                        <span>Starstruck</span> <i class="fa-solid fa-star text-[10px] text-yellow-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-cyan-500/20 bg-cyan-500/5" data-emotion="sparkle">
+                        <span>Sparkle</span> <i class="fa-solid fa-wand-magic-sparkles text-[10px] text-cyan-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-blue-500/20 bg-blue-500/5" data-emotion="diamond">
+                        <span>Diamond</span> <i class="fa-solid fa-gem text-[10px] text-blue-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-amber-500/20 bg-amber-500/5" data-emotion="lightning">
+                        <span>Lightning</span> <i class="fa-solid fa-bolt-lightning text-[10px] text-amber-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-indigo-500/20 bg-indigo-500/5" data-emotion="infinity">
+                        <span>Infinity (∞)</span> <i class="fa-solid fa-infinity text-[10px] text-indigo-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-sky-500/20 bg-sky-500/5" data-emotion="teardrop">
+                        <span>Teardrop</span> <i class="fa-solid fa-droplet text-[10px] text-sky-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-orange-500/20 bg-orange-500/5" data-emotion="triangle">
+                        <span>Triangle</span> <i class="fa-solid fa-play text-[10px] text-orange-400 rotate-[270deg]"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-teal-500/20 bg-teal-500/5" data-emotion="hexagon">
+                        <span>Cyber Hex</span> <i class="fa-solid fa-cube text-[10px] text-teal-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-purple-500/20 bg-purple-500/5" data-emotion="shield">
+                        <span>Shield</span> <i class="fa-solid fa-shield-halved text-[10px] text-purple-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-slate-400/20 bg-slate-400/5" data-emotion="cloud">
+                        <span>Cloud</span> <i class="fa-solid fa-cloud text-[10px] text-slate-300"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-fuchsia-500/20 bg-fuchsia-500/5" data-emotion="catEye">
+                        <span>Cat Eye</span> <i class="fa-solid fa-cat text-[10px] text-fuchsia-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-red-500/20 bg-red-500/5" data-emotion="dead">
+                        <span>Error (X)</span> <i class="fa-solid fa-xmark text-[10px] text-red-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-emerald-500/20 bg-emerald-500/5" data-emotion="success">
+                        <span>Success (✓)</span> <i class="fa-solid fa-check text-[10px] text-emerald-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-blue-500/20 bg-blue-500/5" data-emotion="happy">
+                        <span>Happy (^ ^)</span> <i class="fa-solid fa-face-smile-beam text-[10px] text-blue-400"></i>
+                    </button>
+                     <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-slate-500/20 bg-slate-500/5" data-emotion="squint">
+                        <span>Squint (><)</span> <i class="fa-solid fa-face-laugh-squint text-[10px] text-slate-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-purple-500/20 bg-purple-500/5" data-emotion="questionMorph">
+                        <span>Question (?)</span> <i class="fa-solid fa-question text-[10px] text-purple-400"></i>
+                    </button>
+                    <button class="preset-chip px-3 py-2 rounded-xl text-xs font-medium gemini-card text-slate-300 text-left flex items-center justify-between border border-rose-500/20 bg-rose-500/5" data-emotion="exclamationMorph">
+                        <span>Alert (!)</span> <i class="fa-solid fa-exclamation text-[10px] text-rose-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Fine-tune Eye Parameters -->
+            <div class="space-y-4">
+                <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Eye Geometry & Slants</label>
+                
+                <!-- Eye Width -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="text-slate-300">Eye Width</span>
+                        <span id="valWidth" class="font-mono text-slate-400">22</span>
+                    </div>
+                    <input id="slideWidth" type="range" min="10" max="45" value="22" class="w-full">
+                </div>
+
+                <!-- Eye Height -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="text-slate-300">Eye Height</span>
+                        <span id="valHeight" class="font-mono text-slate-400">46</span>
+                    </div>
+                    <input id="slideHeight" type="range" min="6" max="75" value="46" class="w-full">
+                </div>
+
+                <!-- Eye Distance -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="text-slate-300">Eye Spacing</span>
+                        <span id="valSpacing" class="font-mono text-slate-400">68</span>
+                    </div>
+                    <input id="slideSpacing" type="range" min="40" max="120" value="68" class="w-full">
+                </div>
+
+                <!-- Eye Tilt Angle -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="text-slate-300">Eye Tilt Angle</span>
+                        <span id="valAngle" class="font-mono text-slate-400">0°</span>
+                    </div>
+                    <input id="slideAngle" type="range" min="-35" max="35" value="0" class="w-full">
+                </div>
+
+                <!-- Eye Corner Roundness -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="text-slate-300">Corner Radius</span>
+                        <span id="valRadius" class="font-mono text-slate-400">11</span>
+                    </div>
+                    <input id="slideRadius" type="range" min="1" max="22" value="11" class="w-full">
+                </div>
+
+                <!-- Vertical Offset -->
+            <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-slate-300">Vertical Offset</span>
+                    <span id="valOffsetY" class="font-mono text-slate-400">-36</span>
+                </div>
+                <input id="slideOffsetY" type="range" min="-80" max="20" value="-36" class="w-full">
+            </div>
+        </div>
+
+        <!-- Aesthetic Palette & Controls -->
+            <div class="space-y-4">
+                <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Color Aesthetic & Physics</label>
+                
+                <!-- Color Theme Selection -->
+                <div>
+                    <span class="text-xs text-slate-300 block mb-2">Gemini Mesh Palette</span>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button class="theme-btn active h-7 rounded-lg bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 border border-white/30" data-theme="geminiCore"></button>
+                        <button class="theme-btn h-7 rounded-lg bg-gradient-to-r from-cyan-400 via-blue-600 to-indigo-700 border border-white/10" data-theme="deepCosmos"></button>
+                        <button class="theme-btn h-7 rounded-lg bg-gradient-to-r from-purple-500 via-pink-500 to-rose-400 border border-white/10" data-theme="nebulaWarm"></button>
+                        <button class="theme-btn h-7 rounded-lg bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-600 border border-white/10" data-theme="auroraGreen"></button>
+                    </div>
+                </div>
+
+                <!-- Motion Stiffness / Spring Responsiveness -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="text-slate-300">Spring Damping (Smoothness)</span>
+                        <span id="valDamping" class="font-mono text-slate-400">0.82</span>
+                    </div>
+                    <input id="slideDamping" type="range" min="0.65" max="0.95" step="0.01" value="0.82" class="w-full">
+                </div>
+
+                <!-- Toggles -->
+                <div class="flex items-center justify-between pt-1">
+                    <span class="text-xs text-slate-300">Subtle Mouse Eye Tracking</span>
+                    <input id="mouseTrackToggle" type="checkbox" checked class="w-4 h-4 accent-blue-400 rounded cursor-pointer">
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-300">Natural Micro Blinking</span>
+                    <input id="blinkToggle" type="checkbox" checked class="w-4 h-4 accent-blue-400 rounded cursor-pointer">
+                </div>
+            </div>
+            
+        </div>
+    </aside>
+
+    <script>
+        // --- SMOOTHED AUDIO PROCESSOR ---
+        class AudioProcessor {
+            constructor() {
+                this.audioCtx = null;
+                this.analyser = null;
+                this.micStream = null;
+                this.dataArray = null;
+                this.isMicActive = false;
+                
+                // Simulation & Filtering
+                this.simulatingSpeech = false;
+                this.simTimer = null;
+                this.rawVolume = 0;
+                this.smoothedVolume = 0; // Low-pass filtered for organic smoothness
+                this.sensitivity = 1.4;
+            }
+
+            async initMic() {
+                try {
+                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
+                        video: false 
+                    });
+                    this.micStream = stream;
+                    const source = this.audioCtx.createMediaStreamSource(stream);
+                    this.analyser = this.audioCtx.createAnalyser();
+                    this.analyser.fftSize = 512;
+                    this.analyser.smoothingTimeConstant = 0.85; // Natural damping
+                    source.connect(this.analyser);
+                    
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    this.isMicActive = true;
+                    return true;
+                } catch (err) {
+                    console.warn("Microphone access unavailable:", err);
+                    this.isMicActive = false;
+                    return false;
+                }
+            }
+
+            stopMic() {
+                if (this.micStream) {
+                    this.micStream.getTracks().forEach(track => track.stop());
+                    this.micStream = null;
+                }
+                this.isMicActive = false;
+            }
+
+            simulateSpeech(duration = 3500) {
+                this.simulatingSpeech = true;
+                clearTimeout(this.simTimer);
+                this.simTimer = setTimeout(() => {
+                    this.simulatingSpeech = false;
+                    this.rawVolume = 0;
+                }, duration);
+            }
+
+            getVolume() {
+                let targetVol = 0;
+
+                if (this.simulatingSpeech) {
+                    const time = Date.now() * 0.005;
+                    const wave1 = Math.sin(time * 1.5) * 0.4;
+                    const wave2 = Math.cos(time * 3.7) * 0.35;
+                    const noise = (Math.random() - 0.5) * 0.1;
+                    targetVol = Math.max(0.05, Math.abs(wave1 + wave2 + noise) * 0.75);
+                } else if (this.isMicActive && this.analyser) {
+                    this.analyser.getByteFrequencyData(this.dataArray);
+                    let sum = 0;
+                    // Focus on core human voice band (Bins 4 to ~60)
+                    const bins = Math.min(60, this.dataArray.length);
+                    const count = Math.max(1, bins - 4);
+                    for (let i = 4; i < bins; i++) {
+                        sum += this.dataArray[i];
+                    }
+                    const average = sum / count;
+                    targetVol = Math.min(1.0, (average / 110.0) * this.sensitivity);
+                }
+
+                // Smooth low-pass filtering to prevent jittery/jerky jumps
+                this.smoothedVolume += (targetVol - this.smoothedVolume) * 0.12;
+                return Math.max(0, this.smoothedVolume);
+            }
+        }
+
+        // --- SPRING PHYSICS SYSTEM FOR ORGANIC SMOOTHNESS ---
+        class SpringValue {
+            constructor(val = 0, stiffness = 0.08, damping = 0.82) {
+                this.current = val;
+                this.target = val;
+                this.velocity = 0;
+                this.stiffness = stiffness;
+                this.damping = damping;
+            }
+
+            update() {
+                const force = (this.target - this.current) * this.stiffness;
+                this.velocity = (this.velocity + force) * this.damping;
+                this.current += this.velocity;
+                return this.current;
+            }
+
+            set(val) {
+                this.target = val;
+            }
+
+            snap(val) {
+                this.current = val;
+                this.target = val;
+                this.velocity = 0;
+            }
+        }
+
+        // Subtle, refined Google-Gemini style micro-expressions
+        const EMOTIONS = {
+            neutral: {
+                width: 24, height: 52, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Neutral"
+            },
+            listening: {
+                width: 26, height: 56, spacing: 76, angle: 0, radius: 13, offsetY: -34,
+                leftHeightMult: 1.05, rightHeightMult: 1.05, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Attentive"
+            },
+            thinking: {
+                width: 20, height: 42, spacing: 66, angle: 4, radius: 10, offsetY: -42,
+                leftHeightMult: 0.95, rightHeightMult: 1.05, leftAngleAdd: 4, rightAngleAdd: 4,
+                name: "Thinking"
+            },
+            speaking: {
+                width: 24, height: 50, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Speaking"
+            },
+            curious: {
+                width: 25, height: 54, spacing: 74, angle: -5, radius: 12, offsetY: -38,
+                leftHeightMult: 1.08, rightHeightMult: 0.92, leftAngleAdd: -4, rightAngleAdd: -2,
+                name: "Curious"
+            },
+            warm: {
+                width: 25, height: 40, spacing: 74, angle: -3, radius: 12, offsetY: -36,
+                leftHeightMult: 0.85, rightHeightMult: 0.85, leftAngleAdd: -3, rightAngleAdd: 3,
+                name: "Warm"
+            },
+            receptive: {
+                width: 28, height: 58, spacing: 78, angle: 0, radius: 14, offsetY: -32,
+                leftHeightMult: 1.1, rightHeightMult: 1.1, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Receptive"
+            },
+            sleepy: {
+                width: 24, height: 16, spacing: 72, angle: 0, radius: 8, offsetY: -28,
+                leftHeightMult: 0.4, rightHeightMult: 0.4, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Resting"
+            },
+            surprised: {
+                width: 26, height: 68, spacing: 78, angle: 0, radius: 13, offsetY: -42,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Surprised"
+            },
+            amused: {
+                width: 28, height: 28, spacing: 74, angle: -12, radius: 14, offsetY: -38,
+                leftHeightMult: 0.8, rightHeightMult: 0.8, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Amused"
+            },
+            skeptical: {
+                width: 22, height: 48, spacing: 70, angle: 0, radius: 11, offsetY: -36,
+                leftHeightMult: 1.1, rightHeightMult: 0.55, leftAngleAdd: -2, rightAngleAdd: 5,
+                name: "Skeptical"
+            },
+            focused: {
+                width: 24, height: 38, spacing: 62, angle: 0, radius: 10, offsetY: -34,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 3, rightAngleAdd: -3,
+                name: "Focused"
+            },
+            sympathetic: {
+                width: 26, height: 46, spacing: 74, angle: -8, radius: 13, offsetY: -32,
+                leftHeightMult: 0.9, rightHeightMult: 0.9, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Sympathetic"
+            },
+            confused: {
+                width: 24, height: 48, spacing: 74, angle: 12, radius: 12, offsetY: -36,
+                leftHeightMult: 0.9, rightHeightMult: 1.15, leftAngleAdd: 4, rightAngleAdd: -4,
+                name: "Confused"
+            },
+            
+            /* --- DYNAMIC MULTI-STAGE BEHAVIORS --- */
+            fightingSleep: {
+                width: 24, height: 16, spacing: 72, angle: 0, radius: 8, offsetY: -24,
+                leftHeightMult: 0.4, rightHeightMult: 0.4, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Fighting Sleep",
+                behavior: (app) => {
+                    const cycle = () => {
+                        // Phase 1: Slowly drooping off to sleep
+                        app.applyEmotionTargets({ height: 10, leftHeightMult: 0.25, rightHeightMult: 0.25, offsetY: -20, angle: 0 });
+                        app.behaviorTimers.push(setTimeout(() => {
+                            // Phase 2: Sudden jolt awake wide-eyed
+                            app.applyEmotionTargets({ height: 58, leftHeightMult: 1.1, rightHeightMult: 1.1, offsetY: -42, angle: -2 });
+                            app.behaviorTimers.push(setTimeout(cycle, 1500)); // Stay awake briefly, then repeat
+                        }, 3500));
+                    };
+                    cycle();
+                }
+            },
+            scanning: {
+                width: 20, height: 40, spacing: 68, angle: 0, radius: 10, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Scanning",
+                behavior: (app) => {
+                    app.overrideGaze = true; // Take control away from mouse
+                    const cycle = () => {
+                        app.springs.gazeX.set(-20); // Dart Left
+                        app.springs.gazeY.set(0);
+                        app.behaviorTimers.push(setTimeout(() => {
+                            app.springs.gazeX.set(20); // Dart Right
+                            app.behaviorTimers.push(setTimeout(() => {
+                                app.springs.gazeX.set(0); // Center focus
+                                app.behaviorTimers.push(setTimeout(cycle, 1000));
+                            }, 500));
+                        }, 500));
+                    };
+                    cycle();
+                }
+            },
+            glitch: {
+                width: 24, height: 50, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Glitch / Processing",
+                behavior: (app) => {
+                    const cycle = () => {
+                        app.applyEmotionTargets({
+                            leftHeightMult: 0.5 + Math.random() * 1.0,
+                            rightHeightMult: 0.5 + Math.random() * 1.0,
+                            leftAngleAdd: (Math.random() - 0.5) * 20,
+                            rightAngleAdd: (Math.random() - 0.5) * 20,
+                            spacing: 65 + Math.random() * 20,
+                            offsetY: -36 + (Math.random() - 0.5) * 10
+                        });
+                        app.behaviorTimers.push(setTimeout(cycle, 180)); // Rapid sporadic updates
+                    };
+                    cycle();
+                }
+            },
+            relieved: {
+                width: 26, height: 20, spacing: 74, angle: -8, radius: 12, offsetY: -46, // Initial tense state
+                leftHeightMult: 0.9, rightHeightMult: 0.9, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Relieved",
+                behavior: (app) => {
+                    app.behaviorTimers.push(setTimeout(() => {
+                        // Big relaxing sigh drop
+                        app.applyEmotionTargets({ 
+                            height: 44, angle: 4, offsetY: -32, 
+                            leftHeightMult: 0.85, rightHeightMult: 0.85 
+                        });
+                    }, 800)); // Hold tension briefly, then relax
+                }
+            },
+            dizzy: {
+                width: 24, height: 42, spacing: 72, angle: 0, radius: 11, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Dizzy",
+                behavior: (app) => {
+                    let tick = 0;
+                    const cycle = () => {
+                        tick += 0.4;
+                        app.applyEmotionTargets({
+                            leftAngleAdd: Math.sin(tick) * 25,
+                            rightAngleAdd: Math.cos(tick) * 25,
+                            offsetY: -36 + Math.sin(tick * 1.5) * 12,
+                            spacing: 72 + Math.cos(tick) * 8
+                        });
+                        app.behaviorTimers.push(setTimeout(cycle, 100)); // Continuous smooth waveform updates
+                    };
+                    cycle();
+                }
+            },
+            deepProcessing: {
+                width: 22, height: 38, spacing: 64, angle: 0, radius: 11, offsetY: -38,
+                leftHeightMult: 0.9, rightHeightMult: 0.9, leftAngleAdd: 3, rightAngleAdd: -3,
+                name: "Deep Processing",
+                behavior: (app) => {
+                    let tick = 0;
+                    const cycle = () => {
+                        tick += 0.2;
+                        app.applyEmotionTargets({
+                            leftHeightMult: 0.85 + Math.sin(tick) * 0.15,
+                            rightHeightMult: 0.85 + Math.cos(tick * 0.8) * 0.15,
+                            spacing: 64 + Math.sin(tick * 0.5) * 4,
+                            offsetY: -38 + Math.cos(tick * 1.2) * 2
+                        });
+                        app.behaviorTimers.push(setTimeout(cycle, 50));
+                    };
+                    cycle();
+                }
+            },
+            epiphany: {
+                width: 20, height: 42, spacing: 66, angle: 4, radius: 10, offsetY: -42, 
+                leftHeightMult: 0.95, rightHeightMult: 1.05, leftAngleAdd: 4, rightAngleAdd: 4,
+                name: "Epiphany",
+                behavior: (app) => {
+                    app.behaviorTimers.push(setTimeout(() => {
+                        // Wide eyed realization! (Lightbulb moment)
+                        app.applyEmotionTargets({
+                            height: 62, width: 26, spacing: 76, angle: 0, offsetY: -48,
+                            leftHeightMult: 1.1, rightHeightMult: 1.1, leftAngleAdd: 0, rightAngleAdd: 0
+                        });
+                        app.behaviorTimers.push(setTimeout(() => {
+                            // Relax into a warm, confident expression
+                            app.applyEmotionTargets({
+                                height: 40, width: 25, spacing: 74, angle: -5, offsetY: -36,
+                                leftHeightMult: 0.85, rightHeightMult: 0.85, leftAngleAdd: -3, rightAngleAdd: 3
+                            });
+                        }, 1200));
+                    }, 1800)); // Think and squint for 1.8s first before the idea hits
+                }
+            },
+            dataScan: {
+                width: 20, height: 26, spacing: 68, angle: 0, radius: 10, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Data Scan",
+                behavior: (app) => {
+                    app.overrideGaze = true;
+                    let row = 0; // 0 = top row, 1 = bottom row
+                    let dir = 1; // 1 = left-to-right, -1 = right-to-left
+                    
+                    const cycle = () => {
+                        // Set vertical row slightly up or down
+                        app.springs.gazeY.set(row === 0 ? -4 : 8);
+                        
+                        // Move to start of the line smoothly
+                        app.springs.gazeX.set(-18 * dir);
+                        
+                        app.behaviorTimers.push(setTimeout(() => {
+                            // Scan to middle
+                            app.springs.gazeX.set(0);
+                            
+                            app.behaviorTimers.push(setTimeout(() => {
+                                // Scan to end of line
+                                app.springs.gazeX.set(18 * dir);
+                                
+                                app.behaviorTimers.push(setTimeout(() => {
+                                    // Reverse direction and switch row for smooth continuous snake-like scanning
+                                    dir *= -1;
+                                    row = row === 0 ? 1 : 0;
+                                    // Gentle pause before next sweep
+                                    app.behaviorTimers.push(setTimeout(cycle, 300));
+                                }, 250));
+                            }, 300));
+                        }, 300));
+                    };
+                    cycle();
+                }
+            },
+            shy: {
+                width: 22, height: 34, spacing: 68, angle: 0, radius: 11, offsetY: -30,
+                leftHeightMult: 0.8, rightHeightMult: 0.8, leftAngleAdd: 5, rightAngleAdd: -5,
+                name: "Shy",
+                behavior: (app) => {
+                    app.overrideGaze = true;
+                    const cycle = () => {
+                        // Look down and away towards the corner
+                        app.springs.gazeX.set(-15);
+                        app.springs.gazeY.set(12);
+                        app.behaviorTimers.push(setTimeout(() => {
+                            // Quick, shy peek back up towards center
+                            app.springs.gazeX.set(-8);
+                            app.springs.gazeY.set(4);
+                            app.behaviorTimers.push(setTimeout(cycle, 1200));
+                        }, 2500));
+                    };
+                    cycle();
+                }
+            },
+            
+            /* --- ADVANCED SYMBOLIC ANIMATIONS --- */
+            circleLoading: {
+                width: 18, height: 18, spacing: 50, angle: 0, radius: 9, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Loading",
+                behavior: (app) => {
+                    app.overrideGaze = true;
+                    let tick = 0;
+                    const cycle = () => {
+                        tick += 0.25;
+                        // Gaze traces a wide circle
+                        app.springs.gazeX.set(Math.cos(tick) * 20);
+                        app.springs.gazeY.set(Math.sin(tick) * 20);
+                        
+                        // Eyes pulse rhythmically in counter-phase
+                        app.applyEmotionTargets({
+                            spacing: 50 + Math.sin(tick * 0.5) * 15,
+                            leftHeightMult: 0.6 + Math.sin(tick) * 0.6,
+                            rightHeightMult: 0.6 + Math.cos(tick) * 0.6,
+                            angle: Math.sin(tick * 0.2) * 20 // Subtle head tilt while rolling
+                        });
+                        
+                        app.behaviorTimers.push(setTimeout(cycle, 50));
+                    };
+                    cycle();
+                }
+            },
+            questionMark: {
+                width: 22, height: 42, spacing: 68, angle: 0, radius: 11, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Question",
+                behavior: (app) => {
+                    app.overrideGaze = true;
+                    const cycle = () => {
+                        // 1. Tilt head, confused expression, look top center
+                        app.applyEmotionTargets({ angle: 12, leftHeightMult: 1.1, rightHeightMult: 0.7, leftAngleAdd: -5, rightAngleAdd: 5 });
+                        app.springs.gazeX.set(0); app.springs.gazeY.set(-20);
+                        
+                        app.behaviorTimers.push(setTimeout(() => {
+                            // 2. Swoop top right (top hook of the '?')
+                            app.springs.gazeX.set(18); app.springs.gazeY.set(-10);
+                            
+                            app.behaviorTimers.push(setTimeout(() => {
+                                // 3. Swoop middle inward
+                                app.springs.gazeX.set(5); app.springs.gazeY.set(5);
+                                
+                                app.behaviorTimers.push(setTimeout(() => {
+                                    // 4. Drop down to form the "dot" of the question mark
+                                    app.springs.gazeX.set(0); app.springs.gazeY.set(25);
+                                    app.applyEmotionTargets({ height: 12, spacing: 45 }); // Squint & pull together
+                                    
+                                    app.behaviorTimers.push(setTimeout(() => {
+                                        // Reset and ponder before repeating
+                                        app.applyEmotionTargets({ height: 42, spacing: 68 });
+                                        app.behaviorTimers.push(setTimeout(cycle, 1500));
+                                    }, 500));
+                                }, 400));
+                            }, 400));
+                        }, 400));
+                    };
+                    cycle();
+                }
+            },
+            exclamation: {
+                width: 20, height: 30, spacing: 68, angle: 0, radius: 10, offsetY: -30,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Alert !",
+                behavior: (app) => {
+                    app.overrideGaze = true;
+                    const cycle = () => {
+                        // 1. Idle, droopy state (calm before surprise)
+                        app.applyEmotionTargets({ width: 22, height: 20, spacing: 70, offsetY: -25, angle: 0, leftHeightMult: 1, rightHeightMult: 1 });
+                        app.springs.gazeY.set(5);
+                        app.springs.gazeX.set(0);
+                        
+                        app.behaviorTimers.push(setTimeout(() => {
+                            // 2. BOOM! The Alert Jolt (!)
+                            // Very tall, thin eyes. Shoot upwards suddenly.
+                            app.applyEmotionTargets({ width: 12, height: 75, spacing: 55, offsetY: -48 });
+                            app.springs.gazeY.set(-15);
+                            
+                            // 3. Micro shockwave / tremor
+                            app.behaviorTimers.push(setTimeout(() => { app.springs.gazeX.set(-6); }, 50));
+                            app.behaviorTimers.push(setTimeout(() => { app.springs.gazeX.set(6); }, 100));
+                            app.behaviorTimers.push(setTimeout(() => { app.springs.gazeX.set(0); }, 150));
+
+                            app.behaviorTimers.push(setTimeout(cycle, 2200));
+                        }, 1200));
+                    };
+                    cycle();
+                }
+            },
+            pingPong: {
+                width: 22, height: 38, spacing: 68, angle: 0, radius: 11, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                name: "Ping Pong",
+                behavior: (app) => {
+                    app.overrideGaze = true;
+                    let isLeft = true;
+                    const cycle = () => {
+                        const dir = isLeft ? -1 : 1;
+                        
+                        // Dart gaze sharply to the side
+                        app.springs.gazeX.set(dir * 25);
+                        app.springs.gazeY.set(0);
+                        
+                        // The eye on the side it's looking towards expands slightly, like it hit a wall
+                        app.applyEmotionTargets({
+                            leftHeightMult: isLeft ? 1.35 : 0.75,
+                            rightHeightMult: isLeft ? 0.75 : 1.35,
+                            leftAngleAdd: isLeft ? -12 : 5,
+                            rightAngleAdd: isLeft ? -5 : 12
+                        });
+                        
+                        isLeft = !isLeft;
+                        app.behaviorTimers.push(setTimeout(cycle, 600));
+                    };
+                    cycle();
+                }
+            },
+            
+            /* --- NEW SHAPE MORPHS --- */
+            love: {
+                width: 32, height: 32, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: -8, rightAngleAdd: 8,
+                shape: 'heart', name: "Love"
+            },
+            starstruck: {
+                width: 34, height: 34, spacing: 74, angle: 0, radius: 12, offsetY: -38,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'star', name: "Starstruck",
+                behavior: (app) => {
+                    let tick = 0;
+                    const cycle = () => {
+                        tick += 0.05;
+                        app.applyEmotionTargets({ leftAngleAdd: tick * 50, rightAngleAdd: -tick * 50 });
+                        app.behaviorTimers.push(setTimeout(cycle, 50));
+                    };
+                    cycle();
+                }
+            },
+            dead: {
+                width: 28, height: 28, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'cross', name: "Error"
+            },
+            success: {
+                width: 32, height: 32, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'check', name: "Success"
+            },
+            happy: {
+                width: 32, height: 20, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'crescent', name: "Happy"
+            },
+            squint: {
+                width: 28, height: 28, spacing: 74, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'squint', name: "Squint"
+            },
+            questionMorph: {
+                width: 28, height: 42, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'question', name: "Question"
+            },
+            exclamationMorph: {
+                width: 18, height: 48, spacing: 70, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'exclamation', name: "Alert!"
+            },
+            diamond: {
+                width: 32, height: 38, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'diamond', name: "Diamond"
+            },
+            sparkle: {
+                width: 34, height: 34, spacing: 74, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'sparkle', name: "Sparkle"
+            },
+            lightning: {
+                width: 28, height: 44, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: -4, rightAngleAdd: 4,
+                shape: 'lightning', name: "Lightning"
+            },
+            infinity: {
+                width: 38, height: 26, spacing: 74, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'infinity', name: "Infinity"
+            },
+            teardrop: {
+                width: 28, height: 38, spacing: 72, angle: 0, radius: 12, offsetY: -34,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: -6, rightAngleAdd: 6,
+                shape: 'teardrop', name: "Teardrop"
+            },
+            triangle: {
+                width: 34, height: 36, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'triangle', name: "Triangle"
+            },
+            hexagon: {
+                width: 32, height: 36, spacing: 74, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'hexagon', name: "Cyber Hex"
+            },
+            shield: {
+                width: 32, height: 38, spacing: 72, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'shield', name: "Shield"
+            },
+            cloud: {
+                width: 36, height: 28, spacing: 74, angle: 0, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 0, rightAngleAdd: 0,
+                shape: 'cloud', name: "Cloud"
+            },
+            catEye: {
+                width: 38, height: 18, spacing: 76, angle: 8, radius: 12, offsetY: -36,
+                leftHeightMult: 1.0, rightHeightMult: 1.0, leftAngleAdd: 6, rightAngleAdd: -6,
+                shape: 'catEye', name: "Cat Eye"
+            }
+        };
+
+        // Smooth Organic Gemini Mesh Color Palettes (Clean & Soft)
+        const THEMES = {
+            geminiCore: {
+                stops: [
+                    { r: 66, g: 133, b: 244 },   // Google Blue (#4285F4)
+                    { r: 154, g: 109, b: 255 },  // Gemini Violet (#9A6DFF)
+                    { r: 255, g: 112, b: 168 }   // Soft Coral Pink (#FF70A8)
+                ],
+                bgGlow: 'rgba(66, 133, 244, 0.35)',
+                rim: 'rgba(255, 255, 255, 0.3)'
+            },
+            deepCosmos: {
+                stops: [
+                    { r: 56, g: 189, b: 248 },  // Sky Cyan
+                    { r: 99, g: 102, b: 241 },  // Indigo
+                    { r: 168, g: 85, b: 247 }   // Purple
+                ],
+                bgGlow: 'rgba(56, 189, 248, 0.35)',
+                rim: 'rgba(255, 255, 255, 0.3)'
+            },
+            nebulaWarm: {
+                stops: [
+                    { r: 168, g: 85, b: 247 },  // Purple
+                    { r: 244, g: 114, b: 182 }, // Pink
+                    { r: 251, g: 146, b: 60 }   // Amber Glow
+                ],
+                bgGlow: 'rgba(244, 114, 182, 0.35)',
+                rim: 'rgba(255, 255, 255, 0.3)'
+            },
+            auroraGreen: {
+                stops: [
+                    { r: 52, g: 211, b: 153 },  // Emerald
+                    { r: 56, g: 189, b: 248 },  // Cyan
+                    { r: 129, g: 140, b: 248 }  // Indigo
+                ],
+                bgGlow: 'rgba(52, 211, 153, 0.35)',
+                rim: 'rgba(255, 255, 255, 0.3)'
+            }
+        };
+
+        const MorphUtils = {
+            resamplePolygon: function(vertices, numPoints = 60) {
+                let totalLength = 0;
+                const segments = [];
+                for (let i = 0; i < vertices.length; i++) {
+                    const p1 = vertices[i];
+                    const p2 = vertices[(i + 1) % vertices.length];
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const len = Math.hypot(dx, dy);
+                    segments.push({ p1, p2, len, dx, dy });
+                    totalLength += len;
+                }
+
+                const result = [];
+                let currentSeg = 0;
+                let accumulated = 0;
+
+                for (let i = 0; i < numPoints; i++) {
+                    const targetDist = (i / numPoints) * totalLength;
+                    if (i === numPoints - 1) {
+                        result.push({x: vertices[0].x, y: vertices[0].y});
+                        continue;
+                    }
+                    while (currentSeg < segments.length && accumulated + segments[currentSeg].len < targetDist - 0.0001) {
+                        accumulated += segments[currentSeg].len;
+                        currentSeg++;
+                    }
+                    if (currentSeg >= segments.length) currentSeg = segments.length - 1;
+                    const seg = segments[currentSeg];
+                    const excess = targetDist - accumulated;
+                    const t = seg.len === 0 ? 0 : excess / seg.len;
+                    result.push({ x: seg.p1.x + seg.dx * t, y: seg.p1.y + seg.dy * t });
+                }
+                return result;
+            },
+            alignPhase: function(pts) {
+                let minIdx = 0;
+                let minY = Infinity;
+                pts.forEach((p, i) => { if (p.y < minY) { minY = p.y; minIdx = i; } });
+                return [...pts.slice(minIdx), ...pts.slice(0, minIdx)];
+            }
+        };
+
+        const EyeShapes = {
+            capsule: (w, h, radius) => {
+                const r = Math.max(0.1, Math.min(radius, w/2, h/2));
+                const pts = [];
+                const steps = 15;
+                for(let i=0; i<steps; i++) {
+                    const a = -Math.PI/2 + (i/(steps-1)) * (Math.PI/2);
+                    pts.push({ x: w/2 - r + Math.cos(a)*r, y: -h/2 + r + Math.sin(a)*r });
+                }
+                for(let i=0; i<steps; i++) {
+                    const a = 0 + (i/(steps-1)) * (Math.PI/2);
+                    pts.push({ x: w/2 - r + Math.cos(a)*r, y: h/2 - r + Math.sin(a)*r });
+                }
+                for(let i=0; i<steps; i++) {
+                    const a = Math.PI/2 + (i/(steps-1)) * (Math.PI/2);
+                    pts.push({ x: -w/2 + r + Math.cos(a)*r, y: h/2 - r + Math.sin(a)*r });
+                }
+                for(let i=0; i<steps; i++) {
+                    const a = Math.PI + (i/(steps-1)) * (Math.PI/2);
+                    pts.push({ x: -w/2 + r + Math.cos(a)*r, y: -h/2 + r + Math.sin(a)*r });
+                }
+                return MorphUtils.alignPhase(pts);
+            },
+            star: (w, h) => {
+                const pts = [];
+                const size = Math.max(w, h) * 1.3;
+                for(let i=0; i<10; i++) {
+                    const r = i%2 === 0 ? size/2 : size/4;
+                    const a = (i/10)*Math.PI*2 - Math.PI/2;
+                    pts.push({x: Math.cos(a)*r, y: Math.sin(a)*r});
+                }
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            cross: (w, h) => {
+                const size = Math.max(w, h);
+                const t = size * 0.18;
+                const hw = size / 2;
+                const pts = [
+                    {x: t, y: -hw}, {x: hw, y: -t}, {x: t, y: 0},
+                    {x: hw, y: t}, {x: t, y: hw}, {x: 0, y: t},
+                    {x: -t, y: hw}, {x: -hw, y: t}, {x: -t, y: 0},
+                    {x: -hw, y: -t}, {x: -t, y: -hw}, {x: 0, y: -t}
+                ];
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            heart: (w, h) => {
+                const pts = [];
+                const size = Math.max(w, h) * 0.45;
+                for(let i=0; i<60; i++) {
+                    const t = (i/60) * Math.PI * 2;
+                    const x = 16 * Math.pow(Math.sin(t), 3);
+                    const y = -(13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t));
+                    pts.push({ x: (x/16) * (size*1.3), y: (y/16) * (size*1.3) - size*0.1 });
+                }
+                return MorphUtils.alignPhase(pts);
+            },
+            crescent: (w, h) => {
+                const pts = [];
+                for(let i=0; i<30; i++) {
+                    const a = Math.PI + (i/29)*Math.PI;
+                    pts.push({ x: Math.cos(a)*w/2, y: Math.sin(a)*h/2 });
+                }
+                for(let i=0; i<30; i++) {
+                    const a = 2*Math.PI - (i/29)*Math.PI;
+                    pts.push({ x: Math.cos(a)*w/2 * 0.6, y: Math.sin(a)*h/2 * 0.6 - h*0.15 });
+                }
+                return MorphUtils.alignPhase(pts);
+            },
+            squint: (w, h, r, isRight) => {
+                const dir = isRight ? -1 : 1;
+                const hw = w/2, hh = h/2;
+                const pts = [
+                    {x: -hw * dir, y: -hh}, {x: hw * dir, y: 0}, {x: -hw * dir, y: hh},
+                    {x: (-hw + w*0.3) * dir, y: hh*0.6}, {x: (hw - w*0.3) * dir, y: 0}, {x: (-hw + w*0.3) * dir, y: -hh*0.6}
+                ];
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            check: (w, h) => {
+                const size = Math.max(w, h) * 1.2;
+                const pts = [
+                    {x: -0.3, y: 0.1}, {x: -0.1, y: 0.3}, {x: 0.4, y: -0.4},
+                    {x: 0.25, y: -0.5}, {x: -0.1, y: 0.05}, {x: -0.2, y: -0.05}
+                ].map(p => ({ x: p.x * size, y: p.y * size }));
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            exclamation: (w, h) => {
+                const size = Math.max(w, h);
+                const pts = [
+                    {x: -0.15, y: -0.5}, {x: 0.15, y: -0.5}, {x: 0.06, y: 0.1}, {x: -0.06, y: 0.1},
+                    {x: -0.01, y: 0.1}, {x: -0.01, y: 0.3},
+                    {x: 0.12, y: 0.3}, {x: 0.12, y: 0.5}, {x: -0.12, y: 0.5}, {x: -0.12, y: 0.3},
+                    {x: 0.01, y: 0.3}, {x: 0.01, y: 0.1}
+                ].map(p => ({ x: p.x * size, y: p.y * size }));
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            question: (w, h) => {
+                const size = Math.max(w, h) * 1.1;
+                const pts = [
+                    {x: -0.25, y: -0.2}, {x: -0.25, y: -0.4}, {x: 0.25, y: -0.5}, {x: 0.35, y: -0.1},
+                    {x: 0.1, y: 0.15}, {x: 0.1, y: 0.25}, {x: -0.1, y: 0.25}, {x: -0.1, y: 0.1},
+                    {x: 0.15, y: -0.1}, {x: 0.05, y: -0.25}, {x: -0.1, y: -0.15},
+                    {x: -0.01, y: -0.15}, {x: -0.01, y: 0.35},
+                    {x: 0.1, y: 0.35}, {x: 0.1, y: 0.5}, {x: -0.1, y: 0.5}, {x: -0.1, y: 0.35},
+                    {x: 0.01, y: 0.35}, {x: 0.01, y: -0.15}
+                ].map(p => ({ x: p.x * size, y: p.y * size }));
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            diamond: (w, h) => {
+                const hw = w / 2, hh = h / 2;
+                const pts = [{x: 0, y: -hh}, {x: hw, y: 0}, {x: 0, y: hh}, {x: -hw, y: 0}];
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            triangle: (w, h) => {
+                const hw = w / 2, hh = h / 2;
+                const pts = [{x: 0, y: -hh}, {x: hw, y: hh}, {x: -hw, y: hh}];
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            sparkle: (w, h) => {
+                const pts = [];
+                const size = Math.max(w, h) * 0.65;
+                for (let i = 0; i < 8; i++) {
+                    const r = i % 2 === 0 ? size : size * 0.24;
+                    const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+                    pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
+                }
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            lightning: (w, h) => {
+                const size = Math.max(w, h);
+                const pts = [
+                    {x: 0.1, y: -0.5}, {x: -0.3, y: -0.05}, {x: -0.05, y: -0.05},
+                    {x: -0.2, y: 0.5}, {x: 0.2, y: 0.05}, {x: -0.05, y: 0.05}
+                ].map(p => ({ x: p.x * size, y: p.y * size }));
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            infinity: (w, h) => {
+                const pts = [];
+                const scaleX = w * 0.55;
+                const scaleY = h * 0.45;
+                for (let i = 0; i < 60; i++) {
+                    const t = (i / 60) * Math.PI * 2;
+                    const denom = 1 + Math.pow(Math.cos(t), 2);
+                    pts.push({ 
+                        x: (scaleX * Math.sin(t)) / denom, 
+                        y: (scaleY * Math.sin(t) * Math.cos(t)) / denom 
+                    });
+                }
+                return MorphUtils.alignPhase(pts);
+            },
+            teardrop: (w, h) => {
+                const pts = [];
+                for (let i = 0; i < 60; i++) {
+                    const t = (i / 60) * Math.PI * 2;
+                    const x = (w * 0.45) * Math.sin(t / 2) * Math.sin(t);
+                    const y = -(h * 0.5) * Math.cos(t);
+                    pts.push({ x, y });
+                }
+                return MorphUtils.alignPhase(pts);
+            },
+            hexagon: (w, h) => {
+                const pts = [];
+                const hw = w / 2, hh = h / 2;
+                for (let i = 0; i < 6; i++) {
+                    const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
+                    pts.push({ x: Math.cos(a) * hw, y: Math.sin(a) * hh });
+                }
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            shield: (w, h) => {
+                const hw = w / 2, hh = h / 2;
+                const pts = [
+                    {x: -hw, y: -hh}, {x: hw, y: -hh}, {x: hw, y: -hh * 0.2},
+                    {x: 0, y: hh}, {x: -hw, y: -hh * 0.2}
+                ];
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            },
+            cloud: (w, h) => {
+                const pts = [];
+                const rx = w / 2, ry = h / 2;
+                for (let i = 0; i < 60; i++) {
+                    const a = (i / 60) * Math.PI * 2;
+                    const rMult = 1 + 0.22 * Math.sin(a * 4) + 0.12 * Math.cos(a * 2);
+                    pts.push({ x: Math.cos(a) * rx * rMult * 0.8, y: Math.sin(a) * ry * rMult * 0.8 });
+                }
+                return MorphUtils.alignPhase(pts);
+            },
+            catEye: (w, h) => {
+                const pts = [];
+                const hw = w / 2, hh = h / 2;
+                for (let i = 0; i < 30; i++) {
+                    const t = i / 29;
+                    pts.push({ x: -hw + t * w, y: -Math.sin(t * Math.PI) * hh });
+                }
+                for (let i = 0; i < 30; i++) {
+                    const t = i / 29;
+                    pts.push({ x: hw - t * w, y: Math.sin(t * Math.PI) * hh });
+                }
+                return MorphUtils.alignPhase(MorphUtils.resamplePolygon(pts, 60));
+            }
+        };
+
+        class AIFaceCanvas {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.audio = new AudioProcessor();
+
+                // Dimensions
+                this.width = 0;
+                this.height = 0;
+                this.centerX = 0;
+                this.centerY = 0;
+                this.orbRadius = 180;
+
+                // Mouse Tracking
+                this.mouseX = window.innerWidth / 2;
+                this.mouseY = window.innerHeight / 2;
+                this.mouseTrackingEnabled = true;
+
+                // Spring Physics Engine Instances for Eyes & Face
+                this.springs = {
+                    width: new SpringValue(24),
+                    height: new SpringValue(52),
+                    spacing: new SpringValue(72),
+                    angle: new SpringValue(0),
+                    radius: new SpringValue(12),
+                    offsetY: new SpringValue(-36), // Naturally positioned in upper-middle of circle
+                    leftHeightMult: new SpringValue(1.0),
+                    rightHeightMult: new SpringValue(1.0),
+                    leftAngleAdd: new SpringValue(0),
+                    rightAngleAdd: new SpringValue(0),
+                    gazeX: new SpringValue(0, 0.05, 0.85),
+                    gazeY: new SpringValue(0, 0.05, 0.85),
+                    orbPulse: new SpringValue(0, 0.09, 0.8)
+                };
+
+                // Organic Fluid Mesh Animation Controls
+                this.time = 0;
+                this.meshRotation = 0;
+
+                // Blinking Logic
+                this.blinkValue = 1.0;
+                this.isBlinking = false;
+                this.autoBlinkEnabled = true;
+
+                // Active States
+                this.currentEmotion = 'neutral';
+                this.currentTheme = 'geminiCore';
+
+                // Behavior Engine
+                this.behaviorTimers = [];
+                this.overrideGaze = false;
+
+                // Soft Background Waves
+                this.ripples = [];
+
+                // Vertex Physics State Tracking
+                this.leftShapeType = 'capsule';
+                this.rightShapeType = 'capsule';
+                this.leftPts = Array.from({length: 60}, () => ({x:0, y:0, vx:0, vy:0}));
+                this.rightPts = Array.from({length: 60}, () => ({x:0, y:0, vx:0, vy:0}));
+
+                // Pre-fill shapes to prevent pop-in on load
+                const initPts = EyeShapes.capsule(24, 52, 12);
+                for(let i=0; i<60; i++) {
+                    this.leftPts[i].x = initPts[i].x; this.leftPts[i].y = initPts[i].y;
+                    this.rightPts[i].x = initPts[i].x; this.rightPts[i].y = initPts[i].y;
+                }
+
+                this.init();
+            }
+
+            init() {
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+
+                window.addEventListener('mousemove', (e) => {
+                    this.mouseX = e.clientX;
+                    this.mouseY = e.clientY;
+                });
+
+                this.scheduleNextBlink();
+                this.animate();
+            }
+
+            resize() {
+                const dpr = window.devicePixelRatio || 1;
+                this.width = this.canvas.clientWidth || window.innerWidth || 800;
+                this.height = this.canvas.clientHeight || window.innerHeight || 600;
+                
+                const targetWidth = Math.round(this.width * dpr);
+                const targetHeight = Math.round(this.height * dpr);
+                
+                if (this.canvas.width !== targetWidth || this.canvas.height !== targetHeight) {
+                    this.canvas.width = targetWidth;
+                    this.canvas.height = targetHeight;
+                    this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform matrix
+                    this.ctx.scale(dpr, dpr); // Scale for high-DPI displays
+                }
+                
+                this.centerX = this.width / 2;
+                this.centerY = this.height / 2;
+
+                // Scaled appropriately for mobile & desktop
+                this.orbRadius = Math.max(120, Math.min(210, Math.min(this.width, this.height) * 0.22));
+            }
+
+            scheduleNextBlink() {
+                if (!this.autoBlinkEnabled) return;
+                const interval = Math.random() * 4000 + 3000;
+                setTimeout(() => {
+                    this.triggerBlink();
+                    this.scheduleNextBlink();
+                }, interval);
+            }
+
+            triggerBlink() {
+                if (this.isBlinking) return;
+                this.isBlinking = true;
+                const startTime = performance.now();
+                const duration = 150; // ms quick natural blink
+
+                const step = (now) => {
+                    const elapsed = now - startTime;
+                    const progress = elapsed / duration;
+
+                    if (progress < 0.5) {
+                        this.blinkValue = 1 - (progress * 2);
+                    } else if (progress <= 1.0) {
+                        this.blinkValue = (progress - 0.5) * 2;
+                    } else {
+                        this.blinkValue = 1.0;
+                        this.isBlinking = false;
+                        return;
+                    }
+                    requestAnimationFrame(step);
+                };
+                requestAnimationFrame(step);
+            }
+
+            clearBehaviors() {
+                // Clear any running multi-stage timeouts
+                this.behaviorTimers.forEach(t => clearTimeout(t));
+                this.behaviorTimers = [];
+                this.overrideGaze = false;
+            }
+
+            applyEmotionTargets(targets) {
+                // Safely update specific springs
+                for (let prop in targets) {
+                    if (this.springs[prop]) {
+                        this.springs[prop].set(targets[prop]);
+                    }
+                }
+            }
+
+            setEmotion(key) {
+                if (!EMOTIONS[key]) return;
+                this.currentEmotion = key;
+                const e = EMOTIONS[key];
+
+                // Stop any running animations and reset gaze control
+                this.clearBehaviors();
+                
+                // Set initial base Spring Physics Targets for the emotion
+                this.applyEmotionTargets(e);
+                
+                // Inject the assigned geometric shape for this emotion (or default back to capsule)
+                this.leftShapeType = e.shape || 'capsule';
+                this.rightShapeType = e.shape || 'capsule';
+
+                // If emotion has a dynamic multi-stage script, execute it
+                if (typeof e.behavior === 'function') {
+                    e.behavior(this);
+                }
+
+                document.getElementById('emotionBadge').innerText = e.name;
+                document.querySelectorAll('.preset-chip').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.emotion === key);
+                });
+            }
+
+            addRipple(intensity) {
+                if (this.ripples.length > 4) return;
+                this.ripples.push({
+                    radius: this.orbRadius * 0.95,
+                    maxRadius: this.orbRadius * (1.25 + intensity * 0.3),
+                    alpha: 0.35 * Math.min(1.0, intensity * 1.2),
+                    speed: 1.2 + intensity * 2.5
+                });
+            }
+
+            updatePhysics() {
+                this.time += 0.015;
+
+                // Voice Volume Analysis
+                const volume = this.audio.getVolume();
+                this.springs.orbPulse.set(volume);
+
+                // Update UI Audio Level Meter
+                const levelPercent = Math.min(100, Math.round(volume * 100));
+                document.getElementById('audioLevelBar').style.width = `${levelPercent}%`;
+                document.getElementById('dbText').innerText = `${levelPercent}%`;
+
+                // Auto-switch to speaking/listening when volume detected
+                if (volume > 0.12) {
+                    if (this.audio.simulatingSpeech) {
+                        if (this.currentEmotion !== 'speaking') this.setEmotion('speaking');
+                    } else if (this.audio.isMicActive && this.currentEmotion !== 'listening') {
+                        this.setEmotion('listening');
+                    }
+
+                    if (Math.random() < 0.25) {
+                        this.addRipple(volume);
+                    }
+                }
+
+                // Gaze Mouse Offset Calculation
+                if (this.mouseTrackingEnabled && !this.overrideGaze) {
+                    const dx = this.mouseX - this.centerX;
+                    const dy = this.mouseY - this.centerY;
+                    const maxDist = Math.max(1, Math.min(this.width, this.height) * 0.4);
+                    
+                    let gazeTargetX = (dx / maxDist) * 12;
+                    let gazeTargetY = (dy / maxDist) * 10;
+                    
+                    // Prevent NaN explosion
+                    gazeTargetX = isNaN(gazeTargetX) ? 0 : Math.max(-12, Math.min(12, gazeTargetX));
+                    gazeTargetY = isNaN(gazeTargetY) ? 0 : Math.max(-10, Math.min(10, gazeTargetY));
+                    
+                    this.springs.gazeX.set(gazeTargetX);
+                    this.springs.gazeY.set(gazeTargetY);
+                } else if (!this.overrideGaze) {
+                    // Reset smoothly to center if tracking is disabled and behavior isn't overriding
+                    this.springs.gazeX.set(0);
+                    this.springs.gazeY.set(0);
+                }
+                // (If overrideGaze IS true, we let the behavior script handle gazeX.set() and gazeY.set() independently)
+
+                // Step all Springs for hyper-smooth physics movement
+                for (let key in this.springs) {
+                    this.springs[key].update();
+                }
+
+                // Fluid Mesh Rotation
+                this.meshRotation += 0.005 + (volume * 0.02);
+
+                // Update Wave Ripples
+                for (let i = this.ripples.length - 1; i >= 0; i--) {
+                    const r = this.ripples[i];
+                    r.radius += r.speed;
+                    r.alpha *= 0.96;
+                    if (r.alpha < 0.01 || r.radius >= r.maxRadius) {
+                        this.ripples.splice(i, 1);
+                    }
+                }
+            }
+
+            drawFluidOrb(floatY) {
+                const ctx = this.ctx;
+                const theme = THEMES[this.currentTheme];
+
+                // Smooth Pulse Radius Calculation
+                const pulseVal = this.springs.orbPulse.current;
+                const currentRadius = this.orbRadius + (pulseVal * 18) + (Math.sin(this.time * 1.5) * 3);
+
+                ctx.save();
+                ctx.translate(this.centerX, this.centerY + floatY);
+
+                // 1. Clean Atmospheric Ambient Bloom Outer Glow
+                const bgGlowGrad = ctx.createRadialGradient(0, 0, currentRadius * 0.4, 0, 0, currentRadius * 1.6);
+                bgGlowGrad.addColorStop(0, theme.bgGlow);
+                bgGlowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+
+                ctx.beginPath();
+                ctx.arc(0, 0, currentRadius * 1.6, 0, Math.PI * 2);
+                ctx.fillStyle = bgGlowGrad;
+                ctx.fill();
+
+                // 2. Smooth Fluid Morphing Organic Blob Core (Clean Gemini Style)
+                ctx.beginPath();
+                const points = 120;
+                for (let i = 0; i <= points; i++) {
+                    const angle = (i / points) * Math.PI * 2;
+                    // Dynamic subtle liquid sine wave deformation
+                    const distortion = Math.sin(angle * 3 + this.time * 2) * (2 + pulseVal * 6) +
+                                       Math.cos(angle * 5 - this.time * 1.5) * (1.5 + pulseVal * 4);
+                    const r = currentRadius + distortion;
+                    const x = Math.cos(angle) * r;
+                    const y = Math.sin(angle) * r;
+
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+
+                // Primary Soft Dynamic Linear Gradient
+                const rot = this.meshRotation;
+                const gx1 = Math.cos(rot) * currentRadius * 0.9;
+                const gy1 = Math.sin(rot) * currentRadius * 0.9;
+                const baseGrad = ctx.createLinearGradient(gx1, gy1, -gx1, -gy1);
+                
+                const s = theme.stops;
+                baseGrad.addColorStop(0, `rgb(${s[0].r}, ${s[0].g}, ${s[0].b})`);
+                baseGrad.addColorStop(0.5, `rgb(${s[1].r}, ${s[1].g}, ${s[1].b})`);
+                baseGrad.addColorStop(1, `rgb(${s[2].r}, ${s[2].g}, ${s[2].b})`);
+                
+                ctx.fillStyle = baseGrad;
+                ctx.shadowColor = `rgba(${s[0].r}, ${s[0].g}, ${s[0].b}, 0.4)`;
+                ctx.shadowBlur = 35;
+                ctx.fill();
+
+                // 3. Secondary Organic Swirling Fluid Radial Nodes for Visual Depth
+                const node1X = Math.cos(this.time * 0.9) * currentRadius * 0.3;
+                const node1Y = Math.sin(this.time * 0.8) * currentRadius * 0.3;
+                const node1Grad = ctx.createRadialGradient(node1X, node1Y, 0, node1X, node1Y, currentRadius * 0.85);
+                node1Grad.addColorStop(0, `rgba(${s[2].r}, ${s[2].g}, ${s[2].b}, 0.75)`);
+                node1Grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                ctx.fillStyle = node1Grad;
+                ctx.fill();
+
+                // 4. Soft Inner Core Highlight (Sleek and Minimalist)
+                const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, currentRadius);
+                coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
+                coreGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
+                coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+
+                ctx.fillStyle = coreGrad;
+                ctx.fill();
+
+                ctx.restore();
+
+                return currentRadius;
+            }
+
+            updateMorphPhysics(effLeftWidth, effLeftHeight, effRightWidth, effRightHeight, radius) {
+                const stiffness = 0.22; // Elasticity of the morph
+                const damping = 0.65;   // Organic wobble/settle factor
+
+                // Evaluate perfectly scaled geometry targets every frame
+                const targetLeft = EyeShapes[this.leftShapeType](effLeftWidth, effLeftHeight, radius, false);
+                const targetRight = EyeShapes[this.rightShapeType](effRightWidth, effRightHeight, radius, true);
+
+                // Apply individual spring physics directly to every point coordinate for fluidity
+                for(let i=0; i<60; i++) {
+                    // Left Eye Physics
+                    let fxL = (targetLeft[i].x - this.leftPts[i].x) * stiffness;
+                    let fyL = (targetLeft[i].y - this.leftPts[i].y) * stiffness;
+                    this.leftPts[i].vx = (this.leftPts[i].vx + fxL) * damping;
+                    this.leftPts[i].vy = (this.leftPts[i].vy + fyL) * damping;
+                    this.leftPts[i].x += this.leftPts[i].vx;
+                    this.leftPts[i].y += this.leftPts[i].vy;
+
+                    // Right Eye Physics
+                    let fxR = (targetRight[i].x - this.rightPts[i].x) * stiffness;
+                    let fyR = (targetRight[i].y - this.rightPts[i].y) * stiffness;
+                    this.rightPts[i].vx = (this.rightPts[i].vx + fxR) * damping;
+                    this.rightPts[i].vy = (this.rightPts[i].vy + fyR) * damping;
+                    this.rightPts[i].x += this.rightPts[i].vx;
+                    this.rightPts[i].y += this.rightPts[i].vy;
+                }
+            }
+
+            drawPolyEye(ctx, x, y, angleDeg, pts, blinkScale) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate((angleDeg * Math.PI) / 180);
+                
+                // Natural hardware scale applied vertically for perfect blinking without distorting geometry computation
+                ctx.scale(1, Math.max(0.01, blinkScale)); 
+
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for(let i=1; i<60; i++) {
+                    ctx.lineTo(pts[i].x, pts[i].y);
+                }
+                ctx.closePath();
+
+                // Crisp White Glowing Eye Layering
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+                ctx.shadowBlur = 10;
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            drawEyes(floatY) {
+                const ctx = this.ctx;
+                const sp = this.springs;
+
+                const gazeX = sp.gazeX.current;
+                const gazeY = sp.gazeY.current;
+
+                // Dynamic scale factor relative to standard 180px radius reference
+                const scale = this.orbRadius / 180;
+
+                const offsetY = sp.offsetY.current * scale;
+                const spacing = sp.spacing.current * scale;
+                const width = sp.width.current * scale;
+                const height = sp.height.current * scale;
+
+                // Base center of eye group elevated inside circle face
+                let eyeCenterX = this.centerX + gazeX * scale;
+                let eyeCenterY = this.centerY + floatY + offsetY + (gazeY * scale);
+
+                // Ensure eyes stay comfortably constrained within the orb radius
+                const maxEyeDist = this.orbRadius * 0.55;
+                const distFromCenter = Math.hypot(eyeCenterX - this.centerX, eyeCenterY - (this.centerY + floatY));
+                if (distFromCenter > maxEyeDist) {
+                    const angle = Math.atan2(eyeCenterY - (this.centerY + floatY), eyeCenterX - this.centerX);
+                    eyeCenterX = this.centerX + Math.cos(angle) * maxEyeDist;
+                    eyeCenterY = this.centerY + floatY + Math.sin(angle) * maxEyeDist;
+                }
+
+                // Subtle Voice Expansion for natural movement mapped alongside standard dimensions
+                const voiceExpand = sp.orbPulse.current * 4 * scale;
+                const effWidth = Math.max(3, width + voiceExpand * 0.3);
+                const effLeftHeight = Math.max(3, (height * sp.leftHeightMult.current + voiceExpand));
+                const effRightHeight = Math.max(3, (height * sp.rightHeightMult.current + voiceExpand));
+
+                // Process the 120-vertex physics simulation
+                this.updateMorphPhysics(effWidth, effLeftHeight, effWidth, effRightHeight, sp.radius.current * scale);
+
+                const halfSpacing = spacing / 2;
+
+                // Render Left Path Morph
+                const leftX = eyeCenterX - halfSpacing;
+                const leftAngle = sp.angle.current + sp.leftAngleAdd.current;
+                this.drawPolyEye(ctx, leftX, eyeCenterY, leftAngle, this.leftPts, this.blinkValue);
+
+                // Render Right Path Morph
+                const rightX = eyeCenterX + halfSpacing;
+                const rightAngle = -sp.angle.current + sp.rightAngleAdd.current;
+                this.drawPolyEye(ctx, rightX, eyeCenterY, rightAngle, this.rightPts, this.blinkValue);
+            }
+
+            drawRipples(floatY) {
+                this.ripples.forEach(r => {
+                    this.ctx.save();
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.centerX, this.centerY + floatY, r.radius, 0, Math.PI * 2);
+                    this.ctx.strokeStyle = `rgba(168, 199, 250, ${r.alpha})`;
+                    this.ctx.lineWidth = 1.2;
+                    this.ctx.shadowBlur = 8;
+                    this.ctx.shadowColor = 'rgba(168, 199, 250, 0.4)';
+                    this.ctx.stroke();
+                    this.ctx.restore();
+                });
+            }
+
+            render() {
+                // Stabilized resize loop: check against fractional scaling to prevent flicker glitches
+                if (this.canvas.clientWidth && this.canvas.clientHeight) {
+                    const cw = this.canvas.clientWidth;
+                    const ch = this.canvas.clientHeight;
+                    // Only trigger a layout resize if the dimensions genuinely drifted by > 1px
+                    if (Math.abs(this.width - cw) > 1 || Math.abs(this.height - ch) > 1) {
+                        this.resize();
+                    }
+                }
+
+                // Background Clean Deep Gradient
+                const bgGrad = this.ctx.createRadialGradient(
+                    this.centerX, this.centerY, 80,
+                    this.centerX, this.centerY, Math.max(this.width, this.height)
+                );
+                bgGrad.addColorStop(0, '#0a0d16');
+                bgGrad.addColorStop(0.7, '#06080e');
+                bgGrad.addColorStop(1, '#030407');
+
+                this.ctx.fillStyle = bgGrad;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+
+                // Physics Engine Update
+                this.updatePhysics();
+
+                // Gentle Natural Breathing Floating Motion
+                const floatY = Math.sin(this.time * 1.2) * 5;
+
+                // Render Layers
+                this.drawRipples(floatY);
+                this.drawFluidOrb(floatY);
+                this.drawEyes(floatY);
+            }
+
+            animate() {
+                this.render();
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+
+        // --- DOM BINDINGS & INITIALIZATION ---
+        window.addEventListener('load', () => {
+            const aiApp = new AIFaceCanvas('faceCanvas');
+
+            // Drawer Toggle
+            const debugPanel = document.getElementById('debugPanel');
+            const toggleDebugBtn = document.getElementById('toggleDebugBtn');
+            const closeDebugBtn = document.getElementById('closeDebugBtn');
+
+            toggleDebugBtn.addEventListener('click', () => {
+                debugPanel.classList.toggle('translate-x-full');
+            });
+            closeDebugBtn.addEventListener('click', () => {
+                debugPanel.classList.add('translate-x-full');
+            });
+
+            // Microphone Button Binding
+            const micToggleBtn = document.getElementById('micToggleBtn');
+            const micIcon = document.getElementById('micIcon');
+            const micStatusText = document.getElementById('micStatusText');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+
+            micToggleBtn.addEventListener('click', async () => {
+                if (!aiApp.audio.isMicActive) {
+                    const success = await aiApp.audio.initMic();
+                    if (success) {
+                        micIcon.className = "fa-solid fa-microphone text-blue-400 text-xs";
+                        micStatusText.innerText = "Mic Active";
+                        statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-soft-pulse";
+                        statusText.innerText = "Listening...";
+                        aiApp.setEmotion('listening');
+                    } else {
+                        showCaption("Microphone permission denied.");
+                    }
+                } else {
+                    aiApp.audio.stopMic();
+                    micIcon.className = "fa-solid fa-microphone-slash text-slate-400 text-xs";
+                    micStatusText.innerText = "Enable Mic";
+                    statusDot.className = "w-2.5 h-2.5 rounded-full bg-blue-400 animate-soft-pulse";
+                    statusText.innerText = "Gemini Voice";
+                    aiApp.setEmotion('neutral');
+                }
+            });
+
+            // Emotion Presets Binding
+            document.querySelectorAll('.preset-chip').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const emotion = btn.dataset.emotion;
+                    aiApp.setEmotion(emotion);
+                    syncSlidersToSprings(aiApp.springs);
+                });
+            });
+
+            // Caption Popup Helper
+            const captionBox = document.getElementById('speechCaption');
+            const captionText = document.getElementById('captionText');
+            let captionTimer;
+
+            function showCaption(msg) {
+                captionText.innerText = msg;
+                captionBox.classList.remove('opacity-0', 'translate-y-3');
+                clearTimeout(captionTimer);
+                captionTimer = setTimeout(() => {
+                    captionBox.classList.add('opacity-0', 'translate-y-3');
+                }, 3800);
+            }
+
+            // --- MANUAL SLIDERS BINDING ---
+            const slideWidth = document.getElementById('slideWidth');
+            const slideHeight = document.getElementById('slideHeight');
+            const slideSpacing = document.getElementById('slideSpacing');
+            const slideAngle = document.getElementById('slideAngle');
+            const slideRadius = document.getElementById('slideRadius');
+            const slideOffsetY = document.getElementById('slideOffsetY');
+            const slideDamping = document.getElementById('slideDamping');
+
+            function syncSlidersToSprings(sp) {
+                slideWidth.value = Math.round(sp.width.target);
+                document.getElementById('valWidth').innerText = Math.round(sp.width.target);
+
+                slideHeight.value = Math.round(sp.height.target);
+                document.getElementById('valHeight').innerText = Math.round(sp.height.target);
+
+                slideSpacing.value = Math.round(sp.spacing.target);
+                document.getElementById('valSpacing').innerText = Math.round(sp.spacing.target);
+
+                slideAngle.value = Math.round(sp.angle.target);
+                document.getElementById('valAngle').innerText = `${Math.round(sp.angle.target)}°`;
+
+                slideRadius.value = Math.round(sp.radius.target);
+                document.getElementById('valRadius').innerText = Math.round(sp.radius.target);
+
+                slideOffsetY.value = Math.round(sp.offsetY.target);
+                document.getElementById('valOffsetY').innerText = Math.round(sp.offsetY.target);
+            }
+
+            slideWidth.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                aiApp.springs.width.set(val);
+                document.getElementById('valWidth').innerText = val;
+            });
+
+            slideHeight.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                aiApp.springs.height.set(val);
+                document.getElementById('valHeight').innerText = val;
+            });
+
+            slideSpacing.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                aiApp.springs.spacing.set(val);
+                document.getElementById('valSpacing').innerText = val;
+            });
+
+            slideAngle.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                aiApp.springs.angle.set(val);
+                document.getElementById('valAngle').innerText = `${val}°`;
+            });
+
+            slideRadius.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                aiApp.springs.radius.set(val);
+                document.getElementById('valRadius').innerText = val;
+            });
+
+            slideOffsetY.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                aiApp.springs.offsetY.set(val);
+                document.getElementById('valOffsetY').innerText = val;
+            });
+
+            slideDamping.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                for (let key in aiApp.springs) {
+                    aiApp.springs[key].damping = val;
+                }
+                document.getElementById('valDamping').innerText = val;
+            });
+
+            // Theme Buttons Binding
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active', 'border-white/30'));
+                    btn.classList.add('active', 'border-white/30');
+                    aiApp.currentTheme = btn.dataset.theme;
+                });
+            });
+
+            // Toggles
+            document.getElementById('mouseTrackToggle').addEventListener('change', (e) => {
+                aiApp.mouseTrackingEnabled = e.target.checked;
+            });
+
+            document.getElementById('blinkToggle').addEventListener('change', (e) => {
+                aiApp.autoBlinkEnabled = e.target.checked;
+            });
+        });
+    </script>
+</body>
+</html>
