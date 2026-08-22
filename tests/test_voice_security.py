@@ -57,8 +57,8 @@ class _Quota:
 
 
 def test_live_model_resource_name_is_normalized_for_ephemeral_constraints() -> None:
-    assert voice_router._live_model_resource_name("gemini-3.1-flash-live-preview") == "models/gemini-3.1-flash-live-preview"
-    assert voice_router._live_model_resource_name("models/gemini-2.5-flash-native-audio-preview-12-2025") == "models/gemini-2.5-flash-native-audio-preview-12-2025"
+    assert voice_router._live_model_resource_name("gemini-3.1-flash-live-preview") == "gemini-3.1-flash-live-preview"
+    assert voice_router._live_model_resource_name("models/gemini-2.5-flash-native-audio-preview-12-2025") == "gemini-2.5-flash-native-audio-preview-12-2025"
 
 
 def _services() -> SimpleNamespace:
