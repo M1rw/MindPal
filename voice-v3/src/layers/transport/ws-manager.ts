@@ -551,10 +551,13 @@ function parseIncoming(raw: unknown): Record<string, unknown> | null {
 }
 
 function isSetupComplete(message: Record<string, unknown>): boolean {
-  const value = message.setupComplete ?? message.setup_complete;
-  // The Live API schema defines setupComplete as an empty message object;
-  // tolerate the legacy boolean shape used by older mocks as well.
-  return value === true || isRecord(value);
+  // The Live API schema defines setupComplete as an empty message. Depending
+  // on the JSON transcoding path, that empty protobuf can arrive as {}, null,
+  // or the legacy boolean shape used by older mocks. Presence of either
+  // spelling is therefore authoritative; a missing field is not.
+  if (Object.prototype.hasOwnProperty.call(message, "setupComplete")) return true;
+  if (Object.prototype.hasOwnProperty.call(message, "setup_complete")) return true;
+  return false;
 }
 
 function readProviderError(message: Record<string, unknown>): string | null {
