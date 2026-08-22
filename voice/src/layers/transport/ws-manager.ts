@@ -321,6 +321,13 @@ export class WebSocketTransportManager {
         model,
         generationConfig: {
           responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: this.voicePersona || "Kore",
+              },
+            },
+          },
         },
         systemInstruction: {
           parts: [
@@ -363,7 +370,7 @@ export class WebSocketTransportManager {
     const handle = readResumptionHandle(message);
     if (handle) this.resumptionHandle = handle;
 
-    if (isSetupComplete(message)) {
+    if (isSetupComplete(message, this.setupComplete)) {
       this.setupComplete = true;
       this.setState("OPEN");
       this.clearSetupTimer();
@@ -567,15 +574,15 @@ function parseIncoming(raw: unknown): Record<string, unknown> | null {
   return isRecord(raw) ? raw : null;
 }
 
-function isSetupComplete(message: Record<string, unknown>): boolean {
+function isSetupComplete(message: Record<string, unknown>, setupAlreadyComplete = false): boolean {
   // The Live API schema defines setupComplete as an empty message. Depending
   // on the JSON transcoding path, that empty protobuf can arrive as {}, null,
   // or the legacy boolean shape used by older mocks. Presence of either
   // spelling is therefore authoritative; an empty JSON object {} also represents
-  // top-level empty protobuf serialization of BidiGenerateContentSetupComplete.
+  // top-level empty protobuf serialization during initial setup handshake.
   if (Object.prototype.hasOwnProperty.call(message, "setupComplete")) return true;
   if (Object.prototype.hasOwnProperty.call(message, "setup_complete")) return true;
-  if (Object.keys(message).length === 0) return true;
+  if (!setupAlreadyComplete && Object.keys(message).length === 0) return true;
   return false;
 }
 
@@ -602,7 +609,7 @@ function readResumptionHandle(message: Record<string, unknown>): string | null {
 }
 
 function findMessageType(message: Record<string, unknown>): string {
-  if (isSetupComplete(message)) return "setupComplete";
+  if (isSetupComplete(message, true)) return "setupComplete";
   if (message.serverContent !== undefined || message.server_content !== undefined) return "serverContent";
   if (message.sessionResumptionUpdate !== undefined || message.session_resumption_update !== undefined) {
     return "sessionResumptionUpdate";
