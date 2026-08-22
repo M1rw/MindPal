@@ -204,6 +204,13 @@ describe("WebSocketTransportManager", () => {
         model: "models/gemini-3.1-flash-live-preview",
         generationConfig: {
           responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: "Kore",
+              },
+            },
+          },
         },
         systemInstruction: {
           parts: [{ text: "You are MindPal. Use the configured Gemini Native Audio voice consistently. Stay in an active listening conversation: do not interrupt user speech, but during an approved natural pause you may produce one brief context-appropriate acknowledgement such as “mhm”, “yeah”, “I hear you”, or “go on”. When the application sends a VOICE_CUE_REQUEST, produce only the requested short acknowledgement in this same voice; do not explain the instruction, answer the topic, or start a second full response." }],
@@ -338,7 +345,13 @@ describe("WebSocketTransportManager", () => {
     await waitForAsyncToken();
     socket.open();
     const setup = JSON.parse(socket.sent[0] ?? "{}");
-    expect(setup.setup.generationConfig.speechConfig).toBeUndefined();
+    expect(setup.setup.generationConfig.speechConfig).toEqual({
+      voiceConfig: {
+        prebuiltVoiceConfig: {
+          voiceName: "Charon",
+        },
+      },
+    });
     socket.message(JSON.stringify({ setupComplete: true }));
     await connection;
     expect(manager.sendRealtimeText("VOICE_CUE_REQUEST: mhm")).toBe(true);
