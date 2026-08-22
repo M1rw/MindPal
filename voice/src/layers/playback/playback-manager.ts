@@ -26,6 +26,11 @@ export type PlaybackEvent =
       readonly endTime: number;
       readonly queueDepthMs: number;
     }
+  | {
+      readonly type: "playback.started";
+      readonly audioClass: AudioLane;
+      readonly generationId: string;
+    }
   | { readonly type: "playback.underrun"; readonly queueDepthMs: number }
   | {
       readonly type: "playback.stale_chunk.rejected";
@@ -87,6 +92,7 @@ export class PlaybackManager {
   private readonly scheduledSources = new Map<string, Set<ScheduledSource>>();
   private sequence = 0;
   private playbackState: PlaybackState = "IDLE";
+  private readonly startedGenerations = new Set<string>();
   private backchannelGainTarget = BACKCHANNEL_GAIN;
   private urgentFadeMs = 150;
 
@@ -181,12 +187,25 @@ export class PlaybackManager {
       this.scheduledSources.set(scheduled.generationId, generationSources);
       source.onended = () => {
         generationSources.delete(scheduled);
-        if (generationSources.size === 0) this.scheduledSources.delete(scheduled.generationId);
+        if (generationSources.size === 0) {
+          this.scheduledSources.delete(scheduled.generationId);
+          this.startedGenerations.delete(scheduled.generationId);
+        }
         if (this.scheduledSources.size === 0) this.playbackState = "IDLE";
         this.emitSnapshot();
       };
       source.start(startTime);
       this.playbackState = "PLAYING";
+
+      if (!this.startedGenerations.has(scheduled.generationId)) {
+        this.startedGenerations.add(scheduled.generationId);
+        this.emit({
+          type: "playback.started",
+          audioClass: lane,
+          generationId: scheduled.generationId,
+        });
+      }
+
       this.emit({
         type: "playback.scheduled",
         chunkId: chunk.chunkId,
@@ -235,6 +254,7 @@ export class PlaybackManager {
         }
       }
       this.scheduledSources.delete(generationId);
+      this.startedGenerations.delete(generationId);
     }
     if (this.activeGenerationId === generationId) {
       this.nextStartTime = null;
