@@ -135,11 +135,11 @@ class Settings(BaseSettings):
 
     # ── LLM Provider Secrets ─────────────────────────────────────
     GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
-    # Gemini 3.1 Live is the production primary because the canonical browser
-    # session returned audio but no 2.5 native-audio transcription events.
-    # Keep Gemini 2.5 Native Audio as the bounded startup fallback so the app
-    # preserves the requested Gemini voice path when 3.1 provisioning fails.
-    GEMINI_LIVE_MODEL: str = Field(default="gemini-3.1-flash-live-preview", min_length=1, max_length=120)
+    # Production handshake isolation: use Gemini 2.5 Native Audio as the
+    # primary while the constrained ephemeral-token socket is diagnosed.
+    # The fallback remains the same model so this deployment makes one clean
+    # 2.5-only session attempt; restore 3.1 after the transport is proven.
+    GEMINI_LIVE_MODEL: str = Field(default="gemini-2.5-flash-native-audio-preview-12-2025", min_length=1, max_length=120)
     GEMINI_LIVE_FALLBACK_MODEL: str = Field(default="gemini-2.5-flash-native-audio-preview-12-2025", min_length=1, max_length=120)
     GEMINI_TRANSCRIPTION_MODEL: str = Field(default="gemini-3.1-flash-lite", min_length=1, max_length=120)
     VOICE_TOKEN_TTL_SECONDS: int = Field(default=1800, ge=300, le=1800)

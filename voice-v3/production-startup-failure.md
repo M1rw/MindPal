@@ -122,3 +122,15 @@ The bare-model constraint experiment also timed out in production, with primary 
 ## Access-token resource-path correction
 
 Google’s current ephemeral-token documentation states that a raw WebSocket client passes `token.name` through the `access_token` query parameter. Gemini token names are resource-like values such as `authTokens/abc123`; the transport now preserves `/` while percent-encoding other token characters. A focused regression verifies `authTokens/abc+123` becomes `access_token=authTokens/abc%2B123`. The production facade and HTML app bundle receive a new cache key so this URL fix is guaranteed to reach Chromium.
+
+## Production verification on commit 007481e
+
+The main alias served `app.bundle.js?v=voice-duplex-token-slash-20260822`; the standalone `runtime.js` was 101,422 bytes, had no transitive module imports, and contained the `%2F`-to-`/` replacement. On the authenticated main-production browser, clicking Voice opened the V3 overlay, but the visible state remained `Connecting…` at the first observation. The handshake result is pending the 30-second primary/fallback wait.
+
+## Main-production retry result and official contract cross-check
+
+The `007481e` production attempt remained at `Connecting…` beyond the primary and fallback windows. Vercel logs for deployment `dpl_3sBXP6bpJSYhEQY1zg3vTVkpehgc` show two successful authenticated `GET /api/voice/token` calls, each receiving HTTP 200 from Gemini `POST /v1beta/auth_tokens`; the runtime emitted no provider-side WebSocket error because the Live socket is opened directly by the browser. Google’s current documentation confirms ephemeral tokens require the v1beta Live API and are passed as `access_token` to `BidiGenerateContentConstrained`, while the setup model is `models/{model}` and the modern schema places `responseModalities` under `generationConfig`. The resource-path slash hypothesis is deployed and verified in the standalone bundle, but the live handshake still does not become ready; the next controlled experiment is model isolation using Gemini 2.5 as the primary.
+
+## Vercel settings access limitation during model isolation
+
+The Vercel MCP project metadata confirms the linked production deployment but does not expose environment-variable values. The connected browser’s Vercel settings page initially loaded, then its search/view operations timed out and a fresh navigation redirected to the Vercel login page. No environment variable was changed. Model isolation therefore remains unexecuted until the production setting can be inspected or changed through an authenticated path.
