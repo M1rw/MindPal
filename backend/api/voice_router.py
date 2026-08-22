@@ -822,7 +822,7 @@ def _is_supported_gemini_api_live_model(model: str) -> bool:
 
 
 def _live_api_version(model: str) -> str:
-    # Ephemeral browser tokens are documented for the v1beta constrained
+    # Ephemeral browser tokens are documented for the v1beta Live API
     # transport. Keep the same endpoint version for both the Gemini 3.1
     # primary and Gemini 2.5 native-audio fallback models.
     _ = model
@@ -832,7 +832,7 @@ def _live_api_version(model: str) -> str:
 def _live_websocket_url(api_version: str) -> str:
     return (
         "wss://generativelanguage.googleapis.com/ws/"
-        f"google.ai.generativelanguage.{api_version}.GenerativeService.BidiGenerateContentConstrained"
+        f"google.ai.generativelanguage.{api_version}.GenerativeService.BidiGenerateContent"
     )
 
 

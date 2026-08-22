@@ -92,7 +92,8 @@ async def test_voice_token_endpoint_returns_ephemeral_token_not_provider_key(mon
 
     assert result.token == "ephemeral-session-token"
     assert result.token != services.settings.GEMINI_API_KEY.get_secret_value()
-    assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
+    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContent")
+    assert "BidiGenerateContentConstrained" not in result.websocket_url
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
     assert response.headers["cache-control"] == "no-store, private"
 
@@ -193,7 +194,8 @@ async def test_gemini_25_live_voice_token_uses_v1beta_websocket(monkeypatch: pyt
     result = await voice_router.get_voice_token(response=Response(), services=services, context=_context())
 
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
-    assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
+    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContent")
+    assert "BidiGenerateContentConstrained" not in result.websocket_url
 
 
 @pytest.mark.asyncio
@@ -218,7 +220,8 @@ async def test_live_voice_token_falls_back_to_gemini_25_once(monkeypatch: pytest
         ("gemini-2.5-flash-native-audio-preview-12-2025", "v1beta"),
     ]
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
-    assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
+    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContent")
+    assert "BidiGenerateContentConstrained" not in result.websocket_url
 
 
 @pytest.mark.asyncio
@@ -235,7 +238,8 @@ async def test_native_audio_voice_token_uses_v1beta_websocket_and_ephemeral_toke
     result = await voice_router.get_voice_token(response=Response(), services=services, context=_context())
 
     assert result.model == "gemini-2.5-flash-native-audio-preview-12-2025"
-    assert "v1beta.GenerativeService.BidiGenerateContentConstrained" in result.websocket_url
+    assert result.websocket_url.endswith("v1beta.GenerativeService.BidiGenerateContent")
+    assert "BidiGenerateContentConstrained" not in result.websocket_url
 
 
 @pytest.mark.asyncio
