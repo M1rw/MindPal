@@ -15,4 +15,3 @@ export * from "../staging/response_staging_manager.js";
 export * from "../tools/tool_gateway.js";
 export * from "../evidence/evidence_gate.js";
 export * from "../transport/recovery_supervisor.js";
-export * from "../compatibility/legacy_runtime_bridge.js";
