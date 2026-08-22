@@ -305,13 +305,6 @@ export class WebSocketTransportManager {
         model,
         generationConfig: {
           responseModalities: ["AUDIO"],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: this.voicePersona,
-              },
-            },
-          },
         },
         systemInstruction: {
           parts: [
@@ -321,6 +314,7 @@ export class WebSocketTransportManager {
             ...(this.setupContext ? [{ text: this.setupContext }] : []),
           ],
         },
+        sessionResumption: {},
       },
     };
     this.setupSent = true;
