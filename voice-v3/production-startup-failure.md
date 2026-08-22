@@ -106,3 +106,7 @@ The standard `BidiGenerateContent` trial produced the concrete provider error `W
 ## Minimal setup payload correction
 
 After the constrained endpoint and full model resource name were deployed, the authenticated browser still reached `Gemini setupComplete timeout`. Google’s current v1beta WebSocket reference lists `generationConfig` fields such as `responseModalities` and `speechConfig`, but not the model-specific `thinkingConfig` previously added by MindPal. The transport now sends the minimal native-audio setup without `thinkingConfig`; its regression test verifies that both the primary and fallback setup frames omit that field while retaining model URI, voice, transcription, activity detection, and session resumption configuration.
+
+## Minimal constrained setup experiment
+
+The current browser result after the documented constrained endpoint, normalized model binding, and removal of `thinkingConfig` remained `Gemini setupComplete timeout`. To isolate the handshake contract, the transport was reduced further to the official minimum: `model`, `generationConfig.responseModalities`, native-audio `speechConfig`, and `systemInstruction`. Input/output transcription, automatic activity detection, and session-resumption setup fields were removed for this probe. Local transport and backend regressions pass; production verification of this narrower frame is the next gate. These optional capabilities must be reintroduced only after the provider handshake is confirmed.

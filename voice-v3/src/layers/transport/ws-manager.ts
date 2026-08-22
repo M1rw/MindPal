@@ -321,16 +321,6 @@ export class WebSocketTransportManager {
             ...(this.setupContext ? [{ text: this.setupContext }] : []),
           ],
         },
-        inputAudioTranscription: {},
-        outputAudioTranscription: {},
-        realtimeInputConfig: {
-          automaticActivityDetection: {
-            disabled: false,
-            prefixPaddingMs: 100,
-            silenceDurationMs: 500,
-          },
-        },
-        sessionResumption: {},
       },
     };
     this.setupSent = true;
