@@ -2226,6 +2226,22 @@ button:active,
   padding: clamp(5rem, 13vh, 8rem) 1rem clamp(9rem, 23vh, 13rem);
 }
 
+.voice-face-layer::before {
+  content: "";
+  position: absolute;
+  width: clamp(10rem, 30vw, 21rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 31% 25%, rgba(255, 255, 255, 0.92) 0 7%, rgba(126, 177, 255, 0.68) 21%, rgba(91, 120, 235, 0.34) 52%, rgba(91, 120, 235, 0) 76%);
+  filter: blur(16px);
+  opacity: 0.2;
+  transform: translateY(2%);
+}
+
+.dark .voice-face-layer::before {
+  opacity: 0.28;
+}
+
 .voice-face-canvas {
   display: block;
   width: min(82vw, 56rem);
