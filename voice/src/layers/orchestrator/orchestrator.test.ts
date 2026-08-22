@@ -78,6 +78,31 @@ describe("Voice V3 orchestrator state machine", () => {
 });
 
 describe("VoiceOrchestrator chaos fencing", () => {
+  it("allows a second response turn with audio after first turn completes", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const playbackEvents: unknown[] = [];
+    bus.subscribe((envelope) => playbackEvents.push(envelope.payload), {
+      topic: "voice.playback",
+      messageType: "ORCHESTRATOR_AUDIO_EVENT",
+    });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+
+    // Turn 1
+    publishAdapterEvent(bus, now, audioEvent({ ...sessionIdentity, turnId: "turn-1", providerResponseId: "resp-1" }));
+    expect(playbackEvents).toHaveLength(1);
+
+    now = 1;
+    publishAdapterEvent(bus, now, completeEvent({ ...sessionIdentity, turnId: "turn-1", providerResponseId: "resp-1" }));
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
+
+    // Turn 2: New turn arrives
+    now = 2;
+    publishAdapterEvent(bus, now, audioEvent({ ...sessionIdentity, turnId: "turn-2", providerResponseId: "resp-2" }));
+    expect(playbackEvents).toHaveLength(2);
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(false);
+  });
+
   it("drops late PCM after turn completion and never routes it to playback", () => {
     let now = 0;
     const bus = new LayerLinkMessageBus({ nowMono: () => now });
