@@ -72,6 +72,35 @@ describe("RealTokenProvider browser fetch binding", () => {
     await expect(provider.getFallbackToken()).rejects.toThrow("Voice fallback grant is unavailable");
   });
 
+  it("refreshes auth token and retries fetch on 401 response", async () => {
+    let attempts = 0;
+    const authHeaders: string[] = [];
+    const refreshAuthToken = vi.fn(async () => "fresh-firebase-id-token");
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      attempts += 1;
+      const headers = init?.headers as Record<string, string> | undefined;
+      authHeaders.push(headers?.Authorization || "");
+      if (attempts === 1) {
+        return new Response(JSON.stringify({ message: "Unauthorized" }), { status: 401 });
+      }
+      return tokenResponse();
+    });
+
+    const provider = new RealTokenProvider({
+      fetchImpl,
+      getAuthToken: async () => "expired-id-token",
+      refreshAuthToken,
+      retryDelayMs: 0,
+      maxAttempts: 2,
+    });
+
+    const token = await provider.getToken();
+    expect(token.token).toBe("firebase-authenticated-voice-token");
+    expect(attempts).toBe(2);
+    expect(refreshAuthToken).toHaveBeenCalledOnce();
+    expect(authHeaders).toEqual(["Bearer expired-id-token", "Bearer fresh-firebase-id-token"]);
+  });
+
   it("invokes the default fetch with the global receiver", async () => {
     const originalFetch = globalThis.fetch;
     const receiverSensitiveFetch = vi.fn(function (this: typeof globalThis, input: RequestInfo | URL, init?: RequestInit) {

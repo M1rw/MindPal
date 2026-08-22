@@ -104,11 +104,25 @@ export class RealTokenProvider implements TokenProvider {
         });
         if (!response.ok) {
           const error = await responseToError(response, this.nowMs());
+          let authRefreshed = false;
           if (error.status === 401 || error.status === 403) {
-            if (this.refreshAuthToken) authToken = await this.refreshAuthToken();
-            if (this.refreshAppCheckToken) appCheckToken = await this.refreshAppCheckToken();
+            if (this.refreshAuthToken) {
+              const freshAuth = await this.refreshAuthToken();
+              if (freshAuth) {
+                authToken = freshAuth;
+                authRefreshed = true;
+              }
+            }
+            if (this.refreshAppCheckToken) {
+              const freshAppCheck = await this.refreshAppCheckToken();
+              if (freshAppCheck) {
+                appCheckToken = freshAppCheck;
+                authRefreshed = true;
+              }
+            }
           }
-          if (attempt < this.maxAttempts && error.retryable && error.status !== 429) {
+          const isRetryableAuth = (error.status === 401 || error.status === 403) && authRefreshed;
+          if (attempt < this.maxAttempts && (error.retryable || isRetryableAuth) && error.status !== 429) {
             await sleep(Math.max(this.retryDelayMs, error.retryAfterMs));
             continue;
           }

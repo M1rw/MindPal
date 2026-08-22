@@ -219,6 +219,7 @@ export async function startLiveVoice(contextProvider = null) {
       onDiagnostic: handleVoiceDiagnostic,
       onVolume: feedVoiceFaceMicLevel,
       token,
+      getAuthToken: () => getIdToken(),
       refreshAuthToken: () => getIdToken({ forceRefresh: true }),
       getAppCheckToken: () => getAppCheckToken(),
       refreshAppCheckToken: () => getAppCheckToken({ forceRefresh: true }),
