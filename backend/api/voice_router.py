@@ -744,15 +744,16 @@ async def _create_ephemeral_voice_token(
 
         client = genai.Client(api_key=api_key, http_options={"api_version": api_version})
         try:
+            # Match Google’s maintained ephemeral-token WebSocket example:
+            # single-use, short-lived token, with the browser sending the Live
+            # setup frame after connecting to BidiGenerateContentConstrained.
+            # Model/config locking is intentionally omitted for this compatibility
+            # path because both constrained resource forms timed out in production.
             token = client.auth_tokens.create(
                 config={
                     "uses": 1,
                     "expire_time": expires_at,
                     "new_session_expire_time": new_session_expires_at,
-                    "live_connect_constraints": {
-                        "model": _live_model_resource_name(model),
-                        "config": {"session_resumption": {}, "response_modalities": ["AUDIO"]},
-                    },
                     "http_options": {"api_version": api_version},
                 }
             )
@@ -830,10 +831,12 @@ def _live_model_resource_name(model: str) -> str:
 
 
 def _live_api_version(model: str) -> str:
-    # Ephemeral tokens are documented for the v1beta constrained Live API
-    # service. Keep one endpoint for both supported Native Audio models so the
-    # token provisioning and browser WebSocket versions cannot diverge.
-    _ = model
+    # Google’s maintained ephemeral-token WebSocket example uses the v1alpha
+    # constrained service. Isolate that compatibility path for Gemini 2.5;
+    # retain v1beta for Gemini 3.1 until it is independently verified.
+    normalized = sanitize_text(model, 120).lower()
+    if normalized.startswith(NATIVE_AUDIO_LIVE_MODEL_PREFIX):
+        return "v1alpha"
     return "v1beta"
 
 
