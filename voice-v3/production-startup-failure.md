@@ -187,3 +187,9 @@ The instrumentation passed 16 V3 test files / 86 tests, the focused backend suit
 The lifecycle diagnostic proved the production socket opened and setup was sent, followed by one incoming JSON payload classified as `unknown`; no socket error or close occurred before timeout. The likely wire shape is an empty protobuf message serialized as `setupComplete: null`. The transport now treats the presence of either `setupComplete` or `setup_complete` as authoritative, covering `null`, `{}`, and boolean test fixtures while still rejecting messages where the field is absent.
 
 The correction passed 16 V3 test files / 87 tests, focused backend tests, root voice contracts, production build, prebuilt verification, frontend audit, syntax audit, diff check, and secret scan. The new regression specifically completes a simulated connection from `{ "setupComplete": null }`.
+
+## Production cache invalidation for setup-null fix
+
+The first `27784c9` browser attempt still loaded the old `voice-v3-runtime-token-slash-20260822` module because the facade and app bundle cache keys had not changed. The source fix was correct locally, but the production browser could not receive it. The facade now requests `voice-v3-runtime-setup-null-20260822`, the HTML app bundle uses `voice-duplex-setup-null-20260822`, and the loader regression enforces the new runtime URL.
+
+The cache-key build passed the loader/root tests, focused backend tests, all 16 V3 test files / 87 tests, production build, prebuilt verification, frontend audit, syntax audit, diff check, and secret scan.
