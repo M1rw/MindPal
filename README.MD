@@ -44,7 +44,7 @@ The permanent Gemini API credentials remain strictly server-side. Voice sessions
 ├── frontend/              # Frontend web application (JS, CSS, HTML, templates)
 ├── scripts/               # Build, verification, and audit scripts
 ├── tests/                 # Comprehensive Python and JavaScript test suites
-└── voice-v3/              # Voice V3 TypeScript source and build configurations
+└── voice/                 # Voice TypeScript source and build configurations
 ```
 
 ---
@@ -87,15 +87,18 @@ python -m pytest
 # Run JavaScript frontend & Voice V3 tests
 npm test
 
-# Verify prebuilt frontend asset manifest
-python scripts/verify_prebuilt_frontend.py
+# Build all frontend and Voice assets in the workspace
+npm run build:vercel
+
+# Verify the generated workspace outputs
+python scripts/verify_frontend_build.py
 ```
 
 ---
 
 ## Vercel Deployment
 
-Deployment to Vercel uses `npm run build` as the repository Build Command with Vercel mixed-runtime Python support.
+Deployment to Vercel runs `npm ci && npm run build:vercel && python scripts/verify_frontend_build.py`. The frontend and Voice distribution files are generated inside the Vercel build workspace and are intentionally not committed to Git. The FastAPI application serves those generated files after the build completes.
 
 Key production configuration requirements:
 - Set environment variables based on `.env.example`.
@@ -103,4 +106,4 @@ Key production configuration requirements:
 - Configure Firestore TTL policies for rate-limiting and idempotency.
 
 For Voice V3 architecture details and diagnostic history, see:
-- `docs/voice_v3_root_cause_analysis.md`
+- `docs/voice/production-startup-failure.md`

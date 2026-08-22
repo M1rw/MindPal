@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "prebuild": "node scripts/verify_lockfile_registry.mjs",
-    "build": "npm run build:css && npm run build:icons && npm run build:app && npm run build:brain && python scripts/generate_prebuilt_frontend_manifest.py",
+    "build": "npm run build:css && npm run build:icons && npm run build:app && npm run build:brain",
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
     "build:icons": "esbuild frontend/js/vendor/lucide_global.js --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=frontend/dist/lucide.bundle.js",
     "build:app": "esbuild frontend/js/app.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/app.bundle.js",
@@ -16,7 +16,8 @@
     "test": "node --test tests/*.mjs",
     "audit:frontend": "python scripts/audit_frontend.py",
     "audit:syntax": "python3 scripts/audit_syntax_integrity.py",
-    "verify:prebuilt": "python scripts/verify_prebuilt_frontend.py"
+    "verify:build": "python scripts/verify_frontend_build.py",
+    "verify:prebuilt": "npm run verify:build"
   },
   "dependencies": {
     "dompurify": "^3.4.11",
