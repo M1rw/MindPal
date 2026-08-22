@@ -17,6 +17,7 @@ import {
   startVoiceFace,
   stopVoiceFace,
   feedVoiceFaceMicLevel,
+  feedVoiceFaceAiLevel,
   setVoiceFaceState,
   setVoiceFaceDiagnostic,
   setVoiceFaceAnalysers,
@@ -539,6 +540,9 @@ function handleAudioState({
   isMicMuted: muted,
   palette,
   interactionTag = "",
+  faceExpression,
+  faceTheme,
+  faceState,
 } = {}) {
   const overlay = document.getElementById("voice-live-overlay");
   lastAudioProjection = {
@@ -558,6 +562,9 @@ function handleAudioState({
     interactionTag,
     backgroundTaskActive: backgroundTaskCount > 0,
     error: false,
+    faceExpression,
+    faceTheme,
+    ...faceState,
   });
   renderMinimalVoiceStatus();
 }

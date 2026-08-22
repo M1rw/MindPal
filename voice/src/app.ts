@@ -30,6 +30,7 @@ import { ProsodyAnalyzer } from "./layers/prosody/prosody-analyzer";
 import { DEFAULT_VOICE_V3_FEATURE_FLAGS, type VoiceV3FeatureFlags } from "./integration/feature-flags";
 import { LocalMemoryStore, type LocalMemoryRecord } from "./layers/memory/local-memory-store";
 import { MemoryExtractor } from "./layers/memory/memory-extractor";
+import { FaceLayer, type FaceState } from "./layers/face/face-layer";
 
 export const PRODUCTION_MODE = import.meta.env.PROD;
 export type VoiceProviderMode = "mock" | "real";
@@ -86,6 +87,7 @@ export class VoiceV3App {
   public readonly conductor: BackchannelConductor;
   public readonly captureManager: CaptureManager;
   public readonly prosodyAnalyzer: ProsodyAnalyzer;
+  public readonly faceLayer: FaceLayer;
   public readonly mockServer: MockGeminiServer | null;
   public readonly cueProvider: CueProvider;
   public readonly featureFlags: VoiceV3FeatureFlags;
@@ -211,7 +213,10 @@ export class VoiceV3App {
     // 9. Local Prosody & Emotional Context Layer
     this.prosodyAnalyzer = new ProsodyAnalyzer({ bus: this.bus, nowMono: this.nowMono });
 
-    // 10. Capture Layer
+    // 10. Special Face Expression & Human Classification Layer
+    this.faceLayer = new FaceLayer({ bus: this.bus, nowMono: this.nowMono });
+
+    // 11. Capture Layer
     this.captureManager = new CaptureManager({
       onMetrics: (metrics) => this.publishCaptureMetrics(metrics),
       onFrame: (frame) => {
@@ -342,6 +347,7 @@ export class VoiceV3App {
     this.captionPacer.dispose();
     this.conductor.dispose();
     this.prosodyAnalyzer.dispose();
+    this.faceLayer.dispose();
     this.orchestrator.dispose();
     this.mockServer?.close();
   }
