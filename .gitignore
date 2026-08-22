@@ -66,13 +66,13 @@ secrets/firebase-service-account.json
 .vercel
 .env*
 
-# Production frontend bundles are release artifacts and must be committed/deployed.
-!frontend/dist/
-!frontend/dist/**
-
-# Voice V3 internal human review artifacts
-artifacts/voice-persona-review/
-# Vercel-generated Voice V3 preview bundle
+# Frontend and Voice build outputs are generated in the local/Vercel build workspace.
+frontend/css/tailwind.generated.css
+frontend/dist/
+frontend/voice/
 frontend/voice-v3/
-voice-v3/public/voice-v3-auth.bundle.js
-voice-v3/public/assets/
+voice/dist/
+voice/public/assets/
+
+# Voice internal human review artifacts
+artifacts/voice-persona-review/
