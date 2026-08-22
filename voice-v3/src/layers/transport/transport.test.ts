@@ -114,6 +114,26 @@ describe("transport framing", () => {
 });
 
 describe("WebSocketTransportManager", () => {
+  it("preserves Gemini auth token resource slashes in the WebSocket URL", async () => {
+    const socket = new FakeSocket();
+    let createdUrl = "";
+    const manager = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider({ ...createToken(), token: "authTokens/abc+123" }),
+      webSocketFactory: (url) => {
+        createdUrl = url;
+        return socket;
+      },
+    });
+
+    const connection = manager.connect();
+    await waitForAsyncToken();
+    expect(createdUrl).toBe("wss://example.test/live?access_token=authTokens/abc%2B123");
+    socket.open();
+    socket.message(JSON.stringify({ setupComplete: {} }));
+    await connection;
+    manager.close();
+  });
+
   it("sends the exact Gemini 3.1 setup only after socket open and becomes ready after setupComplete", async () => {
     const socket = new FakeSocket();
     const events: string[] = [];
