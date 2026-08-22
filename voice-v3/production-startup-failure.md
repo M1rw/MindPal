@@ -152,3 +152,7 @@ Google’s current documentation states that ephemeral tokens are used only with
 The authenticated production retry isolated a genuine `Gemini setupComplete timeout` for Gemini 2.5; the fallback-grant masking bug is fixed. Google’s current Live API reference documents v1beta, but Google’s maintained ephemeral-token WebSocket sample and the developer forum’s accepted resolution use `v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=...`. The backend now selects v1alpha only for `gemini-2.5-flash-native-audio-preview-12-2025` and keeps Gemini 3.1 on v1beta. This is a controlled, model-specific compatibility experiment rather than a claim that the current general reference has changed.
 
 The v1alpha selection passed 16 V3 test files / 85 tests, 22 focused backend tests, 66 root voice contract tests, the production build, prebuilt-frontend verification, frontend audit, syntax audit, diff check, and secret-pattern check. The next production test must verify that the returned WebSocket URL is v1alpha and that setupComplete arrives.
+
+## Full-resource token constraint experiment
+
+The v1alpha constrained endpoint still timed out, so the next isolated correction aligns the ephemeral token’s `live_connect_constraints.model` with the browser setup frame: both now use `models/{model}`. Google’s current REST reference uses this full resource form, while the Python SDK serializes the supplied string without adding the prefix. The model-specific v1alpha selection remains in place for Gemini 2.5 during this experiment.
