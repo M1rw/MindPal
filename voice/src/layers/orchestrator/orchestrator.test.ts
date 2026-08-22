@@ -103,6 +103,63 @@ describe("VoiceOrchestrator chaos fencing", () => {
     expect(orchestrator.snapshot.providerResponseClosed).toBe(false);
   });
 
+  it("allows successive turns with null turn IDs and fresh response IDs without getting stuck", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const playbackEvents: unknown[] = [];
+    const staleEvents: unknown[] = [];
+    bus.subscribe((envelope) => playbackEvents.push(envelope.payload), {
+      topic: "voice.playback",
+      messageType: "ORCHESTRATOR_AUDIO_EVENT",
+    });
+    bus.subscribe((envelope) => staleEvents.push(envelope.payload), {
+      topic: "voice.orchestrator",
+      messageType: "ORCHESTRATOR_STALE_REJECTED",
+    });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+
+    // First response turn (e.g. greeting or first AI turn with null turnId)
+    const nullTurnIdentity1: GenerationIdentity = {
+      sessionGeneration: "session-1",
+      turnId: null,
+      providerResponseId: "resp-null-1",
+      playbackGeneration: null,
+    };
+    publishAdapterEvent(bus, now, audioEvent(nullTurnIdentity1));
+    expect(playbackEvents).toHaveLength(1);
+
+    now = 1;
+    publishAdapterEvent(bus, now, completeEvent(nullTurnIdentity1));
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
+
+    // User input arrives without explicit turnId
+    now = 2;
+    publishAdapterEvent(bus, now, {
+      type: "PROVIDER_INPUT_TRANSCRIPT",
+      identity: { sessionGeneration: "session-1", turnId: null, providerResponseId: null, playbackGeneration: null },
+      payload: { text: "hello mindpal", isFinal: true, cumulative: true },
+    });
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(false);
+
+    // Second response turn (AI responds with fresh resp ID and null turnId)
+    now = 3;
+    const nullTurnIdentity2: GenerationIdentity = {
+      sessionGeneration: "session-1",
+      turnId: null,
+      providerResponseId: "resp-null-2",
+      playbackGeneration: null,
+    };
+    publishAdapterEvent(bus, now, audioEvent(nullTurnIdentity2));
+    expect(playbackEvents).toHaveLength(2);
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(false);
+
+    // Late PCM from first closed response is still rejected
+    now = 4;
+    publishAdapterEvent(bus, now, audioEvent(nullTurnIdentity1));
+    expect(playbackEvents).toHaveLength(2);
+    expect(staleEvents).toHaveLength(1);
+  });
+
   it("drops late PCM after turn completion and never routes it to playback", () => {
     let now = 0;
     const bus = new LayerLinkMessageBus({ nowMono: () => now });
