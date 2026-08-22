@@ -2220,35 +2220,26 @@ button:active,
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  padding: clamp(5rem, 13vh, 8rem) 1rem clamp(9rem, 23vh, 13rem);
+  padding: clamp(4rem, 10vh, 7rem) 1rem clamp(8rem, 18vh, 11rem);
 }
 
 .voice-face-layer::before {
-  content: "";
-  position: absolute;
-  width: clamp(10rem, 30vw, 21rem);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle at 31% 25%, rgba(255, 255, 255, 0.92) 0 7%, rgba(126, 177, 255, 0.68) 21%, rgba(91, 120, 235, 0.34) 52%, rgba(91, 120, 235, 0) 76%);
-  filter: blur(16px);
-  opacity: 0.2;
-  transform: translateY(2%);
-}
-
-.dark .voice-face-layer::before {
-  opacity: 0.28;
+  display: none;
 }
 
 .voice-face-canvas {
   display: block;
-  width: min(82vw, 56rem);
-  height: 100%;
-  min-height: 15rem;
-  max-height: 42rem;
-  opacity: 0.96;
+  width: min(75vw, 24rem);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  max-width: 24rem;
+  max-height: 24rem;
+  margin: auto;
+  opacity: 0.98;
 }
 
 .voice-face-state-label {
@@ -2279,13 +2270,13 @@ button:active,
 
 @media (max-width: 640px) {
   .voice-face-layer {
-    padding: 5.5rem 0.5rem 8rem;
+    padding: 4.5rem 0.5rem 7.5rem;
   }
 
   .voice-face-canvas {
-    width: 100vw;
-    min-height: 13rem;
-    max-height: 31rem;
+    width: min(80vw, 19rem);
+    max-width: 19rem;
+    max-height: 19rem;
   }
 }
 
