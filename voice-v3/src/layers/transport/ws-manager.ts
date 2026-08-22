@@ -29,6 +29,14 @@ export type TransportEvent =
       readonly reason: "hard-limit";
     }
   | { readonly type: "transport.keepalive.sent" }
+  | { readonly type: "transport.socket.opened"; readonly readyState: number }
+  | { readonly type: "transport.socket.error"; readonly readyState: number }
+  | {
+      readonly type: "transport.socket.closed";
+      readonly code: number;
+      readonly reason: string;
+      readonly wasClean: boolean;
+    }
   | { readonly type: "transport.error"; readonly reason: string; readonly error?: unknown }
   | { readonly type: "transport.message.received"; readonly messageType: string };
 
@@ -277,6 +285,7 @@ export class WebSocketTransportManager {
       if (socket !== this.socket || this.transportState === "CLOSING" || this.transportState === "CLOSED") {
         return;
       }
+      this.emit({ type: "transport.socket.opened", readyState: socket.readyState });
       this.sendSetup();
     };
     socket.onmessage = (event) => {
@@ -285,10 +294,17 @@ export class WebSocketTransportManager {
     };
     socket.onerror = (event) => {
       if (socket !== this.socket) return;
+      this.emit({ type: "transport.socket.error", readyState: socket.readyState });
       this.emit({ type: "transport.error", reason: "WebSocket error", error: event });
     };
     socket.onclose = (event) => {
       if (socket !== this.socket) return;
+      this.emit({
+        type: "transport.socket.closed",
+        code: Number.isFinite(event.code) ? event.code : 0,
+        reason: redactSocketReason(event.reason),
+        wasClean: Boolean(event.wasClean),
+      });
       this.clearSocketAndTimers();
       this.setState("CLOSED");
       const error = new Error(`WebSocket closed: ${event.code} ${event.reason || ""}`.trim());
@@ -512,6 +528,13 @@ function appendAccessToken(url: string, token: string): string {
 
 function redactToken(url: string): string {
   return url.replace(/([?&]access_token=)[^&]*/i, "$1<redacted>");
+}
+
+function redactSocketReason(reason: unknown): string {
+  if (typeof reason !== "string") return "";
+  return reason
+    .replace(/authTokens\/[A-Za-z0-9._~+\-]+/gi, "authTokens/<redacted>")
+    .slice(0, 160);
 }
 
 function parseIncoming(raw: unknown): Record<string, unknown> | null {
