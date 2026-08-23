@@ -9,8 +9,8 @@ function createScriptDocument() {
       appendChild(script) {
         scripts.push(script);
         queueMicrotask(() => {
-          globalThis.window.__MINDPAL_VOICE_V3_RUNTIME__ = {
-            createVoiceV3Controller() {
+          globalThis.window.__MINDPAL_VOICE_RUNTIME__ = {
+            createVoiceController() {
               return {
                 startSession: async () => true,
                 stopSession: async () => true,

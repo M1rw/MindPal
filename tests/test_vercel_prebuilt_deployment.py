@@ -8,7 +8,6 @@ GENERATED_PREFIXES = (
     "frontend/css/tailwind.generated.css",
     "frontend/dist/",
     "frontend/voice/",
-    "frontend/voice-v3/",
     "voice/dist/",
     "voice/public/assets/",
     "frontend/prebuilt-assets.manifest.json",
