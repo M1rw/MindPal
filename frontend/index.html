@@ -108,17 +108,17 @@
         </div>
         
         <div class="flex items-center gap-1 sm:gap-2 text-gray-600 dark:text-gray-300">
-            <button id="theme-toggle-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" title="Toggle Theme">
+            <button id="theme-toggle-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" title="Toggle Theme" aria-label="Toggle theme">
                 <i data-lucide="moon" class="w-5 h-5 block dark:hidden"></i>
                 <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
             </button>
             
-            <button id="streak-btn" class="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors text-[14px] font-medium" title="View Progress">
+            <button id="streak-btn" class="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors text-[14px] font-medium" title="View Progress" aria-label="View daily streak progress">
                 <span id="streak-counter">0</span>
                 <i data-lucide="flame" class="w-4 h-4 text-orange-500 dark:text-orange-400"></i>
             </button>
             
-            <button id="profile-btn" class="p-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" title="Profile & Settings">
+            <button id="profile-btn" class="p-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0" title="Profile & Settings" aria-label="Profile and settings">
                 <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-zinc-600" id="profile-avatar">
                     <i data-lucide="user" class="w-4 h-4"></i>
                 </div>
@@ -229,11 +229,11 @@
                             </div>
                         </div>
 
-                        <button id="voice-btn" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-gray-600 hover:bg-black/5 dark:text-[#c4c7c5] dark:hover:bg-white/10 transition-colors" title="Voice input">
+                        <button id="voice-btn" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-gray-600 hover:bg-black/5 dark:text-[#c4c7c5] dark:hover:bg-white/10 transition-colors" title="Voice input" aria-label="Start voice input">
                             <i data-lucide="audio-waveform" class="w-5 h-5 transition-colors" id="mic-icon"></i>
                         </button>
 
-                        <button id="send-btn" disabled class="hidden flex w-10 h-10 flex-shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black transition-all duration-200 hover:scale-105">
+                        <button id="send-btn" disabled class="hidden flex w-10 h-10 flex-shrink-0 items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black transition-all duration-200 hover:scale-105" aria-label="Send message">
                             <i data-lucide="arrow-up" class="w-5 h-5"></i>
                         </button>
                     </div>
@@ -310,7 +310,7 @@
     <div id="profile-modal" class="fixed inset-0 bg-black/25 dark:bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200 p-0 sm:p-5">
         <div class="bg-white dark:bg-[#1f1f1f] w-full sm:max-w-[860px] h-full sm:h-[min(760px,92vh)] flex rounded-none sm:rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200 border-0 sm:border border-black/5 dark:border-white/10" id="profile-content" style="padding-top: env(safe-area-inset-top, 0px);">
             <aside class="settings-sidebar w-[196px] flex-none bg-gray-50 dark:bg-[#1f1f1f] border-r border-gray-100 dark:border-[#303030] p-3 hidden sm:flex flex-col">
-                <button id="close-profile-btn" class="w-10 h-10 mb-3 rounded-lg flex items-center justify-center hover:bg-gray-200/70 dark:hover:bg-[#333333] text-gray-600 dark:text-gray-300 transition-colors" title="Close settings" type="button">
+                <button id="close-profile-btn" class="w-10 h-10 mb-3 rounded-lg flex items-center justify-center hover:bg-gray-200/70 dark:hover:bg-[#333333] text-gray-600 dark:text-gray-300 transition-colors" title="Close settings" aria-label="Close settings" type="button">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
                 <nav class="flex flex-col gap-1 text-[14px]">
@@ -337,7 +337,7 @@
                         <option value="security">Security</option>
                         <option value="account">Account</option>
                     </select>
-                    <button id="close-profile-mobile-btn" class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#333333] text-gray-600 dark:text-gray-300 transition-colors" title="Close settings" type="button">
+                    <button id="close-profile-mobile-btn" class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#333333] text-gray-600 dark:text-gray-300 transition-colors" title="Close settings" aria-label="Close settings" type="button">
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
@@ -520,7 +520,7 @@
         <div class="bg-white dark:bg-[#1e1f20] w-full max-w-sm flex flex-col rounded-[28px] shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200" id="streak-content">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#444746]">
                 <h2 class="text-base font-medium text-gray-900 dark:text-gray-100">Your Journey</h2>
-                <button id="close-streak-btn" class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                <button id="close-streak-btn" class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" title="Close progress modal" aria-label="Close progress view">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -565,7 +565,8 @@
         <header class="relative z-20 flex items-center justify-between px-5 pt-safe-top pb-2 w-full">
             <button id="voice-live-close"
                     class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
-                    title="Close">
+                    title="Close"
+                    aria-label="Close voice call">
                 <i data-lucide="arrow-left" class="w-5 h-5"></i>
             </button>
 
