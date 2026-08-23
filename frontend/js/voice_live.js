@@ -11,6 +11,7 @@ import {
   setSpeakerMuted,
   getSpeakerMuted,
   getTranscriptSnapshot,
+  preloadVoiceRuntime,
 } from "./voice_session.js";
 import {
   startVoiceFace,
@@ -54,6 +55,7 @@ export function initLiveVoice({ onChatSync } = {}) {
   onChatSyncCallback = onChatSync;
   if (liveVoiceInitialized) return;
   liveVoiceInitialized = true;
+  preloadVoiceRuntime();
 
   document.getElementById("voice-live-close")?.addEventListener("click", stopLiveVoice);
   document.getElementById("voice-live-close-bottom")?.addEventListener("click", stopLiveVoice);
@@ -177,18 +179,14 @@ export async function startLiveVoice(contextProvider = null) {
   });
 
   try {
-    // Get auth token for authenticated API calls
-    const token = await getIdToken().catch(() => null);
+    // Start token acquisition in parallel, but do not await it before the
+    // runtime creates/resumes its playback context. Waiting here consumes the
+    // transient user gesture and can leave valid greeting PCM inaudible under
+    // browser autoplay policy.
+    const tokenPromise = getIdToken().catch(() => null);
 
-    // Voice requires authentication — show friendly message in guest mode
-    if (!token) {
-      setVoiceFaceState({ phase: "error", error: true });
-      if (statusEl) statusEl.textContent = "Sign in to use voice calls";
-      setTimeout(stopLiveVoice, 3000);
-      return;
-    }
-
-    // Start audio session
+    // Start audio session immediately from the button gesture. The canonical
+    // runtime receives the same promise through its token provider.
     await startSession({
       contextProvider,
       onTranscript: handleTranscript,
@@ -199,8 +197,7 @@ export async function startLiveVoice(contextProvider = null) {
       onBackgroundTask: handleBackgroundTask,
       onDiagnostic: handleVoiceDiagnostic,
       onVolume: handleVoiceVolume,
-      token,
-      getAuthToken: () => getIdToken(),
+      getAuthToken: () => tokenPromise,
       refreshAuthToken: () => getIdToken({ forceRefresh: true }),
       getAppCheckToken: () => getAppCheckToken(),
       refreshAppCheckToken: () => getAppCheckToken({ forceRefresh: true }),

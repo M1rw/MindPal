@@ -73,6 +73,11 @@ export class VoiceOrchestrator {
   private providerResponseClosedValue = false;
   private closedResponseId: string | null = null;
   private nativeCuePending = false;
+  private generationComplete = false;
+  // Gemini output transcription is delivered independently of serverContent
+  // and may arrive after turnComplete. Do not treat an anonymous late output
+  // as a new turn until fresh user activity has been observed.
+  private pendingUserActivity = false;
   private staleEventsRejectedValue = 0;
   private sessionCounter = 1;
   private turnCounter = 0;
@@ -113,6 +118,10 @@ export class VoiceOrchestrator {
       this.bus.subscribe<unknown>(
         (envelope) => this.handleBackchannelEnvelope(envelope),
         { topic: "voice.backchannel" },
+      ),
+      this.bus.subscribe<unknown>(
+        (envelope) => this.handlePlaybackEnvelope(envelope),
+        { topic: "voice.playback", messageType: "playback.state" },
       ),
       this.bus.subscribe<unknown>(
         (envelope) => this.handleOperationResult(envelope),
@@ -169,6 +178,8 @@ export class VoiceOrchestrator {
     this.closedPlaybackGenerations.clear();
     this.turnOrder.clear();
     this.nativeCuePending = false;
+    this.generationComplete = false;
+    this.pendingUserActivity = false;
     this.resetLocalBargeIn();
     this.transition({ kind: "credential-acquiring" });
     this.emitSnapshot();
@@ -240,7 +251,13 @@ export class VoiceOrchestrator {
     const frame = parseAudioFrame(envelope.payload);
     if (!frame) return;
 
-    const canInterrupt = !frame.muted &&
+    const speechDetected = !frame.muted && frame.rms >= this.localBargeInRmsThreshold;
+    if (speechDetected && this.stateValue !== "ASSISTANT_SPEAKING") {
+      this.pendingUserActivity = true;
+      this.providerResponseClosedValue = false;
+    }
+
+    const canInterrupt = speechDetected &&
       frame.rms >= this.localBargeInRmsThreshold &&
       this.stateValue === "ASSISTANT_SPEAKING" &&
       this.playbackGeneration !== null &&
@@ -257,6 +274,8 @@ export class VoiceOrchestrator {
     if (this.localBargeInActive || this.localBargeInCandidateFrames < this.localBargeInConfirmationFrames) return;
 
     this.localBargeInActive = true;
+    this.pendingUserActivity = true;
+    this.providerResponseClosedValue = false;
     this.transition({ kind: "barge-in-pending" });
     this.debug("local barge-in confirmed", {
       rms: frame.rms,
@@ -289,6 +308,7 @@ export class VoiceOrchestrator {
       return;
     }
     const stamped = this.stampEvent(event);
+    if (stamped.type === "PROVIDER_GENERATION_COMPLETE") this.generationComplete = true;
     this.debug("identity stamped", stamped);
     this.applyProviderTransition(stamped);
     this.routeProviderEvent(stamped);
@@ -326,6 +346,26 @@ export class VoiceOrchestrator {
         identity: this.stampIdentity(envelope.identity),
       });
     }
+  }
+
+  private handlePlaybackEnvelope(envelope: LayerLinkEnvelope<unknown>): void {
+    if (!this.generationComplete || this.stateValue !== "ASSISTANT_SPEAKING") return;
+    const snapshot = envelope.payload as {
+      readonly state?: unknown;
+      readonly queueDepthMs?: unknown;
+      readonly activeGenerationId?: unknown;
+      readonly scheduledSources?: unknown;
+    };
+    const activeGenerationMatches = snapshot.activeGenerationId === null ||
+      snapshot.activeGenerationId === this.playbackGeneration;
+    const drained = snapshot.scheduledSources === 0 &&
+      (typeof snapshot.queueDepthMs !== "number" || snapshot.queueDepthMs <= 0) &&
+      activeGenerationMatches &&
+      (snapshot.state === "IDLE" || snapshot.state === "FLUSHED");
+    if (!drained) return;
+    this.debug("generation complete and playback drained", { snapshot, identity: this.identity });
+    this.handleTurnComplete();
+    this.emitSnapshot();
   }
 
   private handleOperationResult(envelope: LayerLinkEnvelope<unknown>): void {
@@ -385,6 +425,15 @@ export class VoiceOrchestrator {
       eventType === "PROVIDER_OUTPUT_TRANSCRIPT" ||
       eventType === "PROVIDER_TOOL_CALL"
     ) {
+      if (
+        this.providerResponseClosedValue &&
+        incoming.turnId === null &&
+        incoming.providerResponseId === null &&
+        !this.pendingUserActivity
+      ) {
+        return "closed-response-boundary";
+      }
+
       const isClosedTurn = incoming.turnId !== null && this.closedTurnIds.has(incoming.turnId);
       const isClosedResponse =
         incoming.providerResponseId !== null && this.closedResponseIds.has(incoming.providerResponseId);
@@ -500,6 +549,7 @@ export class VoiceOrchestrator {
       });
       return;
     }
+    if (event.type === "PROVIDER_GENERATION_COMPLETE") return;
     this.publish("ORCHESTRATOR_TRANSCRIPT_EVENT", "voice.transcript", "transcript", "normal", {
       event,
       identity: event.identity,
@@ -511,6 +561,7 @@ export class VoiceOrchestrator {
     const nextPlaybackGeneration = this.nextPlaybackGeneration();
     this.providerResponseClosedValue = false;
     this.nativeCuePending = false;
+    this.generationComplete = false;
     this.resetLocalBargeIn();
     this.playbackGeneration = nextPlaybackGeneration;
     this.transition({ kind: "interrupted" });
@@ -529,6 +580,8 @@ export class VoiceOrchestrator {
     this.closedResponseId = this.providerResponseId;
     this.providerResponseClosedValue = true;
     this.nativeCuePending = false;
+    this.generationComplete = false;
+    this.pendingUserActivity = false;
     this.resetLocalBargeIn();
     this.playbackGeneration = null;
     this.operationId = null;

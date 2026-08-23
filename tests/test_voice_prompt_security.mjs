@@ -74,6 +74,18 @@ test("voice prompt carries the selected HRO mode and Pro provenance rule", () =>
   assert.match(cognitiveToolsPrompt, /never repeat an assistant inference as if the user said it/);
 });
 
+test("Voice preloads the canonical runtime and does not await auth before session start", async () => {
+  const [sessionSource, liveSource] = await Promise.all([
+    readFile(new URL("../frontend/js/voice_session.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/js/voice_live.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(sessionSource, /export function preloadVoiceRuntime/);
+  assert.match(liveSource, /preloadVoiceRuntime\(\)/);
+  assert.match(liveSource, /const tokenPromise = getIdToken\(\)\.catch/);
+  assert.doesNotMatch(liveSource, /const token = await getIdToken/);
+  assert.match(liveSource, /getAuthToken: \(\) => tokenPromise/);
+});
+
 test("live runtime binds optional callbacks from the start-session signature", async () => {
   const source = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
   assert.match(source, /startSession\(options: ProductionSessionOptions = \{\}\)/);

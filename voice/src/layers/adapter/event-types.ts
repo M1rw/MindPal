@@ -8,6 +8,7 @@ export const PROVIDER_EVENT_TYPES = [
   "PROVIDER_TOOL_CALL",
   "PROVIDER_INTERRUPTED",
   "PROVIDER_TURN_COMPLETE",
+  "PROVIDER_GENERATION_COMPLETE",
   "PROVIDER_RESUMPTION_UPDATED",
   "PROVIDER_GOAWAY",
   "PROVIDER_ERROR",
@@ -64,6 +65,7 @@ export type VoiceEvent =
   | ProviderEventBase<"PROVIDER_TOOL_CALL", ProviderToolCallPayload>
   | ProviderEventBase<"PROVIDER_INTERRUPTED", Record<string, never>>
   | ProviderEventBase<"PROVIDER_TURN_COMPLETE", Record<string, never>>
+  | ProviderEventBase<"PROVIDER_GENERATION_COMPLETE", Record<string, never>>
   | ProviderEventBase<"PROVIDER_RESUMPTION_UPDATED", ProviderResumptionPayload>
   | ProviderEventBase<"PROVIDER_GOAWAY", ProviderGoAwayPayload>
   | ProviderEventBase<"PROVIDER_ERROR", ProviderErrorPayload>

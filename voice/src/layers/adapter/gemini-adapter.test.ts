@@ -79,6 +79,13 @@ describe("GeminiProviderAdapter", () => {
     expect(leaked).toBe(false);
   });
 
+  it("normalizes generationComplete before the later turnComplete", () => {
+    const events = normalizeGeminiMessage({
+      serverContent: { generationComplete: true, turnComplete: false },
+    });
+    expect(events.map((event) => event.type)).toEqual(["PROVIDER_GENERATION_COMPLETE"]);
+  });
+
   it("normalizes interruption and turn completion from one server message", () => {
     const [interrupted, complete] = normalizeGeminiMessage({
       serverContent: {
