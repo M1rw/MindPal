@@ -75,11 +75,31 @@ class TestSourceNode {
   }
 }
 
+class TestGainNode {
+  public readonly gain = { value: 1 };
+  public connectedTo: unknown = null;
+  public disconnected = false;
+
+  public connect(node: unknown): void {
+    this.connectedTo = node;
+  }
+
+  public disconnect(): void {
+    this.disconnected = true;
+  }
+}
+
 class TestAudioContext {
   public readonly sampleRate = 48_000;
   public state: AudioContextState = "running";
+  public readonly destination = {} as AudioDestinationNode;
   public readonly audioWorklet = { addModule: vi.fn(async (_url: string | URL) => undefined) };
   public readonly sourceNode = new TestSourceNode();
+  public readonly sinkNode = new TestGainNode();
+
+  public createGain(): GainNode {
+    return this.sinkNode as unknown as GainNode;
+  }
 
   public createMediaStreamSource(_stream: MediaStream): MediaStreamAudioSourceNode {
     return this.sourceNode as unknown as MediaStreamAudioSourceNode;
@@ -94,6 +114,11 @@ class TestAudioWorkletNode {
   public static latest: TestAudioWorkletNode | null = null;
   public readonly port = new TestPort();
   public disconnected = false;
+  public connectedTo: unknown = null;
+
+  public connect(node: unknown): void {
+    this.connectedTo = node;
+  }
 
   public constructor(
     _context: AudioContext,
@@ -225,6 +250,8 @@ describe("CaptureManager", () => {
     expect(getUserMedia).toHaveBeenCalledWith(CAPTURE_CONSTRAINTS);
     expect(manager.isRunning).toBe(true);
     expect(context.audioWorklet.addModule).toHaveBeenCalledWith("capture-processor.js");
+    expect(context.sinkNode.gain.value).toBe(0);
+    expect(context.sinkNode.connectedTo).toBe(context.destination);
 
     manager.setMuted(true);
     expect(manager.isMuted).toBe(true);

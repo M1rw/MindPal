@@ -81,6 +81,10 @@ async function loadController() {
   return controllerPromise;
 }
 
+export function preloadVoiceRuntime() {
+  void loadController().catch(() => undefined);
+}
+
 export function getSessionState() {
   return controller?.getSessionState?.() || EMPTY_STATE;
 }

@@ -64,6 +64,7 @@ export class CaptureManager {
   private mediaStream: MediaStream | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
   private workletNode: AudioWorkletNode | null = null;
+  private captureSinkNode: GainNode | null = null;
   private muted = false;
   private framesEmitted = 0;
   private lastSequence: number | null = null;
@@ -112,8 +113,16 @@ export class CaptureManager {
 
       this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
       this.sourceNode.connect(this.workletNode);
-      // Do not connect the worklet output to destination: capture must never
-      // create microphone feedback. The node remains live through its input.
+      // An AudioWorkletNode that is left entirely disconnected may not be
+      // pulled by the browser’s render graph. Keep it alive through a silent
+      // gain sink so capture frames continue without microphone feedback.
+      const createGain = this.audioContext.createGain;
+      if (typeof createGain === "function" && this.audioContext.destination) {
+        this.captureSinkNode = createGain.call(this.audioContext);
+        this.captureSinkNode.gain.value = 0;
+        this.workletNode.connect(this.captureSinkNode);
+        this.captureSinkNode.connect(this.audioContext.destination);
+      }
       this.running = true;
       this.report({ type: "capture-started" });
       this.emitMetrics();
@@ -208,12 +217,14 @@ export class CaptureManager {
     this.workletNode?.port.postMessage({ type: "reset" });
     this.sourceNode?.disconnect();
     this.workletNode?.disconnect();
+    this.captureSinkNode?.disconnect();
     for (const track of this.mediaStream?.getTracks() ?? []) track.stop();
     if (this.audioContext && this.audioContext.state !== "closed") {
       await this.audioContext.close();
     }
     this.sourceNode = null;
     this.workletNode = null;
+    this.captureSinkNode = null;
     this.mediaStream = null;
     this.audioContext = null;
   }

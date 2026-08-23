@@ -127,6 +127,10 @@ export class GeminiProviderAdapter {
       this.normalizePart(part, identity, events);
     }
 
+    if (content.generationComplete === true || content.generation_complete === true) {
+      events.push({ type: "PROVIDER_GENERATION_COMPLETE", identity, payload: {} });
+    }
+
     if (content.turnComplete === true || content.turn_complete === true) {
       events.push({ type: "PROVIDER_TURN_COMPLETE", identity, payload: {} });
     }

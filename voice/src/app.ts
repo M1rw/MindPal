@@ -237,7 +237,16 @@ export class VoiceV3App {
     this.orchestrator.startSession();
     this.orchestrator.markProvisioning();
     this.orchestrator.markConnecting();
+    // Prime the playback graph before the provider can emit greeting audio.
+    // Autoplay policies may suspend a context created from a later network
+    // callback; a best-effort resume here prevents a valid response from being
+    // projected as speaking while its PCM never reaches the destination.
     try {
+      await this.playbackManager.ensureContextResumed().catch((error) => {
+        this.debug("[Voice V3] playback context prewarm deferred", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
       try {
         await this.transportManager.connect();
       } catch (primaryError) {

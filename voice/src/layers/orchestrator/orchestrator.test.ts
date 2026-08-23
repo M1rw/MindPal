@@ -487,3 +487,104 @@ describe("VoiceOrchestrator chaos fencing", () => {
     expect(orchestrator.state).toBe("INTERRUPTED");
   });
 });
+
+
+describe("VoiceOrchestrator delayed provider output fencing", () => {
+  it("rejects anonymous output after completion until fresh user speech arrives", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const outputs: unknown[] = [];
+    const staleEvents: unknown[] = [];
+    bus.subscribe((envelope) => outputs.push(envelope.payload), {
+      topic: "voice.transcript",
+      messageType: "ORCHESTRATOR_OUTPUT_TRANSCRIPT",
+    });
+    bus.subscribe((envelope) => staleEvents.push(envelope.payload), {
+      topic: "voice.orchestrator",
+      messageType: "ORCHESTRATOR_STALE_REJECTED",
+    });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+    const greeting: GenerationIdentity = {
+      sessionGeneration: "session-1",
+      turnId: null,
+      providerResponseId: "greeting-response",
+      playbackGeneration: null,
+    };
+
+    publishAdapterEvent(bus, now, audioEvent(greeting));
+    now = 1;
+    publishAdapterEvent(bus, now, completeEvent(greeting));
+    expect(orchestrator.state).toBe("LISTENING");
+
+    now = 2;
+    publishAdapterEvent(bus, now, {
+      type: "PROVIDER_OUTPUT_TRANSCRIPT",
+      identity: { sessionGeneration: "session-1", turnId: null, providerResponseId: null, playbackGeneration: null },
+      payload: { text: "late greeting transcript", isFinal: true, cumulative: true },
+    });
+    expect(outputs).toHaveLength(0);
+    expect(staleEvents).toHaveLength(1);
+    expect(orchestrator.state).toBe("LISTENING");
+
+    now = 3;
+    publishCaptureFrame(bus, now, 0.1);
+    now = 4;
+    publishAdapterEvent(bus, now, {
+      type: "PROVIDER_OUTPUT_TRANSCRIPT",
+      identity: { sessionGeneration: "session-1", turnId: null, providerResponseId: "response-2", playbackGeneration: null },
+      payload: { text: "new response", isFinal: false, cumulative: true },
+    });
+    expect(outputs).toHaveLength(1);
+    expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
+  });
+});
+
+
+describe("VoiceOrchestrator playback-drain completion", () => {
+  it("returns to listening after generationComplete and matching playback drain", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+    const identity: GenerationIdentity = {
+      sessionGeneration: "session-1",
+      turnId: "turn-1",
+      providerResponseId: "response-1",
+      playbackGeneration: null,
+    };
+
+    publishAdapterEvent(bus, now, audioEvent(identity));
+    const generation = orchestrator.identity.playbackGeneration;
+    expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
+    expect(generation).toBeTruthy();
+
+    publishAdapterEvent(bus, ++now, {
+      type: "PROVIDER_GENERATION_COMPLETE",
+      identity: { ...identity, playbackGeneration: generation },
+      payload: {},
+    });
+    expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
+
+    bus.publish(createEventEnvelope({
+      messageId: "playback-drained",
+      messageType: "playback.state",
+      sourceLayer: "playback",
+      topic: "voice.playback",
+      priority: "high",
+      timestampMono: ++now,
+      ttlMs: 10_000,
+      identity: { ...identity, playbackGeneration: generation },
+      correlationId: "orchestrator-test",
+      payload: {
+        state: "IDLE",
+        queueDepthMs: 0,
+        activeGenerationId: generation,
+        mainGain: 1,
+        backchannelGain: 0.4,
+        scheduledSources: 0,
+      },
+    }));
+
+    expect(orchestrator.state).toBe("LISTENING");
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
+  });
+});
