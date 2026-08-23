@@ -15,6 +15,7 @@ import {
 import { DEBUG_V3 } from "../../debug/debug-flags";
 
 export const DEBUG_ORCHESTRATOR = DEBUG_V3;
+export const USER_SPEECH_RMS_THRESHOLD = 0.015;
 export const LOCAL_BARGE_IN_RMS_THRESHOLD = 0.045;
 export const LOCAL_BARGE_IN_RELEASE_RMS_THRESHOLD = 0.022;
 export const LOCAL_BARGE_IN_CONFIRMATION_FRAMES = 3;
@@ -251,13 +252,13 @@ export class VoiceOrchestrator {
     const frame = parseAudioFrame(envelope.payload);
     if (!frame) return;
 
-    const speechDetected = !frame.muted && frame.rms >= this.localBargeInRmsThreshold;
-    if (speechDetected && this.stateValue !== "ASSISTANT_SPEAKING") {
+    const userSpeechDetected = !frame.muted && frame.rms >= USER_SPEECH_RMS_THRESHOLD;
+    if (userSpeechDetected && this.stateValue !== "ASSISTANT_SPEAKING") {
       this.pendingUserActivity = true;
       this.providerResponseClosedValue = false;
     }
 
-    const canInterrupt = speechDetected &&
+    const canInterrupt = !frame.muted &&
       frame.rms >= this.localBargeInRmsThreshold &&
       this.stateValue === "ASSISTANT_SPEAKING" &&
       this.playbackGeneration !== null &&
@@ -493,6 +494,8 @@ export class VoiceOrchestrator {
         this.transition({ kind: "provider-ready" });
         break;
       case "PROVIDER_INPUT_TRANSCRIPT":
+        this.pendingUserActivity = true;
+        this.providerResponseClosedValue = false;
         if (event.payload.isFinal === true) {
           this.transition({ kind: "input-final" });
         } else {
