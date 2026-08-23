@@ -101,6 +101,7 @@ export class VoiceV3App {
   private lastUserTranscript: string | null = null;
   private nativeCueActive = false;
   private nativeCueResponseId: string | null = null;
+  private nativeCueTimer: ReturnType<typeof setTimeout> | null = null;
   private lastMemoryContext: string | null = null;
   private lastMemoryRecord: LocalMemoryRecord | null = null;
 
@@ -206,7 +207,7 @@ export class VoiceV3App {
       identity: DEFAULT_IDENTITY,
       ...(options.voicePersona === undefined ? {} : { voicePersona: options.voicePersona }),
       ...(options.voiceEmotion === undefined ? {} : { emotion: options.voiceEmotion }),
-      nativeGeminiCues: true,
+      nativeGeminiCues: this.featureFlags.VOICE_V3_VERBAL_CUES_ENABLED,
     };
     this.conductor = new BackchannelConductor(conductorOptions);
 
@@ -275,12 +276,24 @@ export class VoiceV3App {
 
   /** Sends one explicitly bounded acknowledgement request through the active Gemini session. */
   public requestGeminiNativeCue(cueText: string): boolean {
+    if (!this.featureFlags.VOICE_V3_VERBAL_CUES_ENABLED || this.nativeCueActive) return false;
     const normalized = cueText.trim().slice(0, 80);
     if (!normalized) return false;
     this.nativeCueActive = true;
     this.nativeCueResponseId = null;
+    if (this.nativeCueTimer) clearTimeout(this.nativeCueTimer);
     const sent = this.transportManager.sendRealtimeText(`VOICE_CUE_REQUEST: ${normalized}`);
     if (sent) {
+      this.nativeCueTimer = setTimeout(() => {
+        this.nativeCueTimer = null;
+        this.nativeCueActive = false;
+        this.nativeCueResponseId = null;
+        this.orchestrator.cancelNativeCue("timeout");
+        this.publish("backchannel", "backchannel.native.timeout", {
+          cueText: normalized,
+          identity: this.orchestrator.identity,
+        });
+      }, 8_000);
       this.publish("backchannel", "backchannel.native.requested", {
         cueText: normalized,
         identity: this.orchestrator.identity,
@@ -290,6 +303,14 @@ export class VoiceV3App {
       this.nativeCueResponseId = null;
     }
     return sent;
+  }
+
+  public cancelNativeCue(reason: "timeout" | "session-stop" = "session-stop"): void {
+    if (this.nativeCueTimer) clearTimeout(this.nativeCueTimer);
+    this.nativeCueTimer = null;
+    this.nativeCueActive = false;
+    this.nativeCueResponseId = null;
+    this.orchestrator.cancelNativeCue(reason);
   }
 
   public async clearMemory(): Promise<void> {
@@ -345,6 +366,7 @@ export class VoiceV3App {
     this.captureManager.stop().catch(() => undefined);
     this.transportManager.close();
     this.captionPacer.dispose();
+    this.cancelNativeCue();
     this.conductor.dispose();
     this.prosodyAnalyzer.dispose();
     this.faceLayer.dispose();
@@ -367,8 +389,8 @@ export class VoiceV3App {
       return;
     }
     if (envelope.messageType === "ORCHESTRATOR_FLUSH_PLAYBACK") {
-      const payload = envelope.payload as { readonly oldPlaybackGeneration?: string | null };
-      if (payload.oldPlaybackGeneration) this.playbackManager.flush(payload.oldPlaybackGeneration);
+      const payload = envelope.payload as { readonly oldPlaybackGeneration?: string | null; readonly reason?: string };
+      if (payload.oldPlaybackGeneration) this.playbackManager.flush(payload.oldPlaybackGeneration, payload.reason ?? "orchestrator-interruption");
       this.playbackManager.duckMainLane();
       return;
     }
@@ -446,8 +468,7 @@ export class VoiceV3App {
     if (!isNativeCueTranscript) this.publish("provider-adapter", event.type, event);
     this.publish("provider-adapter", "adapter.event", event);
     if (event.type === "PROVIDER_TURN_COMPLETE" || event.type === "PROVIDER_INTERRUPTED") {
-      this.nativeCueActive = false;
-      this.nativeCueResponseId = null;
+      this.cancelNativeCue("session-stop");
     }
   }
 

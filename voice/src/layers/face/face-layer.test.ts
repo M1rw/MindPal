@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LayerLinkMessageBus } from "../../core/message-bus";
+import { createEventEnvelope, LayerLinkMessageBus } from "../../core/message-bus";
 import { FaceLayer } from "./face-layer";
 
 describe("FaceLayer", () => {
@@ -23,6 +23,27 @@ describe("FaceLayer", () => {
 
     face.processAiTranscript("I have a wonderful new idea, eureka!");
     expect(face.state.expression).toBe("epiphany");
+  });
+
+  it("consumes the production assistant transcript topic", () => {
+    const bus = new LayerLinkMessageBus({ nowMono: () => 100 });
+    const face = new FaceLayer({ bus, nowMono: () => 100 });
+    face.processPhaseAndState("speaking", true, false);
+
+    bus.publish(createEventEnvelope({
+      messageId: "assistant-transcript",
+      messageType: "transcript.assistant.updated",
+      sourceLayer: "transcript",
+      topic: "voice.transcript",
+      priority: "normal",
+      timestampMono: 100,
+      ttlMs: 1_000,
+      identity: { sessionGeneration: "session-1", turnId: null, providerResponseId: null, playbackGeneration: null },
+      correlationId: "face-test",
+      payload: { text: "That is brilliant and amazing!" },
+    }));
+
+    expect(face.state.expression).toBe("starstruck");
   });
 
   it("classifies listening expressions based on user input and prosody", () => {

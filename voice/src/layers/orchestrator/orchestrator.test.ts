@@ -49,6 +49,34 @@ function completeEvent(identity: GenerationIdentity): VoiceEvent {
   return { type: "PROVIDER_TURN_COMPLETE", identity, payload: {} };
 }
 
+function publishCaptureFrame(bus: LayerLinkMessageBus, nowMono: number, rms: number, muted = false): void {
+  bus.publish(
+    createEventEnvelope({
+      messageId: `capture-${nowMono}-${rms}`,
+      messageType: "capture.frame",
+      sourceLayer: "capture",
+      topic: "voice.capture",
+      priority: "high",
+      timestampMono: nowMono,
+      ttlMs: 10_000,
+      identity: sessionIdentity,
+      correlationId: "orchestrator-test",
+      payload: {
+        frameId: `frame-${nowMono}`,
+        sequence: nowMono,
+        sampleRate: 16_000,
+        channels: 1,
+        format: "pcm_s16le",
+        data: new ArrayBuffer(640),
+        capturedAtMono: nowMono,
+        durationMs: 20,
+        muted,
+        rms,
+      },
+    }),
+  );
+}
+
 describe("Voice V3 orchestrator state machine", () => {
   it("contains the complete requested state vocabulary", () => {
     expect(ORCHESTRATOR_STATES).toEqual([
@@ -342,6 +370,95 @@ describe("VoiceOrchestrator chaos fencing", () => {
     expect(staleEvents).toHaveLength(1);
     expect(orchestrator.greetingSent).toBe(true);
     expect(orchestrator.state).toBe("LISTENING");
+  });
+
+  it("interrupts active playback locally after confirmed user speech", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const flushes: unknown[] = [];
+    bus.subscribe((envelope) => flushes.push(envelope.payload), {
+      topic: "voice.playback",
+      messageType: "ORCHESTRATOR_FLUSH_PLAYBACK",
+    });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+
+    publishAdapterEvent(bus, now, audioEvent(sessionIdentity));
+    const oldGeneration = orchestrator.identity.playbackGeneration;
+    expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
+
+    publishCaptureFrame(bus, ++now, 0.03);
+    publishCaptureFrame(bus, ++now, 0.07);
+    publishCaptureFrame(bus, ++now, 0.08);
+    publishCaptureFrame(bus, ++now, 0.08);
+
+    expect(flushes).toHaveLength(1);
+    expect((flushes[0] as { reason?: string }).reason).toBe("local-capture");
+    expect((flushes[0] as { oldPlaybackGeneration?: string }).oldPlaybackGeneration).toBe(oldGeneration);
+    expect(orchestrator.identity.playbackGeneration).not.toBe(oldGeneration);
+    expect(orchestrator.state).toBe("INTERRUPTED");
+
+    publishCaptureFrame(bus, ++now, 0.08, true);
+    expect(flushes).toHaveLength(1);
+  });
+
+  it("suppresses native cue transcripts while routing native cue audio", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const outputs: unknown[] = [];
+    const audio: unknown[] = [];
+    const completions: unknown[] = [];
+    bus.subscribe((envelope) => outputs.push(envelope.payload), {
+      topic: "voice.transcript",
+      messageType: "ORCHESTRATOR_OUTPUT_TRANSCRIPT",
+    });
+    bus.subscribe((envelope) => audio.push(envelope.payload), {
+      topic: "voice.playback",
+      messageType: "ORCHESTRATOR_AUDIO_EVENT",
+    });
+    bus.subscribe((envelope) => completions.push(envelope.payload), {
+      topic: "voice.provider",
+      messageType: "ORCHESTRATOR_GEMINI_CUE_COMPLETE",
+    });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+
+    bus.publish(createEventEnvelope({
+      messageId: "cue-request",
+      messageType: "BACKCHANNEL_CUE_REQUESTED",
+      sourceLayer: "backchannel",
+      topic: "voice.playback",
+      priority: "high",
+      timestampMono: now,
+      ttlMs: 10_000,
+      identity: sessionIdentity,
+      correlationId: "orchestrator-test",
+      payload: {
+        cueText: "mhm",
+        delivery: "gemini-native",
+        reason: "natural-pause",
+        cueIdentity: {
+          ...sessionIdentity,
+          cueId: "cue-1",
+          cueSource: "native",
+          cueLane: "backchannel",
+          createdAtMono: now,
+          expiresAtMono: now + 5_000,
+        },
+      },
+    }));
+    expect(completions).toHaveLength(0);
+
+    const cueIdentity = { ...sessionIdentity, providerResponseId: "cue-response-1" };
+    publishAdapterEvent(bus, ++now, {
+      type: "PROVIDER_OUTPUT_TRANSCRIPT",
+      identity: cueIdentity,
+      payload: { text: "mhm", isFinal: true, cumulative: true },
+    });
+    publishAdapterEvent(bus, ++now, audioEvent(cueIdentity));
+    expect(outputs).toHaveLength(0);
+    expect(audio).toHaveLength(1);
+
+    publishAdapterEvent(bus, ++now, completeEvent(cueIdentity));
+    expect(completions).toHaveLength(1);
   });
 
   it("increments playback generation and flushes the old generation on interruption", () => {

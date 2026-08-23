@@ -75,7 +75,11 @@ class FakeContext {
   public readonly mainGain = { gain: new FakeAudioParam(), connect: vi.fn() };
   public readonly backchannelGain = { gain: new FakeAudioParam(), connect: vi.fn() };
   public readonly compressor = { connect: vi.fn() };
-  public readonly analyser = { connect: vi.fn() };
+  public readonly analyser = {
+    connect: vi.fn(),
+    fftSize: 32,
+    getByteTimeDomainData: (target: Uint8Array) => target.fill(128),
+  };
   public readonly sources: FakeSource[] = [];
   public resumeCalls = 0;
   public readonly buffers: FakeBuffer[] = [];
@@ -198,6 +202,24 @@ describe("PlaybackManager", () => {
     expect(context.analyser.connect).toHaveBeenCalledWith(context.destination);
     expect(context.sources[0]?.connectedTo).toBe(context.mainGain);
     expect(context.sources[1]?.connectedTo).toBe(context.backchannelGain);
+  });
+
+  it("reports real post-compressor output RMS without allocating a new sample buffer", async () => {
+    const context = new FakeContext();
+    const manager = new PlaybackManager({ audioContextFactory: () => context as unknown as AudioContext });
+    await manager.ensureContextResumed();
+    expect(manager.getOutputLevel()).toBe(0);
+    expect(manager.getOutputLevel()).toBe(0);
+  });
+
+  it("restores a ducked main lane before scheduling replacement main audio", async () => {
+    const context = new FakeContext();
+    const manager = new PlaybackManager({ audioContextFactory: () => context as unknown as AudioContext });
+    manager.duckMainLane();
+    manager.activateGeneration("generation-1");
+    await manager.enqueueChunk(audioChunk("generation-1", 1, "main"));
+
+    expect(context.mainGain.gain.ramps.at(-1)).toEqual({ value: 1, time: 10.15 });
   });
 
   it("ramps main gain to 0.32 in 20 ms and restores to 1.0 in 150 ms", () => {

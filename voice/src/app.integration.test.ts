@@ -153,9 +153,17 @@ describe("Voice V3 MockGeminiServer integration", () => {
     expect(audioContext.scheduledSources.length).toBeGreaterThan(0);
 
     const previousPlaybackGeneration = app.orchestrator.identity.playbackGeneration;
+    for (let sequence = 132; sequence < 135; sequence += 1) {
+      now += 20;
+      publishCaptureFrame(app, identity, now, sequence, 0.1);
+    }
+    expect(messages).toContain("ORCHESTRATOR_FLUSH_PLAYBACK");
+    expect(app.orchestrator.identity.playbackGeneration).not.toBe(previousPlaybackGeneration);
+    expect(app.orchestrator.state).toBe("INTERRUPTED");
+
     server.simulateInterruption();
     await Promise.resolve();
-    expect(messages).toContain("ORCHESTRATOR_FLUSH_PLAYBACK");
+    expect(messages.filter((message) => message === "ORCHESTRATOR_FLUSH_PLAYBACK").length).toBeGreaterThanOrEqual(2);
     expect(app.orchestrator.identity.playbackGeneration).not.toBe(previousPlaybackGeneration);
     expect(app.orchestrator.state).toBe("ASSISTANT_SPEAKING");
 

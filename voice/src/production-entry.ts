@@ -14,6 +14,7 @@ type ProductionSessionOptions = {
   readonly getAppCheckToken?: (() => Promise<string | null>) | null;
   readonly refreshAppCheckToken?: (() => Promise<string | null>) | null;
   readonly onTranscript?: (speaker: "user" | "ai", text: string) => void;
+  readonly onCaption?: (text: string, detail: Record<string, unknown>) => void;
   readonly onAudioState?: (state: Record<string, unknown>) => void;
   readonly onSessionEnd?: (detail?: Record<string, unknown>) => void;
   readonly onTurnComplete?: () => void;
@@ -70,6 +71,7 @@ export function createVoiceController(): ProductionController {
   let unsubscribe: (() => void) | null = null;
   let sessionEndNotified = false;
   let startupPending = false;
+  let stopInFlight: Promise<boolean> | null = null;
 
   const emitAudioState = (): void => {
     const faceState = app?.faceLayer.processPhaseAndState(phase, aiSpeaking, micMuted);
@@ -109,6 +111,7 @@ export function createVoiceController(): ProductionController {
   };
 
   const handleEvent = (envelope: LayerLinkEnvelope<unknown>): void => {
+    if (!active && !startupPending) return;
     if (envelope.messageType === "face.expression.updated") {
       emitAudioState();
       return;
@@ -116,6 +119,13 @@ export function createVoiceController(): ProductionController {
 
     if (envelope.messageType === "orchestrator.snapshot.updated") {
       handleSnapshot(envelope.payload as OrchestratorSnapshot);
+      return;
+    }
+
+    if (envelope.messageType === "caption.released") {
+      const payload = asRecord(envelope.payload);
+      const caption = asRecord(payload.caption);
+      if (typeof caption.text === "string") callbacks.onCaption?.(caption.text, caption);
       return;
     }
 
@@ -142,7 +152,11 @@ export function createVoiceController(): ProductionController {
 
     if (envelope.messageType === "capture.metrics.updated") {
       const payload = asRecord(envelope.payload);
-      callbacks.onVolume?.({ rms: numberOr(payload.rms, 0), muted: Boolean(payload.muted) });
+      callbacks.onVolume?.({
+        rms: numberOr(payload.rms, 0),
+        muted: Boolean(payload.muted),
+        aiLevel: app?.playbackManager.getOutputLevel?.() ?? 0,
+      });
       return;
     }
 
@@ -181,6 +195,7 @@ export function createVoiceController(): ProductionController {
 
   return Object.freeze({
     async startSession(options: ProductionSessionOptions = {}): Promise<boolean> {
+      if (stopInFlight) await stopInFlight;
       if (active) return false;
       callbacks = options;
       active = true;
@@ -229,18 +244,26 @@ export function createVoiceController(): ProductionController {
     },
 
     async stopSession(): Promise<boolean> {
-      if (!active) return false;
+      if (stopInFlight) return stopInFlight;
+      if (!active && !app) return false;
       startupPending = false;
       active = false;
-      await app?.stop().catch(() => undefined);
-      unsubscribe?.();
-      unsubscribe = null;
-      app?.dispose();
-      app = null;
-      phase = "idle";
-      aiSpeaking = false;
-      emitAudioState();
-      return true;
+      const sessionApp = app;
+      const sessionUnsubscribe = unsubscribe;
+      stopInFlight = (async () => {
+        await sessionApp?.stop().catch(() => undefined);
+        sessionUnsubscribe?.();
+        if (unsubscribe === sessionUnsubscribe) unsubscribe = null;
+        sessionApp?.dispose();
+        if (app === sessionApp) app = null;
+        phase = "idle";
+        aiSpeaking = false;
+        emitAudioState();
+        return true;
+      })().finally(() => {
+        stopInFlight = null;
+      });
+      return stopInFlight;
     },
 
     setMuted(nextMuted: boolean): boolean {

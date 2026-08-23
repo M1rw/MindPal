@@ -1,4 +1,5 @@
 import type {
+  AudioFrame,
   GenerationIdentity,
   LayerLinkEnvelope,
   OperationIdentity,
@@ -14,6 +15,9 @@ import {
 import { DEBUG_V3 } from "../../debug/debug-flags";
 
 export const DEBUG_ORCHESTRATOR = DEBUG_V3;
+export const LOCAL_BARGE_IN_RMS_THRESHOLD = 0.045;
+export const LOCAL_BARGE_IN_RELEASE_RMS_THRESHOLD = 0.022;
+export const LOCAL_BARGE_IN_CONFIRMATION_FRAMES = 3;
 
 export type OrchestratorSnapshot = {
   readonly state: OrchestratorState;
@@ -40,6 +44,9 @@ export type OrchestratorOptions = {
   readonly bus: LayerLinkMessageBus;
   readonly nowMono?: () => number;
   readonly sessionGeneration?: string;
+  readonly localBargeInRmsThreshold?: number;
+  readonly localBargeInReleaseRmsThreshold?: number;
+  readonly localBargeInConfirmationFrames?: number;
 };
 
 /**
@@ -51,6 +58,11 @@ export class VoiceOrchestrator {
   private readonly bus: LayerLinkMessageBus;
   private readonly nowMono: () => number;
   private readonly unsubscribers: Array<() => void> = [];
+  private readonly localBargeInRmsThreshold: number;
+  private readonly localBargeInReleaseRmsThreshold: number;
+  private readonly localBargeInConfirmationFrames: number;
+  private localBargeInCandidateFrames = 0;
+  private localBargeInActive = false;
   private stateValue: OrchestratorState = "IDLE";
   private sessionGeneration: string;
   private turnId: string | null = null;
@@ -76,11 +88,23 @@ export class VoiceOrchestrator {
     this.nowMono = options.nowMono ?? (() => performance.now());
     this.sessionGeneration = options.sessionGeneration ?? "session-1";
     this.sessionCounter = readGenerationNumber(this.sessionGeneration) ?? 1;
+    this.localBargeInRmsThreshold = Math.max(0.001, options.localBargeInRmsThreshold ?? LOCAL_BARGE_IN_RMS_THRESHOLD);
+    this.localBargeInReleaseRmsThreshold = Math.max(0, Math.min(
+      this.localBargeInRmsThreshold,
+      options.localBargeInReleaseRmsThreshold ?? LOCAL_BARGE_IN_RELEASE_RMS_THRESHOLD,
+    ));
+    this.localBargeInConfirmationFrames = Math.max(1, Math.floor(
+      options.localBargeInConfirmationFrames ?? LOCAL_BARGE_IN_CONFIRMATION_FRAMES,
+    ));
 
     this.unsubscribers.push(
       this.bus.subscribe<unknown>(
         (envelope) => this.handleProviderEnvelope(envelope),
         { topic: "voice.provider", messageType: "adapter.event" },
+      ),
+      this.bus.subscribe<unknown>(
+        (envelope) => this.handleCaptureEnvelope(envelope),
+        { topic: "voice.capture", messageType: "capture.frame" },
       ),
       this.bus.subscribe<unknown>(
         (envelope) => this.handleBackchannelEnvelope(envelope),
@@ -144,6 +168,8 @@ export class VoiceOrchestrator {
     this.closedResponseIds.clear();
     this.closedPlaybackGenerations.clear();
     this.turnOrder.clear();
+    this.nativeCuePending = false;
+    this.resetLocalBargeIn();
     this.transition({ kind: "credential-acquiring" });
     this.emitSnapshot();
   }
@@ -187,6 +213,15 @@ export class VoiceOrchestrator {
     this.emitSnapshot();
   }
 
+  public cancelNativeCue(reason: "timeout" | "session-stop" = "session-stop"): void {
+    if (!this.nativeCuePending) return;
+    this.nativeCuePending = false;
+    this.publish("ORCHESTRATOR_GEMINI_CUE_COMPLETE", "voice.provider", "provider-adapter", "high", {
+      reason,
+      identity: this.identity,
+    });
+  }
+
   public fail(reason: string): void {
     this.transition({ kind: "failed" });
     this.publish("ORCHESTRATOR_FAILED", "voice.recovery", "orchestrator", "critical", {
@@ -201,6 +236,42 @@ export class VoiceOrchestrator {
     this.unsubscribers.length = 0;
   }
 
+  private handleCaptureEnvelope(envelope: LayerLinkEnvelope<unknown>): void {
+    const frame = parseAudioFrame(envelope.payload);
+    if (!frame) return;
+
+    const canInterrupt = !frame.muted &&
+      frame.rms >= this.localBargeInRmsThreshold &&
+      this.stateValue === "ASSISTANT_SPEAKING" &&
+      this.playbackGeneration !== null &&
+      !this.nativeCuePending;
+
+    if (!canInterrupt) {
+      if (frame.muted || frame.rms <= this.localBargeInReleaseRmsThreshold || this.stateValue !== "ASSISTANT_SPEAKING") {
+        this.resetLocalBargeIn();
+      }
+      return;
+    }
+
+    this.localBargeInCandidateFrames += 1;
+    if (this.localBargeInActive || this.localBargeInCandidateFrames < this.localBargeInConfirmationFrames) return;
+
+    this.localBargeInActive = true;
+    this.transition({ kind: "barge-in-pending" });
+    this.debug("local barge-in confirmed", {
+      rms: frame.rms,
+      candidateFrames: this.localBargeInCandidateFrames,
+      threshold: this.localBargeInRmsThreshold,
+    });
+    this.handleInterruption("local-capture");
+    this.emitSnapshot();
+  }
+
+  private resetLocalBargeIn(): void {
+    this.localBargeInCandidateFrames = 0;
+    this.localBargeInActive = false;
+  }
+
   private handleProviderEnvelope(envelope: LayerLinkEnvelope<unknown>): void {
     const event = parseVoiceEvent(envelope.payload);
     if (!event) return;
@@ -211,6 +282,10 @@ export class VoiceOrchestrator {
       this.publish("ORCHESTRATOR_GEMINI_CUE_COMPLETE", "voice.provider", "provider-adapter", "high", {
         identity: this.identity,
       });
+      return;
+    }
+    if (this.nativeCuePending && (event.type === "PROVIDER_OUTPUT_TRANSCRIPT" || event.type === "PROVIDER_TOOL_CALL")) {
+      this.debug("native cue provider artifact suppressed", { eventType: event.type, identity: event.identity });
       return;
     }
     const stamped = this.stampEvent(event);
@@ -431,16 +506,18 @@ export class VoiceOrchestrator {
     });
   }
 
-  private handleInterruption(): void {
+  private handleInterruption(reason: "provider" | "local-capture" = "provider"): void {
     const oldPlaybackGeneration = this.playbackGeneration;
     const nextPlaybackGeneration = this.nextPlaybackGeneration();
     this.providerResponseClosedValue = false;
     this.nativeCuePending = false;
+    this.resetLocalBargeIn();
     this.playbackGeneration = nextPlaybackGeneration;
     this.transition({ kind: "interrupted" });
     this.publish("ORCHESTRATOR_FLUSH_PLAYBACK", "voice.playback", "playback", "critical", {
       oldPlaybackGeneration,
       nextPlaybackGeneration,
+      reason,
       identity: this.identity,
     });
   }
@@ -452,6 +529,7 @@ export class VoiceOrchestrator {
     this.closedResponseId = this.providerResponseId;
     this.providerResponseClosedValue = true;
     this.nativeCuePending = false;
+    this.resetLocalBargeIn();
     this.playbackGeneration = null;
     this.operationId = null;
     this.turnId = null;
@@ -558,6 +636,24 @@ export class VoiceOrchestrator {
       console.debug(new Date().toISOString(), `[Orchestrator] ${message}`, details ?? "");
     }
   }
+}
+
+function parseAudioFrame(value: unknown): AudioFrame | null {
+  if (typeof value !== "object" || value === null) return null;
+  const frame = value as Partial<AudioFrame>;
+  if (
+    typeof frame.frameId !== "string" ||
+    typeof frame.sequence !== "number" ||
+    frame.sampleRate !== 16_000 ||
+    frame.channels !== 1 ||
+    frame.format !== "pcm_s16le" ||
+    !(frame.data instanceof ArrayBuffer) ||
+    typeof frame.capturedAtMono !== "number" ||
+    frame.durationMs !== 20 ||
+    typeof frame.muted !== "boolean" ||
+    typeof frame.rms !== "number"
+  ) return null;
+  return frame as AudioFrame;
 }
 
 function parseVoiceEvent(value: unknown): VoiceEvent | null {
