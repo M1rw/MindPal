@@ -146,7 +146,7 @@ def build_service_container(settings: Settings) -> ServiceContainer:
     llm = LLMService(
         providers=llm_providers,
         settings=settings,
-        include_offline_provider=settings.ENABLE_OFFLINE_LLM_FALLBACK,
+        include_offline_provider=settings.ENABLE_OFFLINE_LLM_FALLBACK or not settings.has_any_llm_provider,
     )
     auth = AuthService(settings=settings, allow_anonymous=settings.ALLOW_ANONYMOUS_SESSIONS)
     db = DBService(settings=settings)
