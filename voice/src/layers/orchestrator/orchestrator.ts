@@ -67,6 +67,8 @@ export class VoiceOrchestrator {
   private playbackCounter = 0;
   private operationCounter = 0;
   private readonly closedTurnIds = new Set<string>();
+  private readonly closedResponseIds = new Set<string>();
+  private readonly closedPlaybackGenerations = new Set<string>();
   private readonly turnOrder = new Map<string, number>();
 
   public constructor(options: OrchestratorOptions) {
@@ -139,6 +141,8 @@ export class VoiceOrchestrator {
     this.providerResponseClosedValue = false;
     this.closedResponseId = null;
     this.closedTurnIds.clear();
+    this.closedResponseIds.clear();
+    this.closedPlaybackGenerations.clear();
     this.turnOrder.clear();
     this.transition({ kind: "credential-acquiring" });
     this.emitSnapshot();
@@ -287,9 +291,10 @@ export class VoiceOrchestrator {
     }
     if (
       incoming.playbackGeneration !== null &&
-      this.playbackGeneration !== null &&
-      incoming.playbackGeneration !== this.playbackGeneration &&
-      eventType !== "PROVIDER_INPUT_TRANSCRIPT"
+      (this.closedPlaybackGenerations.has(incoming.playbackGeneration) ||
+        (this.playbackGeneration !== null &&
+          incoming.playbackGeneration !== this.playbackGeneration &&
+          eventType !== "PROVIDER_INPUT_TRANSCRIPT"))
     ) {
       return "stale-playback-generation";
     }
@@ -307,14 +312,9 @@ export class VoiceOrchestrator {
     ) {
       const isClosedTurn = incoming.turnId !== null && this.closedTurnIds.has(incoming.turnId);
       const isClosedResponse =
-        this.closedResponseId !== null &&
-        incoming.providerResponseId !== null &&
-        incoming.providerResponseId === this.closedResponseId;
+        incoming.providerResponseId !== null && this.closedResponseIds.has(incoming.providerResponseId);
 
       if (isClosedTurn || isClosedResponse) {
-        return "closed-response-boundary";
-      }
-      if (this.providerResponseClosedValue && incoming.turnId === null && incoming.providerResponseId === null) {
         return "closed-response-boundary";
       }
     }
@@ -447,6 +447,8 @@ export class VoiceOrchestrator {
 
   private handleTurnComplete(): void {
     if (this.turnId !== null) this.closedTurnIds.add(this.turnId);
+    if (this.providerResponseId !== null) this.closedResponseIds.add(this.providerResponseId);
+    if (this.playbackGeneration !== null) this.closedPlaybackGenerations.add(this.playbackGeneration);
     this.closedResponseId = this.providerResponseId;
     this.providerResponseClosedValue = true;
     this.nativeCuePending = false;
