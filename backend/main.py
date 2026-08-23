@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from backend.api import api_router
-from backend.api.dependencies import close_service_container, get_service_container, reset_service_container_for_tests
+from backend.api.dependencies import close_service_container, get_service_container, get_services, reset_service_container_for_tests
 from backend.core.config import Settings, get_settings
 from backend.core.errors import AppError
 from backend.core.middleware import RequestBodyLimitMiddleware
@@ -375,6 +375,12 @@ def _install_frontend_routes(app: FastAPI) -> None:
             firebase_config["projectId"],
             firebase_config["appId"],
         )
+        container = getattr(request.app.state, "service_container", None)
+        if container is not None:
+            provider_configured = container.auth.provider is not None
+        else:
+            from backend.services.auth_service import FirebaseAuthProvider
+            provider_configured = FirebaseAuthProvider(settings=settings).is_configured
         payload = {
             "API_BASE_URL": api_base_url,
             "VOICE_DEBUG": False,
@@ -389,8 +395,9 @@ def _install_frontend_routes(app: FastAPI) -> None:
             ).strip(),
             "FIREBASE_CONFIG": firebase_config if all(required_firebase_values) else None,
             "FIREBASE_ENABLED": bool(
-                getattr(settings, "ENABLE_FIREBASE", False)
+                settings.firebase_enabled
                 and all(required_firebase_values)
+                and provider_configured
             ),
         }
         serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
