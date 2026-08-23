@@ -84,6 +84,13 @@ Return exactly:
 
 
 @dataclass(frozen=True, slots=True)
+class PreparedSearchTerm:
+    term: str
+    term_lower: str
+    term_tokens: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class GroundingUnit:
     grounding_id: str
     category: str
@@ -252,6 +259,7 @@ class RAGService:
         )
 
         self._units: tuple[GroundingUnit, ...] = ()
+        self._prepared_units: tuple[tuple[GroundingUnit, tuple[PreparedSearchTerm, ...], str, str, set[str], float], ...] = ()
         self._failed_files: tuple[dict[str, str], ...] = ()
         self._loaded_files: tuple[str, ...] = ()
         self._embeddings: dict[str, list[float]] = {}
@@ -297,6 +305,7 @@ class RAGService:
         if loaded_units:
             self._assert_unique_ids(loaded_units)
             self._units = tuple(loaded_units)
+            self._prepare_search_metadata()
             self._loaded_files = tuple(loaded_files)
             self._failed_files = tuple(failed_files)
 
@@ -343,6 +352,7 @@ class RAGService:
 
         self._assert_unique_ids(loaded_units)
         self._units = tuple(loaded_units)
+        self._prepare_search_metadata()
         self._loaded_files = tuple(loaded_files)
         self._failed_files = tuple(failed_files)
 
@@ -448,6 +458,48 @@ class RAGService:
         self._last_result = result
         return result
 
+    def _prepare_search_metadata(self) -> None:
+        """Precomputes and caches search metadata for loaded GroundingUnits to accelerate scoring."""
+        prepared: list[tuple[GroundingUnit, tuple[PreparedSearchTerm, ...], str, str, set[str], float]] = []
+        for unit in self._units:
+            searchable_terms = tuple(
+                _unique_ordered(
+                    list(unit.trigger_terms)
+                    + list(unit.tags)
+                    + [unit.category, unit.technique, unit.grounding_id]
+                )
+            )
+            prepared_searchable_terms = tuple(
+                PreparedSearchTerm(
+                    term=term,
+                    term_lower=term.lower(),
+                    term_tokens=tuple(_tokenize(term.lower())),
+                )
+                for term in searchable_terms
+            )
+            category_lower = unit.category.lower()
+            technique_lower = unit.technique.lower()
+            candidates_lower = {
+                candidate.lower()
+                for candidate in (
+                    list(unit.tags)
+                    + list(unit.trigger_terms)
+                    + [unit.category, unit.technique, unit.grounding_id]
+                )
+            }
+            norm_factor = math.sqrt(max(1.0, min(len(searchable_terms), 16) / 4))
+            prepared.append(
+                (
+                    unit,
+                    prepared_searchable_terms,
+                    category_lower,
+                    technique_lower,
+                    candidates_lower,
+                    norm_factor,
+                )
+            )
+        self._prepared_units = tuple(prepared)
+
     def retrieve(
         self,
         query: str,
@@ -473,25 +525,38 @@ class RAGService:
 
         query_tokens = _tokenize(cleaned_query)
         query_lower = cleaned_query.lower()
+        requested_tags_lower = tuple(tag.lower() for tag in cleaned_tags)
 
         matches: list[RetrievalMatch] = []
 
-        for unit in self._units:
-            lexical_score, matched_terms = _score_unit(
-                unit,
+        for (
+            unit,
+            prepared_searchable_terms,
+            category_lower,
+            technique_lower,
+            candidates_lower,
+            norm_factor,
+        ) in self._prepared_units:
+            lexical_score, matched_terms = _score_prepared_unit(
                 query_lower=query_lower,
                 query_tokens=query_tokens,
                 requested_tags=cleaned_tags,
+                requested_tags_lower=requested_tags_lower,
+                prepared_searchable_terms=prepared_searchable_terms,
+                category_lower=category_lower,
+                technique_lower=technique_lower,
+                candidates_lower=candidates_lower,
+                norm_factor=norm_factor,
             )
 
             score = lexical_score
-            
+
             if query_vector is not None and unit.grounding_id in self._embeddings:
                 unit_vector = self._embeddings[unit.grounding_id]
                 semantic_score = _cosine_similarity(query_vector, unit_vector)
                 # Hybrid search: semantic score carries more weight for semantic queries
                 score = (semantic_score * 0.7) + (lexical_score * 0.3)
-                
+
             if score < min_score:
                 continue
 
@@ -1022,49 +1087,43 @@ def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
     return dot / math.sqrt(norm_a * norm_b)
 
 
-def _score_unit(
-    unit: GroundingUnit,
+def _score_prepared_unit(
     *,
     query_lower: str,
     query_tokens: set[str],
     requested_tags: tuple[str, ...],
+    requested_tags_lower: tuple[str, ...],
+    prepared_searchable_terms: tuple[PreparedSearchTerm, ...],
+    category_lower: str,
+    technique_lower: str,
+    candidates_lower: set[str],
+    norm_factor: float,
 ) -> tuple[float, list[str]]:
+    # Optimized unit scoring using precomputed term metadata
     score = 0.0
     matched_terms: list[str] = []
 
-    searchable_terms = tuple(
-        _unique_ordered(
-            list(unit.trigger_terms)
-            + list(unit.tags)
-            + [unit.category, unit.technique, unit.grounding_id]
-        )
-    )
-
-    for tag in requested_tags:
-        if _term_matches_unit(tag, unit):
+    for idx, tag_lower in enumerate(requested_tags_lower):
+        if tag_lower in candidates_lower:
             score += 0.46
-            matched_terms.append(tag)
+            matched_terms.append(requested_tags[idx])
 
-    for term in searchable_terms:
-        term_lower = term.lower()
-        term_tokens = _tokenize(term_lower)
+    for prepared_term in prepared_searchable_terms:
+        term_lower = prepared_term.term_lower
 
         if not term_lower:
             continue
 
         if query_lower and term_lower in query_lower:
             score += 0.36 if " " in term_lower else 0.2
-            matched_terms.append(term)
+            matched_terms.append(prepared_term.term)
             continue
 
-        if query_tokens and term_tokens:
-            overlap = len(query_tokens.intersection(term_tokens))
+        if query_tokens and prepared_term.term_tokens:
+            overlap = len(query_tokens.intersection(prepared_term.term_tokens))
             if overlap:
                 score += min(0.24, 0.08 * overlap)
-                matched_terms.append(term)
-
-    category_lower = unit.category.lower()
-    technique_lower = unit.technique.lower()
+                matched_terms.append(prepared_term.term)
 
     if category_lower and category_lower in query_lower:
         score += 0.16
@@ -1073,9 +1132,66 @@ def _score_unit(
         score += 0.16
 
     if matched_terms:
-        score = score / math.sqrt(max(1.0, min(len(searchable_terms), 16) / 4))
+        score = score / norm_factor
 
-    return min(score, 1.0), list(_unique_ordered(matched_terms))
+    # Deduplicate matched_terms preserving order
+    seen: set[str] = set()
+    deduped_matched: list[str] = []
+    for m in matched_terms:
+        if m not in seen:
+            seen.add(m)
+            deduped_matched.append(m)
+
+    return min(score, 1.0), deduped_matched
+
+
+def _score_unit(
+    unit: GroundingUnit,
+    *,
+    query_lower: str,
+    query_tokens: set[str],
+    requested_tags: tuple[str, ...],
+) -> tuple[float, list[str]]:
+    # Legacy fallback for direct GroundingUnit scoring without precomputed metadata
+    searchable_terms = tuple(
+        _unique_ordered(
+            list(unit.trigger_terms)
+            + list(unit.tags)
+            + [unit.category, unit.technique, unit.grounding_id]
+        )
+    )
+    prepared_searchable_terms = tuple(
+        PreparedSearchTerm(
+            term=term,
+            term_lower=term.lower(),
+            term_tokens=tuple(_tokenize(term.lower())),
+        )
+        for term in searchable_terms
+    )
+    category_lower = unit.category.lower()
+    technique_lower = unit.technique.lower()
+    candidates_lower = {
+        candidate.lower()
+        for candidate in (
+            list(unit.tags)
+            + list(unit.trigger_terms)
+            + [unit.category, unit.technique, unit.grounding_id]
+        )
+    }
+    norm_factor = math.sqrt(max(1.0, min(len(searchable_terms), 16) / 4))
+    requested_tags_lower = tuple(tag.lower() for tag in requested_tags)
+
+    return _score_prepared_unit(
+        query_lower=query_lower,
+        query_tokens=query_tokens,
+        requested_tags=requested_tags,
+        requested_tags_lower=requested_tags_lower,
+        prepared_searchable_terms=prepared_searchable_terms,
+        category_lower=category_lower,
+        technique_lower=technique_lower,
+        candidates_lower=candidates_lower,
+        norm_factor=norm_factor,
+    )
 
 
 def _term_matches_unit(term: str, unit: GroundingUnit) -> bool:
