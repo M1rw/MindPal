@@ -337,7 +337,6 @@ def _install_frontend_routes(app: FastAPI) -> None:
         "/dist": FRONTEND_DIR / "dist",
         "/assets": FRONTEND_DIR / "assets",
         "/voice/assets": VOICE_DIR / "assets",
-        "/voice-v3/assets": VOICE_DIR / "assets",
     }
 
     for prefix, directory in static_mounts.items():

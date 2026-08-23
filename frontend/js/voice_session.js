@@ -26,10 +26,7 @@ const VOICE_RUNTIME_SCRIPT_ATTRIBUTE = "data-mindpal-voice-runtime";
 
 function getRuntimeFactory() {
   const win = globalThis.window;
-  return (
-    win?.__MINDPAL_VOICE_RUNTIME__?.createVoiceController ||
-    win?.__MINDPAL_VOICE_V3_RUNTIME__?.createVoiceV3Controller
-  );
+  return win?.__MINDPAL_VOICE_RUNTIME__?.createVoiceController;
 }
 
 function createControllerFromGlobal() {
@@ -46,7 +43,7 @@ async function loadController() {
   if (!controllerPromise) {
     controllerPromise = new Promise((resolve, reject) => {
       const existingScript = document.querySelector(
-        `script[${VOICE_RUNTIME_SCRIPT_ATTRIBUTE}], script[data-mindpal-voice-v3-runtime]`
+        `script[${VOICE_RUNTIME_SCRIPT_ATTRIBUTE}]`
       );
       if (getRuntimeFactory()) {
         resolve(createControllerFromGlobal());
@@ -60,7 +57,6 @@ async function loadController() {
       script.type = "module";
       script.async = true;
       script.setAttribute(VOICE_RUNTIME_SCRIPT_ATTRIBUTE, "true");
-      script.setAttribute("data-mindpal-voice-v3-runtime", "true");
       const runtimeUrl = new URL(VOICE_RUNTIME_PATH, document.baseURI);
       runtimeUrl.searchParams.set("v", VOICE_RUNTIME_VERSION);
       script.src = runtimeUrl.href;
