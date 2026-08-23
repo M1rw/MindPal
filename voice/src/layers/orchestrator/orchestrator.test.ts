@@ -537,6 +537,54 @@ describe("VoiceOrchestrator delayed provider output fencing", () => {
     expect(outputs).toHaveLength(1);
     expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
   });
+
+  it("unseals response boundary and accepts subsequent AI response audio after normal conversational user speech (RMS 0.02)", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const playbackAudio: unknown[] = [];
+    const staleEvents: unknown[] = [];
+    bus.subscribe((envelope) => playbackAudio.push(envelope.payload), {
+      topic: "voice.playback",
+      messageType: "ORCHESTRATOR_AUDIO_EVENT",
+    });
+    bus.subscribe((envelope) => staleEvents.push(envelope.payload), {
+      topic: "voice.orchestrator",
+      messageType: "ORCHESTRATOR_STALE_REJECTED",
+    });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+
+    // 1. Initial greeting turn finishes
+    const greetingIdentity: GenerationIdentity = {
+      sessionGeneration: "session-1",
+      turnId: null,
+      providerResponseId: "greeting-response",
+      playbackGeneration: null,
+    };
+    publishAdapterEvent(bus, now, audioEvent(greetingIdentity));
+    now = 1;
+    publishAdapterEvent(bus, now, completeEvent(greetingIdentity));
+    expect(orchestrator.state).toBe("LISTENING");
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
+
+    // 2. User speaks with normal conversational RMS (0.02, below barge-in 0.045)
+    now = 2;
+    publishCaptureFrame(bus, now, 0.02);
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(false);
+
+    // 3. Model streams AI response audio with null turnId and null providerResponseId
+    now = 3;
+    const aiResponseIdentity: GenerationIdentity = {
+      sessionGeneration: "session-1",
+      turnId: null,
+      providerResponseId: null,
+      playbackGeneration: null,
+    };
+    publishAdapterEvent(bus, now, audioEvent(aiResponseIdentity));
+
+    expect(staleEvents).toHaveLength(0);
+    expect(playbackAudio).toHaveLength(2);
+    expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
+  });
 });
 
 
