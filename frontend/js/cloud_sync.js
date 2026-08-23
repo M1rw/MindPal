@@ -199,6 +199,12 @@ export function cleanupAuth() {
 // Cloud memory
 // ═══════════════════════════════════════════════════════════════
 
+function isAuthProviderMissingError(error) {
+  return error?.code === "auth_provider_missing" ||
+         error?.details?.code === "auth_provider_missing" ||
+         (error?.status === 401 && String(error?.message || "").includes("Authentication provider is not configured"));
+}
+
 export async function hydrateCloudMemory(token, renderMemoryInspector) {
   if (!token) return;
 
@@ -234,6 +240,10 @@ export async function hydrateCloudMemory(token, renderMemoryInspector) {
     memoryGraphContext = loadCanonicalLocalMemory();
     memoryContext = memoryGraphContext;
     renderMemoryInspector?.();
+    if (isAuthProviderMissingError(error)) {
+      setCloudSyncEnabled(false);
+      throw error;
+    }
   }
 }
 
@@ -265,6 +275,10 @@ export async function hydrateCloudChat(token, renderPersistedChat) {
     await flushPendingCloudChatMessages();
   } catch (error) {
     console.warn("Cloud chat hydration failed:", error);
+    if (isAuthProviderMissingError(error)) {
+      setCloudSyncEnabled(false);
+      throw error;
+    }
   }
 }
 
@@ -477,6 +491,9 @@ export function formatCloudConnectErrorSafe(error) {
   const requestId = String(error?.requestId || "");
   const message = String(error?.message || "");
 
+  if (code === "auth_provider_missing" || message.includes("Authentication provider is not configured")) {
+    return "Authentication provider is not configured on the backend server.";
+  }
   if (code.includes("unauthorized-domain")) {
     return "Firebase rejected this domain. Add mindpal-demo.vercel.app to Firebase Auth authorized domains.";
   }

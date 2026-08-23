@@ -107,6 +107,28 @@ def test_runtime_config_and_bundles_are_served() -> None:
     assert "registerProcessor" in capture_worklet.text
 
 
+def test_runtime_config_disables_firebase_when_server_provider_unconfigured() -> None:
+    unconfigured_app = create_app(
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="test",
+            ENABLE_FIREBASE=True,
+            FIREBASE_PROJECT_ID="mindpal-production",
+            FIREBASE_CREDENTIALS_JSON='{"project_id": "mismatched-project", "private_key": "x"}',
+            FIREBASE_WEB_PROJECT_ID="mindpal-production",
+            FIREBASE_WEB_API_KEY="public-web-key",
+            FIREBASE_AUTH_DOMAIN="mindpal-production.firebaseapp.com",
+            FIREBASE_WEB_APP_ID="1:123:web:mindpal",
+        )
+    )
+    with TestClient(unconfigured_app) as client:
+        response = client.get("/runtime-config.js")
+
+    assert response.status_code == 200
+    assert '"FIREBASE_ENABLED":false' in response.text
+    assert '"FIREBASE_CONFIG":{' in response.text
+
+
 def test_runtime_config_is_generated_from_deployment_settings_without_server_secrets() -> None:
     configured_app = create_app(
         Settings(
@@ -306,6 +328,7 @@ def test_runtime_config_uses_same_origin_auth_domain_only_with_firebase_proxy() 
             ENVIRONMENT="test",
             ENABLE_FIREBASE=True,
             FIREBASE_USE_APPLICATION_DEFAULT=True,
+            FIREBASE_PROJECT_ID="mindpal-production",
             FIREBASE_WEB_PROJECT_ID="mindpal-production",
             FIREBASE_WEB_API_KEY="public-web-key",
             FIREBASE_WEB_APP_ID="1:123:web:mindpal",
