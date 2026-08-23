@@ -35,7 +35,11 @@ _cache: OrderedDict[str, tuple[float, bytes, str]] = OrderedDict()
 
 def _cache_key(target_url: str) -> str:
     parsed = urlparse(target_url)
-    return f"{parsed.scheme.lower()}://{(parsed.hostname or '').lower()}"
+    scheme = (parsed.scheme or "").strip().lower()
+    hostname = (parsed.hostname or "").strip().lower()
+    if not scheme or not hostname:
+        raise ValueError("Invalid target URL origin for cache key")
+    return f"{scheme}://{hostname}"
 
 
 def _cached_icon(key: str) -> tuple[bytes, str] | None:
