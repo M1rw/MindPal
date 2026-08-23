@@ -80,6 +80,9 @@ test("live runtime binds optional callbacks from the start-session signature", a
   assert.match(source, /callbacks = options/);
   assert.match(source, /callbacks\.onTurnComplete/);
   assert.match(source, /callbacks\.onBackgroundTask/);
+  assert.match(source, /let stopInFlight: Promise<boolean> \| null = null/);
+  assert.match(source, /if \(stopInFlight\) await stopInFlight/);
+  assert.match(source, /if \(!active && !startupPending\) return/);
 });
 
 test("live runtime delegates web research without pausing audio input", async () => {
@@ -87,6 +90,14 @@ test("live runtime delegates web research without pausing audio input", async ()
 
   assert.match(source, /ORCHESTRATOR_OPERATION_REQUESTED/);
   assert.match(source, /callbacks\.onBackgroundTask/);
+});
+
+test("production Voice gates native cues and forwards real playback RMS", async () => {
+  const appSource = await readFile(new URL("../voice/src/app.ts", import.meta.url), "utf8");
+  const entrySource = await readFile(new URL("../voice/src/production-entry.ts", import.meta.url), "utf8");
+  assert.match(appSource, /nativeGeminiCues: this\.featureFlags\.VOICE_V3_VERBAL_CUES_ENABLED/);
+  assert.match(appSource, /this\.orchestrator\.cancelNativeCue\("timeout"\)/);
+  assert.match(entrySource, /aiLevel: app\?\.playbackManager\.getOutputLevel\?\.\(\) \?\? 0/);
 });
 
 test("voice session preserves verified research while native setup avoids provider tools", async () => {
@@ -350,17 +361,18 @@ test("Voice overlay presents AI-only spoken captions with auto-scroll and Arabic
     readFile(new URL("../frontend/css/style.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(source, /if \(type === "user"\) \{/);
-  assert.match(source, /userTranscript = appendTranscriptChunk/);
+  assert.match(source, /if \(type === "user"\) userTranscript = appendTranscriptChunk/);
+  assert.match(source, /onCaption: handleCanonicalCaptionRelease/);
+  assert.match(source, /caption\.textContent = value/);
   assert.match(source, /currentCaption = null/);
   assert.match(source, /function createAiCaption\(\)/);
   assert.match(source, /voice-caption voice-caption--active/);
   assert.match(source, /panel\.scrollTo\(\{ top: panel\.scrollHeight, behavior: "smooth" \}\)/);
-  assert.match(source, /detectCaptionDirection/);
-  assert.match(source, /isolateMixedScriptRuns/);
+  assert.match(source, /caption\.dir = "auto"/);
+  assert.match(source, /caption\.textContent = value/);
   assert.match(source, /dataset\.rawText/);
-  assert.match(source, /String\.fromCodePoint\(0x2066\)/);
-  assert.match(source, /String\.fromCodePoint\(0x2067\)/);
+  assert.doesNotMatch(source, /String\.fromCodePoint\(0x2066\)/);
+  assert.doesNotMatch(source, /String\.fromCodePoint\(0x2067\)/);
   assert.doesNotMatch(source, /voice-msg-user/);
   assert.match(markup, /aria-label="MindPal spoken captions"/);
   assert.match(markup, /id="voice-cc-toggle"/);

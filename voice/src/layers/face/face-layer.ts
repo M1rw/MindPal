@@ -254,7 +254,7 @@ export class FaceLayer {
       if (payload && typeof payload.text === "string") {
         this.processUserTranscript(payload.text);
       }
-    } else if (envelope.messageType === "transcript.ai.updated") {
+    } else if (envelope.messageType === "transcript.assistant.updated" || envelope.messageType === "transcript.ai.updated") {
       const payload = envelope.payload as { readonly text?: string };
       if (payload && typeof payload.text === "string") {
         this.processAiTranscript(payload.text);

@@ -30,6 +30,7 @@ export type PlaybackEvent =
       readonly type: "playback.started";
       readonly audioClass: AudioLane;
       readonly generationId: string;
+      readonly startTime: number;
     }
   | { readonly type: "playback.underrun"; readonly queueDepthMs: number }
   | {
@@ -38,7 +39,7 @@ export type PlaybackEvent =
       readonly generationId: string;
       readonly activeGenerationId: string | null;
     }
-  | { readonly type: "playback.flushed"; readonly generationId: string }
+  | { readonly type: "playback.flushed"; readonly generationId: string; readonly reason?: string }
   | { readonly type: "playback.ducked"; readonly targetGain: number; readonly endTime: number }
   | { readonly type: "playback.restored"; readonly targetGain: number; readonly endTime: number }
   | { readonly type: "playback.error"; readonly reason: string; readonly error?: unknown };
@@ -84,6 +85,7 @@ export class PlaybackManager {
   private mainGainNode: GainNode | null = null;
   private backchannelGainNode: GainNode | null = null;
   private analyserNode: AnalyserNode | null = null;
+  private outputLevelBuffer: Uint8Array<ArrayBuffer> | null = null;
   private compressorNode: DynamicsCompressorNode | null = null;
   private nextStartTime: number | null = null;
   private activeGenerationId: string | null = null;
@@ -95,6 +97,7 @@ export class PlaybackManager {
   private readonly startedGenerations = new Set<string>();
   private backchannelGainTarget = BACKCHANNEL_GAIN;
   private urgentFadeMs = 150;
+  private mainLaneDucked = false;
 
   public constructor(options: PlaybackManagerOptions = {}) {
     this.audioContextFactory = options.audioContextFactory ?? (() => new AudioContext());
@@ -158,6 +161,7 @@ export class PlaybackManager {
       const encoded = dataBase64 ?? int16ToBase64(chunk.data);
       const buffer = preloadedBuffer ?? createPcm16AudioBuffer(context, encoded);
       const lane = chunk.audioLane === "backchannel" ? "backchannel" : "main";
+      if (lane === "main" && this.mainLaneDucked) this.restoreMainLane();
       if (lane === "main" && this.urgentFadeMs < 150) this.fadeBackchannelForMainStart(context.currentTime);
       const gainNode = lane === "backchannel" ? this.backchannelGainNode : this.mainGainNode;
       if (!gainNode) throw new Error("playback graph is not initialized");
@@ -203,6 +207,7 @@ export class PlaybackManager {
           type: "playback.started",
           audioClass: lane,
           generationId: scheduled.generationId,
+          startTime,
         });
       }
 
@@ -243,7 +248,7 @@ export class PlaybackManager {
     this.emitSnapshot();
   }
 
-  public flush(generationId: string): void {
+  public flush(generationId: string, reason = "manual"): void {
     const sources = this.scheduledSources.get(generationId);
     if (sources) {
       for (const scheduled of sources) {
@@ -260,7 +265,7 @@ export class PlaybackManager {
       this.nextStartTime = null;
       this.playbackState = "FLUSHED";
     }
-    this.emit({ type: "playback.flushed", generationId });
+    this.emit({ type: "playback.flushed", generationId, reason });
     this.debug("[Playback] generation flushed", { generationId });
     this.emitSnapshot();
   }
@@ -274,6 +279,7 @@ export class PlaybackManager {
     gain.cancelScheduledValues(now);
     gain.setValueAtTime(gain.value, now);
     gain.linearRampToValueAtTime(DUCKED_MAIN_GAIN, endTime);
+    this.mainLaneDucked = true;
     this.emit({ type: "playback.ducked", targetGain: DUCKED_MAIN_GAIN, endTime });
     this.emitSnapshot();
   }
@@ -317,6 +323,7 @@ export class PlaybackManager {
     gain.cancelScheduledValues(now);
     gain.setValueAtTime(gain.value, now);
     gain.linearRampToValueAtTime(MAIN_GAIN, endTime);
+    this.mainLaneDucked = false;
     this.emit({ type: "playback.restored", targetGain: MAIN_GAIN, endTime });
     this.emitSnapshot();
   }
@@ -343,6 +350,22 @@ export class PlaybackManager {
 
   public get activeGeneration(): string | null {
     return this.activeGenerationId;
+  }
+
+  /** Return the current mono RMS of the post-compressor assistant output. */
+  public getOutputLevel(): number {
+    const analyser = this.analyserNode;
+    if (!analyser) return 0;
+    if (!this.outputLevelBuffer || this.outputLevelBuffer.length !== analyser.fftSize) {
+      this.outputLevelBuffer = new Uint8Array<ArrayBuffer>(new ArrayBuffer(analyser.fftSize));
+    }
+    analyser.getByteTimeDomainData(this.outputLevelBuffer);
+    let sum = 0;
+    for (const sample of this.outputLevelBuffer) {
+      const normalized = (sample - 128) / 128;
+      sum += normalized * normalized;
+    }
+    return Math.min(1, Math.sqrt(sum / this.outputLevelBuffer.length) * 2);
   }
 
   private acceptGeneration(generationId: string | null): boolean {
@@ -379,6 +402,7 @@ export class PlaybackManager {
     this.backchannelGainNode = backchannelGain;
     this.compressorNode = compressor;
     this.analyserNode = analyser;
+    this.outputLevelBuffer = new Uint8Array(analyser.fftSize);
     return context;
   }
 

@@ -8,7 +8,6 @@ import {
   setMuted,
   getMicMuted,
   getAiSpeaking,
-  getSessionState,
   setSpeakerMuted,
   getSpeakerMuted,
   getTranscriptSnapshot,
@@ -20,9 +19,7 @@ import {
   feedVoiceFaceAiLevel,
   setVoiceFaceState,
   setVoiceFaceDiagnostic,
-  setVoiceFaceAnalysers,
 } from "./voice/voice_face_visualizer.js";
-import { planPacedCaptionSegments } from "./voice/caption_sync_policy.js";
 
 // ═══════════════════════════════════════════════════════════════
 // State
@@ -41,20 +38,12 @@ let lastAudioProjection = { phase: "idle", isAiSpeaking: false, isMicMuted: fals
 
 // AI-only caption tracking. User speech remains available for optional call
 // history, but the live surface stays focused on MindPal's spoken captions.
+// The canonical runtime releases captions on actual playback events; this UI
+// keeps only the currently visible line and the current turn boundary.
 let currentCaption = null;
 let captionTurnComplete = false;
 let captionScrollFrame = null;
-let captionReleaseTimer = null;
-let captionFallbackTimer = null;
-let captionQueue = [];
-let captionBufferedText = "";
-let captionPendingText = "";
-// The complete assistant response is rendered immediately. These offsets only
-// control the moving spoken-word highlight, so transcript visibility never
-// waits for the pacing queue.
 let captionSourceText = "";
-let captionNextReleaseAtMs = 0;
-let captionAudioStartAtMs = 0;
 let captionTurnSerial = 0;
 
 // ═══════════════════════════════════════════════════════════════
@@ -143,16 +132,7 @@ export async function startLiveVoice(contextProvider = null) {
   currentCaption = null;
   captionTurnComplete = false;
   captionTurnSerial += 1;
-  captionQueue = [];
-  captionBufferedText = "";
-  captionPendingText = "";
   captionSourceText = "";
-  captionNextReleaseAtMs = 0;
-  captionAudioStartAtMs = 0;
-  if (captionReleaseTimer) clearTimeout(captionReleaseTimer);
-  if (captionFallbackTimer) clearTimeout(captionFallbackTimer);
-  captionReleaseTimer = null;
-  captionFallbackTimer = null;
   if (captionScrollFrame) cancelAnimationFrame(captionScrollFrame);
   captionScrollFrame = null;
   backgroundTaskCount = 0;
@@ -212,22 +192,19 @@ export async function startLiveVoice(contextProvider = null) {
     await startSession({
       contextProvider,
       onTranscript: handleTranscript,
+      onCaption: handleCanonicalCaptionRelease,
       onAudioState: handleAudioState,
       onSessionEnd: handleSessionEnd,
       onTurnComplete: handleTurnComplete,
       onBackgroundTask: handleBackgroundTask,
       onDiagnostic: handleVoiceDiagnostic,
-      onVolume: feedVoiceFaceMicLevel,
+      onVolume: handleVoiceVolume,
       token,
       getAuthToken: () => getIdToken(),
       refreshAuthToken: () => getIdToken({ forceRefresh: true }),
       getAppCheckToken: () => getAppCheckToken(),
       refreshAppCheckToken: () => getAppCheckToken({ forceRefresh: true }),
     });
-
-    // Attach the real session analysers after the provider/capture layers exist.
-    const { micAnalyser, aiAnalyser } = getSessionState();
-    setVoiceFaceAnalysers({ mic: micAnalyser, ai: aiAnalyser });
 
     // Keep the connection-only spinner visible until the live session itself
     // emits its setup-complete Listening state through handleAudioState().
@@ -312,29 +289,11 @@ function isSameOrCumulativeCaption(previous, next) {
   return Boolean(prior && current && (prior === current || prior.startsWith(current) || current.startsWith(prior)));
 }
 
-function detectCaptionDirection(text) {
-  const value = String(text || "");
-  const arabicIndex = value.search(/[\u0590-\u08FF]/);
-  const latinIndex = value.search(/[A-Za-z]/);
-  if (arabicIndex >= 0 && (latinIndex < 0 || arabicIndex < latinIndex)) return "rtl";
-  return "ltr";
-}
-
-function isolateMixedScriptRuns(text, direction) {
-  const value = String(text || "");
-  // Unicode directional isolates keep embedded names, URLs, numbers, and
-  // translated phrases from reordering the surrounding Arabic/English line.
-  if (direction === "rtl") {
-    return value.replace(/([A-Za-z][A-Za-z0-9@._:/+%#?=&-]*(?:[ ]+[A-Za-z0-9@._:/+%#?=&-]+)*)/g, (_, match) => `${String.fromCodePoint(0x2066)}${match}${String.fromCodePoint(0x2069)}`);
-  }
-  return value.replace(/[\u0590-\u08FF][\u0590-\u08FF0-9\u0660-\u0669@._:/+%#?=&-]*(?:[ ]+[\u0590-\u08FF0-9\u0660-\u0669@._:/+%#?=&-]+)*/g, (match) => `${String.fromCodePoint(0x2067)}${match}${String.fromCodePoint(0x2069)}`);
-}
-
 function renderCaptionText(caption, rawText) {
   const value = String(rawText || "");
-  caption.dir = detectCaptionDirection(value);
+  caption.dir = "auto";
   caption.setAttribute("aria-label", value);
-  caption.replaceChildren(document.createTextNode(isolateMixedScriptRuns(value, caption.dir)));
+  caption.textContent = value;
 }
 
 function isInternalCaptionText(text) {
@@ -343,160 +302,41 @@ function isInternalCaptionText(text) {
 
 function clearCaptionReleaseQueue({ preserveSource = false } = {}) {
   captionTurnSerial += 1;
-  if (captionReleaseTimer) clearTimeout(captionReleaseTimer);
-  if (captionFallbackTimer) clearTimeout(captionFallbackTimer);
-  captionReleaseTimer = null;
-  captionFallbackTimer = null;
-  captionQueue = [];
-  captionPendingText = "";
-  captionNextReleaseAtMs = 0;
-  captionAudioStartAtMs = 0;
   if (!preserveSource) {
-    captionBufferedText = "";
     captionSourceText = "";
+    currentCaption = null;
   }
 }
 
-function scheduleCaptionRelease() {
-  if (captionReleaseTimer || !captionQueue.length) return;
-  const serial = captionTurnSerial;
-  const release = () => {
-    captionReleaseTimer = null;
-    if (serial !== captionTurnSerial || !isLiveActive) return;
-    const now = Date.now();
-    const next = captionQueue[0];
-    if (!next) return;
-    if (next.startTime * 1000 > now) {
-      captionReleaseTimer = setTimeout(release, Math.max(0, next.startTime * 1000 - now));
-      return;
-    }
-    captionQueue.shift();
-    renderAiCaptionChunk(next.text);
-    scheduleCaptionRelease();
-  };
-  release();
-}
-
-function queuePacedCaptionTranscript(text, { audioStartMs = 0 } = {}) {
+function handleCanonicalCaptionRelease(text) {
   const cleaned = String(text || "").replace(/<noise>/gi, "").trim();
-  if (!cleaned || isInternalCaptionText(cleaned)) return false;
-  const merged = appendTranscriptChunk(captionBufferedText, cleaned);
-  const delta = merged.startsWith(captionBufferedText) ? merged.slice(captionBufferedText.length) : cleaned;
-  captionBufferedText = merged;
-  if (!delta.trim()) return false;
-
-  const nowMs = Date.now();
-  const startMs = Math.max(nowMs, Number(audioStartMs) || 0, captionNextReleaseAtMs);
-  const segments = planPacedCaptionSegments({
-    text: delta,
-    audioStartTime: startMs / 1000,
-    nextCaptionTime: captionNextReleaseAtMs / 1000,
-    now: nowMs / 1000,
-  });
-  if (!segments.length) return false;
-  captionQueue.push(...segments);
-  const last = segments[segments.length - 1];
-  captionNextReleaseAtMs = last.startTime * 1000 + last.duration * 1000;
-  scheduleCaptionRelease();
-  return true;
-}
-
-function flushPendingCaptionText({ audioStartMs = 0 } = {}) {
-  if (!captionPendingText) return false;
-  const pending = captionPendingText;
-  captionPendingText = "";
-  return queuePacedCaptionTranscript(pending, { audioStartMs });
-}
-
-function armCaptionFallback() {
-  if (captionFallbackTimer || !captionPendingText) return;
-  const serial = captionTurnSerial;
-  captionFallbackTimer = setTimeout(() => {
-    captionFallbackTimer = null;
-    if (serial !== captionTurnSerial || !isLiveActive || captionAudioStartAtMs) return;
-    flushPendingCaptionText({ audioStartMs: Date.now() });
-  }, 1_800);
-}
-
-function handleMainPlaybackStarted() {
-  captionAudioStartAtMs ||= Date.now();
-  flushPendingCaptionText({ audioStartMs: captionAudioStartAtMs });
-}
-
-function renderAiCaptionChunk(cleaned) {
-  if (!cleaned || isInternalCaptionText(cleaned)) return;
-  const panel = document.getElementById("voice-transcript-panel");
-  if (panel && ccVisible) {
-    panel.style.opacity = "1";
-    panel.style.visibility = "visible";
-    panel.style.display = "";
-    panel.setAttribute("aria-hidden", "false");
-  }
-  if (!currentCaption || captionTurnComplete) {
+  if (!cleaned || isInternalCaptionText(cleaned) || !isLiveActive) return;
+  if (captionTurnComplete || !currentCaption) {
     currentCaption = createAiCaption();
     captionTurnComplete = false;
   }
-  if (!currentCaption) return;
-
-  if (!captionSourceText.trim()) return;
-  renderCaptionText(currentCaption, captionSourceText);
+  if (!currentCaption || captionSourceText === cleaned) return;
+  captionSourceText = cleaned;
+  currentCaption.dataset.rawText = cleaned;
+  renderCaptionText(currentCaption, cleaned);
   scrollTranscript();
 }
 
 export function shouldPreserveCaptionQueueOnUserTranscript({ providerInterrupted = false } = {}) {
-  // Input transcription is not authoritative proof that the model was
-  // interrupted: native-audio echo, stale worklet frames, and partial VAD
-  // updates can arrive while an answer is still being released. The provider's
-  // interrupted event is the authoritative boundary for discarding queued AI
-  // captions. Preserving here prevents a valid caption from disappearing before
-  // the 1.8s fallback or the main-audio playback-start signal can render it.
   return providerInterrupted !== true;
 }
 
 function handleTranscript(type, text) {
   if (!text) return;
-  console.debug("[MindPal Voice][caption]", { type, text: String(text).slice(0, 240) });
-  const cleaned = String(text).replace(/<noise>/gi, "");
-  if (!cleaned.trim()) return;
+  const cleaned = String(text).replace(/<noise>/gi, "").trim();
+  if (!cleaned || isInternalCaptionText(cleaned)) return;
+  if (type === "user") userTranscript = appendTranscriptChunk(userTranscript, cleaned);
+  if (type === "ai") aiTranscript = appendTranscriptChunk(aiTranscript, cleaned);
+}
 
-  if (type === "user") {
-    userTranscript = appendTranscriptChunk(userTranscript, cleaned);
-    // Do not clear queued assistant captions here. Input transcription can be
-    // an echoed/late partial while the assistant is still speaking. A genuine
-    // barge-in is handled by PROVIDER_INTERRUPTED, which clears the queue at
-    // the transport boundary and preserves the already-visible source text.
-    if (!shouldPreserveCaptionQueueOnUserTranscript()) {
-      clearCaptionReleaseQueue();
-    }
-    return;
-  }
-  if (type !== "ai" || isInternalCaptionText(cleaned)) return;
-
-  if (captionTurnComplete) {
-    // Gemini can deliver the final cumulative output-transcription snapshot
-    // after turnComplete. It belongs to the completed response, not a new one.
-    if (!isSameOrCumulativeCaption(captionSourceText, cleaned)) {
-      clearCaptionReleaseQueue();
-      currentCaption = null;
-    }
-    captionTurnComplete = false;
-  }
-  // Keep the complete visible response immediate. The pacing queue is retained
-  // only for delivery ordering and never creates another caption node.
-  aiTranscript = appendTranscriptChunk(aiTranscript, cleaned);
-  const mergedSource = appendTranscriptChunk(captionSourceText, cleaned);
-  if (mergedSource !== captionSourceText) {
-    captionSourceText = mergedSource;
-    if (!currentCaption) currentCaption = createAiCaption();
-    if (currentCaption) {
-      currentCaption.dataset.rawText = captionSourceText;
-      renderCaptionText(currentCaption, captionSourceText);
-      scrollTranscript();
-    }
-  }
-  captionPendingText = appendTranscriptChunk(captionPendingText, cleaned);
-  if (captionAudioStartAtMs) flushPendingCaptionText({ audioStartMs: captionAudioStartAtMs });
-  else armCaptionFallback();
+function handleVoiceVolume({ rms = 0, aiLevel = 0, muted = false } = {}) {
+  feedVoiceFaceMicLevel({ rms, muted });
+  feedVoiceFaceAiLevel(aiLevel);
 }
 
 export function resolveMinimalVoiceStatus({ phase, isAiSpeaking: aiSpeaking } = {}) {
@@ -518,13 +358,7 @@ function handleVoiceDiagnostic(event = {}) {
   console.debug("[MindPal Voice][diagnostic]", event);
   if (["voice.socket-error", "voice.socket-closed", "provider.error", "provider.closed"].includes(event?.type)) console.warn("[MindPal Voice]", event);
   setVoiceFaceDiagnostic(event);
-  if (event?.type === "voice.playback.started" && event.audioClass === "main") handleMainPlaybackStarted();
-  if (event?.type === "voice.playback.ended" && event.audioClass === "main" && !captionQueue.length && !captionPendingText) {
-    captionAudioStartAtMs = 0;
-    captionNextReleaseAtMs = 0;
-    captionBufferedText = "";
-  }
-  if (event?.type === "voice.playback.flushed" && event.reason === "provider-interrupted") {
+  if (event?.type === "voice.playback.flushed" && event.reason) {
     clearCaptionReleaseQueue({ preserveSource: true });
     captionTurnComplete = true;
   }
@@ -609,7 +443,7 @@ function createAiCaption() {
   const caption = document.createElement("p");
   caption.className = "voice-caption voice-caption--active";
   caption.setAttribute("aria-atomic", "true");
-  caption.setAttribute("dir", "ltr");
+  caption.setAttribute("dir", "auto");
   caption.dataset.rawText = "";
   panel.appendChild(caption);
   return caption;

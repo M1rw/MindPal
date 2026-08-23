@@ -1389,10 +1389,6 @@ export function feedVoiceFaceAiLevel(input) {
   state = { ...state, aiLevel: num };
 }
 
-export function setVoiceFaceAnalysers({ mic = null, ai = null } = {}) {
-  // Analysers passed for direct audio processing if needed
-}
-
 export function getVoiceFaceSnapshot() {
   return {
     ...deriveVoiceFaceState(state),
