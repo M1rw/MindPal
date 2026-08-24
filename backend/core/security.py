@@ -307,10 +307,7 @@ def validate_url(
     if block_private_ips:
         if hostname == "localhost" or hostname.endswith(".localhost"):
             raise ValueError(f"URL hostname '{hostname}' is a loopback address")
-        try:
-            address = ipaddress.ip_address(hostname.strip("[]"))
-        except ValueError:
-            address = None
+        address = _parse_ip_address(hostname)
         if address is not None and not address.is_global:
             raise ValueError(f"URL hostname '{hostname}' is not globally routable")
 
@@ -320,6 +317,39 @@ def validate_url(
 # ═══════════════════════════════════════════════════════════════
 # Internal helpers
 # ═══════════════════════════════════════════════════════════════
+
+def _parse_ip_address(hostname: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """Parse a hostname string into an IPv4 or IPv6 address object if it represents an IP literal."""
+    host = hostname.strip("[]")
+    try:
+        return ipaddress.ip_address(host)
+    except ValueError:
+        pass
+
+    # Attempt integer, hex, or octal single-value IPv4 literal parsing (e.g. 2130706433, 0x7f000001, 017700000001, 0)
+    try:
+        val = None
+        if host.startswith(("0x", "0X")) and len(host) > 2 and all(c in "0123456789abcdefABCDEF" for c in host[2:]):
+            val = int(host, 16)
+        elif host.startswith("0") and len(host) > 1 and all(c in "01234567" for c in host[1:]):
+            val = int(host, 8)
+        elif host.isdigit():
+            val = int(host, 10)
+
+        if val is not None and 0 <= val <= 0xFFFFFFFF:
+            return ipaddress.IPv4Address(val)
+    except (ValueError, OverflowError):
+        pass
+
+    # Attempt socket host resolution for dotted octal/hex/shorthand IPv4 literals (e.g. 127.1, 0177.0.0.1)
+    import socket
+    try:
+        resolved_ip = socket.gethostbyname(host)
+        return ipaddress.ip_address(resolved_ip)
+    except (socket.gaierror, ValueError):
+        pass
+
+    return None
 
 def _redact_phone_match(match: re.Match[str]) -> str:
     candidate = match.group(0)
