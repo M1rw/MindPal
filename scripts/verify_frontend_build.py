@@ -17,7 +17,7 @@ REQUIRED_OUTPUTS = {
     "frontend/dist/app.bundle.js": 100_000,
     "frontend/dist/brain.bundle.js": 1_000,
     "frontend/dist/voice-auth.bundle.js": 100_000,
-    "voice/public/assets/voice-auth.bundle.js": 100_000,
+    "frontend/voice/public/assets/voice-auth.bundle.js": 100_000,
     "frontend/voice/index.html": 200,
     "frontend/voice/assets/runtime.js": 10_000,
 }

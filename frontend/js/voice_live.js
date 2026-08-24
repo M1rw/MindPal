@@ -11,6 +11,7 @@ import {
   setSpeakerMuted,
   getSpeakerMuted,
   getTranscriptSnapshot,
+  getSessionDebugReport,
   preloadVoiceRuntime,
 } from "./voice_session.js";
 import {
@@ -227,6 +228,8 @@ export function stopLiveVoice() {
   const canonicalTranscript = getTranscriptSnapshot?.() || {};
   const persistedUserTranscript = canonicalTranscript.userTranscript || userTranscript;
   const persistedAiTranscript = canonicalTranscript.aiTranscript || aiTranscript;
+  const debugReport = getSessionDebugReport?.() || {};
+
   stopSession();
   stopVoiceFace();
 
@@ -239,18 +242,70 @@ export function stopLiveVoice() {
     setTimeout(() => overlay.classList.add("hidden"), 500);
   }
 
-  // A private-from-chat call still runs through the authenticated live session;
-  // this control only blocks post-call transcript, memory, and cloud-chat persistence.
-  if (!isIncognito && onChatSyncCallback && (persistedUserTranscript.trim() || persistedAiTranscript.trim())) {
-    const endTime = new Date();
-    onChatSyncCallback({
+  const endTime = new Date();
+  const durationMs = callStartTime ? endTime.getTime() - callStartTime.getTime() : 0;
+
+  // Single unified session debug object
+  const sessionDebugSummary = {
+    sessionId: debugReport.sessionId || `session-${Date.now()}`,
+    startTime: callStartTime?.toISOString() || null,
+    endTime: endTime.toISOString(),
+    durationMs,
+    durationFormatted: `${(durationMs / 1000).toFixed(1)}s`,
+    incognito: isIncognito,
+    transcripts: {
       userTranscript: persistedUserTranscript.trim(),
       aiTranscript: persistedAiTranscript.trim(),
-      startTime: callStartTime?.toISOString() || endTime.toISOString(),
-      endTime: endTime.toISOString(),
-      durationMs: callStartTime ? endTime.getTime() - callStartTime.getTime() : 0,
-      incognito: false,
-    });
+      turns: debugReport.transcripts?.turns || [],
+    },
+    audioMetrics: debugReport.audioMetrics || {},
+    transportTelemetry: debugReport.transportTelemetry || {},
+    memoryGraph: debugReport.memoryGraph || null,
+    summary: null,
+  };
+
+  if (!isIncognito && (persistedUserTranscript.trim() || persistedAiTranscript.trim())) {
+    fetch("/api/voice/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_transcript: persistedUserTranscript.trim(),
+        ai_transcript: persistedAiTranscript.trim(),
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.summary) sessionDebugSummary.summary = data.summary;
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        console.group("🎙️ [MindPal Voice Session Debug Summary]", sessionDebugSummary.sessionId);
+        console.log("📊 Complete Voice Debug Object:", sessionDebugSummary);
+        console.log("💬 User Transcript:", sessionDebugSummary.transcripts.userTranscript || "(no speech recorded)");
+        console.log("🤖 AI Transcript:", sessionDebugSummary.transcripts.aiTranscript || "(no response recorded)");
+        console.log("📝 End of Call Summary:", sessionDebugSummary.summary || "Call completed");
+        console.groupEnd();
+
+        if (onChatSyncCallback) {
+          onChatSyncCallback({
+            userTranscript: persistedUserTranscript.trim(),
+            aiTranscript: persistedAiTranscript.trim(),
+            summary: sessionDebugSummary.summary || undefined,
+            startTime: callStartTime?.toISOString() || endTime.toISOString(),
+            endTime: endTime.toISOString(),
+            durationMs,
+            incognito: false,
+          });
+        }
+      });
+  } else {
+    sessionDebugSummary.summary = isIncognito ? "(Incognito call - chat history disabled)" : "(Empty session)";
+    console.group("🎙️ [MindPal Voice Session Debug Summary]", sessionDebugSummary.sessionId);
+    console.log("📊 Complete Voice Debug Object:", sessionDebugSummary);
+    console.log("💬 User Transcript:", sessionDebugSummary.transcripts.userTranscript || "(no speech recorded)");
+    console.log("🤖 AI Transcript:", sessionDebugSummary.transcripts.aiTranscript || "(no response recorded)");
+    console.log("📝 Status:", sessionDebugSummary.summary);
+    console.groupEnd();
   }
 
   // Reset incognito for next call

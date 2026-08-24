@@ -30,6 +30,7 @@ type ProductionController = {
   setSpeakerMuted: (muted: boolean) => boolean;
   sendTextToModel: (text: string) => boolean;
   getSessionState: () => Record<string, unknown>;
+  getSessionDebugReport: () => Record<string, unknown>;
   getTranscriptSnapshot: () => { userTranscript: string; aiTranscript: string };
   getMicMuted: () => boolean;
   getAiSpeaking: () => boolean;
@@ -73,6 +74,18 @@ export function createVoiceController(): ProductionController {
   let startupPending = false;
   let stopInFlight: Promise<boolean> | null = null;
 
+  // Session Debug Telemetry State
+  let sessionId = "";
+  let startTimeMs = 0;
+  let endTimeMs = 0;
+  let diagnosticsLog: Array<Record<string, unknown>> = [];
+  let turnHistory: Array<{ speaker: "user" | "ai"; text: string; timestamp: string }> = [];
+  let chunksScheduled = 0;
+  let framesCaptured = 0;
+  let flushesCount = 0;
+  let interruptionsCount = 0;
+  let lastRms = 0;
+
   const emitAudioState = (): void => {
     const faceState = app?.faceLayer.processPhaseAndState(phase, aiSpeaking, micMuted);
     callbacks.onAudioState?.({
@@ -91,7 +104,53 @@ export function createVoiceController(): ProductionController {
   const notifySessionEnd = (reason: string): void => {
     if (sessionEndNotified) return;
     sessionEndNotified = true;
+    endTimeMs = Date.now();
     callbacks.onSessionEnd?.({ reason });
+  };
+
+  const recordDiagnostic = (detail: Record<string, unknown>): void => {
+    diagnosticsLog.push({ ...detail, timestamp: new Date().toISOString() });
+    if (diagnosticsLog.length > 200) diagnosticsLog.shift();
+    callbacks.onDiagnostic?.(detail);
+  };
+
+  const getSessionDebugReport = (): Record<string, unknown> => {
+    const now = endTimeMs > 0 ? endTimeMs : Date.now();
+    const durationMs = startTimeMs > 0 ? now - startTimeMs : 0;
+    const memory = app?.memorySnapshot || null;
+
+    return {
+      sessionId,
+      startTime: startTimeMs > 0 ? new Date(startTimeMs).toISOString() : null,
+      endTime: now > 0 ? new Date(now).toISOString() : null,
+      durationMs,
+      durationFormatted: `${(durationMs / 1000).toFixed(1)}s`,
+      transcripts: {
+        userTranscript,
+        aiTranscript,
+        turns: [...turnHistory],
+        turnCount: turnHistory.length,
+      },
+      audioMetrics: {
+        framesCaptured,
+        chunksScheduled,
+        interruptionsCount,
+        flushesCount,
+        lastRms,
+        aiOutputLevel: app?.playbackManager.getOutputLevel?.() ?? 0,
+      },
+      transportTelemetry: {
+        reconnectAttempts,
+        diagnosticsCount: diagnosticsLog.length,
+        recentDiagnostics: [...diagnosticsLog.slice(-30)],
+      },
+      memoryGraph: memory ? {
+        extractionCount: memory.extractionCount,
+        injectedContext: memory.injectedContext,
+        keyFactsCount: memory.record?.keyFacts?.length ?? 0,
+        preferencesCount: memory.record?.preferences?.length ?? 0,
+      } : null,
+    };
   };
 
   const handleSnapshot = (snapshot: OrchestratorSnapshot): void => {
@@ -99,11 +158,7 @@ export function createVoiceController(): ProductionController {
     aiSpeaking = snapshot.state === "ASSISTANT_SPEAKING";
     if (snapshot.state === "RECOVERING" || snapshot.state === "RESUMING") reconnectAttempts += 1;
     if (snapshot.state === "FAILED") {
-      callbacks.onDiagnostic?.({ type: "voice.provider-error", reason: "voice-v3-failed" });
-      // During startup, let startSession() catch and surface the original
-      // transport/capture error. Calling onSessionEnd here would run the UI
-      // cleanup path first and hide the concrete failure behind a closed
-      // overlay. Once startup has completed, FAILED is a real session end.
+      recordDiagnostic({ type: "voice.provider-error", reason: "voice-v3-failed" });
       if (!startupPending) notifySessionEnd("voice-v3-failed");
     }
     if (snapshot.state === "CLOSED") notifySessionEnd("voice-v3-closed");
@@ -135,16 +190,20 @@ export function createVoiceController(): ProductionController {
       if (event.type === "PROVIDER_INPUT_TRANSCRIPT") {
         if (micMuted) return;
         userTranscript = mergeTranscript(userTranscript, event.payload.text);
+        turnHistory.push({ speaker: "user", text: event.payload.text, timestamp: new Date().toISOString() });
         callbacks.onTranscript?.("user", event.payload.text);
       } else if (event.type === "PROVIDER_OUTPUT_TRANSCRIPT") {
         aiTranscript = mergeTranscript(aiTranscript, event.payload.text);
+        turnHistory.push({ speaker: "ai", text: event.payload.text, timestamp: new Date().toISOString() });
         callbacks.onTranscript?.("ai", event.payload.text);
       } else if (event.type === "PROVIDER_TURN_COMPLETE") {
         callbacks.onTurnComplete?.();
       } else if (event.type === "PROVIDER_INTERRUPTED") {
-        callbacks.onDiagnostic?.({ type: "voice.playback.flushed", reason: "provider-interrupted" });
+        interruptionsCount += 1;
+        flushesCount += 1;
+        recordDiagnostic({ type: "voice.playback.flushed", reason: "provider-interrupted" });
       } else if (event.type === "PROVIDER_ERROR") {
-        callbacks.onDiagnostic?.({ type: "provider.error", error: event.payload.error });
+        recordDiagnostic({ type: "provider.error", error: event.payload.error });
         if (!startupPending) notifySessionEnd("provider-error");
       }
       return;
@@ -152,8 +211,10 @@ export function createVoiceController(): ProductionController {
 
     if (envelope.messageType === "capture.metrics.updated") {
       const payload = asRecord(envelope.payload);
+      framesCaptured += 1;
+      lastRms = numberOr(payload.rms, 0);
       callbacks.onVolume?.({
-        rms: numberOr(payload.rms, 0),
+        rms: lastRms,
         muted: Boolean(payload.muted),
         aiLevel: app?.playbackManager.getOutputLevel?.() ?? 0,
       });
@@ -162,7 +223,7 @@ export function createVoiceController(): ProductionController {
 
     if (envelope.messageType === "transport.snapshot.updated") {
       const snapshot = asRecord(envelope.payload);
-      if (snapshot.state === "RECOVERING") callbacks.onDiagnostic?.({ type: "voice.socket-closed", code: "recovering" });
+      if (snapshot.state === "RECOVERING") recordDiagnostic({ type: "voice.socket-closed", code: "recovering" });
       return;
     }
 
@@ -175,16 +236,18 @@ export function createVoiceController(): ProductionController {
           : envelope.messageType === "transport.socket.error"
             ? "voice.socket-error"
             : `voice.${envelope.messageType}`;
-      callbacks.onDiagnostic?.({ type: diagnosticType, ...payload });
+      recordDiagnostic({ type: diagnosticType, ...payload });
       return;
     }
 
     if (envelope.messageType.startsWith("playback.")) {
       const payload = asRecord(envelope.payload);
+      if (envelope.messageType === "playback.chunk-scheduled") chunksScheduled += 1;
+      if (envelope.messageType === "playback.flushed") flushesCount += 1;
       const diagnosticType = envelope.messageType === "playback.chunk-scheduled"
         ? "voice.playback.scheduled"
         : `voice.${envelope.messageType}`;
-      callbacks.onDiagnostic?.({ type: diagnosticType, ...payload });
+      recordDiagnostic({ type: diagnosticType, ...payload });
       return;
     }
 
@@ -204,6 +267,16 @@ export function createVoiceController(): ProductionController {
       reconnectAttempts = 0;
       userTranscript = "";
       aiTranscript = "";
+      sessionId = `voice-session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      startTimeMs = Date.now();
+      endTimeMs = 0;
+      diagnosticsLog = [];
+      turnHistory = [];
+      chunksScheduled = 0;
+      framesCaptured = 0;
+      flushesCount = 0;
+      interruptionsCount = 0;
+      lastRms = 0;
       phase = "connecting";
       aiSpeaking = false;
       emitAudioState();
@@ -226,7 +299,7 @@ export function createVoiceController(): ProductionController {
         app.playbackManager.setSpeakerMuted(speakerMuted);
         phase = "listening";
         emitAudioState();
-        callbacks.onDiagnostic?.({ type: "voice.socket-open", setupSent: true, architecture: "voice-v3" });
+        recordDiagnostic({ type: "voice.socket-open", setupSent: true, architecture: "voice-v3" });
         return true;
       } catch (error) {
         startupPending = false;
@@ -237,7 +310,7 @@ export function createVoiceController(): ProductionController {
         app = null;
         phase = "idle";
         aiSpeaking = false;
-        callbacks.onDiagnostic?.({ type: "provider.error", error });
+        recordDiagnostic({ type: "provider.error", error });
         emitAudioState();
         throw error;
       }
@@ -248,6 +321,7 @@ export function createVoiceController(): ProductionController {
       if (!active && !app) return false;
       startupPending = false;
       active = false;
+      endTimeMs = Date.now();
       const sessionApp = app;
       const sessionUnsubscribe = unsubscribe;
       stopInFlight = (async () => {
@@ -299,6 +373,7 @@ export function createVoiceController(): ProductionController {
       };
     },
 
+    getSessionDebugReport,
     getTranscriptSnapshot: () => ({ userTranscript, aiTranscript }),
     getMicMuted: () => micMuted,
     getAiSpeaking: () => aiSpeaking,
