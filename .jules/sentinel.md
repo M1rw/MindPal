@@ -1,0 +1,4 @@
+## 2026-07-18 - SSRF Bypass via Non-Standard IP Address Notations
+**Vulnerability:** Python's standard `ipaddress.ip_address` function throws `ValueError` when given non-standard IPv4 representations like single integer (`2130706433`), hex (`0x7f000001`), octal (`017700000001`), shorthand (`127.1`), or dotted octal (`0177.0.0.1`), allowing attackers to bypass `validate_url` non-global IP checks.
+**Learning:** `ipaddress.ip_address` does not automatically recognize non-standard integer/hex/octal/shorthand IPv4 literal formats. Host resolution and explicit base parsing are needed to resolve alternative IP notations before checking `ip.is_global`.
+**Prevention:** When validating URLs against SSRF, use a custom parser (`_parse_ip_address`) that checks integer/hex/octal representations as well as host resolution to convert IP literals to `IPv4Address` objects prior to performing global routability validation.
