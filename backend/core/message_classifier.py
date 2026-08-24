@@ -60,7 +60,13 @@ _OFF_TOPIC_GENERAL_AI: list[str] = [k.lower() for k in _GREETING_DATA.get("off_t
 
 _META_QUESTIONS: list[str] = [p.lower() for p in _GREETING_DATA.get("meta_question_patterns", [])]
 
+_EGYPTIAN_EXTRAS = (
+    "ازيك", "ازيكو", "عامل ايه", "عاملة ايه",
+    "تعبان", "تعبانة", "حاسس", "حاسه", "بحس",
+    "كده", "ليه", "ازاي", "عايز", "عايزة", "مش",
+)
 _EGYPTIAN_MARKERS: list[str] = [m.lower() for m in _LOCALE_DATA.get("detection_markers", {}).get("egyptian_markers", [])]
+_ALL_EGYPTIAN_MARKERS: tuple[str, ...] = tuple(set(_EGYPTIAN_MARKERS) | set(_EGYPTIAN_EXTRAS))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -305,13 +311,8 @@ def _detect_language(raw: str, lowered: str) -> str:
     if not has_arabic:
         return "english"
 
-    # Check for Egyptian Arabic markers (from JSON + inline additions)
-    egyptian_extras = (
-        "ازيك", "ازيكو", "عامل ايه", "عاملة ايه",
-        "تعبان", "تعبانة", "حاسس", "حاسه", "بحس",
-        "كده", "ليه", "ازاي", "عايز", "عايزة", "مش",
-    )
-    if any(marker in lowered for marker in _EGYPTIAN_MARKERS) or any(marker in lowered for marker in egyptian_extras):
+    # Check pre-merged Egyptian Arabic markers tuple once for maximum speed
+    if any(marker in lowered for marker in _ALL_EGYPTIAN_MARKERS):
         return "egyptian_arabic"
 
     return "arabic"
