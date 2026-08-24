@@ -7,9 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 GENERATED_PREFIXES = (
     "frontend/css/tailwind.generated.css",
     "frontend/dist/",
-    "frontend/voice/",
-    "voice/dist/",
-    "voice/public/assets/",
+    "frontend/voice/dist/",
+    "frontend/voice/public/assets/",
+    "frontend/voice/assets/",
+    "frontend/voice/index.html",
     "frontend/prebuilt-assets.manifest.json",
 )
 
