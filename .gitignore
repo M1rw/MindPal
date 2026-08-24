@@ -69,7 +69,9 @@ secrets/firebase-service-account.json
 # Frontend and Voice build outputs are generated in the local/Vercel build workspace.
 frontend/css/tailwind.generated.css
 frontend/dist/
-frontend/voice/
+frontend/voice/dist/
+frontend/voice/assets/
+frontend/voice/public/assets/
 frontend/voice-v3/
 voice/dist/
 voice/public/assets/
