@@ -89,6 +89,10 @@ export function getSessionState() {
   return controller?.getSessionState?.() || EMPTY_STATE;
 }
 
+export function getSessionDebugReport() {
+  return controller?.getSessionDebugReport?.() || null;
+}
+
 export function getMicMuted() { return controller?.getMicMuted?.() || false; }
 export function getAiSpeaking() { return controller?.getAiSpeaking?.() || false; }
 export function getSpeakerMuted() { return controller?.getSpeakerMuted?.() || false; }

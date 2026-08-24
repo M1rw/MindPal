@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 const repoRoot = new URL("../", import.meta.url);
 const vercelIgnorePath = new URL(".vercelignore", repoRoot);
-const voiceEntryPath = new URL("voice/src/production-entry.ts", repoRoot);
+const voiceEntryPath = new URL("frontend/voice/src/production-entry.ts", repoRoot);
 
 test("Vercel source upload keeps the Voice engine available to esbuild", () => {
   const ignoreLines = fs.readFileSync(vercelIgnorePath, "utf8")
