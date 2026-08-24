@@ -1674,19 +1674,19 @@ function buildMessageActions(text) {
   const visibleText = extractVisibleText(text);
 
   actionDiv.innerHTML = `
-    <button class="action-play p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Read aloud">
+    <button class="action-play p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Read aloud" aria-label="Read aloud">
       <i data-lucide="volume-2" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-copy p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Copy text">
+    <button class="action-copy p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Copy text" aria-label="Copy message text">
       <i data-lucide="copy" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-like p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Good response">
+    <button class="action-like p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Good response" aria-label="Good response">
       <i data-lucide="thumbs-up" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-dislike p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Bad response">
+    <button class="action-dislike p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Bad response" aria-label="Bad response">
       <i data-lucide="thumbs-down" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-retry p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Regenerate">
+    <button class="action-retry p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Regenerate" aria-label="Regenerate response">
       <i data-lucide="rotate-cw" class="w-[15px] h-[15px]"></i>
     </button>
   `;
