@@ -1,6 +1,7 @@
 import type { LayerLinkMessageBus } from "../../core/message-bus";
 import { createEventEnvelope } from "../../core/message-bus";
 import type { ProsodyState } from "../prosody/prosody-state";
+import type { AffectState } from "../affect/affect-engine";
 
 export type FaceExpression =
   | "neutral"
@@ -80,6 +81,7 @@ export class FaceLayer {
   private userTranscript = "";
   private aiTranscript = "";
   private prosodyState: ProsodyState | null = null;
+  private affectState: AffectState | null = null;
   private unsubscriber: (() => void) | null = null;
 
   public constructor(options: FaceLayerOptions) {
@@ -117,6 +119,11 @@ export class FaceLayer {
     return this.evaluateState();
   }
 
+  public processAffectState(affect: AffectState): FaceState {
+    this.affectState = affect;
+    return this.evaluateState();
+  }
+
   public evaluateState(): FaceState {
     let expression: FaceExpression = "neutral";
     let theme: FaceState["theme"] = "geminiCore";
@@ -127,6 +134,8 @@ export class FaceLayer {
     const phase = this.currentState.phase;
     const isAiSpeaking = this.currentState.isAiSpeaking;
     const isMicMuted = this.currentState.isMicMuted;
+    const affectStance = this.affectState?.stance;
+    const affectFeeling = this.affectState?.dominantFeeling;
 
     // 1. Connection or Error States
     if (phase === "error" || phase === "failed") {
@@ -149,11 +158,35 @@ export class FaceLayer {
       }
       theme = "deepCosmos";
     } else if (isAiSpeaking || phase === "speaking") {
-      // MindPal is speaking - Classify MindPal's response text dynamically
+      // MindPal is speaking - prefer the affect controller, then classify text.
+      if (affectStance === "gentle-concern") {
+        expression = "sympathetic";
+        theme = "deepCosmos";
+        aiToneGuess = "empathetic";
+      } else if (affectStance === "bright-playful" || affectStance === "confident-banter") {
+        expression = "amused";
+        theme = "geminiCore";
+        aiToneGuess = "playful";
+      } else if (affectStance === "calm-firm") {
+        expression = "focused";
+        theme = "nebulaWarm";
+        aiToneGuess = "firm";
+      } else if (affectStance === "curious-clarifying") {
+        expression = "curious";
+        theme = "geminiCore";
+        aiToneGuess = "curious";
+      } else if (affectStance === "warm-supportive") {
+        expression = "warm";
+        theme = "nebulaWarm";
+        aiToneGuess = "warm";
+      }
+      // If affect did not select a specialized expression, classify the text.
       const aiText = this.aiTranscript.toLowerCase();
       const lastWords = aiText.slice(-150);
 
-      if (lastWords.includes("love") || lastWords.includes("care") || lastWords.includes("adore") || lastWords.includes("favorite")) {
+      if (expression !== "neutral" && aiToneGuess !== "neutral") {
+        // Keep the affect-selected expression unless a stronger explicit text cue exists.
+      } else if (lastWords.includes("love") || lastWords.includes("care") || lastWords.includes("adore") || lastWords.includes("favorite")) {
         expression = "love";
         theme = "nebulaWarm";
         aiToneGuess = "affectionate";
@@ -198,23 +231,33 @@ export class FaceLayer {
         theme = "geminiCore";
       }
     } else if (phase === "listening" || phase === "attending") {
+      // MindPal is listening - React to the user and the current affect stance.
+      if (affectStance === "gentle-concern") expression = "sympathetic";
+      else if (affectStance === "bright-playful" || affectStance === "confident-banter") expression = "amused";
+      else if (affectStance === "curious-clarifying") expression = "curious";
+      else if (affectStance === "calm-firm") expression = "focused";
       // MindPal is listening - React to what the user is saying & user prosody
       const userText = this.userTranscript.toLowerCase();
       const lastUserWords = userText.slice(-120);
 
-      if (this.prosodyState?.emotionalGuess === "excited" || lastUserWords.includes("wow") || lastUserWords.includes("unbelievable")) {
-        expression = "surprised";
-      } else if (this.prosodyState?.emotionalGuess === "frustrated" || lastUserWords.includes("stuck") || lastUserWords.includes("hard")) {
-        expression = "sympathetic";
-      } else if (lastUserWords.includes("?") || lastUserWords.includes("can you") || lastUserWords.includes("what")) {
-        expression = "receptive";
-      } else if (lastUserWords.includes("really?") || lastUserWords.includes("sure?")) {
-        expression = "skeptical";
-      } else {
-        expression = "listening";
+      if (expression === "neutral") {
+        if (this.prosodyState?.emotionalGuess === "excited" || lastUserWords.includes("wow") || lastUserWords.includes("unbelievable")) {
+          expression = "surprised";
+        } else if (this.prosodyState?.emotionalGuess === "frustrated" || lastUserWords.includes("stuck") || lastUserWords.includes("hard")) {
+          expression = "sympathetic";
+        } else if (lastUserWords.includes("?") || lastUserWords.includes("can you") || lastUserWords.includes("what")) {
+          expression = "receptive";
+        } else if (lastUserWords.includes("really?") || lastUserWords.includes("sure?")) {
+          expression = "skeptical";
+        } else {
+          expression = "listening";
+        }
       }
       theme = "geminiCore";
     }
+
+    if (affectFeeling === "joy" || affectFeeling === "playfulness") intensity = Math.max(intensity, 0.65);
+    if (affectFeeling === "concern" || affectFeeling === "empathy") intensity = Math.max(intensity, 0.6);
 
     const nextState: FaceState = {
       expression,
@@ -248,6 +291,11 @@ export class FaceLayer {
       const payload = envelope.payload as ProsodyState;
       if (payload && typeof payload.emotionalGuess === "string") {
         this.processProsodyState(payload);
+      }
+    } else if (envelope.messageType === "affect.state.updated") {
+      const payload = envelope.payload as AffectState;
+      if (payload && typeof payload.stance === "string" && payload.feelings) {
+        this.processAffectState(payload);
       }
     } else if (envelope.messageType === "transcript.user.updated") {
       const payload = envelope.payload as { readonly text?: string };

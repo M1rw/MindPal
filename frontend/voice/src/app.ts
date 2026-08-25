@@ -31,6 +31,7 @@ import { DEFAULT_VOICE_V3_FEATURE_FLAGS, type VoiceV3FeatureFlags } from "./inte
 import { LocalMemoryStore, type LocalMemoryRecord } from "./layers/memory/local-memory-store";
 import { MemoryExtractor } from "./layers/memory/memory-extractor";
 import { FaceLayer, type FaceState } from "./layers/face/face-layer";
+import { AffectEngine, type AffectContextPayload, type AffectState } from "./layers/affect/affect-engine";
 
 export const PRODUCTION_MODE = import.meta.env.PROD;
 export type VoiceProviderMode = "mock" | "real";
@@ -87,6 +88,7 @@ export class VoiceV3App {
   public readonly conductor: BackchannelConductor;
   public readonly captureManager: CaptureManager;
   public readonly prosodyAnalyzer: ProsodyAnalyzer;
+  public readonly affectEngine: AffectEngine;
   public readonly faceLayer: FaceLayer;
   public readonly mockServer: MockGeminiServer | null;
   public readonly cueProvider: CueProvider;
@@ -142,7 +144,12 @@ export class VoiceV3App {
     const baseTransportOptions = {
       tokenProvider,
       nowMono: this.nowMono,
-      onEvent: (event: TransportEvent) => this.publishTransport(event),
+      onEvent: (event: TransportEvent) => {
+        this.publishTransport(event);
+        if (event.type === "transport.state.changed" && event.state === "RECONNECTING") {
+          this.orchestrator?.markRecovering();
+        }
+      },
       onSnapshot: (snapshot: TransportSnapshot) => this.publishTransportSnapshot(snapshot),
       onProviderMessage: (rawMessage: unknown) => {
         const normalized = adapter?.normalize(rawMessage) ?? [];
@@ -152,6 +159,8 @@ export class VoiceV3App {
       ...(this.memoryExtractor === null ? {} : {
         getSetupContext: async () => this.loadMemoryContext(),
       }),
+      autoReconnect: this.providerMode === "real",
+      maxReconnectAttempts: 5,
     };
     const transportOptions: WsManagerOptions = this.mockServer
       ? { ...baseTransportOptions, webSocketFactory: this.mockServer.createWebSocketFactory() }
@@ -214,10 +223,17 @@ export class VoiceV3App {
     // 9. Local Prosody & Emotional Context Layer
     this.prosodyAnalyzer = new ProsodyAnalyzer({ bus: this.bus, nowMono: this.nowMono });
 
-    // 10. Special Face Expression & Human Classification Layer
+    // 10. Mathematical affect and conversational stance layer.
+    this.affectEngine = new AffectEngine({
+      bus: this.bus,
+      nowMono: this.nowMono,
+      sessionGeneration: "affect-session",
+    });
+
+    // 11. Special Face Expression & Human Classification Layer
     this.faceLayer = new FaceLayer({ bus: this.bus, nowMono: this.nowMono });
 
-    // 11. Capture Layer
+    // 12. Capture Layer
     this.captureManager = new CaptureManager({
       onMetrics: (metrics) => this.publishCaptureMetrics(metrics),
       onFrame: (frame) => {
@@ -281,6 +297,7 @@ export class VoiceV3App {
 
   public setMuted(muted: boolean): void {
     this.captureManager.setMuted(muted);
+    if (muted) this.transportManager.sendAudioStreamEnd();
   }
 
   /** Sends one explicitly bounded acknowledgement request through the active Gemini session. */
@@ -327,6 +344,10 @@ export class VoiceV3App {
     this.lastMemoryRecord = null;
     this.lastMemoryContext = null;
     this.publishMemorySnapshot({ userId: "", lastUpdated: 0, keyFacts: [], preferences: [] });
+  }
+
+  public get affectSnapshot(): AffectState {
+    return this.affectEngine.state;
   }
 
   public get memorySnapshot(): { readonly record: LocalMemoryRecord | null; readonly injectedContext: string | null; readonly extractionCount: number } {
@@ -378,6 +399,7 @@ export class VoiceV3App {
     this.cancelNativeCue();
     this.conductor.dispose();
     this.prosodyAnalyzer.dispose();
+    this.affectEngine.dispose();
     this.faceLayer.dispose();
     this.orchestrator.dispose();
     this.mockServer?.close();
@@ -453,11 +475,19 @@ export class VoiceV3App {
     if (envelope.messageType === "ORCHESTRATOR_CLOSE_REQUESTED") {
       this.transportManager.close();
     }
+    if (envelope.messageType === "affect.context.updated") {
+      if (!this.featureFlags.VOICE_V3_PROSODY_CONTEXT_ENABLED) return;
+      const payload = envelope.payload as Partial<AffectContextPayload>;
+      if (typeof payload.prompt === "string" && payload.prompt.length <= 2_000) {
+        this.transportManager.sendContextUpdate(payload.prompt);
+      }
+      return;
+    }
     if (envelope.messageType === "prosody.context.note") {
       if (!this.featureFlags.VOICE_V3_PROSODY_CONTEXT_ENABLED) return;
       const payload = envelope.payload as { readonly note?: unknown };
       if (typeof payload.note === "string" && payload.note.length <= 200) {
-        this.transportManager.sendRealtimeText(payload.note);
+        this.transportManager.sendContextUpdate(payload.note);
       }
       return;
     }
@@ -531,7 +561,7 @@ export class VoiceV3App {
   }
 
   private publish(
-    sourceLayer: "capture" | "transport" | "provider-adapter" | "playback" | "backchannel" | "prosody" | "memory" | "transcript" | "caption",
+    sourceLayer: "capture" | "transport" | "provider-adapter" | "playback" | "backchannel" | "prosody" | "affect" | "memory" | "transcript" | "caption",
     messageType: string,
     payload: unknown,
     identity: GenerationIdentity = this.orchestrator?.identity ?? DEFAULT_IDENTITY,
@@ -548,7 +578,9 @@ export class VoiceV3App {
                 ? "voice.backchannel"
                 : sourceLayer === "prosody"
                   ? "voice.prosody"
-                  : sourceLayer === "memory"
+                  : sourceLayer === "affect"
+                    ? "voice.affect"
+                    : sourceLayer === "memory"
                     ? "voice.memory"
                     : sourceLayer === "transcript"
                 ? "voice.transcript"

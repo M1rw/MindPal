@@ -20,6 +20,7 @@ export type LayerName =
   | "caption"
   | "backchannel"
   | "prosody"
+  | "affect"
   | "memory"
   | "operation"
   | "recovery"
@@ -192,7 +193,8 @@ export function isLayerName(value: unknown): value is LayerName {
     value === "playback" ||
     value === "caption" ||
     value === "backchannel" ||
-    value === "prosody" ||
+        value === "prosody" ||
+    value === "affect" ||
     value === "memory" ||
     value === "operation" ||
     value === "recovery" ||

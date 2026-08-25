@@ -833,12 +833,10 @@ def _live_model_resource_name(model: str) -> str:
 
 
 def _live_api_version(model: str) -> str:
-    # Google’s maintained ephemeral-token WebSocket example uses the v1alpha
-    # constrained service. Isolate that compatibility path for Gemini 2.5;
-    # retain v1beta for Gemini 3.1 until it is independently verified.
-    normalized = sanitize_text(model, 120).lower()
-    if normalized.startswith(NATIVE_AUDIO_LIVE_MODEL_PREFIX):
-        return "v1alpha"
+    # Ephemeral-token Live sessions are provisioned through the documented
+    # v1beta endpoint. Keep this helper explicit so a future model migration
+    # cannot silently reintroduce a model-dependent alpha path.
+    _ = sanitize_text(model, 120)
     return "v1beta"
 
 
