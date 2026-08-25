@@ -14,7 +14,16 @@ test("Voice preloads the canonical runtime and does not await auth before sessio
   assert.match(liveSource, /getAuthToken: \(\) => tokenPromise/);
 });
 
+test("Voice summary persistence authenticates the post-call request", async () => {
+  const source = await readFile(new URL("../frontend/js/voice_live.js", import.meta.url), "utf8");
+  assert.match(source, /const tokenPromise = getIdToken\(\)\.catch/);
+  assert.match(source, /Authorization: `Bearer \$\{token\}`/);
+  assert.match(source, /headers\["X-Firebase-AppCheck"\] = appCheckToken/);
+  assert.match(source, /fetch\("\/api\/voice\/summarize"/);
+});
+
 test("live runtime binds optional callbacks from the start-session signature", async () => {
+
   const source = await readFile(new URL("../frontend/voice/src/production-entry.ts", import.meta.url), "utf8");
   assert.match(source, /startSession\(options: ProductionSessionOptions = \{\}\)/);
   assert.match(source, /callbacks = options/);
@@ -52,7 +61,18 @@ test("live runtime uses the documented realtime text channel for every post-setu
   assert.match(source, /app\.transportManager\.sendRealtimeText/);
 });
 
+test("Voice runtime diagnoses a connected session with no microphone frames", async () => {
+  const [entrySource, liveSource] = await Promise.all([
+    readFile(new URL("../frontend/voice/src/production-entry.ts", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/js/voice_live.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(entrySource, /voice\.input\.waiting/);
+  assert.match(entrySource, /framesCaptured === 0/);
+  assert.match(liveSource, /Waiting for microphone input/);
+});
+
 test("voice runtime preserves captions through transcription fallback and aggregate-only delivery diagnostics", async () => {
+
   const source = await readFile(new URL("../frontend/voice/src/production-entry.ts", import.meta.url), "utf8");
 
   assert.match(source, /callbacks\.onTranscript\?\.\("user"/);

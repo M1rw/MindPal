@@ -74,6 +74,7 @@ export function createVoiceController(): ProductionController {
   let sessionEndNotified = false;
   let startupPending = false;
   let stopInFlight: Promise<boolean> | null = null;
+  let inputWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Session Debug Telemetry State
   let sessionId = "";
@@ -110,7 +111,25 @@ export function createVoiceController(): ProductionController {
     callbacks.onSessionEnd?.({ reason });
   };
 
+    const clearInputWatchdog = (): void => {
+    if (inputWatchdogTimer !== null) {
+      clearTimeout(inputWatchdogTimer);
+      inputWatchdogTimer = null;
+    }
+  };
+
+  const armInputWatchdog = (): void => {
+    clearInputWatchdog();
+    inputWatchdogTimer = setTimeout(() => {
+      inputWatchdogTimer = null;
+      if (active && !micMuted && framesCaptured === 0 && !userTranscript.trim()) {
+        recordDiagnostic({ type: "voice.input.waiting", reason: "no-microphone-frames", framesCaptured: 0 });
+      }
+    }, 5_000);
+  };
+
   const recordDiagnostic = (detail: Record<string, unknown>): void => {
+
     diagnosticsLog.push({ ...detail, timestamp: new Date().toISOString() });
     if (diagnosticsLog.length > 200) diagnosticsLog.shift();
     callbacks.onDiagnostic?.(detail);
@@ -302,17 +321,21 @@ export function createVoiceController(): ProductionController {
       });
       unsubscribe = app.bus.subscribe(handleEvent, {});
       try {
-        await app.start({ startCapture: true });
+                await app.start({ startCapture: true });
         startupPending = false;
+        armInputWatchdog();
+
         app.setMuted(micMuted);
         app.playbackManager.setSpeakerMuted(speakerMuted);
         phase = "listening";
         emitAudioState();
         recordDiagnostic({ type: "voice.socket-open", setupSent: true, architecture: "voice-v3" });
         return true;
-      } catch (error) {
+            } catch (error) {
         startupPending = false;
+        clearInputWatchdog();
         active = false;
+
         unsubscribe?.();
         unsubscribe = null;
         app.dispose();
@@ -328,9 +351,11 @@ export function createVoiceController(): ProductionController {
     async stopSession(): Promise<boolean> {
       if (stopInFlight) return stopInFlight;
       if (!active && !app) return false;
-      startupPending = false;
+            startupPending = false;
+      clearInputWatchdog();
       active = false;
       endTimeMs = Date.now();
+
       const sessionApp = app;
       const sessionUnsubscribe = unsubscribe;
       stopInFlight = (async () => {
