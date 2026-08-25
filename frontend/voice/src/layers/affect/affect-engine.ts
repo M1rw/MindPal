@@ -427,11 +427,13 @@ function deriveFeelings(state: AffectState): AffectState {
 }
 
 function chooseStance(state: AffectState): AffectStance {
-  if (state.uncertainty > 0.7) return "curious-clarifying";
-  if (state.boundaryPressure > 0.58) return "calm-firm";
+  // Explicit high-salience language is allowed to change stance immediately;
+  // the scalar feelings themselves remain smoothed for continuity.
+  if (state.lastSignals.hostility > 0.5 || (state.boundaryPressure > 0.3 && state.lastSignals.respect < 0.6)) return "calm-firm";
   if (state.lastSignals.distress > 0.55) return "gentle-concern";
-  if (state.playfulness > 0.34 && state.lastSignals.challenge > 0.5 && state.trust > 0.45) return "confident-banter";
-  if (state.playfulness > 0.32 && state.trust > 0.42) return "bright-playful";
+  if (state.lastSignals.humor > 0.5 && state.lastSignals.challenge > 0.5 && state.trust > 0.4) return "confident-banter";
+  if (state.lastSignals.humor > 0.5 && state.trust > 0.35) return "bright-playful";
+  if (state.uncertainty > 0.7) return "curious-clarifying";
   if (state.warmth > 0.7 || state.lastSignals.respect > 0.6) return "warm-supportive";
   return "steady-neutral";
 }

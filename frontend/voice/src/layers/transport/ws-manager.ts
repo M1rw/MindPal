@@ -376,7 +376,10 @@ export class WebSocketTransportManager {
             silenceDurationMs: 650,
           },
         },
-        ...(this.token.model.includes("2.5") ? { enableAffectiveDialog: true } : {}),
+        // Gemini's deployed Live endpoint currently rejects enableAffectiveDialog
+        // for this model/alias. The product affect controller remains local and
+        // deterministic; omit the optional provider flag until the endpoint
+        // advertises it for the selected model.
         systemInstruction: {
           parts: [
             {

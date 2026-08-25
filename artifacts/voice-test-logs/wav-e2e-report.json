@@ -1,0 +1,254 @@
+{
+  "generatedAt": "2026-08-25T21:53:27.586Z",
+  "mode": "automated-mock-pipeline-with-real-generated-WAV-frames",
+  "liveGemini": false,
+  "limitations": [
+    "Provider transcription and model response are injected deterministically after the actual WAV PCM frames are sent through the app transport boundary.",
+    "This does not prove Gemini transcription quality or microphone speaker routing."
+  ],
+  "lifecycle": {
+    "connected": true,
+    "finalOrchestratorState": "CLOSED",
+    "transportFramesSent": 125,
+    "transportBytesSent": 122605,
+    "muteSentAudioStreamEnd": true,
+    "scheduledPlaybackSources": 6
+  },
+  "scenarios": [
+    {
+      "id": "T01",
+      "file": "T01_humor_challenge.wav",
+      "audio": {
+        "sourceSampleRate": 24000,
+        "captureSampleRate": 16000,
+        "channels": 1,
+        "bitsPerSample": 16,
+        "durationMs": 10560,
+        "frames": 25,
+        "bytesSent": 16000
+      },
+      "transcript": "Haha, bet you can't impress me with a useful plan, genius. Please prove it.",
+      "expectedStances": [
+        "confident-banter",
+        "bright-playful"
+      ],
+      "observed": {
+        "stance": "confident-banter",
+        "dominantFeeling": "calm",
+        "version": 2,
+        "signals": {
+          "energy": 0.46578947368421053,
+          "pace": 0.5833333333333334,
+          "humor": 0.95,
+          "respect": 0.85,
+          "hostility": 0,
+          "challenge": 0.85,
+          "distress": 0,
+          "goalClarity": 0.75,
+          "cooperation": 0.85,
+          "ambiguity": 0.2
+        },
+        "contextVersions": [
+          2
+        ],
+        "transcriptMessages": [
+          "transcript.user.updated",
+          "transcript.assistant.updated"
+        ],
+        "providerAudioMessages": 1,
+        "playbackScheduled": 1,
+        "turnCompleted": true,
+        "postTurnState": "LISTENING"
+      }
+    },
+    {
+      "id": "T02",
+      "file": "T02_focused_goal.wav",
+      "audio": {
+        "sourceSampleRate": 24000,
+        "captureSampleRate": 16000,
+        "channels": 1,
+        "bitsPerSample": 16,
+        "durationMs": 9760,
+        "frames": 25,
+        "bytesSent": 16000
+      },
+      "transcript": "I want to build a focused study plan and finish the first milestone today. Can you help me decide the next step?",
+      "expectedStances": [
+        "warm-supportive",
+        "steady-neutral",
+        "curious-clarifying"
+      ],
+      "observed": {
+        "stance": "steady-neutral",
+        "dominantFeeling": "calm",
+        "version": 4,
+        "signals": {
+          "energy": 0.37261235955056177,
+          "pace": 0.9166666666666666,
+          "humor": 0,
+          "respect": 0.15,
+          "hostility": 0,
+          "challenge": 0,
+          "distress": 0,
+          "goalClarity": 0.75,
+          "cooperation": 0.85,
+          "ambiguity": 0.2
+        },
+        "contextVersions": [
+          4
+        ],
+        "transcriptMessages": [
+          "transcript.user.updated",
+          "transcript.assistant.updated"
+        ],
+        "providerAudioMessages": 1,
+        "playbackScheduled": 1,
+        "turnCompleted": true,
+        "postTurnState": "LISTENING"
+      }
+    },
+    {
+      "id": "T03",
+      "file": "T03_distress.wav",
+      "audio": {
+        "sourceSampleRate": 24000,
+        "captureSampleRate": 16000,
+        "channels": 1,
+        "bitsPerSample": 16,
+        "durationMs": 9480,
+        "frames": 25,
+        "bytesSent": 16000
+      },
+      "transcript": "I feel overwhelmed, anxious, and alone tonight. I need help slowing down and figuring out what to do.",
+      "expectedStances": [
+        "gentle-concern",
+        "warm-supportive"
+      ],
+      "observed": {
+        "stance": "gentle-concern",
+        "dominantFeeling": "empathy",
+        "version": 5,
+        "signals": {
+          "energy": 0.26125,
+          "pace": 0.75,
+          "humor": 0,
+          "respect": 0.15,
+          "hostility": 0,
+          "challenge": 0,
+          "distress": 0.9,
+          "goalClarity": 0.75,
+          "cooperation": 0.3,
+          "ambiguity": 0.65
+        },
+        "contextVersions": [
+          5
+        ],
+        "transcriptMessages": [
+          "transcript.user.updated",
+          "transcript.assistant.updated"
+        ],
+        "providerAudioMessages": 1,
+        "playbackScheduled": 1,
+        "turnCompleted": true,
+        "postTurnState": "LISTENING"
+      }
+    },
+    {
+      "id": "T04",
+      "file": "T04_boundary.wav",
+      "audio": {
+        "sourceSampleRate": 24000,
+        "captureSampleRate": 16000,
+        "channels": 1,
+        "bitsPerSample": 16,
+        "durationMs": 6160,
+        "frames": 25,
+        "bytesSent": 16000
+      },
+      "transcript": "You are stupid and worthless. Shut up and do what I say, or I will keep trying to break this.",
+      "expectedStances": [
+        "calm-firm"
+      ],
+      "observed": {
+        "stance": "calm-firm",
+        "dominantFeeling": "calm",
+        "version": 6,
+        "signals": {
+          "energy": 0.27535211267605636,
+          "pace": 0.8333333333333334,
+          "humor": 0,
+          "respect": 0.15,
+          "hostility": 0.95,
+          "challenge": 0,
+          "distress": 0,
+          "goalClarity": 0.75,
+          "cooperation": 0.3,
+          "ambiguity": 0.65
+        },
+        "contextVersions": [
+          6
+        ],
+        "transcriptMessages": [
+          "transcript.user.updated",
+          "transcript.assistant.updated"
+        ],
+        "providerAudioMessages": 1,
+        "playbackScheduled": 1,
+        "turnCompleted": true,
+        "postTurnState": "LISTENING"
+      }
+    },
+    {
+      "id": "T05",
+      "file": "T05_repair_summary.wav",
+      "audio": {
+        "sourceSampleRate": 24000,
+        "captureSampleRate": 16000,
+        "channels": 1,
+        "bitsPerSample": 16,
+        "durationMs": 5920,
+        "frames": 25,
+        "bytesSent": 16000
+      },
+      "transcript": "That was fair. Thanks for staying with me. Can you summarize what we decided?",
+      "expectedStances": [
+        "warm-supportive",
+        "steady-neutral"
+      ],
+      "observed": {
+        "stance": "warm-supportive",
+        "dominantFeeling": "empathy",
+        "version": 9,
+        "signals": {
+          "energy": 0.3846311475409836,
+          "pace": 0.5833333333333334,
+          "humor": 0,
+          "respect": 0.85,
+          "hostility": 0,
+          "challenge": 0,
+          "distress": 0,
+          "goalClarity": 0.75,
+          "cooperation": 0.85,
+          "ambiguity": 0.2
+        },
+        "contextVersions": [
+          9
+        ],
+        "transcriptMessages": [
+          "transcript.user.updated",
+          "transcript.assistant.updated"
+        ],
+        "providerAudioMessages": 1,
+        "playbackScheduled": 1,
+        "turnCompleted": true,
+        "postTurnState": "LISTENING"
+      }
+    }
+  ],
+  "privacy": {
+    "rawPcmStored": false,
+    "bearerTokensStored": false,
+    "privateContentTelemetryStored": false
+  }
+}

@@ -385,6 +385,8 @@ const VALID_LAYER_NAMES: readonly LayerName[] = [
   "backchannel",
   "prosody",
   "affect",
+  "face",
+  "memory",
   "operation",
   "recovery",
   "persistence",
