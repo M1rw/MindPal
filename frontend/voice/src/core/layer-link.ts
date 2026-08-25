@@ -21,6 +21,7 @@ export type LayerName =
   | "backchannel"
   | "prosody"
   | "affect"
+  | "face"
   | "memory"
   | "operation"
   | "recovery"
