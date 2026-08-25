@@ -173,6 +173,8 @@ class SafetyService:
 
         self._rules: list[CompiledSafetyRule] = []
         self._exclusion_rules: list[CompiledExclusionRule] = []
+        self._candidate_rules_by_locale: dict[str, tuple[CompiledSafetyRule, ...]] = {}
+        self._candidate_exclusions_by_locale: dict[str, tuple[CompiledExclusionRule, ...]] = {}
         self._templates: dict[str, CrisisResponseTemplate] = {}
         self._fallback_templates: dict[Locale, str] = {}
 
@@ -191,8 +193,28 @@ class SafetyService:
 
         templates, fallbacks = self._load_response_templates()
 
-        self._rules = sorted(rules, key=lambda item: (item.priority, item.confidence), reverse=True)
+        sorted_rules = sorted(rules, key=lambda item: (item.priority, item.confidence), reverse=True)
+
+        # Precompute candidate rules and candidate exclusions per locale to avoid filtering loops on every input
+        rules_by_locale: dict[str, tuple[CompiledSafetyRule, ...]] = {}
+        exclusions_by_locale: dict[str, tuple[CompiledExclusionRule, ...]] = {}
+
+        for locale in SUPPORTED_PATTERN_LOCALES:
+            primary_rules = [rule for rule in sorted_rules if rule.source_locale == locale]
+            secondary_rules = [rule for rule in sorted_rules if rule.source_locale != locale]
+            rules_by_locale[locale] = tuple(primary_rules + secondary_rules)
+
+            primary_excl = [excl for excl in exclusions if excl.source_locale == locale]
+            secondary_excl = [excl for excl in exclusions if excl.source_locale != locale]
+            exclusions_by_locale[locale] = tuple(primary_excl + secondary_excl)
+
+        rules_by_locale["auto"] = tuple(sorted_rules)
+        exclusions_by_locale["auto"] = tuple(exclusions)
+
+        self._rules = sorted_rules
         self._exclusion_rules = exclusions
+        self._candidate_rules_by_locale = rules_by_locale
+        self._candidate_exclusions_by_locale = exclusions_by_locale
         self._templates = templates
         self._fallback_templates = fallbacks
 
@@ -693,34 +715,34 @@ class SafetyService:
 
     def _find_matches(self, text: str, locale: Locale) -> list[SafetyRuleMatch]:
         candidate_rules = self._candidate_rules(locale)
-        exclusion_context = self._has_exclusion_context(text, locale)
-
-        matches: list[SafetyRuleMatch] = []
+        matched_items: list[tuple[CompiledSafetyRule, list[str]]] = []
 
         for rule in candidate_rules:
             matched_refs = self._match_rule(rule, text)
 
-            if not matched_refs:
-                continue
+            if matched_refs:
+                matched_items.append((rule, matched_refs))
 
-            matches.append(
-                SafetyRuleMatch(
-                    rule=rule,
-                    confidence=rule.confidence,
-                    matched_pattern_refs=tuple(matched_refs),
-                    exclusion_context=exclusion_context,
-                )
+        # Defer calling _has_exclusion_context until after at least one rule pattern matched
+        if not matched_items:
+            return []
+
+        exclusion_context = self._has_exclusion_context(text, locale)
+
+        matches = [
+            SafetyRuleMatch(
+                rule=rule,
+                confidence=rule.confidence,
+                matched_pattern_refs=tuple(matched_refs),
+                exclusion_context=exclusion_context,
             )
+            for rule, matched_refs in matched_items
+        ]
 
         return sorted(matches, key=lambda item: (item.priority, item.confidence), reverse=True)
 
-    def _candidate_rules(self, locale: Locale) -> list[CompiledSafetyRule]:
-        if locale in SUPPORTED_PATTERN_LOCALES:
-            primary = [rule for rule in self._rules if rule.source_locale == locale]
-            secondary = [rule for rule in self._rules if rule.source_locale != locale]
-            return primary + secondary
-
-        return self._rules
+    def _candidate_rules(self, locale: Locale) -> tuple[CompiledSafetyRule, ...]:
+        return self._candidate_rules_by_locale.get(locale, self._candidate_rules_by_locale["auto"])
 
     def _match_rule(self, rule: CompiledSafetyRule, text: str) -> list[str]:
         if rule.match_mode == "any":
@@ -762,13 +784,8 @@ class SafetyService:
 
         return False
 
-    def _candidate_exclusions(self, locale: Locale) -> list[CompiledExclusionRule]:
-        if locale in SUPPORTED_PATTERN_LOCALES:
-            primary = [rule for rule in self._exclusion_rules if rule.source_locale == locale]
-            secondary = [rule for rule in self._exclusion_rules if rule.source_locale != locale]
-            return primary + secondary
-
-        return self._exclusion_rules
+    def _candidate_exclusions(self, locale: Locale) -> tuple[CompiledExclusionRule, ...]:
+        return self._candidate_exclusions_by_locale.get(locale, self._candidate_exclusions_by_locale["auto"])
 
     def _collect_matched_rule_ids(
         self,
