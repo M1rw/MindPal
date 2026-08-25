@@ -308,8 +308,13 @@ def validate_url(
         if hostname == "localhost" or hostname.endswith(".localhost"):
             raise ValueError(f"URL hostname '{hostname}' is a loopback address")
         address = _parse_ip_address(hostname)
-        if address is not None and not address.is_global:
-            raise ValueError(f"URL hostname '{hostname}' is not globally routable")
+        if address is not None:
+            # Check global routability for both standard IP literals and IPv4-mapped IPv6 literals
+            is_global = address.is_global
+            if getattr(address, "ipv4_mapped", None) is not None:
+                is_global = is_global and address.ipv4_mapped.is_global
+            if not is_global:
+                raise ValueError(f"URL hostname '{hostname}' is not globally routable")
 
     return cleaned
 
