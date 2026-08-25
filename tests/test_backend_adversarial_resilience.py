@@ -156,12 +156,18 @@ def test_log_redaction_removes_common_pii_and_secrets() -> None:
         "http://169.254.169.254/latest/meta-data",
         "http://0xA9FEA9FE/latest/meta-data",
         "http://localhost:3000/admin",
+        "http://[::ffff:127.0.0.1]/internal",
+        "http://[::ffff:10.0.0.1]/admin",
         "file:///etc/passwd",
     ],
 )
 def test_url_validator_rejects_private_and_unsafe_targets(url: str) -> None:
     with pytest.raises(ValueError):
         validate_url(url)
+
+
+def test_url_validator_allows_globally_routable_ipv4_mapped_ipv6() -> None:
+    assert validate_url("http://[::ffff:8.8.8.8]/dns") == "http://[::ffff:8.8.8.8]/dns"
 
 
 @pytest.mark.asyncio
