@@ -3,8 +3,10 @@
 export function resolveVoiceCallSummaryState({
   existingSummary = "",
   userTranscript = "",
-  aiTranscript = "",
+    aiTranscript = "",
+  summaryFailed = false,
 } = {}) {
+
   const summary = String(existingSummary || "").trim();
   const hasTranscript = Boolean(String(userTranscript || "").trim() || String(aiTranscript || "").trim());
 
@@ -12,8 +14,12 @@ export function resolveVoiceCallSummaryState({
     return { display: summary, shouldSummarize: false };
   }
 
-  if (hasTranscript) {
+  if (hasTranscript && !summaryFailed) {
     return { display: "Summarizing…", shouldSummarize: true };
+  }
+
+  if (summaryFailed) {
+    return { display: "Voice call", shouldSummarize: false, summaryFailed: true };
   }
 
   return { display: "Voice call", shouldSummarize: false };

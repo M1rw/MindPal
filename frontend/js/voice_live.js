@@ -2,6 +2,7 @@
 
 import { refreshIcons } from "./utils/icons.js";
 import { getAppCheckToken, getIdToken } from "./auth.js";
+
 import {
   startSession,
   stopSession,
@@ -267,21 +268,40 @@ export function stopLiveVoice() {
     summary: null,
   };
 
-  if (!isIncognito && (persistedUserTranscript.trim() || persistedAiTranscript.trim())) {
-    fetch("/api/voice/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_transcript: persistedUserTranscript.trim(),
-        ai_transcript: persistedAiTranscript.trim(),
-      }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
+    if (!isIncognito && (persistedUserTranscript.trim() || persistedAiTranscript.trim())) {
+    const tokenPromise = getIdToken().catch(() => {
+      throw new Error("Voice summary requires a signed-in Firebase user.");
+    });
+    tokenPromise
+      .then((token) => {
+        if (!token) throw new Error("Voice summary requires a signed-in Firebase user.");
+        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+        return getAppCheckToken().then((appCheckToken) => {
+          if (appCheckToken) headers["X-Firebase-AppCheck"] = appCheckToken;
+          return fetch("/api/voice/summarize", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              user_transcript: persistedUserTranscript.trim(),
+              ai_transcript: persistedAiTranscript.trim(),
+            }),
+          });
+        });
+      })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Voice summary API ${response.status}`);
+        return response.json();
+      })
       .then((data) => {
         if (data?.summary) sessionDebugSummary.summary = data.summary;
       })
-      .catch(() => undefined)
+      .catch((error) => {
+        // The call remains persisted locally even when cloud summarization is
+        // unavailable; do not leave the UI in an ambiguous pending state.
+        console.warn("[MindPal Voice] Summary persistence skipped:", error?.message || error);
+      })
       .finally(() => {
+
         console.group("🎙️ [MindPal Voice Session Debug Summary]", sessionDebugSummary.sessionId);
         console.log("📊 Complete Voice Debug Object:", sessionDebugSummary);
         console.log("💬 User Transcript:", sessionDebugSummary.transcripts.userTranscript || "(no speech recorded)");
@@ -421,7 +441,9 @@ function handleVoiceDiagnostic(event = {}) {
   if (!diagnosticStatus) return;
   if (event?.type === "voice.socket-open") diagnosticStatus.textContent = event.setupSent ? "Configuring Voice…" : "Voice socket opened";
   else if (event?.type === "voice.socket-error" || event?.type === "voice.socket-closed") diagnosticStatus.textContent = `Voice transport failed${event.code ? ` (${event.code})` : ""} — please try again`;
+    else if (event?.type === "voice.input.waiting") diagnosticStatus.textContent = "Waiting for microphone input…";
   else if (event?.type === "voice.provider-ready-timeout" || event?.type === "provider.error" || event?.type === "provider.closed") diagnosticStatus.textContent = "Voice connection failed — please try again";
+
 }
 
 function handleAudioState({

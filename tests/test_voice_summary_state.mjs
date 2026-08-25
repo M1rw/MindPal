@@ -23,7 +23,23 @@ test("voice call with transcript displays loading only while a summary can actua
   assert.deepEqual(state, { display: "Summarizing…", shouldSummarize: true });
 });
 
+test("failed summary generation falls back to a completed voice-call label", () => {
+  const state = resolveVoiceCallSummaryState({
+    existingSummary: "",
+    userTranscript: "Hello",
+    aiTranscript: "Hi there",
+    summaryFailed: true,
+  });
+
+  assert.deepEqual(state, {
+    display: "Voice call",
+    shouldSummarize: false,
+    summaryFailed: true,
+  });
+});
+
 test("short persisted summaries remain visible without another summary request", () => {
+
   const state = resolveVoiceCallSummaryState({
     existingSummary: "Discussed feeling overwhelmed and chose a short break.",
     userTranscript: "",
