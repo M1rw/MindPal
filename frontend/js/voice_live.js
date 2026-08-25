@@ -184,7 +184,10 @@ export async function startLiveVoice(contextProvider = null) {
     // runtime creates/resumes its playback context. Waiting here consumes the
     // transient user gesture and can leave valid greeting PCM inaudible under
     // browser autoplay policy.
-    const tokenPromise = getIdToken().catch(() => null);
+    const tokenPromise = getIdToken().then((token) => {
+      if (!token) throw new Error("Sign in to MindPal before starting voice mode.");
+      return token;
+    });
 
     // Start audio session immediately from the button gesture. The canonical
     // runtime receives the same promise through its token provider.

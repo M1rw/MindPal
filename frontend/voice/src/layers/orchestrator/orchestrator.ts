@@ -194,6 +194,12 @@ export class VoiceOrchestrator {
     this.transition({ kind: "connecting" });
   }
 
+  public markRecovering(): void {
+    if (this.stateValue === "CLOSING" || this.stateValue === "CLOSED" || this.stateValue === "FAILED") return;
+    this.transition({ kind: "recovering" });
+    this.emitSnapshot();
+  }
+
   public markGreetingSent(): void {
     this.greetingSentValue = true;
     this.emitSnapshot();

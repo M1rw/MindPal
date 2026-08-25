@@ -74,6 +74,8 @@ export type WsManagerOptions = {
   readonly clearTimer?: (timer: ReturnType<typeof setTimeout>) => void;
   readonly keepaliveMs?: number;
   readonly setupTimeoutMs?: number;
+  readonly autoReconnect?: boolean;
+  readonly maxReconnectAttempts?: number;
   readonly onProviderMessage?: (message: unknown) => void;
   readonly voicePersona?: string;
   readonly getSetupContext?: () => Promise<string | null>;
@@ -97,6 +99,8 @@ export class WebSocketTransportManager {
   private readonly clearTimer: (timer: ReturnType<typeof setTimeout>) => void;
   private readonly keepaliveMs: number;
   private readonly setupTimeoutMs: number;
+  private readonly autoReconnect: boolean;
+  private readonly maxReconnectAttempts: number;
   private readonly onProviderMessage: ((message: unknown) => void) | undefined;
   private readonly voicePersona: string;
   private readonly getSetupContext: (() => Promise<string | null>) | undefined;
@@ -121,6 +125,8 @@ export class WebSocketTransportManager {
   private rejectConnect: ((error: Error) => void) | null = null;
   private closingByUser = false;
   private setupContext: string | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
 
   public constructor(options: WsManagerOptions) {
     this.tokenProvider = options.tokenProvider;
@@ -130,6 +136,8 @@ export class WebSocketTransportManager {
     this.clearTimer = options.clearTimer ?? ((timer) => clearTimeout(timer));
     this.keepaliveMs = options.keepaliveMs ?? TRANSPORT_KEEPALIVE_MS;
     this.setupTimeoutMs = options.setupTimeoutMs ?? TRANSPORT_SETUP_TIMEOUT_MS;
+    this.autoReconnect = options.autoReconnect ?? false;
+    this.maxReconnectAttempts = Math.max(1, Math.floor(options.maxReconnectAttempts ?? 5));
     this.onProviderMessage = options.onProviderMessage;
     this.voicePersona = options.voicePersona?.trim() || "Kore";
     this.getSetupContext = options.getSetupContext;
@@ -210,6 +218,8 @@ export class WebSocketTransportManager {
 
   public close(code = 1000, reason = "client close"): void {
     this.closingByUser = true;
+    this.clearReconnectTimer();
+    this.reconnectAttempts = 0;
     this.clearHeartbeat();
     this.clearSetupTimer();
     const socket = this.socket;
@@ -245,11 +255,36 @@ export class WebSocketTransportManager {
     return this.sendJson({ realtimeInput: { text: JSON.stringify(payload) } });
   }
 
-  /** Sends a bounded plain-text update through Gemini Live’s active-session realtime input path. */
+  /** Sends a bounded plain-text turn request, used only for deliberate cues. */
   public sendRealtimeText(text: string): boolean {
     const normalized = text.trim().slice(0, 400);
     if (!normalized || !this.canSend()) return false;
     return this.sendJson({ realtimeInput: { text: normalized } });
+  }
+
+  /**
+   * Updates behavioral context without completing a turn. Gemini 2.5 supports
+   * incremental client content; newer Live models require realtime text after
+   * the initial context. The caller must never use this for user content.
+   */
+  /** Flushes provider-side cached audio after an intentional long input pause. */
+  public sendAudioStreamEnd(): boolean {
+    if (!this.canSend()) return false;
+    return this.sendJson({ realtimeInput: { audioStreamEnd: true } });
+  }
+
+  public sendContextUpdate(text: string): boolean {
+    const normalized = text.trim().slice(0, 2_000);
+    if (!normalized || !this.canSend()) return false;
+    if (this.token?.model.includes("3.1")) {
+      return this.sendJson({ realtimeInput: { text: normalized } });
+    }
+    return this.sendJson({
+      clientContent: {
+        turns: [{ role: "user", parts: [{ text: normalized }] }],
+        turnComplete: false,
+      },
+    });
   }
 
   public get state(): TransportState {
@@ -299,6 +334,7 @@ export class WebSocketTransportManager {
     };
     socket.onclose = (event) => {
       if (socket !== this.socket) return;
+      const hadSetup = this.setupComplete;
       this.emit({
         type: "transport.socket.closed",
         code: Number.isFinite(event.code) ? event.code : 0,
@@ -310,6 +346,7 @@ export class WebSocketTransportManager {
       const error = new Error(`WebSocket closed: ${event.code} ${event.reason || ""}`.trim());
       if (!this.closingByUser) this.rejectPendingConnect(error);
       this.emitSnapshot();
+      if (hadSetup && !this.closingByUser) this.scheduleReconnect("socket-closed");
     };
   }
 
@@ -329,6 +366,17 @@ export class WebSocketTransportManager {
             },
           },
         },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+            endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+            prefixPaddingMs: 240,
+            silenceDurationMs: 650,
+          },
+        },
+        ...(this.token.model.includes("2.5") ? { enableAffectiveDialog: true } : {}),
         systemInstruction: {
           parts: [
             {
@@ -337,7 +385,7 @@ export class WebSocketTransportManager {
             ...(this.setupContext ? [{ text: this.setupContext }] : []),
           ],
         },
-        sessionResumption: {},
+        sessionResumption: this.resumptionHandle ? { handle: this.resumptionHandle } : {},
       },
     };
     this.setupSent = true;
@@ -370,8 +418,15 @@ export class WebSocketTransportManager {
     const handle = readResumptionHandle(message);
     if (handle) this.resumptionHandle = handle;
 
+    const goAwayDelayMs = readGoAwayDelay(message);
+    if (goAwayDelayMs !== null && this.setupComplete) {
+      this.scheduleReconnect("provider-go-away", Math.max(0, goAwayDelayMs - 250));
+    }
+
     if (isSetupComplete(message, this.setupComplete)) {
       this.setupComplete = true;
+      this.reconnectAttempts = 0;
+      this.clearReconnectTimer();
       this.setState("OPEN");
       this.clearSetupTimer();
       this.resolvePendingConnect();
@@ -494,6 +549,33 @@ export class WebSocketTransportManager {
     this.rejectPendingConnect(error);
   }
 
+  private scheduleReconnect(reason: string, delayMs = 250): void {
+    if (!this.autoReconnect || this.closingByUser || this.reconnectTimer !== null || this.transportState === "RECONNECTING") return;
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.emit({ type: "transport.error", reason: `reconnect limit reached after ${reason}` });
+      return;
+    }
+    this.reconnectAttempts += 1;
+    const backoffMs = Math.min(8_000, Math.max(delayMs, 250 * (2 ** (this.reconnectAttempts - 1))));
+    this.setState("RECONNECTING");
+    this.emit({ type: "transport.error", reason: `reconnect scheduled (${reason}) in ${backoffMs}ms` });
+    this.reconnectTimer = this.setTimer(() => {
+      this.reconnectTimer = null;
+      void this.reconnect().catch((error) => {
+        this.emit({ type: "transport.error", reason: "automatic reconnect failed", error });
+        this.setState("CLOSED");
+        this.scheduleReconnect("retry-after-failure");
+      });
+    }, backoffMs);
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer !== null) {
+      this.clearTimer(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
   private clearHeartbeat(): void {
     if (this.heartbeatTimer !== null) {
       this.clearTimer(this.heartbeatTimer);
@@ -510,6 +592,7 @@ export class WebSocketTransportManager {
 
   private clearSocketAndTimers(): void {
     this.clearHeartbeat();
+    this.clearReconnectTimer();
     this.clearSetupTimer();
     this.socket = null;
     this.setupSent = false;
@@ -606,6 +689,13 @@ function readResumptionHandle(message: Record<string, unknown>): string | null {
     if (typeof handle === "string" && handle.length > 0) return handle;
   }
   return null;
+}
+
+function readGoAwayDelay(message: Record<string, unknown>): number | null {
+  const raw = message.goAway ?? message.go_away;
+  if (!isRecord(raw)) return null;
+  const value = raw.timeLeftMs ?? raw.time_left_ms ?? raw.timeLeft ?? raw.time_left;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 function findMessageType(message: Record<string, unknown>): string {

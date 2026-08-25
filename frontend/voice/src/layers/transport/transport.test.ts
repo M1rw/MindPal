@@ -212,6 +212,16 @@ describe("WebSocketTransportManager", () => {
             },
           },
         },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+            endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
+            prefixPaddingMs: 240,
+            silenceDurationMs: 650,
+          },
+        },
         systemInstruction: {
           parts: [{ text: "You are MindPal. Use the configured Gemini Native Audio voice consistently. Stay in an active listening conversation: do not interrupt user speech, but during an approved natural pause you may produce one brief context-appropriate acknowledgement such as “mhm”, “yeah”, “I hear you”, or “go on”. When the application sends a VOICE_CUE_REQUEST, produce only the requested short acknowledgement in this same voice; do not explain the instruction, answer the topic, or start a second full response." }],
         },
@@ -300,6 +310,43 @@ describe("WebSocketTransportManager", () => {
     manager.close();
   });
 
+  it("automatically reconnects after a post-setup close and resumes with the stored handle", async () => {
+    const firstSocket = new FakeSocket();
+    const secondSocket = new FakeSocket();
+    const sockets = [firstSocket, secondSocket];
+    const scheduled: Array<() => void> = [];
+    const manager = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider(createToken()),
+      webSocketFactory: () => sockets.shift() ?? new FakeSocket(),
+      autoReconnect: true,
+      setTimer: (callback) => {
+        scheduled.push(callback);
+        return scheduled.length as unknown as ReturnType<typeof setTimeout>;
+      },
+      clearTimer: () => undefined,
+    });
+
+    const connection = manager.connect();
+    await waitForAsyncToken();
+    firstSocket.open();
+    firstSocket.message(JSON.stringify({ setupComplete: true, sessionResumptionUpdate: { newHandle: "resume-1" } }));
+    await connection;
+    firstSocket.close(1006, "network lost");
+    expect(manager.state).toBe("RECONNECTING");
+    const reconnectCallback = scheduled.pop();
+    expect(reconnectCallback).toBeDefined();
+    reconnectCallback?.();
+    await waitForAsyncToken();
+    expect(secondSocket.sent).toHaveLength(0);
+    secondSocket.open();
+    const setup = JSON.parse(secondSocket.sent[0] ?? "{}");
+    expect(setup.setup.sessionResumption).toEqual({ handle: "resume-1" });
+    secondSocket.message(JSON.stringify({ setupComplete: true }));
+    await waitForAsyncToken();
+    expect(manager.isReady).toBe(true);
+    manager.close();
+  });
+
   it("omits unsupported thinking configuration for fallback models", async () => {
     const socket = new FakeSocket();
     const manager = new WebSocketTransportManager({
@@ -356,6 +403,33 @@ describe("WebSocketTransportManager", () => {
     await connection;
     expect(manager.sendRealtimeText("VOICE_CUE_REQUEST: mhm")).toBe(true);
     expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual({ realtimeInput: { text: "VOICE_CUE_REQUEST: mhm" } });
+    manager.close();
+  });
+
+  it("sends affect context without completing a turn and flushes paused audio", async () => {
+    const socket = new FakeSocket();
+    const manager = new WebSocketTransportManager({
+      tokenProvider: new FixedTokenProvider({
+        ...createToken(),
+        model: "gemini-2.5-flash-native-audio-preview-12-2025",
+      }),
+      webSocketFactory: () => socket,
+    });
+    const connection = manager.connect();
+    await waitForAsyncToken();
+    socket.open();
+    socket.message(JSON.stringify({ setupComplete: true }));
+    await connection;
+
+    expect(manager.sendContextUpdate("[AFFECT_CONTEXT_UPDATE] stay warm and concise")).toBe(true);
+    expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual({
+      clientContent: {
+        turns: [{ role: "user", parts: [{ text: "[AFFECT_CONTEXT_UPDATE] stay warm and concise" }] }],
+        turnComplete: false,
+      },
+    });
+    expect(manager.sendAudioStreamEnd()).toBe(true);
+    expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual({ realtimeInput: { audioStreamEnd: true } });
     manager.close();
   });
 

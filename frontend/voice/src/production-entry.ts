@@ -3,6 +3,7 @@ import type { LayerLinkEnvelope } from "./core/layer-link";
 import { DEFAULT_VOICE_V3_FEATURE_FLAGS } from "./integration/feature-flags";
 import type { OrchestratorSnapshot } from "./layers/orchestrator/orchestrator";
 import type { VoiceEvent } from "./layers/adapter/event-types";
+import type { AffectState } from "./layers/affect/affect-engine";
 
 type VoiceCallback = (...args: any[]) => void;
 
@@ -93,7 +94,8 @@ export function createVoiceController(): ProductionController {
       isAiSpeaking: aiSpeaking,
       isMicMuted: micMuted,
       palette: aiSpeaking ? "speak" : "listen",
-      interactionTag: "",
+      interactionTag: app?.affectEngine.state.stance ?? "steady-neutral",
+      affect: app?.affectEngine.state ?? null,
       reconnectAttempts,
       faceExpression: faceState?.expression || "neutral",
       faceTheme: faceState?.theme || "geminiCore",
@@ -117,7 +119,8 @@ export function createVoiceController(): ProductionController {
   const getSessionDebugReport = (): Record<string, unknown> => {
     const now = endTimeMs > 0 ? endTimeMs : Date.now();
     const durationMs = startTimeMs > 0 ? now - startTimeMs : 0;
-    const memory = app?.memorySnapshot || null;
+      const memory = app?.memorySnapshot || null;
+      const affect: AffectState | null = app?.affectSnapshot ?? null;
 
     return {
       sessionId,
@@ -150,6 +153,7 @@ export function createVoiceController(): ProductionController {
         keyFactsCount: memory.record?.keyFacts?.length ?? 0,
         preferencesCount: memory.record?.preferences?.length ?? 0,
       } : null,
+      affect,
     };
   };
 
@@ -167,6 +171,11 @@ export function createVoiceController(): ProductionController {
 
   const handleEvent = (envelope: LayerLinkEnvelope<unknown>): void => {
     if (!active && !startupPending) return;
+    if (envelope.messageType === "affect.state.updated") {
+      emitAudioState();
+      return;
+    }
+
     if (envelope.messageType === "face.expression.updated") {
       emitAudioState();
       return;
@@ -368,6 +377,7 @@ export function createVoiceController(): ProductionController {
         isSpeakerMuted: speakerMuted,
         phase,
         reconnectAttempts,
+        affect: app?.affectSnapshot ?? null,
         micAnalyser: null,
         aiAnalyser: null,
       };
