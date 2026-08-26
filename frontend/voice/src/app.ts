@@ -133,6 +133,7 @@ export class VoiceV3App {
   private nativeCueTimer: ReturnType<typeof setTimeout> | null = null;
   private lastMemoryContext: string | null = null;
   private lastMemoryRecord: LocalMemoryRecord | null = null;
+  private deferredCaptureDiagnosticReported = false;
 
   public constructor(options: VoiceV3AppOptions = {}) {
     const productionMode =
@@ -315,6 +316,21 @@ export class VoiceV3App {
       onMetrics: (metrics) => this.publishCaptureMetrics(metrics),
       onFrame: (frame) => {
         this.publish("capture", "capture.frame", frame);
+        // Capture may start inside the user gesture before token acquisition and
+        // Gemini setup complete. Do not let that normal handshake window fill
+        // the transport queue with stale audio; the user-facing state remains
+        // Connecting until setup has completed, and subsequent live frames are
+        // forwarded normally.
+        if (!this.transportManager.isReady) {
+          if (!this.deferredCaptureDiagnosticReported) {
+            this.deferredCaptureDiagnosticReported = true;
+            this.publish("capture", "capture.frame-deferred", {
+              reason: "transport-not-ready",
+              sequence: frame.sequence,
+            });
+          }
+          return;
+        }
         this.transportManager.sendAudioFrame(frame);
       },
       onDiagnostic: (diagnostic) => this.publishCaptureDiagnostic(diagnostic),
@@ -330,6 +346,7 @@ export class VoiceV3App {
     if (!this.featureFlags.VOICE_V3_ENABLED) return;
     if (this.started) return;
     this.started = true;
+    this.deferredCaptureDiagnosticReported = false;
     this.orchestrator.startSession();
     this.orchestrator.markProvisioning();
     this.orchestrator.markConnecting();
