@@ -228,7 +228,7 @@ function ensureVoiceFixtureHarness() {
   if (document.getElementById("voice-fixture-harness")) return;
   const panel = document.createElement("div");
   panel.id = "voice-fixture-harness";
-  panel.style.cssText = "position:fixed;left:16px;right:16px;bottom:92px;z-index:20;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid rgba(120,140,180,.35);border-radius:12px;background:rgba(255,255,255,.92);font:12px system-ui,sans-serif;color:#27324a;box-shadow:0 8px 28px rgba(20,30,60,.12)";
+  panel.style.cssText = "position:fixed;left:16px;right:16px;bottom:92px;z-index:2147483647;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid rgba(120,140,180,.35);border-radius:12px;background:rgba(255,255,255,.92);font:12px system-ui,sans-serif;color:#27324a;box-shadow:0 8px 28px rgba(20,30,60,.12)";
   const label = document.createElement("label");
   label.textContent = "Generated voice fixture";
   label.htmlFor = "voice-fixture-input";
