@@ -681,6 +681,9 @@ export class VoiceOrchestrator {
         }
         break;
       case "PROVIDER_OUTPUT_TRANSCRIPT":
+        if (this.outputAudioObserved) this.transition({ kind: "output" });
+        else this.transition({ kind: "thinking" });
+        break;
       case "PROVIDER_AUDIO":
         this.transition({ kind: "output" });
         break;

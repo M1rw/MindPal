@@ -646,6 +646,15 @@ describe("VoiceOrchestrator delayed provider output fencing", () => {
       payload: { text: "new response", isFinal: false, cumulative: true },
     });
     expect(outputs).toHaveLength(1);
+    expect(orchestrator.state).toBe("THINKING");
+
+    now = 5;
+    publishAdapterEvent(bus, now, audioEvent({
+      sessionGeneration: "session-1",
+      turnId: null,
+      providerResponseId: "response-2",
+      playbackGeneration: null,
+    }));
     expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
   });
 
