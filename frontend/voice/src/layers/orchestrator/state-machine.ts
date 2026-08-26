@@ -29,6 +29,7 @@ export type OrchestratorTransition =
   | { readonly kind: "provisioning" }
   | { readonly kind: "connecting" }
   | { readonly kind: "provider-ready" }
+  | { readonly kind: "transport-ready" }
   | { readonly kind: "greeting-requested" }
   | { readonly kind: "input-partial"; readonly repeated: boolean }
   | { readonly kind: "input-final" }
@@ -58,6 +59,9 @@ export function transitionState(
       return "CONNECTING";
     case "provider-ready":
       return "PROVIDER_READY";
+    case "transport-ready":
+      return "LISTENING";
+
     case "greeting-requested":
       return "GREETING_REQUESTED";
     case "input-partial":

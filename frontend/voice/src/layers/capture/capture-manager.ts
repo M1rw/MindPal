@@ -57,7 +57,8 @@ export class CaptureManager {
   private readonly workletModuleUrl: string | URL;
   private readonly onFrame: ((frame: AudioFrame) => void) | undefined;
   private readonly onMetrics: ((metrics: CaptureMetrics) => void) | undefined;
-  private readonly onDiagnostic: ((diagnostic: CaptureDiagnostic) => void) | undefined;
+  private readonly onDiagnostic:
+    ((diagnostic: CaptureDiagnostic) => void) | undefined;
   private readonly nowMono: () => number;
 
   private audioContext: AudioContext | null = null;
@@ -73,9 +74,9 @@ export class CaptureManager {
 
   public constructor(options: CaptureManagerOptions = {}) {
     this.mediaDevices = options.mediaDevices ?? navigator.mediaDevices;
-    this.audioContextFactory = options.audioContextFactory ?? (() => new AudioContext());
-    this.workletModuleUrl =
-      options.workletModuleUrl ?? captureProcessorUrl;
+    this.audioContextFactory =
+      options.audioContextFactory ?? (() => new AudioContext());
+    this.workletModuleUrl = options.workletModuleUrl ?? captureProcessorUrl;
     this.onFrame = options.onFrame;
     this.onMetrics = options.onMetrics;
     this.onDiagnostic = options.onDiagnostic;
@@ -91,15 +92,27 @@ export class CaptureManager {
     }
 
     try {
-      this.mediaStream = await this.mediaDevices.getUserMedia(CAPTURE_CONSTRAINTS);
+      this.mediaStream =
+        await this.mediaDevices.getUserMedia(CAPTURE_CONSTRAINTS);
       this.audioContext = this.audioContextFactory();
+      if (typeof this.audioContext.resume === "function")
+        await this.audioContext.resume();
+      if (this.audioContext.state === "suspended") {
+        throw new Error(
+          "Microphone audio context is suspended; capture cannot start",
+        );
+      }
       await this.audioContext.audioWorklet.addModule(this.workletModuleUrl);
 
-      this.workletNode = new AudioWorkletNode(this.audioContext, "mindpal-voice-v3-capture", {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [1],
-      });
+      this.workletNode = new AudioWorkletNode(
+        this.audioContext,
+        "mindpal-voice-v3-capture",
+        {
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+          outputChannelCount: [1],
+        },
+      );
       this.workletNode.port.onmessage = (event: MessageEvent<unknown>) => {
         this.handleWorkletMessage(event.data);
       };
@@ -111,7 +124,9 @@ export class CaptureManager {
         });
       };
 
-      this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
+      this.sourceNode = this.audioContext.createMediaStreamSource(
+        this.mediaStream,
+      );
       this.sourceNode.connect(this.workletNode);
       // An AudioWorkletNode that is left entirely disconnected may not be
       // pulled by the browser’s render graph. Keep it alive through a silent
@@ -131,7 +146,11 @@ export class CaptureManager {
         targetSampleRate: 16_000,
       });
     } catch (error) {
-      this.report({ type: "capture-error", reason: "capture start failed", error });
+      this.report({
+        type: "capture-error",
+        reason: "capture start failed",
+        error,
+      });
       await this.cleanup();
       throw error;
     }
@@ -236,7 +255,10 @@ export class CaptureManager {
 
 function isCaptureFrameMessage(value: unknown): value is CaptureFrameMessage {
   if (typeof value !== "object" || value === null) return false;
-  const candidate = value as { readonly type?: unknown; readonly frame?: unknown };
+  const candidate = value as {
+    readonly type?: unknown;
+    readonly frame?: unknown;
+  };
   return candidate.type === "capture.frame" && isAudioFrame(candidate.frame);
 }
 

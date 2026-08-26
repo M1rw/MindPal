@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { GenerationIdentity } from "../../core/layer-link";
-import { createEventEnvelope, LayerLinkMessageBus } from "../../core/message-bus";
+import {
+  createEventEnvelope,
+  LayerLinkMessageBus,
+} from "../../core/message-bus";
 import type { VoiceEvent } from "../adapter/event-types";
 import { ORCHESTRATOR_STATES } from "./state-machine";
 import { VoiceOrchestrator } from "./orchestrator";
@@ -12,7 +15,11 @@ const sessionIdentity: GenerationIdentity = {
   playbackGeneration: null,
 };
 
-function publishAdapterEvent(bus: LayerLinkMessageBus, nowMono: number, event: VoiceEvent): void {
+function publishAdapterEvent(
+  bus: LayerLinkMessageBus,
+  nowMono: number,
+  event: VoiceEvent,
+): void {
   bus.publish(
     createEventEnvelope({
       messageId: `adapter-${nowMono}-${event.type}`,
@@ -41,7 +48,11 @@ function audioEvent(identity: GenerationIdentity): VoiceEvent {
   return {
     type: "PROVIDER_AUDIO",
     identity,
-    payload: { dataBase64: "AAAA", mimeType: "audio/pcm;rate=24000", sampleRate: 24_000 },
+    payload: {
+      dataBase64: "AAAA",
+      mimeType: "audio/pcm;rate=24000",
+      sampleRate: 24_000,
+    },
   };
 }
 
@@ -49,7 +60,12 @@ function completeEvent(identity: GenerationIdentity): VoiceEvent {
   return { type: "PROVIDER_TURN_COMPLETE", identity, payload: {} };
 }
 
-function publishCaptureFrame(bus: LayerLinkMessageBus, nowMono: number, rms: number, muted = false): void {
+function publishCaptureFrame(
+  bus: LayerLinkMessageBus,
+  nowMono: number,
+  rms: number,
+  muted = false,
+): void {
   bus.publish(
     createEventEnvelope({
       messageId: `capture-${nowMono}-${rms}`,
@@ -78,6 +94,21 @@ function publishCaptureFrame(bus: LayerLinkMessageBus, nowMono: number, rms: num
 }
 
 describe("Voice V3 orchestrator state machine", () => {
+  it("restores Listening only after a resumed transport setup completes", () => {
+    const bus = new LayerLinkMessageBus({ nowMono: () => 0 });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => 0 });
+
+    orchestrator.startSession();
+    orchestrator.markConnecting();
+    orchestrator.markTransportReady();
+    expect(orchestrator.state).toBe("PROVIDER_READY");
+
+    orchestrator.markRecovering();
+    expect(orchestrator.state).toBe("RECOVERING");
+    orchestrator.markTransportReady();
+    expect(orchestrator.state).toBe("LISTENING");
+  });
+
   it("contains the complete requested state vocabulary", () => {
     expect(ORCHESTRATOR_STATES).toEqual([
       "IDLE",
@@ -117,16 +148,40 @@ describe("VoiceOrchestrator chaos fencing", () => {
     const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
 
     // Turn 1
-    publishAdapterEvent(bus, now, audioEvent({ ...sessionIdentity, turnId: "turn-1", providerResponseId: "resp-1" }));
+    publishAdapterEvent(
+      bus,
+      now,
+      audioEvent({
+        ...sessionIdentity,
+        turnId: "turn-1",
+        providerResponseId: "resp-1",
+      }),
+    );
     expect(playbackEvents).toHaveLength(1);
 
     now = 1;
-    publishAdapterEvent(bus, now, completeEvent({ ...sessionIdentity, turnId: "turn-1", providerResponseId: "resp-1" }));
+    publishAdapterEvent(
+      bus,
+      now,
+      completeEvent({
+        ...sessionIdentity,
+        turnId: "turn-1",
+        providerResponseId: "resp-1",
+      }),
+    );
     expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
 
     // Turn 2: New turn arrives
     now = 2;
-    publishAdapterEvent(bus, now, audioEvent({ ...sessionIdentity, turnId: "turn-2", providerResponseId: "resp-2" }));
+    publishAdapterEvent(
+      bus,
+      now,
+      audioEvent({
+        ...sessionIdentity,
+        turnId: "turn-2",
+        providerResponseId: "resp-2",
+      }),
+    );
     expect(playbackEvents).toHaveLength(2);
     expect(orchestrator.snapshot.providerResponseClosed).toBe(false);
   });
@@ -164,7 +219,12 @@ describe("VoiceOrchestrator chaos fencing", () => {
     now = 2;
     publishAdapterEvent(bus, now, {
       type: "PROVIDER_INPUT_TRANSCRIPT",
-      identity: { sessionGeneration: "session-1", turnId: null, providerResponseId: null, playbackGeneration: null },
+      identity: {
+        sessionGeneration: "session-1",
+        turnId: null,
+        providerResponseId: null,
+        playbackGeneration: null,
+      },
       payload: { text: "hello mindpal", isFinal: true, cumulative: true },
     });
     expect(orchestrator.snapshot.providerResponseClosed).toBe(false);
@@ -225,7 +285,11 @@ describe("VoiceOrchestrator chaos fencing", () => {
     publishAdapterEvent(bus, now, {
       type: "PROVIDER_INPUT_TRANSCRIPT",
       identity: nullIdentity,
-      payload: { text: "What is the weather?", isFinal: true, cumulative: true },
+      payload: {
+        text: "What is the weather?",
+        isFinal: true,
+        cumulative: true,
+      },
     });
     expect(orchestrator.state).toBe("THINKING");
 
@@ -278,9 +342,23 @@ describe("VoiceOrchestrator chaos fencing", () => {
     now = 1;
     publishAdapterEvent(bus, now, audioEvent(sessionIdentity));
     now = 2;
-    publishAdapterEvent(bus, now, completeEvent({ ...sessionIdentity, playbackGeneration: orchestrator.identity.playbackGeneration }));
+    publishAdapterEvent(
+      bus,
+      now,
+      completeEvent({
+        ...sessionIdentity,
+        playbackGeneration: orchestrator.identity.playbackGeneration,
+      }),
+    );
     now = 3;
-    publishAdapterEvent(bus, now, audioEvent({ ...sessionIdentity, playbackGeneration: orchestrator.identity.playbackGeneration }));
+    publishAdapterEvent(
+      bus,
+      now,
+      audioEvent({
+        ...sessionIdentity,
+        playbackGeneration: orchestrator.identity.playbackGeneration,
+      }),
+    );
 
     expect(playbackEvents).toHaveLength(1);
     expect(staleEvents).toHaveLength(1);
@@ -291,12 +369,20 @@ describe("VoiceOrchestrator chaos fencing", () => {
   it("rejects a tool result from the old operation after a new turn begins", () => {
     let now = 0;
     const bus = new LayerLinkMessageBus({ nowMono: () => now });
-    const operationRequests: Array<{ readonly operation?: { readonly operationId?: string } }> = [];
+    const operationRequests: Array<{
+      readonly operation?: { readonly operationId?: string };
+    }> = [];
     const staleEvents: unknown[] = [];
-    bus.subscribe((envelope) => operationRequests.push(envelope.payload as typeof operationRequests[number]), {
-      topic: "voice.operation",
-      messageType: "ORCHESTRATOR_OPERATION_REQUESTED",
-    });
+    bus.subscribe(
+      (envelope) =>
+        operationRequests.push(
+          envelope.payload as (typeof operationRequests)[number],
+        ),
+      {
+        topic: "voice.operation",
+        messageType: "ORCHESTRATOR_OPERATION_REQUESTED",
+      },
+    );
     bus.subscribe((envelope) => staleEvents.push(envelope.payload), {
       topic: "voice.orchestrator",
       messageType: "ORCHESTRATOR_STALE_REJECTED",
@@ -324,7 +410,10 @@ describe("VoiceOrchestrator chaos fencing", () => {
         timestampMono: now,
         ttlMs: 10_000,
         identity: { ...sessionIdentity, turnId: "turn-1" },
-        operation: { ...sessionIdentity, operationId: oldOperationId ?? "missing" },
+        operation: {
+          ...sessionIdentity,
+          operationId: oldOperationId ?? "missing",
+        },
         correlationId: "old-operation",
         payload: { operationId: oldOperationId, value: "stale" },
       }),
@@ -393,7 +482,9 @@ describe("VoiceOrchestrator chaos fencing", () => {
 
     expect(flushes).toHaveLength(1);
     expect((flushes[0] as { reason?: string }).reason).toBe("local-capture");
-    expect((flushes[0] as { oldPlaybackGeneration?: string }).oldPlaybackGeneration).toBe(oldGeneration);
+    expect(
+      (flushes[0] as { oldPlaybackGeneration?: string }).oldPlaybackGeneration,
+    ).toBe(oldGeneration);
     expect(orchestrator.identity.playbackGeneration).not.toBe(oldGeneration);
     expect(orchestrator.state).toBe("INTERRUPTED");
 
@@ -421,33 +512,38 @@ describe("VoiceOrchestrator chaos fencing", () => {
     });
     const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
 
-    bus.publish(createEventEnvelope({
-      messageId: "cue-request",
-      messageType: "BACKCHANNEL_CUE_REQUESTED",
-      sourceLayer: "backchannel",
-      topic: "voice.playback",
-      priority: "high",
-      timestampMono: now,
-      ttlMs: 10_000,
-      identity: sessionIdentity,
-      correlationId: "orchestrator-test",
-      payload: {
-        cueText: "mhm",
-        delivery: "gemini-native",
-        reason: "natural-pause",
-        cueIdentity: {
-          ...sessionIdentity,
-          cueId: "cue-1",
-          cueSource: "native",
-          cueLane: "backchannel",
-          createdAtMono: now,
-          expiresAtMono: now + 5_000,
+    bus.publish(
+      createEventEnvelope({
+        messageId: "cue-request",
+        messageType: "BACKCHANNEL_CUE_REQUESTED",
+        sourceLayer: "backchannel",
+        topic: "voice.playback",
+        priority: "high",
+        timestampMono: now,
+        ttlMs: 10_000,
+        identity: sessionIdentity,
+        correlationId: "orchestrator-test",
+        payload: {
+          cueText: "mhm",
+          delivery: "gemini-native",
+          reason: "natural-pause",
+          cueIdentity: {
+            ...sessionIdentity,
+            cueId: "cue-1",
+            cueSource: "native",
+            cueLane: "backchannel",
+            createdAtMono: now,
+            expiresAtMono: now + 5_000,
+          },
         },
-      },
-    }));
+      }),
+    );
     expect(completions).toHaveLength(0);
 
-    const cueIdentity = { ...sessionIdentity, providerResponseId: "cue-response-1" };
+    const cueIdentity = {
+      ...sessionIdentity,
+      providerResponseId: "cue-response-1",
+    };
     publishAdapterEvent(bus, ++now, {
       type: "PROVIDER_OUTPUT_TRANSCRIPT",
       identity: cueIdentity,
@@ -482,12 +578,13 @@ describe("VoiceOrchestrator chaos fencing", () => {
     });
 
     expect(flushes).toHaveLength(1);
-    expect((flushes[0] as { oldPlaybackGeneration?: string }).oldPlaybackGeneration).toBe(oldGeneration);
+    expect(
+      (flushes[0] as { oldPlaybackGeneration?: string }).oldPlaybackGeneration,
+    ).toBe(oldGeneration);
     expect(orchestrator.identity.playbackGeneration).not.toBe(oldGeneration);
     expect(orchestrator.state).toBe("INTERRUPTED");
   });
 });
-
 
 describe("VoiceOrchestrator delayed provider output fencing", () => {
   it("rejects anonymous output after completion until fresh user speech arrives", () => {
@@ -519,8 +616,17 @@ describe("VoiceOrchestrator delayed provider output fencing", () => {
     now = 2;
     publishAdapterEvent(bus, now, {
       type: "PROVIDER_OUTPUT_TRANSCRIPT",
-      identity: { sessionGeneration: "session-1", turnId: null, providerResponseId: null, playbackGeneration: null },
-      payload: { text: "late greeting transcript", isFinal: true, cumulative: true },
+      identity: {
+        sessionGeneration: "session-1",
+        turnId: null,
+        providerResponseId: null,
+        playbackGeneration: null,
+      },
+      payload: {
+        text: "late greeting transcript",
+        isFinal: true,
+        cumulative: true,
+      },
     });
     expect(outputs).toHaveLength(0);
     expect(staleEvents).toHaveLength(1);
@@ -531,7 +637,12 @@ describe("VoiceOrchestrator delayed provider output fencing", () => {
     now = 4;
     publishAdapterEvent(bus, now, {
       type: "PROVIDER_OUTPUT_TRANSCRIPT",
-      identity: { sessionGeneration: "session-1", turnId: null, providerResponseId: "response-2", playbackGeneration: null },
+      identity: {
+        sessionGeneration: "session-1",
+        turnId: null,
+        providerResponseId: "response-2",
+        playbackGeneration: null,
+      },
       payload: { text: "new response", isFinal: false, cumulative: true },
     });
     expect(outputs).toHaveLength(1);
@@ -587,7 +698,6 @@ describe("VoiceOrchestrator delayed provider output fencing", () => {
   });
 });
 
-
 describe("VoiceOrchestrator playback-drain completion", () => {
   it("returns to listening after generationComplete and matching playback drain", () => {
     let now = 0;
@@ -612,25 +722,27 @@ describe("VoiceOrchestrator playback-drain completion", () => {
     });
     expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
 
-    bus.publish(createEventEnvelope({
-      messageId: "playback-drained",
-      messageType: "playback.state",
-      sourceLayer: "playback",
-      topic: "voice.playback",
-      priority: "high",
-      timestampMono: ++now,
-      ttlMs: 10_000,
-      identity: { ...identity, playbackGeneration: generation },
-      correlationId: "orchestrator-test",
-      payload: {
-        state: "IDLE",
-        queueDepthMs: 0,
-        activeGenerationId: generation,
-        mainGain: 1,
-        backchannelGain: 0.4,
-        scheduledSources: 0,
-      },
-    }));
+    bus.publish(
+      createEventEnvelope({
+        messageId: "playback-drained",
+        messageType: "playback.state",
+        sourceLayer: "playback",
+        topic: "voice.playback",
+        priority: "high",
+        timestampMono: ++now,
+        ttlMs: 10_000,
+        identity: { ...identity, playbackGeneration: generation },
+        correlationId: "orchestrator-test",
+        payload: {
+          state: "IDLE",
+          queueDepthMs: 0,
+          activeGenerationId: generation,
+          mainGain: 1,
+          backchannelGain: 0.4,
+          scheduledSources: 0,
+        },
+      }),
+    );
 
     expect(orchestrator.state).toBe("LISTENING");
     expect(orchestrator.snapshot.providerResponseClosed).toBe(true);

@@ -4,7 +4,10 @@ import type {
   LayerLinkEnvelope,
   OperationIdentity,
 } from "../../core/layer-link";
-import { createEventEnvelope, LayerLinkMessageBus } from "../../core/message-bus";
+import {
+  createEventEnvelope,
+  LayerLinkMessageBus,
+} from "../../core/message-bus";
 import type { VoiceEvent } from "../adapter/event-types";
 import type { BackchannelCueRequestPayload } from "../backchannel/conductor";
 import {
@@ -94,14 +97,25 @@ export class VoiceOrchestrator {
     this.nowMono = options.nowMono ?? (() => performance.now());
     this.sessionGeneration = options.sessionGeneration ?? "session-1";
     this.sessionCounter = readGenerationNumber(this.sessionGeneration) ?? 1;
-    this.localBargeInRmsThreshold = Math.max(0.001, options.localBargeInRmsThreshold ?? LOCAL_BARGE_IN_RMS_THRESHOLD);
-    this.localBargeInReleaseRmsThreshold = Math.max(0, Math.min(
-      this.localBargeInRmsThreshold,
-      options.localBargeInReleaseRmsThreshold ?? LOCAL_BARGE_IN_RELEASE_RMS_THRESHOLD,
-    ));
-    this.localBargeInConfirmationFrames = Math.max(1, Math.floor(
-      options.localBargeInConfirmationFrames ?? LOCAL_BARGE_IN_CONFIRMATION_FRAMES,
-    ));
+    this.localBargeInRmsThreshold = Math.max(
+      0.001,
+      options.localBargeInRmsThreshold ?? LOCAL_BARGE_IN_RMS_THRESHOLD,
+    );
+    this.localBargeInReleaseRmsThreshold = Math.max(
+      0,
+      Math.min(
+        this.localBargeInRmsThreshold,
+        options.localBargeInReleaseRmsThreshold ??
+          LOCAL_BARGE_IN_RELEASE_RMS_THRESHOLD,
+      ),
+    );
+    this.localBargeInConfirmationFrames = Math.max(
+      1,
+      Math.floor(
+        options.localBargeInConfirmationFrames ??
+          LOCAL_BARGE_IN_CONFIRMATION_FRAMES,
+      ),
+    );
 
     this.unsubscribers.push(
       this.bus.subscribe<unknown>(
@@ -195,8 +209,32 @@ export class VoiceOrchestrator {
   }
 
   public markRecovering(): void {
-    if (this.stateValue === "CLOSING" || this.stateValue === "CLOSED" || this.stateValue === "FAILED") return;
+    if (
+      this.stateValue === "CLOSING" ||
+      this.stateValue === "CLOSED" ||
+      this.stateValue === "FAILED"
+    )
+      return;
     this.transition({ kind: "recovering" });
+    this.emitSnapshot();
+  }
+
+  public markTransportReady(): void {
+    if (
+      this.stateValue === "CLOSING" ||
+      this.stateValue === "CLOSED" ||
+      this.stateValue === "FAILED"
+    )
+      return;
+    if (this.stateValue === "RECOVERING" || this.stateValue === "RESUMING") {
+      this.transition({ kind: "transport-ready" });
+    } else if (
+      this.stateValue === "CONNECTING" ||
+      this.stateValue === "PROVISIONING" ||
+      this.stateValue === "CREDENTIAL_ACQUIRING"
+    ) {
+      this.transition({ kind: "provider-ready" });
+    }
     this.emitSnapshot();
   }
 
@@ -206,7 +244,11 @@ export class VoiceOrchestrator {
   }
 
   public requestGreeting(): boolean {
-    if (this.greetingSentValue || this.stateValue === "CLOSING" || this.stateValue === "CLOSED") {
+    if (
+      this.greetingSentValue ||
+      this.stateValue === "CLOSING" ||
+      this.stateValue === "CLOSED"
+    ) {
       return false;
     }
     this.greetingSentValue = true;
@@ -224,28 +266,48 @@ export class VoiceOrchestrator {
 
   public close(): void {
     this.transition({ kind: "closing" });
-    this.publish("ORCHESTRATOR_CLOSE_REQUESTED", "voice.transport", "orchestrator", "high", {
-      identity: this.identity,
-    });
+    this.publish(
+      "ORCHESTRATOR_CLOSE_REQUESTED",
+      "voice.transport",
+      "orchestrator",
+      "high",
+      {
+        identity: this.identity,
+      },
+    );
     this.transition({ kind: "closed" });
     this.emitSnapshot();
   }
 
-  public cancelNativeCue(reason: "timeout" | "session-stop" = "session-stop"): void {
+  public cancelNativeCue(
+    reason: "timeout" | "session-stop" = "session-stop",
+  ): void {
     if (!this.nativeCuePending) return;
     this.nativeCuePending = false;
-    this.publish("ORCHESTRATOR_GEMINI_CUE_COMPLETE", "voice.provider", "provider-adapter", "high", {
-      reason,
-      identity: this.identity,
-    });
+    this.publish(
+      "ORCHESTRATOR_GEMINI_CUE_COMPLETE",
+      "voice.provider",
+      "provider-adapter",
+      "high",
+      {
+        reason,
+        identity: this.identity,
+      },
+    );
   }
 
   public fail(reason: string): void {
     this.transition({ kind: "failed" });
-    this.publish("ORCHESTRATOR_FAILED", "voice.recovery", "orchestrator", "critical", {
-      reason,
-      identity: this.identity,
-    });
+    this.publish(
+      "ORCHESTRATOR_FAILED",
+      "voice.recovery",
+      "orchestrator",
+      "critical",
+      {
+        reason,
+        identity: this.identity,
+      },
+    );
     this.emitSnapshot();
   }
 
@@ -258,27 +320,37 @@ export class VoiceOrchestrator {
     const frame = parseAudioFrame(envelope.payload);
     if (!frame) return;
 
-    const userSpeechDetected = !frame.muted && frame.rms >= USER_SPEECH_RMS_THRESHOLD;
+    const userSpeechDetected =
+      !frame.muted && frame.rms >= USER_SPEECH_RMS_THRESHOLD;
     if (userSpeechDetected && this.stateValue !== "ASSISTANT_SPEAKING") {
       this.pendingUserActivity = true;
       this.providerResponseClosedValue = false;
     }
 
-    const canInterrupt = !frame.muted &&
+    const canInterrupt =
+      !frame.muted &&
       frame.rms >= this.localBargeInRmsThreshold &&
       this.stateValue === "ASSISTANT_SPEAKING" &&
       this.playbackGeneration !== null &&
       !this.nativeCuePending;
 
     if (!canInterrupt) {
-      if (frame.muted || frame.rms <= this.localBargeInReleaseRmsThreshold || this.stateValue !== "ASSISTANT_SPEAKING") {
+      if (
+        frame.muted ||
+        frame.rms <= this.localBargeInReleaseRmsThreshold ||
+        this.stateValue !== "ASSISTANT_SPEAKING"
+      ) {
         this.resetLocalBargeIn();
       }
       return;
     }
 
     this.localBargeInCandidateFrames += 1;
-    if (this.localBargeInActive || this.localBargeInCandidateFrames < this.localBargeInConfirmationFrames) return;
+    if (
+      this.localBargeInActive ||
+      this.localBargeInCandidateFrames < this.localBargeInConfirmationFrames
+    )
+      return;
 
     this.localBargeInActive = true;
     this.pendingUserActivity = true;
@@ -305,94 +377,150 @@ export class VoiceOrchestrator {
 
     if (this.nativeCuePending && event.type === "PROVIDER_TURN_COMPLETE") {
       this.nativeCuePending = false;
-      this.publish("ORCHESTRATOR_GEMINI_CUE_COMPLETE", "voice.provider", "provider-adapter", "high", {
-        identity: this.identity,
+      this.publish(
+        "ORCHESTRATOR_GEMINI_CUE_COMPLETE",
+        "voice.provider",
+        "provider-adapter",
+        "high",
+        {
+          identity: this.identity,
+        },
+      );
+      return;
+    }
+    if (
+      this.nativeCuePending &&
+      (event.type === "PROVIDER_OUTPUT_TRANSCRIPT" ||
+        event.type === "PROVIDER_TOOL_CALL")
+    ) {
+      this.debug("native cue provider artifact suppressed", {
+        eventType: event.type,
+        identity: event.identity,
       });
       return;
     }
-    if (this.nativeCuePending && (event.type === "PROVIDER_OUTPUT_TRANSCRIPT" || event.type === "PROVIDER_TOOL_CALL")) {
-      this.debug("native cue provider artifact suppressed", { eventType: event.type, identity: event.identity });
-      return;
-    }
     const stamped = this.stampEvent(event);
-    if (stamped.type === "PROVIDER_GENERATION_COMPLETE") this.generationComplete = true;
+    if (stamped.type === "PROVIDER_GENERATION_COMPLETE")
+      this.generationComplete = true;
     this.debug("identity stamped", stamped);
     this.applyProviderTransition(stamped);
     this.routeProviderEvent(stamped);
     this.emitSnapshot();
   }
 
-  private handleBackchannelEnvelope(envelope: LayerLinkEnvelope<unknown>): void {
+  private handleBackchannelEnvelope(
+    envelope: LayerLinkEnvelope<unknown>,
+  ): void {
     if (envelope.messageType === "BACKCHANNEL_CUE_REQUESTED") {
       const request = parseCueRequest(envelope.payload);
       if (!request) return;
-      if (!this.acceptIdentity("BACKCHANNEL_CUE_REQUESTED", envelope.identity)) return;
+      if (!this.acceptIdentity("BACKCHANNEL_CUE_REQUESTED", envelope.identity))
+        return;
       const identity = this.stampIdentity(envelope.identity);
       if (request.delivery === "gemini-native") {
-          this.nativeCuePending = true;
-        this.publish("ORCHESTRATOR_GEMINI_CUE_REQUESTED", "voice.provider", "provider-adapter", "high", {
-          cueText: request.cueText,
-          cueIdentity: { ...request.cueIdentity, ...identity },
-          delivery: request.delivery,
-          identity,
-        });
+        this.nativeCuePending = true;
+        this.publish(
+          "ORCHESTRATOR_GEMINI_CUE_REQUESTED",
+          "voice.provider",
+          "provider-adapter",
+          "high",
+          {
+            cueText: request.cueText,
+            cueIdentity: { ...request.cueIdentity, ...identity },
+            delivery: request.delivery,
+            identity,
+          },
+        );
       } else if (request.cue) {
-        this.publish("ORCHESTRATOR_BACKCHANNEL_CUE", "voice.playback", "playback", "high", {
-          ...request,
-          cueIdentity: { ...request.cueIdentity, ...identity },
-          cue: { ...request.cue, identity },
-          identity,
-        });
+        this.publish(
+          "ORCHESTRATOR_BACKCHANNEL_CUE",
+          "voice.playback",
+          "playback",
+          "high",
+          {
+            ...request,
+            cueIdentity: { ...request.cueIdentity, ...identity },
+            cue: { ...request.cue, identity },
+            identity,
+          },
+        );
       }
       return;
     }
 
     if (envelope.messageType === "backchannel.cue.approved") {
-      this.publish("ORCHESTRATOR_BACKCHANNEL_APPROVED", "voice.orchestrator", "orchestrator", "telemetry", {
-        result: envelope.payload,
-        identity: this.stampIdentity(envelope.identity),
-      });
+      this.publish(
+        "ORCHESTRATOR_BACKCHANNEL_APPROVED",
+        "voice.orchestrator",
+        "orchestrator",
+        "telemetry",
+        {
+          result: envelope.payload,
+          identity: this.stampIdentity(envelope.identity),
+        },
+      );
     }
   }
 
   private handlePlaybackEnvelope(envelope: LayerLinkEnvelope<unknown>): void {
-    if (!this.generationComplete || this.stateValue !== "ASSISTANT_SPEAKING") return;
+    if (!this.generationComplete || this.stateValue !== "ASSISTANT_SPEAKING")
+      return;
     const snapshot = envelope.payload as {
       readonly state?: unknown;
       readonly queueDepthMs?: unknown;
       readonly activeGenerationId?: unknown;
       readonly scheduledSources?: unknown;
     };
-    const activeGenerationMatches = snapshot.activeGenerationId === null ||
+    const activeGenerationMatches =
+      snapshot.activeGenerationId === null ||
       snapshot.activeGenerationId === this.playbackGeneration;
-    const drained = snapshot.scheduledSources === 0 &&
-      (typeof snapshot.queueDepthMs !== "number" || snapshot.queueDepthMs <= 0) &&
+    const drained =
+      snapshot.scheduledSources === 0 &&
+      (typeof snapshot.queueDepthMs !== "number" ||
+        snapshot.queueDepthMs <= 0) &&
       activeGenerationMatches &&
       (snapshot.state === "IDLE" || snapshot.state === "FLUSHED");
     if (!drained) return;
-    this.debug("generation complete and playback drained", { snapshot, identity: this.identity });
+    this.debug("generation complete and playback drained", {
+      snapshot,
+      identity: this.identity,
+    });
     this.handleTurnComplete();
     this.emitSnapshot();
   }
 
   private handleOperationResult(envelope: LayerLinkEnvelope<unknown>): void {
     if (!isOperationResult(envelope.messageType)) return;
-    const incomingOperationId = envelope.operation?.operationId ?? readOperationId(envelope.payload);
+    const incomingOperationId =
+      envelope.operation?.operationId ?? readOperationId(envelope.payload);
     if (!incomingOperationId || incomingOperationId !== this.operationId) {
-      this.rejectStale("stale-operation-id", envelope.messageType, envelope.identity);
+      this.rejectStale(
+        "stale-operation-id",
+        envelope.messageType,
+        envelope.identity,
+      );
       return;
     }
-    this.publish("ORCHESTRATOR_OPERATION_RESULT", "voice.provider", "provider-adapter", "high", {
-      result: envelope.payload,
-      operation: this.currentOperationIdentity(),
-      identity: this.identity,
-    });
+    this.publish(
+      "ORCHESTRATOR_OPERATION_RESULT",
+      "voice.provider",
+      "provider-adapter",
+      "high",
+      {
+        result: envelope.payload,
+        operation: this.currentOperationIdentity(),
+        identity: this.identity,
+      },
+    );
     this.operationId = null;
     this.transition({ kind: "thinking" });
     this.emitSnapshot();
   }
 
-  private acceptIdentity(eventType: string, incoming: GenerationIdentity): boolean {
+  private acceptIdentity(
+    eventType: string,
+    incoming: GenerationIdentity,
+  ): boolean {
     const reason = this.identityRejectionReason(eventType, incoming);
     if (reason) {
       this.rejectStale(reason, eventType, incoming);
@@ -441,9 +569,11 @@ export class VoiceOrchestrator {
         return "closed-response-boundary";
       }
 
-      const isClosedTurn = incoming.turnId !== null && this.closedTurnIds.has(incoming.turnId);
+      const isClosedTurn =
+        incoming.turnId !== null && this.closedTurnIds.has(incoming.turnId);
       const isClosedResponse =
-        incoming.providerResponseId !== null && this.closedResponseIds.has(incoming.providerResponseId);
+        incoming.providerResponseId !== null &&
+        this.closedResponseIds.has(incoming.providerResponseId);
 
       if (isClosedTurn || isClosedResponse) {
         return "closed-response-boundary";
@@ -462,13 +592,19 @@ export class VoiceOrchestrator {
     eventType?: string,
   ): GenerationIdentity {
     if (incoming.turnId !== null) {
-      if (this.turnId !== incoming.turnId && !this.closedTurnIds.has(incoming.turnId)) {
+      if (
+        this.turnId !== incoming.turnId &&
+        !this.closedTurnIds.has(incoming.turnId)
+      ) {
         this.beginTurn(incoming.turnId);
       }
     } else if (this.turnId === null) {
       // Auto-assign a fresh local turn ID if incoming event has no turnId and
       // we are starting new input/output after a completed response.
-      if (this.providerResponseClosedValue || eventType === "PROVIDER_INPUT_TRANSCRIPT") {
+      if (
+        this.providerResponseClosedValue ||
+        eventType === "PROVIDER_INPUT_TRANSCRIPT"
+      ) {
         this.beginTurn(`turn-${this.turnCounter + 1}`);
       } else {
         this.providerResponseClosedValue = false;
@@ -480,13 +616,17 @@ export class VoiceOrchestrator {
         this.providerResponseId = incoming.providerResponseId;
         this.providerResponseClosedValue = false;
       }
-    } else if (eventType === "PROVIDER_AUDIO" || eventType === "PROVIDER_OUTPUT_TRANSCRIPT") {
+    } else if (
+      eventType === "PROVIDER_AUDIO" ||
+      eventType === "PROVIDER_OUTPUT_TRANSCRIPT"
+    ) {
       this.providerResponseClosedValue = false;
     }
 
     if (
       eventType !== "PROVIDER_INPUT_TRANSCRIPT" &&
-      (eventType === "PROVIDER_AUDIO" || eventType === "PROVIDER_OUTPUT_TRANSCRIPT") &&
+      (eventType === "PROVIDER_AUDIO" ||
+        eventType === "PROVIDER_OUTPUT_TRANSCRIPT") &&
       this.playbackGeneration === null
     ) {
       this.playbackGeneration = this.nextPlaybackGeneration();
@@ -505,7 +645,8 @@ export class VoiceOrchestrator {
         if (event.payload.isFinal === true) {
           this.transition({ kind: "input-final" });
         } else {
-          const repeated = this.turnId !== null && event.identity.turnId === this.turnId;
+          const repeated =
+            this.turnId !== null && event.identity.turnId === this.turnId;
           this.transition({ kind: "input-partial", repeated });
         }
         break;
@@ -536,36 +677,62 @@ export class VoiceOrchestrator {
 
   private routeProviderEvent(event: VoiceEvent): void {
     if (event.type === "PROVIDER_AUDIO") {
-      this.publish("ORCHESTRATOR_AUDIO_EVENT", "voice.playback", "playback", "high", {
-        event,
-        identity: event.identity,
-      });
+      this.publish(
+        "ORCHESTRATOR_AUDIO_EVENT",
+        "voice.playback",
+        "playback",
+        "high",
+        {
+          event,
+          identity: event.identity,
+        },
+      );
       return;
     }
     if (event.type === "PROVIDER_TOOL_CALL") {
       const operation = this.currentOperationIdentity();
-      this.publish("ORCHESTRATOR_OPERATION_REQUESTED", "voice.operation", "operation", "high", {
-        event,
-        operation,
-        identity: event.identity,
-      });
+      this.publish(
+        "ORCHESTRATOR_OPERATION_REQUESTED",
+        "voice.operation",
+        "operation",
+        "high",
+        {
+          event,
+          operation,
+          identity: event.identity,
+        },
+      );
       return;
     }
     if (event.type === "PROVIDER_OUTPUT_TRANSCRIPT") {
-      this.publish("ORCHESTRATOR_OUTPUT_TRANSCRIPT", "voice.transcript", "transcript", "normal", {
-        event,
-        identity: event.identity,
-      });
+      this.publish(
+        "ORCHESTRATOR_OUTPUT_TRANSCRIPT",
+        "voice.transcript",
+        "transcript",
+        "normal",
+        {
+          event,
+          identity: event.identity,
+        },
+      );
       return;
     }
     if (event.type === "PROVIDER_GENERATION_COMPLETE") return;
-    this.publish("ORCHESTRATOR_TRANSCRIPT_EVENT", "voice.transcript", "transcript", "normal", {
-      event,
-      identity: event.identity,
-    });
+    this.publish(
+      "ORCHESTRATOR_TRANSCRIPT_EVENT",
+      "voice.transcript",
+      "transcript",
+      "normal",
+      {
+        event,
+        identity: event.identity,
+      },
+    );
   }
 
-  private handleInterruption(reason: "provider" | "local-capture" = "provider"): void {
+  private handleInterruption(
+    reason: "provider" | "local-capture" = "provider",
+  ): void {
     const oldPlaybackGeneration = this.playbackGeneration;
     const nextPlaybackGeneration = this.nextPlaybackGeneration();
     this.providerResponseClosedValue = false;
@@ -574,18 +741,26 @@ export class VoiceOrchestrator {
     this.resetLocalBargeIn();
     this.playbackGeneration = nextPlaybackGeneration;
     this.transition({ kind: "interrupted" });
-    this.publish("ORCHESTRATOR_FLUSH_PLAYBACK", "voice.playback", "playback", "critical", {
-      oldPlaybackGeneration,
-      nextPlaybackGeneration,
-      reason,
-      identity: this.identity,
-    });
+    this.publish(
+      "ORCHESTRATOR_FLUSH_PLAYBACK",
+      "voice.playback",
+      "playback",
+      "critical",
+      {
+        oldPlaybackGeneration,
+        nextPlaybackGeneration,
+        reason,
+        identity: this.identity,
+      },
+    );
   }
 
   private handleTurnComplete(): void {
     if (this.turnId !== null) this.closedTurnIds.add(this.turnId);
-    if (this.providerResponseId !== null) this.closedResponseIds.add(this.providerResponseId);
-    if (this.playbackGeneration !== null) this.closedPlaybackGenerations.add(this.playbackGeneration);
+    if (this.providerResponseId !== null)
+      this.closedResponseIds.add(this.providerResponseId);
+    if (this.playbackGeneration !== null)
+      this.closedPlaybackGenerations.add(this.playbackGeneration);
     this.closedResponseId = this.providerResponseId;
     this.providerResponseClosedValue = true;
     this.nativeCuePending = false;
@@ -639,12 +814,22 @@ export class VoiceOrchestrator {
     const previous = this.stateValue;
     this.stateValue = transitionState(this.stateValue, transition);
     if (previous !== this.stateValue) {
-      this.publish("ORCHESTRATOR_STATE_CHANGED", "voice.orchestrator", "orchestrator", "telemetry", {
+      this.publish(
+        "ORCHESTRATOR_STATE_CHANGED",
+        "voice.orchestrator",
+        "orchestrator",
+        "telemetry",
+        {
+          from: previous,
+          to: this.stateValue,
+          identity: this.identity,
+        },
+      );
+      this.debug("state transition", {
         from: previous,
         to: this.stateValue,
         identity: this.identity,
       });
-      this.debug("state transition", { from: previous, to: this.stateValue, identity: this.identity });
     }
   }
 
@@ -660,19 +845,36 @@ export class VoiceOrchestrator {
       eventType,
       identity,
     };
-    this.publish("ORCHESTRATOR_STALE_REJECTED", "voice.orchestrator", "orchestrator", "telemetry", diagnostic);
+    this.publish(
+      "ORCHESTRATOR_STALE_REJECTED",
+      "voice.orchestrator",
+      "orchestrator",
+      "telemetry",
+      diagnostic,
+    );
     this.debug("stale event rejected", diagnostic);
     this.emitSnapshot();
   }
 
   private emitSnapshot(): void {
-    this.publish("orchestrator.snapshot.updated", "voice.orchestrator", "orchestrator", "telemetry", this.snapshot);
+    this.publish(
+      "orchestrator.snapshot.updated",
+      "voice.orchestrator",
+      "orchestrator",
+      "telemetry",
+      this.snapshot,
+    );
   }
 
   private publish(
     messageType: string,
     topic: string,
-    targetLayer: "orchestrator" | "playback" | "transcript" | "operation" | "provider-adapter",
+    targetLayer:
+      | "orchestrator"
+      | "playback"
+      | "transcript"
+      | "operation"
+      | "provider-adapter",
     priority: "critical" | "high" | "normal" | "telemetry",
     payload: unknown,
   ): void {
@@ -695,7 +897,11 @@ export class VoiceOrchestrator {
 
   private debug(message: string, details?: unknown): void {
     if (DEBUG_ORCHESTRATOR && import.meta.env.DEV) {
-      console.debug(new Date().toISOString(), `[Orchestrator] ${message}`, details ?? "");
+      console.debug(
+        new Date().toISOString(),
+        `[Orchestrator] ${message}`,
+        details ?? "",
+      );
     }
   }
 }
@@ -714,14 +920,16 @@ function parseAudioFrame(value: unknown): AudioFrame | null {
     frame.durationMs !== 20 ||
     typeof frame.muted !== "boolean" ||
     typeof frame.rms !== "number"
-  ) return null;
+  )
+    return null;
   return frame as AudioFrame;
 }
 
 function parseVoiceEvent(value: unknown): VoiceEvent | null {
   if (typeof value !== "object" || value === null) return null;
   const candidate = value as Partial<VoiceEvent>;
-  return typeof candidate.type === "string" && candidate.type.startsWith("PROVIDER_")
+  return typeof candidate.type === "string" &&
+    candidate.type.startsWith("PROVIDER_")
     ? (candidate as VoiceEvent)
     : null;
 }
@@ -731,27 +939,38 @@ function parseCueRequest(value: unknown): BackchannelCueRequestPayload | null {
   const candidate = value as Partial<BackchannelCueRequestPayload>;
   return candidate.cueIdentity &&
     typeof candidate.cueText === "string" &&
-    (candidate.delivery === "gemini-native" || (candidate.delivery === "prebuilt-audio" && candidate.cue)) &&
+    (candidate.delivery === "gemini-native" ||
+      (candidate.delivery === "prebuilt-audio" && candidate.cue)) &&
     candidate.reason === "natural-pause"
     ? (candidate as BackchannelCueRequestPayload)
     : null;
 }
 
 function isOperationResult(messageType: string): boolean {
-  return messageType === "operation.result" || messageType === "OPERATION_RESULT" || messageType === "TOOL_RESULT";
+  return (
+    messageType === "operation.result" ||
+    messageType === "OPERATION_RESULT" ||
+    messageType === "TOOL_RESULT"
+  );
 }
 
 function readOperationId(value: unknown): string | null {
   if (typeof value !== "object" || value === null) return null;
-  const candidate = value as { readonly operationId?: unknown; readonly operation?: { readonly operationId?: unknown } };
+  const candidate = value as {
+    readonly operationId?: unknown;
+    readonly operation?: { readonly operationId?: unknown };
+  };
   if (typeof candidate.operationId === "string") return candidate.operationId;
-  return typeof candidate.operation?.operationId === "string" ? candidate.operation.operationId : null;
+  return typeof candidate.operation?.operationId === "string"
+    ? candidate.operation.operationId
+    : null;
 }
 
 function isOlderGeneration(incoming: string, current: string): boolean {
   const incomingNumber = readGenerationNumber(incoming);
   const currentNumber = readGenerationNumber(current);
-  if (incomingNumber !== null && currentNumber !== null) return incomingNumber < currentNumber;
+  if (incomingNumber !== null && currentNumber !== null)
+    return incomingNumber < currentNumber;
   return incoming !== current && incoming !== "unassigned";
 }
 
