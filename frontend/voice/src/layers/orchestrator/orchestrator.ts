@@ -44,6 +44,13 @@ export type OrchestratorDiagnostic = {
   readonly identity: GenerationIdentity;
 };
 
+type PlaybackDrainSnapshot = {
+  readonly state?: unknown;
+  readonly queueDepthMs?: unknown;
+  readonly activeGenerationId?: unknown;
+  readonly scheduledSources?: unknown;
+};
+
 export type OrchestratorOptions = {
   readonly bus: LayerLinkMessageBus;
   readonly nowMono?: () => number;
@@ -78,6 +85,7 @@ export class VoiceOrchestrator {
   private closedResponseId: string | null = null;
   private nativeCuePending = false;
   private generationComplete = false;
+  private lastPlaybackSnapshot: PlaybackDrainSnapshot | null = null;
   // Gemini output transcription is delivered independently of serverContent
   // and may arrive after turnComplete. Do not treat an anonymous late output
   // as a new turn until fresh user activity has been observed.
@@ -194,6 +202,7 @@ export class VoiceOrchestrator {
     this.turnOrder.clear();
     this.nativeCuePending = false;
     this.generationComplete = false;
+    this.lastPlaybackSnapshot = null;
     this.pendingUserActivity = false;
     this.resetLocalBargeIn();
     this.transition({ kind: "credential-acquiring" });
@@ -405,6 +414,8 @@ export class VoiceOrchestrator {
     this.debug("identity stamped", stamped);
     this.applyProviderTransition(stamped);
     this.routeProviderEvent(stamped);
+    if (stamped.type === "PROVIDER_GENERATION_COMPLETE")
+      this.completeAfterPlaybackDrain();
     this.emitSnapshot();
   }
 
@@ -463,14 +474,15 @@ export class VoiceOrchestrator {
   }
 
   private handlePlaybackEnvelope(envelope: LayerLinkEnvelope<unknown>): void {
+    this.lastPlaybackSnapshot = envelope.payload as PlaybackDrainSnapshot;
+    if (this.completeAfterPlaybackDrain()) this.emitSnapshot();
+  }
+
+  private completeAfterPlaybackDrain(): boolean {
     if (!this.generationComplete || this.stateValue !== "ASSISTANT_SPEAKING")
-      return;
-    const snapshot = envelope.payload as {
-      readonly state?: unknown;
-      readonly queueDepthMs?: unknown;
-      readonly activeGenerationId?: unknown;
-      readonly scheduledSources?: unknown;
-    };
+      return false;
+    const snapshot = this.lastPlaybackSnapshot;
+    if (!snapshot) return false;
     const activeGenerationMatches =
       snapshot.activeGenerationId === null ||
       snapshot.activeGenerationId === this.playbackGeneration;
@@ -480,13 +492,13 @@ export class VoiceOrchestrator {
         snapshot.queueDepthMs <= 0) &&
       activeGenerationMatches &&
       (snapshot.state === "IDLE" || snapshot.state === "FLUSHED");
-    if (!drained) return;
+    if (!drained) return false;
     this.debug("generation complete and playback drained", {
       snapshot,
       identity: this.identity,
     });
     this.handleTurnComplete();
-    this.emitSnapshot();
+    return true;
   }
 
   private handleOperationResult(envelope: LayerLinkEnvelope<unknown>): void {
