@@ -253,7 +253,12 @@ function ensureVoiceFixtureHarness() {
     const ai = transcripts.aiTranscript ? "yes" : "no";
     const signals = Array.isArray(transport.recentDiagnostics)
       ? transport.recentDiagnostics
-          .map((item) => typeof item?.type === "string" ? item.type.replace(/^voice\\./, "") : "")
+          .map((item) => {
+            if (typeof item?.type !== "string") return "";
+            const type = item.type.replace(/^voice\\./, "");
+            const messageType = typeof item?.messageType === "string" ? `:${item.messageType}` : "";
+            return `${type}${messageType}`;
+          })
           .filter(Boolean)
           .slice(-3)
           .join(",")
@@ -271,7 +276,7 @@ function ensureVoiceFixtureHarness() {
       const pcm = await decodeFixtureWav(file);
       const startedAt = performance.now();
       let sent = 0;
-      const batchSize = 10;
+      const batchSize = 1;
       const yieldToAudioAndNetwork = () => new Promise((resolve) => {
         if (typeof window.requestAnimationFrame === "function")
           window.requestAnimationFrame(() => resolve());
