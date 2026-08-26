@@ -265,7 +265,6 @@ function ensureVoiceFixtureHarness() {
           muted: false,
           rms,
         })) sent += 1;
-        await new Promise((resolve) => setTimeout(resolve, 20));
       }
       endAudioStream();
       status.textContent = `Sent ${sent} live frames from ${file.name}; waiting for Gemini response.`;
