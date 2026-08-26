@@ -259,6 +259,15 @@ export function createVoiceController(): ProductionController {
       return;
     }
 
+    if (envelope.messageType === "ORCHESTRATOR_FAILED") {
+      const payload = asRecord(envelope.payload);
+      recordDiagnostic({
+        type: "voice.provider-error",
+        reason: payload.reason || "voice-v3-failed",
+      });
+      return;
+    }
+
     if (envelope.messageType === "caption.released") {
       const payload = asRecord(envelope.payload);
       const caption = asRecord(payload.caption);

@@ -565,11 +565,24 @@ export class VoiceV3App {
           (this.nativeCueResponseId === null ||
             payload.event.identity.providerResponseId ===
               this.nativeCueResponseId);
-        void this.playbackManager.enqueueProviderAudio(
-          payload.event.payload,
-          payload.event.identity,
-          isNativeCue ? "backchannel" : "main",
-        );
+        void this.playbackManager
+          .enqueueProviderAudio(
+            payload.event.payload,
+            payload.event.identity,
+            isNativeCue ? "backchannel" : "main",
+          )
+          .then((scheduled) => {
+            if (!scheduled && this.orchestrator.state === "ASSISTANT_SPEAKING") {
+              this.orchestrator.fail("provider audio could not be scheduled for playback");
+            }
+          })
+          .catch((error) => {
+            this.orchestrator.fail(
+              error instanceof Error
+                ? error.message
+                : "provider audio playback failed",
+            );
+          });
       }
       return;
     }

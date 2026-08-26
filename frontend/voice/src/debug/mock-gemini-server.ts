@@ -19,6 +19,7 @@ export class MockGeminiServer {
   private readonly tokenProviderValue: TokenProvider;
   private speechFrameCount = 0;
   private responseCounter = 0;
+  private activeTurnId = "turn-1";
   private greeted = false;
   private userResponseEmitted = false;
   private stateValue: MockProviderState = "IDLE";
@@ -71,7 +72,7 @@ export class MockGeminiServer {
     const responseId = `response-${++this.responseCounter}`;
     socket.deliver({
       serverContent: {
-        turnId: "turn-1",
+        turnId: this.activeTurnId,
         providerResponseId: responseId,
         interrupted: true,
       },
@@ -79,7 +80,7 @@ export class MockGeminiServer {
     socket.deliver(this.responseMessage(
       "I heard you. I’ll follow your new direction.",
       responseId,
-      "turn-1",
+      this.activeTurnId,
       false,
     ));
   }
@@ -88,7 +89,7 @@ export class MockGeminiServer {
     const socket = this.requireSocket();
     socket.deliver({
       serverContent: {
-        turnId: "turn-1",
+        turnId: this.activeTurnId,
         providerResponseId: `response-${this.responseCounter || 1}`,
         turnComplete: true,
       },
@@ -136,9 +137,10 @@ export class MockGeminiServer {
       if (this.speechFrameCount >= 150 && !this.userResponseEmitted) {
         this.userResponseEmitted = true;
         const responseId = `response-${++this.responseCounter}`;
+        this.activeTurnId = `turn-${this.responseCounter + 1}`;
         socket.deliver({
           serverContent: {
-            turnId: "turn-1",
+            turnId: this.activeTurnId,
             inputAudioTranscription: {
               text: "I want to tell you what happened today.",
               isFinal: true,
@@ -149,7 +151,7 @@ export class MockGeminiServer {
         socket.deliver(this.responseMessage(
           "I’m listening. Please continue.",
           responseId,
-          "turn-1",
+          this.activeTurnId,
           false,
         ));
       }
