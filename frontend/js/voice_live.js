@@ -240,6 +240,21 @@ function ensureVoiceFixtureHarness() {
   const status = document.createElement("span");
   status.id = "voice-fixture-status";
   status.textContent = "Choose a T01–T05 WAV; it will be sent as live microphone frames.";
+  const report = document.createElement("span");
+  report.id = "voice-fixture-report";
+  report.style.cssText = "margin-left:auto;opacity:.72;white-space:nowrap";
+  const renderReport = () => {
+    const debug = getSessionDebugReport?.();
+    if (!debug) return;
+    const audio = debug.audioMetrics || {};
+    const transport = debug.transportTelemetry || {};
+    const transcripts = debug.transcripts || {};
+    const user = transcripts.userTranscript ? "yes" : "no";
+    const ai = transcripts.aiTranscript ? "yes" : "no";
+    report.textContent = `frames ${audio.framesCaptured || 0} · sent ${transport.framesSent || 0} · ${transport.ready ? "ready" : "not-ready"} · ${transport.state || "unknown"} · user ${user} · ai ${ai}`;
+  };
+  renderReport();
+  window.setInterval(renderReport, 1000);
   input.addEventListener("change", async () => {
     const file = input.files?.[0];
     if (!file) return;
@@ -274,7 +289,7 @@ function ensureVoiceFixtureHarness() {
       input.value = "";
     }
   });
-  panel.append(label, input, status);
+  panel.append(label, input, status, report);
   document.body.appendChild(panel);
 }
 
