@@ -748,3 +748,55 @@ describe("VoiceOrchestrator playback-drain completion", () => {
     expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
   });
 });
+
+
+describe("VoiceOrchestrator reverse-order playback-drain completion", () => {
+  it("returns to listening when generationComplete arrives after playback drain", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+    const identity: GenerationIdentity = {
+      sessionGeneration: "session-1",
+      turnId: "turn-1",
+      providerResponseId: "response-1",
+      playbackGeneration: null,
+    };
+
+    publishAdapterEvent(bus, now, audioEvent(identity));
+    const generation = orchestrator.identity.playbackGeneration;
+    expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
+    expect(generation).toBeTruthy();
+
+    bus.publish(
+      createEventEnvelope({
+        messageId: "playback-drained-before-generation",
+        messageType: "playback.state",
+        sourceLayer: "playback",
+        topic: "voice.playback",
+        priority: "high",
+        timestampMono: ++now,
+        ttlMs: 10_000,
+        identity: { ...identity, playbackGeneration: generation },
+        correlationId: "orchestrator-reverse-order-test",
+        payload: {
+          state: "IDLE",
+          queueDepthMs: 0,
+          activeGenerationId: generation,
+          mainGain: 1,
+          backchannelGain: 0.4,
+          scheduledSources: 0,
+        },
+      }),
+    );
+    expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
+
+    publishAdapterEvent(bus, ++now, {
+      type: "PROVIDER_GENERATION_COMPLETE",
+      identity: { ...identity, playbackGeneration: generation },
+      payload: {},
+    });
+
+    expect(orchestrator.state).toBe("LISTENING");
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
+  });
+});
