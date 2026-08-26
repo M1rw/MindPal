@@ -19,9 +19,9 @@ let controllerPromise = null;
 // failure mode where import() reports a generic "failed to fetch dynamically
 // imported module" error even though the asset itself is reachable.
 const VOICE_RUNTIME_PATH = "/voice/assets/runtime.js";
-// Keep this deployment-scoped so a cached runtime cannot reference a chunk
-// hash from a previous immutable Vercel deployment.
-const VOICE_RUNTIME_VERSION = "voice-runtime-canonical-20260823";
+// Change this value whenever the runtime contract changes so a browser cannot
+// reuse a previous deployment's module graph or lifecycle implementation.
+const VOICE_RUNTIME_VERSION = "voice-runtime-ccc6f4d";
 const VOICE_RUNTIME_SCRIPT_ATTRIBUTE = "data-mindpal-voice-runtime";
 
 function getRuntimeFactory() {
