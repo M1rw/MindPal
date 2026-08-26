@@ -173,6 +173,11 @@ export function createVoiceController(): ProductionController {
     const durationMs = startTimeMs > 0 ? now - startTimeMs : 0;
     const memory = app?.memorySnapshot || null;
     const affect: AffectState | null = app?.affectSnapshot ?? null;
+    // Read the transport object directly as well as the event-driven cache.
+    // Fixture and capture frames can be sent in a tight browser turn; the
+    // direct snapshot keeps diagnostics truthful even if bus telemetry is
+    // briefly behind the WebSocket counter.
+    const liveTransport = app?.transportManager.snapshot;
 
     return {
       sessionId,
@@ -196,9 +201,13 @@ export function createVoiceController(): ProductionController {
       },
       transportTelemetry: {
         reconnectAttempts,
-        state: transportState,
-        ready: transportReady,
-        framesSent: transportFramesSent,
+        state: liveTransport?.state ?? transportState,
+        ready: liveTransport?.ready ?? transportReady,
+        framesSent: Math.max(
+          transportFramesSent,
+          liveTransport?.framesSent ?? 0,
+        ),
+        framesDropped: liveTransport?.framesDropped ?? 0,
         diagnosticsCount: diagnosticsLog.length,
         recentDiagnostics: [...diagnosticsLog.slice(-30)],
       },

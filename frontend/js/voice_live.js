@@ -242,7 +242,7 @@ function ensureVoiceFixtureHarness() {
   status.textContent = "Choose a T01–T05 WAV; it will be sent as live microphone frames.";
   const report = document.createElement("span");
   report.id = "voice-fixture-report";
-  report.style.cssText = "margin-left:auto;opacity:.72;white-space:nowrap";
+  report.style.cssText = "margin-left:auto;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw";
   const renderReport = () => {
     const debug = getSessionDebugReport?.();
     if (!debug) return;
@@ -251,7 +251,14 @@ function ensureVoiceFixtureHarness() {
     const transcripts = debug.transcripts || {};
     const user = transcripts.userTranscript ? "yes" : "no";
     const ai = transcripts.aiTranscript ? "yes" : "no";
-    report.textContent = `frames ${audio.framesCaptured || 0} · sent ${transport.framesSent || 0} · ${transport.ready ? "ready" : "not-ready"} · ${transport.state || "unknown"} · user ${user} · ai ${ai}`;
+    const signals = Array.isArray(transport.recentDiagnostics)
+      ? transport.recentDiagnostics
+          .map((item) => typeof item?.type === "string" ? item.type.replace(/^voice\\./, "") : "")
+          .filter(Boolean)
+          .slice(-3)
+          .join(",")
+      : "";
+    report.textContent = `frames ${audio.framesCaptured || 0} · sent ${transport.framesSent || 0} · ${transport.ready ? "ready" : "not-ready"} · ${transport.state || "unknown"} · user ${user} · ai ${ai} · signals ${signals || "none"}`;
   };
   renderReport();
   window.setInterval(renderReport, 1000);
@@ -264,6 +271,13 @@ function ensureVoiceFixtureHarness() {
       const pcm = await decodeFixtureWav(file);
       const startedAt = performance.now();
       let sent = 0;
+      const batchSize = 10;
+      const yieldToAudioAndNetwork = () => new Promise((resolve) => {
+        if (typeof window.requestAnimationFrame === "function")
+          window.requestAnimationFrame(() => resolve());
+        else if (typeof window.setTimeout === "function") window.setTimeout(resolve, 0);
+        else queueMicrotask(resolve);
+      });
       for (let offset = 0; offset < pcm.length; offset += 320) {
         const frameSamples = new Int16Array(320);
         frameSamples.set(pcm.subarray(offset, Math.min(offset + 320, pcm.length)));
@@ -280,9 +294,10 @@ function ensureVoiceFixtureHarness() {
           muted: false,
           rms,
         })) sent += 1;
+        if (sent > 0 && sent % batchSize === 0) await yieldToAudioAndNetwork();
       }
-      endAudioStream();
-      status.textContent = `Sent ${sent} live frames from ${file.name}; waiting for Gemini response.`;
+      const ended = endAudioStream();
+      status.textContent = `Sent ${sent} live frames from ${file.name}; end=${ended ? "ok" : "rejected"}; waiting for Gemini response.`;
     } catch (error) {
       status.textContent = `Fixture failed: ${error?.message || "invalid WAV"}`;
     } finally {
