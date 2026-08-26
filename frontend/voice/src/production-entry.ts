@@ -97,6 +97,7 @@ export function createVoiceController(): ProductionController {
   let transportFramesSent = 0;
   let transportReady = false;
   let transportState = "IDLE";
+  let recentTransportMessageTypes: string[] = [];
 
   const emitAudioState = (): void => {
     const faceState = app?.faceLayer.processPhaseAndState(
@@ -209,6 +210,7 @@ export function createVoiceController(): ProductionController {
         ),
         framesDropped: liveTransport?.framesDropped ?? 0,
         diagnosticsCount: diagnosticsLog.length,
+        recentMessageTypes: [...recentTransportMessageTypes],
         recentDiagnostics: [...diagnosticsLog.slice(-30)],
       },
 
@@ -372,6 +374,10 @@ export function createVoiceController(): ProductionController {
 
     if (envelope.messageType.startsWith("transport.")) {
       const payload = asRecord(envelope.payload);
+      if (envelope.messageType === "transport.message.received") {
+        const messageType = typeof payload.messageType === "string" ? payload.messageType : "unknown";
+        recentTransportMessageTypes = [...recentTransportMessageTypes, messageType].slice(-12);
+      }
       const diagnosticType =
         envelope.messageType === "transport.socket.opened"
           ? "voice.socket-opened"
@@ -426,6 +432,7 @@ export function createVoiceController(): ProductionController {
       transportFramesSent = 0;
       transportReady = false;
       transportState = "IDLE";
+      recentTransportMessageTypes = [];
       flushesCount = 0;
       interruptionsCount = 0;
       lastRms = 0;
