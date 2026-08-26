@@ -162,17 +162,14 @@ test("Voice runtime applies supported native capture constraints and provider-ow
   assert.match(source, /app\.start\(\{ startCapture: true \}\)/);
 });
 
-test("generated WAV fixture injection is explicitly gated and uses the live frame bridge", async () => {
+test("production Voice UI does not expose the temporary WAV fixture menu", async () => {
   const [liveSource, sessionSource, appSource] = await Promise.all([
     readFile(new URL("../frontend/js/voice_live.js", import.meta.url), "utf8"),
     readFile(new URL("../frontend/js/voice_session.js", import.meta.url), "utf8"),
     readFile(new URL("../frontend/voice/src/app.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(liveSource, /voice_fixture/);
-  assert.match(liveSource, /decodeFixtureWav/);
-  assert.match(liveSource, /injectAudioFrame/);
-  assert.match(liveSource, /endAudioStream/);
-  assert.match(liveSource, /setNativeCaptureSuppressed/);
+  assert.doesNotMatch(liveSource, /voice_fixture|voice-fixture|decodeFixtureWav/);
+  assert.match(liveSource, /startSession/);
   assert.match(sessionSource, /controller\?\.injectAudioFrame/);
   assert.match(sessionSource, /controller\?\.setNativeCaptureSuppressed/);
   assert.match(appSource, /public forwardCapturedFrame/);
