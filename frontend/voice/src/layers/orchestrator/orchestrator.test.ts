@@ -800,3 +800,62 @@ describe("VoiceOrchestrator reverse-order playback-drain completion", () => {
     expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
   });
 });
+
+
+describe("VoiceOrchestrator playback-drain fallback without generationComplete", () => {
+  it("returns to listening after observed provider audio drains", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+    const identity: GenerationIdentity = {
+      sessionGeneration: "session-1",
+      turnId: "turn-1",
+      providerResponseId: "response-1",
+      playbackGeneration: null,
+    };
+
+    publishAdapterEvent(bus, now, audioEvent(identity));
+    const generation = orchestrator.identity.playbackGeneration;
+    expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
+    expect(generation).toBeTruthy();
+
+    const publishPlayback = (messageId: string, timestampMono: number, payload: Record<string, unknown>) => {
+      bus.publish(
+        createEventEnvelope({
+          messageId,
+          messageType: "playback.state",
+          sourceLayer: "playback",
+          topic: "voice.playback",
+          priority: "high",
+          timestampMono,
+          ttlMs: 10_000,
+          identity: { ...identity, playbackGeneration: generation },
+          correlationId: "orchestrator-no-generation-complete-test",
+          payload,
+        }),
+      );
+    };
+
+    publishPlayback("playback-started-without-generation-complete", ++now, {
+      state: "PLAYING",
+      queueDepthMs: 80,
+      activeGenerationId: generation,
+      mainGain: 1,
+      backchannelGain: 0.4,
+      scheduledSources: 1,
+    });
+    expect(orchestrator.state).toBe("ASSISTANT_SPEAKING");
+
+    publishPlayback("playback-drained-without-generation-complete", ++now, {
+      state: "IDLE",
+      queueDepthMs: 0,
+      activeGenerationId: generation,
+      mainGain: 1,
+      backchannelGain: 0.4,
+      scheduledSources: 0,
+    });
+
+    expect(orchestrator.state).toBe("LISTENING");
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
+  });
+});

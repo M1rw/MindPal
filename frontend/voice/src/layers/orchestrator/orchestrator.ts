@@ -85,6 +85,8 @@ export class VoiceOrchestrator {
   private closedResponseId: string | null = null;
   private nativeCuePending = false;
   private generationComplete = false;
+  private outputAudioObserved = false;
+  private playbackEverActive = false;
   private lastPlaybackSnapshot: PlaybackDrainSnapshot | null = null;
   // Gemini output transcription is delivered independently of serverContent
   // and may arrive after turnComplete. Do not treat an anonymous late output
@@ -202,6 +204,8 @@ export class VoiceOrchestrator {
     this.turnOrder.clear();
     this.nativeCuePending = false;
     this.generationComplete = false;
+    this.outputAudioObserved = false;
+    this.playbackEverActive = false;
     this.lastPlaybackSnapshot = null;
     this.pendingUserActivity = false;
     this.resetLocalBargeIn();
@@ -411,6 +415,7 @@ export class VoiceOrchestrator {
     const stamped = this.stampEvent(event);
     if (stamped.type === "PROVIDER_GENERATION_COMPLETE")
       this.generationComplete = true;
+    if (stamped.type === "PROVIDER_AUDIO") this.outputAudioObserved = true;
     this.debug("identity stamped", stamped);
     this.applyProviderTransition(stamped);
     this.routeProviderEvent(stamped);
@@ -475,11 +480,24 @@ export class VoiceOrchestrator {
 
   private handlePlaybackEnvelope(envelope: LayerLinkEnvelope<unknown>): void {
     this.lastPlaybackSnapshot = envelope.payload as PlaybackDrainSnapshot;
+    const snapshot = this.lastPlaybackSnapshot;
+    if (
+      snapshot?.state === "PLAYING" ||
+      (typeof snapshot?.scheduledSources === "number" && snapshot.scheduledSources > 0) ||
+      (typeof snapshot?.queueDepthMs === "number" && snapshot.queueDepthMs > 0)
+    ) {
+      this.playbackEverActive = true;
+    }
     if (this.completeAfterPlaybackDrain()) this.emitSnapshot();
   }
 
   private completeAfterPlaybackDrain(): boolean {
-    if (!this.generationComplete || this.stateValue !== "ASSISTANT_SPEAKING")
+    const hasProviderCompletion = this.generationComplete;
+    const hasObservedAudioDrain = this.outputAudioObserved && this.playbackEverActive;
+    if (
+      (!hasProviderCompletion && !hasObservedAudioDrain) ||
+      this.stateValue !== "ASSISTANT_SPEAKING"
+    )
       return false;
     const snapshot = this.lastPlaybackSnapshot;
     if (!snapshot) return false;
@@ -750,6 +768,8 @@ export class VoiceOrchestrator {
     this.providerResponseClosedValue = false;
     this.nativeCuePending = false;
     this.generationComplete = false;
+    this.outputAudioObserved = false;
+    this.playbackEverActive = false;
     this.resetLocalBargeIn();
     this.playbackGeneration = nextPlaybackGeneration;
     this.transition({ kind: "interrupted" });
@@ -777,6 +797,8 @@ export class VoiceOrchestrator {
     this.providerResponseClosedValue = true;
     this.nativeCuePending = false;
     this.generationComplete = false;
+    this.outputAudioObserved = false;
+    this.playbackEverActive = false;
     this.pendingUserActivity = false;
     this.resetLocalBargeIn();
     this.playbackGeneration = null;
