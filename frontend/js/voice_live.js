@@ -267,7 +267,7 @@ function ensureVoiceFixtureHarness() {
       const pcm = await decodeFixtureWav(file);
       const startedAt = performance.now();
       let sent = 0;
-      const batchSize = 1;
+      const batchSize = 10;
       const yieldToAudioAndNetwork = () => new Promise((resolve) => {
         if (typeof window.requestAnimationFrame === "function")
           window.requestAnimationFrame(() => resolve());
@@ -292,8 +292,28 @@ function ensureVoiceFixtureHarness() {
         })) sent += 1;
         if (sent > 0 && sent % batchSize === 0) await yieldToAudioAndNetwork();
       }
+      // Automatic activity detection needs a natural trailing quiet interval before
+      // audioStreamEnd. The fixture is a microphone substitute, so send 800 ms of
+      // real-time silence rather than forcing ActivityEnd (which is invalid while
+      // automatic detection is enabled).
+      const silence = new Int16Array(40);
+      for (let tail = 0; tail < 40; tail += 1) {
+        if (injectAudioFrame({
+          frameId: `fixture-tail-${Date.now()}-${tail}`,
+          sequence: sent,
+          sampleRate: 16000,
+          channels: 1,
+          format: "pcm_s16le",
+          data: silence.buffer,
+          capturedAtMono: startedAt + sent * 20,
+          durationMs: 20,
+          muted: false,
+          rms: 0,
+        })) sent += 1;
+        if ((tail + 1) % batchSize === 0) await yieldToAudioAndNetwork();
+      }
       const ended = endAudioStream();
-      status.textContent = `Sent ${sent} live frames from ${file.name}; end=${ended ? "ok" : "rejected"}; waiting for Gemini response.`;
+      status.textContent = `Sent ${sent} live frames from ${file.name} (including silence tail); end=${ended ? "ok" : "rejected"}; waiting for Gemini response.`;
     } catch (error) {
       status.textContent = `Fixture failed: ${error?.message || "invalid WAV"}`;
     } finally {
