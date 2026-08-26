@@ -62,7 +62,7 @@ test("production facade loads Voice through a native module script and exposes a
     assert.equal(scripts.length, 1);
     assert.equal(scripts[0].type, "module");
     assert.equal(scripts[0].async, true);
-    assert.match(scripts[0].src, /^https:\/\/mindpal-demo\.vercel\.app\/voice\/assets\/runtime\.js\?v=voice-runtime-ccc6f4d$/);
+    assert.match(scripts[0].src, /^https:\/\/mindpal-demo\.vercel\.app\/voice\/assets\/runtime\.js\?v=voice-runtime-ddf626a$/);
     assert.equal(scripts[0].attributes.get("data-mindpal-voice-runtime"), "true");
   } finally {
     globalThis.window = previousWindow;

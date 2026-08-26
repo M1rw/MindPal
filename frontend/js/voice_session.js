@@ -21,7 +21,7 @@ let controllerPromise = null;
 const VOICE_RUNTIME_PATH = "/voice/assets/runtime.js";
 // Change this value whenever the runtime contract changes so a browser cannot
 // reuse a previous deployment's module graph or lifecycle implementation.
-const VOICE_RUNTIME_VERSION = "voice-runtime-ccc6f4d";
+const VOICE_RUNTIME_VERSION = "voice-runtime-ddf626a";
 const VOICE_RUNTIME_SCRIPT_ATTRIBUTE = "data-mindpal-voice-runtime";
 
 function getRuntimeFactory() {
