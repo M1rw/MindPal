@@ -564,7 +564,7 @@
         <!-- ── Top bar ── -->
         <header class="relative z-20 flex items-center justify-between px-5 pt-safe-top pb-2 w-full">
             <button id="voice-live-close"
-                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                     title="Close"
                     aria-label="Close voice call">
                 <i data-lucide="arrow-left" class="w-5 h-5"></i>
@@ -577,14 +577,14 @@
 
             <div class="flex items-center gap-1">
                 <button id="voice-incognito-toggle"
-                        class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
+                        class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                         title="Do not add this call to chat history"
                         aria-label="Do not add this call to chat history"
                         aria-pressed="false">
                     <i data-lucide="eye" class="w-5 h-5"></i>
                 </button>
                 <button id="voice-cc-toggle"
-                        class="min-w-10 h-10 px-2 flex items-center justify-center gap-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
+                        class="min-w-10 h-10 px-2 flex items-center justify-center gap-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                         title="Hide captions"
                         aria-label="Hide captions"
                         aria-pressed="true">
@@ -621,15 +621,18 @@
             <!-- Action row — frosted glass buttons -->
             <div class="flex items-center gap-3 p-1.5 rounded-2xl bg-white/70 dark:bg-white/[0.07] backdrop-blur-xl border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
                 <button id="voice-live-close-bottom"
-                        class="h-11 px-5 flex items-center gap-2 rounded-xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 text-[13px] font-semibold hover:bg-red-500/20 dark:hover:bg-red-500/25 transition-all active:scale-95"
-                        title="End voice">
+                        class="h-11 px-5 flex items-center gap-2 rounded-xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 text-[13px] font-semibold hover:bg-red-500/20 dark:hover:bg-red-500/25 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                        title="End voice call"
+                        aria-label="End voice call">
                     <i data-lucide="phone-off" class="w-4 h-4"></i>
                     End
                 </button>
 
                 <button id="voice-mute-toggle"
-                        class="h-11 px-5 flex items-center gap-2 rounded-xl bg-black/[0.04] dark:bg-white/10 text-gray-700 dark:text-gray-200 text-[13px] font-semibold hover:bg-black/[0.08] dark:hover:bg-white/15 transition-all active:scale-95"
-                        title="Mute/Unmute microphone">
+                        class="h-11 px-5 flex items-center gap-2 rounded-xl bg-black/[0.04] dark:bg-white/10 text-gray-700 dark:text-gray-200 text-[13px] font-semibold hover:bg-black/[0.08] dark:hover:bg-white/15 transition-all active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                        title="Mute microphone"
+                        aria-label="Mute microphone"
+                        aria-pressed="false">
                     <i data-lucide="mic" class="w-4 h-4"></i>
                     <span id="voice-mute-label">Mute</span>
                 </button>

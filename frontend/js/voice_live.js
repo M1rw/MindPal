@@ -541,6 +541,12 @@ function updateMicUI(muted) {
   const muteIcon = muteBtn?.querySelector("[data-lucide]");
   const muteLabel = document.getElementById("voice-mute-label");
 
+  if (muteBtn) {
+    muteBtn.setAttribute("aria-pressed", String(muted));
+    muteBtn.setAttribute("aria-label", muted ? "Unmute microphone" : "Mute microphone");
+    muteBtn.setAttribute("title", muted ? "Unmute microphone" : "Mute microphone");
+  }
+
   if (muteIcon) muteIcon.setAttribute("data-lucide", muted ? "mic-off" : "mic");
   if (muteLabel) muteLabel.textContent = muted ? "Unmute" : "Mute";
 
