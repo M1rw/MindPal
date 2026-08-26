@@ -134,6 +134,7 @@ export class VoiceV3App {
   private lastMemoryContext: string | null = null;
   private lastMemoryRecord: LocalMemoryRecord | null = null;
   private deferredCaptureDiagnosticReported = false;
+  private nativeCaptureSuppressed = false;
 
   public constructor(options: VoiceV3AppOptions = {}) {
     const productionMode =
@@ -315,7 +316,7 @@ export class VoiceV3App {
     this.captureManager = new CaptureManager({
       onMetrics: (metrics) => this.publishCaptureMetrics(metrics),
       onFrame: (frame) => {
-        this.forwardCapturedFrame(frame);
+        if (!this.nativeCaptureSuppressed) this.forwardCapturedFrame(frame);
       },
       onDiagnostic: (diagnostic) => this.publishCaptureDiagnostic(diagnostic),
     });
@@ -396,6 +397,10 @@ export class VoiceV3App {
   public endCapturedAudio(): boolean {
     if (!this.transportManager.isReady) return false;
     return this.transportManager.sendAudioStreamEnd();
+  }
+
+  public setNativeCaptureSuppressed(suppressed: boolean): void {
+    this.nativeCaptureSuppressed = Boolean(suppressed);
   }
 
   public forwardCapturedFrame(frame: AudioFrame): boolean {

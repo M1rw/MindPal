@@ -32,6 +32,7 @@ type ProductionController = {
   sendTextToModel: (text: string) => boolean;
   injectAudioFrame: (frame: AudioFrame) => boolean;
   endAudioStream: () => boolean;
+  setNativeCaptureSuppressed: (suppressed: boolean) => void;
   getSessionState: () => Record<string, unknown>;
   getSessionDebugReport: () => Record<string, unknown>;
   getTranscriptSnapshot: () => { userTranscript: string; aiTranscript: string };
@@ -534,6 +535,10 @@ export function createVoiceController(): ProductionController {
     endAudioStream(): boolean {
       if (!active || !app) return false;
       return app.endCapturedAudio();
+    },
+
+    setNativeCaptureSuppressed(suppressed: boolean): void {
+      app?.setNativeCaptureSuppressed(suppressed);
     },
 
     getSessionState(): Record<string, unknown> {
