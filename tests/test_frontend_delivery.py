@@ -7,10 +7,11 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-favicon_router = importlib.import_module("backend.api.favicon_router")
 from backend.api.dependencies import get_services
 from backend.core.config import Settings
 from backend.main import create_app
+
+favicon_router = importlib.import_module("backend.api.favicon_router")
 
 
 app = create_app(
@@ -103,8 +104,7 @@ def test_runtime_config_and_bundles_are_served() -> None:
     assert app_bundle.status_code == 200 and len(app_bundle.content) > 100_000
     assert icon_bundle.status_code == 200 and len(icon_bundle.content) > 5_000
     assert css_bundle.status_code == 200 and len(css_bundle.content) > 10_000
-    assert capture_worklet.status_code == 200
-    assert "registerProcessor" in capture_worklet.text
+    assert capture_worklet.status_code == 404
 
 
 def test_runtime_config_disables_firebase_when_server_provider_unconfigured() -> None:

@@ -135,15 +135,6 @@ class Settings(BaseSettings):
 
     # ── LLM Provider Secrets ─────────────────────────────────────
     GEMINI_API_KEY: SecretStr | None = Field(default=None, repr=False)
-    # Production handshake isolation: use Gemini 2.5 Native Audio as the
-    # primary while the constrained ephemeral-token socket is diagnosed.
-    # The fallback remains the same model so this deployment makes one clean
-    # 2.5-only session attempt; restore 3.1 after the transport is proven.
-    GEMINI_LIVE_MODEL: str = Field(default="gemini-2.5-flash-native-audio-preview-12-2025", min_length=1, max_length=120)
-    GEMINI_LIVE_FALLBACK_MODEL: str = Field(default="gemini-2.5-flash-native-audio-preview-12-2025", min_length=1, max_length=120)
-    GEMINI_TRANSCRIPTION_MODEL: str = Field(default="gemini-3.1-flash-lite", min_length=1, max_length=120)
-    VOICE_TOKEN_TTL_SECONDS: int = Field(default=1800, ge=300, le=1800)
-    VOICE_NEW_SESSION_TTL_SECONDS: int = Field(default=60, ge=30, le=60)
     OPENROUTER_API_KEY: SecretStr | None = Field(default=None, repr=False)
     GROQ_API_KEY: SecretStr | None = Field(default=None, repr=False)
 
@@ -162,9 +153,6 @@ class Settings(BaseSettings):
     # ── Safety / External APIs ───────────────────────────────────
     PERSPECTIVE_API_KEY: SecretStr | None = Field(default=None, repr=False)
     CAMB_API_KEY: SecretStr | None = Field(default=None, repr=False)
-    # Voice IDs are deliberately unset by default; PersonaVoiceCatalog rejects missing mappings.
-    CAMB_KORE_VOICE_ID: str | None = Field(default=None, max_length=120)
-    CAMB_CHARON_VOICE_ID: str | None = Field(default=None, max_length=120)
 
     # ── LLM Provider Order ───────────────────────────────────────
     LLM_PROVIDER_ORDER: str = Field(default="cloudflare,gemini,openrouter,groq")
@@ -207,13 +195,6 @@ class Settings(BaseSettings):
     ENABLE_FIREBASE: bool = False
     ENABLE_PERSPECTIVE: bool = False
     ENABLE_TTS: bool = False
-    VOICE_V3_ENABLED: bool = False
-    VOICE_V3_VERBAL_CUES_ENABLED: bool = True
-    VOICE_V3_PROSODY_CONTEXT_ENABLED: bool = True
-    VOICE_V3_MEMORY_ENABLED: bool = True
-    VOICE_V3_CLARIFICATION_ENABLED: bool = True
-    VOICE_V3_ENABLED_PERSONAS: str = Field(default="Kore,Charon", max_length=500)
-    VOICE_V3_ROLLOUT_PERCENT: int = Field(default=0, ge=0, le=100)
 
     # Service-level feature flags (previously read via os.getenv in dependencies.py)
     ALLOW_ANONYMOUS_SESSIONS: bool = False
@@ -256,15 +237,8 @@ class Settings(BaseSettings):
     CHAT_RATE_LIMIT_PER_MINUTE: int = Field(default=12, ge=1, le=10_000)
     TOOL_RATE_LIMIT_PER_MINUTE: int = Field(default=20, ge=1, le=10_000)
     WEB_SEARCH_RATE_LIMIT_PER_HOUR: int = Field(default=10, ge=1, le=10_000)
-    VOICE_RATE_LIMIT_PER_MINUTE: int = Field(default=10, ge=1, le=10_000)
-    # A Live connection can require a fresh one-use token roughly every ten
-    # minutes. Sixteen per hour covers normal renewal plus bounded recovery.
-    VOICE_TOKEN_RATE_LIMIT_PER_HOUR: int = Field(default=16, ge=1, le=10_000)
     TTS_RATE_LIMIT_PER_MINUTE: int = Field(default=15, ge=1, le=10_000)
     SAFETY_DIAGNOSTIC_RATE_LIMIT_PER_MINUTE: int = Field(default=10, ge=1, le=10_000)
-    # This is charged per one-use transport credential. Reconnects are part of
-    # one user call, so keep the credential cost low enough for long sessions.
-    VOICE_SESSION_QUOTA_COST: int = Field(default=1, ge=1, le=100)
     PROVIDER_OPERATION_QUOTA_COST: int = Field(default=1, ge=1, le=100)
     MAX_CONCURRENT_CHAT_REQUESTS_PER_USER: int = Field(default=2, ge=1, le=20)
     CHAT_CONCURRENCY_QUEUE_TIMEOUT_SECONDS: float = Field(default=0.10, ge=0.0, le=5.0)

@@ -3,9 +3,8 @@
 """
 Chat history search tools for MindPal.
 
-Server-side replacement for the frontend-only get_recent_chat and
-search_chat_history tools that were in voice_session.js. These access
-Firestore chat snapshots instead of just frontend localStorage.
+Server-side chat-history tools that access Firestore snapshots instead of
+only frontend localStorage.
 """
 
 from __future__ import annotations
@@ -27,7 +26,6 @@ class GetRecentChatTool(BaseTool):
     """
     Get the most recent text chat messages.
 
-    Migrated from: frontend/js/voice_session.js → get_recent_chat
     """
 
     @property
@@ -113,7 +111,6 @@ class SearchChatHistoryTool(BaseTool):
     """
     Search through chat history for messages matching a query.
 
-    Migrated from: frontend/js/voice_session.js → search_chat_history
     """
 
     @property
