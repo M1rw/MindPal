@@ -79,15 +79,6 @@ def assert_static_invariants() -> None:
         if "quick_llm_generate" in text:
             violations.append(f"{path.relative_to(ROOT)} references retired quick_llm_generate")
 
-    voice_router = (ROOT / "backend/api/voice_router.py").read_text(encoding="utf-8")
-    if '@router.get("/key", status_code=status.HTTP_410_GONE)' not in voice_router:
-        violations.append("legacy /api/voice/key route is not explicitly retired with HTTP 410")
-    retired_start = voice_router.find("async def retired_voice_key_endpoint")
-    retired_end = voice_router.find("async def _create_ephemeral_voice_token", retired_start)
-    retired_body = voice_router[retired_start:retired_end]
-    if "GEMINI_API_KEY" in retired_body or '"key"' in retired_body:
-        violations.append("retired /api/voice/key endpoint may disclose a provider key")
-
     runtime_config = (ROOT / "frontend/runtime-config.js").read_text(encoding="utf-8").lower()
     for secret_name in ("gemini_api_key", "openrouter_api_key", "groq_api_key", "private_key"):
         if secret_name in runtime_config:
@@ -153,7 +144,6 @@ def smoke_production_configuration() -> None:
     required_paths = {
         "/api/chat",
         "/api/chat/stream",
-        "/api/voice/token",
         "/api/memory/v3",
         "/api/tools/execute",
     }

@@ -16,10 +16,6 @@ REQUIRED_OUTPUTS = {
     "frontend/dist/lucide.bundle.js": 5_000,
     "frontend/dist/app.bundle.js": 100_000,
     "frontend/dist/brain.bundle.js": 1_000,
-    "frontend/dist/voice-auth.bundle.js": 100_000,
-    "frontend/voice/public/assets/voice-auth.bundle.js": 100_000,
-    "frontend/voice/index.html": 200,
-    "frontend/voice/assets/runtime.js": 10_000,
 }
 
 
@@ -36,14 +32,9 @@ def main() -> None:
         if size < minimum_bytes:
             fail(f"generated output {name} is unexpectedly small ({size} bytes)")
 
-    capture_processors = list((ROOT / "frontend/voice/assets").glob("capture-processor-*.js"))
-    if not capture_processors:
-        fail("missing generated Voice AudioWorklet capture processor")
-
     print(
         "Frontend build verified: "
-        f"{len(REQUIRED_OUTPUTS)} required outputs and "
-        f"{len(capture_processors)} Voice worklet output(s)."
+        f"{len(REQUIRED_OUTPUTS)} required non-Voice outputs."
     )
 
 

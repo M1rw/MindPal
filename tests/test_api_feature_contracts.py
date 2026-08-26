@@ -206,9 +206,6 @@ async def test_core_feature_routes_have_working_authenticated_contracts() -> Non
             assert "".join(event.get("text", "") for event in events)
             assert any(event.get("type") == "metadata" for event in events)
 
-            voice_unavailable = await client.get("/api/voice/token", headers=headers)
-            assert voice_unavailable.status_code == 503
-            assert voice_unavailable.json()["code"] == "gemini_not_configured"
 
 
 @pytest.mark.asyncio
@@ -249,16 +246,6 @@ async def test_feature_routes_fail_closed_for_malformed_or_unavailable_inputs() 
             malformed_chat = await client.post("/api/chat", headers=headers, json={"message": ""})
             assert malformed_chat.status_code == 422
 
-            malformed_voice = await client.post(
-                "/api/voice/transcribe",
-                headers=headers,
-                json={"audio_base64": "abc", "mime_type": "text/plain"},
-            )
-            assert malformed_voice.status_code == 422
-
-            retired_key = await client.get("/api/voice/key", headers=headers)
-            assert retired_key.status_code == 410
-            assert retired_key.json()["code"] == "voice_key_endpoint_retired"
 
             unauthenticated_app = create_app(_settings())
             unauth_transport = httpx.ASGITransport(app=unauthenticated_app)

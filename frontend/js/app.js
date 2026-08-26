@@ -68,7 +68,6 @@ import {
   getStreakSnapshot,
 } from "./ui_state.js";
 
-import { initLiveVoice, startLiveVoice } from "./voice_live.js";
 import { emitNeuralEvent, emitSafeModeRuntimeTrace } from "./neural_telemetry.js";
 
 import {
@@ -184,74 +183,6 @@ export function removeGlobalLoader() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Voice context provider
-// ═══════════════════════════════════════════════════════════════
-
-function buildVoiceContextProvider() {
-  return {
-    getUserProfile() {
-      const user = getCurrentUser?.() || {};
-      const graph = getMemoryGraphContext();
-      const activeAtoms = (graph?.atoms || []).filter((atom) => atom.status === "active");
-      const preferredName = activeAtoms.find((atom) => atom.category === "profile" && atom.metadata?.field === "preferred_name")?.value || "";
-      const preferenceValues = activeAtoms.filter((atom) => atom.category === "preferences").map((atom) => atom.value);
-      const avoidValues = activeAtoms.filter((atom) => atom.category === "avoid").map((atom) => atom.value);
-      const patternValues = activeAtoms.filter((atom) => atom.category === "patterns").map((atom) => atom.value);
-      const goalValues = activeAtoms.filter((atom) => atom.category === "goals").map((atom) => atom.value);
-      const name = user?.displayName || user?.name || preferredName || "";
-
-      const genderAtom = activeAtoms.find((atom) =>
-        ["profile", "facts"].includes(atom.category)
-        && /\b(male|female|boy|girl|man|woman|ذكر|انثى|أنثى|ولد|بنت|راجل|ست)\b/i.test(atom.value || "")
-      );
-      let gender = "";
-      if (genderAtom) {
-        const value = String(genderAtom.value || "").toLowerCase();
-        if (/\b(male|boy|man|ذكر|ولد|راجل)\b/i.test(value)) gender = "male";
-        else if (/\b(female|girl|woman|انثى|أنثى|بنت|ست)\b/i.test(value)) gender = "female";
-      }
-
-      const tone = preferenceValues.find((value) => /\b(direct|gentle|casual|formal|warm|empathetic)\b/i.test(value)) || "";
-      const language = preferenceValues.find((value) => /\b(arabic|english|french|spanish|عربي|انجليزي|إنجليزي)\b/i.test(value)) || "";
-
-      return {
-        name,
-        gender,
-        preferences: {
-          tone,
-          language,
-          responseStyle: preferenceValues,
-          avoid: avoidValues,
-        },
-        communication: {
-          avoidedResponses: avoidValues,
-          emotionalTriggers: patternValues,
-          userGoals: goalValues,
-        },
-      };
-    },
-    getMemoryLines() {
-      return buildMemoryGraphLines(getMemoryGraphContext()).slice(0, 30);
-    },
-    getRecentChat(count = 10) {
-      const messages = getState().chatMemory || [];
-      return messages.slice(-Math.min(count, 20));
-    },
-    searchChat(query) {
-      const messages = getState().chatMemory || [];
-      const q = String(query || "").toLowerCase();
-      return messages.filter((message) => String(message.text || "").toLowerCase().includes(q));
-    },
-    getVoiceResponseContract() {
-      return {
-        model: getCurrentModel(),
-        mode: getCurrentMode(),
-      };
-    },
-  };
-}
-
-// ═══════════════════════════════════════════════════════════════
 // Console banner
 // ═══════════════════════════════════════════════════════════════
 
@@ -331,52 +262,6 @@ async function bootstrap() {
 
     initNotifications({ showToast, getStreakSnapshot });
     initUsageTracker({ showToast });
-
-    initLiveVoice({
-      onChatSync: (callData) => {
-        const { userTranscript, aiTranscript, startTime, endTime, durationMs } = callData;
-        if (!userTranscript && !aiTranscript) return;
-
-        const totalSec = Math.round(durationMs / 1000);
-        const mins = Math.floor(totalSec / 60);
-        const secs = totalSec % 60;
-        const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-
-        const callMsg = addMessage("MindPal", `[Voice Call] ${durationStr}`, {
-          type: "voice_call",
-          voiceCall: { startTime, endTime, durationMs, durationStr, userTranscript, aiTranscript },
-        });
-
-        if (callMsg) {
-          setChatStarted(true);
-          insertCallCardUI({ startTime, durationStr, userTranscript, aiTranscript });
-        }
-
-        if (userTranscript) {
-          const graphResult = classifyAndStoreMemoryGraphFromMessage(userTranscript, {
-            graphContext: getMemoryGraphContext(),
-            source: "voice_call",
-          });
-          const canonicalGraph = saveMemoryGraphContext(graphResult.graph);
-          setMemoryGraphContext(canonicalGraph);
-          setMemoryContext(canonicalGraph);
-          if (graphResult.saved.length) {
-            renderMemoryInspector();
-            void persistMemoryContextSafe();
-          }
-        }
-
-        scrollChatToBottom("smooth", true);
-      },
-    });
-
-    const mainVoiceBtn = document.getElementById("voice-btn");
-    if (mainVoiceBtn) {
-      mainVoiceBtn.addEventListener("click", () => {
-        if (isGenerating || isSessionLocked) return;
-        startLiveVoice(buildVoiceContextProvider());
-      });
-    }
 
     renderPersistedChat();
     updateProfileUI(getCurrentUser());

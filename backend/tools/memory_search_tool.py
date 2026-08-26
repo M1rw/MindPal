@@ -3,9 +3,8 @@
 """
 Memory search tools for MindPal.
 
-Server-side replacement for the frontend-only search_memory and get_user_profile
-tools that were in voice_session.js. These access real Firestore data instead of
-just frontend localStorage.
+Server-side memory tools that access the user's Firestore data instead of
+only frontend localStorage.
 """
 
 from __future__ import annotations
@@ -29,7 +28,6 @@ class MemorySearchTool(BaseTool):
     Search the user's saved memory graph for personal facts, relationships,
     preferences, patterns, coping tools, and past context.
 
-    Migrated from: frontend/js/voice_session.js → search_memory
     """
 
     @property
@@ -89,7 +87,6 @@ class GetUserProfileTool(BaseTool):
     """
     Get the current user's profile including name, preferences, and communication style.
 
-    Migrated from: frontend/js/voice_session.js → get_user_profile
     """
 
     @property

@@ -19,12 +19,11 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from backend.api import api_router
-from backend.api.dependencies import close_service_container, get_service_container, get_services, reset_service_container_for_tests
+from backend.api.dependencies import close_service_container, get_service_container, reset_service_container_for_tests
 from backend.core.config import Settings, get_settings
 from backend.core.errors import AppError
 from backend.core.middleware import RequestBodyLimitMiddleware
 from backend.core.security import generate_request_id, sanitize_text
-from backend.services.voice_v3_launch_gate import validate_production_voice_configuration
 
 
 MAX_ERROR_MESSAGE_CHARS = 700
@@ -33,8 +32,6 @@ MAX_HEADER_CHARS = 120
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
-VOICE_DIR = FRONTEND_DIR / "voice"
-VOICE_V3_DIR = VOICE_DIR
 logger = logging.getLogger("mindpal.request")
 
 
@@ -47,18 +44,6 @@ async def lifespan(app: FastAPI):
     not called here.
     """
     try:
-        settings = getattr(app.state, "settings", None) or get_settings()
-        launch_validation = validate_production_voice_configuration(settings)
-        app.state.voice_v3_launch = launch_validation
-        if launch_validation.errors:
-            logger.error(
-                "voice_v3_launch_gate failed enabled=%s verbal_cues_enabled=%s errors=%s",
-                launch_validation.enabled,
-                launch_validation.verbal_cues_enabled,
-                ",".join(launch_validation.errors),
-            )
-        elif launch_validation.enabled:
-            logger.info("voice_v3_launch_gate passed personas=%s", ",".join(launch_validation.enabled_personas))
         yield
     finally:
         container = getattr(app.state, "service_container", None)
@@ -336,7 +321,6 @@ def _install_frontend_routes(app: FastAPI) -> None:
         "/js": FRONTEND_DIR / "js",
         "/dist": FRONTEND_DIR / "dist",
         "/assets": FRONTEND_DIR / "assets",
-        "/voice/assets": VOICE_DIR / "assets",
     }
 
     for prefix, directory in static_mounts.items():
@@ -382,12 +366,6 @@ def _install_frontend_routes(app: FastAPI) -> None:
             provider_configured = FirebaseAuthProvider(settings=settings).is_configured
         payload = {
             "API_BASE_URL": api_base_url,
-            "VOICE_DEBUG": False,
-            "VOICE_ARCHITECTURE_V2": False,
-            "VOICE_ARCHITECTURE_V3": True,
-            "VOICE_V2_BACKCHANNEL": False,
-            "VOICE_V2_LOCAL_CUES": False,
-            "VOICE_V2_CUE_AUDIO": {},
             "SHOW_RESPONSE_DEBUG": False,
             "FIREBASE_APPCHECK_SITE_KEY": str(
                 getattr(settings, "FIREBASE_APPCHECK_SITE_KEY", "") or ""
@@ -436,15 +414,6 @@ def _install_frontend_routes(app: FastAPI) -> None:
     @app.get("/sitemap.xml", include_in_schema=False)
     async def sitemap_xml() -> FileResponse:
         return FileResponse(FRONTEND_DIR / "sitemap.xml", media_type="application/xml")
-
-    @app.get("/voice-review", include_in_schema=False)
-    @app.get("/voice-v3-review", include_in_schema=False)
-    async def voice_review_page() -> FileResponse:
-        return FileResponse(
-            VOICE_DIR / "index.html",
-            media_type="text/html; charset=utf-8",
-            headers={"Cache-Control": "no-cache"},
-        )
 
     @app.get("/privacy", include_in_schema=False)
     async def privacy_page() -> FileResponse:

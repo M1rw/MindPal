@@ -669,5 +669,4 @@ def test_openapi_generation_resolves_all_route_dependencies() -> None:
     assert "/api/chat" in paths
     assert "/api/chat/stream" in paths
     assert "/api/tools/list" in paths
-    assert "/api/voice/token" in paths
     assert "/api/memory/v3" in paths

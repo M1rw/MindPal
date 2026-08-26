@@ -438,7 +438,7 @@ class ResponseIntelligenceService:
                 if repaired and _reply_matches_expected_language(repaired, expected):
                     return LanguageMatchOutcome(reply=repaired, corrected=True, provider=provider)
             except Exception:
-                pass
+                pass  # nosec B110 - quality repair is explicitly best effort
 
         return LanguageMatchOutcome(
             reply=_language_mismatch_fallback(expected),
@@ -562,7 +562,7 @@ class ResponseIntelligenceService:
                 )
         except Exception:
             # Quality improvement must never interrupt a safe chat response.
-            pass
+            pass  # nosec B110 - quality repair is explicitly best effort
 
         return ResponseQualityOutcome(reply=original, evaluation=evaluation)
 

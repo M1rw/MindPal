@@ -5,12 +5,13 @@ import inspect
 
 import pytest
 
-chat_router_module = importlib.import_module("backend.api.chat_router")
-chat_stream_router_module = importlib.import_module("backend.api.chat_stream_router")
 from backend.core.message_classifier import classify_message
 from backend.core.prompt_builder import build_tiered_prompt
 from backend.core.prompts import build_system_prompt
 from backend.services.response_quality_service import finalize_user_reply
+
+chat_router_module = importlib.import_module("backend.api.chat_router")
+chat_stream_router_module = importlib.import_module("backend.api.chat_stream_router")
 
 
 @pytest.mark.parametrize(

@@ -23,11 +23,6 @@
 
   const config = {
     API_BASE_URL: defaultApiBase,
-    VOICE_DEBUG: false,
-    VOICE_ARCHITECTURE_V2: true,
-    VOICE_V2_BACKCHANNEL: true,
-    VOICE_V2_LOCAL_CUES: false,
-    VOICE_V2_CUE_AUDIO: {},
     SHOW_RESPONSE_DEBUG: false,
     FIREBASE_APPCHECK_SITE_KEY: String(deploymentOverrides.FIREBASE_APPCHECK_SITE_KEY || "").trim(),
     ...deploymentOverrides,
