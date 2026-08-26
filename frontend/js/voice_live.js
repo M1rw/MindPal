@@ -444,6 +444,10 @@ function handleVoiceDiagnostic(event = {}) {
   else if (event?.type === "voice.input.waiting") diagnosticStatus.textContent = "Waiting for microphone input…";
   else if (event?.type === "voice.capture-error") diagnosticStatus.textContent = "Microphone unavailable — check browser permissions";
   else if (event?.type === "voice.capture-stopped") diagnosticStatus.textContent = "Microphone stopped";
+  else if (event?.type === "voice.playback.error" || event?.type === "voice.provider-error") {
+    diagnosticStatus.textContent = "Voice audio unavailable — please try again";
+    setVoiceFaceState({ phase: "error", error: true });
+  }
   else if (event?.type === "voice.provider-ready-timeout" || event?.type === "provider.error" || event?.type === "provider.closed") diagnosticStatus.textContent = "Voice connection failed — please try again";
 
 }
