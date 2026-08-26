@@ -138,10 +138,19 @@ export function createVoiceController(): ProductionController {
         app?.captureManager.getMetrics().framesEmitted ?? 0,
       );
       const noCaptureFrames = framesCaptured === 0 && actualCaptureFrames === 0;
-      if (!active || micMuted || userTranscript.trim() || !noCaptureFrames) return;
+      const noTransportFrames = transportFramesSent === 0;
+      if (
+        !active ||
+        micMuted ||
+        userTranscript.trim() ||
+        (!noCaptureFrames && !noTransportFrames)
+      )
+        return;
       recordDiagnostic({
         type: "voice.input.waiting",
-        reason: "no-microphone-frames",
+        reason: noCaptureFrames
+          ? "no-microphone-frames"
+          : "capture-before-transport-ready",
         framesCaptured: actualCaptureFrames,
         transportFramesSent,
         transportReady,
@@ -297,6 +306,12 @@ export function createVoiceController(): ProductionController {
         recordDiagnostic({ type: "voice.capture-started" });
       } else if (envelope.messageType === "capture.capture-stopped") {
         recordDiagnostic({ type: "voice.capture-stopped" });
+      } else if (envelope.messageType === "capture.frame-deferred") {
+        recordDiagnostic({
+          type: "voice.input.deferred",
+          reason: payload.reason || "transport-not-ready",
+          sequence: numberOr(payload.sequence, 0),
+        });
       }
       if (envelope.messageType !== "capture.metrics.updated") return;
     }
@@ -333,7 +348,12 @@ export function createVoiceController(): ProductionController {
 
     if (envelope.messageType === "transport.setup.complete") {
       transportReady = true;
-      if (active && !micMuted && framesCaptured === 0 && !userTranscript.trim())
+      if (
+        active &&
+        !micMuted &&
+        !userTranscript.trim() &&
+        (framesCaptured === 0 || transportFramesSent === 0)
+      )
         armInputWatchdog();
       return;
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEventEnvelope } from "./core/message-bus";
-import type { GenerationIdentity } from "./core/layer-link";
+import type { AudioFrame, GenerationIdentity } from "./core/layer-link";
 import { MockGeminiServer } from "./debug/mock-gemini-server";
 import { VoiceV3App } from "./app";
 
@@ -8,7 +8,11 @@ class IntegrationAudioContext {
   public state: AudioContextState = "running";
   public currentTime = 0;
   public readonly destination = {} as AudioDestinationNode;
-  public readonly scheduledSources: Array<{ startTime: number; duration: number; stopped: boolean }> = [];
+  public readonly scheduledSources: Array<{
+    startTime: number;
+    duration: number;
+    stopped: boolean;
+  }> = [];
 
   public createGain(): GainNode {
     return {
@@ -30,7 +34,11 @@ class IntegrationAudioContext {
     return { connect: () => undefined } as unknown as AnalyserNode;
   }
 
-  public createBuffer(_channels: number, length: number, sampleRate: number): AudioBuffer {
+  public createBuffer(
+    _channels: number,
+    length: number,
+    sampleRate: number,
+  ): AudioBuffer {
     return {
       duration: length / sampleRate,
       copyToChannel: () => undefined,
@@ -59,7 +67,41 @@ class IntegrationAudioContext {
   }
 }
 
-function publishCaptureFrame(app: VoiceV3App, identity: GenerationIdentity, timestampMono: number, sequence: number, rms: number): void {
+function createDirectCaptureFrame(sequence: number): AudioFrame {
+  return {
+    frameId: `direct-capture-${sequence}`,
+    sequence,
+    sampleRate: 16_000,
+    channels: 1,
+    format: "pcm_s16le",
+    data: new ArrayBuffer(640),
+    capturedAtMono: sequence * 20,
+    durationMs: 20,
+    muted: false,
+    rms: 0.1,
+  };
+}
+
+function invokeCaptureCallback(app: VoiceV3App, frame: AudioFrame): void {
+  const captureWithWorkletHandler = app.captureManager as unknown as {
+    handleWorkletMessage?: (message: {
+      type: "capture.frame";
+      frame: AudioFrame;
+    }) => void;
+  };
+  captureWithWorkletHandler.handleWorkletMessage?.({
+    type: "capture.frame",
+    frame,
+  });
+}
+
+function publishCaptureFrame(
+  app: VoiceV3App,
+  identity: GenerationIdentity,
+  timestampMono: number,
+  sequence: number,
+  rms: number,
+): void {
   app.bus.publish(
     createEventEnvelope({
       messageId: `integration-frame-${sequence}`,
@@ -152,24 +194,58 @@ describe("Voice V3 MockGeminiServer integration", () => {
     expect(messages).toContain("ORCHESTRATOR_AUDIO_EVENT");
     expect(audioContext.scheduledSources.length).toBeGreaterThan(0);
 
-    const previousPlaybackGeneration = app.orchestrator.identity.playbackGeneration;
+    const previousPlaybackGeneration =
+      app.orchestrator.identity.playbackGeneration;
     for (let sequence = 132; sequence < 135; sequence += 1) {
       now += 20;
       publishCaptureFrame(app, identity, now, sequence, 0.1);
     }
     expect(messages).toContain("ORCHESTRATOR_FLUSH_PLAYBACK");
-    expect(app.orchestrator.identity.playbackGeneration).not.toBe(previousPlaybackGeneration);
+    expect(app.orchestrator.identity.playbackGeneration).not.toBe(
+      previousPlaybackGeneration,
+    );
     expect(app.orchestrator.state).toBe("INTERRUPTED");
 
     server.simulateInterruption();
     await Promise.resolve();
-    expect(messages.filter((message) => message === "ORCHESTRATOR_FLUSH_PLAYBACK").length).toBeGreaterThanOrEqual(2);
-    expect(app.orchestrator.identity.playbackGeneration).not.toBe(previousPlaybackGeneration);
+    expect(
+      messages.filter((message) => message === "ORCHESTRATOR_FLUSH_PLAYBACK")
+        .length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(app.orchestrator.identity.playbackGeneration).not.toBe(
+      previousPlaybackGeneration,
+    );
     expect(app.orchestrator.state).toBe("ASSISTANT_SPEAKING");
 
     server.simulateTurnComplete();
     expect(app.orchestrator.state).toBe("LISTENING");
     expect(app.orchestrator.snapshot.providerResponseClosed).toBe(true);
+
+    app.dispose();
+  });
+
+  it("does not queue live capture frames during a slow transport handshake", async () => {
+    let now = 0;
+    const server = new MockGeminiServer({ nowMono: () => now });
+    const audioContext = new IntegrationAudioContext();
+    const messages: string[] = [];
+    const app = new VoiceV3App({
+      providerMode: "mock",
+      mockServer: server,
+      nowMono: () => now,
+      audioContextFactory: () => audioContext as unknown as AudioContext,
+    });
+    app.bus.subscribe((envelope) => messages.push(envelope.messageType), {});
+
+    invokeCaptureCallback(app, createDirectCaptureFrame(0));
+    expect(app.transportManager.snapshot.queueDepth).toBe(0);
+    expect(messages).toContain("capture.frame-deferred");
+
+    await app.start({ startCapture: false });
+    expect(app.transportManager.isReady).toBe(true);
+    invokeCaptureCallback(app, createDirectCaptureFrame(1));
+    expect(app.transportManager.snapshot.framesSent).toBe(1);
+    expect(app.transportManager.snapshot.queueDepth).toBe(0);
 
     app.dispose();
   });
