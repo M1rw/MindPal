@@ -16,6 +16,7 @@ import {
   preloadVoiceRuntime,
   injectAudioFrame,
   endAudioStream,
+  setNativeCaptureSuppressed,
 } from "./voice_session.js";
 import {
   startVoiceFace,
@@ -243,6 +244,7 @@ function ensureVoiceFixtureHarness() {
     const file = input.files?.[0];
     if (!file) return;
     try {
+      setNativeCaptureSuppressed(true);
       status.textContent = `Sending ${file.name}…`;
       const pcm = await decodeFixtureWav(file);
       const startedAt = performance.now();

@@ -172,6 +172,9 @@ test("generated WAV fixture injection is explicitly gated and uses the live fram
   assert.match(liveSource, /decodeFixtureWav/);
   assert.match(liveSource, /injectAudioFrame/);
   assert.match(liveSource, /endAudioStream/);
+  assert.match(liveSource, /setNativeCaptureSuppressed/);
   assert.match(sessionSource, /controller\?\.injectAudioFrame/);
+  assert.match(sessionSource, /controller\?\.setNativeCaptureSuppressed/);
   assert.match(appSource, /public forwardCapturedFrame/);
+  assert.match(appSource, /nativeCaptureSuppressed/);
 });

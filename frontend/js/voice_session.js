@@ -131,3 +131,7 @@ export function injectAudioFrame(frame) {
 export function endAudioStream() {
   return controller?.endAudioStream?.() || false;
 }
+
+export function setNativeCaptureSuppressed(suppressed) {
+  controller?.setNativeCaptureSuppressed?.(Boolean(suppressed));
+}
