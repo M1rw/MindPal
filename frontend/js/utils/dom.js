@@ -1,5 +1,5 @@
 import DOMPurify from "dompurify";
-import { scrollChatToBottom } from "../ui_state.js";
+import { scrollChatToBottom } from "../state/ui_state.js";
 export { scrollChatToBottom };
 
 const RICH_HTML_POLICY = Object.freeze({

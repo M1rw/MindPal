@@ -1,7 +1,7 @@
 // frontend/js/ui_state.js
 // Orchestrates app state, theme, UI updates — delegates utils to dedicated modules.
 
-import { refreshIcons } from "./utils/icons.js";
+import { refreshIcons } from "../utils/icons.js";
 import {
   getLocalDateKey,
   normalizeDayKeys,
@@ -9,11 +9,11 @@ import {
   computeCurrentStreak,
   getMostRecentActiveDate,
   getLast7Days,
-} from "./utils/dates.js";
-import { cryptoRandomId, normalizeName } from "./utils/helpers.js";
+} from "../utils/dates.js";
+import { cryptoRandomId, normalizeName } from "../utils/helpers.js";
 
 // Re-export so existing consumers don't break
-export { refreshIcons } from "./utils/icons.js";
+export { refreshIcons } from "../utils/icons.js";
 
 const STATE_KEY = "mindpal_state_v2";
 const MAX_LOCAL_CHAT_MESSAGES = 250;

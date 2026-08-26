@@ -1,5 +1,5 @@
-import { getMemoryInspectorCards } from "../memory_graph.js";
-import { escapeHtml } from "../utils/dom.js";
+import { getMemoryInspectorCards } from "../../features/memory/graph.js";
+import { escapeHtml } from "../../utils/dom.js";
 
 const deps = {
   refreshIcons: () => {},

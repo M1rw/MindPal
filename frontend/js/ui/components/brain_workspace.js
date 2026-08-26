@@ -6,7 +6,7 @@ import {
   resolveBrainReview,
   searchBrain,
   updateBrainEdge,
-} from "../api.js";
+} from "../../services/api.js";
 
 const CATEGORY_META = {
   people: ["People", "#ea7aaf"],

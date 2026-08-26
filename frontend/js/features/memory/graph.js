@@ -14,7 +14,7 @@ import {
   extractGraphPreferences,
   extractGraphAvoid,
   normalizeAvoidValue,
-} from "./utils/memory_helpers.js";
+} from "../../utils/memory_helpers.js";
 
 // ═══════════════════════════════════════════════════════════════
 // Constants

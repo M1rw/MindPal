@@ -8,17 +8,17 @@ import {
   requestBrowserNotificationsIfNeeded,
   saveGenderToLocal,
   setAppSetting,
-} from "../settings_store.js";
+} from "../../state/settings_store.js";
 
-import { escapeHtml } from "../utils/dom.js";
+import { escapeHtml } from "../../utils/dom.js";
 
 import {
   getIdToken
-} from "../auth.js";
+} from "../../services/auth.js";
 
 import {
   updateUserProfilePreferences
-} from "../api.js";
+} from "../../services/api.js";
 
 // We will attach dependencies that require app.js state via a registry
 const deps = {
