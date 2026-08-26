@@ -492,6 +492,17 @@ export class VoiceOrchestrator {
   }
 
   private completeAfterPlaybackDrain(): boolean {
+    if (
+      this.generationComplete &&
+      !this.outputAudioObserved &&
+      this.stateValue === "THINKING"
+    ) {
+      this.debug("generation complete without provider audio", {
+        identity: this.identity,
+      });
+      this.handleTurnComplete();
+      return true;
+    }
     const hasProviderCompletion = this.generationComplete;
     const hasObservedAudioDrain = this.outputAudioObserved && this.playbackEverActive;
     if (

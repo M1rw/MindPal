@@ -812,6 +812,34 @@ describe("VoiceOrchestrator reverse-order playback-drain completion", () => {
 
 
 describe("VoiceOrchestrator playback-drain fallback without generationComplete", () => {
+  it("returns to listening after transcript-only output completes without provider audio", () => {
+    let now = 0;
+    const bus = new LayerLinkMessageBus({ nowMono: () => now });
+    const orchestrator = new VoiceOrchestrator({ bus, nowMono: () => now });
+    const identity: GenerationIdentity = {
+      sessionGeneration: "session-1",
+      turnId: "turn-1",
+      providerResponseId: "response-1",
+      playbackGeneration: null,
+    };
+
+    publishAdapterEvent(bus, now, {
+      type: "PROVIDER_OUTPUT_TRANSCRIPT",
+      identity,
+      payload: { text: "Text arrived without audio.", isFinal: true, cumulative: true },
+    });
+    expect(orchestrator.state).toBe("THINKING");
+
+    publishAdapterEvent(bus, ++now, {
+      type: "PROVIDER_GENERATION_COMPLETE",
+      identity,
+      payload: {},
+    });
+
+    expect(orchestrator.state).toBe("LISTENING");
+    expect(orchestrator.snapshot.providerResponseClosed).toBe(true);
+  });
+
   it("returns to listening after observed provider audio drains", () => {
     let now = 0;
     const bus = new LayerLinkMessageBus({ nowMono: () => now });
