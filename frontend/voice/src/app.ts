@@ -1,9 +1,17 @@
 import type { GenerationIdentity, AudioFrame } from "./core/layer-link";
 import { createEventEnvelope, LayerLinkMessageBus } from "./core/message-bus";
-import { CaptureManager, type CaptureMetrics } from "./layers/capture/capture-manager";
+import {
+  CaptureManager,
+  type CaptureDiagnostic,
+  type CaptureMetrics,
+} from "./layers/capture/capture-manager";
+
 import { GeminiProviderAdapter } from "./layers/adapter/gemini-adapter";
 import type { VoiceEvent } from "./layers/adapter/event-types";
-import { MockTokenProvider, type TokenProvider } from "./layers/transport/token-provider";
+import {
+  MockTokenProvider,
+  type TokenProvider,
+} from "./layers/transport/token-provider";
 import {
   WebSocketTransportManager,
   type TransportEvent,
@@ -22,16 +30,32 @@ import { AssistantAssembler } from "./layers/transcript/assistant-assembler";
 import { UserAssembler } from "./layers/transcript/user-assembler";
 import { CaptionPacer } from "./layers/caption/pacer";
 import { MockGeminiServer } from "./debug/mock-gemini-server";
-import { SyntheticCueProvider, type CueProvider } from "./layers/backchannel/cue-provider";
-import { RealTokenProvider, type RealTokenProviderOptions } from "./integration/real-token-provider";
+import {
+  SyntheticCueProvider,
+  type CueProvider,
+} from "./layers/backchannel/cue-provider";
+import {
+  RealTokenProvider,
+  type RealTokenProviderOptions,
+} from "./integration/real-token-provider";
 import type { RealtimeTTSProviderOptions } from "./layers/backchannel/realtime-tts-provider";
 import type { TtsEmotion } from "./integration/tts-endpoint-contract";
 import { ProsodyAnalyzer } from "./layers/prosody/prosody-analyzer";
-import { DEFAULT_VOICE_V3_FEATURE_FLAGS, type VoiceV3FeatureFlags } from "./integration/feature-flags";
-import { LocalMemoryStore, type LocalMemoryRecord } from "./layers/memory/local-memory-store";
+import {
+  DEFAULT_VOICE_V3_FEATURE_FLAGS,
+  type VoiceV3FeatureFlags,
+} from "./integration/feature-flags";
+import {
+  LocalMemoryStore,
+  type LocalMemoryRecord,
+} from "./layers/memory/local-memory-store";
 import { MemoryExtractor } from "./layers/memory/memory-extractor";
 import { FaceLayer, type FaceState } from "./layers/face/face-layer";
-import { AffectEngine, type AffectContextPayload, type AffectState } from "./layers/affect/affect-engine";
+import {
+  AffectEngine,
+  type AffectContextPayload,
+  type AffectState,
+} from "./layers/affect/affect-engine";
 
 export const PRODUCTION_MODE = import.meta.env.PROD;
 export type VoiceProviderMode = "mock" | "real";
@@ -52,7 +76,10 @@ export type VoiceV3AppOptions = {
   readonly voicePersona?: string;
   readonly voiceEmotion?: TtsEmotion;
   /** @deprecated External TTS is not used by default; inject cueProvider only for legacy tests. */
-  readonly realtimeTtsOptions?: Omit<RealtimeTTSProviderOptions, "baseUrl" | "getAuthToken" | "getAppCheckToken">;
+  readonly realtimeTtsOptions?: Omit<
+    RealtimeTTSProviderOptions,
+    "baseUrl" | "getAuthToken" | "getAppCheckToken"
+  >;
   readonly featureFlags?: VoiceV3FeatureFlags;
   readonly memoryUserId?: string;
   readonly incognito?: boolean;
@@ -108,16 +135,29 @@ export class VoiceV3App {
   private lastMemoryRecord: LocalMemoryRecord | null = null;
 
   public constructor(options: VoiceV3AppOptions = {}) {
-    const productionMode = options.productionMode ?? (PRODUCTION_MODE || options.providerMode === "real");
-    this.providerMode = options.providerMode ?? (productionMode ? "real" : "mock");
+    const productionMode =
+      options.productionMode ??
+      (PRODUCTION_MODE || options.providerMode === "real");
+    this.providerMode =
+      options.providerMode ?? (productionMode ? "real" : "mock");
     this.featureFlags = options.featureFlags ?? {
       ...DEFAULT_VOICE_V3_FEATURE_FLAGS,
       VOICE_V3_ENABLED: this.providerMode === "mock",
     };
     this.nowMono = options.nowMono ?? (() => performance.now());
-    this.mockServer = this.providerMode === "mock" ? options.mockServer ?? new MockGeminiServer({ nowMono: this.nowMono }) : null;
-    const memoryEnabled = this.featureFlags.VOICE_V3_MEMORY_ENABLED && !options.incognito && Boolean(options.memoryUserId);
-    this.memoryStore = memoryEnabled ? options.memoryStore ?? new LocalMemoryStore({ userId: options.memoryUserId as string }) : null;
+    this.mockServer =
+      this.providerMode === "mock"
+        ? (options.mockServer ??
+          new MockGeminiServer({ nowMono: this.nowMono }))
+        : null;
+    const memoryEnabled =
+      this.featureFlags.VOICE_V3_MEMORY_ENABLED &&
+      !options.incognito &&
+      Boolean(options.memoryUserId);
+    this.memoryStore = memoryEnabled
+      ? (options.memoryStore ??
+        new LocalMemoryStore({ userId: options.memoryUserId as string }))
+      : null;
     this.memoryExtractor = this.memoryStore
       ? new MemoryExtractor({
           store: this.memoryStore,
@@ -132,9 +172,10 @@ export class VoiceV3App {
     });
 
     // 2. Security/Token Provider (mock in this isolated V3 workspace)
-    const tokenProvider = options.tokenProvider
-      ?? this.mockServer?.tokenProvider
-      ?? (this.providerMode === "real"
+    const tokenProvider =
+      options.tokenProvider ??
+      this.mockServer?.tokenProvider ??
+      (this.providerMode === "real"
         ? createRealTokenProvider(options)
         : new MockTokenProvider({ nowMono: this.nowMono }));
     this.tokenProvider = tokenProvider;
@@ -146,24 +187,37 @@ export class VoiceV3App {
       nowMono: this.nowMono,
       onEvent: (event: TransportEvent) => {
         this.publishTransport(event);
-        if (event.type === "transport.state.changed" && event.state === "RECONNECTING") {
+        if (
+          event.type === "transport.state.changed" &&
+          event.state === "RECONNECTING"
+        ) {
           this.orchestrator?.markRecovering();
+        } else if (event.type === "transport.setup.complete") {
+          this.orchestrator?.markTransportReady();
         }
       },
-      onSnapshot: (snapshot: TransportSnapshot) => this.publishTransportSnapshot(snapshot),
+      onSnapshot: (snapshot: TransportSnapshot) =>
+        this.publishTransportSnapshot(snapshot),
       onProviderMessage: (rawMessage: unknown) => {
         const normalized = adapter?.normalize(rawMessage) ?? [];
         for (const event of normalized) this.publishProviderEvent(event);
       },
-      ...(options.voicePersona === undefined ? {} : { voicePersona: options.voicePersona }),
-      ...(this.memoryExtractor === null ? {} : {
-        getSetupContext: async () => this.loadMemoryContext(),
-      }),
+      ...(options.voicePersona === undefined
+        ? {}
+        : { voicePersona: options.voicePersona }),
+      ...(this.memoryExtractor === null
+        ? {}
+        : {
+            getSetupContext: async () => this.loadMemoryContext(),
+          }),
       autoReconnect: this.providerMode === "real",
       maxReconnectAttempts: 5,
     };
     const transportOptions: WsManagerOptions = this.mockServer
-      ? { ...baseTransportOptions, webSocketFactory: this.mockServer.createWebSocketFactory() }
+      ? {
+          ...baseTransportOptions,
+          webSocketFactory: this.mockServer.createWebSocketFactory(),
+        }
       : baseTransportOptions;
     this.transportManager = new WebSocketTransportManager(transportOptions);
 
@@ -182,21 +236,37 @@ export class VoiceV3App {
     const basePlaybackOptions = {
       nowMono: this.nowMono,
       onEvent: (event: PlaybackEvent) => this.publishPlayback(event),
-      onSnapshot: (snapshot: PlaybackSnapshot) => this.publishPlaybackSnapshot(snapshot),
+      onSnapshot: (snapshot: PlaybackSnapshot) =>
+        this.publishPlaybackSnapshot(snapshot),
     };
     const playbackOptions: PlaybackManagerOptions = options.audioContextFactory
-      ? { ...basePlaybackOptions, audioContextFactory: options.audioContextFactory }
+      ? {
+          ...basePlaybackOptions,
+          audioContextFactory: options.audioContextFactory,
+        }
       : basePlaybackOptions;
     this.playbackManager = new PlaybackManager(playbackOptions);
 
     // 7. Transcript & Caption Layers
     this.assistantAssembler = new AssistantAssembler({
-      onUpdate: (update) => this.publish("transcript", `transcript.${update.speaker}.updated`, update),
-      onDiagnostic: (diagnostic) => this.publish("transcript", diagnostic.type, diagnostic),
+      onUpdate: (update) =>
+        this.publish(
+          "transcript",
+          `transcript.${update.speaker}.updated`,
+          update,
+        ),
+      onDiagnostic: (diagnostic) =>
+        this.publish("transcript", diagnostic.type, diagnostic),
     });
     this.userAssembler = new UserAssembler({
-      onUpdate: (update) => this.publish("transcript", `transcript.${update.speaker}.updated`, update),
-      onDiagnostic: (diagnostic) => this.publish("transcript", diagnostic.type, diagnostic),
+      onUpdate: (update) =>
+        this.publish(
+          "transcript",
+          `transcript.${update.speaker}.updated`,
+          update,
+        ),
+      onDiagnostic: (diagnostic) =>
+        this.publish("transcript", diagnostic.type, diagnostic),
     });
     this.captionPacer = new CaptionPacer({
       bus: this.bus,
@@ -214,14 +284,21 @@ export class VoiceV3App {
       cueProvider: this.cueProvider,
       nowMono: this.nowMono,
       identity: DEFAULT_IDENTITY,
-      ...(options.voicePersona === undefined ? {} : { voicePersona: options.voicePersona }),
-      ...(options.voiceEmotion === undefined ? {} : { emotion: options.voiceEmotion }),
+      ...(options.voicePersona === undefined
+        ? {}
+        : { voicePersona: options.voicePersona }),
+      ...(options.voiceEmotion === undefined
+        ? {}
+        : { emotion: options.voiceEmotion }),
       nativeGeminiCues: this.featureFlags.VOICE_V3_VERBAL_CUES_ENABLED,
     };
     this.conductor = new BackchannelConductor(conductorOptions);
 
     // 9. Local Prosody & Emotional Context Layer
-    this.prosodyAnalyzer = new ProsodyAnalyzer({ bus: this.bus, nowMono: this.nowMono });
+    this.prosodyAnalyzer = new ProsodyAnalyzer({
+      bus: this.bus,
+      nowMono: this.nowMono,
+    });
 
     // 10. Mathematical affect and conversational stance layer.
     this.affectEngine = new AffectEngine({
@@ -240,10 +317,13 @@ export class VoiceV3App {
         this.publish("capture", "capture.frame", frame);
         this.transportManager.sendAudioFrame(frame);
       },
-      onDiagnostic: (diagnostic) => this.debug("[Capture]", diagnostic),
+      onDiagnostic: (diagnostic) => this.publishCaptureDiagnostic(diagnostic),
     });
 
-    this.unsubscriber = this.bus.subscribe<unknown>((envelope) => this.routeOrchestratorCommand(envelope), {});
+    this.unsubscriber = this.bus.subscribe<unknown>(
+      (envelope) => this.routeOrchestratorCommand(envelope),
+      {},
+    );
   }
 
   public async start(options: VoiceV3StartOptions = {}): Promise<void> {
@@ -263,25 +343,50 @@ export class VoiceV3App {
           error: error instanceof Error ? error.message : String(error),
         });
       });
+      // Start capture before the network await. Creating the microphone
+      // AudioContext only after token/WebSocket setup can move it outside the
+      // transient user gesture and leave the worklet suspended while the UI
+      // incorrectly reports Listening.
+      if (options.startCapture !== false) await this.captureManager.start();
       try {
         await this.transportManager.connect();
       } catch (primaryError) {
         const fallbackCapability = this.tokenProvider.hasFallbackToken?.();
-        if (!isFallbackHandshakeFailure(primaryError) || this.providerMode !== "real" || fallbackCapability === false) {
+        if (
+          !isFallbackHandshakeFailure(primaryError) ||
+          this.providerMode !== "real" ||
+          fallbackCapability === false
+        ) {
           throw primaryError;
         }
-        this.debug("[Voice V3] primary Gemini handshake failed; trying configured fallback", {
-          error: primaryError instanceof Error ? primaryError.message : String(primaryError),
-        });
+        this.debug(
+          "[Voice V3] primary Gemini handshake failed; trying configured fallback",
+          {
+            error:
+              primaryError instanceof Error
+                ? primaryError.message
+                : String(primaryError),
+          },
+        );
         await this.transportManager.connectFallback();
       }
-      if (!this.transportManager.isReady) throw new Error("transport did not become ready");
+      if (!this.transportManager.isReady)
+        throw new Error("transport did not become ready");
       await initializeCueProvider(this.cueProvider);
       if (this.mockServer) this.orchestrator.markGreetingSent();
       else this.orchestrator.requestGreeting();
-      if (options.startCapture !== false) await this.captureManager.start();
     } catch (error) {
-      this.orchestrator.fail(error instanceof Error ? error.message : "Voice V3 failed to start");
+      await this.captureManager.stop().catch((cleanupError) => {
+        this.debug("[Voice V3] capture cleanup after startup failure failed", {
+          error:
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : String(cleanupError),
+        });
+      });
+      this.orchestrator.fail(
+        error instanceof Error ? error.message : "Voice V3 failed to start",
+      );
       this.started = false;
       throw error;
     }
@@ -302,13 +407,16 @@ export class VoiceV3App {
 
   /** Sends one explicitly bounded acknowledgement request through the active Gemini session. */
   public requestGeminiNativeCue(cueText: string): boolean {
-    if (!this.featureFlags.VOICE_V3_VERBAL_CUES_ENABLED || this.nativeCueActive) return false;
+    if (!this.featureFlags.VOICE_V3_VERBAL_CUES_ENABLED || this.nativeCueActive)
+      return false;
     const normalized = cueText.trim().slice(0, 80);
     if (!normalized) return false;
     this.nativeCueActive = true;
     this.nativeCueResponseId = null;
     if (this.nativeCueTimer) clearTimeout(this.nativeCueTimer);
-    const sent = this.transportManager.sendRealtimeText(`VOICE_CUE_REQUEST: ${normalized}`);
+    const sent = this.transportManager.sendRealtimeText(
+      `VOICE_CUE_REQUEST: ${normalized}`,
+    );
     if (sent) {
       this.nativeCueTimer = setTimeout(() => {
         this.nativeCueTimer = null;
@@ -331,7 +439,9 @@ export class VoiceV3App {
     return sent;
   }
 
-  public cancelNativeCue(reason: "timeout" | "session-stop" = "session-stop"): void {
+  public cancelNativeCue(
+    reason: "timeout" | "session-stop" = "session-stop",
+  ): void {
     if (this.nativeCueTimer) clearTimeout(this.nativeCueTimer);
     this.nativeCueTimer = null;
     this.nativeCueActive = false;
@@ -343,14 +453,23 @@ export class VoiceV3App {
     await this.memoryExtractor?.clear();
     this.lastMemoryRecord = null;
     this.lastMemoryContext = null;
-    this.publishMemorySnapshot({ userId: "", lastUpdated: 0, keyFacts: [], preferences: [] });
+    this.publishMemorySnapshot({
+      userId: "",
+      lastUpdated: 0,
+      keyFacts: [],
+      preferences: [],
+    });
   }
 
   public get affectSnapshot(): AffectState {
     return this.affectEngine.state;
   }
 
-  public get memorySnapshot(): { readonly record: LocalMemoryRecord | null; readonly injectedContext: string | null; readonly extractionCount: number } {
+  public get memorySnapshot(): {
+    readonly record: LocalMemoryRecord | null;
+    readonly injectedContext: string | null;
+    readonly extractionCount: number;
+  } {
     return {
       record: this.lastMemoryRecord,
       injectedContext: this.lastMemoryContext,
@@ -405,12 +524,18 @@ export class VoiceV3App {
     this.mockServer?.close();
   }
 
-  private routeOrchestratorCommand(envelope: { readonly messageType: string; readonly payload: unknown }): void {
+  private routeOrchestratorCommand(envelope: {
+    readonly messageType: string;
+    readonly payload: unknown;
+  }): void {
     if (envelope.messageType === "ORCHESTRATOR_AUDIO_EVENT") {
       const payload = envelope.payload as { readonly event?: VoiceEvent };
       if (payload.event?.type === "PROVIDER_AUDIO") {
-        const isNativeCue = this.nativeCueActive &&
-          (this.nativeCueResponseId === null || payload.event.identity.providerResponseId === this.nativeCueResponseId);
+        const isNativeCue =
+          this.nativeCueActive &&
+          (this.nativeCueResponseId === null ||
+            payload.event.identity.providerResponseId ===
+              this.nativeCueResponseId);
         void this.playbackManager.enqueueProviderAudio(
           payload.event.payload,
           payload.event.identity,
@@ -420,13 +545,23 @@ export class VoiceV3App {
       return;
     }
     if (envelope.messageType === "ORCHESTRATOR_FLUSH_PLAYBACK") {
-      const payload = envelope.payload as { readonly oldPlaybackGeneration?: string | null; readonly reason?: string };
-      if (payload.oldPlaybackGeneration) this.playbackManager.flush(payload.oldPlaybackGeneration, payload.reason ?? "orchestrator-interruption");
+      const payload = envelope.payload as {
+        readonly oldPlaybackGeneration?: string | null;
+        readonly reason?: string;
+      };
+      if (payload.oldPlaybackGeneration)
+        this.playbackManager.flush(
+          payload.oldPlaybackGeneration,
+          payload.reason ?? "orchestrator-interruption",
+        );
       this.playbackManager.duckMainLane();
       return;
     }
     if (envelope.messageType === "ORCHESTRATOR_GEMINI_CUE_REQUESTED") {
-      const payload = envelope.payload as { readonly cueText?: unknown; readonly identity?: GenerationIdentity };
+      const payload = envelope.payload as {
+        readonly cueText?: unknown;
+        readonly identity?: GenerationIdentity;
+      };
       if (typeof payload.cueText !== "string") return;
       const cueText = payload.cueText.trim().slice(0, 80);
       if (!cueText) return;
@@ -439,7 +574,9 @@ export class VoiceV3App {
       return;
     }
     if (envelope.messageType === "ORCHESTRATOR_BACKCHANNEL_CUE") {
-      const payload = envelope.payload as { readonly cue?: Parameters<PlaybackManager["enqueueChunk"]>[0] };
+      const payload = envelope.payload as {
+        readonly cue?: Parameters<PlaybackManager["enqueueChunk"]>[0];
+      };
       if (payload.cue) void this.playbackManager.enqueueChunk(payload.cue);
       return;
     }
@@ -453,7 +590,8 @@ export class VoiceV3App {
         const transcript = this.lastUserTranscript;
         this.lastUserTranscript = null;
         if (transcript && this.memoryExtractor) {
-          void this.memoryExtractor.processTurnComplete(transcript)
+          void this.memoryExtractor
+            .processTurnComplete(transcript)
             .then(() => this.memoryStore?.get())
             .then((record) => {
               if (record) {
@@ -461,7 +599,11 @@ export class VoiceV3App {
                 this.publishMemorySnapshot(record);
               }
             })
-            .catch((error) => this.debug("[Memory] extraction failed", { error: error instanceof Error ? error.message : String(error) }));
+            .catch((error) =>
+              this.debug("[Memory] extraction failed", {
+                error: error instanceof Error ? error.message : String(error),
+              }),
+            );
         }
         this.playbackManager.restoreMainLane();
         this.captionPacer.closeTurn(payload.event.identity);
@@ -469,7 +611,11 @@ export class VoiceV3App {
       return;
     }
     if (envelope.messageType === "ORCHESTRATOR_GREETING_REQUESTED") {
-      this.transportManager.sendControl({ type: "greeting", greeting: true, identity: this.orchestrator.identity });
+      this.transportManager.sendControl({
+        type: "greeting",
+        greeting: true,
+        identity: this.orchestrator.identity,
+      });
       return;
     }
     if (envelope.messageType === "ORCHESTRATOR_CLOSE_REQUESTED") {
@@ -478,7 +624,10 @@ export class VoiceV3App {
     if (envelope.messageType === "affect.context.updated") {
       if (!this.featureFlags.VOICE_V3_PROSODY_CONTEXT_ENABLED) return;
       const payload = envelope.payload as Partial<AffectContextPayload>;
-      if (typeof payload.prompt === "string" && payload.prompt.length <= 2_000) {
+      if (
+        typeof payload.prompt === "string" &&
+        payload.prompt.length <= 2_000
+      ) {
         this.transportManager.sendContextUpdate(payload.prompt);
       }
       return;
@@ -492,7 +641,8 @@ export class VoiceV3App {
       return;
     }
     if (envelope.messageType === "prosody.state.updated") {
-      if (isProsodyStatePayload(envelope.payload)) this.playbackManager.setProsodyState(envelope.payload);
+      if (isProsodyStatePayload(envelope.payload))
+        this.playbackManager.setProsodyState(envelope.payload);
       return;
     }
   }
@@ -501,12 +651,18 @@ export class VoiceV3App {
     if (this.nativeCueActive && event.type === "PROVIDER_AUDIO") {
       this.nativeCueResponseId = event.identity.providerResponseId;
     }
-    const isNativeCueTranscript = this.nativeCueActive &&
+    const isNativeCueTranscript =
+      this.nativeCueActive &&
       event.type === "PROVIDER_OUTPUT_TRANSCRIPT" &&
-      (this.nativeCueResponseId === null || event.identity.providerResponseId === this.nativeCueResponseId);
-    if (!isNativeCueTranscript) this.publish("provider-adapter", event.type, event);
+      (this.nativeCueResponseId === null ||
+        event.identity.providerResponseId === this.nativeCueResponseId);
+    if (!isNativeCueTranscript)
+      this.publish("provider-adapter", event.type, event);
     this.publish("provider-adapter", "adapter.event", event);
-    if (event.type === "PROVIDER_TURN_COMPLETE" || event.type === "PROVIDER_INTERRUPTED") {
+    if (
+      event.type === "PROVIDER_TURN_COMPLETE" ||
+      event.type === "PROVIDER_INTERRUPTED"
+    ) {
       this.cancelNativeCue("session-stop");
     }
   }
@@ -520,7 +676,10 @@ export class VoiceV3App {
   }
 
   private publishPlayback(event: PlaybackEvent): void {
-    const messageType = event.type === "playback.scheduled" ? "playback.chunk-scheduled" : event.type;
+    const messageType =
+      event.type === "playback.scheduled"
+        ? "playback.chunk-scheduled"
+        : event.type;
     this.publish("playback", messageType, event);
   }
 
@@ -533,6 +692,10 @@ export class VoiceV3App {
     this.publish("capture", "capture.metrics.updated", metrics);
   }
 
+  private publishCaptureDiagnostic(diagnostic: CaptureDiagnostic): void {
+    this.publish("capture", `capture.${diagnostic.type}`, diagnostic);
+  }
+
   private async loadMemoryContext(): Promise<string | null> {
     try {
       const context = await this.memoryExtractor?.buildContext();
@@ -542,12 +705,19 @@ export class VoiceV3App {
       this.publishMemorySnapshot(context.record);
       return context.text;
     } catch (error) {
-      this.debug("[Memory] setup context unavailable", { error: error instanceof Error ? error.message : String(error) });
+      this.debug("[Memory] setup context unavailable", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
 
-  private publishMemoryEvent(event: { readonly type: string; readonly keyFactCount?: number; readonly preferenceCount?: number; readonly characterCount?: number }): void {
+  private publishMemoryEvent(event: {
+    readonly type: string;
+    readonly keyFactCount?: number;
+    readonly preferenceCount?: number;
+    readonly characterCount?: number;
+  }): void {
     const { type, ...metrics } = event;
     this.publish("memory", type, metrics);
   }
@@ -561,19 +731,31 @@ export class VoiceV3App {
   }
 
   private publish(
-    sourceLayer: "capture" | "transport" | "provider-adapter" | "playback" | "backchannel" | "prosody" | "affect" | "memory" | "transcript" | "caption",
+    sourceLayer:
+      | "capture"
+      | "transport"
+      | "provider-adapter"
+      | "playback"
+      | "backchannel"
+      | "prosody"
+      | "affect"
+      | "memory"
+      | "transcript"
+      | "caption",
     messageType: string,
     payload: unknown,
-    identity: GenerationIdentity = this.orchestrator?.identity ?? DEFAULT_IDENTITY,
+    identity: GenerationIdentity = this.orchestrator?.identity ??
+      DEFAULT_IDENTITY,
   ): void {
-    const topic = sourceLayer === "capture"
-      ? "voice.capture"
-      : sourceLayer === "transport"
-        ? "voice.transport"
-        : sourceLayer === "provider-adapter"
-          ? "voice.provider"
-          : sourceLayer === "playback"
-            ? "voice.playback"
+    const topic =
+      sourceLayer === "capture"
+        ? "voice.capture"
+        : sourceLayer === "transport"
+          ? "voice.transport"
+          : sourceLayer === "provider-adapter"
+            ? "voice.provider"
+            : sourceLayer === "playback"
+              ? "voice.playback"
               : sourceLayer === "backchannel"
                 ? "voice.backchannel"
                 : sourceLayer === "prosody"
@@ -581,10 +763,10 @@ export class VoiceV3App {
                   : sourceLayer === "affect"
                     ? "voice.affect"
                     : sourceLayer === "memory"
-                    ? "voice.memory"
-                    : sourceLayer === "transcript"
-                ? "voice.transcript"
-                : "voice.caption";
+                      ? "voice.memory"
+                      : sourceLayer === "transcript"
+                        ? "voice.transcript"
+                        : "voice.caption";
     this.bus.publish(
       createEventEnvelope({
         messageId: `${messageType}-${this.nowMono()}-${Math.random().toString(36).slice(2)}`,
@@ -606,32 +788,56 @@ export class VoiceV3App {
   }
 }
 
-function createRealTokenProvider(options: VoiceV3AppOptions): RealTokenProvider {
+function createRealTokenProvider(
+  options: VoiceV3AppOptions,
+): RealTokenProvider {
   const tokenOptions: RealTokenProviderOptions = {
     ...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
-    ...(options.getAuthToken === undefined ? {} : { getAuthToken: options.getAuthToken }),
-    ...(options.getAppCheckToken === undefined ? {} : { getAppCheckToken: options.getAppCheckToken }),
-    ...(options.refreshAuthToken === undefined ? {} : { refreshAuthToken: options.refreshAuthToken }),
-    ...(options.refreshAppCheckToken === undefined ? {} : { refreshAppCheckToken: options.refreshAppCheckToken }),
+    ...(options.getAuthToken === undefined
+      ? {}
+      : { getAuthToken: options.getAuthToken }),
+    ...(options.getAppCheckToken === undefined
+      ? {}
+      : { getAppCheckToken: options.getAppCheckToken }),
+    ...(options.refreshAuthToken === undefined
+      ? {}
+      : { refreshAuthToken: options.refreshAuthToken }),
+    ...(options.refreshAppCheckToken === undefined
+      ? {}
+      : { refreshAppCheckToken: options.refreshAppCheckToken }),
   };
   return new RealTokenProvider(tokenOptions);
 }
 
-function isProsodyStatePayload(value: unknown): value is import("./layers/prosody/prosody-state").ProsodyState {
+function isProsodyStatePayload(
+  value: unknown,
+): value is import("./layers/prosody/prosody-state").ProsodyState {
   if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Partial<import("./layers/prosody/prosody-state").ProsodyState>;
-  return typeof candidate.energyLevel === "string" && typeof candidate.speechRate === "string" &&
-    typeof candidate.pausePattern === "string" && typeof candidate.emotionalGuess === "string" &&
-    typeof candidate.confidence === "number" && typeof candidate.lastChangedAtMono === "number";
+  const candidate = value as Partial<
+    import("./layers/prosody/prosody-state").ProsodyState
+  >;
+  return (
+    typeof candidate.energyLevel === "string" &&
+    typeof candidate.speechRate === "string" &&
+    typeof candidate.pausePattern === "string" &&
+    typeof candidate.emotionalGuess === "string" &&
+    typeof candidate.confidence === "number" &&
+    typeof candidate.lastChangedAtMono === "number"
+  );
 }
 
 function isFallbackHandshakeFailure(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /setupComplete timeout|WebSocket closed:\s*(1006|1011|1013)/i.test(message);
+  return /setupComplete timeout|WebSocket closed:\s*(1006|1011|1013)/i.test(
+    message,
+  );
 }
 
 async function initializeCueProvider(provider: CueProvider): Promise<void> {
-  const candidate = provider as CueProvider & { readonly initialize?: () => Promise<void>; readonly preload?: () => Promise<void> };
+  const candidate = provider as CueProvider & {
+    readonly initialize?: () => Promise<void>;
+    readonly preload?: () => Promise<void>;
+  };
   if (candidate.initialize) await candidate.initialize();
   else if (candidate.preload) await candidate.preload();
 }

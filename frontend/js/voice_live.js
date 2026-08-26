@@ -441,7 +441,9 @@ function handleVoiceDiagnostic(event = {}) {
   if (!diagnosticStatus) return;
   if (event?.type === "voice.socket-open") diagnosticStatus.textContent = event.setupSent ? "Configuring Voice…" : "Voice socket opened";
   else if (event?.type === "voice.socket-error" || event?.type === "voice.socket-closed") diagnosticStatus.textContent = `Voice transport failed${event.code ? ` (${event.code})` : ""} — please try again`;
-    else if (event?.type === "voice.input.waiting") diagnosticStatus.textContent = "Waiting for microphone input…";
+  else if (event?.type === "voice.input.waiting") diagnosticStatus.textContent = "Waiting for microphone input…";
+  else if (event?.type === "voice.capture-error") diagnosticStatus.textContent = "Microphone unavailable — check browser permissions";
+  else if (event?.type === "voice.capture-stopped") diagnosticStatus.textContent = "Microphone stopped";
   else if (event?.type === "voice.provider-ready-timeout" || event?.type === "provider.error" || event?.type === "provider.closed") diagnosticStatus.textContent = "Voice connection failed — please try again";
 
 }

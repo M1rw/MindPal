@@ -81,15 +81,26 @@ export function createVoiceController(): ProductionController {
   let startTimeMs = 0;
   let endTimeMs = 0;
   let diagnosticsLog: Array<Record<string, unknown>> = [];
-  let turnHistory: Array<{ speaker: "user" | "ai"; text: string; timestamp: string }> = [];
+  let turnHistory: Array<{
+    speaker: "user" | "ai";
+    text: string;
+    timestamp: string;
+  }> = [];
   let chunksScheduled = 0;
   let framesCaptured = 0;
   let flushesCount = 0;
   let interruptionsCount = 0;
   let lastRms = 0;
+  let transportFramesSent = 0;
+  let transportReady = false;
+  let transportState = "IDLE";
 
   const emitAudioState = (): void => {
-    const faceState = app?.faceLayer.processPhaseAndState(phase, aiSpeaking, micMuted);
+    const faceState = app?.faceLayer.processPhaseAndState(
+      phase,
+      aiSpeaking,
+      micMuted,
+    );
     callbacks.onAudioState?.({
       phase,
       isAiSpeaking: aiSpeaking,
@@ -111,7 +122,7 @@ export function createVoiceController(): ProductionController {
     callbacks.onSessionEnd?.({ reason });
   };
 
-    const clearInputWatchdog = (): void => {
+  const clearInputWatchdog = (): void => {
     if (inputWatchdogTimer !== null) {
       clearTimeout(inputWatchdogTimer);
       inputWatchdogTimer = null;
@@ -122,14 +133,24 @@ export function createVoiceController(): ProductionController {
     clearInputWatchdog();
     inputWatchdogTimer = setTimeout(() => {
       inputWatchdogTimer = null;
-      if (active && !micMuted && framesCaptured === 0 && !userTranscript.trim()) {
-        recordDiagnostic({ type: "voice.input.waiting", reason: "no-microphone-frames", framesCaptured: 0 });
-      }
+      const actualCaptureFrames = Math.max(
+        framesCaptured,
+        app?.captureManager.getMetrics().framesEmitted ?? 0,
+      );
+      const noCaptureFrames = framesCaptured === 0 && actualCaptureFrames === 0;
+      if (!active || micMuted || userTranscript.trim() || !noCaptureFrames) return;
+      recordDiagnostic({
+        type: "voice.input.waiting",
+        reason: "no-microphone-frames",
+        framesCaptured: actualCaptureFrames,
+        transportFramesSent,
+        transportReady,
+        transportState,
+      });
     }, 5_000);
   };
 
   const recordDiagnostic = (detail: Record<string, unknown>): void => {
-
     diagnosticsLog.push({ ...detail, timestamp: new Date().toISOString() });
     if (diagnosticsLog.length > 200) diagnosticsLog.shift();
     callbacks.onDiagnostic?.(detail);
@@ -138,8 +159,8 @@ export function createVoiceController(): ProductionController {
   const getSessionDebugReport = (): Record<string, unknown> => {
     const now = endTimeMs > 0 ? endTimeMs : Date.now();
     const durationMs = startTimeMs > 0 ? now - startTimeMs : 0;
-      const memory = app?.memorySnapshot || null;
-      const affect: AffectState | null = app?.affectSnapshot ?? null;
+    const memory = app?.memorySnapshot || null;
+    const affect: AffectState | null = app?.affectSnapshot ?? null;
 
     return {
       sessionId,
@@ -163,15 +184,21 @@ export function createVoiceController(): ProductionController {
       },
       transportTelemetry: {
         reconnectAttempts,
+        state: transportState,
+        ready: transportReady,
+        framesSent: transportFramesSent,
         diagnosticsCount: diagnosticsLog.length,
         recentDiagnostics: [...diagnosticsLog.slice(-30)],
       },
-      memoryGraph: memory ? {
-        extractionCount: memory.extractionCount,
-        injectedContext: memory.injectedContext,
-        keyFactsCount: memory.record?.keyFacts?.length ?? 0,
-        preferencesCount: memory.record?.preferences?.length ?? 0,
-      } : null,
+
+      memoryGraph: memory
+        ? {
+            extractionCount: memory.extractionCount,
+            injectedContext: memory.injectedContext,
+            keyFactsCount: memory.record?.keyFacts?.length ?? 0,
+            preferencesCount: memory.record?.preferences?.length ?? 0,
+          }
+        : null,
       affect,
     };
   };
@@ -179,9 +206,13 @@ export function createVoiceController(): ProductionController {
   const handleSnapshot = (snapshot: OrchestratorSnapshot): void => {
     phase = projectPhase(snapshot.state);
     aiSpeaking = snapshot.state === "ASSISTANT_SPEAKING";
-    if (snapshot.state === "RECOVERING" || snapshot.state === "RESUMING") reconnectAttempts += 1;
+    if (snapshot.state === "RECOVERING" || snapshot.state === "RESUMING")
+      reconnectAttempts += 1;
     if (snapshot.state === "FAILED") {
-      recordDiagnostic({ type: "voice.provider-error", reason: "voice-v3-failed" });
+      recordDiagnostic({
+        type: "voice.provider-error",
+        reason: "voice-v3-failed",
+      });
       if (!startupPending) notifySessionEnd("voice-v3-failed");
     }
     if (snapshot.state === "CLOSED") notifySessionEnd("voice-v3-closed");
@@ -208,39 +239,76 @@ export function createVoiceController(): ProductionController {
     if (envelope.messageType === "caption.released") {
       const payload = asRecord(envelope.payload);
       const caption = asRecord(payload.caption);
-      if (typeof caption.text === "string") callbacks.onCaption?.(caption.text, caption);
+      if (typeof caption.text === "string")
+        callbacks.onCaption?.(caption.text, caption);
       return;
     }
 
-    if (envelope.messageType === "ORCHESTRATOR_OUTPUT_TRANSCRIPT" || envelope.messageType === "ORCHESTRATOR_TRANSCRIPT_EVENT") {
+    if (
+      envelope.messageType === "ORCHESTRATOR_OUTPUT_TRANSCRIPT" ||
+      envelope.messageType === "ORCHESTRATOR_TRANSCRIPT_EVENT"
+    ) {
       const event = readVoiceEvent(envelope.payload);
       if (!event) return;
       if (event.type === "PROVIDER_INPUT_TRANSCRIPT") {
         if (micMuted) return;
         userTranscript = mergeTranscript(userTranscript, event.payload.text);
-        turnHistory.push({ speaker: "user", text: event.payload.text, timestamp: new Date().toISOString() });
+        turnHistory.push({
+          speaker: "user",
+          text: event.payload.text,
+          timestamp: new Date().toISOString(),
+        });
         callbacks.onTranscript?.("user", event.payload.text);
       } else if (event.type === "PROVIDER_OUTPUT_TRANSCRIPT") {
         aiTranscript = mergeTranscript(aiTranscript, event.payload.text);
-        turnHistory.push({ speaker: "ai", text: event.payload.text, timestamp: new Date().toISOString() });
+        turnHistory.push({
+          speaker: "ai",
+          text: event.payload.text,
+          timestamp: new Date().toISOString(),
+        });
         callbacks.onTranscript?.("ai", event.payload.text);
       } else if (event.type === "PROVIDER_TURN_COMPLETE") {
         callbacks.onTurnComplete?.();
       } else if (event.type === "PROVIDER_INTERRUPTED") {
         interruptionsCount += 1;
         flushesCount += 1;
-        recordDiagnostic({ type: "voice.playback.flushed", reason: "provider-interrupted" });
+        recordDiagnostic({
+          type: "voice.playback.flushed",
+          reason: "provider-interrupted",
+        });
       } else if (event.type === "PROVIDER_ERROR") {
-        recordDiagnostic({ type: "provider.error", error: event.payload.error });
+        recordDiagnostic({
+          type: "provider.error",
+          error: event.payload.error,
+        });
         if (!startupPending) notifySessionEnd("provider-error");
       }
       return;
     }
 
+    if (envelope.messageType.startsWith("capture.")) {
+      const payload = asRecord(envelope.payload);
+      if (envelope.messageType === "capture.capture-error") {
+        recordDiagnostic({
+          type: "voice.capture-error",
+          reason: payload.reason || "capture-error",
+        });
+      } else if (envelope.messageType === "capture.capture-started") {
+        recordDiagnostic({ type: "voice.capture-started" });
+      } else if (envelope.messageType === "capture.capture-stopped") {
+        recordDiagnostic({ type: "voice.capture-stopped" });
+      }
+      if (envelope.messageType !== "capture.metrics.updated") return;
+    }
+
     if (envelope.messageType === "capture.metrics.updated") {
       const payload = asRecord(envelope.payload);
-      framesCaptured += 1;
+      framesCaptured = Math.max(
+        framesCaptured,
+        numberOr(payload.framesEmitted, 0),
+      );
       lastRms = numberOr(payload.rms, 0);
+
       callbacks.onVolume?.({
         rms: lastRms,
         muted: Boolean(payload.muted),
@@ -251,36 +319,57 @@ export function createVoiceController(): ProductionController {
 
     if (envelope.messageType === "transport.snapshot.updated") {
       const snapshot = asRecord(envelope.payload);
-      if (snapshot.state === "RECOVERING") recordDiagnostic({ type: "voice.socket-closed", code: "recovering" });
+      transportState =
+        typeof snapshot.state === "string" ? snapshot.state : transportState;
+      transportReady = Boolean(snapshot.ready);
+      transportFramesSent = Math.max(
+        transportFramesSent,
+        numberOr(snapshot.framesSent, 0),
+      );
+      if (snapshot.state === "RECOVERING")
+        recordDiagnostic({ type: "voice.socket-closed", code: "recovering" });
+      return;
+    }
+
+    if (envelope.messageType === "transport.setup.complete") {
+      transportReady = true;
+      if (active && !micMuted && framesCaptured === 0 && !userTranscript.trim())
+        armInputWatchdog();
       return;
     }
 
     if (envelope.messageType.startsWith("transport.")) {
       const payload = asRecord(envelope.payload);
-      const diagnosticType = envelope.messageType === "transport.socket.opened"
-        ? "voice.socket-opened"
-        : envelope.messageType === "transport.socket.closed"
-          ? "voice.socket-closed"
-          : envelope.messageType === "transport.socket.error"
-            ? "voice.socket-error"
-            : `voice.${envelope.messageType}`;
+      const diagnosticType =
+        envelope.messageType === "transport.socket.opened"
+          ? "voice.socket-opened"
+          : envelope.messageType === "transport.socket.closed"
+            ? "voice.socket-closed"
+            : envelope.messageType === "transport.socket.error"
+              ? "voice.socket-error"
+              : `voice.${envelope.messageType}`;
       recordDiagnostic({ type: diagnosticType, ...payload });
       return;
     }
 
     if (envelope.messageType.startsWith("playback.")) {
       const payload = asRecord(envelope.payload);
-      if (envelope.messageType === "playback.chunk-scheduled") chunksScheduled += 1;
+      if (envelope.messageType === "playback.chunk-scheduled")
+        chunksScheduled += 1;
       if (envelope.messageType === "playback.flushed") flushesCount += 1;
-      const diagnosticType = envelope.messageType === "playback.chunk-scheduled"
-        ? "voice.playback.scheduled"
-        : `voice.${envelope.messageType}`;
+      const diagnosticType =
+        envelope.messageType === "playback.chunk-scheduled"
+          ? "voice.playback.scheduled"
+          : `voice.${envelope.messageType}`;
       recordDiagnostic({ type: diagnosticType, ...payload });
       return;
     }
 
     if (envelope.messageType === "ORCHESTRATOR_OPERATION_REQUESTED") {
-      callbacks.onBackgroundTask?.({ status: "started", name: "voice-operation" });
+      callbacks.onBackgroundTask?.({
+        status: "started",
+        name: "voice-operation",
+      });
     }
   };
 
@@ -302,26 +391,44 @@ export function createVoiceController(): ProductionController {
       turnHistory = [];
       chunksScheduled = 0;
       framesCaptured = 0;
+      transportFramesSent = 0;
+      transportReady = false;
+      transportState = "IDLE";
       flushesCount = 0;
       interruptionsCount = 0;
       lastRms = 0;
+
       phase = "connecting";
       aiSpeaking = false;
       emitAudioState();
 
-      const auth = options.getAuthToken ?? (options.token ? async () => options.token ?? null : undefined);
+      const auth =
+        options.getAuthToken ??
+        (options.token ? async () => options.token ?? null : undefined);
       app = createVoiceV3App({
         providerMode: "real",
         productionMode: true,
         ...(auth === undefined ? {} : { getAuthToken: auth }),
-        ...(options.getAppCheckToken === undefined || options.getAppCheckToken === null ? {} : { getAppCheckToken: options.getAppCheckToken }),
-        ...(options.refreshAuthToken === undefined || options.refreshAuthToken === null ? {} : { refreshAuthToken: options.refreshAuthToken }),
-        ...(options.refreshAppCheckToken === undefined || options.refreshAppCheckToken === null ? {} : { refreshAppCheckToken: options.refreshAppCheckToken }),
-        featureFlags: { ...DEFAULT_VOICE_V3_FEATURE_FLAGS, VOICE_V3_ENABLED: true },
+        ...(options.getAppCheckToken === undefined ||
+        options.getAppCheckToken === null
+          ? {}
+          : { getAppCheckToken: options.getAppCheckToken }),
+        ...(options.refreshAuthToken === undefined ||
+        options.refreshAuthToken === null
+          ? {}
+          : { refreshAuthToken: options.refreshAuthToken }),
+        ...(options.refreshAppCheckToken === undefined ||
+        options.refreshAppCheckToken === null
+          ? {}
+          : { refreshAppCheckToken: options.refreshAppCheckToken }),
+        featureFlags: {
+          ...DEFAULT_VOICE_V3_FEATURE_FLAGS,
+          VOICE_V3_ENABLED: true,
+        },
       });
       unsubscribe = app.bus.subscribe(handleEvent, {});
       try {
-                await app.start({ startCapture: true });
+        await app.start({ startCapture: true });
         startupPending = false;
         armInputWatchdog();
 
@@ -329,9 +436,13 @@ export function createVoiceController(): ProductionController {
         app.playbackManager.setSpeakerMuted(speakerMuted);
         phase = "listening";
         emitAudioState();
-        recordDiagnostic({ type: "voice.socket-open", setupSent: true, architecture: "voice-v3" });
+        recordDiagnostic({
+          type: "voice.socket-open",
+          setupSent: true,
+          architecture: "voice-v3",
+        });
         return true;
-            } catch (error) {
+      } catch (error) {
         startupPending = false;
         clearInputWatchdog();
         active = false;
@@ -351,7 +462,7 @@ export function createVoiceController(): ProductionController {
     async stopSession(): Promise<boolean> {
       if (stopInFlight) return stopInFlight;
       if (!active && !app) return false;
-            startupPending = false;
+      startupPending = false;
       clearInputWatchdog();
       active = false;
       endTimeMs = Date.now();
@@ -417,9 +528,19 @@ export function createVoiceController(): ProductionController {
 }
 
 function projectPhase(state: OrchestratorSnapshot["state"]): string {
-  if (["CREDENTIAL_ACQUIRING", "PROVISIONING", "CONNECTING", "PROVIDER_READY", "GREETING_REQUESTED"].includes(state)) return "connecting";
+  if (
+    [
+      "CREDENTIAL_ACQUIRING",
+      "PROVISIONING",
+      "CONNECTING",
+      "PROVIDER_READY",
+      "GREETING_REQUESTED",
+    ].includes(state)
+  )
+    return "connecting";
   if (["THINKING", "OPERATION_PENDING"].includes(state)) return "thinking";
-  if (["RECOVERING", "RESUMING", "FALLBACK_ACTIVATING"].includes(state)) return "recovering";
+  if (["RECOVERING", "RESUMING", "FALLBACK_ACTIVATING"].includes(state))
+    return "recovering";
   if (["ASSISTANT_SPEAKING"].includes(state)) return "speaking";
   if (["CLOSING", "CLOSED", "FAILED", "IDLE"].includes(state)) return "idle";
   return "listening";
@@ -432,20 +553,29 @@ function mergeTranscript(previous: string, next: string): string {
   if (!prior) return current;
   if (current === prior || current.startsWith(prior)) return current;
   if (prior.startsWith(current)) return prior;
-  return /\s$/.test(previous) ? `${previous}${current}` : `${previous} ${current}`;
+  return /\s$/.test(previous)
+    ? `${previous}${current}`
+    : `${previous} ${current}`;
 }
 
 function readVoiceEvent(value: unknown): VoiceEvent | null {
   const payload = asRecord(value);
-  if (typeof payload.type === "string" && payload.type.startsWith("PROVIDER_")) {
+  if (
+    typeof payload.type === "string" &&
+    payload.type.startsWith("PROVIDER_")
+  ) {
     return payload as unknown as VoiceEvent;
   }
   const event = asRecord(payload.event);
-  return typeof event.type === "string" && event.type.startsWith("PROVIDER_") ? event as unknown as VoiceEvent : null;
+  return typeof event.type === "string" && event.type.startsWith("PROVIDER_")
+    ? (event as unknown as VoiceEvent)
+    : null;
 }
 
 function asRecord(value: unknown): Record<string, any> {
-  return typeof value === "object" && value !== null ? value as Record<string, any> : {};
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, any>)
+    : {};
 }
 
 function numberOr(value: unknown, fallback: number): number {

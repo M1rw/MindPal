@@ -15,7 +15,10 @@ import {
 type FakePort = {
   onmessage: ((event: MessageEvent<unknown>) => void) | null;
   onmessageerror: ((event: MessageEvent<unknown>) => void) | null;
-  readonly posts: Array<{ readonly payload: unknown; readonly transfers: readonly ArrayBuffer[] }>;
+  readonly posts: Array<{
+    readonly payload: unknown;
+    readonly transfers: readonly ArrayBuffer[];
+  }>;
   postMessage(payload: unknown, transfers?: readonly ArrayBuffer[]): void;
   receive(payload: unknown): void;
 };
@@ -28,7 +31,10 @@ class TestPort implements FakePort {
     readonly transfers: readonly ArrayBuffer[];
   }> = [];
 
-  public postMessage(payload: unknown, transfers: readonly ArrayBuffer[] = []): void {
+  public postMessage(
+    payload: unknown,
+    transfers: readonly ArrayBuffer[] = [],
+  ): void {
     this.posts.push({ payload, transfers });
   }
 
@@ -93,7 +99,9 @@ class TestAudioContext {
   public readonly sampleRate = 48_000;
   public state: AudioContextState = "running";
   public readonly destination = {} as AudioDestinationNode;
-  public readonly audioWorklet = { addModule: vi.fn(async (_url: string | URL) => undefined) };
+  public readonly audioWorklet = {
+    addModule: vi.fn(async (_url: string | URL) => undefined),
+  };
   public readonly sourceNode = new TestSourceNode();
   public readonly sinkNode = new TestGainNode();
 
@@ -101,7 +109,9 @@ class TestAudioContext {
     return this.sinkNode as unknown as GainNode;
   }
 
-  public createMediaStreamSource(_stream: MediaStream): MediaStreamAudioSourceNode {
+  public createMediaStreamSource(
+    _stream: MediaStream,
+  ): MediaStreamAudioSourceNode {
     return this.sourceNode as unknown as MediaStreamAudioSourceNode;
   }
 
@@ -133,10 +143,15 @@ class TestAudioWorkletNode {
   }
 }
 
-function createSine(sampleCount: number, frequency = 440, sampleRate = 48_000): Float32Array {
+function createSine(
+  sampleCount: number,
+  frequency = 440,
+  sampleRate = 48_000,
+): Float32Array {
   const output = new Float32Array(sampleCount);
   for (let index = 0; index < sampleCount; index += 1) {
-    output[index] = 0.5 * Math.sin((2 * Math.PI * frequency * index) / sampleRate);
+    output[index] =
+      0.5 * Math.sin((2 * Math.PI * frequency * index) / sampleRate);
   }
   return output;
 }
@@ -153,22 +168,33 @@ async function loadCaptureProcessor(): Promise<{
   readonly Processor: new (options?: AudioWorkletNodeOptions) => ProcessorLike;
 }> {
   vi.resetModules();
-  let registeredProcessor: (new (options?: AudioWorkletNodeOptions) => ProcessorLike) | null = null;
-  Object.defineProperty(globalThis, "sampleRate", { configurable: true, value: 48_000 });
-  Object.defineProperty(globalThis, "currentTime", { configurable: true, value: 2.5 });
+  let registeredProcessor:
+    (new (options?: AudioWorkletNodeOptions) => ProcessorLike) | null = null;
+  Object.defineProperty(globalThis, "sampleRate", {
+    configurable: true,
+    value: 48_000,
+  });
+  Object.defineProperty(globalThis, "currentTime", {
+    configurable: true,
+    value: 2.5,
+  });
   Object.defineProperty(globalThis, "AudioWorkletProcessor", {
     configurable: true,
     value: TestAudioWorkletProcessor,
   });
   Object.defineProperty(globalThis, "registerProcessor", {
     configurable: true,
-    value: (_name: string, processor: new (options?: AudioWorkletNodeOptions) => ProcessorLike) => {
+    value: (
+      _name: string,
+      processor: new (options?: AudioWorkletNodeOptions) => ProcessorLike,
+    ) => {
       registeredProcessor = processor;
     },
   });
 
   await import("./capture-processor");
-  if (!registeredProcessor) throw new Error("CaptureProcessor was not registered");
+  if (!registeredProcessor)
+    throw new Error("CaptureProcessor was not registered");
   return { Processor: registeredProcessor };
 }
 
@@ -196,7 +222,10 @@ describe("capture DSP", () => {
     processor.process([[input]], [], {});
 
     expect(port.posts).toHaveLength(1);
-    const message = port.posts[0]?.payload as { readonly type: string; readonly frame: AudioFrame };
+    const message = port.posts[0]?.payload as {
+      readonly type: string;
+      readonly frame: AudioFrame;
+    };
     const transfer = port.posts[0]?.transfers[0];
     expect(message.type).toBe("capture.frame");
     expect(message.frame.sampleRate).toBe(16_000);
@@ -205,7 +234,9 @@ describe("capture DSP", () => {
     expect(message.frame.rms).toBeGreaterThan(0.34);
     expect(message.frame.rms).toBeLessThan(0.37);
     expect(transfer).toBe(message.frame.data);
-    expect(new Int16Array(message.frame.data).some((sample) => sample !== 0)).toBe(true);
+    expect(
+      new Int16Array(message.frame.data).some((sample) => sample !== 0),
+    ).toBe(true);
   });
 
   it("keeps the provider stream alive with zeroed PCM16 frames while muted", async () => {
@@ -235,7 +266,10 @@ describe("CaptureManager", () => {
 
   it("requests the required microphone constraints and handles local mute without stopping capture", async () => {
     const stream = new TestStream();
-    const getUserMedia = vi.fn(async (_constraints: MediaStreamConstraints) => stream as unknown as MediaStream);
+    const getUserMedia = vi.fn(
+      async (_constraints: MediaStreamConstraints) =>
+        stream as unknown as MediaStream,
+    );
     const mediaDevices = { getUserMedia } as unknown as MediaDevices;
     const context = new TestAudioContext();
     const metrics: CaptureMetrics[] = [];
@@ -249,7 +283,9 @@ describe("CaptureManager", () => {
     await manager.start();
     expect(getUserMedia).toHaveBeenCalledWith(CAPTURE_CONSTRAINTS);
     expect(manager.isRunning).toBe(true);
-    expect(context.audioWorklet.addModule).toHaveBeenCalledWith("capture-processor.js");
+    expect(context.audioWorklet.addModule).toHaveBeenCalledWith(
+      "capture-processor.js",
+    );
     expect(context.sinkNode.gain.value).toBe(0);
     expect(context.sinkNode.connectedTo).toBe(context.destination);
 
@@ -268,6 +304,26 @@ describe("CaptureManager", () => {
     expect(context.state).toBe("closed");
   });
 
+  it("rejects a suspended microphone AudioContext instead of reporting active capture", async () => {
+    const context = new TestAudioContext();
+    context.state = "suspended";
+    const diagnostics: string[] = [];
+    const manager = new CaptureManager({
+      mediaDevices: {
+        getUserMedia: vi.fn(
+          async () => new TestStream() as unknown as MediaStream,
+        ),
+      } as unknown as MediaDevices,
+      audioContextFactory: () => context as unknown as AudioContext,
+      workletModuleUrl: "capture-processor.js",
+      onDiagnostic: (diagnostic) => diagnostics.push(diagnostic.type),
+    });
+
+    await expect(manager.start()).rejects.toThrow("audio context is suspended");
+    expect(diagnostics).toEqual(["capture-error"]);
+    expect(manager.isRunning).toBe(false);
+  });
+
   it("rejects malformed worklet frames instead of forwarding them", async () => {
     const stream = new TestStream();
     const diagnostics: string[] = [];
@@ -275,14 +331,16 @@ describe("CaptureManager", () => {
       mediaDevices: {
         getUserMedia: vi.fn(async () => stream as unknown as MediaStream),
       } as unknown as MediaDevices,
-      audioContextFactory: () => new TestAudioContext() as unknown as AudioContext,
+      audioContextFactory: () =>
+        new TestAudioContext() as unknown as AudioContext,
       workletModuleUrl: "capture-processor.js",
       onDiagnostic: (diagnostic) => diagnostics.push(diagnostic.type),
     });
 
     await manager.start();
     const activeWorklet = TestAudioWorkletNode.latest;
-    if (!activeWorklet) throw new Error("fake AudioWorkletNode was not created");
+    if (!activeWorklet)
+      throw new Error("fake AudioWorkletNode was not created");
     activeWorklet.port.receive({
       type: "capture.frame",
       frame: { sampleRate: 48_000, data: new ArrayBuffer(10) },
