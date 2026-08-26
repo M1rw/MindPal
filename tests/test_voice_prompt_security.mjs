@@ -161,3 +161,17 @@ test("Voice runtime applies supported native capture constraints and provider-ow
   const source = await readFile(new URL("../frontend/voice/src/production-entry.ts", import.meta.url), "utf8");
   assert.match(source, /app\.start\(\{ startCapture: true \}\)/);
 });
+
+test("generated WAV fixture injection is explicitly gated and uses the live frame bridge", async () => {
+  const [liveSource, sessionSource, appSource] = await Promise.all([
+    readFile(new URL("../frontend/js/voice_live.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/js/voice_session.js", import.meta.url), "utf8"),
+    readFile(new URL("../frontend/voice/src/app.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(liveSource, /voice_fixture/);
+  assert.match(liveSource, /decodeFixtureWav/);
+  assert.match(liveSource, /injectAudioFrame/);
+  assert.match(liveSource, /endAudioStream/);
+  assert.match(sessionSource, /controller\?\.injectAudioFrame/);
+  assert.match(appSource, /public forwardCapturedFrame/);
+});

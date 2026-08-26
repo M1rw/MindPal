@@ -14,6 +14,8 @@ import {
   getTranscriptSnapshot,
   getSessionDebugReport,
   preloadVoiceRuntime,
+  injectAudioFrame,
+  endAudioStream,
 } from "./voice_session.js";
 import {
   startVoiceFace,
@@ -179,6 +181,8 @@ export async function startLiveVoice(contextProvider = null) {
     isSpeakerMuted: getSpeakerMuted(),
     error: false,
   });
+  if (new URLSearchParams(globalThis.location?.search || "").get("voice_fixture") === "1")
+    ensureVoiceFixtureHarness();
 
   try {
     // Start token acquisition in parallel, but do not await it before the
@@ -218,6 +222,109 @@ export async function startLiveVoice(contextProvider = null) {
     // manually close or retry instead of seeing an unexplained spinner vanish.
     setTimeout(stopLiveVoice, 30_000);
   }
+}
+
+function ensureVoiceFixtureHarness() {
+  if (document.getElementById("voice-fixture-harness")) return;
+  const panel = document.createElement("div");
+  panel.id = "voice-fixture-harness";
+  panel.style.cssText = "position:fixed;left:16px;right:16px;bottom:92px;z-index:20;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid rgba(120,140,180,.35);border-radius:12px;background:rgba(255,255,255,.92);font:12px system-ui,sans-serif;color:#27324a;box-shadow:0 8px 28px rgba(20,30,60,.12)";
+  const label = document.createElement("label");
+  label.textContent = "Generated voice fixture";
+  label.htmlFor = "voice-fixture-input";
+  const input = document.createElement("input");
+  input.id = "voice-fixture-input";
+  input.type = "file";
+  input.accept = ".wav,audio/wav,audio/x-wav";
+  const status = document.createElement("span");
+  status.id = "voice-fixture-status";
+  status.textContent = "Choose a T01–T05 WAV; it will be sent as live microphone frames.";
+  input.addEventListener("change", async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      status.textContent = `Sending ${file.name}…`;
+      const pcm = await decodeFixtureWav(file);
+      const startedAt = performance.now();
+      let sent = 0;
+      for (let offset = 0; offset < pcm.length; offset += 320) {
+        const frameSamples = new Int16Array(320);
+        frameSamples.set(pcm.subarray(offset, Math.min(offset + 320, pcm.length)));
+        const rms = Math.sqrt(frameSamples.reduce((sum, sample) => sum + (sample / 32768) ** 2, 0) / frameSamples.length);
+        if (injectAudioFrame({
+          frameId: `fixture-${Date.now()}-${sent}`,
+          sequence: sent,
+          sampleRate: 16000,
+          channels: 1,
+          format: "pcm_s16le",
+          data: frameSamples.buffer,
+          capturedAtMono: startedAt + sent * 20,
+          durationMs: 20,
+          muted: false,
+          rms,
+        })) sent += 1;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      endAudioStream();
+      status.textContent = `Sent ${sent} live frames from ${file.name}; waiting for Gemini response.`;
+    } catch (error) {
+      status.textContent = `Fixture failed: ${error?.message || "invalid WAV"}`;
+    } finally {
+      input.value = "";
+    }
+  });
+  panel.append(label, input, status);
+  document.body.appendChild(panel);
+}
+
+async function decodeFixtureWav(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const text = (offset, length) => new TextDecoder().decode(bytes.subarray(offset, offset + length));
+  if (text(0, 4) !== "RIFF" || text(8, 4) !== "WAVE") throw new Error("Only RIFF/WAVE files are supported");
+  let offset = 12;
+  let channels = 0;
+  let sampleRate = 0;
+  let bitsPerSample = 0;
+  let dataOffset = -1;
+  let dataLength = 0;
+  while (offset + 8 <= view.byteLength) {
+    const chunkId = text(offset, 4);
+    const chunkLength = view.getUint32(offset + 4, true);
+    const chunkStart = offset + 8;
+    if (chunkId === "fmt ") {
+      if (view.getUint16(chunkStart, true) !== 1) throw new Error("Only PCM WAV files are supported");
+      channels = view.getUint16(chunkStart + 2, true);
+      sampleRate = view.getUint32(chunkStart + 4, true);
+      bitsPerSample = view.getUint16(chunkStart + 14, true);
+    } else if (chunkId === "data") {
+      dataOffset = chunkStart;
+      dataLength = Math.min(chunkLength, view.byteLength - chunkStart);
+      break;
+    }
+    offset = chunkStart + chunkLength + (chunkLength % 2);
+  }
+  if (dataOffset < 0 || channels < 1 || sampleRate < 1 || bitsPerSample !== 16)
+    throw new Error("WAV must contain mono/stereo PCM16 data");
+  const input = new Int16Array(dataLength / 2);
+  for (let index = 0; index < input.length; index += 1) input[index] = view.getInt16(dataOffset + index * 2, true);
+  const mono = new Float32Array(Math.floor(input.length / channels));
+  if (mono.length === 0) throw new Error("WAV contains no PCM samples");
+  for (let index = 0; index < mono.length; index += 1) {
+    let sum = 0;
+    for (let channel = 0; channel < channels; channel += 1) sum += input[index * channels + channel] / 32768;
+    mono[index] = sum / channels;
+  }
+  const outputLength = Math.max(1, Math.round(mono.length * 16000 / sampleRate));
+  const output = new Int16Array(outputLength);
+  for (let index = 0; index < output.length; index += 1) {
+    const sourceIndex = index * sampleRate / 16000;
+    const left = Math.floor(sourceIndex);
+    const right = Math.min(left + 1, mono.length - 1);
+    const fraction = sourceIndex - left;
+    output[index] = Math.max(-32768, Math.min(32767, Math.round((mono[left] * (1 - fraction) + mono[right] * fraction) * 32767)));
+  }
+  return output;
 }
 
 // ═══════════════════════════════════════════════════════════════

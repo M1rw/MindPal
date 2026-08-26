@@ -315,23 +315,7 @@ export class VoiceV3App {
     this.captureManager = new CaptureManager({
       onMetrics: (metrics) => this.publishCaptureMetrics(metrics),
       onFrame: (frame) => {
-        this.publish("capture", "capture.frame", frame);
-        // Capture may start inside the user gesture before token acquisition and
-        // Gemini setup complete. Do not let that normal handshake window fill
-        // the transport queue with stale audio; the user-facing state remains
-        // Connecting until setup has completed, and subsequent live frames are
-        // forwarded normally.
-        if (!this.transportManager.isReady) {
-          if (!this.deferredCaptureDiagnosticReported) {
-            this.deferredCaptureDiagnosticReported = true;
-            this.publish("capture", "capture.frame-deferred", {
-              reason: "transport-not-ready",
-              sequence: frame.sequence,
-            });
-          }
-          return;
-        }
-        this.transportManager.sendAudioFrame(frame);
+        this.forwardCapturedFrame(frame);
       },
       onDiagnostic: (diagnostic) => this.publishCaptureDiagnostic(diagnostic),
     });
@@ -407,6 +391,31 @@ export class VoiceV3App {
       this.started = false;
       throw error;
     }
+  }
+
+  public endCapturedAudio(): boolean {
+    if (!this.transportManager.isReady) return false;
+    return this.transportManager.sendAudioStreamEnd();
+  }
+
+  public forwardCapturedFrame(frame: AudioFrame): boolean {
+    this.publish("capture", "capture.frame", frame);
+    // Capture may start inside the user gesture before token acquisition and
+    // Gemini setup complete. Do not let that normal handshake window fill
+    // the transport queue with stale audio; the user-facing state remains
+    // Connecting until setup has completed, and subsequent live frames are
+    // forwarded normally.
+    if (!this.transportManager.isReady) {
+      if (!this.deferredCaptureDiagnosticReported) {
+        this.deferredCaptureDiagnosticReported = true;
+        this.publish("capture", "capture.frame-deferred", {
+          reason: "transport-not-ready",
+          sequence: frame.sequence,
+        });
+      }
+      return false;
+    }
+    return this.transportManager.sendAudioFrame(frame);
   }
 
   public async stop(): Promise<void> {

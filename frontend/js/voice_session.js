@@ -123,3 +123,11 @@ export async function stopSession() {
 export function sendTextToModel(text) {
   return controller?.sendTextToModel?.(String(text || "")) || false;
 }
+
+export function injectAudioFrame(frame) {
+  return controller?.injectAudioFrame?.(frame) || false;
+}
+
+export function endAudioStream() {
+  return controller?.endAudioStream?.() || false;
+}
