@@ -1,5 +1,5 @@
 import { createVoiceV3App, type VoiceV3App } from "./app";
-import type { LayerLinkEnvelope } from "./core/layer-link";
+import type { AudioFrame, LayerLinkEnvelope } from "./core/layer-link";
 import { DEFAULT_VOICE_V3_FEATURE_FLAGS } from "./integration/feature-flags";
 import type { OrchestratorSnapshot } from "./layers/orchestrator/orchestrator";
 import type { VoiceEvent } from "./layers/adapter/event-types";
@@ -30,6 +30,8 @@ type ProductionController = {
   setMuted: (muted: boolean) => boolean;
   setSpeakerMuted: (muted: boolean) => boolean;
   sendTextToModel: (text: string) => boolean;
+  injectAudioFrame: (frame: AudioFrame) => boolean;
+  endAudioStream: () => boolean;
   getSessionState: () => Record<string, unknown>;
   getSessionDebugReport: () => Record<string, unknown>;
   getTranscriptSnapshot: () => { userTranscript: string; aiTranscript: string };
@@ -522,6 +524,16 @@ export function createVoiceController(): ProductionController {
       const normalized = text.trim();
       if (!normalized || !app?.transportManager.isReady) return false;
       return app.transportManager.sendRealtimeText(normalized);
+    },
+
+    injectAudioFrame(frame: AudioFrame): boolean {
+      if (!active || !app) return false;
+      return app.forwardCapturedFrame(frame);
+    },
+
+    endAudioStream(): boolean {
+      if (!active || !app) return false;
+      return app.endCapturedAudio();
     },
 
     getSessionState(): Record<string, unknown> {
