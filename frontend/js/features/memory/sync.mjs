@@ -3,7 +3,7 @@ import {
   memoryGraphToBackend,
   mergeMemoryGraphs,
   normalizeMemoryGraph,
-} from "./memory_graph.js";
+} from "./graph.js";
 
 const DEFAULT_MAX_ATTEMPTS = 3;
 

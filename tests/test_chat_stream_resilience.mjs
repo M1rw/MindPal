@@ -14,7 +14,7 @@ const {
   buildChatStreamPayload,
   sendChatMessageStream,
   shouldRetryStreamRequest,
-} = await import("../frontend/js/api.js");
+} = await import("../frontend/js/services/api.js");
 
 test("stream payload preserves a caller-owned client request ID and removes the optimistic user duplicate", () => {
   const payload = buildChatStreamPayload({

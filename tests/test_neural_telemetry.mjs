@@ -16,7 +16,7 @@ globalThis.BroadcastChannel = class BroadcastChannel {
   postMessage(message) { messages.push({ name: this.name, message }); }
 };
 
-const { emitNeuralEvent, readRecentNeuralEvents } = await import("../frontend/js/neural_telemetry.js");
+const { emitNeuralEvent, readRecentNeuralEvents } = await import("../frontend/js/observability/neural_telemetry.js");
 
 test("Neural Observatory emits only coarse local stage metadata", () => {
   emitNeuralEvent("attention", { inputLength: 142, durationMs: 1820, text: "must never be retained" });

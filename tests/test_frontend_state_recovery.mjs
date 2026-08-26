@@ -56,11 +56,11 @@ globalThis.document = {
   addEventListener: () => {},
 };
 
-const ui = await import("../frontend/js/ui_state.js");
-const settings = await import("../frontend/js/settings_store.js");
-const usage = await import("../frontend/js/components/usage_tracker.js");
+const ui = await import("../frontend/js/state/ui_state.js");
+const settings = await import("../frontend/js/state/settings_store.js");
+const usage = await import("../frontend/js/ui/components/usage_tracker.js");
 const helpers = await import("../frontend/js/utils/chat_helpers.js");
-const selector = await import("../frontend/js/components/model_selector.js");
+const selector = await import("../frontend/js/ui/components/model_selector.js");
 
 test("corrupted UI persistence falls back to a usable state and accepts a new message", () => {
   const state = ui.loadState();

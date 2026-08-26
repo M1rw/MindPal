@@ -29,12 +29,12 @@ import {
   updateProfileUI,
   updateMentalHealthUI,
   updateUsageUI,
-} from "./ui_state.js";
+} from "../state/ui_state.js";
 
 import {
   hydrateSettingsFromProfile,
   buildChatSettingsMetadata,
-} from "./settings_store.js";
+} from "../state/settings_store.js";
 
 import {
   loadMemoryGraphContext,
@@ -43,9 +43,9 @@ import {
   saveMemoryGraphContext,
   loadMemoryContext,
   memoryFromBackendSummary,
-} from "./memory_graph.js";
+} from "../features/memory/graph.js";
 
-import { memoryGraphAtomsEqual, syncMemoryGraphSnapshot } from "./memory_sync.mjs";
+import { memoryGraphAtomsEqual, syncMemoryGraphSnapshot } from "../features/memory/sync.mjs";
 
 // ═══════════════════════════════════════════════════════════════
 // State

@@ -249,7 +249,7 @@ def test_frontend_does_not_ship_user_visible_thought_duration() -> None:
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
-    status_source = (root / "frontend/js/ui_state.js").read_text(encoding="utf-8")
+    status_source = (root / "frontend/js/state/ui_state.js").read_text(encoding="utf-8")
     bundle = (root / "frontend/dist/app.bundle.js").read_text(encoding="utf-8")
 
     assert "Thought for ${seconds}s" not in status_source
@@ -259,8 +259,8 @@ def test_frontend_does_not_ship_user_visible_thought_duration() -> None:
 
 def test_firebase_google_identity_auth_recovers_from_stale_redirect_errors() -> None:
     root = Path(__file__).resolve().parents[1]
-    auth_source = (root / "frontend" / "js" / "auth.js").read_text(encoding="utf-8")
-    app_source = (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    auth_source = (root / "frontend" / "js" / "services" / "auth.js").read_text(encoding="utf-8")
+    app_source = (root / "frontend" / "js" / "app" / "main.js").read_text(encoding="utf-8")
 
     assert "getRedirectResult" in auth_source
     assert "const redirectResult = await getRedirectResult(firebaseAuth)" in auth_source
@@ -288,8 +288,8 @@ def test_firebase_google_identity_auth_recovers_from_stale_redirect_errors() -> 
 def test_cloud_login_modal_exposes_web_supported_firebase_methods() -> None:
     root = Path(__file__).resolve().parents[1]
     index_source = (root / "frontend" / "index.html").read_text(encoding="utf-8")
-    auth_source = (root / "frontend" / "js" / "auth.js").read_text(encoding="utf-8")
-    app_source = (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    auth_source = (root / "frontend" / "js" / "services" / "auth.js").read_text(encoding="utf-8")
+    app_source = (root / "frontend" / "js" / "app" / "main.js").read_text(encoding="utf-8")
 
     assert 'id="auth-modal"' in index_source
     assert 'id="auth-google-btn"' in index_source

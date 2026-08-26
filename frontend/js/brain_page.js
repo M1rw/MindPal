@@ -1,1 +1,2 @@
-import "./safe_mode.js";
+// Stable brain-page entrypoint.
+import "./app/brain_page.js";

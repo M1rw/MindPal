@@ -4,12 +4,12 @@ import assert from "node:assert/strict";
 import {
   memoryGraphAtomsEqual,
   syncMemoryGraphSnapshot,
-} from "../frontend/js/memory_sync.mjs";
+} from "../frontend/js/features/memory/sync.mjs";
 import {
   classifyAndStoreMemoryGraphFromMessage,
   createEmptyMemoryGraph,
   memoryGraphToBackend,
-} from "../frontend/js/memory_graph.js";
+} from "../frontend/js/features/memory/graph.js";
 
 function graphWith(text, graph = createEmptyMemoryGraph()) {
   return classifyAndStoreMemoryGraphFromMessage(text, { graphContext: graph }).graph;
