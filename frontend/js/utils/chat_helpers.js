@@ -1,5 +1,5 @@
 import { formatMarkdown } from "./dom.js";
-import { escapeHtml } from "../state/ui_state.js";
+import { escapeHtml } from "./html_escape.js";
 
 /**
  * Detect and truncate LLM repetition loops.

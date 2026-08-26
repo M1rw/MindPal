@@ -38,7 +38,6 @@ import {
   clearChatMemory,
   clearInput,
   closeModal,
-  escapeHtml,
   exportConversationLog,
   getState,
   initializeTheme,
@@ -51,7 +50,6 @@ import {
   renderWeeklyTracker,
   updateMentalHealthUI,
   replaceChatMemory,
-  scrollChatToBottom,
   setButtonBusy,
   setChatStarted,
   setCloudSyncEnabled,
@@ -67,6 +65,9 @@ import {
   registerSettingsStore,
   getStreakSnapshot,
 } from "../state/ui_state.js";
+
+import { escapeHtml } from "../utils/html_escape.js";
+import { scrollChatToBottom } from "../utils/chat_scroll.js";
 
 import { emitNeuralEvent, emitSafeModeRuntimeTrace } from "../observability/neural_telemetry.js";
 

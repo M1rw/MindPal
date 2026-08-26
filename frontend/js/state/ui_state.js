@@ -11,9 +11,12 @@ import {
   getLast7Days,
 } from "../utils/dates.js";
 import { cryptoRandomId, normalizeName } from "../utils/helpers.js";
+import { scrollChatToBottom } from "../utils/chat_scroll.js";
+import { escapeHtml } from "../utils/html_escape.js";
 
-// Re-export so existing consumers don't break
+// Re-export so existing consumers don't break.
 export { refreshIcons } from "../utils/icons.js";
+export { escapeHtml } from "../utils/html_escape.js";
 
 const STATE_KEY = "mindpal_state_v2";
 const MAX_LOCAL_CHAT_MESSAGES = 250;
@@ -947,20 +950,7 @@ export function finalizeStatusIndicator(id, _elapsedMs) {
   removeStatusIndicator(id);
 }
 
-export function scrollChatToBottom(behavior = "auto", force = false) {
-  requestAnimationFrame(() => {
-    const chatHistory = document.getElementById("chat-history");
-    if (chatHistory) {
-      const isNearBottom = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 150;
-      if (force || isNearBottom) {
-        chatHistory.scrollTo({
-          top: chatHistory.scrollHeight,
-          behavior: behavior === "smooth" ? "smooth" : "auto"
-        });
-      }
-    }
-  });
-}
+
 
 // ═══════════════════════════════════════════════════════════════
 // Toast & misc UI
@@ -1047,18 +1037,7 @@ export function exportConversationLog() {
   showToast("Log exported.");
 }
 
-// ═══════════════════════════════════════════════════════════════
-// escapeHtml — exported for consumers (app.js, etc.)
-// ═══════════════════════════════════════════════════════════════
 
-export function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", () => {

@@ -105,9 +105,9 @@ function safeJsonParse(text) {
   if (!text) return null;
   try {
     return JSON.parse(text);
-  } catch (err) {
-    console.warn("safeJsonParse failed to parse JSON:", err.message, "Raw text:", String(text).slice(0, 200));
-    return { raw: text };
+  } catch {
+    // Never retain or log an invalid response body; it may contain private content.
+    return null;
   }
 }
 
