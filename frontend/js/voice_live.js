@@ -251,17 +251,8 @@ function ensureVoiceFixtureHarness() {
     const transcripts = debug.transcripts || {};
     const user = transcripts.userTranscript ? "yes" : "no";
     const ai = transcripts.aiTranscript ? "yes" : "no";
-    const signals = Array.isArray(transport.recentDiagnostics)
-      ? transport.recentDiagnostics
-          .map((item) => {
-            if (typeof item?.type !== "string") return "";
-            const type = item.type.replace(/^voice\\./, "");
-            const messageType = typeof item?.messageType === "string" ? `:${item.messageType}` : "";
-            return `${type}${messageType}`;
-          })
-          .filter(Boolean)
-          .slice(-3)
-          .join(",")
+    const signals = Array.isArray(transport.recentMessageTypes)
+      ? transport.recentMessageTypes.slice(-4).join(",")
       : "";
     report.textContent = `frames ${audio.framesCaptured || 0} · sent ${transport.framesSent || 0} · ${transport.ready ? "ready" : "not-ready"} · ${transport.state || "unknown"} · user ${user} · ai ${ai} · signals ${signals || "none"}`;
   };
