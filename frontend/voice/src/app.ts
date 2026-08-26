@@ -335,16 +335,14 @@ export class VoiceV3App {
     this.orchestrator.startSession();
     this.orchestrator.markProvisioning();
     this.orchestrator.markConnecting();
-    // Prime the playback graph before the provider can emit greeting audio.
-    // Autoplay policies may suspend a context created from a later network
-    // callback; a best-effort resume here prevents a valid response from being
-    // projected as speaking while its PCM never reaches the destination.
+    // Prime and verify the playback graph before the provider can emit greeting
+    // audio. A suspended context must fail startup rather than project speaking
+    // while valid PCM never reaches the destination.
     try {
-      await this.playbackManager.ensureContextResumed().catch((error) => {
-        this.debug("[Voice V3] playback context prewarm deferred", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
+      // Playback must be resumed before network setup can produce greeting PCM.
+      // Swallowing a resume failure lets the provider move the UI to speaking
+      // while every audio chunk is rejected by the suspended context.
+      await this.playbackManager.ensureContextResumed();
       // Start capture before the network await. Creating the microphone
       // AudioContext only after token/WebSocket setup can move it outside the
       // transient user gesture and leave the worklet suspended while the UI
