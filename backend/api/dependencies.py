@@ -43,6 +43,7 @@ from backend.services import (
     SafetyService,
     TTSService,
 )
+from backend.services.admin_authority import AdminAuthority
 from backend.services.brain_service import BrainService
 from backend.services.idempotency_service import IdempotencyService
 from backend.services.memory_repository import MemoryRepository
@@ -52,6 +53,7 @@ from backend.services.response_intelligence_service import ResponseIntelligenceS
 from backend.services.feature_flags_service import FeatureFlagsService
 from backend.services.feature_policy_repository import FeaturePolicyRepository, FeaturePolicyStore
 from backend.services.supabase_client import SupabaseClient
+from backend.services.supabase_admin_repository import SupabaseAdminRepository
 from backend.services.supabase_feature_policy_repository import SupabaseFeaturePolicyRepository
 from backend.services.voice_v4_token_service import VoiceV4TokenService
 
@@ -96,6 +98,7 @@ class ServiceContainer:
     response_intelligence: ResponseIntelligenceService
     feature_flags: FeatureFlagsService
     feature_policies: FeaturePolicyStore
+    admin_authority: AdminAuthority
     voice_v4_tokens: VoiceV4TokenService
     http_client: httpx.AsyncClient
 
@@ -195,6 +198,7 @@ def build_service_container(settings: Settings) -> ServiceContainer:
     response_intelligence = ResponseIntelligenceService(settings=settings, llm_service=llm)
     feature_flags = FeatureFlagsService()
     feature_policies = _build_feature_policy_store(settings, db, http_client)
+    admin_authority = _build_admin_authority(settings, http_client)
     voice_v4_tokens = VoiceV4TokenService(settings=settings, client=http_client)
 
     return ServiceContainer(
@@ -216,9 +220,37 @@ def build_service_container(settings: Settings) -> ServiceContainer:
         response_intelligence=response_intelligence,
         feature_flags=feature_flags,
         feature_policies=feature_policies,
+        admin_authority=admin_authority,
         voice_v4_tokens=voice_v4_tokens,
         http_client=http_client,
 
+    )
+
+
+def _build_admin_authority(
+    settings: Settings,
+    http_client: httpx.AsyncClient,
+) -> AdminAuthority:
+    if settings.FEATURE_POLICY_STORAGE == "firestore":
+        return AdminAuthority()
+
+    service_role_key = (
+        settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
+        if settings.SUPABASE_SERVICE_ROLE_KEY is not None
+        else ""
+    )
+    if not settings.SUPABASE_URL.strip() or not service_role_key:
+        raise RuntimeError(
+            "Supabase admin authority requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
+        )
+    return AdminAuthority(
+        repository=SupabaseAdminRepository(
+            client=SupabaseClient(
+                base_url=settings.SUPABASE_URL,
+                service_role_key=service_role_key,
+                http_client=http_client,
+            )
+        )
     )
 
 
@@ -496,11 +528,13 @@ AuthenticatedRequestContextDep = Annotated[
 ]
 
 
-def assert_admin(context: Any) -> None:
-    """Require the verified Firebase ``mindpal_admin=true`` custom claim."""
+async def assert_admin(
+    context: Any,
+    authority: AdminAuthority,
+) -> None:
+    """Require administrator state from the configured trusted authority."""
     assert_authenticated(context)
-    metadata = getattr(getattr(context, "session", None), "metadata", {}) or {}
-    if metadata.get("admin") is not True:
+    if not await authority.is_admin(context.session):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
@@ -513,8 +547,9 @@ def assert_admin(context: Any) -> None:
 
 async def get_admin_request_context(
     context: AuthenticatedRequestContextDep,
+    services: ServicesDep,
 ) -> RequestContext:
-    assert_admin(context)
+    await assert_admin(context, services.admin_authority)
     return context
 
 

@@ -117,7 +117,7 @@ async def get_optional_feature_context(
     return FeatureContext(
         user_id_hash=session.user_id_hash,
         authenticated=session.authenticated,
-        is_admin=session.metadata.get("admin") is True,
+        is_admin=await services.admin_authority.is_admin(session),
         channel=session.channel.value,
         locale=session.locale,
     )

@@ -156,11 +156,14 @@ class FirebaseAuthProvider:
         if isinstance(firebase_claims, dict):
             firebase_provider = firebase_claims.get("sign_in_provider")
 
+        email_verified = bool(decoded.get("email_verified", False))
         metadata: dict[str, str | int | float | bool | None] = {
             "project_id": self.project_id,
-            "email_verified": bool(decoded.get("email_verified", False)),
-            # Operational endpoints require this explicit Firebase custom claim.
-            # Never infer administrative access from email/domain/client input.
+            "email_verified": email_verified,
+            # Retain only a deterministic redacted lookup key for Supabase.
+            # Never expose or persist the raw Firebase email in session metadata.
+            "email_hash": _firebase_email_hash(decoded.get("email"), email_verified),
+            # Kept for Firestore-mode compatibility; Supabase mode ignores it.
             "admin": decoded.get("mindpal_admin") is True,
         }
 
@@ -177,7 +180,7 @@ class FirebaseAuthProvider:
         return AuthIdentity(
             raw_user_id=uid,
             provider=self.name,
-            email_verified=bool(decoded.get("email_verified", False)),
+            email_verified=email_verified,
             metadata=metadata,
         )
 
@@ -486,6 +489,15 @@ def parse_bearer_token(authorization_header: str | None) -> str | None:
         return None
 
     return _clean_token(token) or None
+
+
+def _firebase_email_hash(value: object, email_verified: bool) -> str:
+    if not email_verified or not isinstance(value, str):
+        return ""
+    normalized = value.strip().casefold()
+    if not normalized or len(normalized) > 320 or "@" not in normalized:
+        return ""
+    return hash_user_id(f"firebase-email:{normalized}")
 
 
 def _clean_token(token: str) -> str:

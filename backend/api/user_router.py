@@ -75,6 +75,7 @@ class UserProfileReplacePayload(BaseModel):
 
 @router.get("/me", response_model=CurrentUserResponse)
 async def current_user(
+    services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> CurrentUserResponse:
     """
@@ -100,7 +101,7 @@ async def current_user(
         locale=context.session.locale,
         provider=provider,
         email_verified=email_verified,
-        is_admin=context.session.metadata.get("admin") is True,
+        is_admin=await services.admin_authority.is_admin(context.session),
     )
 
 
