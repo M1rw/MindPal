@@ -6,8 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
-from pytest import MonkeyPatch
-
 from backend.api.dependencies import get_services
 from backend.core.config import Settings
 from backend.main import create_app
@@ -158,11 +156,12 @@ def test_runtime_config_is_generated_from_deployment_settings_without_server_sec
     assert "FIREBASE_CREDENTIALS_JSON" not in response.text
 
 
-def test_runtime_config_enables_voice_preview_only_on_vercel_preview(monkeypatch: MonkeyPatch) -> None:
+def test_runtime_config_enables_voice_preview_only_on_vercel_preview() -> None:
     preview_app = create_app(
         Settings(
             _env_file=None,
             ENVIRONMENT="production",
+            VERCEL_ENV="preview",
             VOICE_V4_PREVIEW_ENVIRONMENT="staging",
             VOICE_V4_PREVIEW_APPROVED=True,
             VOICE_V4_PREVIEW_SESSION_ENABLED=True,
@@ -171,8 +170,6 @@ def test_runtime_config_enables_voice_preview_only_on_vercel_preview(monkeypatch
             ENABLE_FIREBASE=False,
         )
     )
-    monkeypatch.setenv("VERCEL_ENV", "preview")
-
     with TestClient(preview_app) as client:
         preview_response = client.get("/runtime-config.js")
 
@@ -184,6 +181,7 @@ def test_runtime_config_enables_voice_preview_only_on_vercel_preview(monkeypatch
         Settings(
             _env_file=None,
             ENVIRONMENT="production",
+            VERCEL_ENV="production",
             VOICE_V4_PREVIEW_ENVIRONMENT="staging",
             VOICE_V4_PREVIEW_APPROVED=True,
             VOICE_V4_PREVIEW_SESSION_ENABLED=True,
@@ -192,8 +190,6 @@ def test_runtime_config_enables_voice_preview_only_on_vercel_preview(monkeypatch
             ENABLE_FIREBASE=False,
         )
     )
-    monkeypatch.setenv("VERCEL_ENV", "production")
-
     with TestClient(production_app) as client:
         production_response = client.get("/runtime-config.js")
 

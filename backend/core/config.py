@@ -116,6 +116,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = Field(default="MindPal", min_length=1, max_length=80)
     VERSION: str = Field(default="2.0.0", min_length=1, max_length=40)
     ENVIRONMENT: Environment = "development"
+    # Deployment platform context used only for preview-only release guards.
+    VERCEL_ENV: str = Field(default="", max_length=40)
 
     # ── Server ───────────────────────────────────────────────────
     API_HOST: str = "127.0.0.1"
