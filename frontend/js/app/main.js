@@ -69,6 +69,9 @@ import {
 import { escapeHtml } from "../utils/html_escape.js";
 import { scrollChatToBottom } from "../utils/chat_scroll.js";
 import { hydrateFeatureSnapshot } from "../services/feature_flags_client.js";
+import { getFeatureState } from "../state/feature_store.js";
+import { evaluateVoiceV4Release } from "../features/voice_v4/layer0/contract.js";
+import { createVoiceLayer6Controller } from "../features/voice_v4/layer6/index.js";
 import { renderFeatureStatusPanel } from "../ui/components/feature_status_ui.js";
 import { initFeatureAdminUI, refreshFeatureAdminPanel } from "../ui/components/feature_admin_ui.js";
 
@@ -168,8 +171,10 @@ import { memoryFromBackendSummary } from "../features/memory/graph.js";
 let isGenerating = false;
 let isSessionLocked = false;
 let activeStreamController = null;
+let voiceLayer6Controller = null;
 
 let globalLoaderRemoved = false;
+
 export function removeGlobalLoader() {
   if (globalLoaderRemoved) return;
   globalLoaderRemoved = true;
@@ -219,12 +224,14 @@ async function refreshFeatureSnapshot(token = null) {
     const snapshot = await hydrateFeatureSnapshot(token);
     renderFeatureStatusPanel();
     refreshFeatureAvailability();
+    voiceLayer6Controller?.syncAvailability();
     await refreshFeatureAdminPanel();
     return snapshot;
   } catch (error) {
     console.warn("[MindPal] Feature snapshot unavailable; using safe defaults", error?.code || "unknown_error");
     renderFeatureStatusPanel();
     refreshFeatureAvailability();
+    voiceLayer6Controller?.syncAvailability();
     await refreshFeatureAdminPanel();
     return null;
   }
@@ -269,6 +276,17 @@ async function bootstrap() {
       showToast,
       refreshIcons,
     });
+
+    voiceLayer6Controller = createVoiceLayer6Controller({
+      getFeatureState,
+      getReleaseDecision: (featureState) => evaluateVoiceV4Release(featureState, {
+        environment: window.MINDPAL_CONFIG?.ENVIRONMENT || "production",
+        explicitApproval: window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_APPROVED === true,
+      }),
+      getDiagnosticsEnabled: () => window.MINDPAL_CONFIG?.VOICE_V4_DIAGNOSTICS === true,
+      onUnavailable: ({ code }) => showToast?.(code === "voice_preview_unavailable" ? "Voice is unavailable in this release." : "This voice control is not available yet."),
+    });
+    voiceLayer6Controller.bind();
 
     initMemoryUI({
 

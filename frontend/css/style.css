@@ -2567,3 +2567,76 @@ button:active,
     grid-column: auto;
   }
 }
+
+/* Voice V4 Layer 6 preview surfaces remain inert until the protected release gate opens. */
+.voice-consent-panel {
+    position: absolute;
+    z-index: 30;
+    top: 50%;
+    left: 50%;
+    width: min(22rem, calc(100% - 2rem));
+    transform: translate(-50%, -50%);
+    padding: 1.25rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+}
+.dark .voice-consent-panel {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(20, 20, 24, 0.96);
+}
+.voice-consent-panel__eyebrow {
+    margin: 0 0 0.35rem;
+    color: #6b7280;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.voice-consent-panel__title {
+    margin: 0;
+    color: #18181b;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+.dark .voice-consent-panel__title { color: #f4f4f5; }
+.voice-consent-panel__copy {
+    margin: 0.55rem 0 1rem;
+    color: #71717a;
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+.voice-consent-panel__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+.voice-consent-panel__primary,
+.voice-consent-panel__secondary {
+    min-height: 2.35rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    transition: background-color 200ms ease-out, transform 200ms ease-out;
+}
+.voice-consent-panel__primary {
+    background: #18181b;
+    color: #fff;
+}
+.dark .voice-consent-panel__primary { background: #f4f4f5; color: #18181b; }
+.voice-consent-panel__secondary { color: #71717a; }
+.voice-consent-panel__primary:hover,
+.voice-consent-panel__secondary:hover { transform: translateY(-1px); }
+.voice-consent-panel__secondary:hover { background: rgba(0, 0, 0, 0.05); }
+.dark .voice-consent-panel__secondary:hover { background: rgba(255, 255, 255, 0.08); }
+.voice-safe-diagnostics {
+    display: block;
+    width: 100%;
+    margin-top: 0.7rem;
+    color: #71717a;
+    font: 0.68rem/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+    text-align: center;
+    overflow-wrap: anywhere;
+}

@@ -147,7 +147,12 @@ export function createVoiceSession({
       try {
         const bytes = decodeBase64(fact.data);
         const snapshot = playback?.schedulePcm24(bytes);
-        applyFact({ type: "playback_scheduled", generation: activeGeneration, queueDepthMs: snapshot?.queueDepthMs });
+        applyFact({
+          type: "playback_scheduled",
+          generation: activeGeneration,
+          queueDepthMs: snapshot?.queueDepthMs,
+          activeSourceCount: snapshot?.activeSourceCount,
+        });
       } catch (error) {
         void failSession(new VoiceSessionError("playback_schedule_failed"), activeGeneration);
       }

@@ -621,6 +621,17 @@
                                 Voice is archived
             </div>
         </div>
+        <!-- ── Layer 6 preview consent ── -->
+        <section id="voice-consent-panel" class="voice-consent-panel hidden" role="dialog" aria-modal="true" aria-labelledby="voice-consent-title">
+            <p class="voice-consent-panel__eyebrow">Private microphone session</p>
+            <h2 id="voice-consent-title" class="voice-consent-panel__title">Allow MindPal to listen?</h2>
+            <p class="voice-consent-panel__copy">Your microphone is used only for this live conversation. You can end the session at any time.</p>
+            <div class="voice-consent-panel__actions">
+                <button id="voice-consent-decline" type="button" class="voice-consent-panel__secondary">Not now</button>
+                <button id="voice-consent-allow" type="button" class="voice-consent-panel__primary">Allow microphone</button>
+            </div>
+        </section>
+
         <!-- ── Connection-only loading indicator ── -->
         <div id="voice-startup-spinner" class="voice-startup-spinner" aria-hidden="true">
             <span class="voice-startup-spinner__ring"></span>
@@ -654,9 +665,13 @@
                 </button>
 
 
-            </div>
-        </div>
+
+                    </div>
+                    <output id="voice-safe-diagnostics" class="voice-safe-diagnostics hidden" aria-live="polite"></output>
+                </div>
+
     </div>
     <script type="module" src="./dist/app.bundle.js?v=voice-runtime-no-audio-recovery-20260826"></script>
+
 </body>
 </html>
