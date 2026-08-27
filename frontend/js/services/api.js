@@ -177,6 +177,40 @@ export async function health() {
   return requestJson("/health", { method: "GET", timeoutMs: 20_000 });
 }
 
+export async function getFeatureSnapshot(token = null) {
+  return requestJson("/features", {
+    method: "GET",
+    token,
+    timeoutMs: 20_000,
+  });
+}
+
+export async function loadAdminFeaturePolicies(token) {
+  return requestJson("/admin/features", {
+    method: "GET",
+    token,
+    timeoutMs: 20_000,
+  });
+}
+
+export async function updateAdminFeaturePolicy(featureKey, payload, token) {
+  return requestJson(`/admin/features/${encodeURIComponent(featureKey)}`, {
+    method: "PUT",
+    token,
+    timeoutMs: 20_000,
+    body: payload,
+  });
+}
+
+export async function patchAdminFeaturePolicy(featureKey, payload, token) {
+  return requestJson(`/admin/features/${encodeURIComponent(featureKey)}`, {
+    method: "PATCH",
+    token,
+    timeoutMs: 20_000,
+    body: payload,
+  });
+}
+
 export async function getCurrentUserProfile(token) {
   return requestJson("/user/me", {
     method: "GET",
