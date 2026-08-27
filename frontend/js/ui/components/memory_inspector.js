@@ -209,14 +209,14 @@ function renderMemoryManageBody(cards) {
           <div class="group flex items-center gap-2 py-1.5 px-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
             <span class="flex-1 text-[13px] text-gray-800 dark:text-gray-200 truncate" title="${escapeHtml(item.value)}">${escapeHtml(item.value)}</span>
             ${item.pinned ? `<i data-lucide="pin" class="w-3 h-3 text-blue-400 flex-none"></i>` : ""}
-            <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-none">
-              <button class="memory-pin-btn p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors" data-memory-id="${escapeHtml(item.id)}" title="${item.pinned ? "Unpin" : "Pin"}" type="button">
+            <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex-none">
+              <button class="memory-pin-btn p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none" data-memory-id="${escapeHtml(item.id)}" title="${item.pinned ? "Unpin" : "Pin"}" aria-label="${item.pinned ? "Unpin memory" : "Pin memory"}" type="button">
                 <i data-lucide="${item.pinned ? "pin-off" : "pin"}" class="w-4 h-4"></i>
               </button>
-              <button class="memory-edit-btn p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors" data-memory-id="${escapeHtml(item.id)}" title="Edit" type="button">
+              <button class="memory-edit-btn p-1 rounded hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none" data-memory-id="${escapeHtml(item.id)}" title="Edit" aria-label="Edit memory" type="button">
                 <i data-lucide="pencil" class="w-4 h-4"></i>
               </button>
-              <button class="memory-delete-btn p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/20 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors" data-memory-id="${escapeHtml(item.id)}" title="Delete" type="button">
+              <button class="memory-delete-btn p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/20 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none" data-memory-id="${escapeHtml(item.id)}" title="Delete" aria-label="Delete memory" type="button">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
