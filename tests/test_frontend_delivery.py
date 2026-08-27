@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
 
 from backend.api.dependencies import get_services
 from backend.core.config import Settings
@@ -157,7 +158,52 @@ def test_runtime_config_is_generated_from_deployment_settings_without_server_sec
     assert "FIREBASE_CREDENTIALS_JSON" not in response.text
 
 
+def test_runtime_config_enables_voice_preview_only_on_vercel_preview(monkeypatch: MonkeyPatch) -> None:
+    preview_app = create_app(
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            VOICE_V4_PREVIEW_ENVIRONMENT="staging",
+            VOICE_V4_PREVIEW_APPROVED=True,
+            VOICE_V4_PREVIEW_SESSION_ENABLED=True,
+            ENABLE_HSTS=True,
+            TRUSTED_HOSTS=["testserver"],
+            ENABLE_FIREBASE=False,
+        )
+    )
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+
+    with TestClient(preview_app) as client:
+        preview_response = client.get("/runtime-config.js")
+
+    assert '"ENVIRONMENT":"staging"' in preview_response.text
+    assert '"VOICE_V4_PREVIEW_APPROVED":true' in preview_response.text
+    assert '"VOICE_V4_PREVIEW_SESSION_ENABLED":true' in preview_response.text
+
+    production_app = create_app(
+        Settings(
+            _env_file=None,
+            ENVIRONMENT="production",
+            VOICE_V4_PREVIEW_ENVIRONMENT="staging",
+            VOICE_V4_PREVIEW_APPROVED=True,
+            VOICE_V4_PREVIEW_SESSION_ENABLED=True,
+            ENABLE_HSTS=True,
+            TRUSTED_HOSTS=["testserver"],
+            ENABLE_FIREBASE=False,
+        )
+    )
+    monkeypatch.setenv("VERCEL_ENV", "production")
+
+    with TestClient(production_app) as client:
+        production_response = client.get("/runtime-config.js")
+
+    assert '"ENVIRONMENT":"production"' in production_response.text
+    assert '"VOICE_V4_PREVIEW_APPROVED":false' in production_response.text
+    assert '"VOICE_V4_PREVIEW_SESSION_ENABLED":false' in production_response.text
+
+
 def test_runtime_config_derives_firebase_hosting_domain_when_auth_domain_is_omitted() -> None:
+
     configured_app = create_app(
         Settings(
             _env_file=None,
