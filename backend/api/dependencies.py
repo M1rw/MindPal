@@ -50,7 +50,9 @@ from backend.services.quota_service import QuotaService
 from backend.services.rate_limit_service import RateLimitService
 from backend.services.response_intelligence_service import ResponseIntelligenceService
 from backend.services.feature_flags_service import FeatureFlagsService
-from backend.services.feature_policy_repository import FeaturePolicyRepository
+from backend.services.feature_policy_repository import FeaturePolicyRepository, FeaturePolicyStore
+from backend.services.supabase_client import SupabaseClient
+from backend.services.supabase_feature_policy_repository import SupabaseFeaturePolicyRepository
 from backend.services.voice_v4_token_service import VoiceV4TokenService
 
 
@@ -93,7 +95,7 @@ class ServiceContainer:
     brain: BrainService
     response_intelligence: ResponseIntelligenceService
     feature_flags: FeatureFlagsService
-    feature_policies: FeaturePolicyRepository
+    feature_policies: FeaturePolicyStore
     voice_v4_tokens: VoiceV4TokenService
     http_client: httpx.AsyncClient
 
@@ -192,7 +194,7 @@ def build_service_container(settings: Settings) -> ServiceContainer:
     )
     response_intelligence = ResponseIntelligenceService(settings=settings, llm_service=llm)
     feature_flags = FeatureFlagsService()
-    feature_policies = FeaturePolicyRepository(db=db)
+    feature_policies = _build_feature_policy_store(settings, db, http_client)
     voice_v4_tokens = VoiceV4TokenService(settings=settings, client=http_client)
 
     return ServiceContainer(
@@ -217,6 +219,32 @@ def build_service_container(settings: Settings) -> ServiceContainer:
         voice_v4_tokens=voice_v4_tokens,
         http_client=http_client,
 
+    )
+
+
+def _build_feature_policy_store(
+    settings: Settings,
+    db: DBService,
+    http_client: httpx.AsyncClient,
+) -> FeaturePolicyStore:
+    if settings.FEATURE_POLICY_STORAGE == "firestore":
+        return FeaturePolicyRepository(db=db)
+
+    service_role_key = (
+        settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
+        if settings.SUPABASE_SERVICE_ROLE_KEY is not None
+        else ""
+    )
+    if not settings.SUPABASE_URL.strip() or not service_role_key:
+        raise RuntimeError(
+            "Supabase feature-policy storage requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
+        )
+    return SupabaseFeaturePolicyRepository(
+        client=SupabaseClient(
+            base_url=settings.SUPABASE_URL,
+            service_role_key=service_role_key,
+            http_client=http_client,
+        )
     )
 
 

@@ -189,6 +189,12 @@ class Settings(BaseSettings):
     FIREBASE_APPCHECK_SITE_KEY: str = Field(default="", max_length=500)
     PUBLIC_API_BASE_URL: str = Field(default="/api", max_length=500)
 
+    # ── Supabase control plane ────────────────────────────────────
+    # Firebase Auth remains authoritative; this is an explicit opt-in data path.
+    SUPABASE_URL: str = Field(default="", max_length=500)
+    SUPABASE_SERVICE_ROLE_KEY: SecretStr | None = Field(default=None, repr=False)
+    FEATURE_POLICY_STORAGE: Literal["firestore", "supabase"] = "firestore"
+
     # ── Google Cloud (used by Firebase + ADC) ────────────────────
     GOOGLE_CLOUD_PROJECT: str | None = None
     GOOGLE_APPLICATION_CREDENTIALS: str | None = None
