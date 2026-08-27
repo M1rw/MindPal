@@ -66,9 +66,27 @@ def _image_media_type(response: httpx.Response) -> str:
 
 
 def _is_trusted_redirect(url: str) -> bool:
-    parsed = urlparse(url)
-    hostname = (parsed.hostname or "").lower()
-    return parsed.scheme == "https" and (hostname == _FAVICON_SERVICE_HOST or hostname.endswith(".gstatic.com"))
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+
+    if parsed.scheme.lower() != "https":
+        return False
+
+    # Block userinfo in redirect URLs (e.g. https://user:pass@domain.com) to prevent parser ambiguity/bypass
+    if parsed.username is not None or parsed.password is not None:
+        return False
+
+    try:
+        hostname = (parsed.hostname or "").lower()
+    except ValueError:
+        return False
+
+    if not hostname:
+        return False
+
+    return hostname == _FAVICON_SERVICE_HOST or hostname.endswith(".gstatic.com")
 
 
 async def _fetch_favicon(target_url: str, client: httpx.AsyncClient) -> tuple[bytes, str]:
