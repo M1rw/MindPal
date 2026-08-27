@@ -12,3 +12,8 @@ export {
   createLayer7EvidenceCollector,
   sanitizeLayer7Evidence,
 } from "./evidence.js";
+
+export {
+  VoicePreviewFactoryError,
+  createVoiceV4PreviewSessionFactory,
+} from "./preview_session_factory.js";

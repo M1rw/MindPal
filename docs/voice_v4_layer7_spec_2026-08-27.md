@@ -28,7 +28,7 @@ A real-browser run is permitted only when all of the following are true and dire
 | Provider | Model identifier and token endpoint are recorded as safe metadata | Stop if the target cannot be verified |
 | Privacy | Evidence collector stores only the approved bounded fields | Stop and discard the run if redaction fails |
 
-The active application must continue to fail closed in production. The Layer 6 composition root intentionally does not inject a session factory, so a normal production bundle cannot request microphone permission or open a provider socket. Layer 7 must not change that behavior as part of acceptance-harness work.
+The active application must continue to fail closed in production. The Layer 7 composition root may construct a session factory only when the backend publishes `ENVIRONMENT=staging`, `VOICE_V4_PREVIEW_APPROVED=true`, and `VOICE_V4_PREVIEW_SESSION_ENABLED=true`; the adapter independently rejects production and non-preview environments. The normal production runtime publishes false values, so it cannot request microphone permission or open a provider socket. Layer 7 must not change that behavior as part of local wiring work.
 
 ## 3. Gates A–F
 
@@ -66,7 +66,8 @@ The Layer 7 module follows the project’s feature boundary convention:
 | `frontend/js/features/voice_v4/layer7/gates.js` | Pure ordered Gate A–F state machine with immutable snapshots and fail-stop transitions; browser-independent ES module |
 | `frontend/js/features/voice_v4/layer7/evidence.js` | In-memory bounded evidence collector reusing the Layer 0 sanitizer; browser-independent ES module |
 | `frontend/js/features/voice_v4/layer7/index.js` | Public gatekeeper for the Layer 7 feature module; internal files remain replaceable |
-| `tests/test_voice_v4_layer7.mjs` | Deterministic tests for ordering, missing evidence, failure stop, redaction, and immutable snapshots; Node test runner |
+| `frontend/js/features/voice_v4/layer7/preview_session_factory.js` | Preview-only composition adapter for Layer 1 token provisioning, direct Google WSS, Layer 3 capture, Layer 4 playback, and Layer 5 orchestration; it returns no factory outside staging/preview |
+| `tests/test_voice_v4_layer7.mjs` | Deterministic tests for ordering, missing evidence, failure stop, redaction, immutable snapshots, and preview-only composition; Node test runner |
 | `docs/voice_v4_layer7_spec_2026-08-27.md` | Acceptance contract, privacy boundary, gate checklist, and handoff record |
 
 ## 7. Exit criteria
