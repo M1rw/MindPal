@@ -1,4 +1,7 @@
 export {
+  VOICE_V4_INPUT_MIME_TYPE,
+  VOICE_V4_OUTPUT_MIME_TYPE,
+  VOICE_V4_PROTOCOL_VERSION,
   buildRealtimeInputEnvelope,
   buildSetupEnvelope,
   isValidAudioPart,
