@@ -49,6 +49,8 @@ from backend.services.memory_repository import MemoryRepository
 from backend.services.quota_service import QuotaService
 from backend.services.rate_limit_service import RateLimitService
 from backend.services.response_intelligence_service import ResponseIntelligenceService
+from backend.services.feature_flags_service import FeatureFlagsService
+from backend.services.feature_policy_repository import FeaturePolicyRepository
 
 
 MAX_HEADER_CHARS = 512
@@ -89,6 +91,8 @@ class ServiceContainer:
     memory_repo: MemoryRepository
     brain: BrainService
     response_intelligence: ResponseIntelligenceService
+    feature_flags: FeatureFlagsService
+    feature_policies: FeaturePolicyRepository
     http_client: httpx.AsyncClient
 
     async def aclose(self) -> None:
@@ -185,8 +189,11 @@ def build_service_container(settings: Settings) -> ServiceContainer:
         processing_timeout_seconds=settings.IDEMPOTENCY_PROCESSING_TIMEOUT_SECONDS,
     )
     response_intelligence = ResponseIntelligenceService(settings=settings, llm_service=llm)
+    feature_flags = FeatureFlagsService()
+    feature_policies = FeaturePolicyRepository(db=db)
 
     return ServiceContainer(
+
         settings=settings,
         auth=auth,
         db=db,
@@ -202,7 +209,10 @@ def build_service_container(settings: Settings) -> ServiceContainer:
         memory_repo=MemoryRepository(db=db),
         brain=BrainService(),
         response_intelligence=response_intelligence,
+        feature_flags=feature_flags,
+        feature_policies=feature_policies,
         http_client=http_client,
+
     )
 
 

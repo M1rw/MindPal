@@ -68,6 +68,9 @@ import {
 
 import { escapeHtml } from "../utils/html_escape.js";
 import { scrollChatToBottom } from "../utils/chat_scroll.js";
+import { hydrateFeatureSnapshot } from "../services/feature_flags_client.js";
+import { renderFeatureStatusPanel } from "../ui/components/feature_status_ui.js";
+import { initFeatureAdminUI, refreshFeatureAdminPanel } from "../ui/components/feature_admin_ui.js";
 
 import { emitNeuralEvent, emitSafeModeRuntimeTrace } from "../observability/neural_telemetry.js";
 
@@ -108,6 +111,7 @@ import {
 
 import {
   bindUnifiedSelector,
+  refreshFeatureAvailability,
   getCurrentModel,
   getCurrentMode,
 } from "../ui/components/model_selector.js";
@@ -210,24 +214,45 @@ console.log("%c" + consoleBanner, "color: #3b82f6; font-weight: bold; font-famil
 
 document.addEventListener("DOMContentLoaded", bootstrap);
 
+async function refreshFeatureSnapshot(token = null) {
+  try {
+    const snapshot = await hydrateFeatureSnapshot(token);
+    renderFeatureStatusPanel();
+    refreshFeatureAvailability();
+    await refreshFeatureAdminPanel();
+    return snapshot;
+  } catch (error) {
+    console.warn("[MindPal] Feature snapshot unavailable; using safe defaults", error?.code || "unknown_error");
+    renderFeatureStatusPanel();
+    refreshFeatureAvailability();
+    await refreshFeatureAdminPanel();
+    return null;
+  }
+}
+
 async function bootstrap() {
+
   try {
     refreshIcons();
     initializeTheme();
     registerSettingsStore({ setAppSetting });
     applyVisualSettings();
     loadState();
+    await refreshFeatureSnapshot();
 
     await initFrontendAuth({
+
       removeGlobalLoader,
       renderPersistedChat,
       renderMemoryInspector,
+      onFeatureSnapshotChanged: (token) => refreshFeatureSnapshot(token),
     });
 
     initSettingsUI({
       refreshIcons,
       showToast,
       openModal,
+
       closeModal,
       startNewLocalChat,
       handleSend: () => handleSend(),
@@ -238,7 +263,15 @@ async function bootstrap() {
       get currentCloudProfileContext() { return getCurrentCloudProfileContext(); },
     });
 
+    initFeatureAdminUI({
+      getCurrentCloudProfileContext: () => getCurrentCloudProfileContext(),
+      getIdToken,
+      showToast,
+      refreshIcons,
+    });
+
     initMemoryUI({
+
       refreshIcons,
       deleteMemoryEntry,
       editMemoryEntry,

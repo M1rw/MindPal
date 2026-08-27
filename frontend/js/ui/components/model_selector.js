@@ -3,6 +3,7 @@
 import { refreshIcons } from "../../utils/icons.js";
 import { escapeHtml } from "../../utils/html_escape.js";
 import { scrollChatToBottom } from "../../utils/chat_scroll.js";
+import { getFeatureState, isFeatureEnabled } from "../../state/feature_store.js";
 
 // ═══════════════════════════════════════════════════════════════
 // Constants
@@ -57,6 +58,23 @@ function _updateUnifiedLabel() {
   }
 }
 
+export function refreshFeatureAvailability() {
+  const proState = getFeatureState("chat.pro_model");
+  const proAvailable = isFeatureEnabled("chat.pro_model");
+  document.querySelectorAll('.model-option[data-model="pro"]').forEach((btn) => {
+    btn.toggleAttribute("aria-disabled", !proAvailable);
+    btn.classList.toggle("opacity-50", !proAvailable);
+    btn.classList.toggle("cursor-not-allowed", !proAvailable);
+    btn.title = proAvailable ? "" : proState.reason === "requires_authentication" ? "Sign in to use Pro" : proState.description;
+  });
+
+  if (!proAvailable && _currentModel === "pro") {
+    _selectModel("standard", true);
+  }
+  _updateUnifiedLabel();
+  _updateCheckmarks();
+}
+
 function _updateCheckmarks() {
   document.querySelectorAll(".model-option").forEach(btn => {
     const check = btn.querySelector(".model-check");
@@ -94,6 +112,7 @@ function _emitSwitchIndicator(text) {
 
 function _selectModel(model, silent = false) {
   if (!VALID_MODELS.includes(model)) return;
+  if (model === "pro" && !isFeatureEnabled("chat.pro_model")) return;
 
   if (model === "pro" && !sessionStorage.getItem("mindpal_pro_confirmed")) {
     _showProConfirmationDialog(() => {
@@ -205,8 +224,7 @@ function _showProConfirmationDialog(onConfirm) {
 export function bindUnifiedSelector({ isSessionLocked, isGenerating } = {}) {
   _currentModel = _persistedModel();
   _currentMode = _persistedMode();
-  _updateUnifiedLabel();
-  _updateCheckmarks();
+  refreshFeatureAvailability();
 
   const btn = document.getElementById("unified-selector-btn");
   const dropdown = document.getElementById("unified-dropdown");

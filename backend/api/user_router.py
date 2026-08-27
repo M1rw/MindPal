@@ -49,6 +49,7 @@ class CurrentUserResponse(BaseModel):
     locale: str = Field(default="auto", min_length=1, max_length=20)
     provider: str = Field(default="firebase", min_length=1, max_length=MAX_PROVIDER_CHARS)
     email_verified: bool | None = None
+    is_admin: bool = False
 
     @field_validator("request_id", "user_id_hash", "channel", "locale", "provider", mode="before")
     @classmethod
@@ -99,6 +100,7 @@ async def current_user(
         locale=context.session.locale,
         provider=provider,
         email_verified=email_verified,
+        is_admin=context.session.metadata.get("admin") is True,
     )
 
 

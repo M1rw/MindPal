@@ -316,6 +316,8 @@
                 <nav class="flex flex-col gap-1 text-[14px]">
                     <button class="settings-tab-btn active" data-settings-tab="general" type="button"><i data-lucide="settings" class="w-4 h-4"></i><span>General</span></button>
                     <button class="settings-tab-btn" data-settings-tab="mental-health" type="button"><i data-lucide="activity" class="w-4 h-4"></i><span>Mental health</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="features" type="button"><i data-lucide="settings" class="w-4 h-4"></i><span>Features</span></button>
+                    <button id="feature-admin-tab" class="settings-tab-btn hidden" data-settings-tab="feature-admin" type="button"><i data-lucide="shield-check" class="w-4 h-4"></i><span>Feature management</span></button>
 
                     <button class="settings-tab-btn" data-settings-tab="usage" type="button"><i data-lucide="gauge" class="w-4 h-4"></i><span>Usage</span></button>
                     <button class="settings-tab-btn" data-settings-tab="memory" type="button"><i data-lucide="database" class="w-4 h-4"></i><span>Memory</span></button>
@@ -330,6 +332,8 @@
                     <select id="settings-mobile-tabs" class="flex-1 bg-gray-100 dark:bg-[#2f2f2f] rounded-lg px-3 py-2 text-[14px] text-gray-900 dark:text-gray-100 outline-none">
                         <option value="general">General</option>
                         <option value="mental-health">Mental health</option>
+                        <option value="features">Features</option>
+                        <option value="feature-admin" hidden disabled>Feature management</option>
 
                         <option value="usage">Usage</option>
                         <option value="memory">Memory</option>
@@ -358,6 +362,22 @@
                             <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Streak reminders</span><span class="settings-row-copy">Get a gentle afternoon reminder when your daily reflection streak is at risk.</span></span><span class="settings-row-action">Off <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
                             <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Mood check-in</span><span class="settings-row-copy">Optional evening prompt (7–9 PM) to reflect on your mood, once per day.</span></span><span class="settings-row-action">Off <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
                         </div>
+                    </div>
+
+                    <!-- ═══════════════ FEATURES ═══════════════ -->
+                    <div class="settings-panel" data-settings-panel="features" hidden>
+                        <h2 class="settings-title">Features</h2>
+                        <p class="settings-panel-intro">MindPal releases capabilities in stages. Availability can depend on your account, rollout group, language, or temporary maintenance. Your personal preferences are separate from release availability.</p>
+                        <div id="feature-status-list" class="settings-section" aria-live="polite">
+                            <div class="settings-row settings-row-block"><span class="settings-row-main"><span class="settings-row-title">Loading feature availability…</span><span class="settings-row-copy">Checking the current MindPal release policy.</span></span></div>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════ ADMIN FEATURE MANAGEMENT ═══════════════ -->
+                    <div class="settings-panel" data-settings-panel="feature-admin" hidden>
+                        <h2 class="settings-title">Feature management</h2>
+                        <p class="settings-panel-intro">Admin-only release controls. Changes are versioned and evaluated server-side. Safety-critical controls cannot be disabled here.</p>
+                        <div id="feature-admin-list" class="settings-section" aria-live="polite"></div>
                     </div>
 
                     <!-- ═══════════════ MENTAL HEALTH ═══════════════ -->

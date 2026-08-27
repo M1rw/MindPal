@@ -46,6 +46,7 @@ import {
 } from "../features/memory/graph.js";
 
 import { memoryGraphAtomsEqual, syncMemoryGraphSnapshot } from "../features/memory/sync.mjs";
+import { hydrateFeatureSnapshot, clearFeatureSnapshot } from "./feature_flags_client.js";
 
 // ═══════════════════════════════════════════════════════════════
 // State
@@ -94,7 +95,8 @@ function queueCloudMemorySync(operation) {
 // Auth initialization
 // ═══════════════════════════════════════════════════════════════
 
-export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat, renderMemoryInspector }) {
+export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat, renderMemoryInspector, onFeatureSnapshotChanged }) {
+
   if (!authIsConfigured()) {
     setCloudSyncEnabled(false);
     removeGlobalLoader();
@@ -115,6 +117,8 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
       }
 
       if (!user) {
+        clearFeatureSnapshot();
+        await onFeatureSnapshotChanged?.(null, null);
         if (!cloudConnectInProgress) {
           setCloudSyncEnabled(false);
           updateProfileUI(null);
@@ -142,6 +146,7 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
 
         const profile = await getCurrentUserProfile(token);
         try {
+
           const profileRes = await loadUserProfile(token);
           if (profileRes) {
             hydrateSettingsFromProfile(profileRes);
@@ -152,8 +157,10 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
           console.error("Failed to load cloud profile:", e);
         }
 
+        await onFeatureSnapshotChanged?.(token, user);
         currentCloudProfileContext = {
           ...buildCloudProfileContext(user, profile),
+
           settingsMetadata: buildChatSettingsMetadata(),
         };
         await hydrateCloudMemory(token, renderMemoryInspector);
@@ -480,7 +487,14 @@ export function buildCloudProfileContext(user, profile = null) {
 
   if (!displayName && !email && !uid) return null;
 
-  return { authenticated: true, displayName, email, uid };
+  return {
+    authenticated: true,
+    displayName,
+    email,
+    uid,
+    isAdmin: profile?.is_admin === true,
+  };
+
 }
 
 export function formatCloudConnectErrorSafe(error) {
