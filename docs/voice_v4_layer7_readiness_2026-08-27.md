@@ -20,7 +20,7 @@ This is the correct safe outcome. A production page must not be converted into a
 | Production frontend build | **Passed; 4 required non-Voice outputs verified** |
 | Whitespace hygiene | **Passed** |
 
-The acceptance harness is committed as `76ed47e Implement_voice_v4_layer7_preview_harness`. The local preview-only session wiring is validated and is ready for a separate local commit. It is intentionally gated by `ENVIRONMENT=staging`, `VOICE_V4_PREVIEW_APPROVED=true`, and `VOICE_V4_PREVIEW_SESSION_ENABLED=true`; production publishes false values. The workspace is intentionally awaiting the local wiring commit.
+The acceptance harness is committed as `76ed47e Implement_voice_v4_layer7_preview_harness`. The local preview-only session wiring is committed as `b9e0be8 Implement_voice_v4_layer7_preview_wiring`. It is intentionally gated by `ENVIRONMENT=staging`, `VOICE_V4_PREVIEW_APPROVED=true`, and `VOICE_V4_PREVIEW_SESSION_ENABLED=true`; production publishes false values.
 
 ## Non-invasive production check
 
