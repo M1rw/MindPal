@@ -404,6 +404,7 @@ async function completeCloudConnection(user) {
     ...buildCloudProfileContext(user, profile),
     settingsMetadata: buildChatSettingsMetadata(),
   });
+  await refreshFeatureSnapshot(token);
   await persistAppSettingsToCloud();
   await hydrateCloudMemory(token, renderMemoryInspector);
   await hydrateCloudChat(token, renderPersistedChat);
