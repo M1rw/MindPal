@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from backend.models.feature_flags import FeaturePolicy
 from backend.services.db_service import DBService
@@ -17,6 +17,17 @@ class FeaturePolicyConflictError(RuntimeError):
 class FeaturePolicyState:
     revision: int
     policies: dict[str, FeaturePolicy]
+
+
+class FeaturePolicyStore(Protocol):
+    async def load(self) -> FeaturePolicyState:
+        ...
+
+    async def upsert(self, policy: FeaturePolicy, *, expected_revision: int) -> FeaturePolicyState:
+        ...
+
+    async def patch(self, policy: FeaturePolicy, *, expected_revision: int) -> FeaturePolicyState:
+        ...
 
 
 class FeaturePolicyRepository:
