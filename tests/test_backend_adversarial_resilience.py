@@ -144,6 +144,23 @@ def test_log_redaction_removes_common_pii_and_secrets() -> None:
 
 
 @pytest.mark.parametrize(
+    "secret_token",
+    [
+        "sk-proj-1234567890123456789012345678901234567890",
+        "sk-live-1234567890abcdef1234567890abcdef",
+        "ghp_1234567890abcdef1234567890abcdef",
+        "AIzaSyA1234567890abcdef1234567890abcdef",
+    ],
+)
+def test_log_redaction_removes_vendor_api_tokens(secret_token: str) -> None:
+    value = f"Failed with token {secret_token} in payload"
+    redacted = redact_basic_pii(value)
+
+    assert REDACTED_SECRET in redacted
+    assert secret_token not in redacted
+
+
+@pytest.mark.parametrize(
     "url",
     [
         "http://127.0.0.1:8000/internal",
