@@ -39,6 +39,7 @@ export async function refreshFeatureAdminPanel() {
     panel?.setAttribute("hidden", "");
     return null;
   }
+  panel?.removeAttribute("hidden");
   if (!initialized || !panel) return null;
 
   const root = document.getElementById("feature-admin-list");
@@ -60,6 +61,10 @@ export async function refreshFeatureAdminPanel() {
 }
 
 function renderAdminFeatures(root, features) {
+  if (!Array.isArray(features) || features.length === 0) {
+    root.replaceChildren(createMessage("No registered feature policies are available."));
+    return;
+  }
   const fragment = document.createDocumentFragment();
   for (const feature of features) {
     fragment.appendChild(createAdminFeatureRow(feature));
