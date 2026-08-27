@@ -157,12 +157,12 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
           console.error("Failed to load cloud profile:", e);
         }
 
-        await onFeatureSnapshotChanged?.(token, user);
         currentCloudProfileContext = {
           ...buildCloudProfileContext(user, profile),
 
           settingsMetadata: buildChatSettingsMetadata(),
         };
+        await onFeatureSnapshotChanged?.(token, user);
         await hydrateCloudMemory(token, renderMemoryInspector);
         await hydrateCloudChat(token, renderPersistedChat);
 
