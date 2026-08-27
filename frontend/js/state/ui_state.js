@@ -13,27 +13,20 @@ import {
 import { cryptoRandomId, normalizeName } from "../utils/helpers.js";
 import { scrollChatToBottom } from "../utils/chat_scroll.js";
 import { escapeHtml } from "../utils/html_escape.js";
+import {
+  MAX_LOCAL_CHAT_MESSAGES,
+  STATE_KEY,
+  createDefaultState as createDefaultAppState,
+  hydrateStoredState,
+  normalizeStoredMessage,
+  normalizeStoredChatMemory,
+} from "./app_state_model.js";
 
 // Re-export so existing consumers don't break.
 export { refreshIcons } from "../utils/icons.js";
 export { escapeHtml } from "../utils/html_escape.js";
 
-const STATE_KEY = "mindpal_state_v2";
-const MAX_LOCAL_CHAT_MESSAGES = 250;
-const MAX_LOCAL_MESSAGE_CHARS = 12_000;
-const MAX_LOCAL_VOICE_TRANSCRIPT_CHARS = 24_000;
 
-const DEFAULT_STATE = Object.freeze({
-  sessionId: "",
-  chatMemory: [],
-  streak: 0,
-  lastVisitDate: null,
-  visitHistory: [],
-  crisisMode: true,
-  cloudSyncEnabled: false,
-  userName: "Friend",
-  messageCount: 0,
-});
 
 let state = createDefaultState();
 let deferredStateSaveTimer = null;
@@ -43,40 +36,9 @@ let deferredStateSaveTimer = null;
 // ═══════════════════════════════════════════════════════════════
 
 export function createDefaultState() {
-  return {
-    ...DEFAULT_STATE,
-    sessionId: `mp_${cryptoRandomId()}`,
-    chatMemory: [],
-    visitHistory: [],
-  };
+  return createDefaultAppState({ createId: cryptoRandomId });
 }
 
-function normalizeStoredMessage(item) {
-  if (!item || typeof item !== "object") return null;
-  const text = String(item.text || item.content || "").trim().slice(0, MAX_LOCAL_MESSAGE_CHARS);
-  if (!text) return null;
-  const next = {
-    ...item,
-    role: item.role === "User" || item.role === "user" ? "User" : "MindPal",
-    text,
-    messageId: item.messageId || item.message_id || `msg_${cryptoRandomId()}_${Date.now()}`,
-    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
-  };
-  if (next.voiceCall && typeof next.voiceCall === "object") {
-    next.voiceCall = {
-      ...next.voiceCall,
-      summary: String(next.voiceCall.summary || "").slice(0, MAX_LOCAL_MESSAGE_CHARS),
-      userTranscript: String(next.voiceCall.userTranscript || "").slice(0, MAX_LOCAL_VOICE_TRANSCRIPT_CHARS),
-      aiTranscript: String(next.voiceCall.aiTranscript || "").slice(0, MAX_LOCAL_VOICE_TRANSCRIPT_CHARS),
-    };
-  }
-  return next;
-}
-
-function normalizeStoredChatMemory(messages) {
-  if (!Array.isArray(messages)) return [];
-  return messages.map(normalizeStoredMessage).filter(Boolean).slice(-MAX_LOCAL_CHAT_MESSAGES);
-}
 
 export function loadState() {
   try {
@@ -85,14 +47,7 @@ export function loadState() {
       state = createDefaultState();
     } else {
       const parsed = JSON.parse(saved);
-      state = {
-        ...createDefaultState(),
-        ...parsed,
-        chatMemory: normalizeStoredChatMemory(parsed.chatMemory),
-        visitHistory: Array.isArray(parsed.visitHistory) ? parsed.visitHistory : [],
-        crisisMode: parsed.crisisMode !== false,
-        userName: normalizeName(parsed.userName),
-      };
+      state = hydrateStoredState(parsed, { createId: cryptoRandomId });
     }
   } catch (error) {
     console.warn("MindPal state could not be loaded; using a clean local state.", error);
@@ -107,7 +62,7 @@ export function loadState() {
 export function saveState({ defer = false } = {}) {
   const write = () => {
     deferredStateSaveTimer = null;
-    state.chatMemory = normalizeStoredChatMemory(state.chatMemory);
+    state.chatMemory = normalizeStoredChatMemory(state.chatMemory, { createId: cryptoRandomId });
     try {
       globalThis.localStorage?.setItem(STATE_KEY, JSON.stringify(state));
       return true;
@@ -155,14 +110,7 @@ if (typeof window !== "undefined") {
         } else {
           try {
             const parsed = JSON.parse(saved);
-            state = {
-              ...createDefaultState(),
-              ...parsed,
-              chatMemory: normalizeStoredChatMemory(parsed.chatMemory),
-              visitHistory: Array.isArray(parsed.visitHistory) ? parsed.visitHistory : [],
-              crisisMode: parsed.crisisMode !== false,
-              userName: normalizeName(parsed.userName),
-            };
+            state = hydrateStoredState(parsed, { createId: cryptoRandomId });
           } catch {
             state = createDefaultState();
           }
@@ -228,7 +176,7 @@ export function addMessage(role, text, extra = {}) {
     ...extra,
   };
 
-  state.chatMemory.push(normalizeStoredMessage(message));
+  state.chatMemory.push(normalizeStoredMessage(message, { createId: cryptoRandomId }));
   state.chatMemory = state.chatMemory.slice(-MAX_LOCAL_CHAT_MESSAGES);
 
   if (normalizedRole === "User") {
