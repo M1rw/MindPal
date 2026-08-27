@@ -10,6 +10,7 @@ const AUDIO_SENTINEL = "AAE=";
 
 function createHarness() {
   const socket = {
+    readyState: 1,
     sent: [],
     closed: null,
     onmessage: null,

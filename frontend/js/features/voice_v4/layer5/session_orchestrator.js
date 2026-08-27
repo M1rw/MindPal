@@ -10,6 +10,7 @@ import { base64ToBytes, bytesToBase64 } from "./binary_codec.js";
 const SOCKET_CLOSE_NORMAL = 1000;
 const DEFAULT_VOICE_NAME = "Kore";
 const MAX_INSTRUCTION_CHARS = 8_000;
+const SOCKET_OPEN_TIMEOUT_MS = 10_000;
 
 export class VoiceSessionError extends Error {
   constructor(code, message = "Voice session is unavailable") {
@@ -75,9 +76,11 @@ export function createVoiceSession({
     try {
       const grant = await tokenProvider.issueToken();
       if (!isCurrent(activeGeneration) || !validTokenGrant(grant)) throw fail("token_invalid");
-      publish(transitionSession(state, { type: "socket_open", generation: activeGeneration }));
       socket = await socketFactory(grant.token, activeGeneration);
       if (!isCurrent(activeGeneration) || !socket || typeof socket.send !== "function") throw fail("socket_unavailable");
+      await waitForSocketOpen(socket, activeGeneration, SOCKET_OPEN_TIMEOUT_MS);
+      if (!isCurrent(activeGeneration)) throw fail("session_stale");
+      publish(transitionSession(state, { type: "socket_open", generation: activeGeneration }));
       capture = captureFactory({
         onFrame: (bytes) => handleCaptureFrame(bytes, activeGeneration),
         onError: (error) => handleCaptureError(error, activeGeneration),
@@ -107,6 +110,33 @@ export function createVoiceSession({
     state = createInitialSessionState(generation);
     publish(state);
     return state;
+  }
+
+  function waitForSocketOpen(connection, activeGeneration, timeoutMs) {
+    if (connection.readyState === 1) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => settleReject(new VoiceSessionError("provider_socket_timeout")), timeoutMs);
+      timers.add(timer);
+      const settle = (callback) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        timers.delete(timer);
+        connection.onopen = null;
+        connection.onerror = null;
+        connection.onclose = null;
+        callback();
+      };
+      const settleResolve = () => settle(resolve);
+      const settleReject = (error) => settle(() => reject(error));
+      connection.onopen = () => {
+        if (isCurrent(activeGeneration)) settleResolve();
+        else settleReject(new VoiceSessionError("session_stale"));
+      };
+      connection.onerror = () => settleReject(new VoiceSessionError("provider_socket_error"));
+      connection.onclose = () => settleReject(new VoiceSessionError("provider_socket_closed"));
+    });
   }
 
   function attachSocketHandlers(connection, activeGeneration) {

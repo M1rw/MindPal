@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createVoiceSession } from "../frontend/js/features/voice_v4/layer5/index.js";
 import {
   LAYER7_GATE_IDS,
   completeLayer7Gate,
@@ -103,7 +104,7 @@ test("preview session composition is disabled outside staging and uses only inje
     getAppCheckToken: async () => "app-check-test",
     fetchImpl: async () => ({ ok: true, json: async () => ({ token: "t", expires_at_utc: "2099-01-01T00:00:00Z" }) }),
     WebSocketConstructor: class FakeWebSocket {
-      constructor(url) { this.url = url; this.sent = []; }
+      constructor(url) { this.url = url; this.readyState = 1; this.sent = []; }
       send(value) { this.sent.push(value); }
       close() {}
     },
@@ -114,8 +115,9 @@ test("preview session composition is disabled outside staging and uses only inje
   assert.equal(createVoiceV4PreviewSessionFactory({ ...common, environment: "production" }), undefined);
 
   const requests = [];
+  let previewSocketUrl = "";
   const PreviewWebSocket = class FakePreviewWebSocket {
-    constructor(url) { this.url = url; this.sent = []; }
+    constructor(url) { previewSocketUrl = url; this.url = url; this.readyState = 1; this.sent = []; }
     send(value) { this.sent.push(value); }
     close() {}
   };
@@ -134,4 +136,33 @@ test("preview session composition is disabled outside staging and uses only inje
   assert.equal(requests[0].url, "/api/voice/v4/token");
   assert.equal(requests[0].headers.Authorization, "Bearer id-token-test");
   assert.equal(requests[0].headers["X-Firebase-AppCheck"], "app-check-test");
+  assert.match(previewSocketUrl, /BidiGenerateContentConstrained\?access_token=t$/);
+});
+
+test("session waits for the socket open event before sending setup", async () => {
+  const socket = {
+    readyState: 0,
+    sent: [],
+    onopen: null,
+    onerror: null,
+    onclose: null,
+    send(value) { this.sent.push(JSON.parse(value)); },
+    close() {},
+  };
+  const session = createVoiceSession({
+    tokenProvider: { issueToken: async () => ({ token: "token", expires_at_utc: "2099-01-01T00:00:00Z" }) },
+    socketFactory: async () => socket,
+    captureFactory: () => ({ start: async () => {}, stop: async () => {} }),
+    playbackFactory: () => ({ start: async () => {}, close: async () => {} }),
+    instruction: "Baseline.",
+  });
+  const starting = session.start();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(socket.sent.length, 0);
+  socket.readyState = 1;
+  socket.onopen();
+  await starting;
+  assert.equal(socket.sent.length, 1);
+  assert.equal(socket.sent[0].setup.generationConfig.responseModalities[0], "AUDIO");
 });

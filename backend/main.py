@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 
 import time
 from collections.abc import Awaitable, Callable
@@ -366,7 +365,7 @@ def _install_frontend_routes(app: FastAPI) -> None:
         else:
             from backend.services.auth_service import FirebaseAuthProvider
             provider_configured = FirebaseAuthProvider(settings=settings).is_configured
-        is_vercel_preview = os.getenv("VERCEL_ENV", "").strip().lower() == "preview"
+        is_vercel_preview = settings.VERCEL_ENV.strip().lower() == "preview"
         is_voice_preview = (
             is_vercel_preview
             and settings.VOICE_V4_PREVIEW_ENVIRONMENT == "staging"
