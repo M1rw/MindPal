@@ -881,6 +881,7 @@ function bindSettingsTabs() {
     if (mobileSelect && mobileSelect.value !== nextTab) mobileSelect.value = nextTab;
     if (nextTab === "memory") renderMemoryInspector();
     if (nextTab === "usage") renderUsagePanel();
+    if (nextTab === "feature-admin") void refreshFeatureAdminPanel();
   };
 
   buttons.forEach((button) => button.addEventListener("click", () => activate(button.getAttribute("data-settings-tab") || "general")));

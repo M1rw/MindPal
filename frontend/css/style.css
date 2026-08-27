@@ -407,8 +407,15 @@ details > summary::-webkit-details-marker { display: none; }
   padding: 9px 11px;
   border-radius: 12px;
   color: #425466;
+  line-height: 20px;
   text-align: left;
+  white-space: nowrap;
   transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.settings-tab-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-tab-btn:hover,
@@ -2293,7 +2300,7 @@ button:active,
 
 /* Feature release-status surface */
 .settings-panel-intro {
-  margin: -8px 0 18px;
+  margin: 14px 0 20px;
   max-width: 640px;
   font-size: 13px;
   line-height: 20px;
@@ -2385,8 +2392,12 @@ button:active,
 
 
 .feature-admin-row {
-  padding: 16px 0 18px;
+  padding: 18px 0 20px;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.feature-admin-row:first-child {
+  padding-top: 0;
 }
 
 .dark .feature-admin-row {
@@ -2539,9 +2550,23 @@ button:active,
 }
 
 .feature-admin-empty {
-  padding: 18px 0;
+  display: flex;
+  align-items: center;
+  min-height: 96px;
+  margin: 0;
+  padding: 18px 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
   color: #64748b;
+  background: rgba(248, 250, 252, .72);
   font-size: 13px;
+  line-height: 19px;
+}
+
+.dark .feature-admin-empty {
+  border-color: #475569;
+  color: #cbd5e1;
+  background: rgba(30, 41, 59, .42);
 }
 
 @media (max-width: 560px) {
