@@ -89,6 +89,14 @@ _KEY_VALUE_SECRET_RE = re.compile(
     r"(['\"]?)[A-Za-z0-9._~+/=-]{8,}\2"
 )
 
+# Known API token prefixes (OpenAI, GitHub, Google, Pinecone, Anthropic, etc.)
+_API_TOKEN_RE = re.compile(
+    r"\b(?:sk-(?:proj|live|test|ant|or|svc)-[A-Za-z0-9_-]{12,}|"
+    r"sk-[A-Za-z0-9_-]{20,}|"
+    r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{16,}|"
+    r"AIzaSy[A-Za-z0-9_-]{20,})\b"
+)
+
 # Conservative token-looking value. Requires both letters and digits to avoid
 # redacting ordinary long words.
 _LONG_TOKEN_RE = re.compile(
@@ -230,6 +238,7 @@ def redact_basic_pii(text: str) -> str:
         lambda match: f"{match.group(1)}={REDACTED_SECRET}",
         value,
     )
+    value = _API_TOKEN_RE.sub(REDACTED_SECRET, value)
     # IPv4 must run BEFORE phone — the phone regex also matches dotted-quad IPs.
     value = _IPV4_RE.sub(_redact_ip_match, value)
     value = _PHONE_LIKE_RE.sub(_redact_phone_match, value)
