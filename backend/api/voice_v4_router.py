@@ -45,7 +45,7 @@ async def issue_voice_v4_token(
     feature_context = FeatureContext(
         user_id_hash=context.session.user_id_hash,
         authenticated=True,
-        is_admin=context.session.metadata.get("admin") is True,
+        is_admin=await services.admin_authority.is_admin(context.session),
         channel=context.channel.value,
         locale=context.locale,
     )
