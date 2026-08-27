@@ -51,6 +51,7 @@ from backend.services.rate_limit_service import RateLimitService
 from backend.services.response_intelligence_service import ResponseIntelligenceService
 from backend.services.feature_flags_service import FeatureFlagsService
 from backend.services.feature_policy_repository import FeaturePolicyRepository
+from backend.services.voice_v4_token_service import VoiceV4TokenService
 
 
 MAX_HEADER_CHARS = 512
@@ -93,6 +94,7 @@ class ServiceContainer:
     response_intelligence: ResponseIntelligenceService
     feature_flags: FeatureFlagsService
     feature_policies: FeaturePolicyRepository
+    voice_v4_tokens: VoiceV4TokenService
     http_client: httpx.AsyncClient
 
     async def aclose(self) -> None:
@@ -191,6 +193,7 @@ def build_service_container(settings: Settings) -> ServiceContainer:
     response_intelligence = ResponseIntelligenceService(settings=settings, llm_service=llm)
     feature_flags = FeatureFlagsService()
     feature_policies = FeaturePolicyRepository(db=db)
+    voice_v4_tokens = VoiceV4TokenService(settings=settings, client=http_client)
 
     return ServiceContainer(
 
@@ -211,6 +214,7 @@ def build_service_container(settings: Settings) -> ServiceContainer:
         response_intelligence=response_intelligence,
         feature_flags=feature_flags,
         feature_policies=feature_policies,
+        voice_v4_tokens=voice_v4_tokens,
         http_client=http_client,
 
     )

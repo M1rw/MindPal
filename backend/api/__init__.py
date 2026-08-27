@@ -17,6 +17,7 @@ from .tools_router import router as tools_router
 from .favicon_router import router as favicon_router
 from .feature_router import admin_router as feature_admin_router
 from .feature_router import router as feature_router
+from .voice_v4_router import router as voice_v4_router
 
 
 def create_api_router() -> APIRouter:
@@ -35,6 +36,7 @@ def create_api_router() -> APIRouter:
     api_router.include_router(favicon_router)
     api_router.include_router(feature_router)
     api_router.include_router(feature_admin_router)
+    api_router.include_router(voice_v4_router)
 
     return api_router
 

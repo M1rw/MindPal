@@ -207,6 +207,20 @@ class Settings(BaseSettings):
     ENABLE_LLM_SAFETY_CLASSIFIER: bool = True
     ENABLE_BRAIN_CONTEXT_PLANNER: bool = True
     ENABLE_RESPONSE_INTELLIGENCE: bool = True
+
+    # ── Voice V4 Layer 1 ──────────────────────────────────────────
+    # Token issuance remains unavailable until the feature policy and explicit
+    # protected-preview approval both allow it. Production is always blocked by
+    # the Layer 0 release gate.
+    VOICE_V4_PREVIEW_APPROVED: bool = False
+    VOICE_V4_TOKEN_ENDPOINT: str = Field(
+        default="https://generativelanguage.googleapis.com/v1beta/auth_tokens",
+        max_length=300,
+    )
+    VOICE_V4_TOKEN_TTL_SECONDS: int = Field(default=1_800, ge=300, le=1_800)
+    VOICE_V4_NEW_SESSION_TTL_SECONDS: int = Field(default=60, ge=30, le=120)
+    VOICE_V4_TOKEN_RATE_LIMIT_PER_MINUTE: int = Field(default=3, ge=1, le=30)
+
     # Repairs are limited to one pass and never run for elevated-safety conversations.
     # Keep this enabled so the response-quality gate is active in normal production chat.
     ENABLE_RESPONSE_QUALITY_REPAIR: bool = True
