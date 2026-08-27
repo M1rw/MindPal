@@ -72,6 +72,9 @@ import { hydrateFeatureSnapshot } from "../services/feature_flags_client.js";
 import { getFeatureState } from "../state/feature_store.js";
 import { evaluateVoiceV4Release } from "../features/voice_v4/layer0/contract.js";
 import { createVoiceLayer6Controller } from "../features/voice_v4/layer6/index.js";
+import { createMicrophoneCapture } from "../features/voice_v4/layer3/index.js";
+import { createPlayback } from "../features/voice_v4/layer4/index.js";
+import { createVoiceV4PreviewSessionFactory } from "../features/voice_v4/layer7/index.js";
 import { renderFeatureStatusPanel } from "../ui/components/feature_status_ui.js";
 import { initFeatureAdminUI, refreshFeatureAdminPanel } from "../ui/components/feature_admin_ui.js";
 
@@ -277,12 +280,29 @@ async function bootstrap() {
       refreshIcons,
     });
 
+    const voiceEnvironment = window.MINDPAL_CONFIG?.ENVIRONMENT || "production";
+    const voiceExplicitApproval = window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_APPROVED === true;
+    const voiceReleaseDecision = (featureState) => evaluateVoiceV4Release(featureState, {
+      environment: voiceEnvironment,
+      explicitApproval: voiceExplicitApproval,
+    });
+    const voicePreviewSessionFactory = createVoiceV4PreviewSessionFactory({
+      enabled: window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_SESSION_ENABLED === true,
+      environment: voiceEnvironment,
+      explicitApproval: voiceExplicitApproval,
+      getFeatureState,
+      getReleaseDecision: voiceReleaseDecision,
+      apiBaseUrl: API_BASE_URL,
+      getIdToken,
+      getAppCheckToken,
+      captureFactory: createMicrophoneCapture,
+      playbackFactory: createPlayback,
+      processorUrl: new URL("/js/features/voice_v4/layer3/audio_capture_processor.js", window.location.href).toString(),
+    });
     voiceLayer6Controller = createVoiceLayer6Controller({
       getFeatureState,
-      getReleaseDecision: (featureState) => evaluateVoiceV4Release(featureState, {
-        environment: window.MINDPAL_CONFIG?.ENVIRONMENT || "production",
-        explicitApproval: window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_APPROVED === true,
-      }),
+      getReleaseDecision: voiceReleaseDecision,
+      createSession: voicePreviewSessionFactory,
       getDiagnosticsEnabled: () => window.MINDPAL_CONFIG?.VOICE_V4_DIAGNOSTICS === true,
       onUnavailable: ({ code }) => showToast?.(code === "voice_preview_unavailable" ? "Voice is unavailable in this release." : "This voice control is not available yet."),
     });

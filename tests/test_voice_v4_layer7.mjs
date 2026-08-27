@@ -9,6 +9,7 @@ import {
   failLayer7Gate,
   recordLayer7Evidence,
   startLayer7Gate,
+  createVoiceV4PreviewSessionFactory,
 } from "../frontend/js/features/voice_v4/layer7/index.js";
 
 const RUN = { runId: "vr_layer7_test", environment: "preview", bundleVersion: "1eb61d8", model: "gemini-live" };
@@ -89,4 +90,48 @@ test("manual evidence recording requires an active gate and does not mutate prio
   assert.equal(active.gates.A.evidence.length, 0);
   assert.equal(recorded.gates.A.evidence.length, 1);
   assert.equal(recorded.gates.A.evidence[0].secureContext, true);
+});
+
+test("preview session composition is disabled outside staging and uses only injected browser dependencies", async () => {
+  const common = {
+    enabled: true,
+    explicitApproval: true,
+    apiBaseUrl: "/api",
+    getFeatureState: () => ({ key: "voice.live_v4", enabled: true, lifecycle: "preview" }),
+    getReleaseDecision: () => ({ allowed: true }),
+    getIdToken: async () => "id-token-test",
+    getAppCheckToken: async () => "app-check-test",
+    fetchImpl: async () => ({ ok: true, json: async () => ({ token: "t", expires_at_utc: "2099-01-01T00:00:00Z" }) }),
+    WebSocketConstructor: class FakeWebSocket {
+      constructor(url) { this.url = url; this.sent = []; }
+      send(value) { this.sent.push(value); }
+      close() {}
+    },
+    captureFactory: () => ({ start: async () => {}, stop: async () => {} }),
+    playbackFactory: () => ({ start: async () => {}, close: async () => {}, schedulePcm24: () => ({}), flush: () => ({}), onDrain: () => () => {} }),
+    processorUrl: "https://preview.example/worklet.js",
+  };
+  assert.equal(createVoiceV4PreviewSessionFactory({ ...common, environment: "production" }), undefined);
+
+  const requests = [];
+  const PreviewWebSocket = class FakePreviewWebSocket {
+    constructor(url) { this.url = url; this.sent = []; }
+    send(value) { this.sent.push(value); }
+    close() {}
+  };
+  const factory = createVoiceV4PreviewSessionFactory({
+    ...common,
+    environment: "staging",
+    fetchImpl: async (url, options) => {
+      requests.push({ url, headers: options.headers });
+      return { ok: true, json: async () => ({ token: "t", expires_at_utc: "2099-01-01T00:00:00Z" }) };
+    },
+    WebSocketConstructor: PreviewWebSocket,
+  });
+  const session = factory({ onStateChange: () => {}, onFact: () => {}, onTranscript: () => {}, onError: () => {} });
+  await session.start();
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "/api/voice/v4/token");
+  assert.equal(requests[0].headers.Authorization, "Bearer id-token-test");
+  assert.equal(requests[0].headers["X-Firebase-AppCheck"], "app-check-test");
 });

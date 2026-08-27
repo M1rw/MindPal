@@ -364,8 +364,13 @@ def _install_frontend_routes(app: FastAPI) -> None:
         else:
             from backend.services.auth_service import FirebaseAuthProvider
             provider_configured = FirebaseAuthProvider(settings=settings).is_configured
+        is_voice_preview = settings.ENVIRONMENT == "staging" and settings.VOICE_V4_PREVIEW_APPROVED is True
         payload = {
             "API_BASE_URL": api_base_url,
+            "ENVIRONMENT": settings.ENVIRONMENT,
+            "VOICE_V4_PREVIEW_APPROVED": is_voice_preview,
+            "VOICE_V4_PREVIEW_SESSION_ENABLED": is_voice_preview and settings.VOICE_V4_PREVIEW_SESSION_ENABLED is True,
+            "VOICE_V4_DIAGNOSTICS": is_voice_preview and settings.VOICE_V4_PREVIEW_SESSION_ENABLED is True,
             "SHOW_RESPONSE_DEBUG": False,
             "FIREBASE_APPCHECK_SITE_KEY": str(
                 getattr(settings, "FIREBASE_APPCHECK_SITE_KEY", "") or ""

@@ -213,6 +213,7 @@ class Settings(BaseSettings):
     # protected-preview approval both allow it. Production is always blocked by
     # the Layer 0 release gate.
     VOICE_V4_PREVIEW_APPROVED: bool = False
+    VOICE_V4_PREVIEW_SESSION_ENABLED: bool = False
     VOICE_V4_TOKEN_ENDPOINT: str = Field(
         default="https://generativelanguage.googleapis.com/v1beta/auth_tokens",
         max_length=300,

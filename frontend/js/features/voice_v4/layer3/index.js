@@ -1,6 +1,5 @@
 export {
   CAPTURE_ERROR_CODES,
-  CAPTURE_STATES,
   buildMicrophoneConstraints,
   inspectCaptureCapabilities,
   mapCaptureError,
@@ -15,4 +14,4 @@ export {
   encodeMonoPcm16LittleEndian,
   resampleMonoTo16k,
 } from "./signal_processing.js";
-export { createMicrophoneCapture, VoiceCaptureError } from "./microphone_capture.js";
+export { CAPTURE_STATES, createMicrophoneCapture, VoiceCaptureError } from "./microphone_capture.js";
