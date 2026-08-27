@@ -414,8 +414,13 @@ details > summary::-webkit-details-marker { display: none; }
 }
 
 .settings-tab-btn span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.settings-tab-btn.hidden {
+  display: none !important;
 }
 
 .settings-tab-btn:hover,
