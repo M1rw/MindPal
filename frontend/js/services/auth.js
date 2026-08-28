@@ -160,9 +160,22 @@ export async function initAuth() {
     });
   }
 
+  authReadyPromise = new Promise((resolve) => {
+    const timeout = window.setTimeout(() => {
+      resolve(firebaseAuth.currentUser || null);
+    }, AUTH_STATE_TIMEOUT_MS);
+
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+      window.clearTimeout(timeout);
+      currentAuthUser = user;
+      unsubscribe();
+      resolve(user);
+    });
+  });
+
   // Firebase redirect sign-in must be consumed after the browser returns from
-  // the auth handler. We persist only the selected provider name so the Account
-  // panel can report a safe, actionable status if Firebase restores no user.
+  // the auth handler. Wrap in non-blocking / safe handling so redirect errors
+  // never prevent auth initialization or state listeners from completing.
   const pendingRedirect = readPendingRedirect();
   try {
     const redirectResult = await getRedirectResult(firebaseAuth);
@@ -180,24 +193,8 @@ export async function initAuth() {
       code: String(error?.code || "firebase_redirect_result_failed"),
       detail: getSafeFirebaseFailureDetail(error),
     };
-    // A previous redirect attempt can fail after returning to the app while
-    // still leaving a completed Firebase initialization available. Do not
-    // prevent popup-based providers from starting because of that stale event.
     clearPendingRedirect();
   }
-
-  authReadyPromise = new Promise((resolve) => {
-    const timeout = window.setTimeout(() => {
-      resolve(firebaseAuth.currentUser || null);
-    }, AUTH_STATE_TIMEOUT_MS);
-
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-      window.clearTimeout(timeout);
-      currentAuthUser = user;
-      unsubscribe();
-      resolve(user);
-    });
-  });
 
   await authReadyPromise;
   // Preload independently of a button click so Google account selection can
