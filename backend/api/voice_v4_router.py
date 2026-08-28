@@ -17,6 +17,12 @@ from backend.services.feature_flags_service import FeatureFlagsService
 router = APIRouter(prefix="/api/voice/v4", tags=["voice-v4"])
 
 
+def _session_email_hash(session: object) -> str | None:
+    metadata = getattr(session, "metadata", {})
+    value = metadata.get("email_hash") if isinstance(metadata, dict) else None
+    return value if isinstance(value, str) and value.strip() else None
+
+
 class VoiceV4TokenResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -44,6 +50,7 @@ async def issue_voice_v4_token(
     )
     feature_context = FeatureContext(
         user_id_hash=context.session.user_id_hash,
+        email_hash=_session_email_hash(context.session),
         authenticated=True,
         is_admin=await services.admin_authority.is_admin(context.session),
         channel=context.channel.value,

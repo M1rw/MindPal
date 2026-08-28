@@ -146,6 +146,7 @@ class FeatureContext:
     """Trusted request facts used by the evaluator."""
 
     user_id_hash: str | None = None
+    email_hash: str | None = None
     authenticated: bool = False
     is_admin: bool = False
     channel: str = "web"
@@ -160,7 +161,9 @@ class FeatureContext:
         object.__setattr__(self, "channel", str(self.channel or "unknown").strip().lower())
         object.__setattr__(self, "locale", str(self.locale or "auto").strip().lower())
         if self.user_id_hash is not None:
-            object.__setattr__(self, "user_id_hash", str(self.user_id_hash).strip())
+            object.__setattr__(self, "user_id_hash", str(self.user_id_hash).strip() or None)
+        if self.email_hash is not None:
+            object.__setattr__(self, "email_hash", str(self.email_hash).strip() or None)
 
 
 @dataclass(frozen=True, slots=True)

@@ -116,6 +116,7 @@ async def get_optional_feature_context(
 
     return FeatureContext(
         user_id_hash=session.user_id_hash,
+        email_hash=_session_email_hash(session),
         authenticated=session.authenticated,
         is_admin=await services.admin_authority.is_admin(session),
         channel=session.channel.value,
@@ -124,6 +125,12 @@ async def get_optional_feature_context(
 
 
 FeatureContextDep = Annotated[FeatureContext, Depends(get_optional_feature_context)]
+
+
+def _session_email_hash(session: object) -> str | None:
+    metadata = getattr(session, "metadata", {})
+    value = metadata.get("email_hash") if isinstance(metadata, dict) else None
+    return value if isinstance(value, str) and value.strip() else None
 
 
 @router.get("", response_model=FeatureSnapshotResponse)
