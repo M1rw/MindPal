@@ -182,6 +182,9 @@ async def test_token_route_uses_authenticated_context_and_returns_narrow_respons
     async def consume(**kwargs: object) -> None:
         return None
 
+    async def is_admin(session: object) -> bool:
+        return False
+
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         settings = _settings()
         from backend.services.db_service import DBService, InMemoryDBProvider
@@ -197,6 +200,7 @@ async def test_token_route_uses_authenticated_context_and_returns_narrow_respons
                 load=load_policy_state,
             ),
             rate_limits=SimpleNamespace(consume=consume),
+            admin_authority=SimpleNamespace(is_admin=is_admin),
             voice_v4_tokens=VoiceV4TokenService(settings=settings, client=client),
             db=db,
         )

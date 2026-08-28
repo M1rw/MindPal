@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = Field(default="MindPal", min_length=1, max_length=80)
     VERSION: str = Field(default="2.0.0", min_length=1, max_length=40)
     ENVIRONMENT: Environment = "development"
-    # Deployment platform context used only for preview-only release guards.
+    # Deployment platform context used for environment-scoped release guards.
     VERCEL_ENV: str = Field(default="", max_length=40)
 
     # ── Server ───────────────────────────────────────────────────
@@ -218,8 +218,8 @@ class Settings(BaseSettings):
 
     # ── Voice V4 Layer 1 ──────────────────────────────────────────
     # Token issuance remains unavailable until the feature policy and explicit
-    # protected-preview approval both allow it. Production is always blocked by
-    # the Layer 0 release gate.
+    # deployment approval both allow it. Production approval is separately
+    # scoped by the matching Vercel environment and account policy.
     VOICE_V4_PREVIEW_APPROVED: bool = False
     VOICE_V4_PREVIEW_ENVIRONMENT: str = "production"
     VOICE_V4_PREVIEW_SESSION_ENABLED: bool = False

@@ -93,7 +93,7 @@ test("manual evidence recording requires an active gate and does not mutate prio
   assert.equal(recorded.gates.A.evidence[0].secureContext, true);
 });
 
-test("preview session composition is disabled outside staging and uses only injected browser dependencies", async () => {
+test("session composition allows approved release environments and uses only injected browser dependencies", async () => {
   const common = {
     enabled: true,
     explicitApproval: true,
@@ -112,7 +112,7 @@ test("preview session composition is disabled outside staging and uses only inje
     playbackFactory: () => ({ start: async () => {}, close: async () => {}, schedulePcm24: () => ({}), flush: () => ({}), onDrain: () => () => {} }),
     processorUrl: "https://preview.example/worklet.js",
   };
-  assert.equal(createVoiceV4PreviewSessionFactory({ ...common, environment: "production" }), undefined);
+  assert.equal(typeof createVoiceV4PreviewSessionFactory({ ...common, environment: "production" }), "function");
 
   const requests = [];
   let previewSocketUrl = "";
