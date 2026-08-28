@@ -152,7 +152,18 @@ async def feature_snapshot(
     voice_evaluation = next((item for item in evaluations if item.key == "voice.live_v4"), None)
     if voice_evaluation is not None:
         logger.info(
-            "voice_v4_feature_evaluation",
+            "voice_v4_feature_evaluation "
+            "feature=%s enabled=%s lifecycle=%s reason=%s revision=%s "
+            "authenticated=%s admin=%s has_uid_hash=%s has_email_hash=%s",
+            voice_evaluation.key,
+            voice_evaluation.enabled,
+            voice_evaluation.lifecycle.value,
+            voice_evaluation.reason.value,
+            state.revision,
+            feature_context.authenticated,
+            feature_context.is_admin,
+            feature_context.user_id_hash is not None,
+            feature_context.email_hash is not None,
             extra={
                 "feature_key": voice_evaluation.key,
                 "enabled": voice_evaluation.enabled,
