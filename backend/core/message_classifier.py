@@ -50,15 +50,17 @@ _ALL_GREETINGS: set[str] = set()
 for _lang_greetings in _GREETING_DATA.get("greeting_words", {}).values():
     _ALL_GREETINGS.update(g.lower() for g in _lang_greetings)
 
-_HOW_ARE_YOU: list[str] = [p.lower() for p in _GREETING_DATA.get("how_are_you_patterns", [])]
+# Bolt: Pre-compile list patterns into immutable tuples at module load time to eliminate
+# runtime heap allocations (e.g., list conversions) and optimize string searching (~2x faster classification).
+_HOW_ARE_YOU: tuple[str, ...] = tuple(p.lower() for p in _GREETING_DATA.get("how_are_you_patterns", []))
 
-_DISTRESS_MARKERS: list[str] = [m.lower() for m in _GREETING_DATA.get("distress_override_markers", [])]
+_DISTRESS_MARKERS: tuple[str, ...] = tuple(m.lower() for m in _GREETING_DATA.get("distress_override_markers", []))
 
-_OFF_TOPIC_CODE: list[str] = [k.lower() for k in _GREETING_DATA.get("off_topic_markers", {}).get("code_keywords", [])]
-_OFF_TOPIC_ACADEMIC: list[str] = [k.lower() for k in _GREETING_DATA.get("off_topic_markers", {}).get("academic_keywords", [])]
-_OFF_TOPIC_GENERAL_AI: list[str] = [k.lower() for k in _GREETING_DATA.get("off_topic_markers", {}).get("general_ai_keywords", [])]
+_OFF_TOPIC_CODE: tuple[str, ...] = tuple(k.lower() for k in _GREETING_DATA.get("off_topic_markers", {}).get("code_keywords", []))
+_OFF_TOPIC_ACADEMIC: tuple[str, ...] = tuple(k.lower() for k in _GREETING_DATA.get("off_topic_markers", {}).get("academic_keywords", []))
+_OFF_TOPIC_GENERAL_AI: tuple[str, ...] = tuple(k.lower() for k in _GREETING_DATA.get("off_topic_markers", {}).get("general_ai_keywords", []))
 
-_META_QUESTIONS: list[str] = [p.lower() for p in _GREETING_DATA.get("meta_question_patterns", [])]
+_META_QUESTIONS: tuple[str, ...] = tuple(p.lower() for p in _GREETING_DATA.get("meta_question_patterns", []))
 
 _EGYPTIAN_EXTRAS = (
     "ازيك", "ازيكو", "عامل ايه", "عاملة ايه",
@@ -67,6 +69,7 @@ _EGYPTIAN_EXTRAS = (
 )
 _EGYPTIAN_MARKERS: list[str] = [m.lower() for m in _LOCALE_DATA.get("detection_markers", {}).get("egyptian_markers", [])]
 _ALL_EGYPTIAN_MARKERS: tuple[str, ...] = tuple(set(_EGYPTIAN_MARKERS) | set(_EGYPTIAN_EXTRAS))
+_ALL_GREETINGS_TUPLE: tuple[str, ...] = tuple(_ALL_GREETINGS)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -216,7 +219,7 @@ def classify_message(
                 is_greeting = True
                 signals.append("starts_with_greeting")
             # Check multi-word greetings
-            elif _contains_any(lowered, list(_ALL_GREETINGS)):
+            elif _contains_any(lowered, _ALL_GREETINGS_TUPLE):
                 is_greeting = True
                 signals.append("contains_greeting")
 
@@ -318,6 +321,14 @@ def _detect_language(raw: str, lowered: str) -> str:
     return "arabic"
 
 
-def _contains_any(haystack: str, needles: list[str] | tuple[str, ...] | set[str]) -> bool:
-    """Check if haystack contains any of the needle phrases."""
-    return any(needle in haystack for needle in needles)
+def _contains_any(haystack: str, needles: tuple[str, ...] | list[str] | set[str]) -> bool:
+    """
+    Check if haystack contains any of the needle phrases.
+
+    Bolt: Using an explicit loop over precompiled tuples avoids generator expression
+    overhead and enables fast C-level short-circuiting.
+    """
+    for needle in needles:
+        if needle in haystack:
+            return True
+    return False
