@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api.dependencies import (
@@ -137,6 +137,7 @@ def _session_email_hash(session: object) -> str | None:
 async def feature_snapshot(
     services: ServicesDep,
     feature_context: FeatureContextDep,
+    response: Response,
 ) -> FeatureSnapshotResponse:
     state = await services.feature_policies.load()
     evaluator = FeatureFlagsService(
@@ -145,6 +146,7 @@ async def feature_snapshot(
         registry_version=services.feature_flags.registry_version,
     )
     evaluations = evaluator.evaluate_all(feature_context)
+    response.headers["Cache-Control"] = "private, no-store"
     return FeatureSnapshotResponse(
         registry_version=evaluator.registry_version,
         policy_revision=state.revision,

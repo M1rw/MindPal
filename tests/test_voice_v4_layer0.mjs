@@ -18,14 +18,14 @@ test("Layer 0 contract is audio-only and keeps later runtime features disabled",
   assert.equal(VOICE_V4_CONTRACT.baseline.reconnect, false);
 });
 
-test("release gate requires approval and never enables production", () => {
+test("release gate requires explicit approval in every release environment", () => {
   const feature = { key: VOICE_V4_FEATURE_KEY, enabled: true, lifecycle: "preview" };
 
   assert.equal(evaluateVoiceV4Release(feature, { environment: "preview" }).allowed, false);
   assert.equal(evaluateVoiceV4Release(feature, { environment: "preview" }).reason, "approval_required");
   assert.equal(evaluateVoiceV4Release(feature, { environment: "preview", explicitApproval: true }).allowed, true);
-  assert.equal(evaluateVoiceV4Release(feature, { environment: "production", explicitApproval: true }).allowed, false);
-  assert.equal(evaluateVoiceV4Release(feature, { environment: "production", explicitApproval: true }).reason, "production_guard");
+  assert.equal(evaluateVoiceV4Release(feature, { environment: "production", explicitApproval: true }).allowed, true);
+  assert.equal(evaluateVoiceV4Release(feature, { environment: "production", explicitApproval: true }).reason, "enabled");
 });
 
 test("release gate fails closed for missing, disabled, blocked, and invalid states", () => {
