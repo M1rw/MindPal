@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
@@ -23,6 +24,8 @@ from backend.services.auth_service import parse_bearer_token
 from backend.services.feature_flags_service import FeatureFlagsService
 from backend.services.feature_policy_repository import FeaturePolicyConflictError
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/features", tags=["features"])
 admin_router = APIRouter(prefix="/api/admin/features", tags=["feature-admin"])
@@ -146,6 +149,22 @@ async def feature_snapshot(
         registry_version=services.feature_flags.registry_version,
     )
     evaluations = evaluator.evaluate_all(feature_context)
+    voice_evaluation = next((item for item in evaluations if item.key == "voice.live_v4"), None)
+    if voice_evaluation is not None:
+        logger.info(
+            "voice_v4_feature_evaluation",
+            extra={
+                "feature_key": voice_evaluation.key,
+                "enabled": voice_evaluation.enabled,
+                "lifecycle": voice_evaluation.lifecycle.value,
+                "reason": voice_evaluation.reason.value,
+                "policy_revision": state.revision,
+                "authenticated": feature_context.authenticated,
+                "is_admin": feature_context.is_admin,
+                "has_uid_hash": feature_context.user_id_hash is not None,
+                "has_email_hash": feature_context.email_hash is not None,
+            },
+        )
     response.headers["Cache-Control"] = "private, no-store"
     return FeatureSnapshotResponse(
         registry_version=evaluator.registry_version,
