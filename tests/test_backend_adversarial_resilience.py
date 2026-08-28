@@ -175,6 +175,8 @@ def test_log_redaction_removes_vendor_api_tokens(secret_token: str) -> None:
         "http://localhost:3000/admin",
         "http://[::ffff:127.0.0.1]/internal",
         "http://[::ffff:10.0.0.1]/admin",
+        "http://[::127.0.0.1]/internal",
+        "http://[::10.0.0.1]/admin",
         "file:///etc/passwd",
     ],
 )
