@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -86,6 +87,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 def _install_middleware(app: FastAPI, settings: Settings) -> None:
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+
     app.add_middleware(
         RequestBodyLimitMiddleware,
         max_body_bytes=int(getattr(settings, "MAX_REQUEST_BODY_BYTES", 20_000_000)),
@@ -448,8 +451,11 @@ def _install_frontend_routes(app: FastAPI) -> None:
 
     @app.get("/brain", include_in_schema=False)
     async def brain_page() -> FileResponse:
+        brain_file = FRONTEND_DIR / "brain.html"
+        if not brain_file.exists():
+            raise HTTPException(status_code=404, detail="Page not found")
         return FileResponse(
-            FRONTEND_DIR / "brain.html",
+            brain_file,
             media_type="text/html; charset=utf-8",
             headers={"Cache-Control": "no-cache"},
         )

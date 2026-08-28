@@ -185,19 +185,17 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
   try {
     await initAuth();
 
-    // Safety: if onAuthChange callback hasn't fired after a short delay,
-    // the user is not logged in and Firebase didn't re-fire the listener.
-    // Remove the loader to prevent infinite loading screen.
+    // Safety: if onAuthChange callback hasn't fired after initAuth completes,
+    // remove the loader promptly so the UI becomes interactive without delay.
     setTimeout(() => {
       if (!loaderRemovedByCallback) {
-        console.warn("[MindPal] Auth callback did not fire — removing loader (not logged in)");
         if (!getCurrentUser()) {
           setCloudSyncEnabled(false);
           updateProfileUI(null);
         }
         removeGlobalLoader();
       }
-    }, 2000);
+    }, 300);
 
   } catch (error) {
     console.warn("Firebase frontend auth init failed:", error);

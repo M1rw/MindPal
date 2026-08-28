@@ -66,7 +66,7 @@
     window.__mindpalLoaderTimer = window.setTimeout(() => {
       console.warn("[MindPal] App bootstrap exceeded the safety timeout.");
       removeLoader();
-    }, 12_000);
+    }, 5_000);
   };
 
   window.addEventListener("error", (event) => {
