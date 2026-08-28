@@ -1,3 +1,8 @@
+## 2026-08-28 - SSRF Bypass via IPv4-Compatible IPv6 Address Literals
+**Vulnerability:** Python's `ipaddress.ip_address` evaluates IPv4-compatible IPv6 literals (`::/96` range, e.g. `::127.0.0.1` or `::10.0.0.1`) as `IPv6Address` instances with `is_global = True` and `ipv4_mapped = None`, allowing SSRF bypasses when validating URL hostnames against `is_global`.
+**Learning:** Unlike IPv4-mapped IPv6 (`::ffff:0:0/96`), `IPv6Address` objects for deprecated IPv4-compatible IPv6 addresses (`::/96`) do not expose an `.ipv4_mapped` property, yet dual-stack sockets and system HTTP clients may unpack the embedded 32-bit IPv4 address and connect to local/private IPv4 hosts.
+**Prevention:** When inspecting `IPv6Address` objects for SSRF prevention, check if `address` is in `::/96` (`(int(address) >> 32) == 0`) and validate `IPv4Address(int(address) & 0xFFFFFFFF).is_global` in addition to `address.is_global`.
+
 ## 2026-07-20 - SSRF Bypass via IPv4-Mapped IPv6 Address Literals
 **Vulnerability:** Python's `ipaddress.ip_address` evaluates IPv4-mapped IPv6 literals (such as `::ffff:127.0.0.1` or `::ffff:10.0.0.1`) as IPv6Address instances with `is_global = True`, allowing SSRF bypasses when validating URL hostnames against `is_global`.
 **Learning:** `IPv6Address.is_global` returns `True` for IPv4-mapped IPv6 addresses wrapping non-global IPv4 addresses because `::ffff:0:0/96` is technically globally routable as IPv6 range, even though dual-stack network stacks resolve and route the underlying IPv4 address locally.
