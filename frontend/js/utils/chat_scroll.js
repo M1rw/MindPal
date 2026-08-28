@@ -4,8 +4,14 @@
  * This utility intentionally owns no application state. Callers that need to
  * force a scroll can pass `force: true`.
  */
+let scrollAnimationFrame = null;
+
 export function scrollChatToBottom(behavior = "auto", force = false) {
-  requestAnimationFrame(() => {
+  if (scrollAnimationFrame) {
+    cancelAnimationFrame(scrollAnimationFrame);
+  }
+  scrollAnimationFrame = requestAnimationFrame(() => {
+    scrollAnimationFrame = null;
     const chatHistory = document.getElementById("chat-history");
     if (!chatHistory) return;
 
