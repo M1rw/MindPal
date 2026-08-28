@@ -16,17 +16,23 @@ export function scrollChatToBottom(behavior = "auto", force = false) {
     const chatHistory = document.getElementById("chat-history");
     if (!chatHistory) return;
 
-    const isNearBottom = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 150;
-    if (!force && !isNearBottom) return;
+    const performScroll = () => {
+      const isNearBottom = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < 150;
+      if (!force && !isNearBottom) return;
 
-    if (behavior === "smooth") {
-      chatHistory.scrollTo({
-        top: chatHistory.scrollHeight,
-        behavior: "smooth",
-      });
-    } else {
-      chatHistory.scrollTop = chatHistory.scrollHeight;
-    }
+      if (behavior === "smooth") {
+        chatHistory.scrollTo({
+          top: chatHistory.scrollHeight,
+          behavior: "smooth",
+        });
+      } else {
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      }
+    };
+
+    performScroll();
+    // Second pass after layout reflow (e.g. when unhiding chat container)
+    requestAnimationFrame(performScroll);
   });
 }
 
