@@ -323,3 +323,53 @@ def test_admin_target_ids_are_hashed_before_policy_persistence() -> None:
     assert updated.deny_user_hashes[0].startswith("usr_")
     assert "firebase-user-123" not in updated.allow_user_hashes
     assert "firebase-user-456" not in updated.deny_user_hashes
+
+
+def test_verified_email_hash_allow_list_is_account_scoped() -> None:
+    service = FeatureFlagsService(
+        policies={
+            "voice.live_v4": FeaturePolicy(
+                key="voice.live_v4",
+                lifecycle=FeatureLifecycle.ACTIVE,
+                enabled=None,
+                allow_admins=False,
+                allow_user_hashes=["usr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+            )
+        }
+    )
+
+    allowed = service.evaluate(
+        "voice.live_v4",
+        context(email_hash="usr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", is_admin=False),
+    )
+    denied = service.evaluate(
+        "voice.live_v4",
+        context(email_hash="usr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", is_admin=True),
+    )
+
+    assert allowed.enabled is True
+    assert allowed.reason is FeatureReason.ENABLED
+    assert denied.enabled is False
+    assert denied.reason is FeatureReason.DISABLED
+
+
+def test_verified_email_hash_deny_wins_over_allow() -> None:
+    service = FeatureFlagsService(
+        policies={
+            "voice.live_v4": FeaturePolicy(
+                key="voice.live_v4",
+                lifecycle=FeatureLifecycle.ACTIVE,
+                enabled=True,
+                allow_user_hashes=["usr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                deny_user_hashes=["usr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+            )
+        }
+    )
+
+    denied = service.evaluate(
+        "voice.live_v4",
+        context(email_hash="usr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+    )
+
+    assert denied.enabled is False
+    assert denied.reason is FeatureReason.EXPLICIT_DENY

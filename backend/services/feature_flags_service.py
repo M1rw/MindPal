@@ -101,10 +101,15 @@ class FeatureFlagsService:
         if _requires_authentication(spec, policy) and not context.authenticated:
             return self._result(spec, lifecycle=lifecycle, enabled=False, reason=FeatureReason.REQUIRES_AUTHENTICATION, version=version)
 
-        if policy and context.authenticated and context.user_id_hash:
-            if context.user_id_hash in set(policy.deny_user_hashes):
+        if policy and context.authenticated:
+            identity_hashes = {
+                identity_hash
+                for identity_hash in (context.user_id_hash, context.email_hash)
+                if identity_hash
+            }
+            if identity_hashes & set(policy.deny_user_hashes):
                 return self._result(spec, lifecycle=lifecycle, enabled=False, reason=FeatureReason.EXPLICIT_DENY, version=version)
-            if context.user_id_hash in set(policy.allow_user_hashes):
+            if identity_hashes & set(policy.allow_user_hashes):
                 return self._result(spec, lifecycle=lifecycle, enabled=True, reason=FeatureReason.ENABLED, version=version)
 
         if context.is_admin and _allow_admins(spec, policy):
