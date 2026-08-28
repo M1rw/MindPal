@@ -105,80 +105,85 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
 
   let loaderRemovedByCallback = false;
 
-  try {
-    await initAuth();
+  // Always register the onAuthChange listener first so any auth state emission
+  // (whether immediate or deferred) is caught and handled reliably.
+  authUnsubscribe = onAuthChange(async (user) => {
+    loaderRemovedByCallback = true;
+    const nextUserId = user?.uid || null;
+    if (cloudChatHydratedForUser && cloudChatHydratedForUser !== nextUserId) {
+      cloudChatHydratedForUser = null;
+      pendingCloudChatMessages.length = 0;
+    }
 
-    authUnsubscribe = onAuthChange(async (user) => {
-      loaderRemovedByCallback = true;
-      const nextUserId = user?.uid || null;
-      if (cloudChatHydratedForUser && cloudChatHydratedForUser !== nextUserId) {
-        cloudChatHydratedForUser = null;
-        pendingCloudChatMessages.length = 0;
+    if (!user) {
+      clearFeatureSnapshot();
+      await onFeatureSnapshotChanged?.(null, null);
+      if (!cloudConnectInProgress) {
+        setCloudSyncEnabled(false);
+        updateProfileUI(null);
+      }
+      removeGlobalLoader();
+      return;
+    }
+
+    if (user.displayName) {
+      setUserName(user.displayName);
+    }
+
+    if (cloudConnectInProgress) {
+      updateProfileUI(user);
+      removeGlobalLoader();
+      return;
+    }
+
+    try {
+      const token = await getIdToken();
+
+      if (!token) {
+        throw new Error("Firebase returned no ID token.");
       }
 
-      if (!user) {
-        clearFeatureSnapshot();
-        await onFeatureSnapshotChanged?.(null, null);
-        if (!cloudConnectInProgress) {
-          setCloudSyncEnabled(false);
-          updateProfileUI(null);
-        }
-        removeGlobalLoader();
-        return;
-      }
-
-      if (user.displayName) {
-        setUserName(user.displayName);
-      }
-
-      if (cloudConnectInProgress) {
-        updateProfileUI(user);
-        removeGlobalLoader();
-        return;
+      let profile = null;
+      try {
+        profile = await getCurrentUserProfile(token);
+      } catch (e) {
+        console.warn("Failed to fetch current user profile from backend:", e);
       }
 
       try {
-        const token = await getIdToken();
-
-        if (!token) {
-          throw new Error("Firebase returned no ID token.");
+        const profileRes = await loadUserProfile(token);
+        if (profileRes) {
+          hydrateSettingsFromProfile(profileRes);
+          updateMentalHealthUI(profileRes);
+          updateUsageUI(profileRes);
         }
-
-        const profile = await getCurrentUserProfile(token);
-        try {
-
-          const profileRes = await loadUserProfile(token);
-          if (profileRes) {
-            hydrateSettingsFromProfile(profileRes);
-            updateMentalHealthUI(profileRes);
-            updateUsageUI(profileRes);
-          }
-        } catch (e) {
-          console.error("Failed to load cloud profile:", e);
-        }
-
-        currentCloudProfileContext = {
-          ...buildCloudProfileContext(user, profile),
-
-          settingsMetadata: buildChatSettingsMetadata(),
-        };
-        await onFeatureSnapshotChanged?.(token, user);
-        await hydrateCloudMemory(token, renderMemoryInspector);
-        await hydrateCloudChat(token, renderPersistedChat);
-
-        setCloudSyncEnabled(true);
-        updateProfileUI(user);
-      } catch (error) {
-        console.warn("Silent cloud profile verification failed:", error);
-        currentCloudProfileContext = null;
-        memoryGraphContext = loadCanonicalLocalMemory();
-        memoryContext = memoryGraphContext;
-        setCloudSyncEnabled(false);
-        updateProfileUI(null);
-      } finally {
-        removeGlobalLoader();
+      } catch (e) {
+        console.error("Failed to load cloud profile preferences:", e);
       }
-    });
+
+      currentCloudProfileContext = {
+        ...buildCloudProfileContext(user, profile),
+        settingsMetadata: buildChatSettingsMetadata(),
+      };
+      await onFeatureSnapshotChanged?.(token, user);
+      await hydrateCloudMemory(token, renderMemoryInspector);
+      await hydrateCloudChat(token, renderPersistedChat);
+
+      setCloudSyncEnabled(true);
+      updateProfileUI(user);
+    } catch (error) {
+      console.warn("Silent cloud profile verification encountered error:", error);
+      // If the user has a valid Firebase identity, do not forcibly log them out on network error;
+      // enable cloud sync and display user profile UI while retaining fallback local data.
+      setCloudSyncEnabled(true);
+      updateProfileUI(user);
+    } finally {
+      removeGlobalLoader();
+    }
+  });
+
+  try {
+    await initAuth();
 
     // Safety: if onAuthChange callback hasn't fired after a short delay,
     // the user is not logged in and Firebase didn't re-fire the listener.
@@ -186,14 +191,20 @@ export async function initFrontendAuth({ removeGlobalLoader, renderPersistedChat
     setTimeout(() => {
       if (!loaderRemovedByCallback) {
         console.warn("[MindPal] Auth callback did not fire — removing loader (not logged in)");
-        setCloudSyncEnabled(false);
+        if (!getCurrentUser()) {
+          setCloudSyncEnabled(false);
+          updateProfileUI(null);
+        }
         removeGlobalLoader();
       }
     }, 2000);
 
   } catch (error) {
     console.warn("Firebase frontend auth init failed:", error);
-    setCloudSyncEnabled(false);
+    if (!getCurrentUser()) {
+      setCloudSyncEnabled(false);
+      updateProfileUI(null);
+    }
     removeGlobalLoader();
   }
 }
