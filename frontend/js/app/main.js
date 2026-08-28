@@ -67,7 +67,7 @@ import {
 } from "../state/ui_state.js";
 
 import { escapeHtml } from "../utils/html_escape.js";
-import { scrollChatToBottom } from "../utils/chat_scroll.js";
+import { scrollChatToBottom, initAutoScrollObserver } from "../utils/chat_scroll.js";
 import { hydrateFeatureSnapshot } from "../services/feature_flags_client.js";
 import { getFeatureState } from "../state/feature_store.js";
 import { evaluateVoiceV4Release } from "../features/voice_v4/layer0/contract.js";
@@ -344,6 +344,7 @@ async function bootstrap() {
     updateMentalHealthUI();
     renderWeeklyTracker();
 
+    initAutoScrollObserver();
     refreshIcons();
 
     if (!authIsConfigured()) {
