@@ -47,6 +47,7 @@ async function requestJson(path, {
   token = null,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   signal = null,
+  cache = "default",
 } = {}) {
   const controller = new AbortController();
   let timedOut = false;
@@ -80,6 +81,7 @@ async function requestJson(path, {
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
       credentials: "omit",
+      cache,
     });
 
     const text = await response.text();
@@ -182,6 +184,7 @@ export async function getFeatureSnapshot(token = null) {
     method: "GET",
     token,
     timeoutMs: 20_000,
+    cache: "no-store",
   });
 }
 

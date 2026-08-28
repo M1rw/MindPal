@@ -35,7 +35,6 @@ export const VOICE_V4_RELEASE_REASONS = Object.freeze({
   FEATURE_DISABLED: "feature_disabled",
   FEATURE_LIFECYCLE_BLOCKED: "feature_lifecycle_blocked",
   APPROVAL_REQUIRED: "approval_required",
-  PRODUCTION_GUARD: "production_guard",
   INVALID_ENVIRONMENT: "invalid_environment",
 });
 
@@ -58,9 +57,6 @@ export function evaluateVoiceV4Release(featureState, {
   }
   if (explicitApproval !== true) {
     return releaseDecision(normalizedEnvironment, false, VOICE_V4_RELEASE_REASONS.APPROVAL_REQUIRED);
-  }
-  if (normalizedEnvironment === "production") {
-    return releaseDecision(normalizedEnvironment, false, VOICE_V4_RELEASE_REASONS.PRODUCTION_GUARD);
   }
   return releaseDecision(normalizedEnvironment, true, VOICE_V4_RELEASE_REASONS.ENABLED);
 }

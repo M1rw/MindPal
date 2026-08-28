@@ -283,6 +283,7 @@ def test_public_feature_snapshot_is_safe_without_authentication() -> None:
         admin_response = client.get("/api/admin/features")
 
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "private, no-store"
     payload = response.json()
     assert payload["registry_version"] == 1
     assert any(item["key"] == "voice.live_v4" and item["enabled"] is False for item in payload["features"])
