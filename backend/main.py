@@ -365,18 +365,22 @@ def _install_frontend_routes(app: FastAPI) -> None:
         else:
             from backend.services.auth_service import FirebaseAuthProvider
             provider_configured = FirebaseAuthProvider(settings=settings).is_configured
-        is_vercel_preview = settings.VERCEL_ENV.strip().lower() == "preview"
-        is_voice_preview = (
-            is_vercel_preview
-            and settings.VOICE_V4_PREVIEW_ENVIRONMENT == "staging"
-            and settings.VOICE_V4_PREVIEW_APPROVED is True
+        vercel_environment = settings.VERCEL_ENV.strip().lower()
+        configured_voice_environment = settings.VOICE_V4_PREVIEW_ENVIRONMENT.strip().lower()
+        is_voice_release = (
+            settings.VOICE_V4_PREVIEW_APPROVED is True
+            and settings.VOICE_V4_PREVIEW_SESSION_ENABLED is True
+            and (
+                (vercel_environment == "preview" and configured_voice_environment == "staging")
+                or (vercel_environment == "production" and configured_voice_environment == "production")
+            )
         )
         payload = {
             "API_BASE_URL": api_base_url,
-            "ENVIRONMENT": "staging" if is_voice_preview else settings.ENVIRONMENT,
-            "VOICE_V4_PREVIEW_APPROVED": is_voice_preview,
-            "VOICE_V4_PREVIEW_SESSION_ENABLED": is_voice_preview and settings.VOICE_V4_PREVIEW_SESSION_ENABLED is True,
-            "VOICE_V4_DIAGNOSTICS": is_voice_preview and settings.VOICE_V4_PREVIEW_SESSION_ENABLED is True,
+            "ENVIRONMENT": configured_voice_environment if is_voice_release else settings.ENVIRONMENT,
+            "VOICE_V4_PREVIEW_APPROVED": is_voice_release,
+            "VOICE_V4_PREVIEW_SESSION_ENABLED": is_voice_release,
+            "VOICE_V4_DIAGNOSTICS": is_voice_release,
             "SHOW_RESPONSE_DEBUG": False,
             "FIREBASE_APPCHECK_SITE_KEY": str(
                 getattr(settings, "FIREBASE_APPCHECK_SITE_KEY", "") or ""

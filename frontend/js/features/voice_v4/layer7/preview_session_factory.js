@@ -2,7 +2,7 @@ import { createVoiceSession } from "../layer5/index.js";
 
 const TOKEN_PATH = "/voice/v4/token";
 const GOOGLE_LIVE_WS_ENDPOINT = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
-const PREVIEW_ENVIRONMENTS = new Set(["preview", "staging"]);
+const RELEASE_ENVIRONMENTS = new Set(["preview", "staging", "production"]);
 const DEFAULT_VOICE_NAME = "Kore";
 const DEFAULT_INSTRUCTION = "You are MindPal. Respond naturally and concisely in audio. Do not claim to have feelings or abilities you do not have.";
 
@@ -33,7 +33,7 @@ function normalizeFactoryOptions(options) {
 }
 
 function isPreviewEnabled({ enabled, environment }) {
-  return enabled === true && PREVIEW_ENVIRONMENTS.has(environment);
+  return enabled === true && RELEASE_ENVIRONMENTS.has(environment);
 }
 
 function validateFactoryDependencies(options) {

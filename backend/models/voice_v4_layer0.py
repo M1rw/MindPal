@@ -101,8 +101,10 @@ def evaluate_voice_v4_release(
 ) -> VoiceV4ReleaseDecision:
     """Return a fail-closed Layer 0 release decision.
 
-    Layer 0 never authorizes production. Production activation requires the
-    later real-browser acceptance and release decision gates.
+    Production is authorized only when the authenticated request has already
+    passed feature-policy evaluation and the deployment-owned explicit
+    approval flag is enabled. The account policy remains the authority for
+    which user can reach this decision.
     """
 
     try:
@@ -144,13 +146,6 @@ def evaluate_voice_v4_release(
             allowed=False,
             reason=VoiceV4ReleaseReason.APPROVAL_REQUIRED,
         )
-    if target_environment is VoiceV4Environment.PRODUCTION:
-        return VoiceV4ReleaseDecision(
-            environment=target_environment,
-            allowed=False,
-            reason=VoiceV4ReleaseReason.PRODUCTION_GUARD,
-        )
-
     return VoiceV4ReleaseDecision(
         environment=target_environment,
         allowed=True,

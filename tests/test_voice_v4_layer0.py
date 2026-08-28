@@ -42,7 +42,7 @@ def test_layer0_contract_is_audio_only_and_excludes_future_runtime_features() ->
     assert VOICE_V4_CONTRACT.baseline.session_resumption is False
 
 
-def test_release_gate_requires_explicit_approval_and_never_allows_production() -> None:
+def test_release_gate_requires_explicit_approval_for_all_environments() -> None:
     assert evaluate_voice_v4_release(feature(), environment="preview", explicit_approval=False).reason is VoiceV4ReleaseReason.APPROVAL_REQUIRED
 
     preview = evaluate_voice_v4_release(feature(), environment="preview", explicit_approval=True)
@@ -50,8 +50,8 @@ def test_release_gate_requires_explicit_approval_and_never_allows_production() -
     assert preview.environment is VoiceV4Environment.PREVIEW
 
     production = evaluate_voice_v4_release(feature(), environment="production", explicit_approval=True)
-    assert production.allowed is False
-    assert production.reason is VoiceV4ReleaseReason.PRODUCTION_GUARD
+    assert production.allowed is True
+    assert production.environment is VoiceV4Environment.PRODUCTION
 
 
 def test_release_gate_fails_closed_for_missing_disabled_and_invalid_features() -> None:
