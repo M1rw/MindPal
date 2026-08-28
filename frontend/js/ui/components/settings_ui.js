@@ -162,8 +162,10 @@ function createSettingsChoice(title, config, settings) {
   const selectedValue = readPath(settings, config.path);
   const selectedLabel = config.options.find(([value]) => value === selectedValue)?.[1] || config.options[0]?.[1] || "";
 
+  const triggerAriaLabel = `${title}: ${selectedLabel}`;
+
   wrapper.insertAdjacentHTML("beforeend", `
-    <button class="settings-choice-trigger" data-setting-choice-trigger="${escapeHtml(config.path)}" aria-label="${escapeHtml(title)}" aria-haspopup="listbox" aria-expanded="false" type="button">
+    <button class="settings-choice-trigger" data-setting-choice-trigger="${escapeHtml(config.path)}" aria-label="${escapeHtml(triggerAriaLabel)}" aria-haspopup="listbox" aria-expanded="false" type="button">
       ${config.accent ? `<span class="settings-accent-dot" data-accent="${escapeHtml(selectedValue)}"></span>` : ""}
       <span class="settings-choice-label">${escapeHtml(selectedLabel)}</span>
       <i data-lucide="chevron-down" class="w-4 h-4"></i>
