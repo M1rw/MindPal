@@ -5,7 +5,7 @@ import {
   PLAYBACK_ERROR_CODES,
   VoicePlaybackError,
   createPlayback,
-} from "../frontend/js/features/voice_v4/layer4/playback.js";
+} from "../frontend/js/features/voice/playback/playback.js";
 
 function createFakeAudio() {
   const sources = [];

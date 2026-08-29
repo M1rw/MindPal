@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   VoiceSessionError,
   createVoiceSession,
-} from "../frontend/js/features/voice_v4/layer5/index.js";
+} from "../frontend/js/features/voice/orchestrator/index.js";
 
 const AUDIO_SENTINEL = "AAE=";
 

@@ -11,7 +11,7 @@ import {
   transitionSession,
   validateInputPcmFrame,
   validateOutputPcmChunk,
-} from "../frontend/js/features/voice_v4/layer2/index.js";
+} from "../frontend/js/features/voice/protocol/index.js";
 
 const AUDIO_SENTINEL = "dGVzdA==";
 
