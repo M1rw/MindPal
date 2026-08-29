@@ -268,7 +268,7 @@ export function createVoiceController({
       diagnostic.classList.toggle("hidden", !getDiagnosticsEnabled());
       diagnostic.textContent = getDiagnosticsEnabled() ? formatDiagnostic(diagnostics.getSnapshot()) : "";
     }
-    if (model.errorCode) setText("status", `Voice unavailable (${model.errorCode})`);
+    if (model.errorCode) setText("status", _voiceErrorMessage(model.errorCode));
   }
 
   // ── DOM helpers ───────────────────────────────────────────────────────────
@@ -336,4 +336,20 @@ function formatDiagnostic(snapshot) {
   return Object.entries(createSafeVoiceDiagnostic(snapshot))
     .map(([key, value]) => `${key}: ${value}`)
     .join(" · ");
+}
+
+const VOICE_ERROR_MESSAGES = {
+  voice_provider_unavailable:  "Voice is temporarily unavailable. Please try again shortly.",
+  voice_provider_timeout:      "Voice timed out connecting. Please try again.",
+  voice_auth_required:         "Please sign in to use Voice.",
+  voice_preview_unavailable:   "Voice is unavailable in this release.",
+  voice_token_network_error:   "Network error. Check your connection and try again.",
+  voice_token_failed:          "Could not start voice session. Please try again.",
+  session_start_failed:        "Voice failed to start. Please try again.",
+  capture_permission_denied:   "Microphone access was denied. Please allow microphone access.",
+  capture_device_not_found:    "No microphone found. Please connect a microphone and try again.",
+};
+
+function _voiceErrorMessage(code) {
+  return VOICE_ERROR_MESSAGES[code] || "Voice is temporarily unavailable.";
 }

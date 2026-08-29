@@ -96,6 +96,16 @@ class VoiceV4TokenService:
 
         endpoint = _validate_endpoint(self.settings.VOICE_V4_TOKEN_ENDPOINT)
         api_key = setting_secret(self.settings, "GEMINI_API_KEY")
+
+        # Warn early if the key format looks wrong — the Live auth_tokens endpoint
+        # requires a Google AI Studio key (AIza...), not a Cloudflare or Firebase token.
+        if api_key and not str(api_key).startswith("AIza"):
+            logger.warning(
+                "voice_v4_token_key_format_warning: GEMINI_API_KEY does not start with 'AIza'. "
+                "The Voice Live API requires a Google AI Studio key from https://aistudio.google.com/apikey — "
+                "a Cloudflare token or Firebase token will be rejected by the provider."
+            )
+
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.settings.VOICE_V4_TOKEN_TTL_SECONDS)
         new_session_expires_at = now + timedelta(seconds=self.settings.VOICE_V4_NEW_SESSION_TTL_SECONDS)
