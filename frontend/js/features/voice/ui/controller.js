@@ -228,10 +228,19 @@ export function createVoiceController({
     });
 
     const trigger = element("trigger");
-    trigger?.toggleAttribute("disabled", !model.enabled);
-    trigger?.setAttribute("aria-disabled", String(!model.enabled));
-    trigger?.setAttribute("aria-label", model.enabled ? "Start voice conversation" : "Voice input unavailable");
-    trigger?.setAttribute("title", model.enabled ? "Start voice conversation" : "Voice is unavailable");
+    if (trigger) {
+      trigger.toggleAttribute("disabled", !model.enabled);
+      trigger.setAttribute("aria-disabled", String(!model.enabled));
+      trigger.setAttribute("aria-label", model.enabled ? "Start voice conversation" : "Voice input unavailable");
+      trigger.setAttribute("title", model.enabled ? "Start voice conversation" : "Voice is unavailable");
+      if (model.enabled) {
+        trigger.classList.remove("opacity-60", "cursor-not-allowed", "text-gray-400", "dark:text-gray-500");
+        trigger.classList.add("text-gray-700", "dark:text-gray-200", "hover:bg-gray-100", "dark:hover:bg-zinc-800", "cursor-pointer");
+      } else {
+        trigger.classList.add("opacity-60", "cursor-not-allowed", "text-gray-400", "dark:text-gray-500");
+        trigger.classList.remove("text-gray-700", "dark:text-gray-200", "hover:bg-gray-100", "dark:hover:bg-zinc-800", "cursor-pointer");
+      }
+    }
 
     setText("status", model.status);
     setText("faceState", model.status);
