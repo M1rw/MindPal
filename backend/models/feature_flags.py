@@ -297,7 +297,7 @@ FEATURE_REGISTRY: dict[str, FeatureSpec] = {
         lifecycle=FeatureLifecycle.ACTIVE,
         default_enabled=True,
         requires_authentication=False,
-        override_database=True,
+        override_database=False,
         user_toggleable=True,
         fallback_key="chat.standard_model",
     ),
