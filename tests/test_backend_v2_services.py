@@ -534,7 +534,8 @@ def test_trusted_hosts_and_cors_accept_comma_separated_env_style_values() -> Non
 
 
 
-def test_admin_boundary_requires_explicit_verified_custom_claim() -> None:
+@pytest.mark.asyncio
+async def test_admin_boundary_requires_explicit_verified_custom_claim() -> None:
     from types import SimpleNamespace
     from fastapi import HTTPException
     from backend.api.dependencies import assert_admin
@@ -549,9 +550,9 @@ def test_admin_boundary_requires_explicit_verified_custom_claim() -> None:
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        assert_admin(normal)
+        await assert_admin(normal)
     assert exc_info.value.status_code == 403
-    assert_admin(admin)
+    await assert_admin(admin)
 
 
 def test_llm_service_uses_offline_provider_in_production_by_default() -> None:
