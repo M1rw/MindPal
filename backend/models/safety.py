@@ -68,7 +68,7 @@ class SafetyDecision(BaseModel):
     - safe decisions cannot point to emergency templates.
     """
 
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True, extra="forbid")
 
     level: SafetyLevel = SafetyLevel.SAFE
     bypass_llm: bool = False
