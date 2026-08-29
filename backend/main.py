@@ -178,7 +178,7 @@ def _install_middleware(app: FastAPI, settings: Settings) -> None:
             "object-src 'none'; "
             "frame-ancestors 'none'; "
             "form-action 'self'; "
-            "script-src 'self' https://accounts.google.com https://cdn.tailwindcss.com https://unpkg.com; "
+            "script-src 'self' https://accounts.google.com; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: blob: https://*.googleusercontent.com; "
             "font-src 'self' data:; "
