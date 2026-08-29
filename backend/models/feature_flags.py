@@ -53,6 +53,7 @@ class FeatureSpec:
     user_visible: bool = True
     default_enabled: bool = True
     requires_authentication: bool = False
+    override_database: bool = False
     user_toggleable: bool = True
     safety_critical: bool = False
     allow_admins: bool = True
@@ -295,6 +296,8 @@ FEATURE_REGISTRY: dict[str, FeatureSpec] = {
         description="Real-time full-duplex voice conversation.",
         lifecycle=FeatureLifecycle.ACTIVE,
         default_enabled=True,
+        requires_authentication=False,
+        override_database=True,
         user_toggleable=True,
         fallback_key="chat.standard_model",
     ),
