@@ -230,7 +230,7 @@ class Settings(BaseSettings):
     VOICE_V4_TOKEN_TTL_SECONDS: int = Field(default=1_800, ge=300, le=1_800)
     VOICE_V4_NEW_SESSION_TTL_SECONDS: int = Field(default=60, ge=30, le=120)
     VOICE_V4_MODEL: str = "models/gemini-2.5-flash-native-audio-latest"
-    VOICE_V4_TOKEN_RATE_LIMIT_PER_MINUTE: int = Field(default=3, ge=1, le=30)
+    VOICE_V4_TOKEN_RATE_LIMIT_PER_MINUTE: int = Field(default=10, ge=1, le=60)
 
     # Repairs are limited to one pass and never run for elevated-safety conversations.
     # Keep this enabled so the response-quality gate is active in normal production chat.

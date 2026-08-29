@@ -32,17 +32,25 @@ def _mindpal_configure_frontend_static():
     app.router.routes[:] = [
         route
         for route in app.router.routes
-        if getattr(route, "path", None) not in {"/", "/css", "/js"}
+        if getattr(route, "path", None) not in {"/", "/css", "/js", "/dist", "/assets"}
     ]
 
     css_dir = frontend_dir / "css"
     js_dir = frontend_dir / "js"
+    dist_dir = frontend_dir / "dist"
+    assets_dir = frontend_dir / "assets"
 
     if css_dir.exists():
         app.mount("/css", _StaticFiles(directory=str(css_dir)), name="mindpal_frontend_css")
 
     if js_dir.exists():
         app.mount("/js", _StaticFiles(directory=str(js_dir)), name="mindpal_frontend_js")
+
+    if dist_dir.exists():
+        app.mount("/dist", _StaticFiles(directory=str(dist_dir)), name="mindpal_frontend_dist")
+
+    if assets_dir.exists():
+        app.mount("/assets", _StaticFiles(directory=str(assets_dir)), name="mindpal_frontend_assets")
 
     @app.get("/", include_in_schema=False)
     async def _mindpal_frontend_index():
