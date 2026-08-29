@@ -60,6 +60,8 @@ class FeatureFlagsService:
             )
 
         policy = self.policies.get(normalized_key)
+        if getattr(spec, "override_database", False):
+            policy = None
         lifecycle = policy.lifecycle if policy and policy.lifecycle is not None else spec.lifecycle
         if normalized_key in seen:
             return self._result(
@@ -197,6 +199,8 @@ class FeatureFlagsService:
 
 
 def _requires_authentication(spec: FeatureSpec, policy: FeaturePolicy | None) -> bool:
+    if getattr(spec, "override_database", False):
+        return spec.requires_authentication
     return policy.requires_authentication if policy and policy.requires_authentication is not None else spec.requires_authentication
 
 
