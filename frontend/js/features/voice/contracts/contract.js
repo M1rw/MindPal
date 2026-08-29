@@ -53,7 +53,8 @@ export function evaluateVoiceRelease(featureState, {
   if (!VOICE_ENVIRONMENTS.includes(normalizedEnvironment)) {
     return releaseDecision("production", false, VOICE_RELEASE_REASONS.INVALID_ENVIRONMENT);
   }
-  if (!featureState || featureState.key !== VOICE_FEATURE_KEY) {
+  const resolvedKey = featureState?.key || VOICE_FEATURE_KEY;
+  if (!featureState || resolvedKey !== VOICE_FEATURE_KEY) {
     return releaseDecision(
       normalizedEnvironment,
       false,
