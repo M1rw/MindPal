@@ -109,7 +109,11 @@ function createGoogleLiveSocket(token, resumptionHandle, WebSocketConstructor) {
     if (typeof resumptionHandle === "string" && resumptionHandle.length > 0) {
       url += `&session_handle=${encodeURIComponent(resumptionHandle)}`;
     }
-    return new WebSocketConstructor(url);
+    const ws = new WebSocketConstructor(url);
+    try {
+      ws.binaryType = "arraybuffer";
+    } catch {}
+    return ws;
   } catch (error) {
     throw new VoicePreviewFactoryError("voice_socket_unavailable");
   }
