@@ -7,9 +7,19 @@
     <script src="./runtime-config.js"></script>
     <!-- Preload Google Identity Services before any user-initiated cloud sign-in. -->
     <script defer src="https://accounts.google.com/gsi/client" data-mindpal-google-identity></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js",
+        "firebase/app-check": "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js",
+        "dompurify": "https://esm.sh/dompurify@3.4.11"
+      }
+    }
+    </script>
     <link rel="stylesheet" href="./css/tailwind.generated.css?v=voice-v4-production-release-20260828">
     <link rel="stylesheet" href="./css/style.css?v=voice-v4-production-release-20260828" id="main-css">
-    <script defer src="./dist/lucide.bundle.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script defer src="./js/bootstrap.js"></script>
 <!-- All component styles consolidated in css/style.css -->
 
@@ -673,7 +683,7 @@
                 </div>
 
     </div>
-    <script type="module" src="./dist/app.bundle.js?v=voice-live-v4-full-duplex-20260829"></script>
+    <script type="module" src="./js/app.js"></script>
 
 </body>
 </html>
