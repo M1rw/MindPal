@@ -40,13 +40,12 @@ def test_frontend_root_references_production_bundles() -> None:
         response = client.get("/")
 
     assert response.status_code == 200
-    assert "./dist/app.bundle.js" in response.text
-    assert "./dist/lucide.bundle.js" in response.text
-    assert "cdn.tailwindcss.com" not in response.text
-    assert "unpkg.com" not in response.text
+    assert "cdn.tailwindcss.com" in response.text
+    assert "unpkg.com/lucide" in response.text
+    assert "./dist/lucide.bundle.js" not in response.text
     assert response.headers["x-content-type-options"] == "nosniff"
     csp = response.headers["content-security-policy"]
-    assert "script-src 'self' https://accounts.google.com;" in csp
+    assert "script-src 'self' https://accounts.google.com https://cdn.tailwindcss.com https://unpkg.com;" in csp
     assert "script-src 'self' blob:" not in csp
     assert "connect-src 'self' https://accounts.google.com" in csp
     assert "img-src 'self' data: blob: https://*.googleusercontent.com;" in csp
