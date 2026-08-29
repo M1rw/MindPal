@@ -314,7 +314,7 @@ def test_firebase_google_identity_auth_recovers_from_stale_redirect_errors() -> 
     assert "Google Identity Services" in auth_source
     assert "signInWithRedirect" not in auth_source
     assert "clearPendingRedirect();" in auth_source
-    assert "Do not\n    // prevent popup-based providers" in auth_source
+    assert "never prevent auth initialization or state listeners from completing" in auth_source
     assert "REDIRECT_PENDING_KEY" in auth_source
     assert "getAuthRedirectDiagnostic" in auth_source
     assert "getSafeFirebaseFailureDetail" in auth_source

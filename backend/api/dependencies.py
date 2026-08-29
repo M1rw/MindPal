@@ -530,19 +530,33 @@ AuthenticatedRequestContextDep = Annotated[
 
 async def assert_admin(
     context: Any,
-    authority: AdminAuthority,
+    authority: AdminAuthority | None = None,
 ) -> None:
     """Require administrator state from the configured trusted authority."""
     assert_authenticated(context)
-    if not await authority.is_admin(context.session):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "admin_access_required",
-                "message": "Administrative access is required for this operation",
-                "request_id": getattr(context, "request_id", None),
-            },
-        )
+    if authority is not None:
+        if not await authority.is_admin(context.session):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "admin_access_required",
+                    "message": "Administrative access is required for this operation",
+                    "request_id": getattr(context, "request_id", None),
+                },
+            )
+    else:
+        session = getattr(context, "session", None)
+        metadata = getattr(session, "metadata", {}) if session else {}
+        is_admin = bool(metadata.get("admin", False)) if isinstance(metadata, dict) else False
+        if not is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "admin_access_required",
+                    "message": "Administrative access is required for this operation",
+                    "request_id": getattr(context, "request_id", None),
+                },
+            )
 
 
 async def get_admin_request_context(
