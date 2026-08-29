@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict
 
@@ -11,7 +13,8 @@ from backend.api.dependencies import (
 )
 from backend.core.errors import AppError
 from backend.models.feature_flags import FeatureContext
-from backend.services.feature_flags_service import FeatureFlagsService
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/voice/v4", tags=["voice-v4"])
@@ -42,7 +45,10 @@ async def issue_voice_v4_token(
     """Issue one constrained, short-lived Live token for a future browser layer."""
 
     assert_authenticated(context)
+
+    # Load policies once and evaluate voice feature using the shared service.
     feature_state = await services.feature_policies.load()
+    from backend.services.feature_flags_service import FeatureFlagsService
     feature_evaluator = FeatureFlagsService(
         registry=services.feature_flags.registry,
         policies=feature_state.policies,
@@ -76,12 +82,22 @@ async def issue_voice_v4_token(
             feature_context=feature_context,
             request_id=context.request_id,
         )
+        logger.info(
+            "voice_v4_token_issued request_id=%s model=%s",
+            context.request_id,
+            grant.model,
+        )
         return VoiceV4TokenResponse.model_validate(grant.to_public_dict())
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except HTTPException:
         raise
     except Exception as exc:
+        logger.error(
+            "voice_v4_token_unexpected_error request_id=%s",
+            context.request_id,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=502,
             detail={

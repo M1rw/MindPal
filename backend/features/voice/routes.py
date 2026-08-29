@@ -6,6 +6,8 @@ Voice V4 and Text-to-Speech HTTP endpoints.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, status
 
 from backend.api.dependencies import AuthenticatedRequestContextDep, RequestContextDep, ServicesDep, assert_authenticated, http_error_from_app_error
@@ -14,6 +16,8 @@ from backend.models.feature_flags import FeatureContext
 from backend.models.schemas import TTSRequest, TTSResponse
 from .schemas import VOICE_V4_FEATURE_KEY, VoiceV4Contract
 from .token_service import VoiceV4TokenGrant
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["voice"])
 
@@ -47,7 +51,8 @@ async def issue_voice_v4_token(
         channel=context.session.channel.value if hasattr(context.session.channel, "value") else str(context.session.channel),
         locale=context.session.locale,
     )
-    feature = await services.feature_flags.evaluate(VOICE_V4_FEATURE_KEY, feature_ctx)
+    # evaluate() is synchronous — do not await
+    feature = services.feature_flags.evaluate(VOICE_V4_FEATURE_KEY, feature_ctx)
 
     try:
         grant: VoiceV4TokenGrant = await services.voice_v4_tokens.issue_token(
@@ -55,6 +60,27 @@ async def issue_voice_v4_token(
             feature_context=feature_ctx,
             request_id=context.request_id,
         )
+        logger.info(
+            "voice_v4_token_issued request_id=%s model=%s",
+            context.request_id,
+            grant.model,
+        )
         return grant.to_public_dict()
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(
+            "voice_v4_token_unexpected_error request_id=%s",
+            context.request_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "voice_provider_unavailable",
+                "message": "Voice V4 token service is temporarily unavailable",
+                "request_id": context.request_id,
+            },
+        ) from exc
