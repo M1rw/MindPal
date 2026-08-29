@@ -137,7 +137,6 @@ import {
   renderUsagePanel,
 } from "../ui/components/usage_tracker.js";
 
-import { authIsConfigured } from "../services/auth.js";
 import {
   initFrontendAuth,
   cleanupAuth,
