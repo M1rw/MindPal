@@ -97,21 +97,11 @@ class VoiceV4TokenService:
         endpoint = _validate_endpoint(self.settings.VOICE_V4_TOKEN_ENDPOINT)
         api_key = setting_secret(self.settings, "GEMINI_API_KEY")
 
-        # Warn early if the key format looks wrong — the Live auth_tokens endpoint
-        # requires a Google AI Studio key (AIza...), not a Cloudflare or Firebase token.
-        if api_key and not str(api_key).startswith("AIza"):
-            logger.warning(
-                "voice_v4_token_key_format_warning: GEMINI_API_KEY does not start with 'AIza'. "
-                "The Voice Live API requires a Google AI Studio key from https://aistudio.google.com/apikey — "
-                "a Cloudflare token or Firebase token will be rejected by the provider."
-            )
-
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.settings.VOICE_V4_TOKEN_TTL_SECONDS)
         new_session_expires_at = now + timedelta(seconds=self.settings.VOICE_V4_NEW_SESSION_TTL_SECONDS)
         model_name = getattr(self.settings, "VOICE_V4_MODEL", None) or VOICE_V4_CONTRACT.model
         payload = _build_provider_payload(
-            model=model_name,
             expires_at=expires_at,
             new_session_expires_at=new_session_expires_at,
         )
@@ -182,17 +172,11 @@ def _validate_endpoint(endpoint: str) -> str:
     return value
 
 
-def _build_provider_payload(*, model: str = VOICE_V4_CONTRACT.model, expires_at: datetime, new_session_expires_at: datetime) -> dict[str, object]:
+def _build_provider_payload(*, expires_at: datetime, new_session_expires_at: datetime) -> dict[str, object]:
     return {
         "uses": 1,
         "expireTime": _iso_timestamp(expires_at),
         "newSessionExpireTime": _iso_timestamp(new_session_expires_at),
-        "liveConnectConstraints": {
-            "model": model,
-            "config": {
-                "responseModalities": [VOICE_V4_CONTRACT.response_modality],
-            },
-        },
     }
 
 
