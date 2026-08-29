@@ -9,10 +9,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 from backend.core.config import Settings
 from backend.core.errors import AuthError, ProviderError, ProviderTimeoutError
@@ -96,7 +99,9 @@ class VoiceV4TokenService:
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.settings.VOICE_V4_TOKEN_TTL_SECONDS)
         new_session_expires_at = now + timedelta(seconds=self.settings.VOICE_V4_NEW_SESSION_TTL_SECONDS)
+        model_name = getattr(self.settings, "VOICE_V4_MODEL", None) or VOICE_V4_CONTRACT.model
         payload = _build_provider_payload(
+            model=model_name,
             expires_at=expires_at,
             new_session_expires_at=new_session_expires_at,
         )
@@ -113,6 +118,11 @@ class VoiceV4TokenService:
                 json=payload,
             )
             if response.status_code >= 400:
+                logger.error(
+                    "voice_v4_token_provider_rejected status=%s response=%s",
+                    response.status_code,
+                    response.text[:500],
+                )
                 raise ProviderError(
                     "Voice V4 token provider rejected the request",
                     code="voice_provider_unavailable",
@@ -132,7 +142,7 @@ class VoiceV4TokenService:
                 token=token,
                 expires_at_utc=expires_at,
                 new_session_expires_at_utc=new_session_expires_at,
-                model=VOICE_V4_CONTRACT.model,
+                model=model_name,
                 protocol_version=VOICE_V4_CONTRACT.provider_protocol,
                 request_id=request_id,
             )
@@ -162,13 +172,13 @@ def _validate_endpoint(endpoint: str) -> str:
     return value
 
 
-def _build_provider_payload(*, expires_at: datetime, new_session_expires_at: datetime) -> dict[str, object]:
+def _build_provider_payload(*, model: str = VOICE_V4_CONTRACT.model, expires_at: datetime, new_session_expires_at: datetime) -> dict[str, object]:
     return {
         "uses": 1,
         "expireTime": _iso_timestamp(expires_at),
         "newSessionExpireTime": _iso_timestamp(new_session_expires_at),
         "liveConnectConstraints": {
-            "model": VOICE_V4_CONTRACT.model,
+            "model": model,
             "config": {
                 "responseModalities": [VOICE_V4_CONTRACT.response_modality],
             },
