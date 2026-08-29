@@ -292,10 +292,10 @@ FEATURE_REGISTRY: dict[str, FeatureSpec] = {
     "voice.live_v4": FeatureSpec(
         key="voice.live_v4",
         title="Live voice",
-        description="Future full-duplex voice experience.",
-        lifecycle=FeatureLifecycle.DISABLED,
-        default_enabled=False,
-        user_toggleable=False,
+        description="Real-time full-duplex voice conversation.",
+        lifecycle=FeatureLifecycle.ACTIVE,
+        default_enabled=True,
+        user_toggleable=True,
         fallback_key="chat.standard_model",
     ),
 }

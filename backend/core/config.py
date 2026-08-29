@@ -220,9 +220,9 @@ class Settings(BaseSettings):
     # Token issuance remains unavailable until the feature policy and explicit
     # deployment approval both allow it. Production approval is separately
     # scoped by the matching Vercel environment and account policy.
-    VOICE_V4_PREVIEW_APPROVED: bool = False
+    VOICE_V4_PREVIEW_APPROVED: bool = True
     VOICE_V4_PREVIEW_ENVIRONMENT: str = "production"
-    VOICE_V4_PREVIEW_SESSION_ENABLED: bool = False
+    VOICE_V4_PREVIEW_SESSION_ENABLED: bool = True
     VOICE_V4_TOKEN_ENDPOINT: str = Field(
         default="https://generativelanguage.googleapis.com/v1beta/auth_tokens",
         max_length=300,

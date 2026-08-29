@@ -23,6 +23,10 @@
 
   const config = {
     API_BASE_URL: defaultApiBase,
+    ENVIRONMENT: isLocal ? "development" : "production",
+    VOICE_V4_PREVIEW_APPROVED: true,
+    VOICE_V4_PREVIEW_SESSION_ENABLED: true,
+    VOICE_V4_DIAGNOSTICS: false,
     SHOW_RESPONSE_DEBUG: false,
     FIREBASE_APPCHECK_SITE_KEY: String(deploymentOverrides.FIREBASE_APPCHECK_SITE_KEY || "").trim(),
     ...deploymentOverrides,
