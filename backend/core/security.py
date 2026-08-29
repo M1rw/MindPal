@@ -1,31 +1,25 @@
 # backend/core/security.py
 
 """
-Text sanitization, PII redaction, hashing, and URL validation utilities.
+Text sanitization, PII redaction, hashing, and security primitives.
 
-This module provides defense-in-depth primitives used across the entire backend:
-- Input sanitization (control chars, invisible chars, unicode normalization)
-- PII redaction (emails, phones, IPs, tokens, secrets)
-- User-id hashing for logs (NOT an auth primitive)
-- URL validation for provider safety (SSRF prevention)
-- Safe truncation
-
-Design goals:
-- Preserve Arabic text and normal punctuation
-- Never destroy meaning, only strip dangerous/invisible content
-- Conservative: redact when uncertain
+This module provides defense-in-depth utilities used across the backend:
+- Input sanitization (control characters, invisible characters, unicode NFC normalization)
+- PII redaction (emails, phone numbers, IP addresses, tokens, secrets)
+- Stable non-reversible user-id hashing
+- URL validation (delegated to url_validator)
+- Safe string truncation
 """
 
 from __future__ import annotations
 
 import hashlib
-import ipaddress
 import re
 import unicodedata
 import uuid
 from typing import Literal
-from urllib.parse import urlparse
 
+from .url_validator import validate_url
 
 Locale = Literal["en", "ar", "auto"]
 
@@ -36,112 +30,38 @@ REDACTED_PHONE = "[redacted_phone]"
 REDACTED_SECRET = "[redacted_secret]"  # nosec B105
 REDACTED_IP = "[redacted_ip]"
 
-# ═══════════════════════════════════════════════════════════════
-# Compiled patterns
-# ═══════════════════════════════════════════════════════════════
-
 _CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _WHITESPACE_RE = re.compile(r"[ \t\f\v]+")
-
-# Zero-width and invisible Unicode characters that can be used for
-# homoglyph attacks, invisible text injection, or watermarking.
 _INVISIBLE_CHARS_RE = re.compile(
-    "["
-    "\u200b"  # zero-width space
-    "\u200c"  # zero-width non-joiner
-    "\u200d"  # zero-width joiner
-    "\u200e"  # left-to-right mark
-    "\u200f"  # right-to-left mark
-    "\u2060"  # word joiner
-    "\u2061"  # function application
-    "\u2062"  # invisible times
-    "\u2063"  # invisible separator
-    "\u2064"  # invisible plus
-    "\ufeff"  # byte order mark / zero-width no-break space
-    "\ufff9"  # interlinear annotation anchor
-    "\ufffa"  # interlinear annotation separator
-    "\ufffb"  # interlinear annotation terminator
-    "]"
+    "[\u200b\u200c\u200d\u200e\u200f\u2060\u2061\u2062\u2063\u2064\ufeff\ufff9\ufffa\ufffb]"
 )
-
-# Matches normal emails even when followed by punctuation:
-# test@example.com.
-# test@example.com,
-# (test@example.com)
 _EMAIL_RE = re.compile(
-    r"(?<![\w.+-])"
-    r"(?:[A-Z0-9._%+-]{1,64}@(?:[A-Z0-9-]{1,63}\.)+[A-Z]{2,63})"
-    r"(?![A-Z0-9-])",
+    r"(?<![\w.+-])(?:[A-Z0-9._%+-]{1,64}@(?:[A-Z0-9-]{1,63}\.)+[A-Z]{2,63})(?![A-Z0-9-])",
     re.IGNORECASE,
 )
-
-_PHONE_LIKE_RE = re.compile(
-    r"(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)"
-)
-
-_BEARER_RE = re.compile(
-    r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}"
-)
-
+_PHONE_LIKE_RE = re.compile(r"(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)")
+_BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}")
 _KEY_VALUE_SECRET_RE = re.compile(
-    r"(?i)\b(api[_-]?key|token|access[_-]?token|refresh[_-]?token|secret|password)"
-    r"\s*[:=]\s*"
-    r"(['\"]?)[A-Za-z0-9._~+/=-]{8,}\2"
+    r"(?i)\b(api[_-]?key|token|access[_-]?token|refresh[_-]?token|secret|password)\s*[:=]\s*(['\"]?)[A-Za-z0-9._~+/=-]{8,}\2"
 )
-
-# Known API token prefixes (OpenAI, GitHub, Google, Pinecone, Anthropic, etc.)
 _API_TOKEN_RE = re.compile(
-    r"\b(?:sk-(?:proj|live|test|ant|or|svc)-[A-Za-z0-9_-]{12,}|"
-    r"sk-[A-Za-z0-9_-]{20,}|"
-    r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{16,}|"
-    r"AIzaSy[A-Za-z0-9_-]{20,})\b"
+    r"\b(?:sk-(?:proj|live|test|ant|or|svc)-[A-Za-z0-9_-]{12,}|sk-[A-Za-z0-9_-]{20,}|(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{16,}|AIzaSy[A-Za-z0-9_-]{20,})\b"
 )
-
-# Conservative token-looking value. Requires both letters and digits to avoid
-# redacting ordinary long words.
 _LONG_TOKEN_RE = re.compile(
-    r"\b(?=[A-Za-z0-9._~+/=-]*[A-Za-z])"
-    r"(?=[A-Za-z0-9._~+/=-]*\d)"
-    r"[A-Za-z0-9._~+/=-]{24,}\b"
+    r"\b(?=[A-Za-z0-9._~+/=-]*[A-Za-z])(?=[A-Za-z0-9._~+/=-]*\d)[A-Za-z0-9._~+/=-]{24,}\b"
 )
-
-# IPv4 addresses — matches dotted-quad format (1.2.3.4 through 255.255.255.255).
-# Requires word boundaries to avoid matching version numbers inside longer text.
 _IPV4_RE = re.compile(
-    r"(?<!\d\.)"
-    r"(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}"
-    r"(?:25[0-5]|2[0-4]\d|[01]?\d\d?)"
-    r"(?!\.\d)"
+    r"(?<!\d\.)(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?!\.\d)"
 )
 
-# URL scheme whitelist for provider URL validation.
-_SAFE_URL_SCHEMES = frozenset({"https", "http"})
-
-# Private/reserved IPv4 ranges (for SSRF prevention).
-
-# ═══════════════════════════════════════════════════════════════
-# Public API
-# ═══════════════════════════════════════════════════════════════
 
 def generate_request_id() -> str:
-    """
-    Generate a collision-resistant request id suitable for logs and responses.
-    """
+    """Generate a collision-resistant request id suitable for logs and HTTP headers."""
     return f"{REQUEST_ID_PREFIX}_{uuid.uuid4().hex}"
 
 
 def hash_user_id(user_id: str) -> str:
-    """
-    Return a stable non-reversible user identifier for logs and metrics.
-
-    Security note:
-        This is NOT an authentication primitive. It only reduces raw user-id
-        exposure in logs and database keys. Do not use this for session tokens,
-        password hashing, or access control.
-
-        The hash is deterministic (same input → same output) by design, so it
-        can be used as a stable document key in Firestore.
-    """
+    """Return a deterministic, non-reversible user identifier for logs and metrics."""
     normalized = unicodedata.normalize("NFKC", str(user_id or "")).strip()
     if not normalized:
         normalized = "anonymous"
@@ -151,23 +71,13 @@ def hash_user_id(user_id: str) -> str:
         digest_size=16,
         person=b"MindPalUserHash",
     ).hexdigest()
-
     return f"{USER_HASH_PREFIX}_{digest}"
 
 
 def sanitize_text(text: str, max_chars: int) -> str:
     """
-    Normalize and lightly sanitize user-supplied text without destroying meaning.
-
-    Processing order:
-    1. Unicode NFC normalization
-    2. Line ending normalization (CRLF/CR → LF)
-    3. Control character removal (keeps TAB, LF)
-    4. Invisible/zero-width character removal
-    5. Horizontal whitespace collapse per line
-    6. Truncation
-
-    Preserves Arabic text, normal punctuation, and newlines.
+    Normalize and sanitize user-supplied text preserving Arabic, punctuation, and newlines.
+    Applies Unicode NFC normalization, strips control/invisible chars, and safe truncates.
     """
     normalized = unicodedata.normalize("NFC", str(text or ""))
     normalized = normalized.replace("\r\n", "\n").replace("\r", "\n")
@@ -183,79 +93,36 @@ def sanitize_text(text: str, max_chars: int) -> str:
 
 
 def strip_invisible_chars(text: str) -> str:
-    """
-    Remove zero-width and invisible Unicode characters from text.
-
-    Use this as a composable utility when full sanitization isn't needed
-    but invisible character stripping is required (e.g., comparing keys).
-    """
+    """Remove zero-width and invisible Unicode characters from text."""
     return _INVISIBLE_CHARS_RE.sub("", str(text or ""))
 
 
 def normalize_locale(locale: str | None) -> Locale:
-    """
-    Normalize caller-provided locale into supported routing values.
-    """
+    """Normalize caller-provided locale into supported routing values ('en', 'ar', 'auto')."""
     if not locale:
         return "auto"
-
     value = str(locale).strip().lower().replace("_", "-")
     if not value:
         return "auto"
-
     language = value.split("-", 1)[0]
-    if language == "en":
-        return "en"
-    if language == "ar":
-        return "ar"
-    if language == "auto":
-        return "auto"
-
-    return "auto"
+    return language if language in ("en", "ar") else "auto"
 
 
 def redact_basic_pii(text: str) -> str:
-    """
-    Redact common PII and obvious secrets using conservative local patterns.
-
-    Targets:
-    - Email addresses
-    - Phone numbers (9+ digits)
-    - Bearer tokens
-    - Key=value secrets (api_key, token, password, etc.)
-    - Long alphanumeric tokens (24+ chars with mixed letters/digits)
-    - IPv4 addresses
-
-    This is a basic redaction layer, not a full DLP engine.
-    It is designed for logs, memory payloads, prompt payloads, and persistence
-    safety. It preserves Arabic text and normal sentence structure.
-    """
+    """Redact common PII and secrets (emails, phones, bearer tokens, API keys, IPs)."""
     value = str(text or "")
-
     value = _EMAIL_RE.sub(REDACTED_EMAIL, value)
     value = _BEARER_RE.sub(REDACTED_SECRET, value)
-    value = _KEY_VALUE_SECRET_RE.sub(
-        lambda match: f"{match.group(1)}={REDACTED_SECRET}",
-        value,
-    )
+    value = _KEY_VALUE_SECRET_RE.sub(lambda m: f"{m.group(1)}={REDACTED_SECRET}", value)
     value = _API_TOKEN_RE.sub(REDACTED_SECRET, value)
-    # IPv4 must run BEFORE phone — the phone regex also matches dotted-quad IPs.
     value = _IPV4_RE.sub(_redact_ip_match, value)
     value = _PHONE_LIKE_RE.sub(_redact_phone_match, value)
     value = _LONG_TOKEN_RE.sub(REDACTED_SECRET, value)
-
     return value
 
 
 def safe_truncate(text: str, max_chars: int) -> str:
-    """
-    Truncate text safely with an ellipsis when possible.
-
-    Handles edge cases:
-    - Negative or zero max_chars → empty string
-    - Non-integer max_chars → clamped to int
-    - max_chars == 1 → single ellipsis
-    """
+    """Safely truncate text with an ellipsis when exceeded."""
     try:
         limit = max(0, int(max_chars))
     except (TypeError, ValueError, OverflowError):
@@ -263,148 +130,30 @@ def safe_truncate(text: str, max_chars: int) -> str:
 
     if limit <= 0:
         return ""
-
     value = str(text or "")
     if len(value) <= limit:
         return value
-
     if limit == 1:
         return "…"
-
     return value[: limit - 1].rstrip() + "…"
 
 
-def validate_url(
-    url: str,
-    *,
-    allowed_schemes: frozenset[str] | None = None,
-    block_private_ips: bool = True,
-    max_length: int = 2048,
-) -> str:
-    """
-    Validate and sanitize a URL for safe use in provider HTTP calls.
-
-    Checks:
-    - Scheme whitelist (default: http, https)
-    - URL length limit
-    - No private/reserved IP addresses (SSRF prevention)
-    - Non-empty hostname
-
-    Returns the cleaned URL string.
-    Raises ValueError if the URL is unsafe.
-    """
-    schemes = allowed_schemes or _SAFE_URL_SCHEMES
-
-    cleaned = sanitize_text(str(url or ""), max_length).strip()
-    if not cleaned:
-        raise ValueError("URL is empty")
-
-    try:
-        parsed = urlparse(cleaned)
-    except Exception as exc:
-        raise ValueError(f"URL parse error: {exc}") from exc
-
-    if not parsed.scheme or parsed.scheme.lower() not in schemes:
-        raise ValueError(
-            f"URL scheme '{parsed.scheme}' not in allowed schemes: {sorted(schemes)}"
-        )
-
-    hostname = (parsed.hostname or "").strip().lower()
-    if not hostname:
-        raise ValueError("URL has no hostname")
-
-    if block_private_ips:
-        if hostname == "localhost" or hostname.endswith(".localhost"):
-            raise ValueError(f"URL hostname '{hostname}' is a loopback address")
-        address = _parse_ip_address(hostname)
-        if address is not None:
-            # Check global routability for standard IP literals, IPv4-mapped, IPv4-compatible, NAT64, and SIIT IPv6 literals
-            is_global = address.is_global
-            if getattr(address, "ipv4_mapped", None) is not None:
-                is_global = is_global and address.ipv4_mapped.is_global
-            elif isinstance(address, ipaddress.IPv6Address):
-                addr_int = int(address)
-                prefix_96 = addr_int >> 32
-                # Check IPv4-compatible (::/96), NAT64 (64:ff9b::/96), and SIIT (::ffff:0:0/96) prefixes embedding IPv4
-                if (
-                    (addr_int != 0 and prefix_96 == 0)
-                    or prefix_96 == 0x0064FF9B0000000000000000
-                    or prefix_96 == 0x0000000000000000FFFF0000
-                ):
-                    embedded_v4 = ipaddress.IPv4Address(addr_int & 0xFFFFFFFF)
-                    is_global = is_global and embedded_v4.is_global
-            if not is_global:
-                raise ValueError(f"URL hostname '{hostname}' is not globally routable")
-
-    return cleaned
-
-
-# ═══════════════════════════════════════════════════════════════
-# Internal helpers
-# ═══════════════════════════════════════════════════════════════
-
-def _parse_ip_address(hostname: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
-    """Parse a hostname string into an IPv4 or IPv6 address object if it represents an IP literal."""
-    host = hostname.strip("[]")
-    try:
-        return ipaddress.ip_address(host)
-    except ValueError:
-        pass
-
-    # Attempt integer, hex, or octal single-value IPv4 literal parsing (e.g. 2130706433, 0x7f000001, 017700000001, 0)
-    try:
-        val = None
-        if host.startswith(("0x", "0X")) and len(host) > 2 and all(c in "0123456789abcdefABCDEF" for c in host[2:]):
-            val = int(host, 16)
-        elif host.startswith("0") and len(host) > 1 and all(c in "01234567" for c in host[1:]):
-            val = int(host, 8)
-        elif host.isdigit():
-            val = int(host, 10)
-
-        if val is not None and 0 <= val <= 0xFFFFFFFF:
-            return ipaddress.IPv4Address(val)
-    except (ValueError, OverflowError):
-        pass
-
-    # Attempt socket host resolution for dotted octal/hex/shorthand IPv4 literals (e.g. 127.1, 0177.0.0.1)
-    import socket
-    try:
-        resolved_ip = socket.gethostbyname(host)
-        return ipaddress.ip_address(resolved_ip)
-    except (socket.gaierror, ValueError):
-        pass
-
-    return None
-
 def _redact_phone_match(match: re.Match[str]) -> str:
     candidate = match.group(0)
-    digit_count = sum(char.isdigit() for char in candidate)
-
-    # Avoid redacting short IDs/dates while still catching common phone formats.
-    if digit_count < 9:
-        return candidate
-
-    return REDACTED_PHONE
+    return REDACTED_PHONE if sum(c.isdigit() for c in candidate) >= 9 else candidate
 
 
 def _redact_ip_match(match: re.Match[str]) -> str:
-    """Redact an IPv4 address, but skip common non-IP patterns like version numbers."""
     candidate = match.group(0)
     octets = candidate.split(".")
-
-    # A valid IP has exactly 4 octets, all 0-255.
     if len(octets) != 4:
         return candidate
-
     try:
         values = [int(o) for o in octets]
     except ValueError:
         return candidate
-
-    # Skip 0.0.0.0 and common version-like patterns (all octets < 10 and first is 0-3).
     if all(v < 10 for v in values) and values[0] <= 3:
         return candidate
-
     return REDACTED_IP
 
 

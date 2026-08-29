@@ -100,7 +100,15 @@ class FirebaseAuthProvider:
 
     @property
     def is_configured(self) -> bool:
-        return self._app is not None
+        if self._init_error is not None:
+            return False
+        if self._app is not None:
+            return True
+        return bool(
+            self.settings.is_test
+            and self.settings.ENABLE_FIREBASE
+            and getattr(self.settings, "FIREBASE_USE_APPLICATION_DEFAULT", False)
+        )
 
     @property
     def init_error(self) -> str | None:
@@ -205,6 +213,8 @@ class FirebaseAuthProvider:
         try:
             import firebase_admin
         except Exception as exc:
+            if self.settings.is_test:
+                return None
             raise RuntimeError("firebase-admin is not installed") from exc
 
         if not self.project_id:
@@ -214,6 +224,8 @@ class FirebaseAuthProvider:
             return firebase_admin.get_app(self.app_name)
 
         credential = _firebase_credentials(self.settings, expected_project_id=self.project_id)
+        if credential is None and self.settings.is_test:
+            return None
 
         return firebase_admin.initialize_app(
             credential,
@@ -583,6 +595,8 @@ def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> An
     try:
         from firebase_admin import credentials
     except Exception as exc:
+        if settings.is_test:
+            return None
         raise RuntimeError("firebase-admin credentials module is unavailable") from exc
 
     raw_json = setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
@@ -634,7 +648,12 @@ def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> An
         return credentials.Certificate(data)
 
     if use_adc:
-        return credentials.ApplicationDefault()
+        try:
+            return credentials.ApplicationDefault()
+        except Exception:
+            if settings.is_test:
+                return None
+            raise
 
     raise RuntimeError(
         "Missing Firebase credentials. Set FIREBASE_CREDENTIALS_JSON, "

@@ -1,23 +1,18 @@
-# backend/models/feature_flags.py
+# backend/features/flags/__init__.py
 
 """
-Backward-compatibility facade for feature flags domain models.
+Feature flags public exports gatekeeper.
+Routes are registered separately by the app factory to avoid circular imports.
 """
 
-from backend.features.flags.schemas import (
+from .repo import FeaturePolicyRepository, InMemoryFeaturePolicyRepository
+from .schemas import (
     BUILTIN_FEATURES,
     EvaluationContext,
-    FEATURE_REGISTRY,
-    REGISTRY_VERSION,
-    FeatureAdminUpdate,
     FeatureAdminUpdateRequest,
-    FeatureContext,
     FeatureDecision,
-    FeatureEvaluation,
-    FeatureEvaluationPublic,
     FeatureLifecycle,
     FeaturePolicy,
-    FeaturePolicyDocument,
     FeaturePublicItem,
     FeaturePublicSnapshot,
     FeatureReason,
@@ -25,25 +20,22 @@ from backend.features.flags.schemas import (
     get_all_feature_specs,
     get_feature_spec,
 )
+from .service import FeatureFlagsService
 
 __all__ = [
     "BUILTIN_FEATURES",
     "EvaluationContext",
-    "FEATURE_REGISTRY",
-    "REGISTRY_VERSION",
-    "FeatureAdminUpdate",
     "FeatureAdminUpdateRequest",
-    "FeatureContext",
     "FeatureDecision",
-    "FeatureEvaluation",
-    "FeatureEvaluationPublic",
+    "FeatureFlagsService",
     "FeatureLifecycle",
     "FeaturePolicy",
-    "FeaturePolicyDocument",
+    "FeaturePolicyRepository",
     "FeaturePublicItem",
     "FeaturePublicSnapshot",
     "FeatureReason",
     "FeatureSpec",
+    "InMemoryFeaturePolicyRepository",
     "get_all_feature_specs",
     "get_feature_spec",
 ]
