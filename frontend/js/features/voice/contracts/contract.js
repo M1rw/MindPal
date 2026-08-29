@@ -1,6 +1,6 @@
 export const VOICE_FEATURE_KEY = "voice.live_v4";
 export const VOICE_CONTRACT_VERSION = 1;
-export const PROVIDER_MODEL = "models/gemini-3.1-flash-live-preview";
+export const PROVIDER_MODEL = "models/gemini-2.5-flash-native-audio-latest";
 
 export const VOICE_V4_FEATURE_KEY = VOICE_FEATURE_KEY;
 export const VOICE_V4_CONTRACT_VERSION = VOICE_CONTRACT_VERSION;

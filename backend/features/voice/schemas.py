@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 VOICE_V4_FEATURE_KEY = "voice.live_v4"
 VOICE_V4_CONTRACT_VERSION = 1
-VOICE_V4_MODEL = "models/gemini-3.1-flash-live-preview"
+VOICE_V4_MODEL = "models/gemini-2.5-flash-native-audio-latest"
 VOICE_V4_PROTOCOL_VERSION = "v1beta"
 
 
@@ -61,7 +61,7 @@ class VoiceV4Contract(BaseModel):
     feature_key: Literal["voice.live_v4"] = VOICE_V4_FEATURE_KEY
     transport: Literal["direct_browser_google_wss"] = "direct_browser_google_wss"
     provider_protocol: Literal["v1beta"] = VOICE_V4_PROTOCOL_VERSION
-    model: Literal["models/gemini-3.1-flash-live-preview"] = VOICE_V4_MODEL
+    model: Literal["models/gemini-2.5-flash-native-audio-latest"] = VOICE_V4_MODEL
     response_modality: Literal["AUDIO"] = "AUDIO"
     input_audio: VoiceV4PcmContract = VoiceV4PcmContract(encoding="PCM16LE", sample_rate_hz=16_000, channels=1)
     output_audio: VoiceV4PcmContract = VoiceV4PcmContract(encoding="PCM16LE", sample_rate_hz=24_000, channels=1)

@@ -19,7 +19,7 @@ const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/
  *   from ~300 ms (network RTT) to near-zero.
  */
 export function buildSetupEnvelope({
-  model = "models/gemini-3.1-flash-live-preview",
+  model = "models/gemini-2.5-flash-native-audio-latest",
   voiceName = "Kore",
   instruction = "You are MindPal. Respond naturally and concisely in audio.",
   useClientVad = false,

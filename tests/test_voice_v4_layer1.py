@@ -76,7 +76,7 @@ async def test_token_request_uses_exact_constraints_and_returns_narrow_grant() -
     assert "expireTime" in body
     assert "newSessionExpireTime" in body
     assert grant.token == "auth_tokens/ephemeral-token"
-    assert grant.model == "models/gemini-3.1-flash-live-preview"
+    assert grant.model == "models/gemini-2.5-flash-native-audio-latest"
     assert grant.protocol_version == "v1beta"
     assert grant.request_id == "request-voice-layer1"
     assert (grant.expires_at_utc - grant.new_session_expires_at_utc).total_seconds() == 840
@@ -221,7 +221,7 @@ async def test_token_route_uses_authenticated_context_and_returns_narrow_respons
 
     assert response.token == "auth_tokens/route-token"
     assert response.request_id == "request-route-layer1"
-    assert response.model == "models/gemini-3.1-flash-live-preview"
+    assert response.model == "models/gemini-2.5-flash-native-audio-latest"
     assert set(response.model_dump()) == {
         "token",
         "expires_at_utc",

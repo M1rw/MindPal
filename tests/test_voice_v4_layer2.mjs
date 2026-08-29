@@ -77,7 +77,7 @@ test("parser rejects malformed audio and unknown messages without throwing", () 
 
 test("contract builders enforce fixed setup and PCM boundaries", () => {
   const setup = buildSetupEnvelope({ instruction: "Stay concise.", voiceName: "Kore" });
-  assert.equal(setup.setup.model, "models/gemini-3.1-flash-live-preview");
+  assert.equal(setup.setup.model, "models/gemini-2.5-flash-native-audio-latest");
   assert.deepEqual(setup.setup.generationConfig.responseModalities, ["AUDIO"]);
   assert.equal(setup.setup.systemInstruction.parts[0].text, "Stay concise.");
   assert.equal(setup.setup.realtimeInputConfig.automaticActivityDetection.disabled, false);
