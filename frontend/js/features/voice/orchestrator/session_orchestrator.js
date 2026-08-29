@@ -285,16 +285,30 @@ export function createVoiceSession({
   }
 
   function attachSocketHandlers(connection, activeGeneration) {
-    connection.onmessage = (event) => {
+    connection.onmessage = async (event) => {
       if (!isCurrent(activeGeneration)) return;
-      let message;
+      let rawData = event?.data;
+      let text;
       try {
-        message = typeof event?.data === "string" ? JSON.parse(event.data) : event?.data;
+        if (typeof rawData === "string") {
+          text = rawData;
+        } else if (rawData instanceof Blob) {
+          text = await rawData.text();
+        } else if (rawData instanceof ArrayBuffer) {
+          text = new TextDecoder().decode(rawData);
+        } else if (ArrayBuffer.isView(rawData)) {
+          text = new TextDecoder().decode(rawData.buffer);
+        } else {
+          text = rawData;
+        }
+        const message = typeof text === "string" ? JSON.parse(text) : text;
+        if (!isCurrent(activeGeneration)) return;
+        for (const fact of parseServerMessage(message)) handleServerFact(fact, activeGeneration);
       } catch {
-        applyFact({ type: "provider_error", code: "malformed_provider_message", generation: activeGeneration });
-        return;
+        if (isCurrent(activeGeneration)) {
+          applyFact({ type: "provider_error", code: "malformed_provider_message", generation: activeGeneration });
+        }
       }
-      for (const fact of parseServerMessage(message)) handleServerFact(fact, activeGeneration);
     };
     connection.onerror = () => {
       if (isCurrent(activeGeneration)) void failSession(new VoiceSessionError("provider_socket_error"), activeGeneration);
