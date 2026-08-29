@@ -716,6 +716,7 @@ export function setChatStarted(started) {
 
       chatHistory?.classList.remove("hidden");
       chatHistory?.classList.add("flex");
+      scrollChatToBottom("auto", true);
 
       // FLIP: animate input from old position to new position
       if (inputBox && firstRect) {
