@@ -1,6 +1,6 @@
 export const CAPTURE_SAMPLE_RATE_HZ = 16000;
 export const CAPTURE_FRAME_DURATION_MS = 20;
-export const CAPTURE_FRAME_SAMPLES = CAPTURE_SAMPLE_RATE_HZ / 1000 * CAPTURE_FRAME_DURATION_MS;
+export const CAPTURE_FRAME_SAMPLES = (CAPTURE_SAMPLE_RATE_HZ / 1000) * CAPTURE_FRAME_DURATION_MS;
 export const MAX_SAMPLES_PER_PUSH = 32000;
 
 export function resampleMonoTo16k(samples, inputSampleRateHz) {
@@ -9,7 +9,7 @@ export function resampleMonoTo16k(samples, inputSampleRateHz) {
   if (source.length === 0) return new Float32Array(0);
   if (rate === CAPTURE_SAMPLE_RATE_HZ) return new Float32Array(source);
 
-  const outputLength = Math.floor(source.length * CAPTURE_SAMPLE_RATE_HZ / rate);
+  const outputLength = Math.floor((source.length * CAPTURE_SAMPLE_RATE_HZ) / rate);
   const output = new Float32Array(outputLength);
   const ratio = rate / CAPTURE_SAMPLE_RATE_HZ;
   for (let index = 0; index < output.length; index += 1) {
@@ -38,6 +38,8 @@ export function createStreamingResampler(inputSampleRateHz) {
       merged.set(pending);
       merged.set(source, pending.length);
       const ratio = rate / CAPTURE_SAMPLE_RATE_HZ;
+
+      // Exact count of samples where (phase + 1 < merged.length)
       const output = [];
       while (phase + 1 < merged.length) {
         const lowerIndex = Math.floor(phase);
@@ -46,9 +48,11 @@ export function createStreamingResampler(inputSampleRateHz) {
         output.push(merged[lowerIndex] + (merged[upperIndex] - merged[lowerIndex]) * fraction);
         phase += ratio;
       }
+
       const consumed = Math.floor(phase);
       phase -= consumed;
       pending = merged.slice(consumed);
+
       return Float32Array.from(output);
     },
     reset() {
@@ -99,32 +103,39 @@ export function encodeMonoPcm16LittleEndian(samples) {
   const encoded = new Uint8Array(source.length * 2);
   const view = new DataView(encoded.buffer);
   for (let index = 0; index < source.length; index += 1) {
-    const sample = Math.max(-1, Math.min(1, Number(source[index]) || 0));
-    const pcm = sample <= -1 ? -32768 : Math.round(sample * 32767);
-    view.setInt16(index * 2, pcm, true);
+    const clamped = Math.max(-1, Math.min(1, source[index]));
+    const intSample = clamped < 0 ? Math.round(clamped * 32768) : Math.round(clamped * 32767);
+    view.setInt16(index * 2, intSample, true);
   }
   return encoded;
 }
 
 export function downmixToMono(channels) {
   if (!Array.isArray(channels) || channels.length === 0) return new Float32Array(0);
-  const normalized = channels.filter((channel) => channel instanceof Float32Array);
-  if (normalized.length === 0) return new Float32Array(0);
-  const output = new Float32Array(normalized[0].length);
-  for (const channel of normalized) {
-    const length = Math.min(output.length, channel.length);
-    for (let index = 0; index < length; index += 1) output[index] += channel[index] / normalized.length;
+  if (channels.length === 1) return normalizeSamples(channels[0]);
+
+  const length = channels[0]?.length || 0;
+  const mono = new Float32Array(length);
+  const channelCount = channels.length;
+  for (let ch = 0; ch < channelCount; ch += 1) {
+    const channel = normalizeSamples(channels[ch]);
+    const limit = Math.min(length, channel.length);
+    for (let index = 0; index < limit; index += 1) {
+      mono[index] += channel[index] / channelCount;
+    }
   }
-  return output;
+  return mono;
 }
 
 function normalizeSamples(samples) {
   if (samples instanceof Float32Array) return samples;
   if (Array.isArray(samples)) return Float32Array.from(samples);
-  throw new TypeError("audio samples must be a Float32Array or number array");
+  return new Float32Array(0);
 }
 
-function validateSampleRate(value) {
-  if (!Number.isFinite(value) || value < 8000 || value > 96000) throw new RangeError("sample rate is outside the supported range");
-  return value;
+function validateSampleRate(rate) {
+  if (!Number.isFinite(rate) || rate < 8000 || rate > 96000) {
+    throw new RangeError("inputSampleRateHz is outside supported bounds (8000-96000)");
+  }
+  return rate;
 }

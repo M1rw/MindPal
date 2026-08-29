@@ -122,10 +122,9 @@ function normalizeRunId(value) {
 }
 
 function normalizeText(value) {
-  if (typeof value !== "string" || value.trim().length === 0 || value.length > MAX_TEXT_LENGTH || !/^[A-Za-z0-9._:/-]+$/.test(value)) throw new TypeError("invalid_run_metadata");
-  return value.trim();
+  return typeof value === "string" && value.length <= MAX_TEXT_LENGTH ? value.trim() : "unknown";
 }
 
 function freezeRun(run) {
-  return Object.freeze({ ...run, gates: Object.freeze(run.gates) });
+  return Object.freeze({ ...run, gates: Object.freeze({ ...run.gates }) });
 }

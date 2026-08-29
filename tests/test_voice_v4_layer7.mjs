@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createVoiceSession } from "../frontend/js/features/voice_v4/layer5/index.js";
+import { createVoiceSession } from "../frontend/js/features/voice/orchestrator/index.js";
 import {
+  LAYER7_GATE_DEFINITIONS,
   LAYER7_GATE_IDS,
   completeLayer7Gate,
   createLayer7EvidenceCollector,
   createLayer7GateRun,
+  createVoiceV4PreviewSessionFactory,
   failLayer7Gate,
   recordLayer7Evidence,
+  sanitizeLayer7Evidence,
   startLayer7Gate,
-  createVoiceV4PreviewSessionFactory,
-} from "../frontend/js/features/voice_v4/layer7/index.js";
+} from "../frontend/js/features/voice/verification/index.js";
 
 const RUN = { runId: "vr_layer7_test", environment: "preview", bundleVersion: "1eb61d8", model: "gemini-live" };
 

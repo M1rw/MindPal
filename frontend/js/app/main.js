@@ -70,11 +70,13 @@ import { escapeHtml } from "../utils/html_escape.js";
 import { scrollChatToBottom } from "../utils/chat_scroll.js";
 import { hydrateFeatureSnapshot } from "../services/feature_flags_client.js";
 import { getFeatureState } from "../state/feature_store.js";
-import { evaluateVoiceV4Release } from "../features/voice_v4/layer0/contract.js";
-import { createVoiceLayer6Controller } from "../features/voice_v4/layer6/index.js";
-import { createMicrophoneCapture } from "../features/voice_v4/layer3/index.js";
-import { createPlayback } from "../features/voice_v4/layer4/index.js";
-import { createVoiceV4PreviewSessionFactory } from "../features/voice_v4/layer7/index.js";
+import {
+  evaluateVoiceRelease,
+  createVoiceController,
+  createMicrophoneCapture,
+  createPlayback,
+  createVoicePreviewSessionFactory,
+} from "../features/voice/index.js";
 import { renderFeatureStatusPanel } from "../ui/components/feature_status_ui.js";
 import { initFeatureAdminUI, refreshFeatureAdminPanel } from "../ui/components/feature_admin_ui.js";
 
@@ -282,11 +284,11 @@ async function bootstrap() {
 
     const voiceEnvironment = window.MINDPAL_CONFIG?.ENVIRONMENT || "production";
     const voiceExplicitApproval = window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_APPROVED === true;
-    const voiceReleaseDecision = (featureState) => evaluateVoiceV4Release(featureState, {
+    const voiceReleaseDecision = (featureState) => evaluateVoiceRelease(featureState, {
       environment: voiceEnvironment,
       explicitApproval: voiceExplicitApproval,
     });
-    const voicePreviewSessionFactory = createVoiceV4PreviewSessionFactory({
+    const voicePreviewSessionFactory = createVoicePreviewSessionFactory({
       enabled: window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_SESSION_ENABLED === true,
       environment: voiceEnvironment,
       explicitApproval: voiceExplicitApproval,
@@ -297,9 +299,9 @@ async function bootstrap() {
       getAppCheckToken,
       captureFactory: createMicrophoneCapture,
       playbackFactory: createPlayback,
-      processorUrl: new URL("/js/features/voice_v4/layer3/audio_capture_processor.js", window.location.href).toString(),
+      processorUrl: new URL("/js/features/voice/capture/audio_capture_processor.js", window.location.href).toString(),
     });
-    voiceLayer6Controller = createVoiceLayer6Controller({
+    voiceLayer6Controller = createVoiceController({
       getFeatureState,
       getReleaseDecision: voiceReleaseDecision,
       createSession: voicePreviewSessionFactory,

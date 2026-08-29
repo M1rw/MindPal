@@ -11,7 +11,16 @@ const STATUS_BY_STATE = Object.freeze({
   ERROR: "Voice unavailable",
 });
 
-const ACTIVE_STATES = new Set(["REQUESTING_TOKEN", "CONNECTING", "SETUP_WAIT", "LISTENING", "USER_SPEAKING", "ASSISTANT_SPEAKING", "INTERRUPTED", "STOPPING"]);
+const ACTIVE_STATES = new Set([
+  "REQUESTING_TOKEN",
+  "CONNECTING",
+  "SETUP_WAIT",
+  "LISTENING",
+  "USER_SPEAKING",
+  "ASSISTANT_SPEAKING",
+  "INTERRUPTED",
+  "STOPPING",
+]);
 
 export function createVoiceViewModel({
   featureState,
@@ -25,7 +34,13 @@ export function createVoiceViewModel({
   const state = normalizeSessionState(sessionState?.state);
   const playbackActive = Number(playbackSnapshot?.activeSourceCount) > 0;
   const truthfulSpeaking = state === "ASSISTANT_SPEAKING" && playbackActive;
-  const status = !enabled ? "Voice unavailable" : state === "ASSISTANT_SPEAKING" ? (truthfulSpeaking ? "MindPal is speaking" : "MindPal is generating") : STATUS_BY_STATE[state];
+  const status = !enabled
+    ? "Voice unavailable"
+    : state === "ASSISTANT_SPEAKING"
+    ? truthfulSpeaking
+      ? "MindPal is speaking"
+      : "MindPal is generating"
+    : STATUS_BY_STATE[state];
   const errorCode = sessionState?.errorCode || playbackSnapshot?.errorCode || null;
 
   return Object.freeze({

@@ -101,10 +101,9 @@ function isSafeSessionId(value) {
 }
 
 function isSafeErrorCode(value) {
-  return typeof value === "string" && /^[a-z0-9_]{1,80}$/.test(value);
+  return typeof value === "string" && /^[a-z0-9_-]{1,80}$/.test(value);
 }
 
 function boundedInteger(value, maximum) {
-  if (!Number.isInteger(value) || value < 0 || value > maximum) return null;
-  return value;
+  return Number.isInteger(value) && value >= 0 && value <= maximum ? value : null;
 }

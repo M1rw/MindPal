@@ -1,4 +1,4 @@
-export const VOICE_V4_SESSION_STATES = Object.freeze([
+export const VOICE_SESSION_STATES = Object.freeze([
   "IDLE",
   "REQUESTING_TOKEN",
   "CONNECTING",
@@ -11,7 +11,9 @@ export const VOICE_V4_SESSION_STATES = Object.freeze([
   "ERROR",
 ]);
 
-const STATE_SET = new Set(VOICE_V4_SESSION_STATES);
+export const VOICE_V4_SESSION_STATES = VOICE_SESSION_STATES;
+
+const STATE_SET = new Set(VOICE_SESSION_STATES);
 
 export function createInitialSessionState(generation = 0) {
   return {
@@ -121,38 +123,30 @@ function transitionError(state, code) {
   };
 }
 
-function move(state, nextState, factType, updates = {}) {
-  if (!STATE_SET.has(nextState)) return transitionError(state, "invalid_next_state");
+function move(state, nextState, transitionName, updates = {}) {
   return {
     ...state,
     ...updates,
-    state: nextState,
-    lastTransition: factType,
+    state: STATE_SET.has(nextState) ? nextState : "ERROR",
+    lastTransition: transitionName,
+    lastErrorCode: nextState === "ERROR" ? state.lastErrorCode || "unknown_error" : null,
   };
 }
 
-function normalizeState(value) {
-  if (!value || typeof value !== "object") return createInitialSessionState();
-  const state = STATE_SET.has(value.state) ? value.state : "ERROR";
+function normalizeState(state) {
+  if (!state || typeof state !== "object") return createInitialSessionState(0);
   return {
-    ...createInitialSessionState(value.generation),
-    ...value,
-    state,
-    generation: normalizeGeneration(value.generation),
-    setupComplete: value.setupComplete === true,
-    generationComplete: value.generationComplete === true,
-    turnComplete: value.turnComplete === true,
-    playbackScheduled: value.playbackScheduled === true,
-    playbackDrained: value.playbackDrained !== false,
-    goAway: value.goAway === true,
-    ignoredStaleFacts: normalizeGeneration(value.ignoredStaleFacts),
+    ...createInitialSessionState(state.generation),
+    ...state,
+    state: STATE_SET.has(state.state) ? state.state : "ERROR",
+    generation: normalizeGeneration(state.generation),
   };
 }
 
 function normalizeGeneration(value) {
-  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  return Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
 function safeErrorCode(value) {
-  return typeof value === "string" && /^[a-z0-9_]{1,80}$/.test(value) ? value : "protocol_error";
+  return typeof value === "string" && /^[a-z0-9_-]{1,80}$/.test(value) ? value : "unknown_error";
 }

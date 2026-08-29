@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createSafeVoiceDiagnostic } from "../frontend/js/features/voice_v4/layer0/diagnostics.js";
-import { createVoiceConsentController } from "../frontend/js/features/voice_v4/layer6/consent.js";
-import { createVoiceDiagnostics } from "../frontend/js/features/voice_v4/layer6/diagnostics.js";
-import { createVoiceLayer6Controller } from "../frontend/js/features/voice_v4/layer6/controller.js";
-import { createVoiceViewModel } from "../frontend/js/features/voice_v4/layer6/view_model.js";
+import { createSafeVoiceDiagnostic } from "../frontend/js/features/voice/contracts/diagnostics.js";
+import { createVoiceConsentController } from "../frontend/js/features/voice/ui/consent.js";
+import { createVoiceDiagnostics } from "../frontend/js/features/voice/ui/diagnostics.js";
+import { createVoiceLayer6Controller } from "../frontend/js/features/voice/ui/controller.js";
+import { createVoiceViewModel } from "../frontend/js/features/voice/ui/view_model.js";
 
 class FakeClassList {
   constructor(initial = []) { this.values = new Set(initial); }

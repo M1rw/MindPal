@@ -1,4 +1,4 @@
-import { createVoiceSession } from "../layer5/index.js";
+import { createVoiceSession } from "../orchestrator/index.js";
 
 const TOKEN_PATH = "/voice/v4/token";
 const GOOGLE_LIVE_WS_ENDPOINT = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained";
@@ -14,13 +14,15 @@ export class VoicePreviewFactoryError extends Error {
   }
 }
 
-export function createVoiceV4PreviewSessionFactory(options = {}) {
+export function createVoicePreviewSessionFactory(options = {}) {
   const normalized = normalizeFactoryOptions(options);
   if (!isPreviewEnabled(normalized)) return undefined;
   validateFactoryDependencies(normalized);
   const issueToken = createTokenProvider(normalized);
   return (callbacks = {}) => createPreviewSession(normalized, issueToken, callbacks);
 }
+
+export const createVoiceV4PreviewSessionFactory = createVoicePreviewSessionFactory;
 
 function normalizeFactoryOptions(options) {
   return {
@@ -51,7 +53,9 @@ function validateFactoryDependencies(options) {
 function createPreviewSession(options, issueToken, callbacks) {
   const featureState = options.getFeatureState("voice.live_v4");
   const releaseDecision = options.getReleaseDecision(featureState);
-  if (options.explicitApproval !== true || releaseDecision?.allowed !== true) throw new VoicePreviewFactoryError("voice_preview_unavailable");
+  if (options.explicitApproval !== true || releaseDecision?.allowed !== true) {
+    throw new VoicePreviewFactoryError("voice_preview_unavailable");
+  }
   return createVoiceSession({
     tokenProvider: { issueToken },
     socketFactory: (token) => createGoogleLiveSocket(token, options.WebSocketConstructor || globalThis.WebSocket),
@@ -98,35 +102,41 @@ async function readJsonSafely(response) {
   try {
     const payload = await response.json();
     return payload && typeof payload === "object" ? payload : {};
-  } catch (error) {
+  } catch {
     return {};
   }
 }
 
 function normalizeGrant(payload) {
-  const source = payload && typeof payload === "object" ? payload : {};
-  const token = typeof source.token === "string" ? source.token.trim() : "";
-  const expiresAt = typeof source.expires_at_utc === "string" ? source.expires_at_utc : "";
-  if (!token || !expiresAt) throw new VoicePreviewFactoryError("voice_token_invalid");
-  return { token, expires_at_utc: expiresAt };
+  if (!payload || typeof payload.token !== "string" || payload.token.length === 0) {
+    throw new VoicePreviewFactoryError("voice_token_invalid");
+  }
+  return {
+    token: payload.token,
+    expiresAtUtc: payload.expires_at_utc || "",
+    newSessionExpiresAtUtc: payload.new_session_expires_at_utc || "",
+    model: payload.model || "",
+    protocolVersion: payload.protocol_version || "",
+    requestId: payload.request_id || "",
+  };
 }
 
 function normalizeEnvironment(value) {
-  return String(value || "").trim().toLowerCase();
+  return typeof value === "string" ? value.trim().toLowerCase() : "unknown";
 }
 
 function normalizeBaseUrl(value) {
-  return String(value || "").replace(/\/+$/, "");
-}
-
-function requireFunction(value, code) {
-  if (typeof value !== "function") throw new VoicePreviewFactoryError(code);
-}
-
-function requireText(value, code) {
-  if (typeof value !== "string" || !value.trim()) throw new VoicePreviewFactoryError(code);
+  return typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
 }
 
 function safeErrorCode(value, fallback) {
-  return typeof value === "string" && /^[a-z0-9_]{1,80}$/.test(value) ? value : fallback;
+  return typeof value === "string" && /^[a-z0-9_-]{1,80}$/.test(value) ? value : fallback;
+}
+
+function requireFunction(target, name) {
+  if (typeof target !== "function") throw new TypeError(`${name}_must_be_function`);
+}
+
+function requireText(target, name) {
+  if (typeof target !== "string" || target.trim().length === 0) throw new TypeError(`${name}_must_be_string`);
 }

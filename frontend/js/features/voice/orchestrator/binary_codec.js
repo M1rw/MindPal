@@ -1,4 +1,4 @@
-import { isValidBase64 } from "../layer2/index.js";
+import { isValidBase64 } from "../protocol/index.js";
 
 export function base64ToBytes(value, atobImplementation = globalThis.atob) {
   if (!isValidBase64(value) || typeof atobImplementation !== "function") {

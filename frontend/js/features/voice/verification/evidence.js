@@ -1,4 +1,4 @@
-import { createSafeVoiceDiagnostic } from "../layer0/diagnostics.js";
+import { createSafeVoiceDiagnostic } from "../contracts/diagnostics.js";
 
 const GATES = new Set(["A", "B", "C", "D", "E", "F"]);
 const SAFE_EVENTS = new Set(["gate_started", "evidence_recorded", "gate_passed", "gate_failed", "run_stopped"]);

@@ -4,7 +4,7 @@ import {
   createInitialSessionState,
   parseServerMessage,
   transitionSession,
-} from "../layer2/index.js";
+} from "../protocol/index.js";
 import { base64ToBytes, bytesToBase64 } from "./binary_codec.js";
 
 const SOCKET_CLOSE_NORMAL = 1000;
@@ -34,6 +34,9 @@ export function createVoiceSession({
   encodeBase64 = bytesToBase64,
   decodeBase64 = base64ToBytes,
 } = {}) {
+  if (instruction !== undefined && (typeof instruction !== "string" || instruction.trim().length === 0)) {
+    throw new VoiceSessionError("instruction_invalid", "instruction must be a non-empty string");
+  }
   const safeInstruction = normalizeInstruction(instruction);
   const safeVoiceName = normalizeVoiceName(voiceName);
   let state = createInitialSessionState(0);
@@ -106,7 +109,7 @@ export function createVoiceSession({
     generation += 1;
     cancelTimers();
     applySafeStopFact(reason);
-    await cleanupResources();
+    await cleanupResources("session_end");
     state = createInitialSessionState(generation);
     publish(state);
     return state;
@@ -221,55 +224,73 @@ export function createVoiceSession({
   }
 
   function handleCaptureError(error, activeGeneration) {
-    if (isCurrent(activeGeneration)) void failSession(new VoiceSessionError(error?.code || "capture_failed"), activeGeneration);
+    if (!isCurrent(activeGeneration)) return;
+    void failSession(error, activeGeneration);
   }
 
   function handlePlaybackError(error, activeGeneration) {
-    if (isCurrent(activeGeneration)) void failSession(new VoiceSessionError(error?.code || "playback_failed"), activeGeneration);
+    if (!isCurrent(activeGeneration)) return;
+    void failSession(error, activeGeneration);
   }
 
   async function failSession(error, activeGeneration) {
     if (!isCurrent(activeGeneration)) return;
-    const sessionError = toSessionError(error, "session_failed");
-    applyFact({ type: "provider_error", code: sessionError.code, generation: activeGeneration });
+    const sessionError = toSessionError(error);
     stopped = true;
     generation += 1;
     cancelTimers();
-    await cleanupResources();
-    onError({ code: sessionError.code });
+    applyFact({ type: "provider_error", code: sessionError.code, generation: activeGeneration });
+    onError(sessionError);
+    await cleanupResources("error");
   }
 
   function applySafeStopFact(reason) {
-    if (!state || state.state === "IDLE") return;
-    const code = typeof reason === "string" && /^[a-z0-9_-]{1,40}$/i.test(reason) ? reason : "user_stop";
-    publish(transitionSession(state, { type: "stop_requested", code, generation: state.generation }));
+    applyFact({ type: "stop_requested", reason, generation });
+    applyFact({ type: "session_closed", generation });
   }
 
-  async function cleanupResources() {
+  async function cleanupResources(closeReason = "session_end") {
     playbackUnsubscribe?.();
     playbackUnsubscribe = null;
-    try { await capture?.stop?.(); } catch (error) { onError({ code: "capture_stop_failed" }); }
-    try { await playback?.close?.(); } catch (error) { onError({ code: "playback_close_failed" }); }
-    try { socket?.close?.(SOCKET_CLOSE_NORMAL, "session_end"); } catch (error) { onError({ code: "socket_close_failed" }); }
-    capture = null;
-    playback = null;
-    socket = null;
-    setupSent = false;
+    if (capture) {
+      try {
+        await capture.stop();
+      } catch {}
+      capture = null;
+    }
+    if (playback) {
+      try {
+        await playback.close();
+      } catch {}
+      playback = null;
+    }
+    if (socket) {
+      try {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        if (socket.readyState === 0 || socket.readyState === 1) {
+          socket.close(SOCKET_CLOSE_NORMAL, closeReason);
+        }
+      } catch {}
+      socket = null;
+    }
   }
 
   function cancelTimers() {
     for (const timer of timers) clearTimeout(timer);
-    timers = new Set();
+    timers.clear();
+  }
+
+  function fail(code, message) {
+    const error = new VoiceSessionError(code, message);
+    onError(error);
+    return error;
   }
 
   function isCurrent(activeGeneration) {
-    return !stopped && activeGeneration === generation;
-  }
-
-  function fail(code) {
-    const error = new VoiceSessionError(code);
-    onError({ code });
-    return error;
+    return activeGeneration === generation && !stopped;
   }
 
   return Object.freeze({
@@ -277,25 +298,25 @@ export function createVoiceSession({
     stop,
     getState: () => state,
     getGeneration: () => generation,
-    hasSetupSent: () => setupSent,
   });
 }
 
-function validTokenGrant(grant) {
-  return Boolean(grant && typeof grant.token === "string" && grant.token.length > 0 && typeof grant.expires_at_utc === "string");
-}
-
-function normalizeInstruction(value) {
-  if (typeof value !== "string" || !value.trim() || value.trim().length > MAX_INSTRUCTION_CHARS) throw new VoiceSessionError("instruction_invalid");
-  return value.trim();
-}
-
-function normalizeVoiceName(value) {
-  if (typeof value !== "string" || !/^[A-Za-z][A-Za-z0-9_-]{0,79}$/.test(value.trim())) throw new VoiceSessionError("voice_name_invalid");
-  return value.trim();
-}
-
-function toSessionError(error, fallbackCode) {
+function toSessionError(error, fallbackCode = "voice_session_failed") {
   if (error instanceof VoiceSessionError) return error;
-  return new VoiceSessionError(fallbackCode);
+  const code = typeof error?.code === "string" ? error.code : fallbackCode;
+  return new VoiceSessionError(code, error?.message);
+}
+
+function normalizeInstruction(instruction) {
+  if (typeof instruction !== "string") return "You are MindPal. Respond naturally and concisely in audio.";
+  const text = instruction.trim();
+  return text.slice(0, MAX_INSTRUCTION_CHARS);
+}
+
+function normalizeVoiceName(voiceName) {
+  return typeof voiceName === "string" && voiceName.trim() ? voiceName.trim() : DEFAULT_VOICE_NAME;
+}
+
+function validTokenGrant(grant) {
+  return Boolean(grant && typeof grant.token === "string" && grant.token.length > 0);
 }

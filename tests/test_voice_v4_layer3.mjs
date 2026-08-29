@@ -6,19 +6,21 @@ import {
   buildMicrophoneConstraints,
   inspectCaptureCapabilities,
   mapCaptureError,
-} from "../frontend/js/features/voice_v4/layer3/capabilities.js";
+} from "../frontend/js/features/voice/capture/capabilities.js";
 import {
+  CAPTURE_FRAME_DURATION_MS,
   CAPTURE_FRAME_SAMPLES,
+  CAPTURE_SAMPLE_RATE_HZ,
   createFrameAccumulator,
   createStreamingResampler,
   downmixToMono,
   encodeMonoPcm16LittleEndian,
   resampleMonoTo16k,
-} from "../frontend/js/features/voice_v4/layer3/signal_processing.js";
+} from "../frontend/js/features/voice/capture/signal_processing.js";
 import {
-  createMicrophoneCapture,
   VoiceCaptureError,
-} from "../frontend/js/features/voice_v4/layer3/microphone_capture.js";
+  createMicrophoneCapture,
+} from "../frontend/js/features/voice/capture/microphone_capture.js";
 
 function fakeCapabilities() {
   return inspectCaptureCapabilities({

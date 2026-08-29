@@ -121,70 +121,82 @@ export function createMicrophoneCapture({
 
   function handleWorkletMessage(event) {
     if (stopped || state !== "CAPTURING") return;
-    const channels = extractChannels(event?.data);
-    if (channels.length === 0 || !resampler) return;
-    let frames;
+    const channels = event?.data?.channels;
+    if (!channels || !resampler) return;
+
     try {
       const mono = downmixToMono(channels);
       const resampled = resampler.push(mono);
-      frames = frameAccumulator.push(resampled);
-    } catch (error) {
-      void failAndStop("capture_frame_invalid");
-      return;
-    }
-    for (const frame of frames) {
-      try {
+      const frames = frameAccumulator.push(resampled);
+      for (const frame of frames) {
+        if (stopped || state !== "CAPTURING") break;
         onFrame(encodeMonoPcm16LittleEndian(frame));
-      } catch (error) {
-        onError({ code: "frame_consumer_failed" });
       }
+    } catch (error) {
+      void failAndStop(CAPTURE_ERROR_CODES.CAPTURE_UNAVAILABLE);
     }
-  }
-
-  async function resumeContext() {
-    if (!audioContext || typeof audioContext.resume !== "function") return;
-    await audioContext.resume();
-    if (audioContext.state === "closed") throw fail(CAPTURE_ERROR_CODES.AUDIO_CONTEXT_UNAVAILABLE);
   }
 
   async function failAndStop(code) {
     setState("ERROR");
-    onError({ code });
-    stopped = true;
-    await cleanupGraph();
+    onError(new VoiceCaptureError(code));
+    await stop();
   }
 
   function fail(code, message) {
-    const error = new VoiceCaptureError(code || CAPTURE_ERROR_CODES.CAPTURE_UNAVAILABLE, message);
-    onError({ code: error.code });
+    setState("ERROR");
+    const error = new VoiceCaptureError(code, message);
+    onError(error);
     return error;
   }
 
-  async function cleanupGraph() {
-    if (workletNode?.port) workletNode.port.onmessage = null;
-    disconnectNode(sourceNode, onError);
-    disconnectNode(workletNode, onError);
-    disconnectNode(muteSink, onError);
-    stopTracks(stream);
-    if (audioContext && typeof audioContext.close === "function" && audioContext.state !== "closed") {
-      try {
-        await audioContext.close();
-      } catch (error) {
-        onError({ code: "audio_context_close_failed" });
-      }
+  async function resumeContext() {
+    if (audioContext && audioContext.state === "suspended") {
+      await audioContext.resume();
     }
-    stream = null;
-    audioContext = null;
-    sourceNode = null;
-    workletNode = null;
-    muteSink = null;
-    resampler?.reset();
-    resampler = null;
-    frameAccumulator.reset();
   }
 
   function setTracksEnabled(enabled) {
-    for (const track of stream?.getAudioTracks?.() || []) track.enabled = enabled;
+    if (!stream) return;
+    for (const track of stream.getAudioTracks()) {
+      track.enabled = enabled;
+    }
+  }
+
+  async function cleanupGraph() {
+    if (workletNode) {
+      try {
+        workletNode.port.onmessage = null;
+        workletNode.disconnect();
+      } catch {}
+      workletNode = null;
+    }
+    if (sourceNode) {
+      try {
+        sourceNode.disconnect();
+      } catch {}
+      sourceNode = null;
+    }
+    if (muteSink) {
+      try {
+        muteSink.disconnect();
+      } catch {}
+      muteSink = null;
+    }
+    if (stream) {
+      try {
+        for (const track of stream.getTracks()) track.stop();
+      } catch {}
+      stream = null;
+    }
+    if (audioContext) {
+      try {
+        if (audioContext.state !== "closed") await audioContext.close();
+      } catch {}
+      audioContext = null;
+    }
+    resampler?.reset?.();
+    frameAccumulator.reset();
   }
 
   return Object.freeze({
@@ -193,29 +205,9 @@ export function createMicrophoneCapture({
     resume,
     stop,
     getState: () => state,
-    getPendingSampleCount: () => frameAccumulator.pendingSampleCount(),
   });
 }
 
-function hasAudioTrack(stream) {
-  return Boolean(stream && typeof stream.getAudioTracks === "function" && stream.getAudioTracks().length > 0);
-}
-
-function extractChannels(data) {
-  if (data instanceof Float32Array) return [data];
-  if (data?.samples instanceof Float32Array) return [data.samples];
-  if (Array.isArray(data?.channels)) return data.channels;
-  return [];
-}
-
-function disconnectNode(node, onError) {
-  try {
-    node?.disconnect?.();
-  } catch (error) {
-    onError({ code: "audio_disconnect_failed" });
-  }
-}
-
-function stopTracks(stream) {
-  for (const track of stream?.getTracks?.() || []) track.stop?.();
+function hasAudioTrack(mediaStream) {
+  return Boolean(mediaStream && typeof mediaStream.getAudioTracks === "function" && mediaStream.getAudioTracks().length > 0);
 }

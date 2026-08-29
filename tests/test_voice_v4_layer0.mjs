@@ -5,8 +5,8 @@ import {
   VOICE_V4_CONTRACT,
   VOICE_V4_FEATURE_KEY,
   evaluateVoiceV4Release,
-} from "../frontend/js/features/voice_v4/layer0/contract.js";
-import { createSafeVoiceDiagnostic } from "../frontend/js/features/voice_v4/layer0/diagnostics.js";
+} from "../frontend/js/features/voice/contracts/contract.js";
+import { createSafeVoiceDiagnostic } from "../frontend/js/features/voice/contracts/diagnostics.js";
 
 test("Layer 0 contract is audio-only and keeps later runtime features disabled", () => {
   assert.equal(VOICE_V4_CONTRACT.featureKey, VOICE_V4_FEATURE_KEY);

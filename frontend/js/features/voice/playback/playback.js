@@ -1,7 +1,7 @@
 import {
-  VOICE_V4_OUTPUT_MIME_TYPE,
+  VOICE_OUTPUT_MIME_TYPE,
   validateOutputPcmChunk,
-} from "../layer2/index.js";
+} from "../protocol/index.js";
 
 const OUTPUT_SAMPLE_RATE_HZ = 24000;
 const MIN_SCHEDULE_AHEAD_SECONDS = 0.01;
@@ -98,44 +98,54 @@ export function createPlayback({
     }
   }
 
-  function flush(reason = "interrupted") {
+  function flush(reason = "user_flush") {
     epoch += 1;
-    for (const entry of activeSources.values()) {
+    nextStartTime = context?.currentTime || 0;
+    for (const [id, entry] of activeSources.entries()) {
       try {
         entry.source.stop();
-      } catch (error) {
-        onError({ code: PLAYBACK_ERROR_CODES.SCHEDULE_FAILED });
-      }
+        entry.source.disconnect();
+      } catch {}
+      activeSources.delete(id);
     }
-    activeSources.clear();
-    nextStartTime = context?.currentTime || 0;
-    scheduledChunkCount = 0;
-    drainedChunkCount = 0;
-    lastSnapshot = makeSnapshot({ lastAction: `flush_${safeReason(reason)}` });
-    onSnapshot(lastSnapshot);
-    return lastSnapshot;
+    publish();
+    return makeSnapshot();
   }
 
   async function close() {
-    if (state === "CLOSED") return lastSnapshot;
-    flush("close");
+    if (state === "CLOSED") return;
     state = "CLOSED";
+    flush("closing");
     await closeContext();
-    return publish();
   }
 
   function onDrain(listener) {
-    if (typeof listener !== "function") throw new TypeError("drain listener must be a function");
+    if (typeof listener !== "function") return () => {};
     drainListeners.add(listener);
     return () => drainListeners.delete(listener);
   }
 
   function handleEnded(sourceId, sourceEpoch) {
     if (sourceEpoch !== epoch) return;
-    if (!activeSources.delete(sourceId)) return;
+    const entry = activeSources.get(sourceId);
+    if (!entry) return;
+    try {
+      entry.source.disconnect();
+    } catch {}
+    activeSources.delete(sourceId);
     drainedChunkCount += 1;
     publish();
-    if (isDrained()) notifyDrain();
+    if (activeSources.size === 0) notifyDrain();
+  }
+
+  function notifyDrain() {
+    for (const listener of drainListeners) {
+      try {
+        listener(makeSnapshot());
+      } catch (error) {
+        onError(new VoicePlaybackError(PLAYBACK_ERROR_CODES.CALLBACK_FAILED));
+      }
+    }
   }
 
   function publish() {
@@ -144,58 +154,36 @@ export function createPlayback({
     return lastSnapshot;
   }
 
-  function makeSnapshot(extra = {}) {
-    const now = context?.currentTime || 0;
-    const queueDepthMs = Math.max(0, (nextStartTime - now) * 1000);
+  function makeSnapshot() {
+    const queueDepthSeconds = context && nextStartTime > context.currentTime ? Math.max(0, nextStartTime - context.currentTime) : 0;
     return Object.freeze({
       state,
-      queueDepthMs: Math.round(queueDepthMs),
+      epoch,
+      playbackEpoch: epoch,
+      activeSourceCount: activeSources.size,
       scheduledChunkCount,
       drainedChunkCount,
-      activeSourceCount: activeSources.size,
-      audioContextState: context?.state || "uninitialized",
-      playbackEpoch: epoch,
-      errorCode: null,
-      ...extra,
+      queueDepthMs: Math.round(queueDepthSeconds * 1000),
+      currentTimeSeconds: context?.currentTime || 0,
+      audioContextState: context?.state || "unknown",
+      outputMimeType: VOICE_OUTPUT_MIME_TYPE,
     });
   }
 
-  function isDrained() {
-    return activeSources.size === 0 && (!context || Math.max(0, nextStartTime - context.currentTime) === 0);
-  }
-
-  function notifyDrain() {
-    for (const listener of drainListeners) {
-      try {
-        listener(lastSnapshot);
-      } catch (error) {
-        onError({ code: PLAYBACK_ERROR_CODES.CALLBACK_FAILED });
-      }
-    }
+  function fail(code, message) {
+    const error = new VoicePlaybackError(code, message);
+    onError(error);
+    return error;
   }
 
   async function closeContext() {
-    if (gainNode) {
-      try {
-        gainNode.disconnect();
-      } catch (error) {
-        onError({ code: PLAYBACK_ERROR_CODES.CLOSE_FAILED });
-      }
-    }
-    if (context && typeof context.close === "function" && context.state !== "closed") {
+    if (context && context.state !== "closed") {
       try {
         await context.close();
-      } catch (error) {
-        onError({ code: PLAYBACK_ERROR_CODES.CLOSE_FAILED });
-      }
+      } catch {}
     }
-    gainNode = null;
     context = null;
-  }
-
-  function fail(code) {
-    onError({ code });
-    return new VoicePlaybackError(code);
+    gainNode = null;
   }
 
   return Object.freeze({
@@ -204,19 +192,18 @@ export function createPlayback({
     flush,
     close,
     onDrain,
-    getSnapshot: () => lastSnapshot,
     getEpoch: () => epoch,
-    outputMimeType: VOICE_V4_OUTPUT_MIME_TYPE,
+    getSnapshot: () => lastSnapshot,
   });
 }
 
 function decodePcm16LittleEndian(bytes) {
-  const samples = new Float32Array(bytes.byteLength / 2);
+  const sampleCount = bytes.byteLength / 2;
+  const samples = new Float32Array(sampleCount);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  for (let index = 0; index < samples.length; index += 1) samples[index] = view.getInt16(index * 2, true) / 32768;
+  for (let index = 0; index < sampleCount; index += 1) {
+    const int16 = view.getInt16(index * 2, true);
+    samples[index] = int16 < 0 ? int16 / 32768 : int16 / 32767;
+  }
   return samples;
-}
-
-function safeReason(value) {
-  return typeof value === "string" && /^[a-z0-9_-]{1,40}$/i.test(value) ? value : "unknown";
 }

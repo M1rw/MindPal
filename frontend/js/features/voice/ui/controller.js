@@ -1,4 +1,4 @@
-import { createSafeVoiceDiagnostic } from "../layer0/diagnostics.js";
+import { createSafeVoiceDiagnostic } from "../contracts/diagnostics.js";
 import { createVoiceConsentController } from "./consent.js";
 import { createVoiceDiagnostics } from "./diagnostics.js";
 import { createVoiceViewModel } from "./view_model.js";
@@ -30,7 +30,7 @@ const EVENT_NAMES = Object.freeze({
   stop_requested: "session_stopped",
 });
 
-export function createVoiceLayer6Controller({
+export function createVoiceController({
   documentRef = globalThis.document,
   getFeatureState,
   getReleaseDecision,
@@ -48,7 +48,6 @@ export function createVoiceLayer6Controller({
   let releaseDecision = null;
   let bound = false;
   let captionsVisible = true;
-  let muted = false;
 
   function bind() {
     if (bound || !documentRef) return;
@@ -239,9 +238,16 @@ export function createVoiceLayer6Controller({
     return id ? documentRef?.getElementById(id) : null;
   }
 
-  return Object.freeze({ bind, syncAvailability, endSession, getConsentState: () => consent.getState(), getDiagnostics: diagnostics.getSnapshot });
-
+  return Object.freeze({
+    bind,
+    syncAvailability,
+    endSession,
+    getConsentState: () => consent.getState(),
+    getDiagnostics: diagnostics.getSnapshot,
+  });
 }
+
+export const createVoiceLayer6Controller = createVoiceController;
 
 function eventNameForState(state) {
   if (state === "SETUP_WAIT") return "setup_sent";
@@ -255,5 +261,7 @@ function safeCode(value, fallback) {
 }
 
 function formatDiagnostic(snapshot) {
-  return Object.entries(createSafeVoiceDiagnostic(snapshot)).map(([key, value]) => `${key}: ${value}`).join(" · ");
+  return Object.entries(createSafeVoiceDiagnostic(snapshot))
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(" · ");
 }
