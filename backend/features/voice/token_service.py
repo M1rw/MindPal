@@ -79,41 +79,97 @@ class VoiceV4TokenService:
 
         endpoint = _validate_endpoint(self.settings.VOICE_V4_TOKEN_ENDPOINT)
         api_key = setting_secret(self.settings, "GEMINI_API_KEY")
+
+        if api_key and not str(api_key).startswith("AIza"):
+            logger.warning(
+                "voice_v4_token_key_format_warning: GEMINI_API_KEY does not start with 'AIza'. "
+                "The Voice Live API requires a Google AI Studio key from https://aistudio.google.com/apikey."
+            )
+
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.settings.VOICE_V4_TOKEN_TTL_SECONDS)
         new_session_expires_at = now + timedelta(seconds=self.settings.VOICE_V4_NEW_SESSION_TTL_SECONDS)
+        model_name = getattr(self.settings, "VOICE_V4_MODEL", None) or VOICE_V4_CONTRACT.model
+        payload = {
+            "uses": 1,
+            "expireTime": expires_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+            "newSessionExpireTime": new_session_expires_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+            "liveConnectConstraints": {
+                "model": model_name,
+                "config": {
+                    "responseModalities": [VOICE_V4_CONTRACT.response_modality],
+                },
+            },
+        }
 
-        if self.settings.is_test:
-            return VoiceV4TokenGrant(
-                token="test_ephemeral_token_live",
-                expires_at_utc=expires_at,
-                new_session_expires_at_utc=new_session_expires_at,
-                model=VOICE_V4_CONTRACT.model,
-                protocol_version=VOICE_V4_CONTRACT.provider_protocol,
-                request_id=request_id,
-            )
-
-        client = self._client or httpx.AsyncClient(timeout=10.0)
+        owns_client = self._client is None
+        client = self._client or httpx.AsyncClient(timeout=self.settings.REQUEST_TIMEOUT_SECONDS)
         try:
-            resp = await client.post(f"{endpoint}?key={api_key}", json={"ttl": f"{self.settings.VOICE_V4_TOKEN_TTL_SECONDS}s"})
-            data = resp.json()
-            token = data.get("name") or data.get("token") or ""
+            response = await client.post(
+                endpoint,
+                headers={
+                    "x-goog-api-key": api_key,
+                    "content-type": "application/json",
+                },
+                json=payload,
+            )
+            if response.status_code >= 400:
+                logger.error(
+                    "voice_v4_token_provider_rejected status=%s response=%s",
+                    response.status_code,
+                    response.text[:500],
+                )
+                raise ProviderError(
+                    "Voice V4 token provider rejected the request",
+                    code="voice_provider_unavailable",
+                    details={"provider_status": min(response.status_code, 599)},
+                )
+
+            try:
+                response_data = response.json()
+            except ValueError as exc:
+                raise ProviderError(
+                    "Voice V4 token provider returned an invalid response",
+                    code="voice_provider_invalid_response",
+                ) from exc
+
+            value = response_data.get("name") or response_data.get("token")
+            if not isinstance(value, str) or not value.strip():
+                raise ProviderError(
+                    "Voice V4 token provider returned an invalid response",
+                    code="voice_provider_invalid_response",
+                )
+            token = value.strip()
             return VoiceV4TokenGrant(
                 token=token,
                 expires_at_utc=expires_at,
                 new_session_expires_at_utc=new_session_expires_at,
-                model=VOICE_V4_CONTRACT.model,
+                model=model_name,
                 protocol_version=VOICE_V4_CONTRACT.provider_protocol,
                 request_id=request_id,
             )
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeoutError(
+                "Voice V4 token provider timed out",
+                code="voice_provider_timeout",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise ProviderError(
+                "Voice V4 token provider request failed",
+                code="voice_provider_unavailable",
+            ) from exc
         finally:
-            if self._client is None:
+            if owns_client:
                 await client.aclose()
 
 
 def _validate_endpoint(endpoint: str) -> str:
-    cleaned = sanitize_text(str(endpoint or ""), 300).strip()
-    parsed = urlparse(cleaned)
-    if parsed.scheme.lower() != "https" or not parsed.hostname:
-        raise ValueError("Invalid Voice V4 endpoint URL")
-    return cleaned
+    value = sanitize_text(endpoint, 300).rstrip("/")
+    parsed = urlparse(value)
+    if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+        raise ProviderError(
+            "Voice V4 token provider endpoint is invalid",
+            code="voice_configuration_invalid",
+        )
+    return value
+

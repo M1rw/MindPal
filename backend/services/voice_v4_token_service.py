@@ -206,7 +206,7 @@ def _extract_token_name(response_data: Any) -> str:
             "Voice V4 token provider returned an invalid response",
             code="voice_provider_invalid_response",
         )
-    value = response_data.get("name")
+    value = response_data.get("name") or response_data.get("token")
     if not isinstance(value, str):
         raise ProviderError(
             "Voice V4 token provider returned an invalid response",
