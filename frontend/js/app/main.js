@@ -137,6 +137,7 @@ import {
   renderUsagePanel,
 } from "../ui/components/usage_tracker.js";
 
+import { authIsConfigured } from "../services/auth.js";
 import {
   initFrontendAuth,
   cleanupAuth,
@@ -250,7 +251,9 @@ async function bootstrap() {
     registerSettingsStore({ setAppSetting });
     applyVisualSettings();
     loadState();
-    await refreshFeatureSnapshot();
+    if (!authIsConfigured()) {
+      await refreshFeatureSnapshot();
+    }
 
     await initFrontendAuth({
 
