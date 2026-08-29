@@ -16,13 +16,14 @@ export const VOICE_CONTRACT = Object.freeze({
   outputAudio: Object.freeze({ encoding: "PCM16LE", sampleRateHz: 24000, channels: 1 }),
   baseline: Object.freeze({
     audioOnly: true,
-    automaticVad: true,
+    automaticVad: false,       // server VAD disabled; client sends activityStart/activityEnd
+    clientVad: true,           // client-side VAD with hysteresis + holdoff
     fixedSystemInstruction: true,
     oneVoice: true,
     tools: false,
     memory: false,
-    reconnect: false,
-    sessionResumption: false,
+    reconnect: true,           // automatic reconnect with exponential backoff
+    sessionResumption: true,   // handle stored and forwarded on reconnect
     dynamicAffect: false,
   }),
 });

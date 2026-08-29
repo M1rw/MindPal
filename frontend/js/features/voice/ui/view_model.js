@@ -7,6 +7,7 @@ const STATUS_BY_STATE = Object.freeze({
   USER_SPEAKING: "You are speaking",
   ASSISTANT_SPEAKING: "MindPal is speaking",
   INTERRUPTED: "Interrupted",
+  RECONNECTING: "Reconnecting…",
   STOPPING: "Ending",
   ERROR: "Voice unavailable",
 });
@@ -19,7 +20,15 @@ const ACTIVE_STATES = new Set([
   "USER_SPEAKING",
   "ASSISTANT_SPEAKING",
   "INTERRUPTED",
+  "RECONNECTING",
   "STOPPING",
+]);
+
+const SPINNER_STATES = new Set([
+  "REQUESTING_TOKEN",
+  "CONNECTING",
+  "SETUP_WAIT",
+  "RECONNECTING",
 ]);
 
 export function createVoiceViewModel({
@@ -29,11 +38,14 @@ export function createVoiceViewModel({
   captureState,
   playbackSnapshot,
   consentState = "unknown",
+  micLevel = null,    // { rmsDb: number, speaking: boolean } or null
+  isMuted = false,
 } = {}) {
   const enabled = featureState?.enabled === true && releaseDecision?.allowed === true;
   const state = normalizeSessionState(sessionState?.state);
   const playbackActive = Number(playbackSnapshot?.activeSourceCount) > 0;
   const truthfulSpeaking = state === "ASSISTANT_SPEAKING" && playbackActive;
+
   const status = !enabled
     ? "Voice unavailable"
     : state === "ASSISTANT_SPEAKING"
@@ -41,7 +53,16 @@ export function createVoiceViewModel({
       ? "MindPal is speaking"
       : "MindPal is generating"
     : STATUS_BY_STATE[state];
+
   const errorCode = sessionState?.errorCode || playbackSnapshot?.errorCode || null;
+
+  // Mic level: clamp dBFS to a [0, 1] visual range for the orb animation.
+  // Silence floor = -60 dBFS, full-scale = -6 dBFS (realistic peak talk level).
+  const SILENCE_FLOOR_DB = -60;
+  const PEAK_DB = -6;
+  const rmsDb = typeof micLevel?.rmsDb === "number" ? micLevel.rmsDb : SILENCE_FLOOR_DB;
+  const micLevelNorm = Math.max(0, Math.min(1, (rmsDb - SILENCE_FLOOR_DB) / (PEAK_DB - SILENCE_FLOOR_DB)));
+  const micSpeaking = micLevel?.speaking === true;
 
   return Object.freeze({
     enabled,
@@ -53,10 +74,15 @@ export function createVoiceViewModel({
     errorCode: normalizeErrorCode(errorCode),
     isActive: enabled && ACTIVE_STATES.has(state),
     isSpeaking: truthfulSpeaking,
+    showSpinner: SPINNER_STATES.has(state),
     showConsent: enabled && consentState === "unknown" && state === "IDLE",
     showCaptions: true,
     canStart: enabled && consentState !== "declined" && ["IDLE", "ERROR"].includes(state),
     canStop: enabled && ACTIVE_STATES.has(state),
+    isMuted,
+    micLevelNorm,
+    micLevelDb: rmsDb,
+    micSpeaking,
   });
 }
 

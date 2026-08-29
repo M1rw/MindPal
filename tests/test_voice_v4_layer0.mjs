@@ -15,7 +15,10 @@ test("Layer 0 contract is audio-only and keeps later runtime features disabled",
   assert.equal(VOICE_V4_CONTRACT.baseline.tools, false);
   assert.equal(VOICE_V4_CONTRACT.baseline.memory, false);
   assert.equal(VOICE_V4_CONTRACT.baseline.dynamicAffect, false);
-  assert.equal(VOICE_V4_CONTRACT.baseline.reconnect, false);
+  // Client VAD and resilience features are now enabled
+  assert.equal(VOICE_V4_CONTRACT.baseline.clientVad, true);
+  assert.equal(VOICE_V4_CONTRACT.baseline.reconnect, true);
+  assert.equal(VOICE_V4_CONTRACT.baseline.sessionResumption, true);
 });
 
 test("release gate requires explicit approval in every release environment", () => {

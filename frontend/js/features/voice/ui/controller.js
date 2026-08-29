@@ -48,6 +48,10 @@ export function createVoiceController({
   let releaseDecision = null;
   let bound = false;
   let captionsVisible = true;
+  let micLevel = null;           // { rmsDb, speaking } — updated per VAD frame
+  let isMuted = false;
+
+  // ── Bind DOM events ───────────────────────────────────────────────────────
 
   function bind() {
     if (bound || !documentRef) return;
@@ -58,7 +62,7 @@ export function createVoiceController({
     element("consentAllow")?.addEventListener("click", () => void allowMicrophone());
     element("consentDecline")?.addEventListener("click", () => declineMicrophone());
     element("ccToggle")?.addEventListener("click", toggleCaptions);
-    element("muteToggle")?.addEventListener("click", toggleMute);
+    element("muteToggle")?.addEventListener("click", () => void toggleMute());
     syncAvailability();
   }
 
@@ -67,6 +71,8 @@ export function createVoiceController({
     releaseDecision = typeof getReleaseDecision === "function" ? getReleaseDecision(featureState) : null;
     render();
   }
+
+  // ── Session management ────────────────────────────────────────────────────
 
   function handleTrigger() {
     if (!isAllowed()) {
@@ -97,6 +103,7 @@ export function createVoiceController({
         onFact: handleFact,
         onTranscript: handleTranscript,
         onError: handleSessionError,
+        onLevel: handleMicLevel,   // VAD level updates
       });
       await session.start();
     } catch (error) {
@@ -112,10 +119,12 @@ export function createVoiceController({
   async function endSession(reason) {
     try {
       await session?.stop?.(reason);
-    } catch (error) {
+    } catch {
       handleSessionError({ code: "session_stop_failed" });
     }
     session = null;
+    isMuted = false;
+    micLevel = null;
     consent.reset();
     sessionState = { state: "IDLE", generation: 0, setupComplete: false, errorCode: null };
     playbackSnapshot = { activeSourceCount: 0, queueDepthMs: 0 };
@@ -123,6 +132,22 @@ export function createVoiceController({
     clearCaptions();
     closeOverlay();
   }
+
+  // ── Mute / unmute ─────────────────────────────────────────────────────────
+
+  async function toggleMute() {
+    if (!session) return;
+    if (isMuted) {
+      isMuted = false;
+      await session.unmute?.();
+    } else {
+      isMuted = true;
+      await session.mute?.();
+    }
+    render();
+  }
+
+  // ── Callbacks from session ────────────────────────────────────────────────
 
   function handleSessionState(nextState) {
     sessionState = nextState || sessionState;
@@ -151,8 +176,10 @@ export function createVoiceController({
   }
 
   function handleTranscript(fact) {
-    if (!captionsVisible || fact?.type !== "output_transcript" || typeof fact.text !== "string") return;
-    appendCaption(fact.text);
+    if (!captionsVisible || typeof fact?.text !== "string") return;
+    // Show both user speech and assistant speech in captions
+    if (fact.type === "input_transcript") appendCaption(fact.text, /* isUser */ true);
+    else if (fact.type === "output_transcript") appendCaption(fact.text, /* isUser */ false);
   }
 
   function handleSessionError(error) {
@@ -160,6 +187,23 @@ export function createVoiceController({
     diagnostics.record({ event: "error", state: "ERROR", errorCode: sessionState.errorCode });
     render();
   }
+
+  function handleMicLevel(level) {
+    micLevel = level;
+    // Drive the CSS orb animation via a custom property — rAF-batched
+    const overlay = element("overlay");
+    if (overlay && typeof level?.rmsDb === "number") {
+      // Map [-60, -6] dBFS → [0, 1] and expose as CSS custom property
+      const FLOOR = -60, PEAK = -6;
+      const norm = Math.max(0, Math.min(1, (level.rmsDb - FLOOR) / (PEAK - FLOOR)));
+      overlay.style.setProperty("--voice-mic-level", norm.toFixed(3));
+      overlay.style.setProperty("--voice-mic-speaking", level.speaking ? "1" : "0");
+    }
+    // Only re-render on speaking state transitions, not every frame, for perf
+    if (level?.speaking !== micLevel?.speaking) render();
+  }
+
+  // ── Captions ──────────────────────────────────────────────────────────────
 
   function toggleCaptions() {
     captionsVisible = !captionsVisible;
@@ -169,9 +213,7 @@ export function createVoiceController({
     element("captions")?.classList.toggle("opacity-0", !captionsVisible);
   }
 
-  function toggleMute() {
-    onUnavailable({ code: "microphone_mute_not_available" });
-  }
+  // ── Render ────────────────────────────────────────────────────────────────
 
   function render() {
     const model = createVoiceViewModel({
@@ -181,19 +223,37 @@ export function createVoiceController({
       captureState,
       playbackSnapshot,
       consentState: consent.getState(),
+      micLevel,
+      isMuted,
     });
+
     const trigger = element("trigger");
     trigger?.toggleAttribute("disabled", !model.enabled);
     trigger?.setAttribute("aria-disabled", String(!model.enabled));
     trigger?.setAttribute("aria-label", model.enabled ? "Start voice conversation" : "Voice input unavailable");
     trigger?.setAttribute("title", model.enabled ? "Start voice conversation" : "Voice is unavailable");
+
     setText("status", model.status);
     setText("faceState", model.status);
-    element("startup")?.classList.toggle("hidden", !["REQUESTING_TOKEN", "CONNECTING", "SETUP_WAIT"].includes(model.sessionState));
+
+    // Spinner: show during connecting/reconnecting states
+    element("startup")?.classList.toggle("hidden", !model.showSpinner);
+
     element("consent")?.classList.toggle("hidden", !model.showConsent);
+
+    // Mute button — now fully wired
     const muteToggle = element("muteToggle");
-    muteToggle?.toggleAttribute("disabled", true);
-    muteToggle?.setAttribute("aria-disabled", "true");
+    if (muteToggle) {
+      const canMute = model.canStop;
+      muteToggle.toggleAttribute("disabled", !canMute);
+      muteToggle.setAttribute("aria-disabled", String(!canMute));
+      muteToggle.setAttribute("aria-pressed", String(model.isMuted));
+      muteToggle.setAttribute("title", model.isMuted ? "Unmute microphone" : "Mute microphone");
+      muteToggle.setAttribute("aria-label", model.isMuted ? "Unmute microphone" : "Mute microphone");
+    }
+    const muteLabel = element("muteLabel");
+    if (muteLabel) muteLabel.textContent = model.isMuted ? "Unmute" : "Mute";
+
     const diagnostic = element("diagnostic");
     if (diagnostic) {
       diagnostic.classList.toggle("hidden", !getDiagnosticsEnabled());
@@ -201,6 +261,8 @@ export function createVoiceController({
     }
     if (model.errorCode) setText("status", `Voice unavailable (${model.errorCode})`);
   }
+
+  // ── DOM helpers ───────────────────────────────────────────────────────────
 
   function isAllowed() {
     return featureState?.enabled === true && releaseDecision?.allowed === true;
@@ -218,11 +280,11 @@ export function createVoiceController({
     if (captions) captions.replaceChildren();
   }
 
-  function appendCaption(text) {
+  function appendCaption(text, isUser = false) {
     const captions = element("captions");
     if (!captions) return;
     const paragraph = documentRef.createElement("p");
-    paragraph.className = "voice-caption-line";
+    paragraph.className = isUser ? "voice-caption-line voice-caption-line--user" : "voice-caption-line";
     paragraph.textContent = text.slice(0, 2_000);
     captions.append(paragraph);
     captions.scrollTop = captions.scrollHeight;
@@ -253,6 +315,7 @@ function eventNameForState(state) {
   if (state === "SETUP_WAIT") return "setup_sent";
   if (state === "LISTENING") return "setup_complete";
   if (state === "ERROR") return "error";
+  if (state === "RECONNECTING") return "reconnecting";
   return "session_created";
 }
 

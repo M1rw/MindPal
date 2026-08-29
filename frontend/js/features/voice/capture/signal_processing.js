@@ -127,6 +127,27 @@ export function downmixToMono(channels) {
   return mono;
 }
 
+// Minimum amplitude below which we clamp to silence floor (-96 dBFS).
+const MIN_RMS_AMPLITUDE = 1e-10;
+// Reference amplitude for dBFS conversion (full-scale = 0 dB).
+export const RMS_SILENCE_DB = -96;
+
+/**
+ * Compute root-mean-square energy of a mono float32 frame in dBFS.
+ * Returns RMS_SILENCE_DB for silent / empty frames.
+ */
+export function computeRmsDb(samples) {
+  const source = normalizeSamples(samples);
+  if (source.length === 0) return RMS_SILENCE_DB;
+  let sumSquares = 0;
+  for (let i = 0; i < source.length; i++) {
+    sumSquares += source[i] * source[i];
+  }
+  const rms = Math.sqrt(sumSquares / source.length);
+  if (rms < MIN_RMS_AMPLITUDE) return RMS_SILENCE_DB;
+  return 20 * Math.log10(rms);
+}
+
 function normalizeSamples(samples) {
   if (samples instanceof Float32Array) return samples;
   if (Array.isArray(samples)) return Float32Array.from(samples);

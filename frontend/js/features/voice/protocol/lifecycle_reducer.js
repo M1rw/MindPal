@@ -7,6 +7,7 @@ export const VOICE_SESSION_STATES = Object.freeze([
   "USER_SPEAKING",
   "ASSISTANT_SPEAKING",
   "INTERRUPTED",
+  "RECONNECTING",   // socket dropped / go-away → attempting reconnect
   "STOPPING",
   "ERROR",
 ]);
@@ -25,6 +26,7 @@ export function createInitialSessionState(generation = 0) {
     playbackScheduled: false,
     playbackDrained: true,
     goAway: false,
+    reconnectAttempt: 0,
     lastErrorCode: null,
     lastTransition: "initial",
     ignoredStaleFacts: 0,
@@ -58,7 +60,7 @@ export function transitionSession(current, fact) {
       return move(state, "SETUP_WAIT", fact.type);
     case "setup_complete":
       return state.state === "SETUP_WAIT"
-        ? move(state, "LISTENING", fact.type, { setupComplete: true })
+        ? move(state, "LISTENING", fact.type, { setupComplete: true, reconnectAttempt: 0 })
         : transitionError(state, "setup_before_send");
     case "capture_activity":
       return requireSetup(state, fact.type, "USER_SPEAKING");
@@ -91,6 +93,12 @@ export function transitionSession(current, fact) {
       });
     case "go_away":
       return move(state, "STOPPING", fact.type, { goAway: true });
+    case "reconnect_scheduled":
+      return move(state, "RECONNECTING", fact.type, {
+        reconnectAttempt: (state.reconnectAttempt || 0) + 1,
+      });
+    case "reconnect_success":
+      return move(state, "SETUP_WAIT", fact.type, { setupComplete: false });
     case "provider_error":
       return transitionError(state, fact.code || "provider_error");
     case "stop_requested":
@@ -100,6 +108,7 @@ export function transitionSession(current, fact) {
         setupComplete: false,
         playbackScheduled: false,
         playbackDrained: true,
+        reconnectAttempt: 0,
       });
     case "unknown_message":
       return move(state, state.state, fact.type);

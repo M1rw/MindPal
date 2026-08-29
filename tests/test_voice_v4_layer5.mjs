@@ -167,27 +167,48 @@ test("session ignores old-generation socket and capture callbacks after stop", a
   assert.equal(harness.session.getGeneration() > generation, true);
 });
 
-test("socket close fails visibly without reconnecting", async () => {
-  const harness = createHarness();
-  const errors = [];
-  const session = createVoiceSession({
+test("unexpected socket close triggers reconnect; normal-code close errors without reconnecting", async () => {
+  // ── Case 1: abnormal close (no code) → transitions to RECONNECTING ────
+  const h1 = createHarness();
+  const states1 = [];
+  const session1 = createVoiceSession({
     tokenProvider: { issueToken: async () => ({ token: "token", expires_at_utc: "2026-08-27T00:30:00Z" }) },
-    socketFactory: async () => { harness.calls.sockets += 1; return harness.socket; },
-    captureFactory: () => harness.capture,
-    playbackFactory: () => harness.playback,
+    socketFactory: async () => { h1.calls.sockets += 1; return h1.socket; },
+    captureFactory: () => h1.capture,
+    playbackFactory: () => h1.playback,
     instruction: "Baseline.",
-    onError: (error) => errors.push(error),
+    onStateChange: (s) => states1.push(s.state),
   });
-  await session.start();
-  harness.socket.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
+  await session1.start();
+  h1.socket.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
   await finishMicrotasks();
-  harness.socket.onclose();
+  // Simulate abnormal close (no code, or non-1000)
+  h1.socket.onclose({ code: 1006, reason: "network dropped" });
   await finishMicrotasks();
-  assert.equal(session.getState().state, "ERROR");
-  assert.equal(errors.at(-1).code, "provider_socket_closed");
-  assert.equal(harness.capture.stopped, 1);
-  assert.equal(harness.playback.closed, 1);
-  assert.equal(harness.calls.sockets, 1);
+  assert.equal(states1.at(-1), "RECONNECTING", "abnormal close should trigger RECONNECTING");
+  await session1.stop();
+
+  // ── Case 2: normal 1000 close while session is stopped → no reconnect ─
+  const h2 = createHarness();
+  const errors2 = [];
+  const session2 = createVoiceSession({
+    tokenProvider: { issueToken: async () => ({ token: "token", expires_at_utc: "2026-08-27T00:30:00Z" }) },
+    socketFactory: async () => { h2.calls.sockets += 1; return h2.socket; },
+    captureFactory: () => h2.capture,
+    playbackFactory: () => h2.playback,
+    instruction: "Baseline.",
+    onError: (error) => errors2.push(error),
+  });
+  await session2.start();
+  h2.socket.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
+  await finishMicrotasks();
+  // Stop explicitly (which closes socket with code 1000)
+  await session2.stop("user_stop");
+  await finishMicrotasks();
+  // No errors should be emitted; session is cleanly IDLE
+  assert.equal(session2.getState().state, "IDLE");
+  assert.equal(errors2.length, 0);
+  assert.equal(h2.calls.sockets, 1, "no extra reconnect socket after clean stop");
 });
 
 test("session validates required dependencies and rejects duplicate starts", async () => {

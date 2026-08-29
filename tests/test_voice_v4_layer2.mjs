@@ -56,6 +56,7 @@ test("parser recognizes setup, interruption, go-away, resumption, and unexpected
     type: "session_resumption_update",
     resumable: true,
     hasHandle: true,
+    resumptionHandle: "opaque-handle",
   }]);
   assert.deepEqual(factTypes(parseServerMessage({ toolCall: { functionCalls: [] } })), ["tool_call_unexpected"]);
   assert.deepEqual(factTypes(parseServerMessage({ error: { message: "private provider body" } })), ["provider_error"]);

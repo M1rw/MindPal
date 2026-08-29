@@ -58,11 +58,23 @@ function createPreviewSession(options, issueToken, callbacks) {
   }
   return createVoiceSession({
     tokenProvider: { issueToken },
-    socketFactory: (token) => createGoogleLiveSocket(token, options.WebSocketConstructor || globalThis.WebSocket),
-    captureFactory: ({ onFrame, onError }) => options.captureFactory({ processorUrl: options.processorUrl, onFrame, onError }),
+    // resumptionHandle is passed as 3rd arg by the orchestrator on reconnect
+    socketFactory: (token, _generation, resumptionHandle) =>
+      createGoogleLiveSocket(token, resumptionHandle, options.WebSocketConstructor || globalThis.WebSocket),
+    captureFactory: ({ onFrame, onError, onSpeechStart, onSpeechEnd, onLevel }) =>
+      options.captureFactory({
+        processorUrl: options.processorUrl,
+        onFrame,
+        onError,
+        onSpeechStart,
+        onSpeechEnd,
+        onLevel,
+        vadOptions: options.vadOptions,
+      }),
     playbackFactory: ({ onError }) => options.playbackFactory({ onError }),
     instruction: options.instruction,
     voiceName: options.voiceName,
+    useClientVad: true,          // always use client VAD for lowest interruption latency
     ...callbacks,
   });
 }
@@ -89,10 +101,15 @@ async function requestToken(fetchImpl, url, headers) {
   }
 }
 
-function createGoogleLiveSocket(token, WebSocketConstructor) {
+function createGoogleLiveSocket(token, resumptionHandle, WebSocketConstructor) {
   if (typeof token !== "string" || token.length === 0) throw new VoicePreviewFactoryError("voice_token_invalid");
   try {
-    return new WebSocketConstructor(`${GOOGLE_LIVE_WS_ENDPOINT}?access_token=${encodeURIComponent(token)}`);
+    let url = `${GOOGLE_LIVE_WS_ENDPOINT}?access_token=${encodeURIComponent(token)}`;
+    // Append resumption handle when available so the server restores session state
+    if (typeof resumptionHandle === "string" && resumptionHandle.length > 0) {
+      url += `&session_handle=${encodeURIComponent(resumptionHandle)}`;
+    }
+    return new WebSocketConstructor(url);
   } catch (error) {
     throw new VoicePreviewFactoryError("voice_socket_unavailable");
   }
