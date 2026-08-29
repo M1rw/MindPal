@@ -67,10 +67,13 @@ function parseGoAway(payload) {
 }
 
 function parseResumption(payload) {
+  const hasHandle = typeof payload.newHandle === "string" && payload.newHandle.length > 0;
   return {
     type: "session_resumption_update",
     resumable: payload.resumable === true,
-    hasHandle: typeof payload.newHandle === "string" && payload.newHandle.length > 0,
+    hasHandle,
+    // Forward the raw handle string so the orchestrator can store and reuse it
+    resumptionHandle: hasHandle ? payload.newHandle : null,
   };
 }
 

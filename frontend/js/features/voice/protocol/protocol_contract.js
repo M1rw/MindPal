@@ -6,10 +6,23 @@ export const VOICE_V4_OUTPUT_MIME_TYPE = VOICE_OUTPUT_MIME_TYPE;
 
 const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
+/**
+ * Build the BidiGenerateContent setup message.
+ *
+ * @param {object} options
+ * @param {string} options.model
+ * @param {string} options.voiceName  - Prebuilt voice name (e.g. "Kore")
+ * @param {string} options.instruction - System instruction text
+ * @param {boolean} [options.useClientVad=false]
+ *   When true: disables server-side VAD so the client sends explicit
+ *   activityStart / activityEnd signals. This cuts interruption latency
+ *   from ~300 ms (network RTT) to near-zero.
+ */
 export function buildSetupEnvelope({
   model = "models/gemini-3.1-flash-live-preview",
   voiceName = "Kore",
   instruction = "You are MindPal. Respond naturally and concisely in audio.",
+  useClientVad = false,
 } = {}) {
   if (typeof instruction !== "string" || instruction.trim().length === 0) {
     throw new TypeError("instruction must be a non-empty string");
@@ -34,12 +47,16 @@ export function buildSetupEnvelope({
         parts: [{ text: instruction.trim() }],
       },
       realtimeInputConfig: {
-        automaticActivityDetection: { disabled: false },
+        automaticActivityDetection: { disabled: useClientVad === true },
       },
     },
   };
 }
 
+/**
+ * Build a realtimeInput audio frame envelope.
+ * @param {string} base64Pcm16 - Base64-encoded PCM16LE audio
+ */
 export function buildRealtimeInputEnvelope(base64Pcm16) {
   if (!isValidBase64(base64Pcm16)) {
     throw new TypeError("PCM data must be valid base64");
@@ -52,6 +69,22 @@ export function buildRealtimeInputEnvelope(base64Pcm16) {
       },
     },
   };
+}
+
+/**
+ * Notify the server that the user has started speaking.
+ * Only sent when useClientVad = true (server VAD disabled).
+ */
+export function buildActivityStartEnvelope() {
+  return { realtimeInput: { activityStart: {} } };
+}
+
+/**
+ * Notify the server that the user has stopped speaking.
+ * Only sent when useClientVad = true (server VAD disabled).
+ */
+export function buildActivityEndEnvelope() {
+  return { realtimeInput: { activityEnd: {} } };
 }
 
 export function isValidBase64(value) {

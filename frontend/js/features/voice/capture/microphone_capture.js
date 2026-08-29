@@ -11,6 +11,7 @@ import {
   downmixToMono,
   encodeMonoPcm16LittleEndian,
 } from "./signal_processing.js";
+import { createVad } from "./vad.js";
 
 export const CAPTURE_STATES = Object.freeze(["IDLE", "REQUESTING", "CAPTURING", "PAUSED", "STOPPED", "ERROR"]);
 const PROCESSOR_NAME = "mindpal-v4-capture";
@@ -28,6 +29,10 @@ export function createMicrophoneCapture({
   onFrame = () => {},
   onError = () => {},
   onStateChange = () => {},
+  onLevel = () => {},        // { rmsDb: number, speaking: boolean } on every frame
+  onSpeechStart = () => {},  // fires when VAD detects speech onset
+  onSpeechEnd = () => {},    // fires when VAD detects speech end
+  vadOptions = {},           // override VAD thresholds/holdoffs if needed
   secureContext = globalThis.isSecureContext,
   mediaDevices = globalThis.navigator?.mediaDevices,
   AudioContextConstructor = globalThis.AudioContext || globalThis.webkitAudioContext,
@@ -40,8 +45,10 @@ export function createMicrophoneCapture({
   let workletNode = null;
   let muteSink = null;
   let resampler = null;
+  let vad = null;
   let frameAccumulator = createFrameAccumulator({ frameSamples: CAPTURE_FRAME_SAMPLES });
   let stopped = false;
+  let lastLevel = Object.freeze({ rmsDb: -96, speaking: false });
 
   function setState(nextState) {
     if (!CAPTURE_STATES.includes(nextState)) return;
@@ -72,6 +79,25 @@ export function createMicrophoneCapture({
       }
       await audioContext.audioWorklet.addModule(processorUrl);
       resampler = createStreamingResampler(audioContext.sampleRate);
+      vad = createVad({
+        ...vadOptions,
+        onSpeechStart: () => {
+          if (!stopped && state === "CAPTURING") {
+            try { onSpeechStart(); } catch {}
+          }
+        },
+        onSpeechEnd: () => {
+          if (!stopped && state === "CAPTURING") {
+            try { onSpeechEnd(); } catch {}
+          }
+        },
+        onLevel: (level) => {
+          lastLevel = level;
+          if (!stopped && state === "CAPTURING") {
+            try { onLevel(level); } catch {}
+          }
+        },
+      });
       frameAccumulator.reset();
       sourceNode = audioContext.createMediaStreamSource(stream);
       workletNode = new AudioWorkletNodeConstructor(audioContext, PROCESSOR_NAME);
@@ -99,6 +125,8 @@ export function createMicrophoneCapture({
   async function pause() {
     if (state !== "CAPTURING") return;
     setTracksEnabled(false);
+    // Notify VAD that we are silent (avoids stale speaking=true after unmute)
+    vad?.reset();
     setState("PAUSED");
   }
 
@@ -130,6 +158,8 @@ export function createMicrophoneCapture({
       const frames = frameAccumulator.push(resampled);
       for (const frame of frames) {
         if (stopped || state !== "CAPTURING") break;
+        // VAD runs on the 16 kHz mono frame (pre-encode, max accuracy)
+        vad?.update(frame);
         onFrame(encodeMonoPcm16LittleEndian(frame));
       }
     } catch (error) {
@@ -172,15 +202,11 @@ export function createMicrophoneCapture({
       workletNode = null;
     }
     if (sourceNode) {
-      try {
-        sourceNode.disconnect();
-      } catch {}
+      try { sourceNode.disconnect(); } catch {}
       sourceNode = null;
     }
     if (muteSink) {
-      try {
-        muteSink.disconnect();
-      } catch {}
+      try { muteSink.disconnect(); } catch {}
       muteSink = null;
     }
     if (stream) {
@@ -197,6 +223,8 @@ export function createMicrophoneCapture({
     }
     resampler?.reset?.();
     frameAccumulator.reset();
+    vad?.reset();
+    vad = null;
   }
 
   return Object.freeze({
@@ -205,6 +233,7 @@ export function createMicrophoneCapture({
     resume,
     stop,
     getState: () => state,
+    getMicLevel: () => lastLevel,
   });
 }
 
