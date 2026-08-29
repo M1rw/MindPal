@@ -1,3 +1,8 @@
+## 2026-08-29 - SSRF Bypass via NAT64 and SIIT IPv6 Address Literals
+**Vulnerability:** Python's `ipaddress.ip_address` evaluates NAT64 (`64:ff9b::/96`) and Stateless IP/ICMP Translation (SIIT, `::ffff:0:0/96`) IPv6 address literals (e.g. `64:ff9b::127.0.0.1` or `::ffff:0:10.0.0.1`) as `IPv6Address` instances with `is_global = True` and `ipv4_mapped = None`, enabling SSRF bypasses when validating hostnames against `is_global`.
+**Learning:** NAT64 and SIIT IPv6 prefixes embed a 32-bit IPv4 address in the last 32 bits without setting `.ipv4_mapped` (which is only set for `::ffff:0:0/96` IPv4-mapped IPv6 literals without explicit zero word). Dual-stack sockets and transition gateways translate these embedded IPv4 addresses, routing traffic to private IPv4 hosts.
+**Prevention:** When inspecting `IPv6Address` objects for SSRF prevention, check for NAT64 (`prefix_96 == 0x0064FF9B0000000000000000`) and SIIT (`prefix_96 == 0x0000000000000000FFFF0000`) prefixes, extract the embedded `IPv4Address(int(address) & 0xFFFFFFFF)`, and validate its `is_global` property.
+
 ## 2026-08-28 - SSRF Bypass via IPv4-Compatible IPv6 Address Literals
 **Vulnerability:** Python's `ipaddress.ip_address` evaluates IPv4-compatible IPv6 literals (`::/96` range, e.g. `::127.0.0.1` or `::10.0.0.1`) as `IPv6Address` instances with `is_global = True` and `ipv4_mapped = None`, allowing SSRF bypasses when validating URL hostnames against `is_global`.
 **Learning:** Unlike IPv4-mapped IPv6 (`::ffff:0:0/96`), `IPv6Address` objects for deprecated IPv4-compatible IPv6 addresses (`::/96`) do not expose an `.ipv4_mapped` property, yet dual-stack sockets and system HTTP clients may unpack the embedded 32-bit IPv4 address and connect to local/private IPv4 hosts.
