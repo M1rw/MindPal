@@ -80,12 +80,6 @@ class VoiceV4TokenService:
         endpoint = _validate_endpoint(self.settings.VOICE_V4_TOKEN_ENDPOINT)
         api_key = setting_secret(self.settings, "GEMINI_API_KEY")
 
-        if api_key and not str(api_key).startswith("AIza"):
-            logger.warning(
-                "voice_v4_token_key_format_warning: GEMINI_API_KEY does not start with 'AIza'. "
-                "The Voice Live API requires a Google AI Studio key from https://aistudio.google.com/apikey."
-            )
-
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=self.settings.VOICE_V4_TOKEN_TTL_SECONDS)
         new_session_expires_at = now + timedelta(seconds=self.settings.VOICE_V4_NEW_SESSION_TTL_SECONDS)
@@ -94,12 +88,6 @@ class VoiceV4TokenService:
             "uses": 1,
             "expireTime": expires_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
             "newSessionExpireTime": new_session_expires_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
-            "liveConnectConstraints": {
-                "model": model_name,
-                "config": {
-                    "responseModalities": [VOICE_V4_CONTRACT.response_modality],
-                },
-            },
         }
 
         owns_client = self._client is None

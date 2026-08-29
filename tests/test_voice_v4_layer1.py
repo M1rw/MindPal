@@ -73,9 +73,8 @@ async def test_token_request_uses_exact_constraints_and_returns_narrow_grant() -
     assert "server-only-secret" not in str(request.url)
     body = json.loads(request.content)
     assert body["uses"] == 1
-    assert body["liveConnectConstraints"]["model"] == "models/gemini-3.1-flash-live-preview"
-    assert body["liveConnectConstraints"]["config"]["responseModalities"] == ["AUDIO"]
-    assert "sessionResumption" not in body["liveConnectConstraints"]["config"]
+    assert "expireTime" in body
+    assert "newSessionExpireTime" in body
     assert grant.token == "auth_tokens/ephemeral-token"
     assert grant.model == "models/gemini-3.1-flash-live-preview"
     assert grant.protocol_version == "v1beta"
