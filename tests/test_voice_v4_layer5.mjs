@@ -74,7 +74,7 @@ test("session owns one socket and sends no audio before provider setup", async (
   assert.equal(harness.calls.token, 1);
   assert.equal(harness.calls.sockets, 1);
   assert.equal(harness.socket.sent.length, 1);
-  assert.equal(harness.socket.sent[0].setup.model, "models/gemini-3.1-flash-live-preview");
+  assert.equal(harness.socket.sent[0].setup.model, "models/gemini-2.5-flash-native-audio-latest");
   assert.deepEqual(harness.socket.sent[0].setup.generationConfig.responseModalities, ["AUDIO"]);
   assert.equal(harness.capture.started, 0);
 
