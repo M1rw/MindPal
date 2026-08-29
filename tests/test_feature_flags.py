@@ -30,18 +30,18 @@ def test_builtin_registry_has_safe_voice_default_and_public_shape() -> None:
     service = FeatureFlagsService()
     result = service.evaluate("voice.live_v4", context())
 
-    assert result.enabled is False
-    assert result.lifecycle is FeatureLifecycle.DISABLED
-    assert result.reason is FeatureReason.DISABLED
+    assert result.enabled is True
+    assert result.lifecycle is FeatureLifecycle.ACTIVE
+    assert result.reason is FeatureReason.ENABLED
     assert result.to_public_dict() == {
         "key": "voice.live_v4",
         "title": "Live voice",
-        "description": "Future full-duplex voice experience.",
-        "lifecycle": "disabled",
-        "enabled": False,
-        "reason": "disabled",
+        "description": "Real-time full-duplex voice conversation.",
+        "lifecycle": "active",
+        "enabled": True,
+        "reason": "enabled",
         "user_visible": True,
-        "user_toggleable": False,
+        "user_toggleable": True,
         "safety_critical": False,
         "fallback_key": "chat.standard_model",
         "replacement_key": None,
@@ -189,7 +189,7 @@ def test_prerequisite_must_be_enabled() -> None:
             "chat.pro_model": FeaturePolicy(
                 key="chat.pro_model",
                 enabled=True,
-                prerequisites=["voice.live_v4"],
+                prerequisites=["mental_health.insights"],
             )
         }
     )
@@ -286,7 +286,7 @@ def test_public_feature_snapshot_is_safe_without_authentication() -> None:
     assert response.headers["cache-control"] == "private, no-store"
     payload = response.json()
     assert payload["registry_version"] == 1
-    assert any(item["key"] == "voice.live_v4" and item["enabled"] is False for item in payload["features"])
+    assert any(item["key"] == "voice.live_v4" and item["enabled"] is True for item in payload["features"])
     assert admin_response.status_code in {401, 403}
 
 
@@ -334,6 +334,7 @@ def test_verified_email_hash_allow_list_is_account_scoped() -> None:
                 lifecycle=FeatureLifecycle.ACTIVE,
                 enabled=None,
                 allow_admins=False,
+                rollout_percentage=0,
                 allow_user_hashes=["usr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
             )
         }
@@ -351,7 +352,7 @@ def test_verified_email_hash_allow_list_is_account_scoped() -> None:
     assert allowed.enabled is True
     assert allowed.reason is FeatureReason.ENABLED
     assert denied.enabled is False
-    assert denied.reason is FeatureReason.DISABLED
+    assert denied.reason is FeatureReason.NOT_IN_ROLLOUT
 
 
 def test_verified_email_hash_deny_wins_over_allow() -> None:

@@ -12,7 +12,7 @@ const SAFE_FEATURE_DEFAULTS = Object.freeze({
   "notifications.mood_check_in": { title: "Mood check-ins", description: "An optional evening reflection prompt.", lifecycle: "beta", enabled: false, reason: "disabled", user_visible: true, user_toggleable: true, safety_critical: false, fallback_key: null, replacement_key: null, version: 1 },
   "security.crisis_interception": { title: "Crisis interception", description: "Deterministic local emergency-support handling.", lifecycle: "active", enabled: true, reason: "enabled", user_visible: true, user_toggleable: false, safety_critical: true, fallback_key: null, replacement_key: null, version: 1 },
   "brain.workspace": { title: "Brain workspace", description: "Explore and manage durable memory context.", lifecycle: "beta", enabled: false, reason: "requires_authentication", user_visible: true, user_toggleable: true, safety_critical: false, fallback_key: "memory.local", replacement_key: null, version: 1 },
-  "voice.live_v4": { title: "Live voice", description: "Future full-duplex voice experience.", lifecycle: "disabled", enabled: false, reason: "disabled", user_visible: true, user_toggleable: false, safety_critical: false, fallback_key: "chat.standard_model", replacement_key: null, version: 1 },
+  "voice.live_v4": { title: "Live voice", description: "Real-time full-duplex voice conversation.", lifecycle: "active", enabled: true, reason: "enabled", user_visible: true, user_toggleable: true, safety_critical: false, fallback_key: "chat.standard_model", replacement_key: null, version: 1 },
 });
 
 let currentSnapshot = createDefaultSnapshot();

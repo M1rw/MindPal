@@ -14,10 +14,10 @@ test.afterEach(() => {
   resetFeatureStore();
 });
 
-test("safe defaults preserve standard chat and keep future voice disabled", () => {
+test("safe defaults preserve standard chat and enable live voice", () => {
   assert.equal(isFeatureEnabled("chat.standard_model"), true);
-  assert.equal(isFeatureEnabled("voice.live_v4"), false);
-  assert.equal(getFeatureState("voice.live_v4").lifecycle, "disabled");
+  assert.equal(isFeatureEnabled("voice.live_v4"), true);
+  assert.equal(getFeatureState("voice.live_v4").lifecycle, "active");
 });
 
 test("server snapshot replaces availability while keeping unmentioned registry entries", () => {

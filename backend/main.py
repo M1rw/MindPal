@@ -370,13 +370,9 @@ def _install_frontend_routes(app: FastAPI) -> None:
             provider_configured = FirebaseAuthProvider(settings=settings).is_configured
         vercel_environment = settings.VERCEL_ENV.strip().lower()
         configured_voice_environment = settings.VOICE_V4_PREVIEW_ENVIRONMENT.strip().lower()
-        is_voice_release = (
+        is_voice_release = bool(
             settings.VOICE_V4_PREVIEW_APPROVED is True
             and settings.VOICE_V4_PREVIEW_SESSION_ENABLED is True
-            and (
-                (vercel_environment == "preview" and configured_voice_environment == "staging")
-                or (vercel_environment == "production" and configured_voice_environment == "production")
-            )
         )
         payload = {
             "API_BASE_URL": api_base_url,

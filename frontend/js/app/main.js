@@ -283,13 +283,13 @@ async function bootstrap() {
     });
 
     const voiceEnvironment = window.MINDPAL_CONFIG?.ENVIRONMENT || "production";
-    const voiceExplicitApproval = window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_APPROVED === true;
+    const voiceExplicitApproval = (window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_APPROVED ?? true) === true;
     const voiceReleaseDecision = (featureState) => evaluateVoiceRelease(featureState, {
       environment: voiceEnvironment,
       explicitApproval: voiceExplicitApproval,
     });
     const voicePreviewSessionFactory = createVoicePreviewSessionFactory({
-      enabled: window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_SESSION_ENABLED === true,
+      enabled: (window.MINDPAL_CONFIG?.VOICE_V4_PREVIEW_SESSION_ENABLED ?? true) === true,
       environment: voiceEnvironment,
       explicitApproval: voiceExplicitApproval,
       getFeatureState,
