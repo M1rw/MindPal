@@ -71,7 +71,7 @@
 
   window.addEventListener("error", (event) => {
     const source = String(event.filename || "");
-    if (source.includes("/dist/app.bundle.js")) removeLoader();
+    if (source.includes("app.js") || source.includes("main.js") || source.includes("app.bundle.js")) removeLoader();
   });
 
   if (document.readyState === "loading") {
