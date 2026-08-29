@@ -318,14 +318,19 @@ def validate_url(
             raise ValueError(f"URL hostname '{hostname}' is a loopback address")
         address = _parse_ip_address(hostname)
         if address is not None:
-            # Check global routability for standard IP literals, IPv4-mapped IPv6, and IPv4-compatible IPv6 literals
+            # Check global routability for standard IP literals, IPv4-mapped, IPv4-compatible, NAT64, and SIIT IPv6 literals
             is_global = address.is_global
             if getattr(address, "ipv4_mapped", None) is not None:
                 is_global = is_global and address.ipv4_mapped.is_global
             elif isinstance(address, ipaddress.IPv6Address):
-                # IPv4-compatible IPv6 addresses (::/96 except ::/128) embed an IPv4 address in the last 32 bits
                 addr_int = int(address)
-                if addr_int != 0 and (addr_int >> 32) == 0:
+                prefix_96 = addr_int >> 32
+                # Check IPv4-compatible (::/96), NAT64 (64:ff9b::/96), and SIIT (::ffff:0:0/96) prefixes embedding IPv4
+                if (
+                    (addr_int != 0 and prefix_96 == 0)
+                    or prefix_96 == 0x0064FF9B0000000000000000
+                    or prefix_96 == 0x0000000000000000FFFF0000
+                ):
                     embedded_v4 = ipaddress.IPv4Address(addr_int & 0xFFFFFFFF)
                     is_global = is_global and embedded_v4.is_global
             if not is_global:
