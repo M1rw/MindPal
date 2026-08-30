@@ -1,0 +1,104 @@
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- MINDPAL VOICE — Immersive voice overlay                      -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div id="voice-live-overlay"
+         class="fixed inset-0 z-[100] flex flex-col opacity-0 pointer-events-none transition-opacity duration-500 hidden overflow-hidden font-sans bg-white dark:bg-[#0a0a0f]">
+
+        <!-- MindPal Voice face: decorative canvas driven by the real session state. -->
+        <div class="voice-face-layer" aria-hidden="true">
+            <canvas id="voice-face-canvas" class="voice-face-canvas"></canvas>
+            <div id="voice-face-state-label" class="voice-face-state-label" aria-hidden="true">Connecting</div>
+        </div>
+
+        <!-- ── Top bar ── -->
+        <header class="relative z-20 flex items-center justify-between px-5 pt-safe-top pb-2 w-full">
+            <button id="voice-live-close"
+                    class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
+                    title="Close"
+                    aria-label="Close voice call">
+                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </button>
+
+            <span class="text-[15px] font-medium tracking-tight text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
+                MindPal
+                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400">Voice</span>
+            </span>
+
+            <div class="flex items-center gap-1">
+                <button id="voice-incognito-toggle"
+                        class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
+                        title="Do not add this call to chat history"
+                        aria-label="Do not add this call to chat history"
+                        aria-pressed="false">
+                    <i data-lucide="eye" class="w-5 h-5"></i>
+                </button>
+                <button id="voice-cc-toggle"
+                        class="min-w-10 h-10 px-2 flex items-center justify-center gap-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-300 transition-colors active:scale-90"
+                        title="Hide captions"
+                        aria-label="Hide captions"
+                        aria-pressed="true">
+                    <i data-lucide="captions" class="w-5 h-5"></i>
+                    <span class="text-[10px] font-semibold tracking-wide">CC</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ── Status pill ── -->
+        <div class="relative z-20 flex justify-center px-5 py-2">
+            <div id="voice-live-status" aria-live="polite"
+                 class="px-4 py-1.5 rounded-full text-[12px] font-medium tracking-wide bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 transition-all duration-300">
+                                Voice is archived
+            </div>
+        </div>
+        <!-- ── Layer 6 preview consent ── -->
+        <section id="voice-consent-panel" class="voice-consent-panel hidden" role="dialog" aria-modal="true" aria-labelledby="voice-consent-title">
+            <p class="voice-consent-panel__eyebrow">Private microphone session</p>
+            <h2 id="voice-consent-title" class="voice-consent-panel__title">Allow MindPal to listen?</h2>
+            <p class="voice-consent-panel__copy">Your microphone is used only for this live conversation. You can end the session at any time.</p>
+            <div class="voice-consent-panel__actions">
+                <button id="voice-consent-decline" type="button" class="voice-consent-panel__secondary">Not now</button>
+                <button id="voice-consent-allow" type="button" class="voice-consent-panel__primary">Allow microphone</button>
+            </div>
+        </section>
+
+        <!-- ── Connection-only loading indicator ── -->
+        <div id="voice-startup-spinner" class="voice-startup-spinner" aria-hidden="true">
+            <span class="voice-startup-spinner__ring"></span>
+        </div>
+
+        <!-- ── MindPal spoken captions ── -->
+        <div class="relative z-20 flex-1 overflow-hidden flex flex-col w-full max-w-3xl mx-auto px-5 sm:px-8">
+            <div id="voice-transcript-panel" role="log" aria-live="polite" aria-label="MindPal spoken captions"
+                 class="voice-caption-track flex-1 overflow-y-auto transition-opacity duration-300"
+                 style="scrollbar-width:none; -webkit-overflow-scrolling:touch;">
+                <!-- MindPal captions are dynamically injected here; user speech stays private from the live surface. -->
+            </div>
+        </div>
+
+        <!-- ── Bottom controls ── -->
+        <div class="voice-live-controls relative z-20 w-full max-w-md mx-auto px-6 flex flex-col items-center" style="background:transparent;">
+            <!-- Action row — frosted glass buttons -->
+            <div class="flex items-center gap-3 p-1.5 rounded-2xl bg-white/70 dark:bg-white/[0.07] backdrop-blur-xl border border-black/[0.06] dark:border-white/[0.08] shadow-sm">
+                <button id="voice-live-close-bottom"
+                        class="h-11 px-5 flex items-center gap-2 rounded-xl bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 text-[13px] font-semibold hover:bg-red-500/20 dark:hover:bg-red-500/25 transition-all active:scale-95"
+                        aria-label="End voice call"
+                        title="End voice">
+                    <i data-lucide="phone-off" class="w-4 h-4"></i>
+                    End
+                </button>
+
+                <button id="voice-mute-toggle"
+                        class="h-11 px-5 flex items-center gap-2 rounded-xl bg-black/[0.04] dark:bg-white/10 text-gray-700 dark:text-gray-200 text-[13px] font-semibold hover:bg-black/[0.08] dark:hover:bg-white/15 transition-all active:scale-95"
+                        aria-label="Mute microphone"
+                        title="Mute/Unmute microphone">
+                    <i data-lucide="mic" class="w-4 h-4"></i>
+                    <span id="voice-mute-label">Mute</span>
+                </button>
+
+
+
+                    </div>
+                    <output id="voice-safe-diagnostics" class="voice-safe-diagnostics hidden" aria-live="polite"></output>
+                </div>
+
+    </div>

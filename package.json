@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "prebuild": "node scripts/verify_lockfile_registry.mjs",
-    "build": "npm run build:css && npm run build:icons && npm run build:app && npm run build:brain",
+    "build": "npm run build:html && npm run build:css && npm run build:icons && npm run build:app && npm run build:brain",
+    "build:html": "node scripts/assemble_html.mjs",
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
     "build:icons": "esbuild frontend/js/vendor/lucide_global.js --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=frontend/dist/lucide.bundle.js",
     "build:app": "esbuild frontend/js/app.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/app.bundle.js",
