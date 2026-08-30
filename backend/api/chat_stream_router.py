@@ -34,6 +34,7 @@ from backend.api.chat_router import (
 from backend.core.errors import AppError
 from backend.core.message_classifier import classify_message
 from backend.core.security import sanitize_text
+from backend.core.validation import validate_chat_payload
 from backend.core.prompt_builder import build_tiered_prompt
 from backend.core.prompts import build_intent_context, infer_response_mode_for_preference
 from backend.models.brain import BrainPolicyTier
@@ -94,6 +95,7 @@ async def chat_stream(
     services: ServicesDep,
     context: RequestContextDep,
 ) -> StreamingResponse:
+    validate_chat_payload(payload.model_dump(mode="json"))
     locale = _resolve_locale(payload, context.locale)
     user_timezone = _resolve_user_timezone(payload.metadata.timezone, context.timezone)
     authenticated = bool(context.session.authenticated)

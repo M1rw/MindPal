@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -85,9 +84,12 @@ class RuntimeTrace(BaseModel):
         return cleaned
 
 
-def clean_runtime_metadata(values: dict[str, Any] | None) -> dict[str, str | int | float | bool]:
+RuntimeScalar = str | int | float | bool
+
+
+def clean_runtime_metadata(values: dict[str, object] | None) -> dict[str, RuntimeScalar]:
     """Keep only bounded scalar diagnostics—never content, IDs, or nested tool data."""
-    clean: dict[str, str | int | float | bool] = {}
+    clean: dict[str, RuntimeScalar] = {}
     for key, value in (values or {}).items():
         if len(clean) >= 12:
             break

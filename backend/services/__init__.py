@@ -24,11 +24,20 @@ from .auth_service import (
     AuthService,
     parse_bearer_token,
 )
+from .cache_service import CacheService, cache_key
+from .configs import (
+    LLMServiceConfig,
+    MemoryServiceConfig,
+    OutputGuardServiceConfig,
+    SafetyServiceConfig,
+    TTSServiceConfig,
+)
 from .db_service import (
     DBProvider,
     DBService,
     InMemoryDBProvider,
 )
+from .job_queue_service import AsyncJobQueueService, QueuedJob
 from .llm_service import (
     LLMProvider,
     LLMService,
@@ -72,12 +81,29 @@ from .tts_service import (
     TTSServiceMeta,
 )
 
+
+class ServiceContainer:
+    """Lazy proxy to the canonical bootstrap container implementation."""
+
+    def __new__(cls, *args, **kwargs):
+        from .bootstrap.container import ServiceContainer as _ServiceContainer
+
+        return _ServiceContainer(*args, **kwargs)
+
+
+def build_service_container(*args, **kwargs):
+    from .bootstrap import build_service_container as _build_service_container
+
+    return _build_service_container(*args, **kwargs)
+
+
 __all__ = [
     "AuthIdentity",
     "AuthProvider",
     "AuthResolutionMeta",
     "AuthService",
     "BrowserFallbackTTSProvider",
+    "CacheService",
     "CompiledExclusionRule",
     "CompiledOutputRule",
     "CompiledSafetyRule",
@@ -88,11 +114,15 @@ __all__ = [
     "LLMCompactionOutcome",
     "LLMProvider",
     "LLMService",
+    "AsyncJobQueueService",
+    "LLMServiceConfig",
     "LLMServiceResult",
     "MemoryCompactionMeta",
     "MemoryExtraction",
     "MemoryService",
+    "MemoryServiceConfig",
     "OfflineLLMProvider",
+    "OutputGuardServiceConfig",
     "OutputGuardMatch",
     "OutputGuardResult",
     "OutputGuardService",
@@ -103,12 +133,18 @@ __all__ = [
     "SafetyClassifierMeta",
     "SafetyRuleMatch",
     "SafetyService",
+    "SafetyServiceConfig",
     "TTSPolicy",
     "TTSProvider",
     "TTSService",
+    "TTSServiceConfig",
     "TTSServiceMeta",
+    "QueuedJob",
+    "ServiceContainer",
     "build_llm_request",
     "build_memory_interactions",
+    "build_service_container",
+    "cache_key",
     "hash_matched_fragment",
     "parse_bearer_token",
 ]

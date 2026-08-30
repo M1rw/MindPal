@@ -15,16 +15,17 @@ import yaml
 from backend.core.config import Settings, get_settings
 from backend.core.errors import SafetyError
 from backend.core.security import Locale, normalize_locale, sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool
+from backend.core.settings_helpers import is_production
+from backend.services.configs import OutputGuardServiceConfig
 from backend.services.llm_service import LLMService, build_llm_request
 
 logger = logging.getLogger(__name__)
 
-
-MAX_OUTPUT_TEXT_CHARS = 12_000
-MAX_FALLBACK_TEXT_CHARS = 1_500
-MAX_REWRITE_INPUT_CHARS = 4_000
-MAX_REWRITE_OUTPUT_CHARS = 2_000
+DEFAULT_OUTPUT_GUARD_CONFIG = OutputGuardServiceConfig()
+MAX_OUTPUT_TEXT_CHARS = DEFAULT_OUTPUT_GUARD_CONFIG.max_output_text_chars
+MAX_FALLBACK_TEXT_CHARS = DEFAULT_OUTPUT_GUARD_CONFIG.max_fallback_text_chars
+MAX_REWRITE_INPUT_CHARS = DEFAULT_OUTPUT_GUARD_CONFIG.max_rewrite_input_chars
+MAX_REWRITE_OUTPUT_CHARS = DEFAULT_OUTPUT_GUARD_CONFIG.max_rewrite_output_chars
 
 OutputAction = Literal["allow", "safe_rewrite", "block_and_fallback", "annotate_for_review"]
 OutputSeverity = Literal["low", "medium", "high", "critical"]
@@ -155,34 +156,28 @@ class OutputGuardService:
         safety_dir: Path | None = None,
         *,
         settings: Settings | None = None,
+        config: OutputGuardServiceConfig | None = None,
         llm_service: LLMService | None = None,
         enable_llm_rewrite: bool | None = None,
         allow_offline_llm_rewrite: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self.config = config or OutputGuardServiceConfig.from_settings(self.settings)
         self.production_mode = is_production(self.settings)
 
         self.safety_dir = safety_dir or Path(__file__).resolve().parents[1] / "safety"
         self.llm_service = llm_service
 
         self.enable_llm_rewrite = (
-            setting_bool(
-                self.settings,
-                "ENABLE_LLM_OUTPUT_REWRITE",
-                default=True,
-            )
-            if enable_llm_rewrite is None
-            else bool(enable_llm_rewrite)
+            bool(enable_llm_rewrite)
+            if enable_llm_rewrite is not None
+            else self.config.enable_llm_rewrite
         )
 
         self.allow_offline_llm_rewrite = (
-            setting_bool(
-                self.settings,
-                "ALLOW_OFFLINE_LLM_OUTPUT_REWRITE",
-                default=False,
-            )
-            if allow_offline_llm_rewrite is None
-            else bool(allow_offline_llm_rewrite)
+            bool(allow_offline_llm_rewrite)
+            if allow_offline_llm_rewrite is not None
+            else self.config.allow_offline_llm_rewrite
         )
 
         self._rules: list[CompiledOutputRule] = []

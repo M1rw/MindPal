@@ -14,16 +14,17 @@ from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
 from backend.core.circuit_breaker import circuit_open as _circuit_open, trip_circuit as _trip_circuit
 from backend.core.security import sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool, setting_float
+from backend.core.settings_helpers import is_production
 from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
 from backend.models.schemas import ProviderCallTrace, ProviderChainTrace
+from backend.services.configs import LLMServiceConfig
 
 logger = logging.getLogger(__name__)
 
-
-MAX_PROVIDER_NAME_CHARS = 80
-MAX_PROVIDER_ERROR_CHARS = 120
-MAX_OFFLINE_REPLY_CHARS = 1_500
+DEFAULT_LLM_SERVICE_CONFIG = LLMServiceConfig()
+MAX_PROVIDER_NAME_CHARS = DEFAULT_LLM_SERVICE_CONFIG.max_provider_name_chars
+MAX_PROVIDER_ERROR_CHARS = DEFAULT_LLM_SERVICE_CONFIG.max_provider_error_chars
+MAX_OFFLINE_REPLY_CHARS = DEFAULT_LLM_SERVICE_CONFIG.max_offline_reply_chars
 
 
 class LLMProvider(Protocol):
@@ -192,49 +193,39 @@ class LLMService:
         providers: Sequence[LLMProvider] | None = None,
         *,
         settings: Settings | None = None,
+        config: LLMServiceConfig | None = None,
         timeout_seconds: float | None = None,
         include_offline_provider: bool | None = None,
         require_remote_provider: bool | None = None,
         allow_offline_in_production: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self.config = config or LLMServiceConfig.from_settings(self.settings)
         self._trace_cache: dict[str, ProviderChainTrace] = {}
         self._trace_ids: deque[str] = deque(maxlen=200)
         self.production_mode = is_production(self.settings)
-        self.timeout_seconds = float(timeout_seconds or setting_float(
-            self.settings,
-            "LLM_TIMEOUT_SECONDS",
-            default=45.0,
-        ))
+        self.timeout_seconds = float(
+            timeout_seconds
+            if timeout_seconds is not None
+            else self.config.timeout_seconds
+        )
 
         self.require_remote_provider = (
-            setting_bool(
-                self.settings,
-                "REQUIRE_REMOTE_LLM_PROVIDER",
-                default=self.production_mode,
-            )
-            if require_remote_provider is None
-            else bool(require_remote_provider)
+            bool(require_remote_provider)
+            if require_remote_provider is not None
+            else self.config.require_remote_provider
         )
 
         self.allow_offline_in_production = (
-            setting_bool(
-                self.settings,
-                "ALLOW_OFFLINE_LLM_IN_PRODUCTION",
-                default=False,
-            )
-            if allow_offline_in_production is None
-            else bool(allow_offline_in_production)
+            bool(allow_offline_in_production)
+            if allow_offline_in_production is not None
+            else self.config.allow_offline_in_production
         )
 
         should_include_offline = (
-            setting_bool(
-                self.settings,
-                "ENABLE_OFFLINE_LLM_FALLBACK",
-                default=not self.production_mode,
-            )
-            if include_offline_provider is None
-            else bool(include_offline_provider)
+            bool(include_offline_provider)
+            if include_offline_provider is not None
+            else self.config.include_offline_provider
         )
 
         configured_providers: list[LLMProvider] = list(providers or [])

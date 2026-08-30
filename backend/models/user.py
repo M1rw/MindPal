@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 from datetime import datetime
 from enum import Enum
 
@@ -15,6 +14,7 @@ from backend.core.security import (
     sanitize_text,
 )
 from backend.models._helpers import (
+    UiSettingValue,
     sanitize_metadata,
     sanitize_pii_text,
     sanitize_string_list,
@@ -96,7 +96,7 @@ class UserPreferences(BaseModel):
     wellness_goals: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
     avoided_topics: list[str] = Field(default_factory=list, max_length=MAX_PROFILE_LIST_ITEMS)
     custom_instructions: str = Field(default="", max_length=MAX_CUSTOM_INSTRUCTIONS_CHARS)
-    ui_settings: dict[str, Any] = Field(default_factory=dict)
+    ui_settings: dict[str, UiSettingValue] = Field(default_factory=dict)
     safety: UserSafetyPreference = Field(default_factory=UserSafetyPreference)
 
     @field_validator("locale", mode="before")
@@ -142,7 +142,7 @@ class UserPreferences(BaseModel):
 
     @field_validator("ui_settings", mode="before")
     @classmethod
-    def _clean_ui_settings(cls, value: object) -> dict[str, Any]:
+    def _clean_ui_settings(cls, value: object) -> dict[str, UiSettingValue]:
         return sanitize_ui_settings(value)
 
 
