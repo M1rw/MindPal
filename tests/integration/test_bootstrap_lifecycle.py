@@ -1,26 +1,22 @@
-# tests/conftest.py
+# tests/integration/test_bootstrap_lifecycle.py
 
 import pytest
-import pytest_asyncio
 from backend.core.config import Settings
 from backend.services.bootstrap import build_service_container
 
 
-@pytest.fixture
-def test_settings():
-    return Settings(
+@pytest.mark.asyncio
+async def test_full_bootstrap_lifecycle():
+    settings = Settings(
         ENVIRONMENT="test",
-        LOG_LEVEL="DEBUG",
         OFFLINE_MODE=True,
-        ENABLE_METRICS=False,
         REQUIRE_REMOTE_LLM_PROVIDER=False,
         ALLOW_OFFLINE_LLM_IN_PRODUCTION=True,
     )
+    container = build_service_container(settings)
 
-
-@pytest_asyncio.fixture
-async def service_container(test_settings):
-    container = build_service_container(test_settings)
     await container.start()
-    yield container
+    health = await container.health()
+    assert "status" in health
+
     await container.stop()
