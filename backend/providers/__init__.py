@@ -24,10 +24,10 @@ import httpx
 
 from backend.core.config import Settings, get_settings
 from backend.core.security import sanitize_text
-from backend.services.auth_service import AuthProvider
-from backend.services.db_service import DBProvider
-from backend.services.llm_service import LLMProvider
-from backend.services.tts_service import TTSProvider
+from backend.services.domain.auth import AuthProvider
+from backend.services.domain.storage import DBProvider
+from backend.services.domain.llm import LLMProvider
+from backend.services.domain.voice import TTSProvider
 
 from .camb_provider import CambProvider, CambProviderConfig
 from .firebase_provider import FirebaseProvider, FirebaseProviderConfig
