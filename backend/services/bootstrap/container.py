@@ -176,7 +176,8 @@ class ServiceContainer:
 
         # Start core services first (DB before anything else)
         try:
-            await self.db.start()
+            if hasattr(self.db, "start"):
+                await self.db.start()
         except Exception as e:
             logger.error("Failed to start DB service: %s", e)
             raise
@@ -198,7 +199,8 @@ class ServiceContainer:
         logger.info("Stopping service container...")
 
         try:
-            await self.db.stop()
+            if hasattr(self.db, "stop"):
+                await self.db.stop()
         except Exception as e:
             logger.error("Error stopping DB service: %s", e)
 

@@ -1,93 +1,33 @@
-# Test service container
+# tests/unit/core/test_container.py
 
 import pytest
-from backend.services.core.container import ServiceContainer, ServiceNotFoundError
-
-
-@pytest.fixture
-def container():
-    return ServiceContainer()
+from backend.core.config import Settings
+from backend.services.bootstrap import build_service_container
 
 
 @pytest.mark.asyncio
-async def test_register_and_resolve_singleton(container):
-    """Test basic singleton registration and resolution."""
+async def test_container_registration_and_health():
+    settings = Settings(
+        ENVIRONMENT="test",
+        OFFLINE_MODE=True,
+        REQUIRE_REMOTE_LLM_PROVIDER=False,
+        ALLOW_OFFLINE_LLM_IN_PRODUCTION=True,
+    )
+    container = build_service_container(settings)
+    await container.start()
     
-    class MockService:
-        def __init__(self, value: str):
-            self.value = value
+    assert container.auth is not None
+    assert container.db is not None
+    assert container.llm is not None
+    assert container.memory is not None
+    assert container.safety is not None
+    assert container.tts is not None
     
-    service = MockService("test")
-    container.register_singleton("mock", service)
+    health_sync = container.sync_health()
+    assert "status" in health_sync
+    assert "services" in health_sync
     
-    resolved = await container.resolve("mock")
-    assert resolved is service
-    assert resolved.value == "test"
-
-
-@pytest.mark.asyncio
-async def test_resolve_factory(container):
-    """Test factory-based service resolution."""
+    health_async = await container.health()
+    assert "status" in health_async
     
-    async def create_service():
-        return {"initialized": True}
-    
-    container.register_factory("service", create_service)
-    resolved = await container.resolve("service")
-    
-    assert resolved == {"initialized": True}
-
-
-@pytest.mark.asyncio
-async def test_service_not_found(container):
-    """Test error when service not found."""
-    
-    with pytest.raises(ServiceNotFoundError):
-        await container.resolve("nonexistent")
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_hooks(container):
-    """Test service lifecycle hooks."""
-    
-    class MockService:
-        def __init__(self):
-            self.started = False
-            self.stopped = False
-        
-        async def start(self):
-            self.started = True
-        
-        async def stop(self):
-            self.stopped = True
-    
-    service = MockService()
-    container.register_singleton("service", service)
-    
-    # Register lifecycle hooks
-    container.on_shutdown("service", lambda s: s.stop())
-    
-    # Resolve to trigger any startup
-    resolved = await container.resolve("service")
-    assert resolved is service
-    
-    # Stop container
-    await container.shutdown()
-    assert service.stopped
-
-
-def test_sync_resolve():
-    """Test synchronous resolution."""
-    container = ServiceContainer()
-    
-    class MockService:
-        value = "test"
-    
-    service = MockService()
-    container.register_singleton("mock", service)
-    
-    # Sync resolve should work for simple cases
-    resolved = container.resolve_sync("mock")
-    assert resolved is service
-    assert resolved.value == "test"
-
+    await container.stop()
