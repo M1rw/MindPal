@@ -1,0 +1,56 @@
+    <!-- CLOUD SIGN-IN MODAL -->
+    <div id="auth-modal" class="auth-modal fixed inset-0 z-[80] flex items-end sm:items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200 p-0 sm:p-5" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" aria-hidden="true">
+        <div id="auth-modal-backdrop" class="absolute inset-0 bg-black/25 dark:bg-black/70 backdrop-blur-sm"></div>
+        <section id="auth-modal-content" class="auth-modal__content relative w-full sm:max-w-[420px] bg-white dark:bg-[#1f1f1f] border border-black/5 dark:border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom,1.25rem))] sm:p-6 transform translate-y-3 sm:translate-y-0 sm:scale-95 transition-transform duration-200" tabindex="-1">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <p class="auth-modal__eyebrow">MindPal Cloud</p>
+                    <h2 id="auth-modal-title" class="auth-modal__title">Back up your MindPal</h2>
+                    <p id="auth-modal-description" class="auth-modal__copy">Sign in to securely sync your memory and conversations across devices.</p>
+                </div>
+                <button id="auth-modal-close-btn" class="auth-modal__close" type="button" aria-label="Close sign-in"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <div id="auth-modal-message" class="auth-modal__message hidden" aria-live="polite"></div>
+
+            <div id="auth-view-choice" class="auth-modal__view mt-5">
+                <div class="auth-modal__providers" aria-label="Sign-in methods">
+                    <button id="auth-google-btn" class="auth-provider-btn" type="button" data-auth-provider="google"><svg class="auth-provider-btn__brand" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.24a4.48 4.48 0 0 1-1.94 2.94v2.52h3.15c1.84-1.69 2.9-4.18 2.9-7.29Z"/><path fill="#34A853" d="M12 21.75c2.62 0 4.82-.87 6.43-2.36l-3.15-2.52c-.87.58-1.99.92-3.28.92-2.53 0-4.67-1.71-5.44-4.01H3.31v2.6 A9.72 9.72 0 0 0 12 21.75Z"/><path fill="#FBBC05" d="M6.56 13.78A5.85 5.85 0 0 1 6.26 12c0-.62.11-1.22.3-1.78v-2.6H3.31A9.75 9.75 0 0 0 2.25 12c0 1.57.38 3.05 1.06 4.38l3.25-2.6Z"/><path fill="#EA4335" d="M12 6.21c1.43 0 2.71.49 3.72 1.45l2.79-2.79C16.81 3.28 14.61 2.25 12 2.25a9.72 9.72 0 0 0-8.69 5.37l3.25 2.6c.77-2.3 2.91-4.01 5.44-4.01Z"/></svg><span>Continue with Google</span><span class="auth-provider-btn__last-used hidden" data-auth-last-used aria-hidden="true">Last used</span></button>
+                    <button id="auth-apple-btn" class="auth-provider-btn" type="button" data-auth-provider="apple"><svg class="auth-provider-btn__brand" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.05 12.54c-.03-2.37 1.94-3.53 2.03-3.59-1.11-1.62-2.83-1.84-3.44-1.86-1.45-.15-2.86.87-3.6.87-.75 0-1.88-.85-3.11-.82-1.59.02-3.08.95-3.9 2.39-1.7 2.94-.43 7.26 1.2 9.64.81 1.16 1.75 2.45 2.98 2.4 1.2-.05 1.65-.76 3.1-.76 1.44 0 1.85.76 3.11.73 1.29-.02 2.1-1.16 2.88-2.33.94-1.33 1.32-2.65 1.34-2.71-.03-.01-2.65-1.01-2.69-4.03ZM14.68 5.54c.65-.81 1.1-1.91.98-3.03-.94.04-2.12.65-2.8 1.44-.6.69-1.14 1.84-1.01 2.92 1.06.08 2.15-.53 2.83-1.33Z"/></svg><span>Continue with Apple</span><span class="auth-provider-btn__last-used hidden" data-auth-last-used aria-hidden="true">Last used</span></button>
+                    <button id="auth-phone-btn" class="auth-provider-btn" type="button" data-auth-provider="phone"><svg class="auth-provider-btn__brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.75" width="11" height="18.5" rx="2.1"></rect><path d="M10 18.1h4"></path></svg><span>Continue with Phone</span><span class="auth-provider-btn__last-used hidden" data-auth-last-used aria-hidden="true">Last used</span></button>
+                </div>
+                <div class="auth-modal__divider"><span>or</span></div>
+                <button id="auth-email-view-btn" class="auth-provider-btn auth-provider-btn--email" type="button" data-auth-provider="email"><svg class="auth-provider-btn__brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.25" y="5.25" width="17.5" height="13.5" rx="2"></rect><path d="m4.75 7 7.25 5.6L19.25 7"></path></svg><span>Continue with Email</span><span class="auth-provider-btn__last-used hidden" data-auth-last-used aria-hidden="true">Last used</span></button>
+                <p class="auth-modal__disclosure">By continuing, you agree to MindPal’s <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener noreferrer">Terms</a>.</p>
+            </div>
+
+            <form id="auth-email-form" class="auth-modal__view hidden mt-5" novalidate>
+                <button class="auth-modal__back" type="button" data-auth-back><i data-lucide="arrow-left" class="w-4 h-4"></i> All sign-in methods</button>
+                <h3 class="auth-modal__form-title">Continue with email</h3>
+                <p id="auth-email-mode-copy" class="auth-modal__form-copy">Use your MindPal email and password to sign in.</p>
+                <label class="auth-field"><span>Email</span><input id="auth-email-input" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com"></label>
+                <label class="auth-field"><span>Password</span><div class="auth-password-wrap"><input id="auth-password-input" type="password" autocomplete="current-password" required minlength="6" placeholder="At least 6 characters"><button id="auth-password-visibility-btn" type="button" class="auth-password-visibility" aria-label="Show password"><i data-lucide="eye" class="w-4 h-4"></i></button></div></label>
+                <button id="auth-email-submit-btn" class="auth-modal__primary-btn" type="submit">Sign in</button>
+                <div class="auth-modal__form-footer"><button id="auth-email-mode-btn" class="auth-modal__text-btn" type="button">Create an account</button><button id="auth-password-reset-btn" class="auth-modal__text-btn" type="button">Forgot password?</button></div>
+            </form>
+
+            <form id="auth-phone-form" class="auth-modal__view hidden mt-5" novalidate>
+                <button class="auth-modal__back" type="button" data-auth-back><i data-lucide="arrow-left" class="w-4 h-4"></i> All sign-in methods</button>
+                <h3 class="auth-modal__form-title">Continue with phone</h3>
+                <p class="auth-modal__form-copy">We’ll send a one-time verification code by SMS.</p>
+                <label class="auth-field"><span>Mobile number</span><input id="auth-phone-input" type="tel" autocomplete="tel" inputmode="tel" required placeholder="+20 10 1234 5678" aria-describedby="auth-phone-help"></label>
+                <p id="auth-phone-help" class="auth-field__help">Include your country code, for example <strong>+20</strong> for Egypt.</p>
+                <div id="auth-phone-recaptcha" class="auth-recaptcha"></div>
+                <button id="auth-phone-submit-btn" class="auth-modal__primary-btn" type="submit">Send verification code</button>
+            </form>
+
+            <form id="auth-phone-code-form" class="auth-modal__view hidden mt-5" novalidate>
+                <button class="auth-modal__back" type="button" data-auth-back><i data-lucide="arrow-left" class="w-4 h-4"></i> Change number</button>
+                <h3 class="auth-modal__form-title">Enter your code</h3>
+                <p id="auth-phone-code-copy" class="auth-modal__form-copy">Enter the code we sent to your phone.</p>
+                <label class="auth-field"><span>Verification code</span><input id="auth-phone-code-input" type="text" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" required maxlength="6" placeholder="123456"></label>
+                <button id="auth-phone-code-submit-btn" class="auth-modal__primary-btn" type="submit">Verify and continue</button>
+                <button id="auth-phone-resend-btn" class="auth-modal__text-btn auth-modal__text-btn--full" type="button">Resend code</button>
+            </form>
+        </section>
+    </div>

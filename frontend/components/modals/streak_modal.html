@@ -1,0 +1,30 @@
+    <!-- PROGRESS / STREAK MODAL -->
+    <div id="streak-modal" class="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white dark:bg-[#1e1f20] w-full max-w-sm flex flex-col rounded-[28px] shadow-2xl overflow-hidden transform scale-95 transition-transform duration-200" id="streak-content">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#444746]">
+                <h2 class="text-base font-medium text-gray-900 dark:text-gray-100">Your Journey</h2>
+                <button id="close-streak-btn" class="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" title="Close progress modal" aria-label="Close progress view">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-8 flex flex-col items-center gap-8">
+                <!-- Big Flame & Streak -->
+                <div class="flex flex-col items-center">
+                    <div class="w-20 h-20 rounded-full bg-orange-50 dark:bg-orange-900/10 text-orange-500 flex items-center justify-center mb-4 shadow-sm border border-orange-100 dark:border-orange-800/30">
+                        <i data-lucide="flame" class="w-10 h-10 fill-current"></i>
+                    </div>
+                    <div class="text-4xl font-semibold text-gray-900 dark:text-white mb-1"><span id="modal-streak-count">0</span> Day Streak</div>
+                    <div class="text-sm text-gray-500 dark:text-[#c4c7c5]">You're building emotional resilience.</div>
+                </div>
+
+                <!-- 7 Day Tracker -->
+                <div class="w-full">
+                    <h3 class="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4 text-center">Past 7 Days</h3>
+                    <div class="flex justify-between items-center w-full px-2" id="weekly-tracker">
+                        <!-- JS injected days go here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
