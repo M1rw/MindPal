@@ -10,16 +10,17 @@ from typing import Any, Protocol
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError, ValidationAppError
 from backend.core.security import normalize_locale, sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool, setting_float
+from backend.core.settings_helpers import is_production
 from backend.models.schemas import TTSFormat, TTSRequest, TTSResponse
+from backend.services.configs import TTSServiceConfig
 
 logger = logging.getLogger(__name__)
 
-
-MAX_TTS_TEXT_CHARS = 4_000
-MAX_VOICE_ID_CHARS = 120
-MAX_PROVIDER_NAME_CHARS = 80
-DEFAULT_TIMEOUT_SECONDS = 20.0
+DEFAULT_TTS_SERVICE_CONFIG = TTSServiceConfig()
+MAX_TTS_TEXT_CHARS = DEFAULT_TTS_SERVICE_CONFIG.max_tts_text_chars
+MAX_VOICE_ID_CHARS = DEFAULT_TTS_SERVICE_CONFIG.max_voice_id_chars
+MAX_PROVIDER_NAME_CHARS = DEFAULT_TTS_SERVICE_CONFIG.max_provider_name_chars
+DEFAULT_TIMEOUT_SECONDS = DEFAULT_TTS_SERVICE_CONFIG.default_timeout_seconds
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,51 +116,37 @@ class TTSService:
         providers: list[TTSProvider] | tuple[TTSProvider, ...] | None = None,
         *,
         settings: Settings | None = None,
+        config: TTSServiceConfig | None = None,
         timeout_seconds: float | None = None,
         include_browser_fallback: bool | None = None,
         require_external_provider: bool | None = None,
         allow_browser_fallback_in_production: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self.config = config or TTSServiceConfig.from_settings(self.settings)
         self.production_mode = is_production(self.settings)
         self.timeout_seconds = float(
             timeout_seconds
             if timeout_seconds is not None
-            else setting_float(
-                self.settings,
-                "TTS_TIMEOUT_SECONDS",
-                default=DEFAULT_TIMEOUT_SECONDS,
-            )
+            else self.config.default_timeout_seconds
         )
 
         self.require_external_provider = (
-            setting_bool(
-                self.settings,
-                "REQUIRE_EXTERNAL_TTS_PROVIDER",
-                default=False,
-            )
-            if require_external_provider is None
-            else bool(require_external_provider)
+            bool(require_external_provider)
+            if require_external_provider is not None
+            else self.config.require_external_provider
         )
 
         self.allow_browser_fallback_in_production = (
-            setting_bool(
-                self.settings,
-                "ALLOW_BROWSER_TTS_IN_PRODUCTION",
-                default=True,
-            )
-            if allow_browser_fallback_in_production is None
-            else bool(allow_browser_fallback_in_production)
+            bool(allow_browser_fallback_in_production)
+            if allow_browser_fallback_in_production is not None
+            else self.config.allow_browser_fallback_in_production
         )
 
         should_include_browser_fallback = (
-            setting_bool(
-                self.settings,
-                "ENABLE_BROWSER_TTS_FALLBACK",
-                default=True,
-            )
-            if include_browser_fallback is None
-            else bool(include_browser_fallback)
+            bool(include_browser_fallback)
+            if include_browser_fallback is not None
+            else self.config.include_browser_fallback
         )
 
         configured_providers: list[TTSProvider] = list(providers or [])

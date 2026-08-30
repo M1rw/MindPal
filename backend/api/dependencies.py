@@ -4,7 +4,7 @@
 FastAPI dependency injection layer.
 
 This module provides:
-- ServiceContainer: singleton composition root for all backend services
+- ServiceContainer: singleton composition root for all backend services (re-exported from bootstrap)
 - RequestContext: per-request metadata (request_id, locale, channel, session)
 - Header extraction dependencies (locale, channel, request_id, session)
 - Shared API helpers (error conversion, auth assertion)
@@ -13,6 +13,9 @@ Design rules:
 - All configuration reads come from Settings (no os.getenv)
 - Importing this module must not call external APIs or verify auth tokens
 - Service construction is lazy (on first request)
+
+Service container is built using the modular bootstrap package (backend.services.bootstrap)
+which provides clear dependency ordering and extensibility.
 """
 
 from __future__ import annotations
@@ -20,7 +23,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import hashlib
-import httpx
 from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Request, status
@@ -29,33 +31,10 @@ from backend.core.config import Settings, get_settings
 from backend.core.errors import AppError
 from backend.core.security import generate_request_id, normalize_locale, sanitize_text
 from backend.models.user import UserChannel, UserSession
-from backend.providers import (
-    build_llm_providers,
-    build_tts_providers,
+from backend.services.bootstrap import (
+    ServiceContainer,
+    build_service_container as bootstrap_build_service_container,
 )
-from backend.services import (
-    AuthService,
-    DBService,
-    LLMService,
-    MemoryService,
-    OutputGuardService,
-    RAGService,
-    SafetyService,
-    TTSService,
-)
-from backend.services.admin_authority import AdminAuthority
-from backend.services.brain_service import BrainService
-from backend.services.idempotency_service import IdempotencyService
-from backend.services.memory_repository import MemoryRepository
-from backend.services.quota_service import QuotaService
-from backend.services.rate_limit_service import RateLimitService
-from backend.services.response_intelligence_service import ResponseIntelligenceService
-from backend.services.feature_flags_service import FeatureFlagsService
-from backend.services.feature_policy_repository import FeaturePolicyRepository, FeaturePolicyStore
-from backend.services.supabase_client import SupabaseClient
-from backend.services.supabase_admin_repository import SupabaseAdminRepository
-from backend.services.supabase_feature_policy_repository import SupabaseFeaturePolicyRepository
-from backend.services.voice_v4_token_service import VoiceV4TokenService
 
 
 MAX_HEADER_CHARS = 512
@@ -66,61 +45,12 @@ MAX_ANONYMOUS_USER_HEADER_CHARS = 160
 
 
 # ═══════════════════════════════════════════════════════════════
-# Service Container
+# Service Container (re-exported from bootstrap)
 # ═══════════════════════════════════════════════════════════════
 
-@dataclass(slots=True)
-class ServiceContainer:
-    """
-    API composition root.
-
-    Importing this module must not:
-    - call external LLM APIs
-    - verify auth tokens
-    - read/write databases
-    - synthesize audio
-    """
-
-    settings: Settings
-    auth: AuthService
-    db: DBService
-    llm: LLMService
-    memory: MemoryService
-    output_guard: OutputGuardService
-    rag: RAGService
-    safety: SafetyService
-    tts: TTSService
-    quota: QuotaService
-    rate_limits: RateLimitService
-    idempotency: IdempotencyService
-    memory_repo: MemoryRepository
-    brain: BrainService
-    response_intelligence: ResponseIntelligenceService
-    feature_flags: FeatureFlagsService
-    feature_policies: FeaturePolicyStore
-    admin_authority: AdminAuthority
-    voice_v4_tokens: VoiceV4TokenService
-    http_client: httpx.AsyncClient
-
-    async def aclose(self) -> None:
-        await self.http_client.aclose()
-
-    async def health(self) -> dict[str, object]:
-        db_health = await self.db.health()
-
-        return {
-            "settings_loaded": True,
-            "environment": self.settings.ENVIRONMENT,
-            "production_mode": self.settings.is_production,
-            "auth": self.auth.health(),
-            "db": db_health,
-            "llm": self.llm.health(),
-            "memory": self.memory.health(),
-            "output_guard": self.output_guard.health(),
-            "rag": self.rag.health(),
-            "safety": self.safety.health(),
-            "tts": self.tts.health(),
-        }
+# ServiceContainer is imported from backend.services.bootstrap
+# See backend/services/bootstrap/__init__.py for the definition
+__all__ = ["ServiceContainer"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,143 +71,19 @@ _service_container: ServiceContainer | None = None
 
 
 def build_service_container(settings: Settings) -> ServiceContainer:
-    """Build one isolated composition root from an explicit Settings object."""
-    http_client = httpx.AsyncClient(
-        timeout=httpx.Timeout(settings.LLM_TIMEOUT_SECONDS, connect=5.0),
-        limits=httpx.Limits(
-            max_connections=100,
-            max_keepalive_connections=20,
-            keepalive_expiry=30.0,
-        ),
-        follow_redirects=False,
-        headers={"User-Agent": f"MindPal/{settings.VERSION}"},
-    )
-
-    llm_providers = build_llm_providers(settings, client=http_client)
-    llm = LLMService(
-        providers=llm_providers,
-        settings=settings,
-        include_offline_provider=settings.ENABLE_OFFLINE_LLM_FALLBACK or not settings.has_any_llm_provider,
-    )
-    auth = AuthService(settings=settings, allow_anonymous=settings.ALLOW_ANONYMOUS_SESSIONS)
-    db = DBService(settings=settings)
-    tts = TTSService(
-        providers=build_tts_providers(settings, client=http_client),
-        settings=settings,
-        include_browser_fallback=settings.ENABLE_BROWSER_TTS_FALLBACK,
-    )
-    memory = MemoryService(
-        settings=settings,
-        llm_service=llm,
-        enable_llm_summarization=settings.ENABLE_LLM_MEMORY_SUMMARIZATION,
-    )
-    output_guard = OutputGuardService(
-        llm_service=llm,
-        enable_llm_rewrite=settings.ENABLE_LLM_OUTPUT_REWRITE,
-    )
-    rag = RAGService(
-        llm_service=llm,
-        enable_llm_planning=settings.ENABLE_LLM_RAG_PLANNING,
-    )
-    safety = SafetyService(
-        llm_service=llm,
-        enable_llm_ambiguity_classifier=settings.ENABLE_LLM_SAFETY_CLASSIFIER,
-    )
-    quota = QuotaService(
-        db=db,
-        limit_5h=settings.QUOTA_LIMIT_5H,
-        limit_week=settings.QUOTA_LIMIT_WEEK,
-        reservation_ttl_seconds=settings.QUOTA_RESERVATION_TTL_SECONDS,
-    )
-    rate_limits = RateLimitService(db=db)
-    idempotency = IdempotencyService(
-        db=db,
-        ttl_seconds=settings.IDEMPOTENCY_TTL_SECONDS,
-        processing_timeout_seconds=settings.IDEMPOTENCY_PROCESSING_TIMEOUT_SECONDS,
-    )
-    response_intelligence = ResponseIntelligenceService(settings=settings, llm_service=llm)
-    feature_flags = FeatureFlagsService()
-    feature_policies = _build_feature_policy_store(settings, db, http_client)
-    admin_authority = _build_admin_authority(settings, http_client)
-    voice_v4_tokens = VoiceV4TokenService(settings=settings, client=http_client)
-
-    return ServiceContainer(
-
-        settings=settings,
-        auth=auth,
-        db=db,
-        llm=llm,
-        memory=memory,
-        output_guard=output_guard,
-        rag=rag,
-        safety=safety,
-        tts=tts,
-        quota=quota,
-        rate_limits=rate_limits,
-        idempotency=idempotency,
-        memory_repo=MemoryRepository(db=db),
-        brain=BrainService(),
-        response_intelligence=response_intelligence,
-        feature_flags=feature_flags,
-        feature_policies=feature_policies,
-        admin_authority=admin_authority,
-        voice_v4_tokens=voice_v4_tokens,
-        http_client=http_client,
-
-    )
-
-
-def _build_admin_authority(
-    settings: Settings,
-    http_client: httpx.AsyncClient,
-) -> AdminAuthority:
-    if settings.FEATURE_POLICY_STORAGE == "firestore":
-        return AdminAuthority()
-
-    service_role_key = (
-        settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
-        if settings.SUPABASE_SERVICE_ROLE_KEY is not None
-        else ""
-    )
-    if not settings.SUPABASE_URL.strip() or not service_role_key:
-        raise RuntimeError(
-            "Supabase admin authority requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
-        )
-    return AdminAuthority(
-        repository=SupabaseAdminRepository(
-            client=SupabaseClient(
-                base_url=settings.SUPABASE_URL,
-                service_role_key=service_role_key,
-                http_client=http_client,
-            )
-        )
-    )
-
-
-def _build_feature_policy_store(
-    settings: Settings,
-    db: DBService,
-    http_client: httpx.AsyncClient,
-) -> FeaturePolicyStore:
-    if settings.FEATURE_POLICY_STORAGE == "firestore":
-        return FeaturePolicyRepository(db=db)
-
-    service_role_key = (
-        settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
-        if settings.SUPABASE_SERVICE_ROLE_KEY is not None
-        else ""
-    )
-    if not settings.SUPABASE_URL.strip() or not service_role_key:
-        raise RuntimeError(
-            "Supabase feature-policy storage requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY"
-        )
-    return SupabaseFeaturePolicyRepository(
-        client=SupabaseClient(
-            base_url=settings.SUPABASE_URL,
-            service_role_key=service_role_key,
-            http_client=http_client,
-        )
-    )
+    """
+    Build one isolated composition root from an explicit Settings object.
+    
+    This is a convenience wrapper around the modular bootstrap package.
+    The actual service building logic lives in backend.services.bootstrap.
+    
+    Args:
+        settings: Application settings
+        
+    Returns:
+        Fully initialized ServiceContainer ready for use
+    """
+    return bootstrap_build_service_container(settings)
 
 
 def get_service_container() -> ServiceContainer:

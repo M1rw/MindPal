@@ -6,6 +6,7 @@ from typing import Any
 
 from backend.core.errors import AppError
 from backend.core.security import sanitize_text
+from backend.core.validation import validate_quota_request
 from backend.services.db_service import DBService
 
 
@@ -81,12 +82,12 @@ class QuotaService:
         cost: int,
         operation: str,
     ) -> QuotaReservation:
-        user_id_hash = sanitize_text(user_id_hash, 120)
-        request_id = sanitize_text(request_id, 120)
-        operation = sanitize_text(operation, 80) or "unknown"
-        if not user_id_hash or not request_id:
-            raise ValueError("user_id_hash and request_id are required")
-        cost = max(1, int(cost))
+        user_id_hash, request_id, cost, operation = validate_quota_request(
+            user_id_hash=user_id_hash,
+            request_id=request_id,
+            cost=cost,
+            operation=operation,
+        )
         now = time.time()
         result: dict[str, Any] = {}
 

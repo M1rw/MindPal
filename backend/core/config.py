@@ -116,6 +116,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = Field(default="MindPal", min_length=1, max_length=80)
     VERSION: str = Field(default="2.0.0", min_length=1, max_length=40)
     ENVIRONMENT: Environment = "development"
+    LOG_LEVEL: str = Field(default="INFO", min_length=1, max_length=20)
     # Deployment platform context used for environment-scoped release guards.
     VERCEL_ENV: str = Field(default="", max_length=40)
 
@@ -126,6 +127,17 @@ class Settings(BaseSettings):
     ENABLE_HSTS: bool = False
     TRUSTED_HOSTS: list[str] = Field(default_factory=lambda: ["*"])
     MAX_REQUEST_BODY_BYTES: int = Field(default=20_000_000, ge=1024, le=100_000_000)
+    OTEL_ENABLED: bool = False
+    OTEL_SERVICE_NAME: str = Field(default="mindpal-backend", min_length=1, max_length=120)
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = Field(default="", max_length=500)
+    OTEL_EXPORTER_OTLP_PROTOCOL: str = Field(default="http/proto", min_length=1, max_length=40)
+    ENABLE_METRICS: bool = False
+    METRICS_NAMESPACE: str = Field(default="mindpal", min_length=1, max_length=40)
+    ENABLE_CACHE: bool = False
+    CACHE_BACKEND: Literal["memory", "redis"] = "memory"
+    CACHE_DEFAULT_TTL_SECONDS: int = Field(default=300, ge=1, le=86_400)
+    CACHE_NAMESPACE: str = Field(default="mindpal", min_length=1, max_length=80)
+    REDIS_URL: str = Field(default="", max_length=500)
 
     # ── Security / CORS ──────────────────────────────────────────
     CORS_ORIGINS: list[str] = Field(

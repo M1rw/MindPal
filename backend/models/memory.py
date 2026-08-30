@@ -29,7 +29,7 @@ import math
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -46,6 +46,9 @@ from backend.models._helpers import (
 )
 from backend.models.safety import SafetyLevel
 
+
+MemoryMetadataValue = str | int | float | bool | None
+T = TypeVar("T")
 
 # ═══════════════════════════════════════════════════════════════
 # Constants
@@ -901,7 +904,11 @@ def normalize_memory_value(value: str) -> str:
     return cleaned
 
 
-def canonical_memory_key(category: str, value: str, metadata: dict[str, Any] | None = None) -> str:
+def canonical_memory_key(
+    category: str,
+    value: str,
+    metadata: dict[str, MemoryMetadataValue] | None = None,
+) -> str:
     """Generate a canonical deduplication key for a memory atom."""
     normalized = normalize_memory_value(value)
     category_key = sanitize_text(str(category or MemoryCategory.FACTS.value), MAX_ATOM_SHORT_CHARS).lower()
@@ -1232,9 +1239,9 @@ def _sanitize_metadata(value: object) -> dict[str, str | int | float | bool | No
     )
 
 
-def _dedupe_brain_records(records: list[Any], limit: int) -> list[Any]:
+def _dedupe_brain_records(records: list[T], limit: int) -> list[T]:
     """Keep the first occurrence of each stable Brain record ID within its bound."""
-    output: list[Any] = []
+    output: list[T] = []
     seen: set[str] = set()
     for record in records:
         record_id = str(getattr(record, "id", ""))
