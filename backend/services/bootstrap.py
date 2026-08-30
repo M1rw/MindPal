@@ -10,6 +10,7 @@ from backend.services.core.container import ServiceContainer
 
 # Import all domain services
 from backend.services.domain.auth import AuthService, FirebaseAuthProvider, OfflineAuthProvider
+from backend.services.domain.storage import StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +58,13 @@ async def bootstrap_services(
     
     container.register_singleton("auth_service", auth_service)
     logger.info("✓ Registered AuthService")
+
+    storage_service = StorageService(settings=settings)
+    container.register_singleton("storage_service", storage_service)
+    logger.info("✓ Registered StorageService")
     
     # ============ FUTURE SERVICES ============
-    # Storage, LLM, Safety, Memory, Voice, RAG, Features, Quota
+    # LLM, Safety, Memory, Voice, RAG, Features, Quota
     # (to be implemented in subsequent phases)
     
     logger.info("✓ All services bootstrapped successfully")
