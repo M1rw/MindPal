@@ -42,6 +42,7 @@ function parseServerContent(content) {
 
 function parseModelPart(part) {
   if (!isRecord(part)) return [unknownFact("malformed_model_part")];
+  if (part.thought === true) return [];
   const facts = [];
 
   if (isValidAudioPart(part)) {

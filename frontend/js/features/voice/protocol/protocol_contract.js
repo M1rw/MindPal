@@ -42,6 +42,9 @@ export function buildSetupEnvelope({
             },
           },
         },
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
       },
       systemInstruction: {
         parts: [{ text: instruction.trim() }],

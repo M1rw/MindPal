@@ -39,7 +39,6 @@ export function createStreamingResampler(inputSampleRateHz) {
       merged.set(source, pending.length);
       const ratio = rate / CAPTURE_SAMPLE_RATE_HZ;
 
-      // Exact count of samples where (phase + 1 < merged.length)
       const output = [];
       while (phase + 1 < merged.length) {
         const lowerIndex = Math.floor(phase);
@@ -50,8 +49,13 @@ export function createStreamingResampler(inputSampleRateHz) {
       }
 
       const consumed = Math.floor(phase);
-      phase -= consumed;
-      pending = merged.slice(consumed);
+      if (consumed < merged.length) {
+        pending = merged.slice(consumed);
+        phase -= consumed;
+      } else {
+        pending = new Float32Array(0);
+        phase -= merged.length;
+      }
 
       return Float32Array.from(output);
     },
