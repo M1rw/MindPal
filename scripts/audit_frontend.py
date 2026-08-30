@@ -134,7 +134,7 @@ def _to_kebab(name: str) -> str:
 
 
 def check_icon_coverage() -> int:
-    sources = [INDEX, *FRONTEND.glob("js/**/*.js")]
+    sources = [INDEX, *FRONTEND.glob("components/**/*.html"), *FRONTEND.glob("js/**/*.js")]
     requested: set[str] = set(DYNAMIC_ICON_NAMES)
     for path in sources:
         text = path.read_text(encoding="utf-8", errors="replace")
