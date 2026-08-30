@@ -2,6 +2,8 @@
 module.exports = {
   content: [
     './frontend/index.html',
+    './frontend/index.template.html',
+    './frontend/components/**/*.html',
     './frontend/js/**/*.js',
   ],
   darkMode: 'class',
