@@ -16,7 +16,7 @@ import yaml
 from backend.core.config import Settings, get_settings
 from backend.core.errors import SafetyError
 from backend.core.security import Locale, normalize_locale, sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool
+from backend.core.settings_helpers import is_production
 from backend.models.safety import (
     CrisisResponseTemplate,
     SafetyAction,
@@ -26,14 +26,15 @@ from backend.models.safety import (
     SafetyMatchedRule,
     SafetySource,
 )
+from backend.services.configs import SafetyServiceConfig
 from backend.services.llm_service import LLMService, build_llm_request
 
 logger = logging.getLogger(__name__)
 
-
-MAX_CLASSIFICATION_TEXT_CHARS = 8_000
-MAX_MEMORY_CONTEXT_CHARS = 1_200
-MAX_LLM_JSON_CHARS = 6_000
+DEFAULT_SAFETY_SERVICE_CONFIG = SafetyServiceConfig()
+MAX_CLASSIFICATION_TEXT_CHARS = DEFAULT_SAFETY_SERVICE_CONFIG.max_classification_text_chars
+MAX_MEMORY_CONTEXT_CHARS = DEFAULT_SAFETY_SERVICE_CONFIG.max_memory_context_chars
+MAX_LLM_JSON_CHARS = DEFAULT_SAFETY_SERVICE_CONFIG.max_llm_json_chars
 SUPPORTED_PATTERN_LOCALES: tuple[Locale, ...] = ("en", "ar")
 
 SAFETY_CLASSIFIER_SYSTEM_PROMPT = """
@@ -146,34 +147,28 @@ class SafetyService:
         safety_dir: Path | None = None,
         *,
         settings: Settings | None = None,
+        config: SafetyServiceConfig | None = None,
         llm_service: LLMService | None = None,
         enable_llm_ambiguity_classifier: bool | None = None,
         allow_offline_llm_classifier: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self.config = config or SafetyServiceConfig.from_settings(self.settings)
         self.production_mode = is_production(self.settings)
 
         self.safety_dir = safety_dir or Path(__file__).resolve().parents[1] / "safety"
         self.llm_service = llm_service
 
         self.enable_llm_ambiguity_classifier = (
-            setting_bool(
-                self.settings,
-                "ENABLE_LLM_SAFETY_CLASSIFIER",
-                default=True,
-            )
-            if enable_llm_ambiguity_classifier is None
-            else bool(enable_llm_ambiguity_classifier)
+            bool(enable_llm_ambiguity_classifier)
+            if enable_llm_ambiguity_classifier is not None
+            else self.config.enable_llm_ambiguity_classifier
         )
 
         self.allow_offline_llm_classifier = (
-            setting_bool(
-                self.settings,
-                "ALLOW_OFFLINE_LLM_SAFETY_CLASSIFIER",
-                default=False,
-            )
-            if allow_offline_llm_classifier is None
-            else bool(allow_offline_llm_classifier)
+            bool(allow_offline_llm_classifier)
+            if allow_offline_llm_classifier is not None
+            else self.config.allow_offline_llm_classifier
         )
 
         self._rules: list[CompiledSafetyRule] = []

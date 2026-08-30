@@ -25,7 +25,68 @@ from datetime import datetime, UTC
 from typing import Any, Optional
 from uuid import uuid4
 
+from backend.core.config import get_settings
+from backend.services.core.metrics import record_provider_request, record_service_request
+from backend.services.core.provider_policy import RequestClass
+
+try:
+    from opentelemetry import trace as otel_trace
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+    from opentelemetry.trace import Span
+except Exception:  # pragma: no cover - optional dependency path
+    otel_trace = None
+    Resource = None
+    TracerProvider = None
+    BatchSpanProcessor = None
+    ConsoleSpanExporter = None
+    Span = Any  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
+
+_OTEL_TRACER = None
+_OTEL_PROVIDER = None
+_OTEL_READY = False
+
+
+def _maybe_init_otel() -> None:
+    """Configure optional OpenTelemetry tracing when enabled."""
+    global _OTEL_TRACER, _OTEL_PROVIDER, _OTEL_READY
+
+    if otel_trace is None or _OTEL_READY:
+        return
+
+    try:
+        settings = get_settings()
+        if not bool(getattr(settings, "OTEL_ENABLED", False)):
+            _OTEL_READY = True
+            return
+    except Exception:
+        _OTEL_READY = True
+        return
+
+    try:
+        service_name = str(getattr(settings, "OTEL_SERVICE_NAME", "mindpal-backend")).strip() or "mindpal-backend"
+        resource = Resource.create({"service.name": service_name, "service.namespace": "mindpal"})
+        provider = TracerProvider(resource=resource)
+        provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+        try:
+            otel_trace.set_tracer_provider(provider)
+        except Exception:
+            pass
+        _OTEL_PROVIDER = provider
+        _OTEL_TRACER = otel_trace.get_tracer(service_name)
+        _OTEL_READY = True
+    except Exception:
+        _OTEL_READY = True
+        _OTEL_TRACER = None
+        _OTEL_PROVIDER = None
+
+
+def _get_otel_tracer() -> Any | None:
+    _maybe_init_otel()
+    return _OTEL_TRACER
 
 
 # Context variable for request ID propagation across async boundaries
@@ -141,6 +202,9 @@ class RequestTrace:
     user_id_hash: str | None = None
     channel: str = "unknown"  # "web", "mobile", "cli"
     operation: str = "unknown"
+    otel_trace_id: str | None = None
+    otel_span_id: str | None = None
+    otel_span: Any | None = field(default=None, repr=False)
     
     # Timing
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -230,7 +294,23 @@ class RequestTracer:
             channel=channel,
             operation=operation,
         )
-        
+
+        tracer = _get_otel_tracer()
+        if tracer is not None:
+            span = tracer.start_span(
+                "mindpal.request",
+                attributes={
+                    "mindpal.request_id": request_id,
+                    "mindpal.operation": operation,
+                    "mindpal.channel": channel,
+                    "mindpal.user_id_hash": user_id_hash or "anonymous",
+                },
+            )
+            trace.otel_span = span
+            trace_context = span.get_span_context()
+            trace.otel_trace_id = format(trace_context.trace_id, "032x")
+            trace.otel_span_id = format(trace_context.span_id, "016x")
+
         # Set context for access from any async function
         _request_id_context.set(request_id)
         _trace_context.set(trace)
@@ -284,10 +364,27 @@ class RequestTracer:
             error_code=error_code,
             metadata=metadata,
         )
-        
+
+        tracer = _get_otel_tracer()
+        if tracer is not None:
+            otel_span = tracer.start_span(
+                "mindpal.provider_call",
+                attributes={
+                    "mindpal.provider": provider_name,
+                    "mindpal.model": model_name or "unknown",
+                    "mindpal.operation": operation,
+                    "mindpal.status": status,
+                    "mindpal.prompt_tokens": int(prompt_tokens or 0),
+                    "mindpal.completion_tokens": int(completion_tokens or 0),
+                    "mindpal.error_code": error_code or "none",
+                },
+            )
+            otel_span.end()
+
         span.end_time_ms = time.time_ns() / 1e6
+        record_provider_request(provider_name, operation, span.duration_ms, status=status)
         trace.add_provider_call(span)
-        
+
         if prompt_tokens and completion_tokens:
             trace.total_tokens_used += prompt_tokens + completion_tokens
 
@@ -311,8 +408,23 @@ class RequestTracer:
             status=status,
             error_code=error_code,
         )
-        
+
+        tracer = _get_otel_tracer()
+        if tracer is not None:
+            otel_span = tracer.start_span(
+                "mindpal.service_call",
+                attributes={
+                    "mindpal.from_service": from_service,
+                    "mindpal.to_service": to_service,
+                    "mindpal.operation": operation,
+                    "mindpal.status": status,
+                    "mindpal.error_code": error_code or "none",
+                },
+            )
+            otel_span.end()
+
         span.end_time_ms = time.time_ns() / 1e6
+        record_service_request(from_service, operation, span.duration_ms, status=status)
         trace.add_service_call(span)
 
     @staticmethod
@@ -332,6 +444,12 @@ class RequestTracer:
         else:
             trace.mark_failure(error_code)
         
+        if trace.otel_span is not None:
+            try:
+                trace.otel_span.end()
+            except Exception:
+                logger.debug("Failed to close OpenTelemetry span for request %s", trace.request_id, exc_info=True)
+
         # Emit trace log
         trace_dict = trace.to_dict()
         logger.info(
@@ -345,6 +463,7 @@ class RequestTracer:
         # Clear context
         _request_id_context.set("")
         _trace_context.set(None)
+        trace.otel_span = None
         
         return trace
 

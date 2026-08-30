@@ -16,11 +16,13 @@ from .builders import (
     build_admin_authority,
     build_auth_service,
     build_brain_service,
+    build_cache_service,
     build_db_service,
     build_feature_flags_service,
     build_feature_policy_store,
     build_http_client,
     build_idempotency_service,
+    build_job_queue_service,
     build_llm_service,
     build_memory_repository,
     build_memory_service,
@@ -95,6 +97,8 @@ def build_service_container(settings: Settings | None = None) -> ServiceContaine
     safety = build_safety_service(llm, settings)
 
     # Step 4: Build infrastructure services
+    cache = build_cache_service(settings)
+    job_queue = build_job_queue_service()
     quota = build_quota_service(db, settings)
     rate_limits = build_rate_limits_service(db)
     idempotency = build_idempotency_service(db, settings)
@@ -121,6 +125,8 @@ def build_service_container(settings: Settings | None = None) -> ServiceContaine
         rag=rag,
         safety=safety,
         tts=tts,
+        cache=cache,
+        job_queue=job_queue,
         quota=quota,
         rate_limits=rate_limits,
         idempotency=idempotency,

@@ -9,9 +9,12 @@ from backend.core.config import Settings
 from backend.services import (
     LLMService,
     MemoryService,
+    MemoryServiceConfig,
     OutputGuardService,
+    OutputGuardServiceConfig,
     RAGService,
     SafetyService,
+    SafetyServiceConfig,
 )
 from backend.services.response_intelligence_service import ResponseIntelligenceService
 
@@ -30,7 +33,10 @@ def build_memory_service(settings: Settings, llm_service: LLMService) -> MemoryS
     return MemoryService(
         settings=settings,
         llm_service=llm_service,
-        enable_llm_summarization=settings.ENABLE_LLM_MEMORY_SUMMARIZATION,
+        config=MemoryServiceConfig.from_settings(
+            settings,
+            enable_llm_summarization=settings.ENABLE_LLM_MEMORY_SUMMARIZATION,
+        ),
     )
 
 
@@ -48,8 +54,12 @@ def build_output_guard_service(
         OutputGuardService instance
     """
     return OutputGuardService(
+        settings=settings,
         llm_service=llm_service,
-        enable_llm_rewrite=settings.ENABLE_LLM_OUTPUT_REWRITE,
+        config=OutputGuardServiceConfig.from_settings(
+            settings,
+            enable_llm_rewrite=settings.ENABLE_LLM_OUTPUT_REWRITE,
+        ),
     )
 
 
@@ -84,7 +94,10 @@ def build_safety_service(llm_service: LLMService, settings: Settings) -> SafetyS
     return SafetyService(
         settings=settings,
         llm_service=llm_service,
-        enable_llm_ambiguity_classifier=settings.ENABLE_LLM_SAFETY_CLASSIFIER,
+        config=SafetyServiceConfig.from_settings(
+            settings,
+            enable_llm_ambiguity_classifier=settings.ENABLE_LLM_SAFETY_CLASSIFIER,
+        ),
     )
 
 

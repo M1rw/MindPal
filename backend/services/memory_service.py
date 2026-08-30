@@ -17,7 +17,7 @@ from backend.core.security import (
     safe_truncate,
     sanitize_text,
 )
-from backend.core.settings_helpers import is_production, setting_bool
+from backend.core.settings_helpers import is_production
 from backend.models.memory import (
     CommunicationPreferences,
     ImportantPerson,
@@ -32,19 +32,20 @@ from backend.models.memory import (
     MemorySummary,
     RelationshipFact,
 )
+from backend.services.configs import MemoryServiceConfig
 from backend.services.llm_service import LLMService, build_llm_request
 
 logger = logging.getLogger(__name__)
 
-
-MAX_COMPACTED_SUMMARY_CHARS = 4_000
-MAX_EXTRACTED_ITEM_TEXT_CHARS = 500
-MAX_ITEMS_PER_COMPACTION = 20
-MAX_LIST_FIELD_ITEMS = 80
-MIN_INTERACTIONS_FOR_AUTO_COMPACTION = 4
-MAX_LLM_INTERACTION_CHARS = 1_200
-MAX_LLM_INTERACTIONS = 24
-MAX_LLM_JSON_CHARS = 12_000
+DEFAULT_MEMORY_SERVICE_CONFIG = MemoryServiceConfig()
+MAX_COMPACTED_SUMMARY_CHARS = DEFAULT_MEMORY_SERVICE_CONFIG.max_compacted_summary_chars
+MAX_EXTRACTED_ITEM_TEXT_CHARS = DEFAULT_MEMORY_SERVICE_CONFIG.max_extracted_item_text_chars
+MAX_ITEMS_PER_COMPACTION = DEFAULT_MEMORY_SERVICE_CONFIG.max_items_per_compaction
+MAX_LIST_FIELD_ITEMS = DEFAULT_MEMORY_SERVICE_CONFIG.max_list_field_items
+MIN_INTERACTIONS_FOR_AUTO_COMPACTION = DEFAULT_MEMORY_SERVICE_CONFIG.min_interactions_for_auto_compaction
+MAX_LLM_INTERACTION_CHARS = DEFAULT_MEMORY_SERVICE_CONFIG.max_llm_interaction_chars
+MAX_LLM_INTERACTIONS = DEFAULT_MEMORY_SERVICE_CONFIG.max_llm_interactions
+MAX_LLM_JSON_CHARS = DEFAULT_MEMORY_SERVICE_CONFIG.max_llm_json_chars
 
 _EMAIL_OR_PHONE_PLACEHOLDER_RE = re.compile(
     r"\[(?:redacted_email|redacted_phone|redacted_secret)\]",
@@ -241,35 +242,29 @@ class MemoryService:
         self,
         *,
         settings: Settings | None = None,
+        config: MemoryServiceConfig | None = None,
         llm_service: LLMService | None = None,
         enable_llm_summarization: bool | None = None,
         allow_offline_llm_summarization: bool | None = None,
     ) -> None:
         self.settings = settings or get_settings()
+        self.config = config or MemoryServiceConfig.from_settings(self.settings)
         self.production_mode = is_production(self.settings)
         self.llm_service = llm_service
 
         self.enable_llm_summarization = (
-            setting_bool(
-                self.settings,
-                "ENABLE_LLM_MEMORY_SUMMARIZATION",
-                default=True,
-            )
-            if enable_llm_summarization is None
-            else bool(enable_llm_summarization)
+            bool(enable_llm_summarization)
+            if enable_llm_summarization is not None
+            else self.config.enable_llm_summarization
         )
 
         self.allow_offline_llm_summarization = (
-            setting_bool(
-                self.settings,
-                "ALLOW_OFFLINE_LLM_MEMORY_SUMMARIZATION",
-                default=False,
-            )
-            if allow_offline_llm_summarization is None
-            else bool(allow_offline_llm_summarization)
+            bool(allow_offline_llm_summarization)
+            if allow_offline_llm_summarization is not None
+            else self.config.allow_offline_llm_summarization
         )
 
-        self.summary_max_chars = int(self.settings.MEMORY_SUMMARY_MAX_CHARS)
+        self.summary_max_chars = int(self.config.summary_max_chars)
         self.last_meta: MemoryCompactionMeta | None = None
 
     async def compact(self, request: MemoryCompactionRequest) -> MemoryCompactionResult:

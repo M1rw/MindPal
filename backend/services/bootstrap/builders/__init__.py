@@ -28,7 +28,9 @@ from .dependent_builder import (
     build_safety_service,
 )
 from .infrastructure_builder import (
+    build_cache_service,
     build_idempotency_service,
+    build_job_queue_service,
     build_quota_service,
     build_rate_limits_service,
 )
@@ -56,7 +58,9 @@ __all__ = [
     "build_response_intelligence_service",
     "build_safety_service",
     # Infrastructure
+    "build_cache_service",
     "build_idempotency_service",
+    "build_job_queue_service",
     "build_quota_service",
     "build_rate_limits_service",
     # Specialized

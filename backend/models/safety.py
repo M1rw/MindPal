@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -177,7 +176,7 @@ class SafetyDecision(BaseModel):
             confidence=confidence,
         )
 
-    def to_public_dict(self) -> dict[str, Any]:
+    def to_public_dict(self) -> dict[str, str | bool | list[str]]:
         """
         Public-safe shape suitable for API responses.
         """

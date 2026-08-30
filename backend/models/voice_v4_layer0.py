@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from enum import Enum
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -251,7 +251,7 @@ class SafeVoiceDiagnostic(BaseModel):
         return value if value in VOICE_DIAGNOSTIC_MESSAGE_CATEGORIES else "unknown"
 
 
-def build_safe_voice_diagnostic(payload: Mapping[str, Any] | None) -> dict[str, Any]:
+def build_safe_voice_diagnostic(payload: Mapping[str, object] | None) -> dict[str, str | int | float | bool | None]:
     """Filter unknown/private fields and return JSON-safe diagnostic facts."""
 
     if not isinstance(payload, Mapping):

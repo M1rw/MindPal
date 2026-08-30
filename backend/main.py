@@ -24,8 +24,10 @@ from backend.api import api_router
 from backend.api.dependencies import close_service_container, get_service_container, reset_service_container_for_tests
 from backend.core.config import Settings, get_settings
 from backend.core.errors import AppError
+from backend.core.logging import configure_logging, log_event
 from backend.core.middleware import RequestBodyLimitMiddleware
 from backend.core.security import generate_request_id, sanitize_text
+from backend.services.core.metrics import render_metrics
 
 
 MAX_ERROR_MESSAGE_CHARS = 700
@@ -66,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     - no TTS synthesis
     """
     settings = settings or get_settings()
+    configure_logging(str(getattr(settings, "ENVIRONMENT", "development")), str(getattr(settings, "LOG_LEVEL", "INFO")))
 
     app = FastAPI(
         title=_setting_text(settings, "PROJECT_NAME", "MindPal"),
@@ -82,6 +85,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     _install_middleware(app, settings)
     _install_exception_handlers(app)
     _install_routes(app)
+
+    if bool(getattr(settings, "ENABLE_METRICS", False)):
+        @app.get("/metrics")
+        async def metrics_endpoint() -> Response:
+            return Response(content=render_metrics(), media_type="text/plain; version=0.7.0; charset=utf-8")
 
     return app
 
@@ -158,13 +166,14 @@ def _install_middleware(app: FastAPI, settings: Settings) -> None:
         response.headers["X-Process-Time-MS"] = str(getattr(request.state, "process_time_ms", "0"))
         if request.url.path.startswith("/api/"):
             response.headers.setdefault("Cache-Control", "no-store")
-        logger.info(
-            "request_complete request_id=%s method=%s path=%s status=%s duration_ms=%s",
-            request_id,
-            request.method,
-            request.url.path,
-            response.status_code,
-            getattr(request.state, "process_time_ms", 0),
+        log_event(
+            logger,
+            "request_complete",
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            status=response.status_code,
+            duration_ms=getattr(request.state, "process_time_ms", 0),
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
