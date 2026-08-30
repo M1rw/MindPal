@@ -43,9 +43,9 @@ test("capability checks fail closed and normalize browser permission errors", ()
 
   const constraints = buildMicrophoneConstraints();
   assert.equal(constraints.audio.channelCount.ideal, 1);
-  assert.equal(constraints.audio.echoCancellation.ideal, false);
-  assert.equal(constraints.audio.noiseSuppression.ideal, false);
-  assert.equal(constraints.audio.autoGainControl.ideal, false);
+  assert.equal(constraints.audio.echoCancellation.ideal, true);
+  assert.equal(constraints.audio.noiseSuppression.ideal, true);
+  assert.equal(constraints.audio.autoGainControl.ideal, true);
   assert.equal(constraints.video, false);
 });
 
