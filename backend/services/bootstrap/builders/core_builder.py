@@ -8,7 +8,7 @@ import httpx
 
 from backend.core.config import Settings
 from backend.providers import build_llm_providers, build_tts_providers
-from backend.services import AuthService, DBService, LLMService, TTSService
+from backend.services import AuthService, DBService, LLMService, LLMServiceConfig, TTSService, TTSServiceConfig
 
 
 def build_auth_service(settings: Settings) -> AuthService:
@@ -56,7 +56,10 @@ def build_llm_service(settings: Settings, http_client: httpx.AsyncClient) -> LLM
     return LLMService(
         providers=llm_providers,
         settings=settings,
-        include_offline_provider=settings.ENABLE_OFFLINE_LLM_FALLBACK or not settings.has_any_llm_provider,
+        config=LLMServiceConfig.from_settings(
+            settings,
+            include_offline_provider=settings.ENABLE_OFFLINE_LLM_FALLBACK or not settings.has_any_llm_provider,
+        ),
     )
 
 
@@ -76,5 +79,8 @@ def build_tts_service(settings: Settings, http_client: httpx.AsyncClient) -> TTS
     return TTSService(
         providers=tts_providers,
         settings=settings,
-        include_browser_fallback=settings.ENABLE_BROWSER_TTS_FALLBACK,
+        config=TTSServiceConfig.from_settings(
+            settings,
+            include_browser_fallback=settings.ENABLE_BROWSER_TTS_FALLBACK,
+        ),
     )

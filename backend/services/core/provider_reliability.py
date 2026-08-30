@@ -157,6 +157,12 @@ class CircuitBreaker:
                     self._success_count,
                     self.half_open_max_requests,
                 )
+                if self._success_count >= self.half_open_max_requests:
+                    logger.info(
+                        "Circuit breaker %s: recovery successful (CLOSED)",
+                        self.name,
+                    )
+                    self._transition_to_closed()
             elif self._state == CircuitState.CLOSED:
                 # Reset failure count on success
                 if self._failure_count > 0:

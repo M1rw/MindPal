@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from backend.core.config import Settings
 from backend.main import create_app
 from backend.models.memory import MemoryCategory, MemoryGraph, make_memory_atom
+from backend.services.cache_service import CacheService
 from backend.services.db_service import DBService, InMemoryDBProvider
 from backend.services.idempotency_service import IdempotencyConflictError, IdempotencyService
 from backend.services.llm_service import LLMService
@@ -91,6 +92,55 @@ async def test_distributed_rate_limit_is_atomic() -> None:
 
     outcomes = await asyncio.gather(*(consume() for _ in range(8)))
     assert sum(outcomes) == 3
+
+
+@pytest.mark.asyncio
+async def test_multi_level_rate_limits_enforce_user_and_endpoint_gates() -> None:
+    limiter = RateLimitService(db=_db())
+    policy_stack = [
+        {"scope": "chat", "subject": "user-1", "limit": 1, "window_seconds": 60},
+        {"scope": "chat", "subject": "user-1", "endpoint": "summary", "limit": 1, "window_seconds": 60},
+    ]
+
+    first = await limiter.consume_many(subject="user-1", policies=policy_stack)
+    assert all(decision.allowed for decision in first)
+
+    with pytest.raises(Exception):
+        await limiter.consume_many(subject="user-1", policies=policy_stack)
+
+
+@pytest.mark.asyncio
+async def test_cache_service_uses_ttl_and_invalidation() -> None:
+    settings = Settings(
+        ENVIRONMENT="test",
+        ENABLE_FIREBASE=False,
+        ENABLE_CACHE=True,
+        CACHE_BACKEND="memory",
+        CACHE_DEFAULT_TTL_SECONDS=60,
+        CACHE_NAMESPACE="mindpal-tests",
+    )
+    cache = CacheService(settings=settings)
+
+    await cache.set("demo:key", {"value": "ok"})
+    assert await cache.get("demo:key") == {"value": "ok"}
+    assert await cache.get("missing:key", default="fallback") == "fallback"
+
+    removed = await cache.invalidate("demo")
+    assert removed >= 1
+    assert await cache.get("demo:key") is None
+
+    calls = 0
+
+    async def loader() -> dict[str, int]:
+        nonlocal calls
+        calls += 1
+        return {"count": calls}
+
+    first = await cache.get_or_set("counter", ttl_seconds=60, loader=loader)
+    second = await cache.get_or_set("counter", ttl_seconds=60, loader=loader)
+    assert first == {"count": 1}
+    assert second == {"count": 1}
+    assert calls == 1
 
 
 @pytest.mark.asyncio

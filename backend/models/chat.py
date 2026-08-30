@@ -232,9 +232,9 @@ class LLMRequest(BaseModel):
         return cleaned
 
     @model_validator(mode="after")
-    def _require_system_message(self) -> LLMRequest:
-        if not any(message.role == LLMRole.SYSTEM for message in self.messages):
-            raise ValueError("LLMRequest requires a system message")
+    def _validate_messages(self) -> LLMRequest:
+        if not self.messages:
+            raise ValueError("LLMRequest requires at least one message")
         return self
 
 

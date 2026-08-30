@@ -18,6 +18,30 @@ class HealthStatus(Enum):
     UNHEALTHY = "unhealthy"
 
 
+@dataclass(frozen=True, slots=True)
+class HealthSLO:
+    """Operational thresholds for readiness decisions."""
+
+    degraded_latency_ms: float = 1500.0
+    unhealthy_latency_ms: float = 5000.0
+    degraded_error_rate: float = 0.05
+
+    def classify(self, *, latency_ms: float, error_rate: float | None = None, status: HealthStatus | str | None = None) -> HealthStatus:
+        normalized_status = status.value if isinstance(status, HealthStatus) else str(status or "").lower()
+
+        if normalized_status in {"unhealthy", "error", "down", "failed"}:
+            return HealthStatus.UNHEALTHY
+        if normalized_status in {"degraded", "warning"}:
+            return HealthStatus.DEGRADED
+        if normalized_status in {"healthy", "ok", "ready"}:
+            return HealthStatus.HEALTHY
+        if latency_ms >= self.unhealthy_latency_ms:
+            return HealthStatus.UNHEALTHY
+        if latency_ms >= self.degraded_latency_ms or (error_rate is not None and error_rate >= self.degraded_error_rate):
+            return HealthStatus.DEGRADED
+        return HealthStatus.HEALTHY
+
+
 @dataclass
 class ServiceHealth:
     """Health status of a single service."""
@@ -27,7 +51,12 @@ class ServiceHealth:
     latency_ms: float
     errors: Optional[list[str]] = None
     metadata: Optional[dict[str, Any]] = None
-    
+
+    @property
+    def is_ready(self) -> bool:
+        """Deployment readiness: unhealthy is not ready, degraded is still callable but not fully ready."""
+        return self.status == HealthStatus.HEALTHY
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -46,7 +75,11 @@ class SystemHealth:
     status: HealthStatus
     last_check: datetime
     services: dict[str, ServiceHealth]
-    
+
+    @property
+    def is_ready(self) -> bool:
+        return self.status == HealthStatus.HEALTHY
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -72,11 +105,12 @@ class HealthChecker:
         overall = checker.get_overall_status()
     """
     
-    def __init__(self, timeout_seconds: float = 5.0):
+    def __init__(self, timeout_seconds: float = 5.0, *, slo: HealthSLO | None = None):
         self._checks: dict[str, Callable[[], Any]] = {}
         self._results: dict[str, ServiceHealth] = {}
         self._timeout = timeout_seconds
         self._lock = asyncio.Lock()
+        self._slo = slo or HealthSLO()
     
     def register(
         self,
@@ -92,6 +126,29 @@ class HealthChecker:
                        Should raise exception if unhealthy
         """
         self._checks[name] = check_func
+
+    def register_with_slo(
+        self,
+        name: str,
+        check_func: Callable[[], Any],
+        *,
+        degraded_latency_ms: float | None = None,
+        unhealthy_latency_ms: float | None = None,
+    ) -> None:
+        """Register a health check with explicit operational thresholds."""
+        self._checks[name] = check_func
+        if degraded_latency_ms is not None:
+            self._slo = HealthSLO(
+                degraded_latency_ms=degraded_latency_ms,
+                unhealthy_latency_ms=self._slo.unhealthy_latency_ms,
+                degraded_error_rate=self._slo.degraded_error_rate,
+            )
+        if unhealthy_latency_ms is not None:
+            self._slo = HealthSLO(
+                degraded_latency_ms=self._slo.degraded_latency_ms,
+                unhealthy_latency_ms=unhealthy_latency_ms,
+                degraded_error_rate=self._slo.degraded_error_rate,
+            )
     
     async def check(self, name: str) -> ServiceHealth:
         """
@@ -125,14 +182,15 @@ class HealthChecker:
             
             # Determine status from result
             if isinstance(result, dict):
-                status = HealthStatus[result.get("status", "HEALTHY").upper()]
+                status_value = result.get("status", "healthy")
+                status = self._resolve_status(status_value, latency_ms)
                 errors = result.get("errors")
                 metadata = result.get("metadata")
             else:
-                status = HealthStatus.HEALTHY
+                status = self._resolve_status("healthy", latency_ms)
                 errors = None
                 metadata = None
-            
+
             health = ServiceHealth(
                 name=name,
                 status=status,
@@ -192,9 +250,9 @@ class HealthChecker:
             SystemHealth with overall status
         """
         await self.check_all()
-        
+
         services = dict(self._results)
-        
+
         # Determine overall status
         if not services:
             overall_status = HealthStatus.HEALTHY
@@ -206,13 +264,28 @@ class HealthChecker:
                 overall_status = HealthStatus.DEGRADED
             else:
                 overall_status = HealthStatus.HEALTHY
-        
+
         return SystemHealth(
             status=overall_status,
             last_check=datetime.utcnow(),
             services=services
         )
-    
+
+    def _resolve_status(self, status: str | None, latency_ms: float) -> HealthStatus:
+        if status is None:
+            return self._slo.classify(latency_ms=latency_ms)
+
+        normalized = str(status).lower().strip()
+        if normalized in {"ok", "ready", "healthy"}:
+            return self._slo.classify(latency_ms=latency_ms)
+        if normalized in {"degraded", "warning"}:
+            return HealthStatus.DEGRADED
+        if normalized in {"error", "unhealthy", "down", "failed"}:
+            return HealthStatus.UNHEALTHY
+        if "error" in normalized or "failed" in normalized:
+            return HealthStatus.UNHEALTHY
+        return self._slo.classify(latency_ms=latency_ms, status=normalized)
+
     async def _run_check(self, check_func: Callable[[], Any]) -> Any:
         """Run check function (handles sync/async)."""
         if asyncio.iscoroutinefunction(check_func):

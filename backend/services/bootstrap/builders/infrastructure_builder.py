@@ -7,9 +7,22 @@ quotas, and idempotent request handling.
 
 from backend.core.config import Settings
 from backend.services import DBService
+from backend.services.cache_service import CacheService
 from backend.services.idempotency_service import IdempotencyService
+from backend.services.job_queue_service import AsyncJobQueueService
 from backend.services.quota_service import QuotaService
 from backend.services.rate_limit_service import RateLimitService
+
+
+def build_cache_service(settings: Settings) -> CacheService:
+    """Build a cache backend using Redis when configured, otherwise an in-memory fallback."""
+    return CacheService(settings=settings)
+
+
+def build_job_queue_service() -> AsyncJobQueueService:
+    """Build an async job queue for background operations and retries."""
+    queue = AsyncJobQueueService(max_workers=2, retry_backoff_seconds=1.0)
+    return queue
 
 
 def build_quota_service(db: DBService, settings: Settings) -> QuotaService:

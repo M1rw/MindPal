@@ -14,7 +14,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any
+
+ScalarValue = str | int | float | bool | None
+UiSettingValue = ScalarValue | list[object] | dict[str, object]
 
 from backend.core.security import redact_basic_pii, safe_truncate, sanitize_text
 
@@ -129,12 +131,12 @@ def sanitize_string_list(
 MAX_UI_SETTINGS_ITEMS = 80
 MAX_UI_SETTINGS_VALUE_CHARS = 800
 
-def sanitize_ui_settings(value: object) -> dict[str, Any]:
+def sanitize_ui_settings(value: object) -> dict[str, UiSettingValue]:
     """Sanitize nested UI settings dict (max depth 4)."""
     if not isinstance(value, Mapping):
         return {}
 
-    cleaned: dict[str, Any] = {}
+    cleaned: dict[str, UiSettingValue] = {}
 
     for raw_key, raw_value in value.items():
         if len(cleaned) >= MAX_UI_SETTINGS_ITEMS:
@@ -149,7 +151,7 @@ def sanitize_ui_settings(value: object) -> dict[str, Any]:
     return cleaned
 
 
-def _sanitize_ui_setting_value(value: object, *, depth: int) -> Any:
+def _sanitize_ui_setting_value(value: object, *, depth: int) -> UiSettingValue:
     """Recursively sanitize a UI setting value (max depth 4)."""
     if depth >= 4:
         return sanitize_pii_text(str(value or ""), MAX_UI_SETTINGS_VALUE_CHARS)
@@ -164,7 +166,7 @@ def _sanitize_ui_setting_value(value: object, *, depth: int) -> Any:
         return sanitize_pii_text(value, MAX_UI_SETTINGS_VALUE_CHARS)
 
     if isinstance(value, Mapping):
-        output: dict[str, Any] = {}
+        output: dict[str, UiSettingValue] = {}
         for raw_key, raw_value in list(value.items())[:MAX_UI_SETTINGS_ITEMS]:
             key = sanitize_pii_text(str(raw_key or ""), 300)
             if key:
