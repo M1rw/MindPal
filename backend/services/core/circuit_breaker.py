@@ -19,9 +19,18 @@ class CircuitState(Enum):
     HALF_OPEN = "half_open"    # Testing if recovered, limited calls allowed
 
 
+# Aliases for backward compatibility
+CircuitBreakerState = CircuitState
+
+
 class CircuitBreakerError(Exception):
     """Raised when circuit breaker is OPEN."""
     pass
+
+
+# Aliases for backward compatibility
+CircuitBreakerOpen = CircuitBreakerError
+CircuitBreakerOpenError = CircuitBreakerError
 
 
 class CircuitBreakerMetrics:
@@ -64,11 +73,13 @@ class CircuitBreaker:
     
     def __init__(
         self,
-        name: str,
+        name: str = "default",
         failure_threshold: int = 5,
         recovery_timeout_seconds: int = 60,
         half_open_max_calls: int = 1,
         expected_exception: type[Exception] = Exception,
+        success_threshold: int = 1,
+        timeout_seconds: float = 60.0,
     ):
         """
         Initialize circuit breaker.
@@ -82,9 +93,10 @@ class CircuitBreaker:
         """
         self.name = name
         self.failure_threshold = max(1, failure_threshold)
-        self.recovery_timeout = timedelta(seconds=max(1, recovery_timeout_seconds))
+        self.recovery_timeout = timedelta(seconds=max(1, int(timeout_seconds if timeout_seconds != 60.0 else recovery_timeout_seconds)))
         self.half_open_max_calls = max(1, half_open_max_calls)
         self.expected_exception = expected_exception
+        self.success_threshold = max(1, success_threshold)
         
         self.state = CircuitState.CLOSED
         self.failure_count = 0
@@ -103,18 +115,6 @@ class CircuitBreaker:
     ) -> T:
         """
         Execute function with circuit breaker protection.
-        
-        Args:
-            func: Async function to call
-            *args: Function positional arguments
-            **kwargs: Function keyword arguments
-            
-        Returns:
-            Function return value
-            
-        Raises:
-            CircuitBreakerError: If circuit is OPEN
-            Exception: Original exception from func
         """
         async with self._lock:
             self.metrics.total_calls += 1
@@ -152,7 +152,7 @@ class CircuitBreaker:
             self.failure_count = 0
             self.success_count += 1
             
-            if self.state == CircuitState.HALF_OPEN:
+            if self.state == CircuitState.HALF_OPEN and self.success_count >= self.success_threshold:
                 logger.info(f"Circuit {self.name} recovered, closing circuit")
                 self._transition_to(CircuitState.CLOSED)
             elif self.state == CircuitState.CLOSED:
@@ -193,7 +193,6 @@ class CircuitBreaker:
             self.metrics.state_changes += 1
             self.metrics.last_state_change = datetime.utcnow()
             
-            # Reset counters for new state
             if new_state == CircuitState.HALF_OPEN:
                 self.success_count = 0
             
@@ -258,7 +257,6 @@ class CircuitBreakerRegistry:
         logger.info("All circuit breakers reset")
 
 
-# Global registry
 _global_registry = CircuitBreakerRegistry()
 
 
@@ -268,43 +266,27 @@ async def get_circuit_breaker_registry() -> CircuitBreakerRegistry:
 
 
 def circuit_breaker(
-    name: str,
+    name_or_breaker: str | CircuitBreaker,
     failure_threshold: int = 5,
     recovery_timeout_seconds: int = 60,
     half_open_max_calls: int = 1,
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
-    """
-    Decorator for adding circuit breaker protection.
-    
-    Args:
-        name: Circuit name
-        failure_threshold: Failures before opening
-        recovery_timeout_seconds: Recovery wait time
-        half_open_max_calls: Calls allowed in half-open state
-        
-    Returns:
-        Decorated function with circuit breaker
-        
-    Example:
-        @circuit_breaker("external_api", failure_threshold=5)
-        async def call_api() -> dict:
-            return await external_service.get_data()
-    """
-    breaker = CircuitBreaker(
-        name,
-        failure_threshold=failure_threshold,
-        recovery_timeout_seconds=recovery_timeout_seconds,
-        half_open_max_calls=half_open_max_calls,
-    )
+    if isinstance(name_or_breaker, CircuitBreaker):
+        breaker = name_or_breaker
+    else:
+        breaker = CircuitBreaker(
+            name_or_breaker,
+            failure_threshold=failure_threshold,
+            recovery_timeout_seconds=recovery_timeout_seconds,
+            half_open_max_calls=half_open_max_calls,
+        )
     
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> T:
             return await breaker.call(func, *args, **kwargs)
         
-        # Store reference for monitoring
         wrapper._circuit_breaker = breaker  # type: ignore
         return wrapper
     
     return decorator
-
