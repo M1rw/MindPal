@@ -22,4 +22,3 @@ __all__ = [
     "close_global_container",
     "reset_global_container",
 ]
-
