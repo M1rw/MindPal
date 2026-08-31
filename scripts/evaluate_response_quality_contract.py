@@ -17,7 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.core.message_classifier import classify_message
 from backend.core.prompt_builder import build_tiered_prompt
 from backend.core.prompts import build_system_prompt
-from backend.services.response_quality_service import finalize_user_reply
+from backend.services.domain.intelligence import finalize_user_reply
 
 CASES = [
     ("Casual support", "Hey, I had a rough meeting today.", False),

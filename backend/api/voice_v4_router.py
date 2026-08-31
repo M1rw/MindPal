@@ -48,7 +48,7 @@ async def issue_voice_v4_token(
 
     # Load policies once and evaluate voice feature using the shared service.
     feature_state = await services.feature_policies.load()
-    from backend.services.feature_flags_service import FeatureFlagsService
+    from backend.services.domain.features import FeatureFlagsService
     feature_evaluator = FeatureFlagsService(
         registry=services.feature_flags.registry,
         policies=feature_state.policies,

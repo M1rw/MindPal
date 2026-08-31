@@ -8,12 +8,14 @@ import httpx
 
 from backend.core.config import Settings
 from backend.core.errors import ConfigError
-from backend.services import DBService
-from backend.services.admin_authority import AdminAuthority
-from backend.services.feature_policy_repository import FeaturePolicyRepository, FeaturePolicyStore
-from backend.services.supabase_admin_repository import SupabaseAdminRepository
+from backend.services.domain.admin import AdminAuthority, SupabaseAdminRepository
+from backend.services.domain.features import (
+    FeaturePolicyRepository,
+    FeaturePolicyStore,
+    SupabaseFeaturePolicyRepository,
+)
+from backend.services.domain.storage import StorageService as DBService
 from backend.services.supabase_client import SupabaseClient
-from backend.services.supabase_feature_policy_repository import SupabaseFeaturePolicyRepository
 
 
 def build_feature_policy_store(
