@@ -22,6 +22,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from backend.api import api_router
 from backend.api.dependencies import close_service_container, get_service_container, reset_service_container_for_tests
+from backend.services.bootstrap import build_service_container
 from backend.core.config import Settings, get_settings
 from backend.core.errors import AppError
 from backend.core.logging import configure_logging, log_event
@@ -47,13 +48,15 @@ async def lifespan(app: FastAPI):
     Starts/stops only local infrastructure. Provider SDKs remain lazy and are
     not called here.
     """
+    settings = getattr(app.state, "settings", None) or get_settings()
+    container = build_service_container(settings)
+    await container.start()
+    app.state.service_container = container
     try:
         yield
     finally:
-        container = getattr(app.state, "service_container", None)
         app.state.service_container = None
-        if container is not None:
-            await container.aclose()
+        await container.aclose()
         await close_service_container()
 
 
