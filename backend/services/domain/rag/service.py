@@ -19,7 +19,7 @@ from backend.core.settings_helpers import is_production, setting_bool
 from backend.models.chat import RagReference
 from backend.services.domain.rag.corpus import GroundingUnit, PreparedSearchTerm, RetrievalMatch
 from backend.services.domain.rag.planner import RAGQueryPlan, RAGRetrievalResult
-from backend.services.llm_service import LLMService, build_llm_request
+from backend.services.domain.llm import LLMService, build_llm_request
 
 logger = logging.getLogger(__name__)
 

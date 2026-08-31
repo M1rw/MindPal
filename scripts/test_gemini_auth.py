@@ -1,6 +1,6 @@
 import asyncio
 from backend.api.dependencies import get_service_container
-from backend.services.llm_service import build_llm_request
+from backend.services.domain.llm import build_llm_request
 
 async def main():
     services = get_service_container()

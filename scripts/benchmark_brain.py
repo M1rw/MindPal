@@ -25,7 +25,7 @@ from backend.models.memory import (
     make_memory_atom,
     build_memory_prompt_from_graph,
 )
-from backend.services.brain_service import BrainService, render_context_pack_for_prompt
+from backend.services.domain.memory import BrainService, render_context_pack_for_prompt
 
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -20,9 +20,9 @@ from backend.models.feature_flags import (
     FeaturePolicy,
 )
 from backend.core.security import hash_user_id, sanitize_text
-from backend.services.auth_service import parse_bearer_token
-from backend.services.feature_flags_service import FeatureFlagsService
-from backend.services.feature_policy_repository import FeaturePolicyConflictError
+from backend.services.domain.auth import parse_bearer_token
+from backend.services.domain.features import FeatureFlagsService
+from backend.services.domain.features import FeaturePolicyConflictError
 
 
 logger = logging.getLogger(__name__)

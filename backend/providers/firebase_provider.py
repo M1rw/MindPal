@@ -17,7 +17,7 @@ from backend.providers._shared import (
     setting_bool as _setting_bool,
     setting_value as _setting_value,
 )
-from backend.services.auth_service import AuthIdentity
+from backend.services.domain.auth import AuthIdentity
 
 
 MAX_PROJECT_ID_CHARS = 120

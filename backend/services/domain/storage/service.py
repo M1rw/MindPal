@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any, Callable
 
 from backend.core.config import Settings, get_settings
@@ -183,14 +184,16 @@ class StorageService:
             raise DatabaseError("Failed to append safety event", code="db_safety_event_append_failed", details={"provider": self.provider.name}) from exc
 
     async def health(self) -> dict[str, Any]:
-        return StorageHealth(
-            provider=self.provider.name,
-            configured=bool(self.provider.is_configured),
-            mock_mode=self.mock_mode,
-            production_mode=self.production_mode,
-            firebase_required=self.production_mode or _firebase_env_present(self.settings),
-            firebase_init_error=self.firebase_init_error,
-        ).__dict__
+        return asdict(
+            StorageHealth(
+                provider=self.provider.name,
+                configured=bool(self.provider.is_configured),
+                mock_mode=self.mock_mode,
+                production_mode=self.production_mode,
+                firebase_required=self.production_mode or _firebase_env_present(self.settings),
+                firebase_init_error=self.firebase_init_error,
+            )
+        )
 
 
 def _firebase_env_present(settings: Settings) -> bool:
