@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .security import sanitize_text
+from backend.core.security import sanitize_text
 
 __all__ = ["MessageClassification", "classify_message"]
 

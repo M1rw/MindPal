@@ -33,7 +33,8 @@ from backend.models.memory import (
     RelationshipFact,
 )
 from backend.services.configs import MemoryServiceConfig
-from backend.services.domain.llm import LLMService, build_llm_request
+from backend.services.domain.llm.service import LLMService
+from backend.services.domain.llm.request_builder import build_llm_request
 from backend.services.domain.memory.compaction import (
     LLMCompactionOutcome,
     MemoryCompactionMeta,
