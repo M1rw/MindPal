@@ -120,6 +120,15 @@ def validate_url(
     return cleaned
 
 
+def is_safe_url(url: str) -> bool:
+    """Return True if url passes SSRF and safety validation."""
+    try:
+        validate_url(url)
+        return True
+    except ValueError:
+        return False
+
+
 def _parse_int_part(part: str) -> int | None:
     if not part:
         return None

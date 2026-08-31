@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import time
-from backend.core.message_classifier import classify_message
-from backend.core.freshness import requires_verified_web_search
+from backend.services.domain.llm.message_classifier import classify_message
+from backend.services.domain.llm.freshness import requires_verified_web_search
 
 
 def benchmark_message_classifier(iterations: int = 10_000):

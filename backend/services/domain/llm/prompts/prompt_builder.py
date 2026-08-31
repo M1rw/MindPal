@@ -21,8 +21,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .security import normalize_locale, safe_truncate, sanitize_text
-from .message_classifier import MessageClassification
+from backend.core.security import normalize_locale, safe_truncate, sanitize_text
+from backend.services.domain.llm.message_classifier import MessageClassification
 
 __all__ = ["build_tiered_prompt", "get_self_knowledge_response"]
 
