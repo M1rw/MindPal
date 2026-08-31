@@ -30,7 +30,7 @@ from backend.models.memory import (
     summary_from_memory_graph,
 )
 
-from backend.services.memory_graph_service import memory_graph_delta_from_summary
+from backend.services.domain.memory import memory_graph_delta_from_summary
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
 MAX_MEMORY_INTERACTIONS = 50

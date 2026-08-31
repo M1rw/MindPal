@@ -36,7 +36,7 @@ from backend.services.domain.safety.rules import (
     SafetyClassifierMeta,
     SafetyRuleMatch,
 )
-from backend.services.llm_service import LLMService, build_llm_request
+from backend.services.domain.llm import LLMService, build_llm_request
 
 logger = logging.getLogger(__name__)
 

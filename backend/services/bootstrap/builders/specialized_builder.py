@@ -5,11 +5,11 @@ These are miscellaneous services that don't fit into other categories.
 """
 
 from backend.core.config import Settings
-from backend.services import DBService
-from backend.services.brain_service import BrainService
-from backend.services.feature_flags_service import FeatureFlagsService
+from backend.services.domain.features import FeatureFlagsService
+from backend.services.domain.memory import BrainService
+from backend.services.domain.storage import StorageService as DBService
+from backend.services.domain.voice import VoiceV4TokenService
 from backend.services.memory_repository import MemoryRepository
-from backend.services.voice_v4_token_service import VoiceV4TokenService
 import httpx
 
 

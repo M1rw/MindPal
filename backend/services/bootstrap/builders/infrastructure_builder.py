@@ -6,12 +6,10 @@ quotas, and idempotent request handling.
 """
 
 from backend.core.config import Settings
-from backend.services import DBService
 from backend.services.cache_service import CacheService
-from backend.services.idempotency_service import IdempotencyService
+from backend.services.domain.quota import IdempotencyService, QuotaService, RateLimitService
+from backend.services.domain.storage import StorageService as DBService
 from backend.services.job_queue_service import AsyncJobQueueService
-from backend.services.quota_service import QuotaService
-from backend.services.rate_limit_service import RateLimitService
 
 
 def build_cache_service(settings: Settings) -> CacheService:

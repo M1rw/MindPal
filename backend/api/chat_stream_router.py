@@ -41,10 +41,12 @@ from backend.models.brain import BrainPolicyTier
 from backend.models.chat import ChatRequest, LLMMessage, LLMRole
 from backend.models.memory import MemoryGraph, summary_from_memory_graph
 from backend.models.runtime_trace import RuntimeNode
-from backend.services.brain_service import render_context_pack_for_prompt
-from backend.services.llm_service import build_llm_request
-from backend.services.memory_graph_service import build_memory_graph_prompt
-from backend.services.response_quality_service import finalize_user_reply
+from backend.services.domain.memory import (
+    build_memory_graph_prompt,
+    render_context_pack_for_prompt,
+)
+from backend.services.domain.llm import build_llm_request
+from backend.services.domain.intelligence import finalize_user_reply
 from backend.services.runtime_trace_service import RuntimeTraceRecorder
 from backend.tools import ToolContext
 

@@ -375,7 +375,7 @@ def _install_frontend_routes(app: FastAPI) -> None:
         if container is not None:
             provider_configured = container.auth.provider is not None
         else:
-            from backend.services.auth_service import FirebaseAuthProvider
+            from backend.services.domain.auth import FirebaseAuthProvider
             provider_configured = FirebaseAuthProvider(settings=settings).is_configured
         vercel_environment = settings.VERCEL_ENV.strip().lower()
         configured_voice_environment = settings.VOICE_V4_PREVIEW_ENVIRONMENT.strip().lower()

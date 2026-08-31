@@ -15,7 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.core.config import Settings
 from backend.core.message_classifier import classify_message
-from backend.services.response_intelligence_service import ResponseIntelligenceService
+from backend.services.domain.intelligence import ResponseIntelligenceService
 
 CASES = (
     {

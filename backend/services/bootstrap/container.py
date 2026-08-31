@@ -17,28 +17,21 @@ from typing import Any, Optional
 import httpx
 
 from backend.core.config import Settings
-from backend.services import (
-    AuthService,
-    CacheService,
-    DBService,
-    LLMService,
-    MemoryService,
-    OutputGuardService,
-    RAGService,
-    SafetyService,
-    TTSService,
-)
-from backend.services.admin_authority import AdminAuthority
-from backend.services.brain_service import BrainService
-from backend.services.feature_flags_service import FeatureFlagsService
-from backend.services.feature_policy_repository import FeaturePolicyStore
-from backend.services.idempotency_service import IdempotencyService
+from backend.services.cache_service import CacheService
+from backend.services.domain.admin import AdminAuthority
+from backend.services.domain.auth import AuthService
+from backend.services.domain.features import FeatureFlagsService, FeaturePolicyStore
+from backend.services.domain.intelligence import ResponseIntelligenceService
+from backend.services.domain.llm import LLMService
+from backend.services.domain.memory import BrainService, MemoryService
+from backend.services.domain.quota import IdempotencyService, QuotaService, RateLimitService
+from backend.services.domain.rag import RAGService
+from backend.services.domain.safety import SafetyService
+from backend.services.domain.storage import StorageService as DBService
+from backend.services.domain.voice import TTSService, VoiceV4TokenService
 from backend.services.job_queue_service import AsyncJobQueueService
 from backend.services.memory_repository import MemoryRepository
-from backend.services.quota_service import QuotaService
-from backend.services.rate_limit_service import RateLimitService
-from backend.services.response_intelligence_service import ResponseIntelligenceService
-from backend.services.voice_v4_token_service import VoiceV4TokenService
+from backend.services.output_guard_service import OutputGuardService
 
 logger = logging.getLogger(__name__)
 
