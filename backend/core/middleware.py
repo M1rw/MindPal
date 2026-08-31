@@ -1,24 +1,27 @@
-from __future__ import annotations
+# backend/core/middleware.py
 
+from __future__ import annotations
 
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 class RequestBodyTooLargeError(Exception):
+    """Exception raised when ASGI request payload exceeds configured byte limit."""
+
     pass
 
 
 class RequestBodyLimitMiddleware:
-    """Reject oversized HTTP bodies before framework parsing/validation.
+    """
+    Reject oversized HTTP bodies before framework parsing or memory allocation.
 
-    Both Content-Length and streamed/chunked bodies are enforced. This avoids
-    allocating a large JSON/base64 payload before Pydantic can reject it.
+    Both Content-Length headers and chunked stream sizes are enforced.
     """
 
     def __init__(self, app: ASGIApp, *, max_body_bytes: int) -> None:
-        self.app = app
-        self.max_body_bytes = max(1, int(max_body_bytes))
+        self.app: ASGIApp = app
+        self.max_body_bytes: int = max(1, int(max_body_bytes))
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope.get("type") != "http":
@@ -33,7 +36,6 @@ class RequestBodyLimitMiddleware:
                     await self._reject(scope, receive, send)
                     return
             except ValueError:
-                # Invalid Content-Length is handled by the ASGI server/framework.
                 pass
 
         received = 0

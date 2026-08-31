@@ -1,5 +1,9 @@
 # backend/api/chat_router.py
 
+"""
+Chat API router delivering conversational endpoints with quota, idempotency, and safety.
+"""
+
 from __future__ import annotations
 
 import json
@@ -50,11 +54,9 @@ from backend.services.domain.memory import (
 )
 from backend.tools import ToolContext, build_default_registry
 
-
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["chat"])
 
-# Lazy singleton tool registry
 _tool_registry = None
 
 
@@ -71,13 +73,15 @@ async def chat_debug(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> ProviderChainTrace:
-    """Retrieve LLM trace data for a specific request."""
+    """Retrieve LLM trace telemetry for a specific request ID."""
     trace = services.llm.get_trace(sanitize_text(request_id, 80))
 
     if trace and trace.user_id_hash and trace.user_id_hash != context.session.user_id_hash:
         logger.warning(
             "User %s attempted to access trace %s owned by %s",
-            context.session.user_id_hash, request_id, trace.user_id_hash
+            context.session.user_id_hash,
+            request_id,
+            trace.user_id_hash,
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -107,7 +111,7 @@ async def chat(
     context: RequestContextDep,
     header_timezone: Annotated[str, Depends(get_timezone)] = "UTC",
 ) -> ChatResponse:
-    """Production chat path with atomic quota, idempotency, and canonical memory."""
+    """Synchronous chat endpoint with rate limits, safety, RAG, and memory graph integration."""
     user_timezone = payload.metadata.timezone or header_timezone or "UTC"
     locale = resolve_locale(payload, context.locale)
     authenticated = bool(context.session.authenticated)
@@ -286,14 +290,24 @@ async def chat(
             locale=locale,
             clinical_mode=clinical_mode,
         )
-        rag_grounding = json.dumps(
-            [ref if isinstance(ref, dict) else ref.model_dump() for ref in rag_result.prompt_grounding],
-            ensure_ascii=False,
-            separators=(",", ":"),
-        ) if rag_result.prompt_grounding else ""
+        rag_grounding = (
+            json.dumps(
+                [ref if isinstance(ref, dict) else ref.model_dump() for ref in rag_result.prompt_grounding],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            if rag_result.prompt_grounding
+            else ""
+        )
         allowed_intent_keys = (
-            "language_style", "situation_type", "core_problem", "user_need",
-            "risk_flags", "avoid", "answer_strategy", "detected_signals",
+            "language_style",
+            "situation_type",
+            "core_problem",
+            "user_need",
+            "risk_flags",
+            "avoid",
+            "answer_strategy",
+            "detected_signals",
         )
         compact_intent = {
             key: intent_context.get(key)
@@ -315,6 +329,7 @@ async def chat(
                 metadata=payload.metadata,
                 chat_history=list(payload.history or []),
             ).to_prompt()
+
         system_prompt = build_tiered_prompt(
             classification=classification,
             locale=locale,

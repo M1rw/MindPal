@@ -8,6 +8,8 @@ from backend.models.schemas import TTSFormat
 
 @dataclass(frozen=True, slots=True)
 class TTSPolicy:
+    """TTS execution policy describing voice selection and fallback allowances."""
+
     locale: str
     voice_id: str | None
     speaking_rate: float
@@ -19,6 +21,8 @@ class TTSPolicy:
 
 @dataclass(frozen=True, slots=True)
 class TTSServiceMeta:
+    """Execution telemetry for TTS generation requests."""
+
     mode: str
     provider_used: str
     fallback_used: bool
