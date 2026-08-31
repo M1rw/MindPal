@@ -434,6 +434,11 @@ details > summary::-webkit-details-marker { display: none; }
   transform: translateX(1px);
 }
 
+.settings-tab-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 .dark .settings-tab-btn {
   color: #cbd5e1;
 }
@@ -443,6 +448,10 @@ details > summary::-webkit-details-marker { display: none; }
   background: #2f2f2f;
   color: #ffffff;
   box-shadow: none;
+}
+
+.dark .settings-tab-btn:focus-visible {
+  outline: 2px solid #60a5fa;
 }
 
 .settings-panel {

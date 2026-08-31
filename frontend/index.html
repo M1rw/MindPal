@@ -106,18 +106,18 @@
             <span class="text-xl font-medium tracking-tight text-gray-800 dark:text-gray-200">MindPal</span>
             <div id="env-tag" class="px-2 py-0.5 rounded-md bg-gemini-surface dark:bg-gemini-darkSurface text-[10px] font-medium text-gray-500 dark:text-gray-400 transition-colors">Local</div>
         </div>
-        
+
         <div class="flex items-center gap-1 sm:gap-2 text-gray-600 dark:text-gray-300">
             <button id="theme-toggle-btn" class="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none" title="Toggle Theme" aria-label="Toggle theme">
                 <i data-lucide="moon" class="w-5 h-5 block dark:hidden"></i>
                 <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
             </button>
-            
+
             <button id="streak-btn" class="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors text-[14px] font-medium focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none" title="View Progress" aria-label="View daily streak progress">
                 <span id="streak-counter">0</span>
                 <i data-lucide="flame" class="w-4 h-4 text-orange-500 dark:text-orange-400"></i>
             </button>
-            
+
             <button id="profile-btn" class="p-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none" title="Profile & Settings" aria-label="Profile and settings">
                 <div class="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-zinc-600" id="profile-avatar">
                     <i data-lucide="user" class="w-4 h-4"></i>
@@ -142,7 +142,7 @@
                     <span id="greeting-text" class="bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]">Hello.</span>
                 </h1>
                 <p class="text-2xl sm:text-3xl text-[#444746] dark:text-[#c4c7c5] font-medium tracking-tight mb-8">What's on your mind today?</p>
-                
+
                 <div class="flex flex-wrap justify-start sm:justify-center gap-3 mb-2">
                     <button class="mood-btn px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none" data-mood="Overwhelmed" aria-label="Start reflection: I feel overwhelmed">
                         <i data-lucide="waves" class="w-4 h-4 text-blue-500"></i> I feel overwhelmed
@@ -160,13 +160,13 @@
             <!-- The Input Box Container -->
             <div class="w-full max-w-4xl relative z-10">
                 <div class="bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] p-2 flex items-end relative transition-shadow w-full">
-                    <textarea 
+                    <textarea
                         id="chat-input"
                         rows="1"
                         dir="auto"
                         class="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-4 pr-2 py-2.5 text-[15px] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-[#c4c7c5] leading-6 min-h-[44px]"
                         placeholder="Ask MindPal"
-                        
+
                     ></textarea>
 
                     <div class="flex items-center gap-1 pr-1 h-11">
@@ -239,7 +239,7 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="text-center mt-3 text-[12px] text-gray-500 dark:text-[#c4c7c5]">
                     MindPal guarantees privacy. Secure conversations & strict clinical safety protocols.
                 </div>
@@ -549,7 +549,7 @@
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            
+
             <div class="p-8 flex flex-col items-center gap-8">
                 <!-- Big Flame & Streak -->
                 <div class="flex flex-col items-center">
