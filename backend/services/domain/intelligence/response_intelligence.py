@@ -15,7 +15,8 @@ from typing import Any, Literal
 
 from backend.core.config import Settings
 from backend.core.security import sanitize_text
-from backend.services.domain.llm import LLMService, build_llm_request
+from backend.services.domain.llm.service import LLMService
+from backend.services.domain.llm.request_builder import build_llm_request
 
 MAX_BRIEF_MESSAGE_CHARS = 1_600
 MAX_CANDIDATE_CHARS = 8_000

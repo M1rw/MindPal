@@ -17,7 +17,8 @@ from backend.core.errors import SafetyError
 from backend.core.security import Locale, normalize_locale, sanitize_text
 from backend.core.settings_helpers import is_production
 from backend.services.configs import OutputGuardServiceConfig
-from backend.services.domain.llm import LLMService, build_llm_request
+from backend.services.domain.llm.service import LLMService
+from backend.services.domain.llm.request_builder import build_llm_request
 
 logger = logging.getLogger(__name__)
 

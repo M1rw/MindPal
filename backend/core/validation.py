@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Final
 
 from backend.core.errors import InputTooLongError, ValidationAppError
@@ -11,6 +12,10 @@ DEFAULT_MAX_TEXT_CHARS: Final[int] = 4_000
 MAX_USER_ID_CHARS: Final[int] = 160
 MAX_REQUEST_ID_CHARS: Final[int] = 120
 MAX_OPERATION_CHARS: Final[int] = 80
+
+_EMAIL_REGEX: Final[re.Pattern[str]] = re.compile(
+    r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+)
 
 
 def validate_text(
@@ -23,16 +28,6 @@ def validate_text(
 ) -> str:
     """
     Sanitize and validate string bounds or raise structured ValidationAppError/InputTooLongError.
-
-    Args:
-        value: Input value to validate.
-        field_name: Name of field for error detail reporting.
-        max_chars: Upper boundary character count limit.
-        min_chars: Minimum required character count.
-        allow_blank: If True, empty strings pass validation.
-
-    Returns:
-        Sanitized valid string value.
     """
     cleaned = sanitize_text(str(value or ""), max_chars)
     if not allow_blank and not cleaned:
@@ -53,6 +48,29 @@ def validate_text(
         raise InputTooLongError(
             f"{field_name} exceeds the maximum length of {max_chars} characters",
             details={"field": field_name, "max_chars": max_chars},
+        )
+    return cleaned
+
+
+def validate_input_length(
+    value: Any,
+    *,
+    field_name: str = "input",
+    max_chars: int = DEFAULT_MAX_TEXT_CHARS,
+) -> str:
+    """Validate string input length without raising if empty."""
+    return validate_text(value, field_name=field_name, max_chars=max_chars, allow_blank=True)
+
+
+def validate_email(email: str) -> str:
+    """Validate email address format."""
+    cleaned = sanitize_text(str(email or ""), 254).strip().lower()
+    if not cleaned or not _EMAIL_REGEX.match(cleaned):
+        raise ValidationAppError(
+            "Invalid email format",
+            code="validation_error",
+            status_code=422,
+            details={"field": "email", "value": email},
         )
     return cleaned
 
