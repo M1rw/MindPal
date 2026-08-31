@@ -73,8 +73,9 @@ def _build_dependency_health(
     production: bool,
 ) -> list[DependencyHealth]:
     dependencies: list[DependencyHealth] = []
+    services_map = _as_dict(service_health.get("services")) or service_health
 
-    auth = _as_dict(service_health.get("auth"))
+    auth = _as_dict(services_map.get("auth"))
     auth_provider_configured = bool(auth.get("provider_configured", False))
     auth_allow_anonymous = bool(auth.get("allow_anonymous", False))
     auth_trusts_unverified = bool(auth.get("trusts_unverified_bearer_tokens", False))
@@ -106,17 +107,17 @@ def _build_dependency_health(
         )
     )
 
-    db = _as_dict(service_health.get("db"))
+    db = _as_dict(services_map.get("db"))
     db_provider = _safe_value(db.get("provider"), "unknown")
     db_mock_mode = bool(db.get("mock_mode", False))
-    db_provider_configured = bool(db.get("provider_configured", False))
+    db_provider_configured = bool(db.get("provider_configured", False) or db.get("configured", False))
     db_database_id = _safe_optional(db.get("database_id"))
     db_project_id = _safe_optional(db.get("project_id"))
     db_init_error = _safe_optional(db.get("firebase_init_error"))
 
     if production and db_mock_mode:
         db_state = HealthState.ERROR
-    elif db_provider == "firebase" and db_provider_configured and not db_mock_mode:
+    elif db_provider in {"firebase", "mock"} and db_provider_configured:
         db_state = HealthState.OK
     elif db_mock_mode:
         db_state = HealthState.DEGRADED
@@ -139,7 +140,7 @@ def _build_dependency_health(
         )
     )
 
-    llm = _as_dict(service_health.get("llm"))
+    llm = _as_dict(services_map.get("llm"))
     llm_providers = llm.get("providers", [])
     llm_has_configured = _any_configured_provider(llm_providers)
     llm_offline_available = bool(llm.get("offline_available", False))
@@ -165,7 +166,7 @@ def _build_dependency_health(
         )
     )
 
-    memory = _as_dict(service_health.get("memory"))
+    memory = _as_dict(services_map.get("memory"))
     memory_llm_primary = bool(memory.get("llm_primary_enabled", False))
     memory_local_fallback = bool(memory.get("local_fallback_available", False))
 
@@ -188,7 +189,7 @@ def _build_dependency_health(
         )
     )
 
-    output_guard = _as_dict(service_health.get("output_guard"))
+    output_guard = _as_dict(services_map.get("output_guard"))
     output_guard_rules = int(output_guard.get("rules_loaded", 0) or 0)
     output_guard_rewrite = bool(output_guard.get("llm_rewrite_enabled", False))
 
@@ -204,7 +205,7 @@ def _build_dependency_health(
         )
     )
 
-    rag = _as_dict(service_health.get("rag"))
+    rag = _as_dict(services_map.get("rag"))
     rag_units = int(rag.get("units_loaded", 0) or 0)
     rag_vector_required = bool(rag.get("vector_db_required", False))
     rag_builtin_fallback = bool(rag.get("using_builtin_fallback", False))
@@ -229,7 +230,7 @@ def _build_dependency_health(
         )
     )
 
-    safety = _as_dict(service_health.get("safety"))
+    safety = _as_dict(services_map.get("safety"))
     safety_rules = int(safety.get("rules_loaded", 0) or 0)
     safety_templates = int(safety.get("templates_loaded", 0) or 0)
     safety_crisis_bypass = bool(safety.get("imminent_self_harm_bypasses_llm", False))
@@ -249,7 +250,7 @@ def _build_dependency_health(
         )
     )
 
-    tts = _as_dict(service_health.get("tts"))
+    tts = _as_dict(services_map.get("tts"))
     tts_browser_fallback = bool(tts.get("browser_fallback_available", False))
     tts_external_crisis_disabled = bool(
         tts.get("external_tts_disabled_by_default_for_crisis", False)

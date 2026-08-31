@@ -12,7 +12,7 @@ from typing import Any
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
-from backend.core.circuit_breaker import circuit_open as _circuit_open, trip_circuit as _trip_circuit
+from backend.services.core.circuit_breaker import circuit_open as _circuit_open, trip_circuit as _trip_circuit
 from backend.core.security import sanitize_text
 from backend.core.settings_helpers import is_production
 from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
