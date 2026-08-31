@@ -90,7 +90,12 @@ def validate_positive_int(value: Any, *, field_name: str, minimum: int = 1) -> i
     return number
 
 
-def validate_quota_request(*, user_id_hash: Any, request_id: Any, cost: Any, operation: Any) -> tuple[str, str, int, str]:
+def validate_quota_request(
+    user_id_hash: Any,
+    request_id: Any,
+    cost: Any = 1,
+    operation: Any = "chat",
+) -> tuple[str, str, int, str]:
     normalized_user = validate_user_id(user_id_hash, field_name="user_id_hash")
     normalized_request = validate_request_id(request_id, field_name="request_id")
     normalized_cost = validate_positive_int(cost, field_name="cost", minimum=1)

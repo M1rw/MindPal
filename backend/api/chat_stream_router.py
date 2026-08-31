@@ -16,42 +16,50 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from backend.api.dependencies import RequestContextDep, ServicesDep, assert_authenticated, http_error_from_app_error
-from backend.api.chat_router import (
-    _build_user_preferences_prompt,
-    _convert_history,
-    _extract_clinical_inline,
-    _get_tool_registry,
-    _load_chat_profile,
-    _maybe_answer_chat_context_question,
-    _mirror_usage_profile,
-    _persist_memory_graph_inline,
-    _persist_safety_event_inline,
-    _pre_execute_tools,
-    _provider_label,
-    _resolve_locale,
-    _safety_view,
-)
 from backend.core.errors import AppError
 from backend.core.message_classifier import classify_message
-from backend.core.security import sanitize_text
-from backend.core.validation import validate_chat_payload
 from backend.core.prompt_builder import build_tiered_prompt
 from backend.core.prompts import build_intent_context, infer_response_mode_for_preference
+from backend.core.security import sanitize_text
+from backend.core.validation import validate_chat_payload
 from backend.models.brain import BrainPolicyTier
 from backend.models.chat import ChatRequest, LLMMessage, LLMRole
 from backend.models.memory import MemoryGraph, summary_from_memory_graph
 from backend.models.runtime_trace import RuntimeNode
+from backend.services.domain.intelligence import finalize_user_reply
+from backend.services.domain.llm import build_llm_request
+from backend.services.domain.llm.chat_orchestrator import (
+    build_user_preferences_prompt,
+    convert_history,
+    extract_clinical_inline,
+    load_chat_profile,
+    maybe_answer_chat_context_question,
+    mirror_usage_profile,
+    persist_memory_graph_inline,
+    persist_safety_event_inline,
+    provider_label,
+    resolve_locale,
+    safety_view,
+)
+from backend.services.domain.llm.tool_orchestrator import pre_execute_tools
 from backend.services.domain.memory import (
     build_memory_graph_prompt,
     render_context_pack_for_prompt,
 )
-from backend.services.domain.llm import build_llm_request
-from backend.services.domain.intelligence import finalize_user_reply
 from backend.services.runtime_trace_service import RuntimeTraceRecorder
-from backend.tools import ToolContext
+from backend.tools import ToolContext, build_default_registry
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["chat_stream"])
+
+_tool_registry = None
+
+
+def _get_tool_registry():
+    global _tool_registry
+    if _tool_registry is None:
+        _tool_registry = build_default_registry()
+    return _tool_registry
 
 
 def _sse(payload: dict[str, Any]) -> str:
@@ -98,7 +106,7 @@ async def chat_stream(
     context: RequestContextDep,
 ) -> StreamingResponse:
     validate_chat_payload(payload.model_dump(mode="json"))
-    locale = _resolve_locale(payload, context.locale)
+    locale = resolve_locale(payload, context.locale)
     user_timezone = _resolve_user_timezone(payload.metadata.timezone, context.timezone)
     authenticated = bool(context.session.authenticated)
     subject = context.session.user_id_hash if authenticated else context.client_ip_hash
@@ -171,7 +179,7 @@ async def chat_stream(
             runtime.node_completed(RuntimeNode.SYNTHESIS, parent=RuntimeNode.GUARDRAILS, metadata={"deterministic": True})
             runtime.complete(metadata={"safety_bypass": True})
             if safety_decision.should_log:
-                await _persist_safety_event_inline(
+                await persist_safety_event_inline(
                     services=services,
                     context=context,
                     decision=safety_decision,
@@ -185,7 +193,7 @@ async def chat_stream(
                 "fallback_count": 0,
                 "rag_used": [],
                 "memory_updated": False,
-                "safety": _safety_view(safety_decision).model_dump(mode="json"),
+                "safety": safety_view(safety_decision).model_dump(mode="json"),
                 "request_id": context.request_id,
                 "runtime_trace": runtime.trace().model_dump(mode="json"),
             }
@@ -195,7 +203,7 @@ async def chat_stream(
             )
             return _stream_response(reply, metadata)
 
-        deterministic_reply = _maybe_answer_chat_context_question(payload)
+        deterministic_reply = maybe_answer_chat_context_question(payload)
         if deterministic_reply:
             runtime.node_started(RuntimeNode.SYNTHESIS, parent=RuntimeNode.GUARDRAILS)
             runtime.node_completed(RuntimeNode.SYNTHESIS, parent=RuntimeNode.GUARDRAILS, metadata={"deterministic": True})
@@ -208,7 +216,7 @@ async def chat_stream(
                 "fallback_count": 0,
                 "rag_used": [],
                 "memory_updated": False,
-                "safety": _safety_view(safety_decision).model_dump(mode="json"),
+                "safety": safety_view(safety_decision).model_dump(mode="json"),
                 "request_id": context.request_id,
                 "runtime_trace": runtime.trace().model_dump(mode="json"),
             }
@@ -219,7 +227,7 @@ async def chat_stream(
             return _stream_response(deterministic_reply, metadata)
 
         runtime.node_started(RuntimeNode.SESSION, parent=RuntimeNode.INPUT)
-        profile = await _load_chat_profile(services=services, context=context, authenticated=authenticated)
+        profile = await load_chat_profile(services=services, context=context, authenticated=authenticated)
         runtime.node_completed(RuntimeNode.SESSION, parent=RuntimeNode.INPUT)
         memory_graph = None
         memory_summary = None
@@ -292,7 +300,7 @@ async def chat_stream(
             ],
         )
         runtime.node_started(RuntimeNode.TOOL_ROUTER, parent=RuntimeNode.RETRIEVAL)
-        tool_results_text = await _pre_execute_tools(payload.message, registry, tool_context, runtime=runtime)
+        tool_results_text = await pre_execute_tools(payload.message, registry, tool_context, runtime=runtime)
         runtime.node_completed(RuntimeNode.TOOL_ROUTER, parent=RuntimeNode.RETRIEVAL, metadata={"tool_data": bool(tool_results_text)})
 
         rag_grounding = json.dumps(
@@ -327,7 +335,7 @@ async def chat_stream(
             clinical_mode=clinical_mode,
             memory_prompt=memory_prompt,
             rag_grounding=rag_grounding,
-            user_preferences=_build_user_preferences_prompt(profile, payload.metadata),
+            user_preferences=build_user_preferences_prompt(profile, payload.metadata),
             intent_context_str=intent_context_str,
             response_brief=response_brief,
             tool_descriptions=registry.get_tool_descriptions_prompt(),
@@ -344,7 +352,7 @@ async def chat_stream(
             request_id=context.request_id,
             system_prompt=system_prompt,
             user_message=payload.message,
-            history=_convert_history(payload),
+            history=convert_history(payload),
             temperature=classification.temperature,
             max_output_tokens=classification.max_response_tokens,
             metadata={
@@ -407,7 +415,7 @@ async def chat_stream(
         response_memory_graph_snapshot = None
         if memory_allowed:
             runtime.node_started(RuntimeNode.MEMORY, parent=RuntimeNode.SYNTHESIS)
-            graph_update = await _persist_memory_graph_inline(
+            graph_update = await persist_memory_graph_inline(
                 payload=payload,
                 reply=final_reply,
                 services=services,
@@ -423,7 +431,7 @@ async def chat_stream(
             runtime.node_completed(RuntimeNode.MEMORY, parent=RuntimeNode.SYNTHESIS, metadata={"updated": memory_updated})
 
         if safety_decision.should_log:
-            await _persist_safety_event_inline(
+            await persist_safety_event_inline(
                 services=services,
                 context=context,
                 decision=safety_decision,
@@ -431,11 +439,11 @@ async def chat_stream(
             )
 
         if clinical_mode and authenticated:
-            await _extract_clinical_inline(
+            await extract_clinical_inline(
                 services=services,
                 profile=profile,
                 context=context,
-                messages=_convert_history(payload) + [
+                messages=convert_history(payload) + [
                     LLMMessage(role=LLMRole.USER, content=payload.message),
                     LLMMessage(role=LLMRole.ASSISTANT, content=final_reply),
                 ],
@@ -448,7 +456,7 @@ async def chat_stream(
                 request_id=quota_request_id,
             )
             usage = usage_snapshot.to_dict()
-            await _mirror_usage_profile(
+            await mirror_usage_profile(
                 services=services,
                 user_id_hash=context.session.user_id_hash,
                 usage=usage,
@@ -460,11 +468,11 @@ async def chat_stream(
         runtime.complete(metadata={"memory_updated": memory_updated, "rag_reference_count": len(rag_result.references)})
         metadata: dict[str, Any] = {
             "type": "metadata",
-            "provider_used": _provider_label(llm_result.response.provider_used, rewrite_provider=guarded.rewrite_provider),
+            "provider_used": provider_label(llm_result.response.provider_used, rewrite_provider=guarded.rewrite_provider),
             "fallback_count": llm_result.response.fallback_count,
             "rag_used": [ref.model_dump(mode="json") for ref in rag_result.references],
             "memory_updated": memory_updated,
-            "safety": _safety_view(safety_decision).model_dump(mode="json"),
+            "safety": safety_view(safety_decision).model_dump(mode="json"),
             "usage": usage,
             "request_id": context.request_id,
             "safe_buffered_stream": True,

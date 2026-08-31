@@ -1,7 +1,7 @@
 # Health Checks and Observability
 
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
 import asyncio
@@ -164,7 +164,7 @@ class HealthChecker:
             return ServiceHealth(
                 name=name,
                 status=HealthStatus.UNHEALTHY,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 latency_ms=0,
                 errors=["Service not found"]
             )
@@ -194,7 +194,7 @@ class HealthChecker:
             health = ServiceHealth(
                 name=name,
                 status=status,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 latency_ms=latency_ms,
                 errors=errors,
                 metadata=metadata,
@@ -204,7 +204,7 @@ class HealthChecker:
             health = ServiceHealth(
                 name=name,
                 status=HealthStatus.UNHEALTHY,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 latency_ms=latency_ms,
                 errors=[f"Health check timed out after {self._timeout}s"]
             )
@@ -213,7 +213,7 @@ class HealthChecker:
             health = ServiceHealth(
                 name=name,
                 status=HealthStatus.UNHEALTHY,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 latency_ms=latency_ms,
                 errors=[f"{type(e).__name__}: {str(e)[:100]}"]
             )
@@ -267,7 +267,7 @@ class HealthChecker:
 
         return SystemHealth(
             status=overall_status,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
             services=services
         )
 

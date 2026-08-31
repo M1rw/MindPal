@@ -135,6 +135,8 @@ class ChatRequest(BaseModel):
     @field_validator("message", mode="before")
     @classmethod
     def _sanitize_message(cls, value: object) -> str:
+        if value is not None and len(str(value)) > MAX_CHAT_MESSAGE_CHARS:
+            raise ValueError(f"Message exceeds maximum length of {MAX_CHAT_MESSAGE_CHARS} characters")
         cleaned = sanitize_text(str(value or ""), MAX_CHAT_MESSAGE_CHARS)
         if not cleaned:
             raise ValueError("message cannot be empty")

@@ -13,7 +13,7 @@ Browser Client
           ├─────────────────────────────────────────────┐
           ▼                                             ▼
 FastAPI Request Boundary                     Gemini Live API (Voice V3)
-  ├─ Security / Host / CORS / Headers             ├─ Ephemeral single-use token via /api/voice/token
+  ├─ Security / Host / CORS / Headers             ├─ Ephemeral single-use token via /api/voice/v4/token
   ├─ Authentication & App Check Attestation       ├─ wss://generativelanguage.googleapis.com/...
   ├─ Quota & Rate Limit Enforcement               ├─ BidiGenerateContentConstrained endpoint
   ├─ Bounded Orchestration & Provider Gateway     ├─ Direct full-duplex 16kHz in / 24kHz out audio
@@ -24,28 +24,45 @@ The permanent Gemini API credentials remain strictly server-side. Voice sessions
 
 ---
 
-## Key Features
+## Backend Architecture & Domain Structure
 
-- **Voice System V3**: Real-time full-duplex conversational voice powered by Google Gemini Live API (`gemini-2.5-flash-native-audio-preview` and `gemini-3.1-flash-live-preview`). See `docs/voice_v3_root_cause_analysis.md` for full root-cause analysis and design details.
-- **Memory Graph V3**: Canonical, deterministic memory graph store for user profile, preferences, relationship context, and coping patterns.
-- **FastAPI / Firebase Backend V2**: Rate-limited, idempotency-guaranteed, quota-enforced API infrastructure with Firebase Auth and App Check attestation.
-- **Responsive Web UI**: Built with Tailwind CSS and ESBuild for high performance across desktop and mobile devices.
+The MindPal backend uses a domain-driven, single-responsibility architecture:
+
+```text
+backend/
+├── core/                  # Infrastructure foundations (config, errors, logging, security, validation, freshness, url_validator)
+├── api/                   # Thin, versioned FastAPI routers delegating to domain services
+│   ├── dependencies.py    # Centralized FastAPI Dependency Injection & RequestContext
+│   ├── chat_router.py     # Thin chat completion route
+│   ├── chat_stream_router.py # Thin SSE streaming chat route
+│   ├── memory_router.py   # Memory Graph V3 endpoints
+│   ├── brain_router.py    # Obsidian Brain graph endpoints
+│   └── ...                # user, safety, tts, tools, feature, health, voice_v4, chat_store, favicon
+├── services/
+│   ├── bootstrap/         # Composition root and container builder
+│   ├── core/              # Shared infrastructure (circuit_breaker, cache, metrics, health, sharding)
+│   └── domain/            # Single-responsibility domain services
+│       ├── llm/           # Provider gateway, tool_orchestrator, chat_orchestrator, response_parser
+│       ├── safety/        # Rule compiler, classifier, crisis templates, safety policy
+│       ├── memory/        # Extraction, compaction, graph_service
+│       ├── rag/           # Corpus retriever, planner
+│       ├── voice/         # Voice policy & V4 token service
+│       ├── features/      # Feature flags, policy store, evaluation
+│       ├── quota/         # Quota service, rate limiter, idempotency
+│       ├── intelligence/   # Clinical profile extractor, reply finalizer, response intelligence
+│       └── admin/         # Supabase admin authority
+└── models/                # Typed Pydantic domain models
+```
 
 ---
 
-## Directory Structure
+## Key Features
 
-```text
-.
-├── api/                   # Vercel serverless entry points
-├── backend/               # FastAPI backend (core, api, services, models, tools)
-├── data/                  # Clinical frameworks & reference data
-├── docs/                  # System documentation & Voice V3 root cause analysis
-├── frontend/              # Frontend web application (JS, CSS, HTML, templates)
-├── scripts/               # Build, verification, and audit scripts
-├── tests/                 # Comprehensive Python and JavaScript test suites
-└── voice/                 # Voice TypeScript source and build configurations
-```
+- **Voice System V3/V4**: Real-time full-duplex conversational voice powered by Google Gemini Live API (`gemini-2.5-flash-native-audio-latest`).
+- **Memory Graph V3**: Canonical, deterministic memory graph store for user profile, preferences, relationship context, and coping patterns.
+- **FastAPI / Firebase Backend V2**: Rate-limited, idempotency-guaranteed, quota-enforced API infrastructure with Firebase Auth and App Check attestation.
+- **Obsidian Brain**: Policy-filtered visual knowledge graph with interactive context planning.
+- **Responsive Web UI**: Built with Tailwind CSS and ESBuild for high performance across desktop and mobile devices.
 
 ---
 
@@ -58,8 +75,8 @@ The permanent Gemini API credentials remain strictly server-side. Voice sessions
 ### Setup Instructions
 
 ```bash
-# Install Python dependencies
-pip install -r requirements.txt -r requirements-dev.lock
+# Sync Python dependencies with uv
+uv sync --extra dev
 
 # Install Node dependencies
 npm install
@@ -71,7 +88,7 @@ npm run build
 ### Running Locally
 
 ```bash
-python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+uv run python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ---
@@ -81,29 +98,24 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 MindPal features full test suites across Python and JavaScript layers:
 
 ```bash
-# Run Python backend tests
-python -m pytest
+# Run Python backend tests (unit + integration + contract + edge cases + weirdness)
+uv run --frozen pytest
 
-# Run JavaScript frontend & Voice V3 tests
+# Run JavaScript frontend & Voice tests
 npm test
 
-# Build all frontend and Voice assets in the workspace
+# Run realistic performance benchmark
+uv run python scripts/benchmark_scenarios.py
+
+# Build all frontend and Voice assets
 npm run build:vercel
 
-# Verify the generated workspace outputs
-python scripts/verify_frontend_build.py
+# Verify prebuilt frontend assets
+uv run python scripts/verify_frontend_build.py
 ```
 
 ---
 
 ## Vercel Deployment
 
-Deployment to Vercel runs `npm ci && npm run build:vercel && python scripts/verify_frontend_build.py`. The frontend and Voice distribution files are generated inside the Vercel build workspace and are intentionally not committed to Git. The FastAPI application serves those generated files after the build completes.
-
-Key production configuration requirements:
-- Set environment variables based on `.env.example`.
-- Enable Firebase App Check enforcement.
-- Configure Firestore TTL policies for rate-limiting and idempotency.
-
-For Voice V3 architecture details and diagnostic history, see:
-- `docs/voice/production-startup-failure.md`
+Deployment to Vercel runs `npm ci && npm run build:vercel && python scripts/verify_frontend_build.py`. The FastAPI application serves those generated files after the build completes.

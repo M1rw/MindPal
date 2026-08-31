@@ -40,7 +40,7 @@ class FeatureFlagsService:
                 description="Unknown feature key",
                 lifecycle=FeatureLifecycle.DISABLED,
                 enabled=False,
-                reason=FeatureReason.UNKNOWN_KEY,
+                reason=FeatureReason.UNKNOWN_FEATURE,
                 version=0,
             )
 
@@ -62,11 +62,11 @@ class FeatureFlagsService:
                 spec,
                 lifecycle=lifecycle,
                 enabled=False,
-                reason=FeatureReason.AUTHENTICATION_REQUIRED,
+                reason=FeatureReason.REQUIRES_AUTHENTICATION,
                 version=version,
             )
 
-        deny_users = _list_override(policy, "deny_user_hashes", spec.deny_user_hashes)
+        deny_users = _list_override(policy, "deny_user_hashes", getattr(spec, "deny_user_hashes", ()))
         if context.user_id_hash and context.user_id_hash.lower() in deny_users:
             return self._result(
                 spec,
@@ -76,7 +76,7 @@ class FeatureFlagsService:
                 version=version,
             )
 
-        deny_emails = _list_override(policy, "deny_email_hashes", spec.deny_email_hashes)
+        deny_emails = _list_override(policy, "deny_email_hashes", getattr(spec, "deny_email_hashes", ()))
         if context.email_hash and context.email_hash.lower() in deny_emails:
             return self._result(
                 spec,
@@ -86,32 +86,33 @@ class FeatureFlagsService:
                 version=version,
             )
 
-        if not _within_schedule(policy, context.now_utc):
+        schedule_reason = _check_schedule(policy, context.now_utc)
+        if schedule_reason is not None:
             return self._result(
                 spec,
                 lifecycle=lifecycle,
                 enabled=False,
-                reason=FeatureReason.OUTSIDE_SCHEDULE,
+                reason=schedule_reason,
                 version=version,
             )
 
-        allow_users = _list_override(policy, "allow_user_hashes", spec.allow_user_hashes)
+        allow_users = _list_override(policy, "allow_user_hashes", getattr(spec, "allow_user_hashes", ()))
         if context.user_id_hash and context.user_id_hash.lower() in allow_users:
             return self._result(
                 spec,
                 lifecycle=lifecycle,
                 enabled=True,
-                reason=FeatureReason.EXPLICIT_ALLOW,
+                reason=FeatureReason.ENABLED,
                 version=version,
             )
 
-        allow_emails = _list_override(policy, "allow_email_hashes", spec.allow_email_hashes)
+        allow_emails = _list_override(policy, "allow_email_hashes", getattr(spec, "allow_email_hashes", ()))
         if context.email_hash and context.email_hash.lower() in allow_emails:
             return self._result(
                 spec,
                 lifecycle=lifecycle,
                 enabled=True,
-                reason=FeatureReason.EXPLICIT_ALLOW,
+                reason=FeatureReason.ENABLED,
                 version=version,
             )
 
@@ -120,11 +121,11 @@ class FeatureFlagsService:
                 spec,
                 lifecycle=lifecycle,
                 enabled=True,
-                reason=FeatureReason.ADMIN_OVERRIDE,
+                reason=FeatureReason.ENABLED_FOR_ADMIN,
                 version=version,
             )
 
-        channels = _list_override(policy, "allowed_channels", spec.allowed_channels)
+        channels = _list_override(policy, "allowed_channels", getattr(spec, "allowed_channels", ()))
         if channels and context.channel.lower() not in channels:
             return self._result(
                 spec,
@@ -134,7 +135,7 @@ class FeatureFlagsService:
                 version=version,
             )
 
-        locales = _list_override(policy, "allowed_locales", spec.allowed_locales)
+        locales = _list_override(policy, "allowed_locales", getattr(spec, "allowed_locales", ()))
         if locales and context.locale.lower() not in locales and "auto" not in locales:
             return self._result(
                 spec,
@@ -154,14 +155,14 @@ class FeatureFlagsService:
                 version=version,
             )
 
-        rollout = policy.rollout_percentage if policy and policy.rollout_percentage is not None else spec.rollout_percentage
+        rollout = policy.rollout_percentage if policy and policy.rollout_percentage is not None else getattr(spec, "rollout_percentage", None)
         if rollout is not None:
             if not context.user_id_hash:
                 return self._result(
                     spec,
                     lifecycle=lifecycle,
                     enabled=False,
-                    reason=FeatureReason.ROLLOUT_ANONYMOUS_EXCLUDED,
+                    reason=FeatureReason.NOT_IN_ROLLOUT,
                     version=version,
                 )
             bucket = _stable_bucket(spec.key, context.user_id_hash)
@@ -170,19 +171,19 @@ class FeatureFlagsService:
                     spec,
                     lifecycle=lifecycle,
                     enabled=False,
-                    reason=FeatureReason.ROLLOUT_EXCLUDED,
+                    reason=FeatureReason.NOT_IN_ROLLOUT,
                     version=version,
                 )
             return self._result(
                 spec,
                 lifecycle=lifecycle,
                 enabled=True,
-                reason=FeatureReason.ROLLOUT_INCLUDED,
+                reason=FeatureReason.ENABLED,
                 version=version,
             )
 
         enabled = policy_enabled if policy_enabled is not None else spec.default_enabled
-        reason = FeatureReason.POLICY_OVERRIDE if policy_enabled is not None else FeatureReason.DEFAULT
+        reason = FeatureReason.ENABLED if enabled else FeatureReason.DISABLED
         return self._result(
             spec,
             lifecycle=lifecycle,
@@ -245,15 +246,15 @@ def _list_override(policy: FeaturePolicy | None, name: str, default: Any) -> set
     return {str(item).strip().lower() for item in value if str(item).strip()}
 
 
-def _within_schedule(policy: FeaturePolicy | None, now_utc: datetime) -> bool:
+def _check_schedule(policy: FeaturePolicy | None, now_utc: datetime) -> FeatureReason | None:
     if policy is None:
-        return True
+        return None
     now = now_utc.astimezone(UTC)
     if policy.starts_at_utc is not None and now < policy.starts_at_utc:
-        return False
+        return FeatureReason.NOT_STARTED
     if policy.ends_at_utc is not None and now >= policy.ends_at_utc:
-        return False
-    return True
+        return FeatureReason.EXPIRED
+    return None
 
 
 def _stable_bucket(feature_key: str, user_id_hash: str) -> int:
