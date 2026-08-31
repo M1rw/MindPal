@@ -14,9 +14,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.core.message_classifier import classify_message
-from backend.core.prompt_builder import build_tiered_prompt
-from backend.core.prompts import build_system_prompt
+from backend.services.domain.llm.message_classifier import classify_message
+from backend.services.domain.llm.prompts import build_tiered_prompt
+from backend.services.domain.llm.prompts import build_system_prompt
 from backend.services.domain.intelligence import finalize_user_reply
 
 CASES = [

@@ -1,4 +1,7 @@
-"""Tool selection and pre-execution orchestrator for chat pipelines.
+# backend/services/domain/llm/tool_orchestrator.py
+
+"""
+Tool selection and pre-execution orchestrator for chat pipelines.
 
 Encapsulates tool routing (LLM router and fallback triggers) and execution
 against the tool registry before final system prompt construction.
@@ -11,7 +14,7 @@ import logging
 import re
 from typing import Any, Final
 
-from backend.core.freshness import requires_verified_web_search
+from backend.services.domain.llm.freshness import requires_verified_web_search
 from backend.core.security import sanitize_text
 from backend.models.runtime_trace import RuntimeNode
 from backend.services.domain.llm.request_builder import build_llm_request
@@ -111,6 +114,11 @@ VALID_TOOL_NAMES: Final[set[str]] = {
     "get_recent_chat",
     "search_chat_history",
 }
+
+
+class ToolOrchestrator:
+    """Domain orchestrator for tool selection and pre-execution."""
+    pass
 
 
 async def pre_execute_tools(

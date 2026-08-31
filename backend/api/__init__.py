@@ -1,23 +1,30 @@
 # backend/api/__init__.py
 
+"""
+MindPal presentation layer (FastAPI routers, schemas, dependencies, and exception handlers).
+"""
+
 from __future__ import annotations
 
 from fastapi import APIRouter
 
-from .health_router import router as health_router
-from .chat_router import router as chat_router
-from .user_router import router as user_router
-from .memory_router import router as memory_router
-from .brain_router import router as brain_router
-from .chat_store_router import router as chat_store_router
-from .safety_router import router as safety_router
-from .tts_router import router as tts_router
-from .chat_stream_router import router as chat_stream_router
-from .tools_router import router as tools_router
-from .favicon_router import router as favicon_router
-from .feature_router import admin_router as feature_admin_router
-from .feature_router import router as feature_router
-from .voice_v4_router import router as voice_v4_router
+from .errors import map_domain_error_to_http
+from .routers import (
+    brain_router,
+    chat_router,
+    chat_store_router,
+    chat_stream_router,
+    favicon_router,
+    feature_admin_router,
+    feature_router,
+    health_router,
+    memory_router,
+    safety_router,
+    tools_router,
+    tts_router,
+    user_router,
+    voice_v4_router,
+)
 
 
 def create_api_router() -> APIRouter:
@@ -47,5 +54,5 @@ api_router = create_api_router()
 __all__ = [
     "api_router",
     "create_api_router",
+    "map_domain_error_to_http",
 ]
-

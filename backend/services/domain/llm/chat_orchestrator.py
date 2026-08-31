@@ -1,4 +1,7 @@
-"""Chat orchestration helpers for sync and streaming chat endpoints.
+# backend/services/domain/llm/chat_orchestrator.py
+
+"""
+Chat orchestration helpers for sync and streaming chat endpoints.
 
 Contains deterministic chat context question answering, profile loading, usage mirroring,
 clinical extraction, safety event logging, and memory graph inline persistence.
@@ -27,6 +30,11 @@ MAX_HISTORY_FOR_LLM: Final[int] = 30
 MAX_USER_PREFS_PROMPT_CHARS: Final[int] = 1_200
 MEMORY_COMPACTION_TIMEOUT_SECONDS: Final[float] = 8.0
 SAFETY_EVENT_TIMEOUT_SECONDS: Final[float] = 4.0
+
+
+class ChatOrchestrator:
+    """Domain orchestrator for chat workflows."""
+    pass
 
 
 def maybe_answer_chat_context_question(payload: ChatRequest) -> str | None:

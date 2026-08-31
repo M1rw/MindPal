@@ -33,7 +33,7 @@ from .prompt_loader import (
     get_standard_chain_text,
     get_wellness_assistant_text,
 )
-from .security import Locale, normalize_locale, safe_truncate, sanitize_text
+from backend.core.security import Locale, normalize_locale, safe_truncate, sanitize_text
 
 # Prompt constants dynamically loaded from external templates
 PRODUCT_BOUNDARY_PROMPT = get_product_boundaries_text()

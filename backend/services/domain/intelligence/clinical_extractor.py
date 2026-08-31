@@ -11,7 +11,8 @@ from datetime import UTC, datetime
 
 from backend.models.chat import LLMMessage
 from backend.models.user import ClinicalProfile, ClinicalScore
-from backend.services.domain.llm import LLMService, build_llm_request
+from backend.services.domain.llm.service import LLMService
+from backend.services.domain.llm.request_builder import build_llm_request
 
 logger = logging.getLogger(__name__)
 
