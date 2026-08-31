@@ -10,6 +10,7 @@ Guarantees zero inline raw text bloat in source code.
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,15 @@ def load_template(filename: str) -> dict[str, Any]:
 def clear_prompt_cache() -> None:
     """Clear cached prompt templates (useful for testing or hot-reload)."""
     _CACHE.clear()
+    get_product_boundaries_text.cache_clear()
+    get_wellness_assistant_text.cache_clear()
+    get_safety_style_text.cache_clear()
+    get_clinical_pro_text.cache_clear()
+    get_standard_chain_text.cache_clear()
+    get_response_mode_instructions.cache_clear()
+    get_channel_instructions.cache_clear()
+    get_safety_level_instructions.cache_clear()
+    get_locale_instructions.cache_clear()
 
 
 def get_identity_data() -> dict[str, Any]:
@@ -66,16 +76,19 @@ def get_locale_rules_data() -> dict[str, Any]:
     return load_template("locale_rules.json")
 
 
+@lru_cache(maxsize=1)
 def get_product_boundaries_text() -> str:
     data = load_template("product_boundaries.json")
     return str(data.get("product_boundaries") or "").strip()
 
 
+@lru_cache(maxsize=1)
 def get_wellness_assistant_text() -> str:
     data = load_template("wellness_assistant.json")
     return str(data.get("wellness_assistant_prompt") or "").strip()
 
 
+@lru_cache(maxsize=1)
 def get_safety_style_text() -> str:
     data = get_safety_rules_data()
     boundaries = data.get("safety_boundaries", [])
@@ -95,6 +108,7 @@ def get_safety_style_text() -> str:
     )
 
 
+@lru_cache(maxsize=1)
 def get_clinical_pro_text() -> str:
     data = get_clinical_pro_data()
     depth = data.get("clinical_depth", [])
@@ -120,6 +134,7 @@ def get_clinical_pro_text() -> str:
     return "\n".join(s for s in sections if s).strip()
 
 
+@lru_cache(maxsize=1)
 def get_standard_chain_text() -> str:
     data = get_standard_chain_data()
     systems = data.get("data_systems", [])
@@ -135,6 +150,7 @@ def get_standard_chain_text() -> str:
     return "\n".join(s for s in sections if s).strip()
 
 
+@lru_cache(maxsize=1)
 def get_response_mode_instructions() -> dict[str, str]:
     data = get_response_modes_data()
     modes = data.get("modes", {})
@@ -145,6 +161,7 @@ def get_response_mode_instructions() -> dict[str, str]:
     }
 
 
+@lru_cache(maxsize=1)
 def get_channel_instructions() -> dict[str, str]:
     data = get_safety_rules_data()
     return data.get("channel_instructions", {
@@ -156,6 +173,7 @@ def get_channel_instructions() -> dict[str, str]:
     })
 
 
+@lru_cache(maxsize=1)
 def get_safety_level_instructions() -> dict[str, str]:
     data = get_safety_rules_data()
     levels = data.get("safety_levels", {})
@@ -165,6 +183,7 @@ def get_safety_level_instructions() -> dict[str, str]:
     }
 
 
+@lru_cache(maxsize=1)
 def get_locale_instructions() -> dict[str, str]:
     data = get_locale_rules_data()
     return data.get("locale_defaults", {

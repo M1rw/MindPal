@@ -76,7 +76,7 @@ class SafetyClassifyResponse(BaseModel):
     matched_rules: list[str]
     user_visible_category: str
     confidence: float
-    rationale: str
+    rationale: str | None = None
     rag_tags: list[str]
     deterministic_response: str | None = None
     classifier_meta: dict[str, Any] | None = None
