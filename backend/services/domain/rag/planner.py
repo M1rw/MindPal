@@ -9,6 +9,8 @@ from backend.models.chat import RagReference
 
 @dataclass(frozen=True, slots=True)
 class RAGQueryPlan:
+    """Encapsulates rewritten query parameters and search filtering tags for RAG retrieval."""
+
     rewritten_query: str
     tags: tuple[str, ...]
     categories: tuple[str, ...]
@@ -18,6 +20,7 @@ class RAGQueryPlan:
     source: str
 
     def combined_terms(self) -> tuple[str, ...]:
+        """Combine all unique search tag terms into an immutable tuple."""
         seen: set[str] = set()
         output: list[str] = []
         for term in list(self.tags) + list(self.categories) + list(self.techniques) + list(self.contraindications):
@@ -30,6 +33,8 @@ class RAGQueryPlan:
 
 @dataclass(frozen=True, slots=True)
 class RAGRetrievalResult:
+    """Result container produced by RAG search pipeline."""
+
     matches: tuple[Any, ...]
     prompt_grounding: tuple[dict[str, Any], ...]
     references: tuple[RagReference, ...]
@@ -40,6 +45,7 @@ class RAGRetrievalResult:
     error_code: str | None = None
 
     def to_public_dict(self) -> dict[str, Any]:
+        """Convert RAG retrieval result to public API response payload dict."""
         return {
             "references": [reference.model_dump(mode="json") for reference in self.references],
             "plan": asdict(self.plan),

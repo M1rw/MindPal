@@ -7,7 +7,7 @@ import logging
 import math
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import yaml
 
@@ -17,25 +17,25 @@ from backend.core.prompts import VALID_RAG_TAGS
 from backend.core.security import normalize_locale, safe_truncate, sanitize_text
 from backend.core.settings_helpers import is_production, setting_bool
 from backend.models.chat import RagReference
+from backend.services.domain.llm import LLMService, build_llm_request
 from backend.services.domain.rag.corpus import GroundingUnit, PreparedSearchTerm, RetrievalMatch
 from backend.services.domain.rag.planner import RAGQueryPlan, RAGRetrievalResult
-from backend.services.domain.llm import LLMService, build_llm_request
 
 logger = logging.getLogger(__name__)
 
-MAX_QUERY_CHARS = 2_000
-MAX_MEMORY_CONTEXT_CHARS = 1_200
-MAX_INSTRUCTION_CHARS = 500
-MAX_RESPONSE_STYLE_ITEMS = 12
-MAX_LLM_PLAN_CHARS = 6_000
-DEFAULT_MAX_RESULTS = 4
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_CORPUS_DIR = Path(__file__).resolve().parents[2] / "rag" / "corpus"
-CLINICAL_FRAMEWORKS_DIR = PROJECT_ROOT / "data" / "clinical_frameworks"
+MAX_QUERY_CHARS: Final[int] = 2_000
+MAX_MEMORY_CONTEXT_CHARS: Final[int] = 1_200
+MAX_INSTRUCTION_CHARS: Final[int] = 500
+MAX_RESPONSE_STYLE_ITEMS: Final[int] = 12
+MAX_LLM_PLAN_CHARS: Final[int] = 6_000
+DEFAULT_MAX_RESULTS: Final[int] = 4
+PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[3]
+DEFAULT_CORPUS_DIR: Final[Path] = Path(__file__).resolve().parents[2] / "rag" / "corpus"
+CLINICAL_FRAMEWORKS_DIR: Final[Path] = PROJECT_ROOT / "data" / "clinical_frameworks"
 
-_WORD_RE = re.compile(r"[\w\u0600-\u06FF']+", re.UNICODE)
+_WORD_RE: Final[re.Pattern[str]] = re.compile(r"[\w\u0600-\u06FF']+", re.UNICODE)
 
-RAG_PLANNER_SYSTEM_PROMPT = """
+RAG_PLANNER_SYSTEM_PROMPT: Final[str] = """
 You are MindPal's RAG retrieval planner.
 
 Your job is to convert a sanitized user message into retrieval tags for a curated wellness grounding corpus.
@@ -82,7 +82,7 @@ Return exactly:
 
 class RAGService:
     """
-    Curated RAG service with LLM-assisted retrieval planning.
+    Curated clinical grounding RAG service with LLM-assisted retrieval planning.
     """
 
     def __init__(
@@ -96,14 +96,14 @@ class RAGService:
         allow_builtin_fallback_in_production: bool | None = None,
         allow_offline_llm_planner: bool | None = None,
     ) -> None:
-        self.settings = settings or get_settings()
-        self.production_mode = is_production(self.settings)
+        self.settings: Settings = settings or get_settings()
+        self.production_mode: bool = is_production(self.settings)
 
-        self.corpus_dir = corpus_dir or DEFAULT_CORPUS_DIR
-        self.corpus_dirs = _unique_paths((self.corpus_dir, CLINICAL_FRAMEWORKS_DIR))
-        self.llm_service = llm_service
+        self.corpus_dir: Path = corpus_dir or DEFAULT_CORPUS_DIR
+        self.corpus_dirs: tuple[Path, ...] = _unique_paths((self.corpus_dir, CLINICAL_FRAMEWORKS_DIR))
+        self.llm_service: LLMService | None = llm_service
 
-        self.enable_llm_planning = (
+        self.enable_llm_planning: bool = (
             setting_bool(
                 self.settings,
                 "ENABLE_LLM_RAG_PLANNING",
@@ -113,7 +113,7 @@ class RAGService:
             else bool(enable_llm_planning)
         )
 
-        self.use_builtin_fallback = (
+        self.use_builtin_fallback: bool = (
             setting_bool(
                 self.settings,
                 "ENABLE_BUILTIN_RAG_FALLBACK",
@@ -123,7 +123,7 @@ class RAGService:
             else bool(use_builtin_fallback)
         )
 
-        self.allow_builtin_fallback_in_production = (
+        self.allow_builtin_fallback_in_production: bool = (
             setting_bool(
                 self.settings,
                 "ALLOW_BUILTIN_RAG_FALLBACK_IN_PRODUCTION",
@@ -133,7 +133,7 @@ class RAGService:
             else bool(allow_builtin_fallback_in_production)
         )
 
-        self.allow_offline_llm_planner = (
+        self.allow_offline_llm_planner: bool = (
             setting_bool(
                 self.settings,
                 "ALLOW_OFFLINE_LLM_RAG_PLANNER",
@@ -149,19 +149,22 @@ class RAGService:
         self._loaded_files: tuple[str, ...] = ()
         self._embeddings: dict[str, list[float]] = {}
         self._last_result: RAGRetrievalResult | None = None
-        self._using_builtin_fallback = False
+        self._using_builtin_fallback: bool = False
 
         self.reload()
 
     @property
     def units(self) -> tuple[GroundingUnit, ...]:
+        """Return loaded grounding units as an immutable tuple."""
         return self._units
 
     @property
     def last_result(self) -> RAGRetrievalResult | None:
+        """Return last execution retrieval result."""
         return self._last_result
 
     def reload(self) -> None:
+        """Reload corpus units from disk and rebuild index structures."""
         loaded_units: list[GroundingUnit] = []
         loaded_files: list[str] = []
         failed_files: list[dict[str, str]] = []
@@ -249,6 +252,9 @@ class RAGService:
         memory_summary: str | None = None,
         max_results: int = DEFAULT_MAX_RESULTS,
     ) -> RAGRetrievalResult:
+        """
+        Execute RAG planning and contextual retrieval for a user message.
+        """
         cleaned_message = sanitize_text(message, MAX_QUERY_CHARS)
         cleaned_safety_tags = _clean_terms(safety_tags or ())
         resolved_locale = normalize_locale(locale)
@@ -386,6 +392,9 @@ class RAGService:
         min_score: float = 0.08,
         query_vector: list[float] | None = None,
     ) -> list[RetrievalMatch]:
+        """
+        Execute lexical and vector search across active corpus grounding units.
+        """
         cleaned_query = sanitize_text(query, MAX_QUERY_CHARS)
         cleaned_tags = _clean_terms(tags or ())
 
@@ -458,6 +467,7 @@ class RAGService:
         tags: list[str] | tuple[str, ...] | None = None,
         max_results: int = DEFAULT_MAX_RESULTS,
     ) -> list[dict[str, Any]]:
+        """Retrieve matching grounding units as prompt context dictionaries."""
         return [
             match.to_prompt_dict()
             for match in self.retrieve(query, tags=tags, max_results=max_results)
@@ -470,6 +480,7 @@ class RAGService:
         tags: list[str] | tuple[str, ...] | None = None,
         max_results: int = DEFAULT_MAX_RESULTS,
     ) -> list[RagReference]:
+        """Retrieve matching grounding units as RagReference objects."""
         return [
             match.to_reference()
             for match in self.retrieve(query, tags=tags, max_results=max_results)
@@ -481,9 +492,11 @@ class RAGService:
         *,
         max_results: int = DEFAULT_MAX_RESULTS,
     ) -> list[RetrievalMatch]:
+        """Retrieve grounding units matching tag criteria."""
         return self.retrieve("", tags=tags, max_results=max_results, min_score=0.15)
 
     def health(self) -> dict[str, Any]:
+        """Return diagnostic health and status metrics for the RAG service."""
         categories = sorted({unit.category for unit in self._units})
         tags = sorted({tag for unit in self._units for tag in unit.tags})
         invalid_tags = [tag for tag in tags if tag not in VALID_RAG_TAGS]
@@ -1063,10 +1076,6 @@ def _clean_list(value: Any, *, max_items: int, max_chars: int) -> list[str]:
 
 
 def _unique_ordered(values: list[str] | tuple[str, ...]) -> list[str]:
-    # BOLT OPTIMIZATION: Avoid calling sanitize_text inside _unique_ordered.
-    # Elements passed here through _clean_terms / _clean_list are already sanitized and truncated.
-    # Removing redundant regex sanitization and unicode normalization per item speeds up
-    # tag deduplication from ~69.3us to ~32.8us per 100k tag operations (~2.1x faster).
     seen: set[str] = set()
     output: list[str] = []
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Final
 from urllib.parse import urlparse
 
 import httpx
@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class VoiceV4TokenGrant:
+    """Ephemeral access token grant for Voice V4 real-time web audio channel."""
+
     token: str
     expires_at_utc: datetime
     new_session_expires_at_utc: datetime
@@ -33,6 +35,7 @@ class VoiceV4TokenGrant:
     request_id: str
 
     def to_public_dict(self) -> dict[str, object]:
+        """Convert token grant to public API dictionary representation."""
         return {
             "token": self.token,
             "expires_at_utc": self.expires_at_utc.isoformat().replace("+00:00", "Z"),
@@ -44,16 +47,17 @@ class VoiceV4TokenGrant:
 
 
 class VoiceV4TokenService:
-    """Provision exactly one constrained ephemeral Live token per request."""
+    """Provision exactly one constrained ephemeral Live token per authenticated user request."""
 
-    name = "voice_v4_token"
+    name: Final[str] = "voice_v4_token"
 
     def __init__(self, *, settings: Settings, client: httpx.AsyncClient | None = None) -> None:
-        self.settings = settings
-        self._client = client
+        self.settings: Settings = settings
+        self._client: httpx.AsyncClient | None = client
 
     @property
     def is_configured(self) -> bool:
+        """Check whether Gemini API key and token endpoint are set."""
         return bool(setting_secret(self.settings, "GEMINI_API_KEY")) and bool(
             str(getattr(self.settings, "VOICE_V4_TOKEN_ENDPOINT", "") or "")
         )
@@ -65,6 +69,9 @@ class VoiceV4TokenService:
         feature_context: FeatureContext,
         request_id: str,
     ) -> VoiceV4TokenGrant:
+        """
+        Issue an ephemeral access token grant after authenticating and evaluating feature eligibility.
+        """
         if not feature_context.authenticated or not feature_context.user_id_hash:
             raise AuthError(
                 "Authentication is required for Voice V4 token issuance",

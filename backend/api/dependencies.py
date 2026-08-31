@@ -3,27 +3,15 @@
 """
 FastAPI dependency injection layer.
 
-This module provides:
-- ServiceContainer: singleton composition root for all backend services (re-exported from bootstrap)
-- RequestContext: per-request metadata (request_id, locale, channel, session)
-- Header extraction dependencies (locale, channel, request_id, session)
-- Shared API helpers (error conversion, auth assertion)
-
-Design rules:
-- All configuration reads come from Settings (no os.getenv)
-- Importing this module must not call external APIs or verify auth tokens
-- Service construction is lazy (on first request)
-
-Service container is built using the modular bootstrap package (backend.services.bootstrap)
-which provides clear dependency ordering and extensibility.
+Provides request context extraction, session resolution, service container accessors,
+and HTTP error conversion helpers.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import hashlib
-from typing import Annotated, Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Annotated, Any, Final
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
@@ -36,25 +24,53 @@ from backend.services.bootstrap import (
     build_service_container as bootstrap_build_service_container,
 )
 
+if TYPE_CHECKING:
+    from backend.services.domain.admin.admin_authority import AdminAuthority
 
-MAX_HEADER_CHARS = 512
-MAX_REQUEST_ID_HEADER_CHARS = 120
-MAX_CHANNEL_HEADER_CHARS = 80
-MAX_LOCALE_HEADER_CHARS = 40
-MAX_ANONYMOUS_USER_HEADER_CHARS = 160
+MAX_HEADER_CHARS: Final[int] = 512
+MAX_REQUEST_ID_HEADER_CHARS: Final[int] = 120
+MAX_CHANNEL_HEADER_CHARS: Final[int] = 80
+MAX_LOCALE_HEADER_CHARS: Final[int] = 40
+MAX_ANONYMOUS_USER_HEADER_CHARS: Final[int] = 160
 
-
-# ═══════════════════════════════════════════════════════════════
-# Service Container (re-exported from bootstrap)
-# ═══════════════════════════════════════════════════════════════
-
-# ServiceContainer is imported from backend.services.bootstrap
-# See backend/services/bootstrap/__init__.py for the definition
-__all__ = ["ServiceContainer"]
+__all__ = [
+    "AdminRequestContextDep",
+    "AuthenticatedRequestContextDep",
+    "ChannelDep",
+    "LocaleDep",
+    "RequestContext",
+    "RequestContextDep",
+    "RequestIdDep",
+    "RequiredSessionDep",
+    "ServiceContainer",
+    "ServicesDep",
+    "SessionDep",
+    "TimezoneDep",
+    "assert_admin",
+    "assert_authenticated",
+    "build_service_container",
+    "close_service_container",
+    "get_admin_request_context",
+    "get_anonymous_user_id",
+    "get_authenticated_request_context",
+    "get_channel",
+    "get_current_session",
+    "get_locale",
+    "get_request_context",
+    "get_request_id",
+    "get_service_container",
+    "get_services",
+    "get_timezone",
+    "http_error_from_app_error",
+    "require_authenticated_session",
+    "reset_service_container_for_tests",
+]
 
 
 @dataclass(frozen=True, slots=True)
 class RequestContext:
+    """Immutable per-request context holding correlation, locale, channel, and user session data."""
+
     request_id: str
     locale: str
     channel: UserChannel
@@ -63,26 +79,11 @@ class RequestContext:
     timezone: str = "UTC"
 
 
-# ═══════════════════════════════════════════════════════════════
-# Service Container Singleton
-# ═══════════════════════════════════════════════════════════════
-
 _service_container: ServiceContainer | None = None
 
 
 def build_service_container(settings: Settings) -> ServiceContainer:
-    """
-    Build one isolated composition root from an explicit Settings object.
-    
-    This is a convenience wrapper around the modular bootstrap package.
-    The actual service building logic lives in backend.services.bootstrap.
-    
-    Args:
-        settings: Application settings
-        
-    Returns:
-        Fully initialized ServiceContainer ready for use
-    """
+    """Build one isolated composition root from an explicit Settings object."""
     return bootstrap_build_service_container(settings)
 
 
@@ -122,17 +123,11 @@ def get_services(request: Request) -> ServiceContainer:
 ServicesDep = Annotated[ServiceContainer, Depends(get_services)]
 
 
-# ═══════════════════════════════════════════════════════════════
-# Header Extraction Dependencies
-# ═══════════════════════════════════════════════════════════════
-
 def get_request_id(
     request: Request,
     x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
 ) -> str:
-    # The HTTP middleware creates the canonical request ID before dependency
-    # resolution. Reuse it so response headers, logs, idempotency, and JSON
-    # bodies always reference the same trace.
+    """Extract or generate canonical request correlation ID."""
     middleware_id = sanitize_text(
         str(getattr(request.state, "request_id", "") or ""),
         MAX_REQUEST_ID_HEADER_CHARS,
@@ -145,6 +140,7 @@ def get_locale(
     accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
     x_mindpal_locale: Annotated[str | None, Header(alias="X-MindPal-Locale")] = None,
 ) -> str:
+    """Extract and normalize user language locale from headers."""
     explicit_locale = sanitize_text(str(x_mindpal_locale or ""), MAX_LOCALE_HEADER_CHARS)
 
     if explicit_locale:
@@ -162,36 +158,28 @@ def get_locale(
 def get_timezone(
     x_mindpal_timezone: Annotated[str | None, Header(alias="X-MindPal-Timezone")] = None,
 ) -> str:
-    """
-    Resolve user timezone from X-MindPal-Timezone header.
-    
-    Validates that it's an IANA timezone (e.g. "America/New_York", "Europe/London", "UTC").
-    Falls back to "UTC" if not provided or invalid.
-    
-    Frontend should pass Intl.DateTimeFormat().resolvedOptions().timeZone
-    """
+    """Resolve user IANA timezone from X-MindPal-Timezone header with UTC fallback."""
     from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-    
+
     if not x_mindpal_timezone:
         return "UTC"
-    
+
     cleaned = sanitize_text(str(x_mindpal_timezone), MAX_LOCALE_HEADER_CHARS)
-    
+
     if not cleaned:
         return "UTC"
-    
-    # Validate it's a real IANA timezone
+
     try:
         ZoneInfo(cleaned)
         return cleaned
     except ZoneInfoNotFoundError:
-        # Invalid timezone, fall back to UTC
         return "UTC"
 
 
 def get_channel(
     x_mindpal_channel: Annotated[str | None, Header(alias="X-MindPal-Channel")] = None,
 ) -> UserChannel:
+    """Extract UserChannel enum from X-MindPal-Channel header."""
     raw_channel = sanitize_text(str(x_mindpal_channel or "web"), MAX_CHANNEL_HEADER_CHARS)
 
     try:
@@ -203,16 +191,13 @@ def get_channel(
 def get_anonymous_user_id(
     x_mindpal_user_id: Annotated[str | None, Header(alias="X-MindPal-User-ID")] = None,
 ) -> str:
+    """Extract anonymous guest identifier from header."""
     cleaned = sanitize_text(
         str(x_mindpal_user_id or "anonymous"),
         MAX_ANONYMOUS_USER_HEADER_CHARS,
     )
     return cleaned or "anonymous"
 
-
-# ═══════════════════════════════════════════════════════════════
-# Session Resolution Dependencies
-# ═══════════════════════════════════════════════════════════════
 
 async def get_current_session(
     services: ServicesDep,
@@ -222,13 +207,7 @@ async def get_current_session(
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     x_firebase_app_check: Annotated[str | None, Header(alias="X-Firebase-AppCheck")] = None,
 ) -> UserSession:
-    """
-    Resolve either:
-    - verified Firebase session when Authorization: Bearer <id_token> exists
-    - anonymous guest session when no Authorization exists and anonymous is enabled
-
-    Invalid Bearer tokens fail closed in AuthService.
-    """
+    """Resolve authenticated or guest UserSession."""
     session = await services.auth.resolve_session(
         authorization_header=authorization,
         raw_user_id=anonymous_user_id,
@@ -248,9 +227,7 @@ async def require_authenticated_session(
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     x_firebase_app_check: Annotated[str | None, Header(alias="X-Firebase-AppCheck")] = None,
 ) -> UserSession:
-    """
-    Resolve verified Firebase session only.
-    """
+    """Resolve authenticated UserSession or raise AuthError."""
     session = await services.auth.resolve_session(
         authorization_header=authorization,
         raw_user_id=None,
@@ -271,10 +248,6 @@ TimezoneDep = Annotated[str, Depends(get_timezone)]
 ChannelDep = Annotated[UserChannel, Depends(get_channel)]
 
 
-# ═══════════════════════════════════════════════════════════════
-# Request Context Dependencies
-# ═══════════════════════════════════════════════════════════════
-
 async def get_request_context(
     request: Request,
     request_id: RequestIdDep,
@@ -283,6 +256,7 @@ async def get_request_context(
     channel: ChannelDep,
     session: SessionDep,
 ) -> RequestContext:
+    """Construct RequestContext for general HTTP requests."""
     request.state.request_id = request_id
     request.state.locale = locale
     request.state.channel = channel.value
@@ -309,6 +283,7 @@ async def get_authenticated_request_context(
     channel: ChannelDep,
     session: RequiredSessionDep,
 ) -> RequestContext:
+    """Construct RequestContext requiring an authenticated session."""
     request.state.request_id = request_id
     request.state.locale = locale
     request.state.channel = channel.value
@@ -369,6 +344,7 @@ async def get_admin_request_context(
     context: AuthenticatedRequestContextDep,
     services: ServicesDep,
 ) -> RequestContext:
+    """Construct RequestContext requiring administrator privilege."""
     await assert_admin(context, services.admin_authority)
     return context
 
@@ -379,16 +355,8 @@ AdminRequestContextDep = Annotated[
 ]
 
 
-# ═══════════════════════════════════════════════════════════════
-# Shared API Helpers (used by all routers)
-# ═══════════════════════════════════════════════════════════════
-
 def assert_authenticated(context: Any) -> None:
-    """
-    Raise 401 if the request context does not have an authenticated session.
-
-    Use this in any router that requires Firebase authentication.
-    """
+    """Raise HTTP 401 if context is unauthenticated."""
     session = getattr(context, "session", None)
 
     if session is None or not getattr(session, "authenticated", False):
@@ -407,12 +375,7 @@ def http_error_from_app_error(
     *,
     request_id: str | None = None,
 ) -> HTTPException:
-    """
-    Convert an AppError into a FastAPI HTTPException.
-
-    Extracts status_code, error code, and sanitized message from the exception.
-    Use this in router except blocks to convert AppError → HTTP response.
-    """
+    """Convert a domain AppError into a FastAPI HTTPException."""
     status_code = getattr(exc, "status_code", None) or status.HTTP_500_INTERNAL_SERVER_ERROR
     code = getattr(exc, "code", None) or exc.__class__.__name__
     message = sanitize_text(str(exc), 500) or "Application error"
@@ -430,8 +393,6 @@ def http_error_from_app_error(
     if retry_after is None and isinstance(details, dict):
         usage = details.get("usage")
         if isinstance(usage, dict):
-            # Quota exhaustion is also a 429. Expose its actual reset time so a
-            # resilient client pauses instead of hammering a provider operation.
             retry_after = usage.get("reset_5h_seconds")
     headers = None
     try:

@@ -3,14 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from re import Pattern
 
 from backend.core.security import Locale
 from backend.models.safety import SafetyAction, SafetyLevel
 
 
+class RuleMatchMode(StrEnum):
+    """Rule pattern matching strategy mode."""
+
+    ANY = "any"
+    ALL = "all"
+    PATTERN_GROUP = "pattern_group"
+
+
 @dataclass(frozen=True, slots=True)
 class CompiledSafetyRule:
+    """Compiled safety rule containing regex patterns and action metadata."""
+
     rule_id: str
     level: SafetyLevel
     action: SafetyAction
@@ -29,6 +40,8 @@ class CompiledSafetyRule:
 
 @dataclass(frozen=True, slots=True)
 class CompiledExclusionRule:
+    """Exclusion rule used to filter false-positive safety matches."""
+
     rule_id: str
     description: str
     source_locale: Locale
@@ -37,6 +50,8 @@ class CompiledExclusionRule:
 
 @dataclass(frozen=True, slots=True)
 class SafetyRuleMatch:
+    """Result container for a matched safety rule during classification."""
+
     rule: CompiledSafetyRule
     confidence: float
     matched_pattern_refs: tuple[str, ...]
@@ -44,11 +59,14 @@ class SafetyRuleMatch:
 
     @property
     def priority(self) -> int:
+        """Priority score derived from underlying rule."""
         return self.rule.priority
 
 
 @dataclass(frozen=True, slots=True)
 class SafetyClassifierMeta:
+    """Execution telemetry for safety classification operations."""
+
     mode: str
     used_llm: bool
     fallback_used: bool

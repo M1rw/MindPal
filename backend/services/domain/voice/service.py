@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import asdict
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Final, Protocol, runtime_checkable
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError, ValidationAppError
@@ -17,38 +17,42 @@ from backend.services.domain.voice.policy import TTSPolicy, TTSServiceMeta
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TTS_SERVICE_CONFIG = TTSServiceConfig()
-MAX_TTS_TEXT_CHARS = DEFAULT_TTS_SERVICE_CONFIG.max_tts_text_chars
-MAX_VOICE_ID_CHARS = DEFAULT_TTS_SERVICE_CONFIG.max_voice_id_chars
-MAX_PROVIDER_NAME_CHARS = DEFAULT_TTS_SERVICE_CONFIG.max_provider_name_chars
+DEFAULT_TTS_SERVICE_CONFIG: Final[TTSServiceConfig] = TTSServiceConfig()
+MAX_TTS_TEXT_CHARS: Final[int] = DEFAULT_TTS_SERVICE_CONFIG.max_tts_text_chars
+MAX_VOICE_ID_CHARS: Final[int] = DEFAULT_TTS_SERVICE_CONFIG.max_voice_id_chars
+MAX_PROVIDER_NAME_CHARS: Final[int] = DEFAULT_TTS_SERVICE_CONFIG.max_provider_name_chars
 
 
 @runtime_checkable
 class TTSProvider(Protocol):
-    """TTS provider protocol."""
+    """Protocol for text-to-speech provider implementations."""
 
     name: str
 
     @property
     def is_configured(self) -> bool:
+        """Check if provider has required credentials and endpoint config."""
         ...
 
     async def synthesize(self, request: TTSRequest) -> TTSResponse:
+        """Synthesize spoken audio from input TTSRequest."""
         ...
 
 
 class BrowserFallbackTTSProvider:
     """
-    Deterministic browser fallback.
+    Deterministic fallback provider indicating browser Web Speech API execution.
     """
 
-    name = "browser"
+    name: Final[str] = "browser"
 
     @property
     def is_configured(self) -> bool:
+        """Browser fallback is always configured."""
         return True
 
     async def synthesize(self, request: TTSRequest) -> TTSResponse:
+        """Return browser fallback response directive."""
         return TTSResponse(
             request_id="tts_browser_fallback",
             provider_used=self.name,
@@ -62,7 +66,7 @@ class BrowserFallbackTTSProvider:
 
 class TTSService:
     """
-    Text-to-speech orchestration boundary.
+    Text-to-speech orchestration boundary handling voice policies and provider fallbacks.
     """
 
     def __init__(
@@ -76,22 +80,22 @@ class TTSService:
         require_external_provider: bool | None = None,
         allow_browser_fallback_in_production: bool | None = None,
     ) -> None:
-        self.settings = settings or get_settings()
-        self.config = config or TTSServiceConfig.from_settings(self.settings)
-        self.production_mode = is_production(self.settings)
-        self.timeout_seconds = float(
+        self.settings: Settings = settings or get_settings()
+        self.config: TTSServiceConfig = config or TTSServiceConfig.from_settings(self.settings)
+        self.production_mode: bool = is_production(self.settings)
+        self.timeout_seconds: float = float(
             timeout_seconds
             if timeout_seconds is not None
             else self.config.default_timeout_seconds
         )
 
-        self.require_external_provider = (
+        self.require_external_provider: bool = (
             bool(require_external_provider)
             if require_external_provider is not None
             else self.config.require_external_provider
         )
 
-        self.allow_browser_fallback_in_production = (
+        self.allow_browser_fallback_in_production: bool = (
             bool(allow_browser_fallback_in_production)
             if allow_browser_fallback_in_production is not None
             else self.config.allow_browser_fallback_in_production
@@ -114,11 +118,12 @@ class TTSService:
                 code="tts_no_providers",
             )
 
-        self._providers = configured_providers
+        self._providers: list[TTSProvider] = configured_providers
         self.last_meta: TTSServiceMeta | None = None
 
     @property
     def providers(self) -> tuple[TTSProvider, ...]:
+        """Return registered TTS providers as an immutable tuple."""
         return tuple(self._providers)
 
     def build_request(
@@ -132,6 +137,9 @@ class TTSService:
         format: TTSFormat | str = TTSFormat.MP3,
         speaking_rate: float | None = None,
     ) -> TTSRequest:
+        """
+        Construct a validated TTSRequest based on active voice selection policies.
+        """
         clean_text = sanitize_text(text, MAX_TTS_TEXT_CHARS)
 
         if not clean_text:
@@ -165,6 +173,9 @@ class TTSService:
         safety_level: str = "safe",
         allow_external_for_crisis: bool = False,
     ) -> TTSResponse:
+        """
+        Synthesize audio through the provider fallback chain.
+        """
         policy = self.select_policy(
             locale=request.locale,
             response_mode=response_mode,
@@ -227,6 +238,9 @@ class TTSService:
 
                 return clean_response
 
+            except asyncio.CancelledError:
+                raise
+
             except asyncio.TimeoutError as exc:
                 fallback_count += 1
                 last_error_code = "provider_timeout"
@@ -244,9 +258,6 @@ class TTSService:
                 fallback_count += 1
                 last_error_code = exc.code
                 continue
-
-            except asyncio.CancelledError:
-                raise
 
             except Exception:
                 logger.warning("TTS provider %s raised unexpected error", provider_name, exc_info=True)
@@ -277,6 +288,7 @@ class TTSService:
         speaking_rate: float | None = None,
         allow_external_for_crisis: bool = False,
     ) -> TTSResponse:
+        """Helper to build and synthesize text directly in one call."""
         request = self.build_request(
             text=text,
             locale=locale,
@@ -305,6 +317,7 @@ class TTSService:
         speaking_rate: float | None = None,
         allow_external_for_crisis: bool = False,
     ) -> TTSPolicy:
+        """Select appropriate voice policy based on safety level and locale parameters."""
         resolved_locale = normalize_locale(locale)
         resolved_format = _normalize_format(format)
         resolved_safety = sanitize_text(safety_level or "safe", 80)
@@ -351,6 +364,7 @@ class TTSService:
         )
 
     def health(self) -> dict[str, Any]:
+        """Return diagnostic health and status metrics for registered TTS providers."""
         providers = [
             {
                 "name": _clean_provider_name(provider.name),

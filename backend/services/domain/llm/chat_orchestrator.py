@@ -10,27 +10,35 @@ import asyncio
 import logging
 import re
 import time
-from typing import Any
-
-ARABIC_CHAR_PATTERN = re.compile(r"[\u0600-\u06ff]")
+from collections.abc import Sequence
+from typing import Any, Final
 
 from backend.core.security import sanitize_text
 from backend.models.chat import ChatRequest, ChatSafetyView, LLMMessage, LLMRole
-from backend.models.memory import MemoryGraph, summary_from_memory_graph
+from backend.models.memory import MemoryGraph
 from backend.models.safety import SafetyDecision
 from backend.models.user import UserProfile
 from backend.services.domain.memory import extract_memory_graph_from_text_llm
 
 logger = logging.getLogger(__name__)
 
-MAX_HISTORY_FOR_LLM = 30
-MAX_USER_PREFS_PROMPT_CHARS = 1_200
-MEMORY_COMPACTION_TIMEOUT_SECONDS = 8.0
-SAFETY_EVENT_TIMEOUT_SECONDS = 4.0
+ARABIC_CHAR_PATTERN: Final[re.Pattern[str]] = re.compile(r"[\u0600-\u06ff]")
+MAX_HISTORY_FOR_LLM: Final[int] = 30
+MAX_USER_PREFS_PROMPT_CHARS: Final[int] = 1_200
+MEMORY_COMPACTION_TIMEOUT_SECONDS: Final[float] = 8.0
+SAFETY_EVENT_TIMEOUT_SECONDS: Final[float] = 4.0
 
 
 def maybe_answer_chat_context_question(payload: ChatRequest) -> str | None:
-    """Deterministic answers for questions about current chat state."""
+    """
+    Provide deterministic answers for meta-questions about the current chat context state.
+
+    Args:
+        payload: Incoming ChatRequest payload.
+
+    Returns:
+        Formatted deterministic answer string, or None if message is not a meta-question.
+    """
     message = sanitize_text(payload.message or "", 800)
     lowered = message.lower()
 
@@ -63,6 +71,15 @@ def maybe_answer_chat_context_question(payload: ChatRequest) -> str | None:
 
 
 def chat_history_stats(payload: ChatRequest) -> dict[str, int]:
+    """
+    Calculate statistical counts of user vs assistant messages in conversation history.
+
+    Args:
+        payload: Active ChatRequest payload.
+
+    Returns:
+        Dictionary mapping message category names to message counts.
+    """
     history = list(payload.history or [])
     history_includes_current = _history_includes_current_user_message(payload, history)
 
@@ -71,11 +88,13 @@ def chat_history_stats(payload: ChatRequest) -> dict[str, int]:
     assistant_messages = 0
 
     for item in history:
-        role = _history_role(item)
-        if role == "user":
-            user_messages += 1
-        elif role == "assistant":
-            assistant_messages += 1
+        match _history_role(item):
+            case "user":
+                user_messages += 1
+            case "assistant":
+                assistant_messages += 1
+            case _:
+                pass
 
     if not history_includes_current:
         user_messages += 1
@@ -88,6 +107,16 @@ def chat_history_stats(payload: ChatRequest) -> dict[str, int]:
 
 
 def build_user_preferences_prompt(profile: UserProfile, metadata: Any | None = None) -> str:
+    """
+    Construct user preference system prompt instructions from profile and client metadata.
+
+    Args:
+        profile: UserProfile object containing preference attributes.
+        metadata: Request metadata container.
+
+    Returns:
+        Sanitized prompt segment detailing personal communication preferences.
+    """
     preferences = profile.preferences
     parts: list[str] = [f"communication_style={preferences.communication_style.value}"]
 
@@ -151,6 +180,9 @@ async def load_chat_profile(
     context: Any,
     authenticated: bool,
 ) -> UserProfile:
+    """
+    Load active UserProfile from persistence layer or return anonymous guest profile.
+    """
     if not authenticated:
         return UserProfile(
             user_id_hash=context.session.user_id_hash,
@@ -168,6 +200,9 @@ async def persist_safety_event_inline(
     decision: SafetyDecision,
     locale: str,
 ) -> bool:
+    """
+    Persist safety decision audit event in database within bounded timeout.
+    """
     try:
         event = services.safety.build_safety_event(
             request_id=context.request_id,
@@ -182,7 +217,7 @@ async def persist_safety_event_inline(
         )
 
         return True
-    except Exception:
+    except (asyncio.TimeoutError, Exception):
         logger.debug("Safety event persistence failed for %s", context.request_id)
         return False
 
@@ -196,6 +231,9 @@ async def persist_memory_graph_inline(
     existing_graph: MemoryGraph,
     locale: str,
 ) -> dict[str, MemoryGraph] | None:
+    """
+    Extract and persist memory graph atomic facts inline for authenticated users.
+    """
     if not bool(context.session.authenticated):
         return None
 
@@ -221,7 +259,7 @@ async def persist_memory_graph_inline(
         if not merged.changed:
             return None
         return {"delta": delta, "snapshot": merged.snapshot}
-    except Exception:
+    except (asyncio.TimeoutError, Exception):
         logger.warning("Memory graph persistence failed for %s", context.request_id, exc_info=True)
         return None
 
@@ -233,6 +271,9 @@ async def extract_clinical_inline(
     context: Any,
     messages: list[LLMMessage],
 ) -> None:
+    """
+    Perform clinical intelligence extraction on message context asynchronously.
+    """
     from backend.services.domain.intelligence import extract_clinical_profile
 
     try:
@@ -253,7 +294,7 @@ async def extract_clinical_inline(
             context.session.user_id_hash,
             update_clinical,
         )
-    except TimeoutError:
+    except asyncio.TimeoutError:
         logger.info("Clinical extraction timed out for %s", context.request_id)
     except Exception:
         logger.warning("Clinical extraction failed for %s", context.request_id, exc_info=True)
@@ -266,6 +307,9 @@ async def mirror_usage_profile(
     usage: dict[str, int],
     clinical_mode: bool,
 ) -> None:
+    """
+    Synchronize usage metrics and credit counters onto user profile.
+    """
     now = time.time()
 
     def update_profile(profile: Any) -> Any:
@@ -286,6 +330,9 @@ async def mirror_usage_profile(
 
 
 def convert_history(payload: ChatRequest) -> list[LLMMessage]:
+    """
+    Convert incoming payload message history into normalized LLMMessage domain list.
+    """
     history: list[LLMMessage] = []
     for message in payload.history[-MAX_HISTORY_FOR_LLM:]:
         role = LLMRole.USER if message.role.value == "user" else LLMRole.ASSISTANT
@@ -299,12 +346,18 @@ def convert_history(payload: ChatRequest) -> list[LLMMessage]:
 
 
 def resolve_locale(payload: ChatRequest, fallback_locale: str) -> str:
+    """
+    Resolve active request locale with fallback options.
+    """
     if payload.metadata.locale and payload.metadata.locale != "auto":
         return payload.metadata.locale
     return fallback_locale or "auto"
 
 
 def safety_view(decision: SafetyDecision) -> ChatSafetyView:
+    """
+    Construct user-visible ChatSafetyView model from SafetyDecision.
+    """
     return ChatSafetyView(
         level=decision.level,
         bypass_llm=decision.bypass_llm,
@@ -314,6 +367,9 @@ def safety_view(decision: SafetyDecision) -> ChatSafetyView:
 
 
 def provider_label(provider_used: str, *, rewrite_provider: str | None) -> str:
+    """
+    Format provider label string including optional query rewrite metadata.
+    """
     base = sanitize_text(provider_used or "unknown", 80)
     if rewrite_provider:
         rewrite = sanitize_text(rewrite_provider, 80)
@@ -321,7 +377,7 @@ def provider_label(provider_used: str, *, rewrite_provider: str | None) -> str:
     return base
 
 
-def _history_includes_current_user_message(payload: ChatRequest, history: list[Any]) -> bool:
+def _history_includes_current_user_message(payload: ChatRequest, history: Sequence[Any]) -> bool:
     if not history:
         return False
     last = history[-1]
@@ -336,11 +392,13 @@ def _history_role(item: Any) -> str:
     role = getattr(item, "role", "")
     value = getattr(role, "value", role)
     raw = sanitize_text(str(value or ""), 80).lower()
-    if raw in {"user", "human"}:
-        return "user"
-    if raw in {"assistant", "mindpal", "bot"}:
-        return "assistant"
-    return raw
+    match raw:
+        case "user" | "human":
+            return "user"
+        case "assistant" | "mindpal" | "bot":
+            return "assistant"
+        case _:
+            return raw
 
 
 def _history_content(item: Any) -> str:
@@ -366,8 +424,14 @@ def _looks_like_chat_count_question(lowered: str, original: str) -> bool:
     arabic_hits = any(
         phrase in original
         for phrase in (
-            "كم رسالة", "كام رسالة", "عدد الرسائل", "عدد رسايل",
-            "كام مسج", "كم مسج", "في الشات ده", "فى الشات ده",
+            "كم رسالة",
+            "كام رسالة",
+            "عدد الرسائل",
+            "عدد رسايل",
+            "كام مسج",
+            "كم مسج",
+            "في الشات ده",
+            "فى الشات ده",
         )
     )
     return bool(english_hits or arabic_hits)
