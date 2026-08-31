@@ -14,9 +14,10 @@ Guards external HTTP clients against SSRF attacks including:
 from __future__ import annotations
 
 import ipaddress
+from typing import Final
 from urllib.parse import urlparse
 
-_SAFE_URL_SCHEMES: frozenset[str] = frozenset({"http", "https"})
+_SAFE_URL_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
 
 
 def parse_ip_literal(hostname: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
@@ -28,13 +29,11 @@ def parse_ip_literal(hostname: str) -> ipaddress.IPv4Address | ipaddress.IPv6Add
     if not host:
         return None
 
-    # Standard IPv6 / IPv4 try first
     try:
         return ipaddress.ip_address(host)
     except ValueError:
         pass
 
-    # Custom multi-format IPv4 parser (decimal, hex 0x, octal 0, shorthand 1-4 parts)
     parts = host.split(".")
     if 1 <= len(parts) <= 4:
         parsed_parts: list[int] = []
@@ -62,7 +61,6 @@ def is_globally_routable_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Addre
     if not address.is_global:
         return False
 
-    # Check for IPv4 mapped in IPv6 (e.g. ::ffff:127.0.0.1 vs ::ffff:8.8.8.8)
     if getattr(address, "ipv4_mapped", None) is not None:
         mapped_v4 = address.ipv4_mapped
         return bool(mapped_v4 and mapped_v4.is_global)
@@ -70,7 +68,6 @@ def is_globally_routable_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Addre
     if isinstance(address, ipaddress.IPv6Address):
         addr_int = int(address)
         prefix_96 = addr_int >> 32
-        # Check IPv4-compatible (::/96), NAT64 (64:ff9b::/96), and SIIT (::ffff:0:0/96) prefixes embedding IPv4
         if (
             (addr_int != 0 and prefix_96 == 0)
             or prefix_96 == 0x0064FF9B0000000000000000

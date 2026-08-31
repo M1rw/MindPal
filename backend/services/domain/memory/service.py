@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from dataclasses import asdict
-from typing import Any
+from typing import Any, Final
 
 from pydantic import ValidationError as PydanticValidationError
 
@@ -33,42 +33,42 @@ from backend.models.memory import (
     RelationshipFact,
 )
 from backend.services.configs import MemoryServiceConfig
+from backend.services.domain.llm import LLMService, build_llm_request
 from backend.services.domain.memory.compaction import (
     LLMCompactionOutcome,
     MemoryCompactionMeta,
 )
 from backend.services.domain.memory.extraction import MemoryExtraction
-from backend.services.domain.llm import LLMService, build_llm_request
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MEMORY_SERVICE_CONFIG = MemoryServiceConfig()
-MAX_COMPACTED_SUMMARY_CHARS = DEFAULT_MEMORY_SERVICE_CONFIG.max_compacted_summary_chars
-MAX_EXTRACTED_ITEM_TEXT_CHARS = DEFAULT_MEMORY_SERVICE_CONFIG.max_extracted_item_text_chars
-MAX_ITEMS_PER_COMPACTION = DEFAULT_MEMORY_SERVICE_CONFIG.max_items_per_compaction
-MAX_LIST_FIELD_ITEMS = DEFAULT_MEMORY_SERVICE_CONFIG.max_list_field_items
-MIN_INTERACTIONS_FOR_AUTO_COMPACTION = DEFAULT_MEMORY_SERVICE_CONFIG.min_interactions_for_auto_compaction
-MAX_LLM_INTERACTION_CHARS = DEFAULT_MEMORY_SERVICE_CONFIG.max_llm_interaction_chars
-MAX_LLM_INTERACTIONS = DEFAULT_MEMORY_SERVICE_CONFIG.max_llm_interactions
-MAX_LLM_JSON_CHARS = DEFAULT_MEMORY_SERVICE_CONFIG.max_llm_json_chars
+DEFAULT_MEMORY_SERVICE_CONFIG: Final[MemoryServiceConfig] = MemoryServiceConfig()
+MAX_COMPACTED_SUMMARY_CHARS: Final[int] = DEFAULT_MEMORY_SERVICE_CONFIG.max_compacted_summary_chars
+MAX_EXTRACTED_ITEM_TEXT_CHARS: Final[int] = DEFAULT_MEMORY_SERVICE_CONFIG.max_extracted_item_text_chars
+MAX_ITEMS_PER_COMPACTION: Final[int] = DEFAULT_MEMORY_SERVICE_CONFIG.max_items_per_compaction
+MAX_LIST_FIELD_ITEMS: Final[int] = DEFAULT_MEMORY_SERVICE_CONFIG.max_list_field_items
+MIN_INTERACTIONS_FOR_AUTO_COMPACTION: Final[int] = DEFAULT_MEMORY_SERVICE_CONFIG.min_interactions_for_auto_compaction
+MAX_LLM_INTERACTION_CHARS: Final[int] = DEFAULT_MEMORY_SERVICE_CONFIG.max_llm_interaction_chars
+MAX_LLM_INTERACTIONS: Final[int] = DEFAULT_MEMORY_SERVICE_CONFIG.max_llm_interactions
+MAX_LLM_JSON_CHARS: Final[int] = DEFAULT_MEMORY_SERVICE_CONFIG.max_llm_json_chars
 
-_EMAIL_OR_PHONE_PLACEHOLDER_RE = re.compile(
+_EMAIL_OR_PHONE_PLACEHOLDER_RE: Final[re.Pattern[str]] = re.compile(
     r"\[(?:redacted_email|redacted_phone|redacted_secret)\]",
     re.IGNORECASE,
 )
-_MEMORY_EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
-_MEMORY_PHONE_RE = re.compile(r"(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)")
-_MEMORY_BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}")
-_MEMORY_KEY_VALUE_SECRET_RE = re.compile(
+_MEMORY_EMAIL_RE: Final[re.Pattern[str]] = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+_MEMORY_PHONE_RE: Final[re.Pattern[str]] = re.compile(r"(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)")
+_MEMORY_BEARER_RE: Final[re.Pattern[str]] = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}")
+_MEMORY_KEY_VALUE_SECRET_RE: Final[re.Pattern[str]] = re.compile(
     r"(?i)\b(api[_-]?key|token|access[_-]?token|refresh[_-]?token|secret|password)"
     r"\s*[:=]\s*"
     r"(['\"]?)[A-Za-z0-9._~+/=-]{8,}\2"
 )
-_MEMORY_LONG_TOKEN_RE = re.compile(
+_MEMORY_LONG_TOKEN_RE: Final[re.Pattern[str]] = re.compile(
     r"\b(?=[A-Za-z0-9._~+/=-]*[A-Za-z])(?=[A-Za-z0-9._~+/=-]*\d)[A-Za-z0-9._~+/=-]{20,}\b"
 )
 
-_TRIGGER_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+_TRIGGER_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     ("exams", re.compile(r"(?i)\bexam|quiz|midterm|final|امتحان|كويز\b")),
     ("panic", re.compile(r"(?i)\bpanic|panic attack|نوبة هلع|نوبة فزع\b")),
     ("anxiety", re.compile(r"(?i)\banxious|anxiety|قلقان|قلقانة|توتر\b")),
@@ -78,7 +78,7 @@ _TRIGGER_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("loneliness", re.compile(r"(?i)\balone|lonely|no one cares|لوحدي|وحيد|محدش\b")),
 )
 
-_COPING_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+_COPING_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     ("box breathing", re.compile(r"(?i)\bbox breathing|تنفس مربع\b")),
     ("5-4-3-2-1 grounding", re.compile(r"(?i)\b5-4-3-2-1|54321|grounding|تأريض\b")),
     ("journaling", re.compile(r"(?i)\bjournal|journaling|write it down|اكتب\b")),
@@ -86,26 +86,26 @@ _COPING_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("calling someone trusted", re.compile(r"(?i)\bcall someone|trusted person|كلم حد|اتصل بحد\b")),
 )
 
-_GOAL_PATTERNS: tuple[re.Pattern[str], ...] = (
+_GOAL_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
     re.compile(r"(?i)\bI\s+(?:want|need|am trying)\s+to\s+(.{3,140})"),
     re.compile(r"(?i)\bmy\s+goal\s+is\s+(.{3,140})"),
     re.compile(r"(?i)(?:عايز|عاوز|محتاج|نفسي)\s+(.{3,140})"),
 )
 
-_PREFERENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
+_PREFERENCE_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
     re.compile(r"(?i)\bI\s+prefer\s+(.{3,140})"),
     re.compile(r"(?i)\bI\s+like\s+when\s+(.{3,140})"),
     re.compile(r"(?i)\bplease\s+(?:be|keep|make)\s+(.{3,140})"),
     re.compile(r"(?i)(?:بفضل|افضل|أفضل|عايزك)\s+(.{3,140})"),
 )
 
-_PREFERRED_NAME_PATTERNS: tuple[re.Pattern[str], ...] = (
+_PREFERRED_NAME_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
     re.compile(r"(?i)\b(?:my name is|call me|i am called|i'm called)\s+([A-Za-z\u0600-\u06FF][^.,!?\n]{0,60})"),
     re.compile(r"(?i)\b(?:remember(?: this)?[:\s]+)?(?:my preferred name is)\s+([A-Za-z\u0600-\u06FF][^.,!?\n]{0,60})"),
     re.compile(r"(?:اسمي|ناديني|ناديني باسم|اسمي هو)\s+([\u0600-\u06FFA-Za-z][^.,!?\n،؟]{0,60})"),
 )
 
-_IMPORTANT_PERSON_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+_IMPORTANT_PERSON_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     ("girlfriend", re.compile(r"(?i)\bmy girlfriend\s+(?:is\s+)?(?:called|named|is)\s+([^.,\n]{2,80})")),
     ("boyfriend", re.compile(r"(?i)\bmy boyfriend\s+(?:is\s+)?(?:called|named|is)\s+([^.,\n]{2,80})")),
     ("partner", re.compile(r"(?i)\bmy partner\s+(?:is\s+)?(?:called|named|is)\s+([^.,\n]{2,80})")),
@@ -113,23 +113,23 @@ _IMPORTANT_PERSON_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("boyfriend", re.compile(r"(?:حبيبي|صاحبي)\s+(?:اسمه|هو|اسمه هو)\s+([^\n.,،]{2,80})")),
 )
 
-_ALIAS_PATTERNS: tuple[re.Pattern[str], ...] = (
+_ALIAS_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
     re.compile(r"(?i)\b(?:i may write|may write|also call|or call)\s+(?:her|his|him|their|them|that person)?\s*(?:name)?\s*(?:as|:)?\s+(.{2,120})$"),
     re.compile(r"(?i)\b(?:also known as|aka)\s+(.{2,120})$"),
     re.compile(r"^(?:or|او|أو)\s+(.{2,80})$", re.IGNORECASE),
 )
 
-_DIRECT_STYLE_RE = re.compile(r"(?i)\b(?:direct answers|be direct|straight to the point|no fluff|brief|concise)\b")
-_EGYPTIAN_ARABIC_RE = re.compile(r"(?i)\b(?:egyptian arabic|egyptian dialect|masri)\b|(?:مصري|بالعامية|عامية مصرية)")
-_AVOID_RESPONSE_RE = re.compile(r"(?i)\b(?:don't|do not|avoid|stop)\s+(?:answering\s+)?(?:like\s+)?(.{3,140})")
+_DIRECT_STYLE_RE: Final[re.Pattern[str]] = re.compile(r"(?i)\b(?:direct answers|be direct|straight to the point|no fluff|brief|concise)\b")
+_EGYPTIAN_ARABIC_RE: Final[re.Pattern[str]] = re.compile(r"(?i)\b(?:egyptian arabic|egyptian dialect|masri)\b|(?:مصري|بالعامية|عامية مصرية)")
+_AVOID_RESPONSE_RE: Final[re.Pattern[str]] = re.compile(r"(?i)\b(?:don't|do not|avoid|stop)\s+(?:answering\s+)?(?:like\s+)?(.{3,140})")
 
-_SAFETY_FLAG_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+_SAFETY_FLAG_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     ("recent self-harm-related distress", re.compile(r"(?i)\bkill myself|suicide|end my life|hurt myself|هنتحر|هقتل نفسي\b")),
     ("possible immediate danger", re.compile(r"(?i)\bnot safe|danger|threatened|مش آمن|خطر|بيهددني\b")),
     ("severe emotional distress", re.compile(r"(?i)\bcan't take this|hopeless|worthless|مش قادر اكمل|يائس\b")),
 )
 
-MEMORY_SYSTEM_PROMPT = """
+MEMORY_SYSTEM_PROMPT: Final[str] = """
 You are MindPal's memory compaction engine.
 
 Your job is to convert sanitized conversation fragments into compact, privacy-safe support memory.
@@ -196,7 +196,7 @@ Return exactly this JSON shape:
 
 class MemoryService:
     """
-    Privacy-first memory compaction service.
+    Privacy-first memory compaction and summarization service.
     """
 
     def __init__(
@@ -208,27 +208,30 @@ class MemoryService:
         enable_llm_summarization: bool | None = None,
         allow_offline_llm_summarization: bool | None = None,
     ) -> None:
-        self.settings = settings or get_settings()
-        self.config = config or MemoryServiceConfig.from_settings(self.settings)
-        self.production_mode = is_production(self.settings)
-        self.llm_service = llm_service
+        self.settings: Settings = settings or get_settings()
+        self.config: MemoryServiceConfig = config or MemoryServiceConfig.from_settings(self.settings)
+        self.production_mode: bool = is_production(self.settings)
+        self.llm_service: LLMService | None = llm_service
 
-        self.enable_llm_summarization = (
+        self.enable_llm_summarization: bool = (
             bool(enable_llm_summarization)
             if enable_llm_summarization is not None
             else self.config.enable_llm_summarization
         )
 
-        self.allow_offline_llm_summarization = (
+        self.allow_offline_llm_summarization: bool = (
             bool(allow_offline_llm_summarization)
             if allow_offline_llm_summarization is not None
             else self.config.allow_offline_llm_summarization
         )
 
-        self.summary_max_chars = int(self.config.summary_max_chars)
+        self.summary_max_chars: int = int(self.config.summary_max_chars)
         self.last_meta: MemoryCompactionMeta | None = None
 
     async def compact(self, request: MemoryCompactionRequest) -> MemoryCompactionResult:
+        """
+        Compact conversation interactions into a structured MemorySummary.
+        """
         existing = request.existing_summary or MemorySummary(user_id_hash=request.user_id_hash)
 
         if not request.force and not self.should_compact(request.interactions):
@@ -288,6 +291,9 @@ class MemoryService:
         return self.compact_local(request)
 
     def compact_local(self, request: MemoryCompactionRequest) -> MemoryCompactionResult:
+        """
+        Perform deterministic local memory compaction without external network calls.
+        """
         existing = request.existing_summary or MemorySummary(user_id_hash=request.user_id_hash)
 
         if not request.force and not self.should_compact(request.interactions):
@@ -311,11 +317,17 @@ class MemoryService:
         )
 
     def redact_text(self, text: str, *, max_chars: int = MAX_COMPACTED_SUMMARY_CHARS) -> str:
+        """
+        Redact sensitive identifiers (PII, secrets, emails) and truncate string.
+        """
         cleaned = sanitize_text(text, max_chars)
         cleaned = _redact_memory_sensitive(cleaned)
         return safe_truncate(cleaned, max_chars)
 
     def should_compact(self, interactions: list[MemoryInteraction]) -> bool:
+        """
+        Evaluate whether the interaction batch meets threshold criteria for compaction.
+        """
         if len(interactions) >= MIN_INTERACTIONS_FOR_AUTO_COMPACTION:
             return True
 
@@ -330,6 +342,9 @@ class MemoryService:
         )
 
     def extract_from_interactions(self, interactions: list[MemoryInteraction]) -> MemoryExtraction:
+        """
+        Extract user memory components from a list of user interactions.
+        """
         user_text = "\n".join(
             interaction.content
             for interaction in interactions
@@ -341,6 +356,9 @@ class MemoryService:
         return self.extract(user_text)
 
     def extract(self, text: str) -> MemoryExtraction:
+        """
+        Extract structured user memory components from raw input text.
+        """
         cleaned = self.redact_text(text, max_chars=MAX_COMPACTED_SUMMARY_CHARS)
 
         if not cleaned:
@@ -390,6 +408,9 @@ class MemoryService:
         *,
         user_id_hash: str,
     ) -> MemorySummary:
+        """
+        Merge newly extracted memory features into existing MemorySummary state.
+        """
         return MemorySummary(
             user_id_hash=user_id_hash,
             summary=self._merge_summary_text(existing.summary, extraction.summary_sentences),
@@ -424,6 +445,9 @@ class MemoryService:
         )
 
     def build_prompt_summary(self, summary: MemorySummary | None) -> str:
+        """
+        Render a concise text prompt snippet representing the user's active memory summary.
+        """
         if summary is None or summary.is_empty():
             return ""
 
@@ -505,6 +529,7 @@ class MemoryService:
         )
 
     def health(self) -> dict[str, Any]:
+        """Return diagnostic health and capability status of the memory service."""
         provider_state = self._summarization_provider_state()
 
         return {
@@ -1241,7 +1266,7 @@ def _redact_memory_sensitive(text: str) -> str:
     return value
 
 
-_INSTRUCTION_MARKER_PREFIXES: tuple[str, ...] = (
+_INSTRUCTION_MARKER_PREFIXES: Final[tuple[str, ...]] = (
     "saved user memory:",
     "verified authenticated",
     "assistant instruction:",

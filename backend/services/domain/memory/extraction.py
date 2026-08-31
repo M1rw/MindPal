@@ -13,6 +13,8 @@ from backend.models.memory import (
 
 @dataclass(frozen=True, slots=True)
 class MemoryExtraction:
+    """Structured extraction output containing psychological, relational, and factual user memory items."""
+
     summary_sentences: tuple[str, ...]
     preferred_name: str | None
     important_people: tuple[ImportantPerson, ...]

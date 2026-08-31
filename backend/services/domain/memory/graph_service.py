@@ -7,13 +7,17 @@ identical across Chat, Settings, sync, and the workspace.
 
 from __future__ import annotations
 
-from collections import OrderedDict, defaultdict
-from datetime import UTC, datetime
+import json
+import logging
 import math
 import re
 import time
-from typing import Iterable
+from collections import OrderedDict, defaultdict
+from datetime import UTC, datetime
+from typing import Final, Iterable
 
+from backend.core.security import sanitize_text
+from backend.models._helpers import utcnow
 from backend.models.brain import (
     MAX_BRAIN_MAP_DEPTH,
     MAX_CONTEXT_EDGES,
@@ -43,22 +47,31 @@ from backend.models.memory import (
     MemoryCategory,
     MemoryGraph,
     MemorySensitivity,
+    MemorySource,
     MemoryStatus,
+    MemorySummary,
+    build_memory_prompt_from_graph,
+    canonical_memory_key,
+    make_memory_atom,
+    memory_graph_from_summary,
     normalize_memory_value,
 )
-from backend.models._helpers import utcnow
+from backend.services.domain.llm import LLMService, build_llm_request
 
+logger = logging.getLogger(__name__)
 
-MAX_SEARCH_CANDIDATES = 24
-MAX_MAP_NODES = 100
-CACHE_LIMIT = 128
-STALE_DAYS = 120
-_TOKEN_RE = re.compile(r"[^\w]+", flags=re.UNICODE)
+MAX_SEARCH_CANDIDATES: Final[int] = 24
+MAX_MAP_NODES: Final[int] = 100
+CACHE_LIMIT: Final[int] = 128
+STALE_DAYS: Final[int] = 120
+TOMBSTONE_RECREATE_HOURS: Final[int] = 24
+MANUAL_CONFIDENCE: Final[float] = 0.95
+CHAT_CONFIDENCE: Final[float] = 0.65
+LLM_CONFIDENCE: Final[float] = 0.6
 
-# A compact concept bridge supplies a deterministic fallback when vectors are not
-# available. It is intentionally small and non-clinical; persisted embeddings, when
-# present, remain the stronger semantic signal.
-_CONCEPTS: dict[str, frozenset[str]] = {
+_TOKEN_RE: Final[re.Pattern[str]] = re.compile(r"[^\w]+", flags=re.UNICODE)
+
+_CONCEPTS: Final[dict[str, frozenset[str]]] = {
     "sleep": frozenset({"sleep", "rest", "bed", "night", "tired", "insomnia", "routine"}),
     "stress": frozenset({"stress", "stressed", "pressure", "deadline", "overwhelmed", "anxiety", "tense"}),
     "focus": frozenset({"focus", "study", "exam", "work", "concentrate", "attention", "productive"}),
@@ -66,7 +79,7 @@ _CONCEPTS: dict[str, frozenset[str]] = {
     "grounding": frozenset({"grounding", "breathe", "breathing", "walk", "journal", "pause", "routine"}),
 }
 
-_CATEGORY_NODE_TYPES: dict[MemoryCategory, BrainNodeType] = {
+_CATEGORY_NODE_TYPES: Final[dict[MemoryCategory, BrainNodeType]] = {
     MemoryCategory.PEOPLE: BrainNodeType.PERSON,
     MemoryCategory.GOALS: BrainNodeType.GOAL,
     MemoryCategory.PROJECTS: BrainNodeType.GOAL,
@@ -79,6 +92,56 @@ _CATEGORY_NODE_TYPES: dict[MemoryCategory, BrainNodeType] = {
     MemoryCategory.RELATIONSHIP_CONTEXT: BrainNodeType.CONTEXT,
     MemoryCategory.FACTS: BrainNodeType.CONTEXT,
 }
+
+_NAME_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
+    re.compile(r"(?i)\b(?:my name is|call me|i am called|i'm called)\s+([^.,!?\n]{2,80})"),
+    re.compile(r"(?:اسمي|ناديني|اسمي هو)\s+([^.,!?\n،؟]{2,80})"),
+)
+_PROJECT_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
+    re.compile(r"(?i)\bmy project is\s+([^.,!?\n]{2,100})"),
+    re.compile(r"(?i)\b(?:i am working on|i'm working on)\s+([^.,!?\n]{2,100})"),
+)
+_PERSON_PATTERNS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
+    ("girlfriend", re.compile(r"(?i)\bmy girlfriend\s+(?:is\s+)?(?:called|named|is)\s+([^.\n]{2,120})")),
+    ("boyfriend", re.compile(r"(?i)\bmy boyfriend\s+(?:is\s+)?(?:called|named|is)\s+([^.\n]{2,120})")),
+    ("partner", re.compile(r"(?i)\bmy partner\s+(?:is\s+)?(?:called|named|is)\s+([^.\n]{2,120})")),
+)
+_PREF_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
+    re.compile(r"(?i)\bI prefer\s+([^.,!?\n]{3,120})"),
+    re.compile(r"(?i)\bplease be\s+([^.,!?\n]{3,120})"),
+)
+_AVOID_PATTERNS: Final[tuple[re.Pattern[str], ...]] = (
+    re.compile(r"(?i)\bavoid\s+([^.,!?\n]{3,140})"),
+    re.compile(r"(?i)\bdo not answer like\s+([^.,!?\n]{3,140})"),
+    re.compile(r"(?i)\bdon't answer like\s+([^.,!?\n]{3,140})"),
+)
+_DIRECT_STYLE_RE: Final[re.Pattern[str]] = re.compile(r"(?i)\bdirect answers|be direct|no fluff|concise\b")
+_ALIAS_SPLIT_RE: Final[re.Pattern[str]] = re.compile(r"(?i)\b(?:or|aka|also known as|also|may write|write her name as|write his name as)\b")
+_CLEAN_AVOID_LEAD_RE: Final[re.Pattern[str]] = re.compile(r"(?i)\b^(being|be|too)\s+")
+_WHITESPACE_RE: Final[re.Pattern[str]] = re.compile(r"\s+")
+
+MEMORY_GRAPH_SYSTEM_PROMPT: Final[str] = """
+You are MindPal's realtime memory extraction engine.
+
+Your job is to read a chat message from the user and extract any durable personal facts, relationships, preferences, or goals.
+If no memory is found, return an empty array.
+
+Return EXACTLY a JSON object with this shape:
+{
+  "atoms": [
+    {
+      "category": "profile|people|projects|preferences|avoid|patterns|goals|relationship_context|coping_tools|safety_context|facts",
+      "value": "string max 180 chars",
+      "confidence": 0.0 to 1.0,
+      "sensitivity": "low|medium|high",
+      "aliases": ["optional list of strings"],
+      "metadata": {}
+    }
+  ]
+}
+
+DO NOT wrap the JSON in Markdown formatting like ```json.
+"""
 
 
 def _tokens(value: str) -> set[str]:
@@ -136,7 +199,7 @@ class BrainService:
     """Pure, cheap Brain queries over a MemoryGraph with a bounded plan cache."""
 
     def __init__(self, *, cache_limit: int = CACHE_LIMIT) -> None:
-        self.cache_limit = max(1, cache_limit)
+        self.cache_limit: int = max(1, cache_limit)
         self._context_cache: OrderedDict[tuple[object, ...], BrainContextPack] = OrderedDict()
 
     @staticmethod
@@ -588,67 +651,6 @@ class BrainService:
             )
         return records
 
-import json
-import logging
-import re
-from datetime import UTC, datetime
-
-from backend.core.security import sanitize_text
-from backend.services.domain.llm import LLMService, build_llm_request
-from backend.models.memory import (
-    BrainEdgeStatus,
-    BrainReviewStatus,
-    MemoryAtom,
-    MemoryCategory,
-    MemoryGraph,
-    MemorySensitivity,
-    MemorySource,
-    MemoryStatus,
-    MemorySummary,
-    build_memory_prompt_from_graph,
-    canonical_memory_key,
-    make_memory_atom,
-    memory_graph_from_summary,
-    normalize_memory_value,
-)
-
-logger = logging.getLogger(__name__)
-
-
-TOMBSTONE_RECREATE_HOURS = 24
-MANUAL_CONFIDENCE = 0.95
-CHAT_CONFIDENCE = 0.65
-LLM_CONFIDENCE = 0.6
-
-# Performance Optimization: Pre-compile regex patterns at module level to avoid
-# costly re-compilation on every memory graph extraction call (~11.5x speedup for 20k calls).
-_NAME_PATTERNS = (
-    re.compile(r"(?i)\b(?:my name is|call me|i am called|i'm called)\s+([^.,!?\n]{2,80})"),
-    re.compile(r"(?:اسمي|ناديني|اسمي هو)\s+([^.,!?\n،؟]{2,80})"),
-)
-_PROJECT_PATTERNS = (
-    re.compile(r"(?i)\bmy project is\s+([^.,!?\n]{2,100})"),
-    re.compile(r"(?i)\b(?:i am working on|i'm working on)\s+([^.,!?\n]{2,100})"),
-)
-_PERSON_PATTERNS = (
-    ("girlfriend", re.compile(r"(?i)\bmy girlfriend\s+(?:is\s+)?(?:called|named|is)\s+([^.\n]{2,120})")),
-    ("boyfriend", re.compile(r"(?i)\bmy boyfriend\s+(?:is\s+)?(?:called|named|is)\s+([^.\n]{2,120})")),
-    ("partner", re.compile(r"(?i)\bmy partner\s+(?:is\s+)?(?:called|named|is)\s+([^.\n]{2,120})")),
-)
-_PREF_PATTERNS = (
-    re.compile(r"(?i)\bI prefer\s+([^.,!?\n]{3,120})"),
-    re.compile(r"(?i)\bplease be\s+([^.,!?\n]{3,120})"),
-)
-_AVOID_PATTERNS = (
-    re.compile(r"(?i)\bavoid\s+([^.,!?\n]{3,140})"),
-    re.compile(r"(?i)\bdo not answer like\s+([^.,!?\n]{3,140})"),
-    re.compile(r"(?i)\bdon't answer like\s+([^.,!?\n]{3,140})"),
-)
-_DIRECT_STYLE_RE = re.compile(r"(?i)\bdirect answers|be direct|no fluff|concise\b")
-_ALIAS_SPLIT_RE = re.compile(r"(?i)\b(?:or|aka|also known as|also|may write|write her name as|write his name as)\b")
-_CLEAN_AVOID_LEAD_RE = re.compile(r"(?i)\b^(being|be|too)\s+")
-_WHITESPACE_RE = re.compile(r"\s+")
-
 
 def merge_memory_graph(existing: MemoryGraph, incoming: MemoryGraph | list[MemoryAtom]) -> MemoryGraph:
     incoming_atoms = incoming.atoms if isinstance(incoming, MemoryGraph) else incoming
@@ -739,9 +741,7 @@ def delete_memory_atom(graph: MemoryGraph, atom_id: str, tombstone: bool = True)
             )
         else:
             del next_graph.atoms[index]
-        # Brain records are additive projections of atoms. Remove their minimal
-        # evidence and tombstone connected links so deleted personal context can
-        # never appear through a stale graph path or future context plan.
+
         brain = next_graph.brain.model_copy(
             update={
                 "edges": [
@@ -1053,29 +1053,6 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-MEMORY_GRAPH_SYSTEM_PROMPT = """
-You are MindPal's realtime memory extraction engine.
-
-Your job is to read a chat message from the user and extract any durable personal facts, relationships, preferences, or goals.
-If no memory is found, return an empty array.
-
-Return EXACTLY a JSON object with this shape:
-{
-  "atoms": [
-    {
-      "category": "profile|people|projects|preferences|avoid|patterns|goals|relationship_context|coping_tools|safety_context|facts",
-      "value": "string max 180 chars",
-      "confidence": 0.0 to 1.0,
-      "sensitivity": "low|medium|high",
-      "aliases": ["optional list of strings"],
-      "metadata": {}
-    }
-  ]
-}
-
-DO NOT wrap the JSON in Markdown formatting like ```json.
-"""
-
 async def extract_memory_graph_from_text_llm(
     text: str,
     *,
@@ -1097,37 +1074,37 @@ async def extract_memory_graph_from_text_llm(
         user_message=cleaned,
         temperature=0.1,
         max_output_tokens=800,
-        metadata={"purpose": "realtime_memory_extraction"}
+        metadata={"purpose": "realtime_memory_extraction"},
     )
 
-    atoms_out = []
+    atoms_out: list[MemoryAtom] = []
 
     try:
         res = await llm_service.generate_with_trace(req)
         raw_text = res.response.text.strip()
 
-        # Robust JSON extraction — handle various LLM output formats
         data = _extract_json_from_llm_output(raw_text)
 
         if data is None:
-            # No valid JSON found — not an error, just no memories extracted
             logger.debug("Memory extraction returned non-JSON output")
             return MemoryGraph(user_id_hash=user_id_hash, atoms=[], source=source, full_snapshot=False)
 
         for atom_data in data.get("atoms", []):
             try:
-                atoms_out.append(make_memory_atom(
-                    user_id_hash=user_id_hash,
-                    category=MemoryCategory(atom_data.get("category", "facts")),
-                    value=atom_data.get("value", ""),
-                    confidence=min(confidence_cap, float(atom_data.get("confidence", 0.6))),
-                    source=source,
-                    sensitivity=MemorySensitivity(atom_data.get("sensitivity", "medium")),
-                    aliases=atom_data.get("aliases", []),
-                    metadata=atom_data.get("metadata", {}),
-                    pinned=explicit,
-                ))
-            except Exception:
+                atoms_out.append(
+                    make_memory_atom(
+                        user_id_hash=user_id_hash,
+                        category=MemoryCategory(atom_data.get("category", "facts")),
+                        value=atom_data.get("value", ""),
+                        confidence=min(confidence_cap, float(atom_data.get("confidence", 0.6))),
+                        source=source,
+                        sensitivity=MemorySensitivity(atom_data.get("sensitivity", "medium")),
+                        aliases=atom_data.get("aliases", []),
+                        metadata=atom_data.get("metadata", {}),
+                        pinned=explicit,
+                    )
+                )
+            except (ValueError, TypeError):
                 logger.debug("Skipping invalid memory atom from LLM extraction", exc_info=True)
 
     except Exception as e:
@@ -1141,29 +1118,17 @@ async def extract_memory_graph_from_text_llm(
     )
 
 
-def _extract_json_from_llm_output(raw_text: str) -> dict | None:
-    """
-    Extract a JSON object from LLM output, handling common formatting issues.
-
-    Small models (Groq llama, Cloudflare) frequently:
-    - Wrap JSON in ```json ... ``` markdown fences
-    - Add explanatory text before/after the JSON
-    - Include trailing commas
-    - Return "No memories found" instead of {"atoms": []}
-    """
+def _extract_json_from_llm_output(raw_text: str) -> dict[str, Any] | None:
     if not raw_text:
         return None
 
     text = raw_text.strip()
 
-    # Strategy 1: Strip markdown code fences
     if "```" in text:
-        # Extract content between ```json ... ``` or ``` ... ```
         fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
         if fence_match:
             text = fence_match.group(1).strip()
 
-    # Strategy 2: Direct JSON parse
     try:
         data = json.loads(text)
         if isinstance(data, dict):
@@ -1171,7 +1136,6 @@ def _extract_json_from_llm_output(raw_text: str) -> dict | None:
     except json.JSONDecodeError:
         pass
 
-    # Strategy 3: Find JSON object with regex (handles text before/after JSON)
     json_match = re.search(r"\{[^{}]*\"atoms\"\s*:\s*\[.*?\]\s*\}", text, re.DOTALL)
     if json_match:
         try:
@@ -1181,11 +1145,9 @@ def _extract_json_from_llm_output(raw_text: str) -> dict | None:
         except json.JSONDecodeError:
             pass
 
-    # Strategy 4: Find any JSON object (even without "atoms" key)
     json_match = re.search(r"\{.*\}", text, re.DOTALL)
     if json_match:
         try:
-            # Try to fix trailing commas before parsing
             candidate = json_match.group(0)
             candidate = re.sub(r",\s*([}\]])", r"\1", candidate)
             data = json.loads(candidate)
@@ -1194,7 +1156,6 @@ def _extract_json_from_llm_output(raw_text: str) -> dict | None:
         except json.JSONDecodeError:
             pass
 
-    # Strategy 5: Empty result (model said "no memories" or similar)
     lower = text.lower()
     if any(phrase in lower for phrase in ("no memor", "no durable", "no personal", "empty", "none")):
         return {"atoms": []}
