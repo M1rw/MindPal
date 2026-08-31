@@ -154,9 +154,9 @@ class ConsistentHash:
         Compute hash value for a key.
         
         Uses MD5 for speed and distribution.
-        In production, consider SHA-256 for cryptographic needs.
+        `usedforsecurity=False` explicitly marks this as a non-cryptographic hash for sharding distribution.
         """
-        return int(hashlib.md5(key.encode()).hexdigest(), 16)
+        return int(hashlib.md5(key.encode(), usedforsecurity=False).hexdigest(), 16)
     
     def get_stats(self) -> dict[str, int]:
         """Get statistics about the hash ring."""
