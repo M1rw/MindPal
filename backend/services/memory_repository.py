@@ -15,8 +15,8 @@ from backend.models.memory import (
     MemoryStatus,
     memory_graph_from_summary,
 )
-from backend.services.db_service import DBService
-from backend.services.memory_graph_service import delete_memory_atom, merge_memory_graph
+from backend.services.domain.storage import StorageService as DBService
+from backend.services.domain.memory import delete_memory_atom, merge_memory_graph
 
 
 class MemoryVersionConflictError(AppError):

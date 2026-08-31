@@ -7,8 +7,12 @@ These are the foundational services that everything else depends on.
 import httpx
 
 from backend.core.config import Settings
-from backend.providers import build_llm_providers, build_tts_providers
-from backend.services import AuthService, DBService, LLMService, LLMServiceConfig, TTSService, TTSServiceConfig
+from backend.providers import build_auth_provider, build_llm_providers, build_tts_providers
+from backend.services.domain.auth import AuthService, FirebaseAuthProvider, OfflineAuthProvider
+from backend.services.domain.storage import StorageService as DBService
+from backend.services.domain.llm import LLMService
+from backend.services.domain.voice import TTSService
+from backend.services.configs import LLMServiceConfig, TTSServiceConfig
 
 
 def build_auth_service(settings: Settings) -> AuthService:
@@ -21,7 +25,16 @@ def build_auth_service(settings: Settings) -> AuthService:
     Returns:
         AuthService instance
     """
+    provider = build_auth_provider(settings)
+    if provider is None or not getattr(provider, "is_configured", False):
+        if bool(getattr(settings, "OFFLINE_MODE", False)):
+            provider = OfflineAuthProvider()
+        else:
+            firebase_provider = FirebaseAuthProvider(settings=settings)
+            provider = firebase_provider if firebase_provider.is_configured else OfflineAuthProvider()
+
     return AuthService(
+        provider=provider,
         settings=settings,
         allow_anonymous=settings.ALLOW_ANONYMOUS_SESSIONS,
     )

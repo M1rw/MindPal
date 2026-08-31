@@ -38,7 +38,7 @@ from backend.services.domain.memory.compaction import (
     MemoryCompactionMeta,
 )
 from backend.services.domain.memory.extraction import MemoryExtraction
-from backend.services.llm_service import LLMService, build_llm_request
+from backend.services.domain.llm import LLMService, build_llm_request
 
 logger = logging.getLogger(__name__)
 

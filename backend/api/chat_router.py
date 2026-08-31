@@ -40,13 +40,16 @@ from backend.models.memory import MemoryGraph, summary_from_memory_graph
 from backend.models.safety import SafetyDecision
 from backend.models.schemas import ProviderChainTrace
 from backend.models.user import UserProfile
-from backend.services.llm_service import build_llm_request
-from backend.services.brain_service import render_context_pack_for_prompt
-from backend.services.memory_graph_service import (
+from backend.services.domain.llm import build_llm_request
+from backend.services.domain.memory import (
     build_memory_graph_prompt,
     extract_memory_graph_from_text_llm,
+    render_context_pack_for_prompt,
 )
-from backend.services.response_quality_service import finalize_user_reply
+from backend.services.domain.intelligence import (
+    extract_clinical_profile,
+    finalize_user_reply,
+)
 from backend.tools import ToolContext, build_default_registry
 
 
@@ -653,7 +656,7 @@ async def _extract_clinical_inline(
     messages: list[LLMMessage],
 ) -> None:
     """Bounded, request-owned clinical extraction; no unreliable create_task."""
-    from backend.services.clinical_extractor import extract_clinical_profile
+    from backend.services.domain.intelligence import extract_clinical_profile
 
     try:
         updated = await asyncio.wait_for(

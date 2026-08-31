@@ -6,17 +6,17 @@ Built after core services.
 """
 
 from backend.core.config import Settings
-from backend.services import (
-    LLMService,
-    MemoryService,
+from backend.services.configs import (
     MemoryServiceConfig,
-    OutputGuardService,
     OutputGuardServiceConfig,
-    RAGService,
-    SafetyService,
     SafetyServiceConfig,
 )
-from backend.services.response_intelligence_service import ResponseIntelligenceService
+from backend.services.domain.intelligence import ResponseIntelligenceService
+from backend.services.domain.llm import LLMService
+from backend.services.domain.memory import MemoryService
+from backend.services.domain.rag import RAGService
+from backend.services.domain.safety import SafetyService
+from backend.services.output_guard_service import OutputGuardService
 
 
 def build_memory_service(settings: Settings, llm_service: LLMService) -> MemoryService:
