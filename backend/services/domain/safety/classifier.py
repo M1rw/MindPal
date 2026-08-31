@@ -7,6 +7,15 @@ from backend.core.security import sanitize_text
 
 
 def hash_matched_fragment(fragment: str) -> str:
+    """
+    Generate a cryptographic BLAKE2b pseudonymized hash for a matched text fragment.
+
+    Args:
+        fragment: Raw text snippet that triggered safety rule.
+
+    Returns:
+        Pseudonymized match reference identifier string.
+    """
     cleaned = sanitize_text(fragment, 300)
     digest = hashlib.blake2b(
         cleaned.encode("utf-8"),
@@ -17,6 +26,15 @@ def hash_matched_fragment(fragment: str) -> str:
 
 
 def strip_code_fence(text: str) -> str:
+    """
+    Strip surrounding Markdown triple-backtick code fences from text.
+
+    Args:
+        text: Input raw response string.
+
+    Returns:
+        Unfenced text content.
+    """
     stripped = text.strip()
 
     if not stripped.startswith("```"):

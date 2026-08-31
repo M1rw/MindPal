@@ -5,52 +5,98 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any
+from typing import Any, Final
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import ProviderError, ProviderTimeoutError
-from backend.services.core.circuit_breaker import circuit_open as _circuit_open, trip_circuit as _trip_circuit
 from backend.core.security import sanitize_text
 from backend.core.settings_helpers import is_production
 from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
 from backend.models.schemas import ProviderCallTrace, ProviderChainTrace
 from backend.services.configs import LLMServiceConfig
+from backend.services.core.circuit_breaker import circuit_open as _circuit_open, trip_circuit as _trip_circuit
 from backend.services.domain.llm.protocols import LLMProvider
 from backend.services.domain.llm.response_parser import (
-    clean_provider_name,
     clamp_fallback_count,
+    clean_provider_name,
     normalize_provider_response,
 )
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LLM_SERVICE_CONFIG = LLMServiceConfig()
-MAX_PROVIDER_ERROR_CHARS = DEFAULT_LLM_SERVICE_CONFIG.max_provider_error_chars
-MAX_OFFLINE_REPLY_CHARS = DEFAULT_LLM_SERVICE_CONFIG.max_offline_reply_chars
+DEFAULT_LLM_SERVICE_CONFIG: Final[LLMServiceConfig] = LLMServiceConfig()
+MAX_PROVIDER_ERROR_CHARS: Final[int] = DEFAULT_LLM_SERVICE_CONFIG.max_provider_error_chars
+MAX_OFFLINE_REPLY_CHARS: Final[int] = DEFAULT_LLM_SERVICE_CONFIG.max_offline_reply_chars
+
+# Safety keyword sets for deterministic local offline response generator
+PANIC_KEYWORDS: Final[tuple[str, ...]] = (
+    "panic",
+    "can't breathe",
+    "cannot breathe",
+    "heart racing",
+    "panicking",
+    "نوبة هلع",
+    "مش قادر اتنفس",
+    "مش قادرة اتنفس",
+    "قلبي",
+)
+
+SUICIDE_KEYWORDS: Final[tuple[str, ...]] = (
+    "kill myself",
+    "end my life",
+    "suicide",
+    "hurt myself",
+    "harm myself",
+    "هنتحر",
+    "هقتل نفسي",
+    "اؤذي نفسي",
+    "أؤذي نفسي",
+)
+
+DISTRESS_KEYWORDS: Final[tuple[str, ...]] = (
+    "anxious",
+    "anxiety",
+    "overwhelmed",
+    "stressed",
+    "sad",
+    "hopeless",
+    "قلقان",
+    "قلقانة",
+    "مضغوط",
+    "مضغوطة",
+    "حزين",
+    "حزينة",
+)
 
 
 @dataclass(frozen=True, slots=True)
 class LLMServiceResult:
+    """Encapsulates the final LLM response alongside the execution chain trace."""
+
     response: LLMResponse
     trace: ProviderChainTrace
 
 
 class OfflineLLMProvider:
     """
-    Deterministic local fallback provider.
+    Deterministic local fallback provider for resilient offline operation.
     """
 
-    name = "offline"
+    __slots__ = ()
+
+    name: Final[str] = "offline"
 
     @property
     def is_configured(self) -> bool:
+        """Offline provider is always configured as a local fallback."""
         return True
 
     async def generate(self, request: LLMRequest) -> LLMResponse:
-        latest_user_message = self._latest_user_message(request.messages)
+        """Generate a safety-focused deterministic response offline."""
+        latest_user_message = self._extract_latest_user_message(request.messages)
         text = self._build_offline_reply(latest_user_message)
 
         return LLMResponse(
@@ -62,79 +108,41 @@ class OfflineLLMProvider:
             finish_reason="stop",
         )
 
-    async def generate_stream(self, request: LLMRequest) -> Any:
+    async def generate_stream(self, request: LLMRequest) -> AsyncIterator[str]:
+        """Stream the offline response as a single text chunk."""
         res = await self.generate(request)
         yield res.text
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        """Return zeroed fallback embeddings for offline vector generation."""
         return [[0.0] * 768 for _ in texts]
 
-    def _latest_user_message(self, messages: Sequence[LLMMessage]) -> str:
+    def _extract_latest_user_message(self, messages: Sequence[LLMMessage]) -> str:
+        """Extract and sanitize the most recent user message from context history."""
         for message in reversed(messages):
             if message.role == LLMRole.USER:
                 return sanitize_text(message.content, MAX_OFFLINE_REPLY_CHARS)
         return ""
 
     def _build_offline_reply(self, latest_user_message: str) -> str:
+        """Classify message intent and build tailored grounding reply."""
         lowered = latest_user_message.lower()
 
-        if self._contains_any(
-            lowered,
-            (
-                "panic",
-                "can't breathe",
-                "cannot breathe",
-                "heart racing",
-                "panicking",
-                "نوبة هلع",
-                "مش قادر اتنفس",
-                "مش قادرة اتنفس",
-                "قلبي",
-            ),
-        ):
+        if self._contains_any(lowered, PANIC_KEYWORDS):
             return (
                 "Let’s slow this down with one safe step. Put both feet on the ground, "
                 "look around, and name 5 things you can see. Then take one slow breath in "
                 "and one slow breath out. Reply with the 5 things you see."
             )
 
-        if self._contains_any(
-            lowered,
-            (
-                "kill myself",
-                "end my life",
-                "suicide",
-                "hurt myself",
-                "harm myself",
-                "هنتحر",
-                "هقتل نفسي",
-                "اؤذي نفسي",
-                "أؤذي نفسي",
-            ),
-        ):
+        if self._contains_any(lowered, SUICIDE_KEYWORDS):
             return (
                 "If you might act on this now, contact local emergency services now or go "
                 "to the nearest emergency department. Move away from anything you could use "
                 "to hurt yourself, and contact someone nearby with: “I’m not safe alone right now.”"
             )
 
-        if self._contains_any(
-            lowered,
-            (
-                "anxious",
-                "anxiety",
-                "overwhelmed",
-                "stressed",
-                "sad",
-                "hopeless",
-                "قلقان",
-                "قلقانة",
-                "مضغوط",
-                "مضغوطة",
-                "حزين",
-                "حزينة",
-            ),
-        ):
+        if self._contains_any(lowered, DISTRESS_KEYWORDS):
             return (
                 "I’m here with you. Pick one small next step: drink water, sit somewhere "
                 "stable, or write one sentence: “Right now I feel ___ because ___.” "
@@ -153,7 +161,7 @@ class OfflineLLMProvider:
 
 class LLMService:
     """
-    Provider fallback orchestrator.
+    Orchestrates LLM provider invocation, fallback execution, circuit breaking, and trace logging.
     """
 
     def __init__(
@@ -167,24 +175,21 @@ class LLMService:
         require_remote_provider: bool | None = None,
         allow_offline_in_production: bool | None = None,
     ) -> None:
-        self.settings = settings or get_settings()
-        self.config = config or LLMServiceConfig.from_settings(self.settings)
+        self.settings: Settings = settings or get_settings()
+        self.config: LLMServiceConfig = config or LLMServiceConfig.from_settings(self.settings)
         self._trace_cache: dict[str, ProviderChainTrace] = {}
         self._trace_ids: deque[str] = deque(maxlen=200)
-        self.production_mode = is_production(self.settings)
-        self.timeout_seconds = float(
-            timeout_seconds
-            if timeout_seconds is not None
-            else self.config.timeout_seconds
-        )
+        self.production_mode: bool = is_production(self.settings)
 
-        self.require_remote_provider = (
+        self.timeout_seconds: float = float(
+            timeout_seconds if timeout_seconds is not None else self.config.timeout_seconds
+        )
+        self.require_remote_provider: bool = (
             bool(require_remote_provider)
             if require_remote_provider is not None
             else self.config.require_remote_provider
         )
-
-        self.allow_offline_in_production = (
+        self.allow_offline_in_production: bool = (
             bool(allow_offline_in_production)
             if allow_offline_in_production is not None
             else self.config.allow_offline_in_production
@@ -207,7 +212,7 @@ class LLMService:
                 code="llm_no_providers",
             )
 
-        self._providers = configured_providers
+        self._providers: list[LLMProvider] = configured_providers
 
         if self.require_remote_provider and not self._has_configured_remote_provider():
             if not self._offline_allowed_for_current_environment():
@@ -218,9 +223,13 @@ class LLMService:
 
     @property
     def providers(self) -> tuple[LLMProvider, ...]:
+        """Return registered provider instances as an immutable tuple."""
         return tuple(self._providers)
 
     def register_provider(self, provider: LLMProvider, *, replace: bool = False) -> None:
+        """
+        Register a new LLM provider instance into the fallback pipeline.
+        """
         provider_name = clean_provider_name(provider.name)
 
         existing_index = next(
@@ -246,10 +255,16 @@ class LLMService:
         self._providers.append(provider)
 
     async def generate(self, request: LLMRequest) -> LLMResponse:
+        """
+        Generate text completion with full provider fallback chain.
+        """
         result = await self.generate_with_trace(request)
         return result.response
 
     async def generate_stream(self, request: LLMRequest) -> Any:
+        """
+        Stream text completion chunks from the first responsive provider in fallback hierarchy.
+        """
         fallback_count = 0
         attempted_remote = False
 
@@ -276,9 +291,9 @@ class LLMService:
             if not is_offline:
                 attempted_remote = True
 
+            has_yielded = False
             try:
                 stream_generator = provider.generate_stream(request)
-                has_yielded = False
 
                 if hasattr(stream_generator, "__aiter__"):
                     iterator = stream_generator.__aiter__()
@@ -298,9 +313,9 @@ class LLMService:
 
                     except StopAsyncIteration:
                         return
-                else:
-                    pass
 
+            except asyncio.CancelledError:
+                raise
             except asyncio.TimeoutError:
                 if has_yielded:
                     raise
@@ -314,7 +329,7 @@ class LLMService:
             except ProviderError as exc:
                 if has_yielded:
                     raise
-                details = getattr(exc, 'details', None) or {}
+                details = getattr(exc, "details", None) or {}
                 status_str = str(details.get("status_code", ""))
                 if status_str in ("429", "402"):
                     _trip_circuit(provider_name)
@@ -333,6 +348,9 @@ class LLMService:
         )
 
     async def generate_with_trace(self, request: LLMRequest) -> LLMServiceResult:
+        """
+        Execute request generation through provider fallback chain while logging execution telemetry.
+        """
         traces: list[ProviderCallTrace] = []
         fallback_count = 0
         attempted_remote = False
@@ -426,6 +444,9 @@ class LLMService:
 
                 return LLMServiceResult(response=response, trace=trace)
 
+            except asyncio.CancelledError:
+                raise
+
             except asyncio.TimeoutError as exc:
                 latency_ms = round((perf_counter() - started) * 1000, 3)
                 traces.append(
@@ -466,9 +487,6 @@ class LLMService:
                 fallback_count += 1
                 continue
 
-            except asyncio.CancelledError:
-                raise
-
             except Exception:
                 logger.warning("Provider %s raised unexpected error", provider_name, exc_info=True)
                 latency_ms = round((perf_counter() - started) * 1000, 3)
@@ -488,18 +506,17 @@ class LLMService:
             "All enabled LLM providers failed",
             code="llm_all_providers_failed",
             details={
-                "providers_attempted": ",".join(
-                    trace.provider for trace in traces if trace.attempted
-                ),
-                "providers_skipped": ",".join(
-                    trace.provider for trace in traces if trace.skipped
-                ),
+                "providers_attempted": ",".join(trace.provider for trace in traces if trace.attempted),
+                "providers_skipped": ",".join(trace.provider for trace in traces if trace.skipped),
                 "remote_provider_required": str(self.require_remote_provider),
                 "offline_allowed": str(self._offline_allowed_for_current_environment()),
             },
         )
 
     def health(self) -> dict[str, object]:
+        """
+        Return diagnostic health and status metrics for all registered providers.
+        """
         providers = [
             {
                 "name": clean_provider_name(provider.name),
@@ -509,15 +526,8 @@ class LLMService:
             for provider in self._providers
         ]
 
-        remote_provider_available = any(
-            item["configured"] and not item["offline"]
-            for item in providers
-        )
-
-        offline_available = any(
-            item["configured"] and item["offline"]
-            for item in providers
-        )
+        remote_provider_available = any(item["configured"] and not item["offline"] for item in providers)
+        offline_available = any(item["configured"] and item["offline"] for item in providers)
 
         return {
             "providers": providers,
@@ -534,18 +544,16 @@ class LLMService:
 
     def _has_configured_remote_provider(self) -> bool:
         return any(
-            clean_provider_name(provider.name) != "offline"
-            and bool(provider.is_configured)
+            clean_provider_name(provider.name) != "offline" and bool(provider.is_configured)
             for provider in self._providers
         )
 
     def get_trace(self, request_id: str) -> ProviderChainTrace | None:
+        """Retrieve stored execution chain trace for a request ID."""
         return self._trace_cache.get(request_id)
 
     def _cache_trace(self, trace: ProviderChainTrace) -> None:
-        if not trace.request_id:
-            return
-        if trace.request_id in self._trace_cache:
+        if not trace.request_id or trace.request_id in self._trace_cache:
             return
         if len(self._trace_ids) >= self._trace_ids.maxlen:
             oldest = self._trace_ids.popleft()
@@ -556,25 +564,26 @@ class LLMService:
     def _offline_allowed_for_current_environment(self) -> bool:
         if not self._has_provider(self._providers, "offline"):
             return False
-
         if self.production_mode:
             return self.allow_offline_in_production
-
         return True
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        """
+        Delegate vector embedding calculation to the primary configured provider.
+        """
         if not texts:
             return []
 
         provider = next(
             (p for p in self._providers if p.is_configured and clean_provider_name(p.name) != "offline"),
-            None
+            None,
         )
 
         if not provider:
             provider = next(
                 (p for p in self._providers if p.is_configured and clean_provider_name(p.name) == "offline"),
-                None
+                None,
             )
 
         if not provider:
