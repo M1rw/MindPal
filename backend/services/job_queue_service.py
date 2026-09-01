@@ -37,12 +37,24 @@ class AsyncJobQueueService:
         self.max_workers = max(1, int(max_workers))
         self.retry_backoff_seconds = max(0.1, float(retry_backoff_seconds))
         self._handlers: dict[str, Callable[[Any], Any | Awaitable[Any]]] = {}
-        self._queue: asyncio.PriorityQueue[tuple[float, str, QueuedJob]] = asyncio.PriorityQueue()
+        self._queue: asyncio.PriorityQueue[tuple[float, str, QueuedJob]] | None = None
         self._workers: list[asyncio.Task[None]] = []
         self._running = False
         self._completed: dict[str, QueuedJob] = {}
         self._dead_letters: dict[str, QueuedJob] = {}
-        self._lock = asyncio.Lock()
+        self._lock: asyncio.Lock | None = None
+
+    def _ensure_queue(self) -> asyncio.PriorityQueue[tuple[float, str, QueuedJob]]:
+        """Lazy-initialize the queue when needed (ensures event loop exists)."""
+        if self._queue is None:
+            self._queue = asyncio.PriorityQueue()
+        return self._queue
+
+    def _ensure_lock(self) -> asyncio.Lock:
+        """Lazy-initialize the lock when needed (ensures event loop exists)."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def register_handler(self, job_name: str, handler: Callable[[Any], Any | Awaitable[Any]]) -> None:
         self._handlers[job_name] = handler
@@ -76,18 +88,18 @@ class AsyncJobQueueService:
             max_attempts=max(1, int(max_attempts)),
             run_at=time.time() + max(0.0, float(delay_seconds)),
         )
-        await self._queue.put((job.run_at, job.id, job))
+        await self._ensure_queue().put((job.run_at, job.id, job))
         return job
 
     async def _worker_loop(self) -> None:
         while self._running:
             try:
-                scheduled_at, _, job = await asyncio.wait_for(self._queue.get(), timeout=0.25)
+                scheduled_at, _, job = await asyncio.wait_for(self._ensure_queue().get(), timeout=0.25)
             except asyncio.TimeoutError:
                 continue
 
             if scheduled_at > time.time():
-                await self._queue.put((scheduled_at, job.id, job))
+                await self._ensure_queue().put((scheduled_at, job.id, job))
                 await asyncio.sleep(min(0.25, max(0.0, scheduled_at - time.time())))
                 continue
 
@@ -102,7 +114,7 @@ class AsyncJobQueueService:
             job.status = "dead_letter"
             job.error = f"No registered handler for job '{job.name}'"
             job.updated_at = datetime.now(timezone.utc)
-            async with self._lock:
+            async with self._ensure_lock():
                 self._dead_letters[job.id] = job
             return
 
@@ -114,7 +126,7 @@ class AsyncJobQueueService:
             job.status = "succeeded"
             job.error = None
             job.updated_at = datetime.now(timezone.utc)
-            async with self._lock:
+            async with self._ensure_lock():
                 self._completed[job.id] = job
         except Exception as exc:  # pragma: no cover - exercised by tests with injected handlers
             job.attempts += 1
@@ -122,28 +134,28 @@ class AsyncJobQueueService:
             job.updated_at = datetime.now(timezone.utc)
             if job.attempts >= job.max_attempts:
                 job.status = "dead_letter"
-                async with self._lock:
+                async with self._ensure_lock():
                     self._dead_letters[job.id] = job
                 return
 
             backoff = self.retry_backoff_seconds * (2 ** max(0, job.attempts - 1))
             job.status = "queued"
             job.run_at = time.time() + backoff
-            await self._queue.put((job.run_at, job.id, job))
+            await self._ensure_queue().put((job.run_at, job.id, job))
 
     async def get_completed(self, job_id: str) -> QueuedJob | None:
-        async with self._lock:
+        async with self._ensure_lock():
             return self._completed.get(job_id)
 
     async def get_dead_letters(self) -> list[QueuedJob]:
-        async with self._lock:
+        async with self._ensure_lock():
             return list(self._dead_letters.values())
 
     async def has_pending(self) -> bool:
-        return not self._queue.empty()
+        return not self._ensure_queue().empty()
 
     async def queue_size(self) -> int:
-        return self._queue.qsize()
+        return self._ensure_queue().qsize()
 
 
 __all__ = ["AsyncJobQueueService", "QueuedJob"]

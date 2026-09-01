@@ -33,8 +33,8 @@ logger = logging.getLogger("mindpal.api.errors")
 _STATUS_CODE_MAP: dict[type[AppError], int] = {
     AuthError: status.HTTP_401_UNAUTHORIZED,
     PermissionDeniedError: status.HTTP_403_FORBIDDEN,
-    ValidationAppError: status.HTTP_422_UNPROCESSABLE_CONTENT,
-    InputTooLongError: status.HTTP_413_CONTENT_TOO_LARGE,
+    ValidationAppError: getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", status.HTTP_422_UNPROCESSABLE_ENTITY),
+    InputTooLongError: getattr(status, "HTTP_413_CONTENT_TOO_LARGE", status.HTTP_413_REQUEST_ENTITY_TOO_LARGE),
     RateLimitError: status.HTTP_429_TOO_MANY_REQUESTS,
     ProviderTimeoutError: status.HTTP_504_GATEWAY_TIMEOUT,
     DatabaseError: status.HTTP_500_INTERNAL_SERVER_ERROR,

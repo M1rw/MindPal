@@ -30,6 +30,7 @@ def test_settings() -> Settings:
         ALLOW_ANONYMOUS_SESSIONS=True,
         VOICE_V4_PREVIEW_APPROVED=True,
         VOICE_V4_PREVIEW_SESSION_ENABLED=True,
+        TRUSTED_HOSTS=["*"],
     )
 
 
