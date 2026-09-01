@@ -657,6 +657,11 @@ class SafetyService:
         matched_items: list[tuple[CompiledSafetyRule, list[str]]] = []
 
         for rule in candidate_rules:
+            # Bolt: Skip evaluating rules for distinct locales when locale is explicitly set
+            # ('en' or 'ar') while allowing universal ('auto') rules to run.
+            if locale != "auto" and rule.source_locale != "auto" and rule.source_locale != locale:
+                continue
+
             matched_refs = self._match_rule(rule, text)
 
             if matched_refs:
@@ -719,6 +724,10 @@ class SafetyService:
 
     def _has_exclusion_context(self, text: str, locale: Locale) -> bool:
         for exclusion in self._candidate_exclusions(locale):
+            # Bolt: Skip exclusion rules for distinct locales when locale is explicitly set.
+            if locale != "auto" and exclusion.source_locale != "auto" and exclusion.source_locale != locale:
+                continue
+
             for pattern in exclusion.patterns:
                 if pattern.search(text):
                     return True
