@@ -19,7 +19,7 @@ import unicodedata
 import uuid
 from typing import Literal
 
-from .url_validator import validate_url
+from .url_validator import is_safe_url, validate_url
 
 Locale = Literal["en", "ar", "auto"]
 
@@ -172,6 +172,7 @@ __all__ = [
     "REDACTED_SECRET",
     "generate_request_id",
     "hash_user_id",
+    "is_safe_url",
     "normalize_locale",
     "redact_basic_pii",
     "safe_truncate",
