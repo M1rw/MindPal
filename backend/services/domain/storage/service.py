@@ -10,7 +10,7 @@ from backend.core.config import Settings, get_settings
 from backend.core.errors import DatabaseError
 from backend.core.logging import log_event
 from backend.core.security import redact_basic_pii, sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool, setting_str
+from backend.core.settings_helpers import is_production, setting_bool, setting_secret_str, setting_str
 from backend.models.memory import MemoryGraph, MemoryGraphLoadResult, MemoryGraphWriteResult, MemoryLoadResult, MemorySource, MemorySummary, MemoryWriteResult
 from backend.models.safety import SafetyEvent
 from backend.models.user import UserProfile, UserProfileResponse, UserProfileUpdate
@@ -217,7 +217,7 @@ class StorageService:
 
 def _firebase_env_present(settings: Settings) -> bool:
     return bool(
-        setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+        setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
         or setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
         or setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
         or setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)

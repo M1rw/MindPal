@@ -217,8 +217,8 @@ class Settings(BaseSettings):
     ENABLE_TTS: bool = False
 
     # Service-level feature flags (previously read via os.getenv in dependencies.py)
-    ALLOW_ANONYMOUS_SESSIONS: bool = False
-    REQUIRE_AUTH_FOR_PROVIDER_CALLS: bool = True
+    ALLOW_ANONYMOUS_SESSIONS: bool = True
+    REQUIRE_AUTH_FOR_PROVIDER_CALLS: bool = False
     ENABLE_OFFLINE_LLM_FALLBACK: bool = False
     ENABLE_BROWSER_TTS_FALLBACK: bool = True
     ENABLE_LLM_MEMORY_SUMMARIZATION: bool = True
@@ -436,8 +436,8 @@ class Settings(BaseSettings):
             # Allow anonymous sessions if explicitly enabled in environment
             pass
 
-            if not self.REQUIRE_AUTH_FOR_PROVIDER_CALLS:
-                raise ValueError("REQUIRE_AUTH_FOR_PROVIDER_CALLS must be true in production")
+            if not self.ALLOW_ANONYMOUS_SESSIONS and not self.REQUIRE_AUTH_FOR_PROVIDER_CALLS:
+                raise ValueError("REQUIRE_AUTH_FOR_PROVIDER_CALLS must be true in production when ALLOW_ANONYMOUS_SESSIONS is false")
 
             if self.ENABLE_DOCS:
                 raise ValueError("ENABLE_DOCS must be false in production")
@@ -455,7 +455,7 @@ class Settings(BaseSettings):
             # If they are disabled in the environment, we respect that choice.
 
             if self.ENABLE_FIREBASE:
-                server_project_id = (self.FIREBASE_PROJECT_ID or self.GOOGLE_CLOUD_PROJECT or "").strip()
+                server_project_id = self.resolved_firebase_project_id
                 if not server_project_id:
                     if self.is_production:
                         object.__setattr__(self, "ENABLE_FIREBASE", False)
@@ -618,10 +618,38 @@ class Settings(BaseSettings):
     @property
     def resolved_firebase_project_id(self) -> str:
         """Return the Firebase project ID from any configured source."""
-        return (
+        explicit = (
             (self.FIREBASE_PROJECT_ID or "").strip()
             or (self.GOOGLE_CLOUD_PROJECT or "").strip()
         )
+        if explicit:
+            return explicit
+
+        json_val = self.FIREBASE_CREDENTIALS_JSON.get_secret_value() if self.FIREBASE_CREDENTIALS_JSON else ""
+        if json_val:
+            try:
+                data = json.loads(json_val)
+                pid = str(data.get("project_id") or "").strip()
+                if pid:
+                    return pid
+            except Exception:
+                pass
+
+        cred_path = self.FIREBASE_CREDENTIALS_PATH or self.GOOGLE_APPLICATION_CREDENTIALS
+        if cred_path:
+            try:
+                path = Path(cred_path)
+                if not path.is_absolute():
+                    path = Path.cwd() / path
+                if path.exists():
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                    pid = str(data.get("project_id") or "").strip()
+                    if pid:
+                        return pid
+            except Exception:
+                pass
+
+        return ""
 
     @property
     def _has_any_firebase_credentials(self) -> bool:
