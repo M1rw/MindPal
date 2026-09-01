@@ -258,10 +258,41 @@ class UnavailableDBProvider:
 
 
 def _firebase_project_id(settings: Settings) -> str:
-    return (
+    explicit = (
         setting_str(settings, "FIREBASE_PROJECT_ID")
         or setting_str(settings, "GOOGLE_CLOUD_PROJECT")
-    ) or ""
+    )
+    if explicit:
+        return explicit
+
+    raw_json = setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+    if raw_json:
+        try:
+            data = json.loads(raw_json)
+            project_id = sanitize_text(str(data.get("project_id") or ""), 160)
+            if project_id:
+                return project_id
+        except Exception:
+            pass
+
+    credentials_path = (
+        setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
+    )
+    if credentials_path:
+        try:
+            path = Path(credentials_path)
+            if not path.is_absolute():
+                path = Path.cwd() / path
+            if path.exists():
+                data = json.loads(path.read_text(encoding="utf-8"))
+                project_id = sanitize_text(str(data.get("project_id") or ""), 160)
+                if project_id:
+                    return project_id
+        except Exception:
+            pass
+
+    return ""
 
 
 def _firestore_database_id(settings: Settings) -> str:
