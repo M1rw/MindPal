@@ -58,6 +58,27 @@ def test_chat_sse_stream_route(auth_client):
     assert len(data_lines) > 0
 
 
+def test_unavailable_db_provider_returns_503(app, auth_client):
+    from backend.services.domain.storage import UnavailableDBProvider
+    storage_service = app.state.service_container.db
+    original_provider = storage_service.provider
+    try:
+        storage_service.provider = UnavailableDBProvider(reason="Testing unavailable provider")
+        res = auth_client.get("/api/user/profile")
+        assert res.status_code == 503
+        data = res.json()
+        assert data.get("code") == "db_provider_unavailable"
+
+        patch_res = auth_client.patch(
+            "/api/user/profile",
+            json={"preferences": {"communication_style": "concise"}},
+        )
+        assert patch_res.status_code == 503
+        assert patch_res.json().get("code") == "db_provider_unavailable"
+    finally:
+        storage_service.provider = original_provider
+
+
 def test_user_me_and_profile_routes(auth_client):
     me_res = auth_client.get("/api/user/me")
     assert me_res.status_code == 200
