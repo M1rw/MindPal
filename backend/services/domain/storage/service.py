@@ -15,7 +15,7 @@ from backend.models.user import UserProfile, UserProfileResponse, UserProfileUpd
 
 from .models import StorageHealth
 from .protocols import StorageProvider
-from .providers import FirebaseDBProvider, InMemoryDBProvider
+from .providers import FirebaseDBProvider, InMemoryDBProvider, UnavailableDBProvider
 
 
 class StorageService:
@@ -44,9 +44,12 @@ class StorageService:
 
         self.firebase_init_error = firebase_provider.init_error
 
-        # Fallback to in-memory provider when Firebase is unavailable.
-        # This allows production deployments to function without Firebase,
-        # though user data won't persist across cold starts.
+        if self.production_mode:
+            self.provider = UnavailableDBProvider(reason=self.firebase_init_error)
+            self.mock_mode = False
+            return
+
+        # In development, fall back to in-memory provider
         self.provider = InMemoryDBProvider()
         self.mock_mode = True
 
