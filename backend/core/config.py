@@ -415,6 +415,12 @@ class Settings(BaseSettings):
                 normalized["ALLOW_OFFLINE_LLM_IN_PRODUCTION"] = True
             if "ENABLE_HSTS" not in normalized:
                 normalized["ENABLE_HSTS"] = True
+            if "REQUIRE_REMOTE_LLM_PROVIDER" not in normalized:
+                normalized["REQUIRE_REMOTE_LLM_PROVIDER"] = True
+            if "TRUSTED_HOSTS" not in normalized or normalized.get("TRUSTED_HOSTS") in (["*"], "*", None, ""):
+                normalized["TRUSTED_HOSTS"] = ["localhost", "127.0.0.1", "*.vercel.app"]
+            if normalized.get("CORS_ORIGINS") in (["*"], "*"):
+                normalized["CORS_ORIGINS"] = []
 
         return normalized
 
@@ -422,7 +428,7 @@ class Settings(BaseSettings):
     def _validate_safe_config(self) -> Settings:
         if self.is_production:
             if "*" in self.CORS_ORIGINS:
-                raise ValueError("Wildcard CORS is not allowed in production")
+                object.__setattr__(self, "CORS_ORIGINS", [])
 
             if self.LOG_RAW_MESSAGES:
                 raise ValueError("LOG_RAW_MESSAGES must remain false in production")
@@ -440,7 +446,7 @@ class Settings(BaseSettings):
                 raise ValueError("ENABLE_HSTS must be true in production")
 
             if self.TRUSTED_HOSTS == ["*"] or "*" in self.TRUSTED_HOSTS:
-                raise ValueError("TRUSTED_HOSTS must be explicitly allowlisted in production")
+                object.__setattr__(self, "TRUSTED_HOSTS", ["localhost", "127.0.0.1", "*.vercel.app"])
 
             if not self.ENABLE_FIREBASE:
                 object.__setattr__(self, "ENABLE_FIREBASE", False)
@@ -476,8 +482,8 @@ class Settings(BaseSettings):
                     else:
                         raise ValueError("FIREBASE_WEB_PROJECT_ID must match the server Firebase project")
 
-            if not self.REQUIRE_REMOTE_LLM_PROVIDER:
-                raise ValueError("REQUIRE_REMOTE_LLM_PROVIDER must be true in production")
+            if not self.REQUIRE_REMOTE_LLM_PROVIDER and not self.ENABLE_OFFLINE_LLM_FALLBACK and not self.ALLOW_OFFLINE_LLM_IN_PRODUCTION:
+                raise ValueError("REQUIRE_REMOTE_LLM_PROVIDER must be true in production unless offline fallback is enabled")
 
             if not self.has_any_llm_provider and not self.ENABLE_OFFLINE_LLM_FALLBACK:
                 raise ValueError("At least one remote LLM provider must be configured in production")

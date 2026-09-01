@@ -49,15 +49,36 @@ async def lifespan(app: FastAPI):
     not called here.
     """
     settings = getattr(app.state, "settings", None) or get_settings()
-    container = build_service_container(settings)
-    await container.start()
-    app.state.service_container = container
+    container = None
+    try:
+        container = build_service_container(settings)
+        await container.start()
+        app.state.service_container = container
+    except Exception as e:
+        logger.exception("Failed to start service container")
+        # Log the full exception details for debugging
+        log_event(
+            logger,
+            "service_container_startup_failed",
+            error_type=type(e).__name__,
+            error_message=str(e),
+        )
+        # Don't swallow the exception - let it propagate to Starlette
+        raise
+    
     try:
         yield
     finally:
         app.state.service_container = None
-        await container.aclose()
-        await close_service_container()
+        if container is not None:
+            try:
+                await container.aclose()
+            except Exception as shutdown_error:
+                logger.exception("Error during container shutdown: %s", shutdown_error)
+        try:
+            await close_service_container()
+        except Exception as close_error:
+            logger.exception("Error closing global service container: %s", close_error)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -234,7 +255,7 @@ def _install_exception_handlers(app: FastAPI) -> None:
         exc: RequestValidationError,
     ) -> JSONResponse:
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", status.HTTP_422_UNPROCESSABLE_ENTITY),
             content=_error_payload(
                 request=request,
                 code="validation_error",

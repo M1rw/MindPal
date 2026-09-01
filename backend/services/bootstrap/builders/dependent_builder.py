@@ -76,6 +76,7 @@ def build_rag_service(llm_service: LLMService, settings: Settings) -> RAGService
     """
     return RAGService(
         llm_service=llm_service,
+        settings=settings,
         enable_llm_planning=settings.ENABLE_LLM_RAG_PLANNING,
     )
 
