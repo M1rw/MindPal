@@ -281,10 +281,25 @@ def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> An
     use_adc = setting_bool(settings, "FIREBASE_USE_APPLICATION_DEFAULT", default=False)
 
     if raw_json:
+        # Try base64 decoding first (safer for environment variables)
+        data = None
         try:
-            data = json.loads(raw_json)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError("FIREBASE_CREDENTIALS_JSON is not valid JSON") from exc
+            import base64
+            decoded = base64.b64decode(raw_json, validate=True).decode("utf-8")
+            data = json.loads(decoded)
+            log_event(logger, "firebase_credentials_decoded_from_base64")
+        except Exception as base64_err:
+            # Fall back to direct JSON parsing
+            try:
+                data = json.loads(raw_json)
+            except json.JSONDecodeError as json_err:
+                log_event(
+                    logger,
+                    "firebase_credentials_json_parse_failed",
+                    error="FIREBASE_CREDENTIALS_JSON is not valid JSON or base64",
+                    raw_json_length=len(raw_json) if raw_json else 0,
+                )
+                raise RuntimeError("FIREBASE_CREDENTIALS_JSON is not valid JSON or base64") from json_err
 
         actual_project_id = sanitize_text(str(data.get("project_id") or ""), 160)
         if expected_project_id and actual_project_id and actual_project_id != expected_project_id:
