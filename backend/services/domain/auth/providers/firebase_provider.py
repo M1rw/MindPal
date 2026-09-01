@@ -9,7 +9,7 @@ from typing import Any, Optional
 from backend.core.config import Settings, get_settings
 from backend.core.errors import AuthError
 from backend.core.security import hash_user_id, sanitize_text
-from backend.core.settings_helpers import setting_bool, setting_str
+from backend.core.settings_helpers import setting_bool, setting_secret_str, setting_str
 
 from ..models import AuthIdentity, MAX_METADATA_VALUE_CHARS, MAX_RAW_USER_ID_CHARS
 
@@ -210,10 +210,44 @@ def _clean_token(token: str) -> str:
 
 def _firebase_project_id(settings: Settings) -> str:
     """Get Firebase project ID."""
-    return (
+    explicit = (
         setting_str(settings, "FIREBASE_PROJECT_ID")
         or setting_str(settings, "GOOGLE_CLOUD_PROJECT")
-    ) or ""
+    )
+    if explicit:
+        return explicit
+
+    raw_json = setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
+    if raw_json:
+        try:
+            import json
+            data = json.loads(raw_json)
+            project_id = sanitize_text(str(data.get("project_id") or ""), 160)
+            if project_id:
+                return project_id
+        except Exception:
+            pass
+
+    credentials_path = (
+        setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
+        or setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
+    )
+    if credentials_path:
+        try:
+            import json
+            from pathlib import Path
+            path = Path(credentials_path)
+            if not path.is_absolute():
+                path = Path.cwd() / path
+            if path.exists():
+                data = json.loads(path.read_text(encoding="utf-8"))
+                project_id = sanitize_text(str(data.get("project_id") or ""), 160)
+                if project_id:
+                    return project_id
+        except Exception:
+            pass
+
+    return ""
 
 
 def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> Any:
@@ -226,7 +260,7 @@ def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> An
         raise RuntimeError("firebase-admin credentials module is unavailable") from exc
 
     # Try environment-based credentials
-    json_credentials = setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+    json_credentials = setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
     if json_credentials:
         import json
         try:
