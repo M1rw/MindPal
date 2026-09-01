@@ -82,3 +82,4 @@ artifacts/voice-persona-review/
 # Firebase Credentials
 firebase-service-account.json
 firebase-credentials-minified.json
+firebase-credentials-base64.txt
