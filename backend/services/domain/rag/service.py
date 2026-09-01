@@ -31,7 +31,7 @@ MAX_RESPONSE_STYLE_ITEMS: Final[int] = 12
 MAX_LLM_PLAN_CHARS: Final[int] = 6_000
 DEFAULT_MAX_RESULTS: Final[int] = 4
 PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parents[3]
-DEFAULT_CORPUS_DIR: Final[Path] = Path(__file__).resolve().parents[2] / "rag" / "corpus"
+DEFAULT_CORPUS_DIR: Final[Path] = Path(__file__).resolve().parents[3] / "rag" / "corpus"
 CLINICAL_FRAMEWORKS_DIR: Final[Path] = PROJECT_ROOT / "data" / "clinical_frameworks"
 
 _WORD_RE: Final[re.Pattern[str]] = re.compile(r"[\w\u0600-\u06FF']+", re.UNICODE)
