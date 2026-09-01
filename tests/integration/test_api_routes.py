@@ -58,6 +58,21 @@ def test_chat_sse_stream_route(auth_client):
     assert len(data_lines) > 0
 
 
+def test_firebase_project_id_auto_extraction():
+    import json
+    from backend.core.config import get_settings
+    from backend.services.domain.storage.providers.firebase_provider import _firebase_project_id
+
+    settings = get_settings().model_copy(
+        update={
+            "FIREBASE_PROJECT_ID": "",
+            "GOOGLE_CLOUD_PROJECT": "",
+            "FIREBASE_CREDENTIALS_JSON": json.dumps({"project_id": "mindpal-official-0", "private_key": "dummy"}),
+        }
+    )
+    assert _firebase_project_id(settings) == "mindpal-official-0"
+
+
 def test_unavailable_db_provider_returns_503(app, auth_client):
     from backend.services.domain.storage import UnavailableDBProvider
     storage_service = app.state.service_container.db
