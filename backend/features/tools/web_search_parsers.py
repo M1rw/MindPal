@@ -12,7 +12,7 @@ from urllib.parse import quote_plus, unquote, urlparse
 
 import httpx
 
-from backend.core.security import sanitize_text
+from backend.core.security import is_safe_url, sanitize_text
 
 MAX_SNIPPET_CHARS = 500
 MAX_RESULTS = 5
@@ -159,6 +159,8 @@ def clean_url_string(url: str) -> str:
     if cleaned.startswith("//"):
         cleaned = "https:" + cleaned
     if not cleaned.startswith(("http://", "https://")):
+        return ""
+    if not is_safe_url(cleaned):
         return ""
     return cleaned
 

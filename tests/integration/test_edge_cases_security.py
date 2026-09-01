@@ -66,3 +66,26 @@ def test_chat_store_conflict_version(auth_client):
         json={"title": "Test Chat", "messages": [], "expected_version": 99999},
     )
     assert res.status_code == 409
+
+
+def test_web_search_url_ssrf_filtering():
+    from backend.features.tools.web_search_parsers import clean_url_string
+    from backend.tools.web_search_tool import _clean_url
+
+    valid_url = "https://example.com/news/article"
+    assert clean_url_string(valid_url) == valid_url
+    assert _clean_url(valid_url) == valid_url
+
+    ssrf_targets = [
+        "http://127.0.0.1/admin",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://localhost:8080/secret",
+        "http://0x7f000001/internal",
+        "http://[::1]/debug",
+        "file:///etc/passwd",
+        "gopher://127.0.0.1:70",
+    ]
+
+    for target in ssrf_targets:
+        assert clean_url_string(target) == "", f"clean_url_string failed to reject {target}"
+        assert _clean_url(target) == "", f"_clean_url failed to reject {target}"
