@@ -14,7 +14,7 @@ from backend.core.config import Settings, get_settings
 from backend.core.errors import DatabaseError
 from backend.core.logging import log_event
 from backend.core.security import sanitize_text
-from backend.core.settings_helpers import setting_bool, setting_str
+from backend.core.settings_helpers import setting_bool, setting_secret_str, setting_str
 
 logger = logging.getLogger("mindpal.storage.firebase")
 
@@ -265,7 +265,7 @@ def _firebase_project_id(settings: Settings) -> str:
     if explicit:
         return explicit
 
-    raw_json = setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+    raw_json = setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
     if raw_json:
         try:
             data = json.loads(raw_json)
@@ -305,7 +305,7 @@ def _firebase_credentials(settings: Settings, *, expected_project_id: str) -> An
     except Exception as exc:
         raise RuntimeError("firebase-admin credentials module is unavailable") from exc
 
-    raw_json = setting_str(settings, "FIREBASE_CREDENTIALS_JSON")
+    raw_json = setting_secret_str(settings, "FIREBASE_CREDENTIALS_JSON")
     credentials_path = (
         setting_str(settings, "FIREBASE_CREDENTIALS_PATH")
         or setting_str(settings, "GOOGLE_APPLICATION_CREDENTIALS")
