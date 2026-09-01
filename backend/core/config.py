@@ -413,6 +413,8 @@ class Settings(BaseSettings):
                 normalized["ENABLE_OFFLINE_LLM_FALLBACK"] = True
             if "ALLOW_OFFLINE_LLM_IN_PRODUCTION" not in normalized:
                 normalized["ALLOW_OFFLINE_LLM_IN_PRODUCTION"] = True
+            if "ENABLE_HSTS" not in normalized:
+                normalized["ENABLE_HSTS"] = True
 
         return normalized
 
