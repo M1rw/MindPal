@@ -417,6 +417,12 @@ class Settings(BaseSettings):
                 normalized["ENABLE_HSTS"] = True
             if "REQUIRE_REMOTE_LLM_PROVIDER" not in normalized:
                 normalized["REQUIRE_REMOTE_LLM_PROVIDER"] = True
+            if "ALLOW_ANONYMOUS_SESSIONS" not in normalized:
+                normalized["ALLOW_ANONYMOUS_SESSIONS"] = True
+            if "REQUIRE_AUTH_FOR_PROVIDER_CALLS" not in normalized:
+                allow_anon_val = normalized.get("ALLOW_ANONYMOUS_SESSIONS")
+                allow_anon = str(allow_anon_val).strip().lower() in {"1", "true", "yes", "on"} if allow_anon_val is not None else True
+                normalized["REQUIRE_AUTH_FOR_PROVIDER_CALLS"] = not allow_anon
             if "TRUSTED_HOSTS" not in normalized or normalized.get("TRUSTED_HOSTS") in (["*"], "*", None, ""):
                 normalized["TRUSTED_HOSTS"] = ["localhost", "127.0.0.1", "*.vercel.app"]
             if normalized.get("CORS_ORIGINS") in (["*"], "*"):
@@ -437,7 +443,7 @@ class Settings(BaseSettings):
             pass
 
             if not self.ALLOW_ANONYMOUS_SESSIONS and not self.REQUIRE_AUTH_FOR_PROVIDER_CALLS:
-                raise ValueError("REQUIRE_AUTH_FOR_PROVIDER_CALLS must be true in production when ALLOW_ANONYMOUS_SESSIONS is false")
+                object.__setattr__(self, "REQUIRE_AUTH_FOR_PROVIDER_CALLS", True)
 
             if self.ENABLE_DOCS:
                 raise ValueError("ENABLE_DOCS must be false in production")
