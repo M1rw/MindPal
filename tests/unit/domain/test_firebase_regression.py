@@ -96,3 +96,17 @@ def test_anonymous_session_config_default(monkeypatch: pytest.MonkeyPatch) -> No
     reset_settings()
     settings = get_settings()
     assert settings.ALLOW_ANONYMOUS_SESSIONS is True
+
+
+def test_production_settings_anonymous_session_combinations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure production Settings initializes without raising ValidationError when ALLOW_ANONYMOUS_SESSIONS is False."""
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("ALLOW_ANONYMOUS_SESSIONS", "false")
+    monkeypatch.setenv("ENABLE_OFFLINE_LLM_FALLBACK", "true")
+
+    reset_settings()
+    settings = get_settings()
+
+    assert settings.is_production is True
+    assert settings.ALLOW_ANONYMOUS_SESSIONS is False
+    assert settings.REQUIRE_AUTH_FOR_PROVIDER_CALLS is True
