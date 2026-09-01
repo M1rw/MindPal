@@ -252,6 +252,7 @@ class UnavailableDBProvider:
         return DatabaseError(
             "Firebase database provider is unavailable",
             code="db_provider_unavailable",
+            status_code=503,
             details={"provider": self.name, "operation": sanitize_text(operation, 80), "reason": self.reason},
         )
 

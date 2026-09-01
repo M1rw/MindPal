@@ -369,6 +369,10 @@ export function buildClientFallbackReply(error) {
     return "You need to sign in before using this cloud feature.";
   }
 
+  if (error?.status === 503 || error?.code === "db_provider_unavailable") {
+    return "Cloud storage is currently unavailable on the server. Your settings and messages are preserved locally.";
+  }
+
   if (error?.code === "request_timeout") {
     return "The request took too long. Try again with a shorter message.";
   }
