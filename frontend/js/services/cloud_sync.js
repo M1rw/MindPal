@@ -534,6 +534,9 @@ export function formatCloudConnectErrorSafe(error) {
   if (code.includes("popup-closed-by-user")) return "Sign-in popup was closed.";
   if (code.includes("popup-blocked")) return "Browser blocked the sign-in popup.";
   if (code.includes("cancelled-popup-request")) return "Another sign-in popup was already open.";
+  if (status === 503 || code === "db_provider_unavailable") {
+    return "Cloud database storage is currently unavailable on the backend server.";
+  }
   if (status === 401) return `Backend rejected the Firebase token: ${code || "401"}${requestId ? ` (${requestId})` : ""}.`;
   if (status === 403) return `Backend blocked this profile request: ${code || "403"}${requestId ? ` (${requestId})` : ""}.`;
   if (status === 404) return "Backend /api/user/me route was not found.";
