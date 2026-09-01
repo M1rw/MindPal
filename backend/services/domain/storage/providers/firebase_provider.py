@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,8 +12,11 @@ from typing import Any, Callable
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import DatabaseError
+from backend.core.logging import log_event
 from backend.core.security import sanitize_text
 from backend.core.settings_helpers import setting_bool, setting_str
+
+logger = logging.getLogger("mindpal.storage.firebase")
 
 
 MAX_COLLECTION_CHARS = 80
@@ -34,9 +38,17 @@ class FirebaseDBProvider:
 
         try:
             self._client = self._build_client()
+            log_event(logger, "firebase_client_initialized", project_id=sanitize_text(str(self.project_id), 100))
         except Exception as exc:
             self._init_error = f"{exc.__class__.__name__}: {sanitize_text(str(exc), 500)}"
             self._client = None
+            log_event(
+                logger,
+                "firebase_client_initialization_failed",
+                error_type=exc.__class__.__name__,
+                error_message=sanitize_text(str(exc), 500),
+                project_id=sanitize_text(str(self.project_id), 100),
+            )
 
     @property
     def is_configured(self) -> bool:

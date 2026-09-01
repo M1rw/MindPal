@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict
 from typing import Any, Callable
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import DatabaseError
+from backend.core.logging import log_event
 from backend.core.security import redact_basic_pii, sanitize_text
 from backend.core.settings_helpers import is_production, setting_bool, setting_str
 from backend.models.memory import MemoryGraph, MemoryGraphLoadResult, MemoryGraphWriteResult, MemoryLoadResult, MemorySource, MemorySummary, MemoryWriteResult
@@ -16,6 +18,8 @@ from backend.models.user import UserProfile, UserProfileResponse, UserProfileUpd
 from .models import StorageHealth
 from .protocols import StorageProvider
 from .providers import FirebaseDBProvider, InMemoryDBProvider, UnavailableDBProvider
+
+logger = logging.getLogger("mindpal.storage")
 
 
 class StorageService:
@@ -40,18 +44,32 @@ class StorageService:
         if firebase_provider.is_configured:
             self.provider = firebase_provider
             self.mock_mode = False
+            log_event(logger, "firebase_provider_initialized", provider_name="firebase")
             return
 
         self.firebase_init_error = firebase_provider.init_error
+        log_event(
+            logger,
+            "firebase_provider_failed",
+            error=sanitize_text(str(self.firebase_init_error), 500),
+            production_mode=self.production_mode,
+        )
 
         if self.production_mode:
             self.provider = UnavailableDBProvider(reason=self.firebase_init_error)
             self.mock_mode = False
+            log_event(
+                logger,
+                "storage_service_unavailable",
+                reason="firebase_failed_in_production",
+                error=sanitize_text(str(self.firebase_init_error), 500),
+            )
             return
 
         # In development, fall back to in-memory provider
         self.provider = InMemoryDBProvider()
         self.mock_mode = True
+        log_event(logger, "storage_using_inmemory_fallback", firebase_error=sanitize_text(str(self.firebase_init_error), 500))
 
     async def load_memory(self, user_id_hash: str) -> MemoryLoadResult:
         user_id_hash = _clean_key(user_id_hash)
