@@ -23,7 +23,7 @@ from urllib.parse import quote_plus, unquote
 
 import httpx
 
-from backend.core.security import sanitize_text
+from backend.core.security import is_safe_url, sanitize_text
 from backend.tools import BaseTool, ToolContext, ToolResult
 
 logger = logging.getLogger(__name__)
@@ -380,10 +380,10 @@ def _strip_html(text: str) -> str:
 
 
 def _clean_url(url: str) -> str:
-    """Strip tracking parameters from URLs."""
+    """Strip tracking parameters from URLs and enforce SSRF safety."""
     cleaned = url.split("?utm_")[0]
-    cleaned = cleaned.split("&utm_")[0]
-    return cleaned.strip()
+    cleaned = cleaned.split("&utm_")[0].strip()
+    return cleaned if is_safe_url(cleaned) else ""
 
 
 def _resolve_ddg_redirect(raw_url: str) -> str:
