@@ -33,6 +33,10 @@ from backend.models.memory import (
     summary_from_memory_graph,
 )
 from backend.services.domain.memory import memory_graph_delta_from_summary
+from backend.services.domain.memory.synthesis import (
+    detect_user_language,
+    synthesize_memory_narrative,
+)
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
 MAX_MEMORY_INTERACTIONS = 50
@@ -43,10 +47,12 @@ MAX_SESSION_HASH_CHARS = 120
 class MemorySummaryResponse(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     summary_text: str
+    detected_language: str = "en"
     key_supports: List[str] = Field(default_factory=list)
     last_updated_at: str
     node_count: int = 0
     is_enabled: bool = True
+    is_empty: bool = False
 
 
 class MemoryEditPayload(BaseModel):
@@ -118,25 +124,32 @@ async def get_memory_summary(
     try:
         graph = await services.memory_repo.load(context.session.user_id_hash)
         active_atoms = graph.active_atoms
-        summary_obj = summary_from_memory_graph(graph)
+        atom_texts = [atom.value for atom in active_atoms]
 
-        # Build key supports
-        supports: list[str] = []
-        if summary_obj.preferred_name:
-            supports.append(f"Name: {summary_obj.preferred_name}")
-        for p in summary_obj.important_people[:3]:
-            supports.append(f"Important person: {p.canonical_name} ({p.relationship})")
-        for pref in summary_obj.communication_preferences.response_style[:3]:
-            supports.append(f"Preference: {pref}")
+        lang = detect_user_language(atom_texts, fallback_locale=context.locale)
 
-        summary_text = summary_obj.summary or "MindPal remembers your preferences and emotional context to support you gently."
+        stored_summary = str(graph.brain.collections[0].title if graph.brain.collections else "").strip()
+        if not stored_summary:
+            summary_obj = summary_from_memory_graph(graph)
+            stored_summary = summary_obj.summary
+
+        is_empty = False
+        if not stored_summary or stored_summary.lower().startswith("no memory"):
+            stored_summary = (
+                "## نبذة عامة\n\nيتذكر مايند بال تفضيلاتك وسياقك العاطفي لدعمك برفق."
+                if lang.startswith("ar")
+                else "## Overview\n\nMindPal remembers your preferences and emotional context to support you gently."
+            )
+            is_empty = True
 
         return MemorySummaryResponse(
-            summary_text=summary_text,
-            key_supports=supports,
+            summary_text=stored_summary,
+            detected_language=lang,
+            key_supports=[],
             last_updated_at=graph.updated_at.isoformat(),
             node_count=len(active_atoms),
             is_enabled=graph.full_snapshot,
+            is_empty=is_empty,
         )
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
@@ -154,29 +167,50 @@ async def edit_memory_summary(
     try:
         await _limit_write(services, context)
         graph = await services.memory_repo.load(context.session.user_id_hash)
+        active_atoms = graph.active_atoms
+        atom_texts = [atom.value for atom in active_atoms]
 
-        # Apply natural language or highlight edits
-        if payload.instruction:
-            sanitized_inst = sanitize_text(payload.instruction, 500)
-            # Add or update instruction as preference node
+        stored_summary = str(graph.brain.collections[0].title if graph.brain.collections else "").strip()
+
+        instruction = sanitize_text(payload.instruction or "", 500)
+        new_summary, detected_lang = await synthesize_memory_narrative(
+            llm_service=services.llm,
+            user_texts=atom_texts,
+            existing_narrative=stored_summary,
+            edit_instruction=instruction,
+            fallback_locale=context.locale,
+            request_id=context.request_id,
+        )
+
+        from backend.models.memory import BrainCollection, utcnow
+        now = utcnow()
+        graph.updated_at = now
+        col = BrainCollection(id="coll_narrative_summary", title=new_summary, created_at=now, updated_at=now)
+        graph.brain.collections = [col]
+
+        if instruction:
             atom = make_memory_atom(
                 user_id_hash=context.session.user_id_hash,
                 category=MemoryCategory.PREFERENCES,
-                value=f"User instruction: {sanitized_inst}",
+                value=f"User memory instruction: {instruction}",
                 source=MemorySource.MANUAL,
             )
-            await services.memory_repo.merge(user_id_hash=context.session.user_id_hash, delta=[atom])
+            graph.atoms.append(atom)
 
-        if payload.highlighted_text and payload.action == "delete":
-            sanitized_target = sanitize_text(payload.highlighted_text, 500).lower()
-            to_delete = [atom.id for atom in graph.active_atoms if sanitized_target in atom.value.lower()]
-            if to_delete:
-                patch = MemoryGraphPatch(deleted_atom_ids=to_delete)
-                await services.memory_repo.patch(user_id_hash=context.session.user_id_hash, patch=patch)
+        await services.memory_repo.replace(
+            user_id_hash=context.session.user_id_hash,
+            graph=graph,
+            expected_version=graph.version,
+        )
 
-        # Reload updated graph
-        graph = await services.memory_repo.load(context.session.user_id_hash)
-        return await get_memory_summary(services, context)
+        return MemorySummaryResponse(
+            summary_text=new_summary,
+            detected_language=detected_lang,
+            last_updated_at=now.isoformat(),
+            node_count=len(graph.active_atoms),
+            is_enabled=graph.full_snapshot,
+            is_empty=False,
+        )
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
@@ -184,21 +218,102 @@ async def edit_memory_summary(
 
 
 @router.post("/refresh", response_model=MemorySummaryResponse)
+@router.post("/summary/refresh", response_model=MemorySummaryResponse)
 async def refresh_memory_summary(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> MemorySummaryResponse:
     assert_authenticated(context)
     try:
-        # Trigger summary re-synthesis
+        await _limit_write(services, context)
         graph = await services.memory_repo.load(context.session.user_id_hash)
-        # Touch updated timestamp
-        graph.updated_at = graph.updated_at
-        return await get_memory_summary(services, context)
+        active_atoms = graph.active_atoms
+        atom_texts = [atom.value for atom in active_atoms]
+
+        stored_summary = str(graph.brain.collections[0].title if graph.brain.collections else "").strip()
+
+        new_summary, detected_lang = await synthesize_memory_narrative(
+            llm_service=services.llm,
+            user_texts=atom_texts,
+            existing_narrative=stored_summary,
+            extracted_facts=atom_texts,
+            fallback_locale=context.locale,
+            request_id=context.request_id,
+        )
+
+        from backend.models.memory import BrainCollection, utcnow
+        now = utcnow()
+        graph.updated_at = now
+        col = BrainCollection(id="coll_narrative_summary", title=new_summary, created_at=now, updated_at=now)
+        graph.brain.collections = [col]
+
+        await services.memory_repo.replace(
+            user_id_hash=context.session.user_id_hash,
+            graph=graph,
+            expected_version=graph.version,
+        )
+
+        return MemorySummaryResponse(
+            summary_text=new_summary,
+            detected_language=detected_lang,
+            last_updated_at=now.isoformat(),
+            node_count=len(active_atoms),
+            is_enabled=graph.full_snapshot,
+            is_empty=False,
+        )
     except AppError as exc:
         raise http_error_from_app_error(exc, request_id=context.request_id) from exc
     except Exception as exc:
         raise _internal_error("memory_summary_refresh_failed", "Failed to refresh memory summary", context.request_id, exc)
+
+
+@router.post("/reset", response_model=MemorySummaryResponse)
+@router.post("/summary/reset", response_model=MemorySummaryResponse)
+async def reset_memory_summary(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemorySummaryResponse:
+    assert_authenticated(context)
+    try:
+        await _limit_write(services, context)
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+
+        # 30-day safety retention logging for deleted/reset memory
+        from datetime import timedelta
+        from backend.models.memory import BrainEvidence, MemorySensitivity, utcnow
+        now = utcnow()
+        retention_log = BrainEvidence(
+            id=f"retention_{context.request_id}",
+            atom_id="memory_reset_log",
+            excerpt=f"Memory summary reset by user. 30-day retention logging active until {(now + timedelta(days=30)).isoformat()}.",
+            source=MemorySource.MANUAL,
+            captured_at=now,
+            sensitivity=MemorySensitivity.HIGH,
+        )
+
+        graph.atoms = []
+        graph.brain.collections = []
+        graph.brain.evidence = [retention_log]
+        graph.updated_at = now
+
+        await services.memory_repo.replace(
+            user_id_hash=context.session.user_id_hash,
+            graph=graph,
+            expected_version=graph.version,
+        )
+
+        return MemorySummaryResponse(
+            summary_text="## Overview\n\nMindPal remembers your preferences and emotional context to support you gently.",
+            detected_language="en",
+            last_updated_at=now.isoformat(),
+            node_count=0,
+            is_enabled=graph.full_snapshot,
+            is_empty=True,
+        )
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise _internal_error("memory_summary_reset_failed", "Failed to reset memory summary", context.request_id, exc)
 
 
 @router.get("/nodes", response_model=List[MemoryAtom])

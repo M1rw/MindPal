@@ -177,7 +177,7 @@
                         </div>
                     </div>
 
-                    <!-- ═══════════════ MEMORY V4 (CHATGPT STYLE) ═══════════════ -->
+                    <!-- ═══════════════ MEMORY SUMMARY NARRATIVE ═══════════════ -->
                     <div class="settings-panel" data-settings-panel="memory" hidden>
                         <h2 class="settings-title">Memory</h2>
 
@@ -193,56 +193,37 @@
                                     <span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span>
                                 </label>
                             </div>
-                            <div class="settings-row">
-                                <span class="settings-row-main">
-                                    <span class="settings-row-title">Memory summary</span>
-                                    <span class="settings-row-copy">View an overview of what MindPal has learned about you to support your journey safely. <span id="memory-last-updated" class="text-xs text-gray-400 dark:text-gray-500">Updated recently</span></span>
-                                </span>
-                                <button id="memory-manage-btn" class="settings-pill-btn" type="button">Manage</button>
+                        </div>
+
+                        <!-- Narrative Profile Card -->
+                        <div class="settings-section mt-4">
+                            <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#303030]">
+                                <div class="flex items-center gap-2">
+                                    <span class="settings-row-title">Synthesized profile</span>
+                                    <span id="memory-last-updated" class="text-xs text-gray-400 dark:text-gray-500">Updated recently</span>
+                                </div>
+                                <button id="memory-refresh-btn" class="settings-pill-btn" type="button" title="Refresh memory summary">Refresh</button>
                             </div>
-                            <div class="settings-row">
-                                <span class="settings-row-main">
-                                    <span class="settings-row-title text-rose-600 dark:text-rose-400">Delete all memories & turn off</span>
-                                    <span class="settings-row-copy">Permanently delete stored memory synthesis context and disable memory.</span>
-                                </span>
-                                <button id="memory-delete-all-btn" class="settings-danger-pill" type="button">Delete all</button>
+
+                            <div id="memory-narrative-content" dir="auto" class="content-box py-4 text-sm leading-relaxed text-gray-800 dark:text-gray-200 min-h-[140px] max-h-[320px] overflow-y-auto custom-scrollbar">
+                                ## Overview
+
+                                MindPal remembers your preferences and emotional context to support you gently.
+                            </div>
+
+                            <!-- Update Input Bar -->
+                            <div class="mt-3 flex items-center gap-2 bg-gray-100 dark:bg-[#2f2f2f] rounded-full px-4 py-1.5 border border-transparent focus-within:border-gray-300 dark:focus-within:border-gray-600 transition-all min-h-[48px]">
+                                <input type="text" id="memory-edit-input" placeholder="Ask or update memory profile..." class="flex-1 text-sm bg-transparent border-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500">
+                                <button id="memory-apply-edit-btn" class="w-8 h-8 rounded-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 flex items-center justify-center hover:opacity-90 transition-opacity flex-none" title="Send update" type="button">
+                                    <i data-lucide="arrow-up" class="w-4 h-4"></i>
+                                </button>
                             </div>
                         </div>
 
-                        <!-- MEMORY SUMMARY MODAL (EXACT CHATGPT LOOK & FEEL) -->
-                        <div id="memory-manage-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5">
-                            <div class="bg-white dark:bg-[#1f1f1f] w-full max-w-xl h-[min(680px,88vh)] rounded-2xl p-5 sm:p-6 shadow-2xl border border-black/10 dark:border-white/10 flex flex-col justify-between">
-                                <!-- Modal Header -->
-                                <div class="flex items-center justify-between border-b border-gray-100 dark:border-[#303030] pb-3 flex-none">
-                                    <div class="flex items-center gap-2">
-                                        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Memory summary</h3>
-                                        <span id="modal-memory-last-updated" class="text-xs text-gray-400 dark:text-gray-500">Updated 3 hours ago</span>
-                                    </div>
-                                    <button id="close-memory-manage-btn" class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] text-gray-500 dark:text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
-                                </div>
-
-                                <!-- Modal Content Body -->
-                                <div class="flex-1 overflow-y-auto custom-scrollbar my-4 pr-1 text-sm leading-relaxed text-gray-800 dark:text-gray-200 space-y-4">
-                                    <div id="memory-modal-summary-content" class="whitespace-pre-wrap font-normal">
-                                        MindPal remembers your preferences and emotional context to support you gently.
-                                    </div>
-
-                                    <div class="pt-4 border-t border-gray-100 dark:border-[#303030]">
-                                        <h4 class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">Saved memory items</h4>
-                                        <div id="memory-inspector-list" class="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar">
-                                            <div class="text-gray-400 dark:text-gray-500 text-[13px]">No individual items saved.</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Bottom Chat Input Bar -->
-                                <div class="flex items-center gap-2 bg-gray-100 dark:bg-[#2f2f2f] rounded-full px-4 py-1.5 border border-transparent focus-within:border-gray-300 dark:focus-within:border-gray-600 transition-all flex-none min-h-[48px]">
-                                    <input type="text" id="memory-edit-input" placeholder="Ask or update..." class="flex-1 text-sm bg-transparent border-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500">
-                                    <button id="memory-apply-edit-btn" class="w-8 h-8 rounded-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 flex items-center justify-center hover:opacity-90 transition-opacity flex-none" title="Send update">
-                                        <i data-lucide="arrow-up" class="w-4 h-4"></i>
-                                    </button>
-                                </div>
-                            </div>
+                        <!-- Reset and Delete controls -->
+                        <div class="settings-section mt-6 pt-4 border-t border-gray-100 dark:border-[#303030] flex flex-wrap items-center justify-between gap-3">
+                            <button id="memory-reset-btn" class="settings-pill-btn" type="button">Reset summary</button>
+                            <button id="memory-delete-all-btn" class="settings-danger-pill" type="button">Delete all & turn off</button>
                         </div>
                     </div>
 
