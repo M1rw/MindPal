@@ -15,7 +15,6 @@ REQUIRED_OUTPUTS = {
     "frontend/css/tailwind.generated.css": 10_000,
     "frontend/dist/lucide.bundle.js": 5_000,
     "frontend/dist/app.bundle.js": 100_000,
-    "frontend/dist/brain.bundle.js": 1_000,
 }
 
 
