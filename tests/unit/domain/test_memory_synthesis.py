@@ -84,3 +84,12 @@ async def test_offline_fallback_edit_rewriting():
     )
     assert lang == "en"
     assert "computer science" in narrative or "I'm no longer studying engineering" in narrative
+
+
+def test_synthesis_multi_section_formatting():
+    sys_prompt = build_synthesis_system_prompt("en")
+    assert "## Overview" in sys_prompt
+    assert "## Work & Studies" in sys_prompt
+    assert "## Emotional Patterns & Coping" in sys_prompt
+    assert "## What Helps" in sys_prompt
+    assert "## Personal Preferences" in sys_prompt

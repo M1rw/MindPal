@@ -460,6 +460,21 @@ export function bindSettingsControls() {
   });
 }
 
+export function formatRelativeTime(isoString) {
+  if (!isoString) return "recently";
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return "recently";
+
+  const elapsedSecs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (elapsedSecs < 30) return "just now";
+  if (elapsedSecs < 90) return "1 minute ago";
+  if (elapsedSecs < 3600) return `${Math.floor(elapsedSecs / 60)} minutes ago`;
+  if (elapsedSecs < 7200) return "1 hour ago";
+  if (elapsedSecs < 86400) return `${Math.floor(elapsedSecs / 3600)} hours ago`;
+  if (elapsedSecs < 172800) return "1 day ago";
+  return `${Math.floor(elapsedSecs / 86400)} days ago`;
+}
+
 async function loadMemoryV4Data() {
   const summaryContent = document.getElementById("memory-narrative-content");
   const updatedLabel = document.getElementById("memory-last-updated");
@@ -471,13 +486,19 @@ async function loadMemoryV4Data() {
     const summaryRes = await fetch("/api/memory/summary", { headers });
     if (summaryRes.ok) {
       const data = await summaryRes.json();
-      const timeStr = data.last_updated_at ? new Date(data.last_updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'recently';
-      const updatedText = `Updated ${timeStr}`;
+      const relativeTime = formatRelativeTime(data.last_updated_at);
+      const updatedText = `Updated ${relativeTime}`;
       if (summaryContent) {
         summaryContent.innerHTML = sanitizeRichHtml(formatMarkdown(data.summary_text));
-        const isRtl = data.detected_language && data.detected_language.startsWith("ar");
+        const isRtl = Boolean(data.detected_language && data.detected_language.startsWith("ar"));
         summaryContent.setAttribute("dir", isRtl ? "rtl" : "ltr");
         summaryContent.setAttribute("data-detected-lang", data.detected_language || "en");
+
+        // Also apply RTL attribute to the input box container if Arabic
+        const editInput = document.getElementById("memory-edit-input");
+        if (editInput) {
+          editInput.setAttribute("dir", isRtl ? "rtl" : "ltr");
+        }
       }
       if (updatedLabel) updatedLabel.textContent = updatedText;
     }
@@ -487,7 +508,13 @@ async function loadMemoryV4Data() {
 }
 
 async function editMemoryV4Summary(instruction) {
+  const editBtn = document.getElementById("memory-apply-edit-btn");
+  const btnText = document.getElementById("memory-edit-btn-text");
+
   try {
+    if (editBtn) editBtn.disabled = true;
+    if (btnText) btnText.textContent = "Updating…";
+
     deps.showToast("Updating memory profile...");
     const token = await getIdToken();
     const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
@@ -504,6 +531,9 @@ async function editMemoryV4Summary(instruction) {
     }
   } catch (err) {
     deps.showToast("Failed to update memory.");
+  } finally {
+    if (editBtn) editBtn.disabled = false;
+    if (btnText) btnText.textContent = "Update";
   }
 }
 
