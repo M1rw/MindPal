@@ -333,3 +333,79 @@ def _admin_summary(key: str, policy: FeaturePolicy | None) -> AdminFeatureSummar
         deny_user_count=len(policy.deny_user_hashes) if policy else 0,
         policy_version=policy.version if policy else 0,
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Changelog Models & Endpoints
+# ═══════════════════════════════════════════════════════════════
+
+_DISMISSED_CHANGELOGS: dict[str, set[str]] = {}
+
+
+class ChangelogEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: str
+    release_date: str
+    major: bool = False
+    title: str
+    summary: str
+    highlights: list[str] = Field(default_factory=list)
+
+
+class ChangelogResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_version: str = "4.0.0"
+    entries: list[ChangelogEntry]
+    dismissed_versions: list[str] = Field(default_factory=list)
+
+
+class ChangelogDismissPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    version: str = Field(max_length=20)
+
+
+def _load_changelog_entries_from_disk() -> tuple[str, list[ChangelogEntry]]:
+    from pathlib import Path
+    import json
+    changelog_dir = Path("data/changelog")
+    entries: list[ChangelogEntry] = []
+    if not changelog_dir.exists():
+        return "4.0.0", entries
+
+    for filepath in sorted(changelog_dir.glob("*.json"), reverse=True):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+                entries.append(ChangelogEntry.model_validate(raw))
+        except Exception:
+            continue
+
+    current_version = entries[0].version if entries else "4.0.0"
+    return current_version, entries
+
+
+@router.get("/changelog", response_model=ChangelogResponse)
+async def get_changelog(
+    context: FeatureContextDep,
+) -> ChangelogResponse:
+    user_hash = context.user_id_hash or "anonymous"
+    dismissed = list(_DISMISSED_CHANGELOGS.get(user_hash, set()))
+    current_version, entries = _load_changelog_entries_from_disk()
+
+    return ChangelogResponse(
+        current_version=current_version,
+        entries=entries,
+        dismissed_versions=dismissed,
+    )
+
+
+@router.post("/changelog/dismiss")
+async def dismiss_changelog(
+    payload: ChangelogDismissPayload,
+    context: FeatureContextDep,
+) -> dict[str, object]:
+    user_hash = context.user_id_hash or "anonymous"
+    if user_hash not in _DISMISSED_CHANGELOGS:
+        _DISMISSED_CHANGELOGS[user_hash] = set()
+    _DISMISSED_CHANGELOGS[user_hash].add(payload.version)
+    return {"dismissed": True, "version": payload.version}

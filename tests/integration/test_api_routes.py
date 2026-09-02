@@ -231,3 +231,15 @@ def test_feature_flags_routes(client):
     features_res = client.get("/api/features")
     assert features_res.status_code == 200
     assert "features" in features_res.json()
+
+
+def test_changelog_routes(client):
+    res = client.get("/api/features/changelog")
+    assert res.status_code == 200
+    data = res.json()
+    assert "current_version" in data
+    assert "entries" in data
+
+    dismiss_res = client.post("/api/features/changelog/dismiss", json={"version": "4.0.0"})
+    assert dismiss_res.status_code == 200
+    assert dismiss_res.json()["dismissed"] is True
