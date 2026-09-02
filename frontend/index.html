@@ -501,24 +501,30 @@
                         <div class="settings-section mt-4">
                             <div class="flex items-center justify-between mb-2">
                                 <span class="settings-row-title">Memory Summary</span>
-                                <span id="memory-last-updated" class="text-xs text-gray-400 dark:text-gray-500">Last updated: Just now</span>
+                                <div class="flex items-center gap-2">
+                                    <span id="memory-last-updated" class="text-xs text-gray-400 dark:text-gray-500">Last updated: Just now</span>
+                                    <button id="memory-manage-btn" class="px-3 py-1 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-lg text-xs font-medium hover:bg-gray-200 dark:hover:bg-white/20 transition-colors" type="button">Manage</button>
+                                </div>
                             </div>
                             <div id="memory-summary-box" class="p-3 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 text-sm text-gray-800 dark:text-gray-200 min-h-[80px]">
-                                Loading your memory summary...
-                            </div>
-                            <div class="mt-3 flex gap-2">
-                                <input type="text" id="memory-edit-input" placeholder="Tell MindPal what to change or forget..." class="flex-1 text-sm bg-gray-100 dark:bg-[#2a2a2a] border border-transparent focus:border-gray-300 dark:focus:border-gray-600 rounded-lg px-3 py-2 outline-none text-gray-900 dark:text-gray-100 min-h-[44px]">
-                                <button id="memory-apply-edit-btn" class="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-white transition-colors min-h-[44px]">Update</button>
+                                MindPal remembers your preferences and emotional context to support you gently.
                             </div>
                         </div>
 
-                        <div class="settings-section mt-4">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="settings-row-title">Memory Nodes</span>
-                                <button id="memory-v4-refresh-btn" class="settings-pill-btn" type="button">Refresh Summary</button>
-                            </div>
-                            <div id="memory-inspector-list" class="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar">
-                                <div class="text-gray-400 dark:text-gray-500 text-[13px]">No memory nodes found.</div>
+                        <!-- MANAGE MEMORY MODAL SUB-CONTAINER (ChatGPT Style) -->
+                        <div id="memory-manage-modal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div class="bg-white dark:bg-[#1f1f1f] w-full max-w-lg rounded-2xl p-5 shadow-2xl border border-black/10 dark:border-white/10 flex flex-col gap-4">
+                                <div class="flex items-center justify-between border-b border-gray-100 dark:border-[#303030] pb-3">
+                                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Manage Stored Memories</h3>
+                                    <button id="close-memory-manage-btn" class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] text-gray-500 dark:text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+                                </div>
+                                <div id="memory-inspector-list" class="space-y-2 max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
+                                    <div class="text-gray-400 dark:text-gray-500 text-[13px]">No specific memory items recorded.</div>
+                                </div>
+                                <div class="pt-2 border-t border-gray-100 dark:border-[#303030] flex gap-2">
+                                    <input type="text" id="memory-edit-input" placeholder="Tell MindPal what to change or forget..." class="flex-1 text-sm bg-gray-100 dark:bg-[#2a2a2a] border border-transparent focus:border-gray-300 dark:focus:border-gray-600 rounded-lg px-3 py-2 outline-none text-gray-900 dark:text-gray-100 min-h-[44px]">
+                                    <button id="memory-apply-edit-btn" class="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-white transition-colors min-h-[44px]">Update</button>
+                                </div>
                             </div>
                         </div>
 
