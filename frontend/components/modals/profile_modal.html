@@ -193,25 +193,20 @@
                                     <span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span>
                                 </label>
                             </div>
-                        </div>
-
-                        <div class="settings-section mt-5 border-t border-gray-100 dark:border-[#303030] pt-4">
-                            <div class="flex items-start justify-between gap-4">
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Memory summary</h3>
-                                        <span id="memory-last-updated" class="text-xs text-gray-400 dark:text-gray-500">Updated recently</span>
-                                    </div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed max-w-md">
-                                        View an overview of what MindPal has learned about you to support your journey safely.
-                                    </p>
-                                </div>
-                                <button id="memory-manage-btn" class="flex-none px-4 py-1.5 rounded-full border border-gray-300 dark:border-gray-600 bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 text-gray-900 dark:text-gray-100 text-xs font-semibold transition-colors min-h-[36px]" type="button">Manage</button>
+                            <div class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title">Memory summary</span>
+                                    <span class="settings-row-copy">View an overview of what MindPal has learned about you to support your journey safely. <span id="memory-last-updated" class="text-xs text-gray-400 dark:text-gray-500">Updated recently</span></span>
+                                </span>
+                                <button id="memory-manage-btn" class="settings-pill-btn" type="button">Manage</button>
                             </div>
-                        </div>
-
-                        <div class="mt-8 pt-4 border-t border-gray-100 dark:border-[#303030] flex justify-end">
-                            <button id="memory-delete-all-btn" class="settings-danger-pill" type="button">Delete all memories & turn off</button>
+                            <div class="settings-row">
+                                <span class="settings-row-main">
+                                    <span class="settings-row-title text-rose-600 dark:text-rose-400">Delete all memories & turn off</span>
+                                    <span class="settings-row-copy">Permanently delete stored memory synthesis context and disable memory.</span>
+                                </span>
+                                <button id="memory-delete-all-btn" class="settings-danger-pill" type="button">Delete all</button>
+                            </div>
                         </div>
 
                         <!-- MEMORY SUMMARY MODAL (EXACT CHATGPT LOOK & FEEL) -->
