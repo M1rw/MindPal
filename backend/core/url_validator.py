@@ -56,9 +56,10 @@ def parse_ip_literal(hostname: str) -> ipaddress.IPv4Address | ipaddress.IPv6Add
 def is_globally_routable_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """
     Check if an IP address is globally routable.
-    Correctly unwraps IPv4-mapped, IPv4-compatible, NAT64, and SIIT IPv6 addresses.
+    Correctly unwraps IPv4-mapped, IPv4-compatible, NAT64, and SIIT IPv6 addresses,
+    and rejects site-local IPv6 addresses.
     """
-    if not address.is_global:
+    if not address.is_global or getattr(address, "is_site_local", False):
         return False
 
     if getattr(address, "ipv4_mapped", None) is not None:

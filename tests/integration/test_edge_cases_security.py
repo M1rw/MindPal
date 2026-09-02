@@ -82,6 +82,8 @@ def test_web_search_url_ssrf_filtering():
         "http://localhost:8080/secret",
         "http://0x7f000001/internal",
         "http://[::1]/debug",
+        "http://[fec0::1]/admin",
+        "http://[fec0:0:0:0:1::1]/secret",
         "file:///etc/passwd",
         "gopher://127.0.0.1:70",
     ]
