@@ -19,6 +19,7 @@ from .routers import (
     feature_router,
     health_router,
     memory_router,
+    notifications_router,
     safety_router,
     tools_router,
     tts_router,
@@ -34,6 +35,7 @@ def create_api_router() -> APIRouter:
     api_router.include_router(chat_router)
     api_router.include_router(user_router)
     api_router.include_router(memory_router)
+    api_router.include_router(notifications_router)
     api_router.include_router(brain_router)
     api_router.include_router(chat_store_router)
     api_router.include_router(safety_router)

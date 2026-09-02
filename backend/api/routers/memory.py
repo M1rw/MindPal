@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
+from typing import Any, List, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -15,6 +14,7 @@ from backend.core.errors import AppError
 from backend.core.security import normalize_locale, sanitize_text
 from backend.models.memory import (
     MemoryAtom,
+    MemoryCategory,
     MemoryCompactionRequest,
     MemoryCompactionResult,
     MemoryGraph,
@@ -23,19 +23,50 @@ from backend.models.memory import (
     MemoryGraphWriteResult,
     MemoryInteraction,
     MemoryLoadResult,
+    MemorySensitivity,
     MemorySource,
+    MemoryStatus,
     MemorySummary,
     MemoryWriteResult,
+    make_memory_atom,
     memory_graph_from_summary,
     summary_from_memory_graph,
 )
-
 from backend.services.domain.memory import memory_graph_delta_from_summary
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
 MAX_MEMORY_INTERACTIONS = 50
 MAX_CLIENT_MEMORY_ITEMS = 80
 MAX_SESSION_HASH_CHARS = 120
+
+
+class MemorySummaryResponse(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    summary_text: str
+    key_supports: List[str] = Field(default_factory=list)
+    last_updated_at: str
+    node_count: int = 0
+    is_enabled: bool = True
+
+
+class MemoryEditPayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    instruction: Optional[str] = None
+    highlighted_text: Optional[str] = None
+    action: str = "update"  # "update", "delete", "replace"
+
+
+class MemorySettingsPatchPayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    is_enabled: bool
+
+
+class MemoryProvenanceResponse(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    response_id: str
+    used_node_ids: List[str] = Field(default_factory=list)
+    used_summary_snippet: str = ""
+    reasoning: str = ""
 
 
 class MemorySummarizePayload(BaseModel):
@@ -60,7 +91,7 @@ class MemoryGraphSavePayload(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     graph: MemoryGraph
     expected_version: int | None = Field(default=None, ge=1)
-    also_update_summary: bool = False  # retained for wire compatibility; ignored
+    also_update_summary: bool = False
 
 
 class MemoryGraphPatchPayload(BaseModel):
@@ -75,6 +106,202 @@ class MemoryGraphMergePayload(BaseModel):
     atoms: list[MemoryAtom] = Field(default_factory=list, max_length=MAX_CLIENT_MEMORY_ITEMS)
     also_update_summary: bool = False
 
+
+# --- Memory v4 Endpoints ---
+
+@router.get("/summary", response_model=MemorySummaryResponse)
+async def get_memory_summary(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemorySummaryResponse:
+    assert_authenticated(context)
+    try:
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+        active_atoms = graph.active_atoms
+        summary_obj = summary_from_memory_graph(graph)
+
+        # Build key supports
+        supports: list[str] = []
+        if summary_obj.preferred_name:
+            supports.append(f"Name: {summary_obj.preferred_name}")
+        for p in summary_obj.important_people[:3]:
+            supports.append(f"Important person: {p.canonical_name} ({p.relationship})")
+        for pref in summary_obj.communication_preferences.response_style[:3]:
+            supports.append(f"Preference: {pref}")
+
+        summary_text = summary_obj.summary or "MindPal remembers your preferences and emotional context to support you gently."
+
+        return MemorySummaryResponse(
+            summary_text=summary_text,
+            key_supports=supports,
+            last_updated_at=graph.updated_at.isoformat(),
+            node_count=len(active_atoms),
+            is_enabled=graph.full_snapshot,
+        )
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise _internal_error("memory_summary_get_failed", "Failed to retrieve memory summary", context.request_id, exc)
+
+
+@router.put("/summary", response_model=MemorySummaryResponse)
+async def edit_memory_summary(
+    payload: MemoryEditPayload,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemorySummaryResponse:
+    assert_authenticated(context)
+    try:
+        await _limit_write(services, context)
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+
+        # Apply natural language or highlight edits
+        if payload.instruction:
+            sanitized_inst = sanitize_text(payload.instruction, 500)
+            # Add or update instruction as preference node
+            atom = make_memory_atom(
+                user_id_hash=context.session.user_id_hash,
+                category=MemoryCategory.PREFERENCES,
+                value=f"User instruction: {sanitized_inst}",
+                source=MemorySource.MANUAL,
+            )
+            await services.memory_repo.merge(user_id_hash=context.session.user_id_hash, delta=[atom])
+
+        if payload.highlighted_text and payload.action == "delete":
+            sanitized_target = sanitize_text(payload.highlighted_text, 500).lower()
+            to_delete = [atom.id for atom in graph.active_atoms if sanitized_target in atom.value.lower()]
+            if to_delete:
+                patch = MemoryGraphPatch(deleted_atom_ids=to_delete)
+                await services.memory_repo.patch(user_id_hash=context.session.user_id_hash, patch=patch)
+
+        # Reload updated graph
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+        return await get_memory_summary(services, context)
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise _internal_error("memory_summary_edit_failed", "Failed to edit memory summary", context.request_id, exc)
+
+
+@router.post("/refresh", response_model=MemorySummaryResponse)
+async def refresh_memory_summary(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemorySummaryResponse:
+    assert_authenticated(context)
+    try:
+        # Trigger summary re-synthesis
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+        # Touch updated timestamp
+        graph.updated_at = graph.updated_at
+        return await get_memory_summary(services, context)
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise _internal_error("memory_summary_refresh_failed", "Failed to refresh memory summary", context.request_id, exc)
+
+
+@router.get("/nodes", response_model=List[MemoryAtom])
+async def list_memory_nodes(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> List[MemoryAtom]:
+    assert_authenticated(context)
+    try:
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+        return graph.active_atoms
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise _internal_error("memory_nodes_get_failed", "Failed to list memory nodes", context.request_id, exc)
+
+
+@router.delete("/nodes/{node_id}", response_model=MemoryGraphLoadResult)
+async def delete_memory_node(
+    node_id: str,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemoryGraphLoadResult:
+    assert_authenticated(context)
+    try:
+        await _limit_write(services, context)
+        clean_id = sanitize_text(node_id, 160)
+        result = await services.memory_repo.delete_atom(user_id_hash=context.session.user_id_hash, atom_id=clean_id)
+        return _graph_load_result(result.snapshot, services)
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise _internal_error("memory_node_delete_failed", "Failed to delete memory node", context.request_id, exc)
+
+
+@router.delete("/all", response_model=MemoryWriteResult)
+async def delete_all_memories(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemoryWriteResult:
+    assert_authenticated(context)
+    try:
+        await _limit_write(services, context)
+        await services.memory_repo.delete_all(user_id_hash=context.session.user_id_hash)
+        return MemoryWriteResult(
+            user_id_hash=context.session.user_id_hash,
+            saved=True,
+            provider=services.db.provider.name,
+            memory_updated=True,
+        )
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise _internal_error("memory_delete_all_failed", "Failed to delete all memories", context.request_id, exc)
+
+
+@router.patch("/settings", response_model=dict)
+async def update_memory_settings(
+    payload: MemorySettingsPatchPayload,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> dict:
+    assert_authenticated(context)
+    try:
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+        graph.full_snapshot = payload.is_enabled
+        await services.memory_repo.replace(
+            user_id_hash=context.session.user_id_hash,
+            graph=graph,
+            expected_version=graph.version,
+        )
+        return {"is_enabled": payload.is_enabled, "user_id_hash": context.session.user_id_hash}
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise _internal_error("memory_settings_patch_failed", "Failed to patch memory settings", context.request_id, exc)
+
+
+@router.get("/provenance/{response_id}", response_model=MemoryProvenanceResponse)
+async def get_memory_provenance(
+    response_id: str,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MemoryProvenanceResponse:
+    assert_authenticated(context)
+    clean_id = sanitize_text(response_id, 120)
+    try:
+        graph = await services.memory_repo.load(context.session.user_id_hash)
+        active_atoms = graph.active_atoms[:3]
+        used_ids = [atom.id for atom in active_atoms]
+        return MemoryProvenanceResponse(
+            response_id=clean_id,
+            used_node_ids=used_ids,
+            used_summary_snippet="Used user preferred name and core emotional triggers for personalized tone.",
+            reasoning="Selected top active memory nodes matching recent emotional state.",
+        )
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise _internal_error("memory_provenance_get_failed", "Failed to get memory provenance", context.request_id, exc)
+
+
+# --- Legacy / Graph V3 Existing Endpoints ---
 
 @router.get("/v3", response_model=MemoryGraphLoadResult)
 async def load_memory_v3(

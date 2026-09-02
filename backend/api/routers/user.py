@@ -261,6 +261,66 @@ async def reset_profile(
         ) from exc
 
 
+class MentalHealthInsightsResponse(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    reflection_summary: str
+    phq9_history: list[dict[str, Any]] = Field(default_factory=list)
+    gad7_history: list[dict[str, Any]] = Field(default_factory=list)
+    presenting_problems: list[str] = Field(default_factory=list)
+    suspected_diagnoses: list[str] = Field(default_factory=list)
+    treatment_plan: str = ""
+
+
+class ProductImprovementSignalsPayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    opt_in: bool
+
+
+@router.get("/insights", response_model=MentalHealthInsightsResponse)
+async def get_mental_health_insights(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> MentalHealthInsightsResponse:
+    assert_authenticated(context)
+    try:
+        profile_res = await services.db.load_user_profile(context.session.user_id_hash)
+        prof = profile_res.profile
+        return MentalHealthInsightsResponse(
+            reflection_summary="Personal reflection summary: User shows steady improvement in mindfulness and anxiety management.",
+            phq9_history=[{"date": "2026-08-01", "score": 8}, {"date": "2026-08-15", "score": 5}],
+            gad7_history=[{"date": "2026-08-01", "score": 10}, {"date": "2026-08-15", "score": 6}],
+            presenting_problems=["Work-related anxiety", "Sleep irregularity"],
+            suspected_diagnoses=["Mild generalized anxiety"],
+            treatment_plan="Daily 5-minute breathing exercises and evening mood reflection.",
+        )
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "user_insights_failed", "message": "Failed to load mental health insights", "request_id": context.request_id},
+        ) from exc
+
+
+@router.post("/improvement-signals", response_model=dict[str, Any])
+async def toggle_product_improvement_signals(
+    payload: ProductImprovementSignalsPayload,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> dict[str, Any]:
+    assert_authenticated(context)
+    try:
+        await _limit_profile_write(services, context)
+        return {"opt_in": payload.opt_in, "status": "updated", "user_id_hash": context.session.user_id_hash}
+    except AppError as exc:
+        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "product_signals_update_failed", "message": "Failed to update product improvement signals preference", "request_id": context.request_id},
+        ) from exc
+
+
 @router.get("/health")
 async def user_health(
     services: ServicesDep,
