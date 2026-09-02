@@ -10,6 +10,19 @@
   height: var(--app-height);
 }
 
+/* ═══ Prevent iOS Safari Auto-Zoom on Form Focus ═══ */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Responsive Safe Area Top Padding */
 .pt-safe-top {
   padding-top: 12px; /* fallback */

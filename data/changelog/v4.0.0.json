@@ -1,0 +1,14 @@
+{
+  "version": "4.0.0",
+  "release_date": "2026-03-30",
+  "major": true,
+  "title": "MindPal Memory v4 & Personalization Upgrade",
+  "summary": "AI-synthesized emotional journey memory, granular privacy controls, and personalized conversation styles.",
+  "highlights": [
+    "Continuously-updated Memory v4 summary of your emotional context & preferences",
+    "Inline highlight-to-correct and change requests for your saved memories",
+    "Granular controls: toggle memory on/off, clear and turn off, per-item deletion",
+    "New Personalization & Voice settings tabs with customizable tone styles",
+    "Mental health reflection summaries and screening history insights"
+  ]
+}
