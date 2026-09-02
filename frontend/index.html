@@ -323,6 +323,9 @@
                     <button class="settings-tab-btn" data-settings-tab="features" type="button" aria-label="Features settings"><i data-lucide="settings" class="w-4 h-4"></i><span>Features</span></button>
                     <button id="feature-admin-tab" class="settings-tab-btn hidden" data-settings-tab="feature-admin" type="button" aria-label="Feature management settings"><i data-lucide="shield-check" class="w-4 h-4"></i><span>Feature management</span></button>
 
+                    <button class="settings-tab-btn" data-settings-tab="voice" type="button" aria-label="Voice settings"><i data-lucide="mic" class="w-4 h-4"></i><span>Voice</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="analytics" type="button" aria-label="Analytics settings"><i data-lucide="bar-chart-2" class="w-4 h-4"></i><span>Analytics</span></button>
+                    <button class="settings-tab-btn" data-settings-tab="personalization" type="button" aria-label="Personalization settings"><i data-lucide="sliders" class="w-4 h-4"></i><span>Personalization</span></button>
                     <button class="settings-tab-btn" data-settings-tab="usage" type="button" aria-label="Usage settings"><i data-lucide="gauge" class="w-4 h-4"></i><span>Usage</span></button>
                     <button class="settings-tab-btn" data-settings-tab="memory" type="button" aria-label="Memory settings"><i data-lucide="database" class="w-4 h-4"></i><span>Memory</span></button>
                     <button class="settings-tab-btn" data-settings-tab="data" type="button" aria-label="Data controls settings"><i data-lucide="database-zap" class="w-4 h-4"></i><span>Data controls</span></button>
@@ -339,6 +342,9 @@
                         <option value="features">Features</option>
                         <option value="feature-admin" hidden disabled>Feature management</option>
 
+                        <option value="voice">Voice</option>
+                        <option value="analytics">Analytics</option>
+                        <option value="personalization">Personalization</option>
                         <option value="usage">Usage</option>
                         <option value="memory">Memory</option>
                         <option value="data">Data controls</option>
@@ -351,6 +357,46 @@
                 </div>
 
                 <div class="settings-panel-scroll flex-1 overflow-y-auto px-5 sm:px-8 py-5 sm:py-6 custom-scrollbar">
+
+                    <!-- ═══════════════ VOICE ═══════════════ -->
+                    <div class="settings-panel" data-settings-panel="voice" hidden>
+                        <h2 class="settings-title">Voice & Audio</h2>
+                        <div class="settings-section">
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Voice model</span><span class="settings-row-copy">Choose the voice tone and model engine for audio responses.</span></span><span class="settings-row-action">Advanced <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Voice language</span><span class="settings-row-copy">Explicit language selection or automatic detection.</span></span><span class="settings-row-action">Auto-detect <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Voice preview</span><span class="settings-row-copy">Test current voice configuration.</span></span><button class="settings-pill-btn" type="button" id="voice-preview-btn">Play sample</button></div>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════ ANALYTICS ═══════════════ -->
+                    <div class="settings-panel" data-settings-panel="analytics" hidden>
+                        <h2 class="settings-title">Companion Analytics</h2>
+                        <div class="settings-section">
+                            <div class="settings-row settings-row-block">
+                                <div class="settings-row-main"><span class="settings-row-title">Reflection Activity</span><span class="settings-row-copy">Conversations and reflection check-ins over time.</span></div>
+                            </div>
+                            <div id="analytics-activity-chart" class="flex items-end gap-2 h-28 px-3 py-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+                                <div class="flex-1 bg-purple-500/20 rounded-t h-[40%]" title="Mon: 3 reflections"></div>
+                                <div class="flex-1 bg-purple-500/40 rounded-t h-[65%]" title="Tue: 5 reflections"></div>
+                                <div class="flex-1 bg-purple-500/30 rounded-t h-[50%]" title="Wed: 4 reflections"></div>
+                                <div class="flex-1 bg-purple-500/80 rounded-t h-[90%]" title="Thu: 8 reflections"></div>
+                                <div class="flex-1 bg-purple-500/60 rounded-t h-[70%]" title="Fri: 6 reflections"></div>
+                                <div class="flex-1 bg-purple-500/30 rounded-t h-[45%]" title="Sat: 3 reflections"></div>
+                                <div class="flex-1 bg-purple-500/90 rounded-t h-[95%]" title="Sun: 9 reflections"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════ PERSONALIZATION ═══════════════ -->
+                    <div class="settings-panel" data-settings-panel="personalization" hidden>
+                        <h2 class="settings-title">Personalization</h2>
+                        <div class="settings-section">
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Base style & tone</span><span class="settings-row-copy">Primary conversational style for MindPal.</span></span><span class="settings-row-action">Friendly <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Warmth & empathy</span><span class="settings-row-copy">Level of emotional expression and supportiveness.</span></span><span class="settings-row-action">High <i data-lucide="chevron-down" class="w-4 h-4"></i></span></div>
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Use headers & lists</span><span class="settings-row-copy">Format complex advice into clear bullet points.</span></span><label class="relative flex-shrink-0 cursor-pointer"><input type="checkbox" checked class="sr-only" aria-label="Use headers & lists"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></label></div>
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Emoji support</span><span class="settings-row-copy">Include gentle warm emojis in responses.</span></span><label class="relative flex-shrink-0 cursor-pointer"><input type="checkbox" checked class="sr-only" aria-label="Emoji support"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></label></div>
+                        </div>
+                    </div>
 
                     <!-- ═══════════════ GENERAL ═══════════════ -->
                     <div class="settings-panel active" data-settings-panel="general">
@@ -443,13 +489,41 @@
                         </div>
                     </div>
 
-                    <!-- ═══════════════ MEMORY ═══════════════ -->
+                    <!-- ═══════════════ MEMORY V4 ═══════════════ -->
                     <div class="settings-panel" data-settings-panel="memory" hidden>
-                        <h2 class="settings-title">Memory</h2>
+                        <h2 class="settings-title">What MindPal Remembers to Support You</h2>
+                        <p class="settings-panel-intro">MindPal safely remembers your emotional journey, preferences, and progress. Everything is under your full control.</p>
+
                         <div class="settings-section">
-                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Enable memory</span><span class="settings-row-copy">Let MindPal personalize your experience based on durable saved facts, preferences, and important context.</span></span><label class="relative flex-shrink-0 cursor-pointer"><input type="checkbox" checked class="sr-only" aria-label="Enable memory"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></label></div>
-                            <div class="settings-row settings-row-block"><div class="settings-row-main"><span class="settings-row-title">What I remember</span><span class="settings-row-copy">A summary of what MindPal knows about you, built from your conversations.</span></div><button id="memory-refresh-btn" class="settings-pill-btn" type="button">Refresh</button></div>
-                            <div id="memory-inspector-list" class="settings-memory-summary"><div class="text-gray-400 dark:text-gray-500 text-[13px]">No saved memory yet.</div></div>
+                            <div class="settings-row"><span class="settings-row-main"><span class="settings-row-title">Memory status</span><span class="settings-row-copy">Allow MindPal to safely synthesize context across conversations.</span></span><label class="relative flex-shrink-0 cursor-pointer"><input type="checkbox" id="memory-v4-toggle" checked class="sr-only" aria-label="Enable memory"><span class="block bg-gray-300 dark:bg-[#555] w-10 h-6 rounded-full transition-colors toggle-bg"></span><span class="toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform transform"></span></label></div>
+                        </div>
+
+                        <div class="settings-section mt-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="settings-row-title">Memory Summary</span>
+                                <span id="memory-last-updated" class="text-xs text-gray-400 dark:text-gray-500">Last updated: Just now</span>
+                            </div>
+                            <div id="memory-summary-box" class="p-3 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5 text-sm text-gray-800 dark:text-gray-200 min-h-[80px]">
+                                Loading your memory summary...
+                            </div>
+                            <div class="mt-3 flex gap-2">
+                                <input type="text" id="memory-edit-input" placeholder="Tell MindPal what to change or forget..." class="flex-1 text-sm bg-gray-100 dark:bg-[#2a2a2a] border border-transparent focus:border-gray-300 dark:focus:border-gray-600 rounded-lg px-3 py-2 outline-none text-gray-900 dark:text-gray-100 min-h-[44px]">
+                                <button id="memory-apply-edit-btn" class="px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-white transition-colors min-h-[44px]">Update</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-section mt-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="settings-row-title">Memory Nodes</span>
+                                <button id="memory-v4-refresh-btn" class="settings-pill-btn" type="button">Refresh Summary</button>
+                            </div>
+                            <div id="memory-inspector-list" class="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar">
+                                <div class="text-gray-400 dark:text-gray-500 text-[13px]">No memory nodes found.</div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 pt-4 border-t border-gray-100 dark:border-[#303030] flex justify-end">
+                            <button id="memory-delete-all-btn" class="settings-danger-pill" type="button">Delete all memories & turn off</button>
                         </div>
                     </div>
 
