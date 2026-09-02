@@ -42,6 +42,22 @@ let redirectDiagnostic = {
   detail: "",
 };
 
+const pendingAuthListeners = new Set();
+const activeAuthSubscriptions = new Map();
+
+function attachPendingAuthListeners() {
+  if (!firebaseAuth) return;
+  for (const callback of Array.from(pendingAuthListeners)) {
+    if (!activeAuthSubscriptions.has(callback)) {
+      const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+        currentAuthUser = user;
+        callback(toPublicUser(user));
+      });
+      activeAuthSubscriptions.set(callback, unsubscribe);
+    }
+  }
+}
+
 const REDIRECT_PENDING_KEY = "mindpal.firebase.redirect.pending.v1";
 
 class MindPalAuthError extends Error {
@@ -133,6 +149,7 @@ export async function initAuth() {
 
   firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
   firebaseAuth = getAuth(firebaseApp);
+  attachPendingAuthListeners();
 
   const appCheckSiteKey = String(window.MINDPAL_CONFIG?.FIREBASE_APPCHECK_SITE_KEY || "").trim();
   if (appCheckSiteKey && !firebaseAppCheck) {
@@ -212,14 +229,32 @@ async function waitForAuthReady() {
 }
 
 export function onAuthChange(callback) {
-  if (!firebaseAuth) {
+  if (typeof callback !== "function") {
     return () => {};
   }
 
-  return onAuthStateChanged(firebaseAuth, (user) => {
-    currentAuthUser = user;
-    callback(toPublicUser(user));
-  });
+  if (firebaseAuth) {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+      currentAuthUser = user;
+      callback(toPublicUser(user));
+    });
+    activeAuthSubscriptions.set(callback, unsubscribe);
+    return () => {
+      unsubscribe();
+      activeAuthSubscriptions.delete(callback);
+      pendingAuthListeners.delete(callback);
+    };
+  }
+
+  pendingAuthListeners.add(callback);
+  return () => {
+    pendingAuthListeners.delete(callback);
+    const unsubscribe = activeAuthSubscriptions.get(callback);
+    if (unsubscribe) {
+      unsubscribe();
+      activeAuthSubscriptions.delete(callback);
+    }
+  };
 }
 
 export function getCurrentUser() {

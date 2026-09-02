@@ -3,7 +3,7 @@
 import { refreshIcons } from "../../utils/icons.js";
 import { escapeHtml } from "../../utils/html_escape.js";
 import { scrollChatToBottom } from "../../utils/chat_scroll.js";
-import { getFeatureState, isFeatureEnabled } from "../../state/feature_store.js";
+import { getFeatureState, isFeatureEnabled, getFeatureSnapshotState } from "../../state/feature_store.js";
 
 // ═══════════════════════════════════════════════════════════════
 // Constants
@@ -59,6 +59,7 @@ function _updateUnifiedLabel() {
 }
 
 export function refreshFeatureAvailability() {
+  const snapshot = getFeatureSnapshotState();
   const proState = getFeatureState("chat.pro_model");
   const proAvailable = isFeatureEnabled("chat.pro_model");
   document.querySelectorAll('.model-option[data-model="pro"]').forEach((btn) => {
@@ -68,7 +69,7 @@ export function refreshFeatureAvailability() {
     btn.title = proAvailable ? "" : proState.reason === "requires_authentication" ? "Sign in to use Pro" : proState.description;
   });
 
-  if (!proAvailable && _currentModel === "pro") {
+  if (!proAvailable && _currentModel === "pro" && snapshot.status === "ready") {
     _selectModel("standard", true);
   }
   _updateUnifiedLabel();
