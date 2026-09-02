@@ -1,0 +1,23 @@
+<!-- CHANGELOG / WHAT'S NEW MODAL -->
+<div id="changelog-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200 p-4">
+    <div class="bg-white dark:bg-[#1f1f1f] w-full max-w-[540px] rounded-2xl shadow-2xl overflow-hidden border border-black/5 dark:border-white/10 flex flex-col max-h-[85vh]">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-[#303030]">
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-500/20 text-teal-400 border border-teal-500/30">Major Release</span>
+                <h2 class="text-base font-medium text-gray-900 dark:text-gray-100" id="changelog-title">What's New in MindPal</h2>
+            </div>
+            <button id="close-changelog-btn" class="p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" type="button">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto space-y-4 text-xs text-gray-700 dark:text-gray-300" id="changelog-content-body">
+            <p id="changelog-summary" class="text-sm font-medium text-gray-800 dark:text-gray-200"></p>
+            <div id="changelog-highlights" class="space-y-2 pt-2"></div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 dark:border-[#303030] bg-gray-50/50 dark:bg-zinc-900/50 flex justify-end">
+            <button id="dismiss-changelog-btn" type="button" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-medium transition">
+                Got it
+            </button>
+        </div>
+    </div>
+</div>

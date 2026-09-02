@@ -1,0 +1,11 @@
+{
+  "version": "3.5.0",
+  "release_date": "2026-03-15",
+  "major": false,
+  "title": "Performance & Security Enhancements",
+  "summary": "Subsecond stream latency improvements and enhanced data encryption.",
+  "highlights": [
+    "Optimized streaming response speed",
+    "Updated UI theme contrast and accessibility improvements"
+  ]
+}
