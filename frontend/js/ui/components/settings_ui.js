@@ -10,6 +10,8 @@ import {
   setAppSetting,
 } from "../../state/settings_store.js";
 
+import { setCrisisMode } from "../../state/ui_state.js";
+
 import { escapeHtml } from "../../utils/dom.js";
 
 import {
@@ -89,6 +91,7 @@ const SETTINGS_TOGGLES = {
   "Enable dictation": "dictationEnabled",
   "Enable memory": "memoryEnabled",
   "Improve MindPal for everyone": "improveProduct",
+  "Crisis interception": "crisisInterception",
   "Use headers & lists": "personalization.useHeadersLists",
   "Emoji support": "personalization.emojiSupport",
 };
@@ -216,6 +219,33 @@ export async function updateSettingFromControl(path, value, control) {
 
   setAppSetting(path, normalizedValue);
 
+  if (path === "crisisInterception") {
+    setCrisisMode(Boolean(normalizedValue));
+    deps.showToast(
+      normalizedValue
+        ? "Crisis UI interception enabled. Backend safety is always active."
+        : "Crisis UI interception disabled. Backend safety is still active."
+    );
+  }
+
+  if (path === "improveProduct") {
+    try {
+      const token = await getIdToken();
+      if (token) {
+        await fetch("/api/user/improvement-signals", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ opt_in: Boolean(normalizedValue) }),
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to sync product improvement preference:", err);
+    }
+  }
+
   if (path.startsWith("notifications.")) {
     const permission = await requestBrowserNotificationsIfNeeded(normalizedValue);
     if (permission === "denied") {
@@ -266,14 +296,24 @@ export async function handleSettingsButtonAction(action, source = null) {
     return;
   }
 
-  if (action === "location" || action === "passkeys" || action === "sessions" || action === "archived") {
-    return; // These features show "Coming soon" in the UI
-  }
-
   if (action === "voice-preview") {
-    const audio = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
-    audio.play().catch(() => {});
-    deps.showToast("Playing voice sample preview...");
+    const settings = getAppSettings();
+    const voiceLang = settings.voice?.language || settings.language || "auto";
+    const sampleText = voiceLang.startsWith("ar")
+      ? "مرحباً، أنا مايند بال، أنا هنا دائماً للتحدث معك."
+      : "Hello! I am MindPal, here whenever you want to talk.";
+
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(sampleText);
+      if (voiceLang !== "auto") {
+        utterance.lang = voiceLang === "ar" ? "ar-EG" : voiceLang === "en" ? "en-US" : voiceLang;
+      }
+      window.speechSynthesis.speak(utterance);
+      deps.showToast("Playing voice sample preview...");
+    } else {
+      deps.showToast("Voice preview is not supported on this browser.");
+    }
     return;
   }
 
