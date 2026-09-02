@@ -422,9 +422,10 @@ export function bindSettingsControls() {
 }
 
 async function loadMemoryV4Data() {
-  const summaryBox = document.getElementById("memory-summary-box");
+  const summaryContent = document.getElementById("memory-modal-summary-content");
   const listContainer = document.getElementById("memory-inspector-list");
   const updatedLabel = document.getElementById("memory-last-updated");
+  const modalUpdatedLabel = document.getElementById("modal-memory-last-updated");
 
   try {
     const token = await getIdToken();
@@ -433,8 +434,10 @@ async function loadMemoryV4Data() {
     const summaryRes = await fetch("/api/memory/summary", { headers });
     if (summaryRes.ok) {
       const data = await summaryRes.json();
-      if (summaryBox) summaryBox.textContent = data.summary_text;
-      if (updatedLabel) updatedLabel.textContent = `Last updated: ${new Date(data.last_updated_at).toLocaleTimeString()}`;
+      const updatedText = `Updated ${new Date(data.last_updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      if (summaryContent) summaryContent.textContent = data.summary_text;
+      if (updatedLabel) updatedLabel.textContent = updatedText;
+      if (modalUpdatedLabel) modalUpdatedLabel.textContent = updatedText;
     }
 
     const nodesRes = await fetch("/api/memory/nodes", { headers });
@@ -445,10 +448,10 @@ async function loadMemoryV4Data() {
           listContainer.innerHTML = '<div class="text-gray-400 dark:text-gray-500 text-[13px]">No specific memory items recorded.</div>';
         } else {
           listContainer.innerHTML = nodes.map((node) => `
-            <div class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 text-xs text-gray-800 dark:text-gray-200">
+            <div class="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 text-xs text-gray-800 dark:text-gray-200">
               <span>${escapeHtml(node.value || node.display_value)}</span>
               <button class="text-rose-500 hover:text-rose-600 p-1" onclick="deleteMemoryV4Node('${escapeHtml(node.id)}')" title="Delete memory">
-                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
             </div>
           `).join("");
