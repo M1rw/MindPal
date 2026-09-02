@@ -847,9 +847,12 @@ function bindStreakModal() {
 
 function bindSettings() {
   document.getElementById("crisis-toggle")?.addEventListener("change", (event) => {
-    setCrisisMode(event.target.checked);
+    const checked = Boolean(event.target.checked);
+    setAppSetting("crisisInterception", checked);
+    setCrisisMode(checked);
+    void persistAppSettingsToCloud();
     showToast(
-      event.target.checked
+      checked
         ? "Crisis UI interception enabled. Backend safety is always active."
         : "Crisis UI interception disabled. Backend safety is still active.",
     );

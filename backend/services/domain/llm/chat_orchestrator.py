@@ -150,6 +150,43 @@ def build_user_preferences_prompt(profile: UserProfile, metadata: Any | None = N
     if preferences.custom_instructions:
         parts.append(f"custom_instructions={preferences.custom_instructions}")
 
+    ui_settings = getattr(preferences, "ui_settings", {}) or {}
+    personalization = ui_settings.get("personalization", {})
+    if isinstance(personalization, dict):
+        base_style = str(personalization.get("baseStyle") or "").lower()
+        if base_style == "friendly":
+            parts.append("tone=friendly, warm, and encouraging")
+        elif base_style == "candid":
+            parts.append("tone=candid, direct, and straightforward")
+        elif base_style == "quirky":
+            parts.append("tone=creative, warm, and subtly playful")
+        elif base_style == "professional":
+            parts.append("tone=professional, structured, and measured")
+        elif base_style == "default":
+            parts.append("tone=balanced, gentle, and supportive")
+
+        warmth = str(personalization.get("warmth") or "").lower()
+        if warmth == "high":
+            parts.append("warmth_level=high empathy and strong validation")
+        elif warmth == "low":
+            parts.append("warmth_level=grounded and practical with minimal emotional flair")
+        elif warmth == "default":
+            parts.append("warmth_level=balanced emotional support")
+
+        if "useHeadersLists" in personalization:
+            use_headers = bool(personalization["useHeadersLists"])
+            if use_headers:
+                parts.append("formatting=use clear headers and bullet points for complex topics")
+            else:
+                parts.append("formatting=use natural conversational prose, avoid bulleted lists")
+
+        if "emojiSupport" in personalization:
+            allow_emoji = bool(personalization["emojiSupport"])
+            if allow_emoji:
+                parts.append("emoji_policy=gentle warm emojis allowed when natural")
+            else:
+                parts.append("emoji_policy=strictly no emojis in responses")
+
     if metadata:
         if getattr(metadata, "communication_style", None):
             parts.append(f"client_communication_style={metadata.communication_style}")

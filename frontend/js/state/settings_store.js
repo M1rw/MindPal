@@ -11,8 +11,19 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
     streakReminders: "off",
     moodCheckIn: "off",
   },
+  voice: {
+    model: "advanced",
+    language: "auto",
+  },
+  personalization: {
+    baseStyle: "friendly",
+    warmth: "high",
+    useHeadersLists: true,
+    emojiSupport: true,
+  },
   memoryEnabled: true,
   improveProduct: false,
+  crisisInterception: false,
 });
 
 let appSettings = normalizeSettings(loadRawSettings());
@@ -57,9 +68,6 @@ export function hydrateSettingsFromProfile(profileResponse) {
   if (locale) {
     patch.language = locale;
   }
-
-  // Strip any stale personalization key from cloud data
-  delete patch.personalization;
 
   // Hydrate gender from cloud profile and persist to localStorage
   const gender = profileResponse?.profile?.preferences?.gender || "";
@@ -186,8 +194,20 @@ function normalizeSettings(value) {
     merged.notifications[key] = oneOf(merged.notifications[key], ["off", "in_app", "push"], DEFAULT_APP_SETTINGS.notifications[key]);
   }
 
-  // Strip stale personalization key if present from old localStorage data
-  delete merged.personalization;
+  if (!merged.personalization || typeof merged.personalization !== "object") {
+    merged.personalization = {};
+  }
+  merged.personalization.baseStyle = oneOf(merged.personalization.baseStyle, ["friendly", "default", "candid", "quirky", "professional"], "friendly");
+  merged.personalization.warmth = oneOf(merged.personalization.warmth, ["high", "default", "low"], "high");
+  merged.personalization.useHeadersLists = Boolean(merged.personalization.useHeadersLists ?? true);
+  merged.personalization.emojiSupport = Boolean(merged.personalization.emojiSupport ?? true);
+
+  if (!merged.voice || typeof merged.voice !== "object") {
+    merged.voice = {};
+  }
+  merged.voice.model = oneOf(merged.voice.model, ["advanced", "standard", "live"], "advanced");
+  merged.voice.language = oneOf(merged.voice.language, ["auto", "en", "ar"], "auto");
+  merged.crisisInterception = Boolean(merged.crisisInterception);
 
   return merged;
 }
