@@ -1,3 +1,8 @@
+## 2026-09-02 - SSRF Bypass via Site-Local IPv6 Address Literals
+**Vulnerability:** Python's `ipaddress.IPv6Address` evaluates site-local IPv6 address literals (`fec0::/10`, e.g. `fec0::1`) with `is_global = True` and `is_private = False`, enabling SSRF bypasses when validating URL hostnames against `is_global`.
+**Learning:** Although RFC 3879 deprecated Site-Local IPv6 unicast addresses (`fec0::/10`), Python's `ipaddress.IPv6Address.is_global` property does not exclude `is_site_local`. Internal/site network routers or legacy dual-stack implementations may route these addresses within local environments.
+**Prevention:** When validating IP addresses for SSRF prevention, explicitly check `getattr(address, "is_site_local", False)` in addition to `address.is_global` to ensure site-local IPv6 addresses are rejected.
+
 ## 2026-08-29 - SSRF Bypass via NAT64 and SIIT IPv6 Address Literals
 **Vulnerability:** Python's `ipaddress.ip_address` evaluates NAT64 (`64:ff9b::/96`) and Stateless IP/ICMP Translation (SIIT, `::ffff:0:0/96`) IPv6 address literals (e.g. `64:ff9b::127.0.0.1` or `::ffff:0:10.0.0.1`) as `IPv6Address` instances with `is_global = True` and `ipv4_mapped = None`, enabling SSRF bypasses when validating hostnames against `is_global`.
 **Learning:** NAT64 and SIIT IPv6 prefixes embed a 32-bit IPv4 address in the last 32 bits without setting `.ipv4_mapped` (which is only set for `::ffff:0:0/96` IPv4-mapped IPv6 literals without explicit zero word). Dual-stack sockets and transition gateways translate these embedded IPv4 addresses, routing traffic to private IPv4 hosts.
