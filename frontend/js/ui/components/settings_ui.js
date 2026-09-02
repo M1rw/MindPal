@@ -55,6 +55,22 @@ const SETTINGS_SELECTS = {
     options: [["", "Not set"], ["male", "Male"], ["female", "Female"]],
     isProfileSetting: true,
   },
+  "Voice model": {
+    path: "voice.model",
+    options: [["advanced", "Advanced"], ["standard", "Standard"], ["live", "Live"]],
+  },
+  "Voice language": {
+    path: "voice.language",
+    options: [["auto", "Auto-detect"], ["en", "English"], ["ar", "Arabic"]],
+  },
+  "Base style & tone": {
+    path: "personalization.baseStyle",
+    options: [["friendly", "Friendly"], ["default", "Default"], ["candid", "Candid"], ["quirky", "Quirky"], ["professional", "Professional"]],
+  },
+  "Warmth & empathy": {
+    path: "personalization.warmth",
+    options: [["high", "High"], ["default", "Default"], ["low", "Low"]],
+  },
   "Response complete": {
     path: "notifications.responseComplete",
     options: [["off", "Off"], ["in_app", "In app"], ["push", "Push"]],
@@ -73,6 +89,8 @@ const SETTINGS_TOGGLES = {
   "Enable dictation": "dictationEnabled",
   "Enable memory": "memoryEnabled",
   "Improve MindPal for everyone": "improveProduct",
+  "Use headers & lists": "personalization.useHeadersLists",
+  "Emoji support": "personalization.emojiSupport",
 };
 
 export function readPath(source, path) {
@@ -232,6 +250,7 @@ export async function updateSettingFromControl(path, value, control) {
   applyVisualSettings(updatedSettings);
 
   await persistAppSettingsToCloud();
+  renderAnalyticsChart();
 }
 
 export async function handleSettingsButtonAction(action, source = null) {
@@ -249,6 +268,13 @@ export async function handleSettingsButtonAction(action, source = null) {
 
   if (action === "location" || action === "passkeys" || action === "sessions" || action === "archived") {
     return; // These features show "Coming soon" in the UI
+  }
+
+  if (action === "voice-preview") {
+    const audio = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+    audio.play().catch(() => {});
+    deps.showToast("Playing voice sample preview...");
+    return;
   }
 
   if (action === "shortcut") {
@@ -300,6 +326,29 @@ export function bindSettingsChoiceEvents() {
     event.preventDefault();
     await chooseSettingsOption(focusedOption);
   });
+}
+
+function renderAnalyticsChart() {
+  const chart = document.getElementById("analytics-activity-chart");
+  if (!chart) return;
+
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const activityData = [
+    { day: "Mon", count: 3, height: "35%" },
+    { day: "Tue", count: 5, height: "60%" },
+    { day: "Wed", count: 4, height: "48%" },
+    { day: "Thu", count: 8, height: "90%" },
+    { day: "Fri", count: 6, height: "72%" },
+    { day: "Sat", count: 3, height: "38%" },
+    { day: "Sun", count: 9, height: "98%" },
+  ];
+
+  chart.innerHTML = activityData.map((d) => `
+    <div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer">
+      <div class="w-full bg-purple-500/30 group-hover:bg-purple-500/60 transition-all rounded-t" style="height: ${d.height}" title="${d.day}: ${d.count} reflections"></div>
+      <span class="text-[11px] text-gray-400 group-hover:text-gray-200 transition-colors">${d.day}</span>
+    </div>
+  `).join("");
 }
 
 export function bindSettingsControls() {
@@ -364,6 +413,11 @@ export function bindSettingsControls() {
   // Load memory summary whenever memory panel is shown
   modal.querySelectorAll("[data-settings-tab='memory']").forEach((tab) => {
     tab.addEventListener("click", () => void loadMemoryV4Data());
+  });
+
+  // Render analytics chart when analytics tab is clicked
+  modal.querySelectorAll("[data-settings-tab='analytics']").forEach((tab) => {
+    tab.addEventListener("click", () => renderAnalyticsChart());
   });
 }
 
