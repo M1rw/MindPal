@@ -23,6 +23,18 @@
   }
 }
 
+/* Mobile & PWA safe area insets and visualViewport dynamic height handling */
+@supports (height: 100dvh) {
+  body, .app-root {
+    min-height: 100dvh;
+  }
+}
+
+/* Mobile-first touch targets */
+button, input, select, textarea, [role="button"] {
+  min-height: 44px;
+}
+
 /* Responsive Safe Area Top Padding */
 .pt-safe-top {
   padding-top: 12px; /* fallback */

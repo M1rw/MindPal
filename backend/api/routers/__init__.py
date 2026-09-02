@@ -15,6 +15,7 @@ from .feature import admin_router as feature_admin_router
 from .feature import router as feature_router
 from .health import router as health_router
 from .memory import router as memory_router
+from .notifications import router as notifications_router
 from .safety import router as safety_router
 from .tools import router as tools_router
 from .tts import router as tts_router
@@ -31,6 +32,7 @@ __all__ = [
     "feature_router",
     "health_router",
     "memory_router",
+    "notifications_router",
     "safety_router",
     "tools_router",
     "tts_router",

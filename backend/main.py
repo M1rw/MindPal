@@ -478,17 +478,6 @@ def _install_frontend_routes(app: FastAPI) -> None:
             headers={"Cache-Control": "no-cache"},
         )
 
-    @app.get("/brain", include_in_schema=False)
-    async def brain_page() -> FileResponse:
-        brain_file = FRONTEND_DIR / "brain.html"
-        if not brain_file.exists():
-            raise HTTPException(status_code=404, detail="Page not found")
-        return FileResponse(
-            brain_file,
-            media_type="text/html; charset=utf-8",
-            headers={"Cache-Control": "no-cache"},
-        )
-
     @app.get("/ui", include_in_schema=False)
     @app.get("/", include_in_schema=False)
     async def frontend_index() -> FileResponse:
