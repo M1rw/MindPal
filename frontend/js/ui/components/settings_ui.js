@@ -12,7 +12,7 @@ import {
 
 import { setCrisisMode } from "../../state/ui_state.js";
 
-import { escapeHtml } from "../../utils/dom.js";
+import { escapeHtml, formatMarkdown, sanitizeRichHtml } from "../../utils/dom.js";
 
 import {
   getIdToken
@@ -425,14 +425,8 @@ export function bindSettingsControls() {
       return;
     }
 
-    if (event.target.closest("#memory-manage-btn")) {
-      document.getElementById("memory-manage-modal")?.classList.remove("hidden");
-      void loadMemoryV4Data();
-      return;
-    }
-
-    if (event.target.closest("#close-memory-manage-btn")) {
-      document.getElementById("memory-manage-modal")?.classList.add("hidden");
+    if (event.target.closest("#memory-refresh-btn")) {
+      await refreshMemoryV4Summary();
       return;
     }
 
@@ -442,6 +436,11 @@ export function bindSettingsControls() {
         await editMemoryV4Summary(input.value.trim());
         input.value = "";
       }
+      return;
+    }
+
+    if (event.target.closest("#memory-reset-btn")) {
+      await resetMemoryV4Summary();
       return;
     }
 
@@ -462,10 +461,8 @@ export function bindSettingsControls() {
 }
 
 async function loadMemoryV4Data() {
-  const summaryContent = document.getElementById("memory-modal-summary-content");
-  const listContainer = document.getElementById("memory-inspector-list");
+  const summaryContent = document.getElementById("memory-narrative-content");
   const updatedLabel = document.getElementById("memory-last-updated");
-  const modalUpdatedLabel = document.getElementById("modal-memory-last-updated");
 
   try {
     const token = await getIdToken();
@@ -474,60 +471,79 @@ async function loadMemoryV4Data() {
     const summaryRes = await fetch("/api/memory/summary", { headers });
     if (summaryRes.ok) {
       const data = await summaryRes.json();
-      const updatedText = `Updated ${new Date(data.last_updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-      if (summaryContent) summaryContent.textContent = data.summary_text;
-      if (updatedLabel) updatedLabel.textContent = updatedText;
-      if (modalUpdatedLabel) modalUpdatedLabel.textContent = updatedText;
-    }
-
-    const nodesRes = await fetch("/api/memory/nodes", { headers });
-    if (nodesRes.ok) {
-      const nodes = await nodesRes.json();
-      if (listContainer) {
-        if (!nodes.length) {
-          listContainer.innerHTML = '<div class="text-gray-400 dark:text-gray-500 text-[13px]">No specific memory items recorded.</div>';
-        } else {
-          listContainer.innerHTML = nodes.map((node) => `
-            <div class="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 text-xs text-gray-800 dark:text-gray-200">
-              <span>${escapeHtml(node.value || node.display_value)}</span>
-              <button class="text-rose-500 hover:text-rose-600 p-1" onclick="deleteMemoryV4Node('${escapeHtml(node.id)}')" title="Delete memory">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-              </button>
-            </div>
-          `).join("");
-          deps.refreshIcons(listContainer);
-        }
+      const timeStr = data.last_updated_at ? new Date(data.last_updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'recently';
+      const updatedText = `Updated ${timeStr}`;
+      if (summaryContent) {
+        summaryContent.innerHTML = sanitizeRichHtml(formatMarkdown(data.summary_text));
+        const isRtl = data.detected_language && data.detected_language.startsWith("ar");
+        summaryContent.setAttribute("dir", isRtl ? "rtl" : "ltr");
+        summaryContent.setAttribute("data-detected-lang", data.detected_language || "en");
       }
+      if (updatedLabel) updatedLabel.textContent = updatedText;
     }
   } catch (err) {
-    console.warn("Failed to load Memory v4 data:", err);
+    console.warn("Failed to load Memory data:", err);
   }
 }
 
 async function editMemoryV4Summary(instruction) {
   try {
+    deps.showToast("Updating memory profile...");
     const token = await getIdToken();
     const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
-    await fetch("/api/memory/summary", {
+    const res = await fetch("/api/memory/summary", {
       method: "PUT",
       headers,
       body: JSON.stringify({ instruction, action: "update" }),
     });
-    deps.showToast("Memory update request submitted.");
-    await loadMemoryV4Data();
+    if (res.ok) {
+      deps.showToast("Memory profile updated.");
+      await loadMemoryV4Data();
+    } else {
+      deps.showToast("Failed to update memory.");
+    }
   } catch (err) {
     deps.showToast("Failed to update memory.");
   }
 }
 
+async function refreshMemoryV4Summary() {
+  try {
+    deps.showToast("Refreshing memory profile...");
+    const token = await getIdToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch("/api/memory/summary/refresh", { method: "POST", headers });
+    if (res.ok) {
+      deps.showToast("Memory profile refreshed.");
+      await loadMemoryV4Data();
+    }
+  } catch (err) {
+    deps.showToast("Failed to refresh memory.");
+  }
+}
+
+async function resetMemoryV4Summary() {
+  if (!confirm("Are you sure you want to reset your memory profile to default? (30-day safety log active)")) return;
+  try {
+    const token = await getIdToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch("/api/memory/summary/reset", { method: "POST", headers });
+    if (res.ok) {
+      deps.showToast("Memory profile reset.");
+      await loadMemoryV4Data();
+    }
+  } catch (err) {
+    deps.showToast("Failed to reset memory.");
+  }
+}
+
 async function deleteAllMemoriesV4() {
-  if (!confirm("Are you sure you want to delete all stored memories and turn memory off?")) return;
+  if (!confirm("Are you sure you want to delete all stored memories and turn memory off? (30-day safety log active)")) return;
   try {
     const token = await getIdToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     await fetch("/api/memory/all", { method: "DELETE", headers });
     deps.showToast("All memories deleted and memory turned off.");
-    document.getElementById("memory-manage-modal")?.classList.add("hidden");
     await loadMemoryV4Data();
   } catch (err) {
     deps.showToast("Failed to delete memories.");

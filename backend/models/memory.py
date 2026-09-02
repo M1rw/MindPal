@@ -1158,6 +1158,13 @@ def summary_from_memory_graph(graph: MemoryGraph) -> MemorySummary:
 
 def build_memory_prompt_from_graph(graph: MemoryGraph) -> str:
     """Build the memory prompt string for LLM context injection."""
+    if not graph.full_snapshot:
+        return ""
+
+    # Check if a synthesized narrative summary exists
+    if graph.brain.collections and graph.brain.collections[0].title:
+        return f"User Synthesized Narrative Profile:\n{graph.brain.collections[0].title.strip()}"
+
     sections = grouped_active_atoms(graph)
     if not sections:
         return ""
