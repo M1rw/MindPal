@@ -330,12 +330,124 @@ export function bindSettingsControls() {
 
   modal.addEventListener("click", async (event) => {
     const button = event.target.closest?.("[data-settings-action]");
-    if (!button) return;
+    if (button) {
+      event.stopPropagation();
+      await handleSettingsButtonAction(button.getAttribute("data-settings-action"), button);
+      return;
+    }
 
-    event.stopPropagation();
-    await handleSettingsButtonAction(button.getAttribute("data-settings-action"), button);
+    if (event.target.closest("#memory-manage-btn")) {
+      document.getElementById("memory-manage-modal")?.classList.remove("hidden");
+      void loadMemoryV4Data();
+      return;
+    }
+
+    if (event.target.closest("#close-memory-manage-btn")) {
+      document.getElementById("memory-manage-modal")?.classList.add("hidden");
+      return;
+    }
+
+    if (event.target.closest("#memory-apply-edit-btn")) {
+      const input = document.getElementById("memory-edit-input");
+      if (input && input.value.trim()) {
+        await editMemoryV4Summary(input.value.trim());
+        input.value = "";
+      }
+      return;
+    }
+
+    if (event.target.closest("#memory-delete-all-btn")) {
+      await deleteAllMemoriesV4();
+    }
+  });
+
+  // Load memory summary whenever memory panel is shown
+  modal.querySelectorAll("[data-settings-tab='memory']").forEach((tab) => {
+    tab.addEventListener("click", () => void loadMemoryV4Data());
   });
 }
+
+async function loadMemoryV4Data() {
+  const summaryBox = document.getElementById("memory-summary-box");
+  const listContainer = document.getElementById("memory-inspector-list");
+  const updatedLabel = document.getElementById("memory-last-updated");
+
+  try {
+    const token = await getIdToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const summaryRes = await fetch("/api/memory/summary", { headers });
+    if (summaryRes.ok) {
+      const data = await summaryRes.json();
+      if (summaryBox) summaryBox.textContent = data.summary_text;
+      if (updatedLabel) updatedLabel.textContent = `Last updated: ${new Date(data.last_updated_at).toLocaleTimeString()}`;
+    }
+
+    const nodesRes = await fetch("/api/memory/nodes", { headers });
+    if (nodesRes.ok) {
+      const nodes = await nodesRes.json();
+      if (listContainer) {
+        if (!nodes.length) {
+          listContainer.innerHTML = '<div class="text-gray-400 dark:text-gray-500 text-[13px]">No specific memory items recorded.</div>';
+        } else {
+          listContainer.innerHTML = nodes.map((node) => `
+            <div class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 text-xs text-gray-800 dark:text-gray-200">
+              <span>${escapeHtml(node.value || node.display_value)}</span>
+              <button class="text-rose-500 hover:text-rose-600 p-1" onclick="deleteMemoryV4Node('${escapeHtml(node.id)}')" title="Delete memory">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          `).join("");
+          deps.refreshIcons(listContainer);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load Memory v4 data:", err);
+  }
+}
+
+async function editMemoryV4Summary(instruction) {
+  try {
+    const token = await getIdToken();
+    const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    await fetch("/api/memory/summary", {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ instruction, action: "update" }),
+    });
+    deps.showToast("Memory update request submitted.");
+    await loadMemoryV4Data();
+  } catch (err) {
+    deps.showToast("Failed to update memory.");
+  }
+}
+
+async function deleteAllMemoriesV4() {
+  if (!confirm("Are you sure you want to delete all stored memories and turn memory off?")) return;
+  try {
+    const token = await getIdToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    await fetch("/api/memory/all", { method: "DELETE", headers });
+    deps.showToast("All memories deleted and memory turned off.");
+    document.getElementById("memory-manage-modal")?.classList.add("hidden");
+    await loadMemoryV4Data();
+  } catch (err) {
+    deps.showToast("Failed to delete memories.");
+  }
+}
+
+window.deleteMemoryV4Node = async function(nodeId) {
+  try {
+    const token = await getIdToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    await fetch(`/api/memory/nodes/${encodeURIComponent(nodeId)}`, { method: "DELETE", headers });
+    deps.showToast("Memory item deleted.");
+    await loadMemoryV4Data();
+  } catch (err) {
+    deps.showToast("Failed to delete memory item.");
+  }
+};
 
 export function bindKeyboardShortcuts() {
   document.addEventListener("keydown", (event) => {
