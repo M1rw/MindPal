@@ -1,6 +1,7 @@
 import {
   Activity,
   AlertCircle,
+  BarChart2,
   AlertTriangle,
   Anchor,
   ArrowLeft,
@@ -44,6 +45,7 @@ import {
   Search,
   Settings,
   ShieldAlert,
+  Sliders,
   ShieldCheck,
   Sparkles,
   Square,
@@ -63,6 +65,7 @@ import {
 const definitions = {
   Activity,
   AlertCircle,
+  BarChart2,
   AlertTriangle,
   Anchor,
   ArrowLeft,
@@ -107,6 +110,7 @@ const definitions = {
   Search,
   Settings,
   ShieldAlert,
+  Sliders,
   ShieldCheck,
   Sparkles,
   Square,
