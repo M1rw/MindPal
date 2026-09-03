@@ -26,13 +26,16 @@ from .builders import (
     build_llm_service,
     build_memory_repository,
     build_memory_service,
+    build_message_understanding_service,
     build_output_guard_service,
     build_quota_service,
     build_rag_service,
     build_rate_limits_service,
     build_response_intelligence_service,
     build_safety_service,
+    build_taxonomy_service,
     build_tts_service,
+    build_user_snapshot_service,
     build_voice_v4_tokens_service,
 )
 from .container import ServiceContainer
@@ -46,32 +49,6 @@ def build_service_container(settings: Settings | None = None) -> ServiceContaine
 
     This is the canonical entry point for service initialization.
     All services are built in dependency order in a single pass.
-
-    Dependency order:
-    1. Settings (from environment or passed)
-    2. Shared dependencies (HTTP client)
-    3. Core services (Auth, DB, LLM, TTS) - must complete before step 4
-    4. Dependent services (Memory, Safety, RAG, OutputGuard)
-    5. Infrastructure services (Quota, Rate Limits, Idempotency)
-    6. Specialized services (Brain, Feature Flags, etc.)
-    7. Authorization & Policy services
-
-    Args:
-        settings: Application settings (defaults to environment)
-
-    Returns:
-        Fully initialized ServiceContainer ready for use
-
-    Raises:
-        ConfigError: If required configuration is missing
-
-    Example:
-        >>> container = build_service_container()
-        >>> await container.start()
-        >>> try:
-        ...     response = await container.llm.generate(prompt)
-        ... finally:
-        ...     await container.stop()
     """
     settings = settings or get_settings()
 
@@ -109,6 +86,14 @@ def build_service_container(settings: Settings | None = None) -> ServiceContaine
     response_intelligence = build_response_intelligence_service(settings, llm)
     feature_flags = build_feature_flags_service()
     voice_v4_tokens = build_voice_v4_tokens_service(settings, http_client)
+    taxonomy = build_taxonomy_service(settings, llm)
+    user_snapshot = build_user_snapshot_service(settings, llm)
+    message_understanding = build_message_understanding_service(
+        settings=settings,
+        llm=llm,
+        taxonomy=taxonomy,
+        user_snapshot=user_snapshot,
+    )
 
     # Step 6: Build authorization and policy services
     feature_policies = build_feature_policy_store(settings, db, http_client)
@@ -138,6 +123,9 @@ def build_service_container(settings: Settings | None = None) -> ServiceContaine
         admin_authority=admin_authority,
         voice_v4_tokens=voice_v4_tokens,
         http_client=http_client,
+        message_understanding=message_understanding,
+        taxonomy=taxonomy,
+        user_snapshot=user_snapshot,
     )
 
     logger.info("✓ Service container built successfully")
