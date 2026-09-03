@@ -57,14 +57,24 @@ def is_globally_routable_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Addre
     """
     Check if an IP address is globally routable.
     Correctly unwraps IPv4-mapped, IPv4-compatible, NAT64, and SIIT IPv6 addresses,
-    and rejects site-local IPv6 addresses.
+    and rejects site-local, multicast, and reserved IP addresses.
     """
-    if not address.is_global or getattr(address, "is_site_local", False):
+    if (
+        not address.is_global
+        or getattr(address, "is_site_local", False)
+        or getattr(address, "is_multicast", False)
+        or getattr(address, "is_reserved", False)
+    ):
         return False
 
     if getattr(address, "ipv4_mapped", None) is not None:
         mapped_v4 = address.ipv4_mapped
-        return bool(mapped_v4 and mapped_v4.is_global)
+        return bool(
+            mapped_v4
+            and mapped_v4.is_global
+            and not mapped_v4.is_multicast
+            and not mapped_v4.is_reserved
+        )
 
     if isinstance(address, ipaddress.IPv6Address):
         addr_int = int(address)
@@ -75,7 +85,11 @@ def is_globally_routable_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Addre
             or prefix_96 == 0x0000000000000000FFFF0000
         ):
             embedded_v4 = ipaddress.IPv4Address(addr_int & 0xFFFFFFFF)
-            return embedded_v4.is_global
+            return bool(
+                embedded_v4.is_global
+                and not embedded_v4.is_multicast
+                and not embedded_v4.is_reserved
+            )
 
     return True
 

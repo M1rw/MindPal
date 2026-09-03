@@ -1,3 +1,8 @@
+## 2026-09-03 - SSRF Bypass via Multicast and Reserved IP Address Literals
+**Vulnerability:** Python's `ipaddress.ip_address` evaluates IPv4 multicast (`224.0.0.0/4`, e.g. `224.0.0.1`) and IPv6 multicast (`ff00::/8`, e.g. `ff02::1`) address literals with `is_global = True`, enabling SSRF bypasses when validating URL hostnames solely against `is_global`.
+**Learning:** Multicast IP addresses are intended for one-to-many broadcast communication rather than unicast host endpoints. System network stacks, dual-stack sockets, and proxy libraries may route requests sent to multicast IP literals onto local network interfaces or internal multicast listener groups.
+**Prevention:** When validating IP addresses for SSRF prevention, explicitly check `getattr(address, "is_multicast", False)` and `getattr(address, "is_reserved", False)` on standard IPv4/IPv6, IPv4-mapped, IPv4-compatible, NAT64, and SIIT address representations.
+
 ## 2026-09-02 - SSRF Bypass via Site-Local IPv6 Address Literals
 **Vulnerability:** Python's `ipaddress.IPv6Address` evaluates site-local IPv6 address literals (`fec0::/10`, e.g. `fec0::1`) with `is_global = True` and `is_private = False`, enabling SSRF bypasses when validating URL hostnames against `is_global`.
 **Learning:** Although RFC 3879 deprecated Site-Local IPv6 unicast addresses (`fec0::/10`), Python's `ipaddress.IPv6Address.is_global` property does not exclude `is_site_local`. Internal/site network routers or legacy dual-stack implementations may route these addresses within local environments.

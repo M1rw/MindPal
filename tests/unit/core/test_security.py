@@ -28,3 +28,18 @@ def test_site_local_ipv6_url_validation():
     assert not is_safe_url(site_local_url)
     with pytest.raises(ValueError, match="not globally routable"):
         validate_url(site_local_url)
+
+
+def test_multicast_and_reserved_ip_url_validation():
+    multicast_and_reserved_urls = [
+        "http://224.0.0.1/admin",
+        "http://[ff02::1]/status",
+        "http://[ff05::1]/metrics",
+        "http://[::ffff:224.0.0.1]/data",
+        "http://[64:ff9b::224.0.0.1]/config",
+        "http://[::224.0.0.1]/api",
+    ]
+    for url in multicast_and_reserved_urls:
+        assert not is_safe_url(url), f"Expected unsafe URL for: {url}"
+        with pytest.raises(ValueError, match="not globally routable"):
+            validate_url(url)
