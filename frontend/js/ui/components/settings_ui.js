@@ -425,39 +425,67 @@ export function bindSettingsControls() {
       return;
     }
 
-    if (event.target.closest("#memory-refresh-btn")) {
-      await refreshMemoryV4Summary();
+    if (event.target.closest("#open-memory-modal-btn")) {
+      openMemoryManageModal();
       return;
     }
+  });
 
-    if (event.target.closest("#memory-apply-edit-btn")) {
-      const input = document.getElementById("memory-edit-input");
-      if (input && input.value.trim()) {
-        await editMemoryV4Summary(input.value.trim());
-        input.value = "";
+  // Wire up dedicated Memory Modal
+  const memoryModal = document.getElementById("memory-manage-modal");
+  if (memoryModal) {
+    memoryModal.addEventListener("click", async (event) => {
+      if (event.target.closest("#close-memory-modal-btn") || event.target === memoryModal) {
+        closeMemoryManageModal();
+        return;
       }
-      return;
-    }
 
-    if (event.target.closest("#memory-reset-btn")) {
-      await resetMemoryV4Summary();
-      return;
-    }
+      if (event.target.closest("#memory-refresh-btn")) {
+        await refreshMemoryV4Summary();
+        return;
+      }
 
-    if (event.target.closest("#memory-delete-all-btn")) {
-      await deleteAllMemoriesV4();
-    }
-  });
+      if (event.target.closest("#memory-apply-edit-btn")) {
+        const input = document.getElementById("memory-edit-input");
+        if (input && input.value.trim()) {
+          await editMemoryV4Summary(input.value.trim());
+          input.value = "";
+        }
+        return;
+      }
 
-  // Load memory summary whenever memory panel is shown
-  modal.querySelectorAll("[data-settings-tab='memory']").forEach((tab) => {
-    tab.addEventListener("click", () => void loadMemoryV4Data());
-  });
+      if (event.target.closest("#memory-reset-btn")) {
+        await resetMemoryV4Summary();
+        return;
+      }
+
+      if (event.target.closest("#memory-delete-all-btn")) {
+        await deleteAllMemoriesV4();
+      }
+    });
+  }
 
   // Render analytics chart when analytics tab is clicked
   modal.querySelectorAll("[data-settings-tab='analytics']").forEach((tab) => {
     tab.addEventListener("click", () => renderAnalyticsChart());
   });
+}
+
+export function openMemoryManageModal() {
+  const modal = document.getElementById("memory-manage-modal");
+  if (!modal) return;
+  modal.classList.remove("opacity-0", "pointer-events-none");
+  modal.firstElementChild?.classList.remove("scale-95");
+  modal.firstElementChild?.classList.add("scale-100");
+  void loadMemoryV4Data();
+}
+
+export function closeMemoryManageModal() {
+  const modal = document.getElementById("memory-manage-modal");
+  if (!modal) return;
+  modal.classList.add("opacity-0", "pointer-events-none");
+  modal.firstElementChild?.classList.remove("scale-100");
+  modal.firstElementChild?.classList.add("scale-95");
 }
 
 export function formatRelativeTime(isoString) {
