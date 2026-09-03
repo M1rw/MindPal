@@ -1,0 +1,208 @@
+{
+  "staticAudit": {
+    "indexSizeBytes": 75226,
+    "appBundleSizeBytes": 366553,
+    "styleCssSizeBytes": 59797,
+    "findings": []
+  },
+  "Desktop": {
+    "viewport": {
+      "name": "Desktop",
+      "width": 1280,
+      "height": 800
+    },
+    "domMetrics": {
+      "injectionTimeMs": 2.5,
+      "totalDomNodes": 1637,
+      "chatDomNodes": 600
+    },
+    "performance": {
+      "perfMemory": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000,
+        "jsHeapSizeLimit": 3760000000
+      }
+    },
+    "scrollMetrics": {
+      "scrollDurationMs": 203.89999999990687
+    },
+    "networkRequestsCount": 11,
+    "networkRequests": [
+      {
+        "url": "http://localhost:8089/index.html",
+        "method": "GET",
+        "timestampMs": 1788461805868,
+        "status": 200,
+        "sizeBytes": 75226
+      },
+      {
+        "url": "http://localhost:8089/runtime-config.js",
+        "method": "GET",
+        "timestampMs": 1788461805899,
+        "status": 200,
+        "sizeBytes": 1599
+      },
+      {
+        "url": "https://accounts.google.com/gsi/client",
+        "method": "GET",
+        "timestampMs": 1788461805899,
+        "status": 200,
+        "sizeBytes": 272677
+      },
+      {
+        "url": "http://localhost:8089/css/tailwind.generated.css",
+        "method": "GET",
+        "timestampMs": 1788461805899,
+        "status": 200,
+        "sizeBytes": 41537
+      },
+      {
+        "url": "http://localhost:8089/css/style.css",
+        "method": "GET",
+        "timestampMs": 1788461805899,
+        "status": 200,
+        "sizeBytes": 59797
+      },
+      {
+        "url": "http://localhost:8089/dist/lucide.bundle.js",
+        "method": "GET",
+        "timestampMs": 1788461805899,
+        "status": 200,
+        "sizeBytes": 17280
+      },
+      {
+        "url": "http://localhost:8089/js/bootstrap.js",
+        "method": "GET",
+        "timestampMs": 1788461805908,
+        "status": 200,
+        "sizeBytes": 2674
+      },
+      {
+        "url": "http://localhost:8089/_vercel/insights/script.js",
+        "method": "GET",
+        "timestampMs": 1788461805908,
+        "status": 404,
+        "sizeBytes": 0
+      },
+      {
+        "url": "http://localhost:8089/_vercel/speed-insights/script.js",
+        "method": "GET",
+        "timestampMs": 1788461805908,
+        "status": 404,
+        "sizeBytes": 0
+      },
+      {
+        "url": "http://localhost:8089/dist/app.bundle.js",
+        "method": "GET",
+        "timestampMs": 1788461805909,
+        "status": 200,
+        "sizeBytes": 366553
+      },
+      {
+        "url": "http://127.0.0.1:8000/api/features",
+        "method": "GET",
+        "timestampMs": 1788461806239
+      }
+    ]
+  },
+  "Mobile": {
+    "viewport": {
+      "name": "Mobile",
+      "width": 390,
+      "height": 844
+    },
+    "domMetrics": {
+      "injectionTimeMs": 2.5999999998603016,
+      "totalDomNodes": 1637,
+      "chatDomNodes": 600
+    },
+    "performance": {
+      "perfMemory": {
+        "usedJSHeapSize": 10000000,
+        "totalJSHeapSize": 10000000,
+        "jsHeapSizeLimit": 3760000000
+      }
+    },
+    "scrollMetrics": {
+      "scrollDurationMs": 203.30000000004657
+    },
+    "networkRequestsCount": 11,
+    "networkRequests": [
+      {
+        "url": "http://localhost:8089/index.html",
+        "method": "GET",
+        "timestampMs": 1788461807663,
+        "status": 200,
+        "sizeBytes": 75226
+      },
+      {
+        "url": "http://localhost:8089/runtime-config.js",
+        "method": "GET",
+        "timestampMs": 1788461807686,
+        "status": 200,
+        "sizeBytes": 1599
+      },
+      {
+        "url": "https://accounts.google.com/gsi/client",
+        "method": "GET",
+        "timestampMs": 1788461807686,
+        "status": 200,
+        "sizeBytes": 272720
+      },
+      {
+        "url": "http://localhost:8089/css/tailwind.generated.css",
+        "method": "GET",
+        "timestampMs": 1788461807686,
+        "status": 200,
+        "sizeBytes": 41537
+      },
+      {
+        "url": "http://localhost:8089/css/style.css",
+        "method": "GET",
+        "timestampMs": 1788461807689,
+        "status": 200,
+        "sizeBytes": 59797
+      },
+      {
+        "url": "http://localhost:8089/dist/lucide.bundle.js",
+        "method": "GET",
+        "timestampMs": 1788461807689,
+        "status": 200,
+        "sizeBytes": 17280
+      },
+      {
+        "url": "http://localhost:8089/js/bootstrap.js",
+        "method": "GET",
+        "timestampMs": 1788461807689,
+        "status": 200,
+        "sizeBytes": 2674
+      },
+      {
+        "url": "http://localhost:8089/_vercel/insights/script.js",
+        "method": "GET",
+        "timestampMs": 1788461807689,
+        "status": 404,
+        "sizeBytes": 0
+      },
+      {
+        "url": "http://localhost:8089/_vercel/speed-insights/script.js",
+        "method": "GET",
+        "timestampMs": 1788461807692,
+        "status": 404,
+        "sizeBytes": 0
+      },
+      {
+        "url": "http://localhost:8089/dist/app.bundle.js",
+        "method": "GET",
+        "timestampMs": 1788461807692,
+        "status": 200,
+        "sizeBytes": 366553
+      },
+      {
+        "url": "http://127.0.0.1:8000/api/features",
+        "method": "GET",
+        "timestampMs": 1788461807887
+      }
+    ]
+  }
+}

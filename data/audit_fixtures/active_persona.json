@@ -1,0 +1,1305 @@
+{
+  "persona": "active",
+  "seed": 42,
+  "message_count": 300,
+  "user_id_hash": "usr_audit_active_42",
+  "profile": {
+    "user_id_hash": "usr_audit_active_42",
+    "preferences": {
+      "communication_style": "balanced",
+      "preferred_name": "Active",
+      "gender": "male",
+      "preferred_coping_tools": [
+        "breathing_exercise",
+        "grounding_54321",
+        "journaling"
+      ],
+      "wellness_goals": [
+        "reduce_anxiety",
+        "improve_sleep",
+        "work_life_balance"
+      ],
+      "avoided_topics": [
+        "substance_use"
+      ],
+      "custom_instructions": "Keep answers structured and practical.",
+      "ui_settings": {
+        "personalization": {
+          "baseStyle": "friendly",
+          "warmth": "high",
+          "useHeadersLists": true,
+          "emojiSupport": true
+        }
+      }
+    },
+    "clinical": {
+      "presenting_problems": [
+        "generalized_anxiety",
+        "sleep_disturbance"
+      ],
+      "suspected_diagnoses": [
+        "GAD"
+      ],
+      "treatment_plan": "Cognitive restructuring & daily relaxation techniques.",
+      "phq9_history": [
+        {
+          "score": 12,
+          "date": "2026-01-15"
+        },
+        {
+          "score": 9,
+          "date": "2026-02-15"
+        }
+      ],
+      "gad7_history": [
+        {
+          "score": 14,
+          "date": "2026-01-15"
+        },
+        {
+          "score": 11,
+          "date": "2026-02-15"
+        }
+      ]
+    }
+  },
+  "memory_graph": {
+    "version": 4,
+    "atoms": [
+      {
+        "id": "atom_1",
+        "category": "work",
+        "value": "Works as a software engineer with high workload.",
+        "confidence": 0.95
+      },
+      {
+        "id": "atom_2",
+        "category": "health",
+        "value": "Experiences anxiety and sleep difficulty.",
+        "confidence": 0.9
+      },
+      {
+        "id": "atom_3",
+        "category": "preference",
+        "value": "Prefers breathing exercises over meditation.",
+        "confidence": 0.85
+      }
+    ]
+  },
+  "memory_summary": {
+    "summary": "## Overview\nUser is a software engineer dealing with stress and sleep anxiety.\n\n## Emotional Patterns & Coping\nResponds well to grounding exercises and breathing routines.\n\n## Work & Studies\nHigh workload with frequent tight deadlines."
+  },
+  "user_snapshot": {
+    "situational_summary": "User (active) is currently tracking wellness goals with active chat engagement.",
+    "recent_emotions": [
+      "anxious",
+      "hopeful"
+    ],
+    "active_triggers": [
+      "work deadlines"
+    ],
+    "coping_effectiveness": "moderate"
+  },
+  "history": [
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 2)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 4)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 6)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 8)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 10)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 12)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 14)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 16)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 18)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 20)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 22)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 24)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 26)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 28)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 30)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 32)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 34)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 36)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 38)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 40)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 42)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 44)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 46)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 48)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 50)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 52)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 54)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 56)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 58)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 60)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 62)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 64)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 66)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 68)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 70)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 72)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 74)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 76)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 78)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 80)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 82)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 84)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 86)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 88)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 90)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 92)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 94)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 96)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 98)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 100)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 102)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 104)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 106)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 108)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 110)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 112)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 114)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 116)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 118)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 120)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 122)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 124)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 126)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 128)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 130)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 132)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 134)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 136)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 138)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 140)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 142)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 144)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 146)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 148)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 150)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 152)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 154)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 156)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 158)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 160)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 162)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 164)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 166)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 168)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 170)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 172)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 174)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 176)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 178)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 180)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 182)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 184)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 186)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 188)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 190)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 192)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 194)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 196)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 198)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 200)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 202)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 204)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 206)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 208)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 210)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 212)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 214)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 216)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 218)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 220)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 222)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 224)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 226)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 228)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 230)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 232)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 234)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 236)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 238)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 240)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 242)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 244)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 246)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 248)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 250)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 252)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 254)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 256)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 258)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 260)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 262)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 264)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 266)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 268)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 270)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 272)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 274)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 276)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 278)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 280)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 282)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 284)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 286)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 288)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 290)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 292)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 294)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 296)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 298)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 300)"
+    }
+  ]
+}
