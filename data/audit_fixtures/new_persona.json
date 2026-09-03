@@ -7,119 +7,62 @@
     "user_id_hash": "usr_audit_new_42",
     "preferences": {
       "communication_style": "balanced",
-      "preferred_name": "New",
-      "gender": "male",
-      "preferred_coping_tools": [
-        "breathing_exercise",
-        "grounding_54321",
-        "journaling"
-      ],
-      "wellness_goals": [
-        "reduce_anxiety",
-        "improve_sleep",
-        "work_life_balance"
-      ],
-      "avoided_topics": [
-        "substance_use"
-      ],
-      "custom_instructions": "Keep answers structured and practical.",
-      "ui_settings": {
-        "personalization": {
-          "baseStyle": "friendly",
-          "warmth": "high",
-          "useHeadersLists": true,
-          "emojiSupport": true
-        }
-      }
+      "preferred_name": "Taylor",
+      "gender": null,
+      "preferred_coping_tools": [],
+      "wellness_goals": [],
+      "avoided_topics": [],
+      "custom_instructions": "",
+      "ui_settings": {}
     },
     "clinical": {
-      "presenting_problems": [
-        "generalized_anxiety",
-        "sleep_disturbance"
-      ],
-      "suspected_diagnoses": [
-        "GAD"
-      ],
-      "treatment_plan": "Cognitive restructuring & daily relaxation techniques.",
-      "phq9_history": [
-        {
-          "score": 12,
-          "date": "2026-01-15"
-        },
-        {
-          "score": 9,
-          "date": "2026-02-15"
-        }
-      ],
-      "gad7_history": [
-        {
-          "score": 14,
-          "date": "2026-01-15"
-        },
-        {
-          "score": 11,
-          "date": "2026-02-15"
-        }
-      ]
+      "presenting_problems": [],
+      "suspected_diagnoses": [],
+      "treatment_plan": "",
+      "phq9_history": [],
+      "gad7_history": []
     }
   },
   "memory_graph": {
     "version": 4,
-    "atoms": [
-      {
-        "id": "atom_1",
-        "category": "work",
-        "value": "Works as a software engineer with high workload.",
-        "confidence": 0.95
-      },
-      {
-        "id": "atom_2",
-        "category": "health",
-        "value": "Experiences anxiety and sleep difficulty.",
-        "confidence": 0.9
-      },
-      {
-        "id": "atom_3",
-        "category": "preference",
-        "value": "Prefers breathing exercises over meditation.",
-        "confidence": 0.85
-      }
-    ]
+    "atoms": []
   },
   "memory_summary": {
-    "summary": "## Overview\nUser is a software engineer dealing with stress and sleep anxiety.\n\n## Emotional Patterns & Coping\nResponds well to grounding exercises and breathing routines.\n\n## Work & Studies\nHigh workload with frequent tight deadlines."
+    "summary": "## Overview\nNew user onboarding session."
   },
   "user_snapshot": {
-    "situational_summary": "User (new) is currently tracking wellness goals with active chat engagement.",
+    "situational_summary": "Taylor just created an account and is exploring MindPal.",
     "recent_emotions": [
-      "anxious",
-      "hopeful"
+      "curious"
     ],
-    "active_triggers": [
-      "work deadlines"
-    ],
-    "coping_effectiveness": "moderate"
+    "active_triggers": [],
+    "coping_effectiveness": "unknown"
   },
   "history": [
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Hi there! I just downloaded MindPal. What can you help me with?",
+      "timestamp": "2026-08-01T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 2)"
+      "content": "Welcome Taylor! I'm MindPal, your wellness companion. How are you feeling today?",
+      "timestamp": "2026-08-01T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I've been having trouble sleeping because my mind races at night.",
+      "timestamp": "2026-08-01T10:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 4)"
+      "content": "A racing mind at bedtime is very common. Would you like to try a simple 2-minute relaxation technique?",
+      "timestamp": "2026-08-01T10:02:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Sure, let's try a short relaxation exercise.",
+      "timestamp": "2026-08-01T10:03:00+00:00"
     }
   ]
 }

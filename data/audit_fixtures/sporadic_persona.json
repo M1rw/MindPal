@@ -6,180 +6,161 @@
   "profile": {
     "user_id_hash": "usr_audit_sporadic_42",
     "preferences": {
-      "communication_style": "balanced",
-      "preferred_name": "Sporadic",
+      "communication_style": "concise",
+      "preferred_name": "Sam",
       "gender": "male",
       "preferred_coping_tools": [
-        "breathing_exercise",
-        "grounding_54321",
-        "journaling"
+        "quick_reframe"
       ],
       "wellness_goals": [
-        "reduce_anxiety",
-        "improve_sleep",
-        "work_life_balance"
+        "occasional_stress_relief"
       ],
-      "avoided_topics": [
-        "substance_use"
-      ],
-      "custom_instructions": "Keep answers structured and practical.",
+      "avoided_topics": [],
+      "custom_instructions": "Keep answers short as I only check in occasionally.",
       "ui_settings": {
         "personalization": {
-          "baseStyle": "friendly",
-          "warmth": "high",
-          "useHeadersLists": true,
-          "emojiSupport": true
+          "baseStyle": "default",
+          "warmth": "default",
+          "useHeadersLists": false,
+          "emojiSupport": false
         }
       }
     },
     "clinical": {
       "presenting_problems": [
-        "generalized_anxiety",
-        "sleep_disturbance"
+        "episodic_stress"
       ],
-      "suspected_diagnoses": [
-        "GAD"
-      ],
-      "treatment_plan": "Cognitive restructuring & daily relaxation techniques.",
-      "phq9_history": [
-        {
-          "score": 12,
-          "date": "2026-01-15"
-        },
-        {
-          "score": 9,
-          "date": "2026-02-15"
-        }
-      ],
-      "gad7_history": [
-        {
-          "score": 14,
-          "date": "2026-01-15"
-        },
-        {
-          "score": 11,
-          "date": "2026-02-15"
-        }
-      ]
+      "suspected_diagnoses": [],
+      "treatment_plan": "As-needed situational problem-solving.",
+      "phq9_history": [],
+      "gad7_history": []
     }
   },
   "memory_graph": {
     "version": 4,
     "atoms": [
       {
-        "id": "atom_1",
-        "category": "work",
-        "value": "Works as a software engineer with high workload.",
-        "confidence": 0.95
-      },
-      {
-        "id": "atom_2",
-        "category": "health",
-        "value": "Experiences anxiety and sleep difficulty.",
-        "confidence": 0.9
-      },
-      {
-        "id": "atom_3",
-        "category": "preference",
-        "value": "Prefers breathing exercises over meditation.",
+        "id": "atom_spo_1",
+        "category": "pattern",
+        "value": "Checks in sporadically every few weeks during intense work spikes.",
         "confidence": 0.85
       }
     ]
   },
   "memory_summary": {
-    "summary": "## Overview\nUser is a software engineer dealing with stress and sleep anxiety.\n\n## Emotional Patterns & Coping\nResponds well to grounding exercises and breathing routines.\n\n## Work & Studies\nHigh workload with frequent tight deadlines."
+    "summary": "## Overview\nSam is a sporadic user who logs in every few weeks for quick situational advice.\n\n## Emotional Patterns & Coping\nPrefers fast, 2-minute actionable steps without long reflection loops."
   },
   "user_snapshot": {
-    "situational_summary": "User (sporadic) is currently tracking wellness goals with active chat engagement.",
+    "situational_summary": "Sam is returning after a 3-week gap to address a sudden workplace conflict.",
     "recent_emotions": [
-      "anxious",
-      "hopeful"
+      "annoyed",
+      "seeking fast advice"
     ],
     "active_triggers": [
-      "work deadlines"
+      "interpersonal disagreement"
     ],
     "coping_effectiveness": "moderate"
   },
   "history": [
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Check-in session #1: dealing with a quick work issue.",
+      "timestamp": "2026-06-01T14:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 2)"
+      "content": "Welcome back, Sam! Ready for session #1. What's the main challenge right now?",
+      "timestamp": "2026-06-01T14:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Check-in session #2: dealing with a quick work issue.",
+      "timestamp": "2026-06-25T18:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 4)"
+      "content": "Welcome back, Sam! Ready for session #2. What's the main challenge right now?",
+      "timestamp": "2026-06-25T18:30:15+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Check-in session #3: dealing with a quick work issue.",
+      "timestamp": "2026-07-20T09:15:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 6)"
+      "content": "Welcome back, Sam! Ready for session #3. What's the main challenge right now?",
+      "timestamp": "2026-07-20T09:15:15+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Check-in session #4: dealing with a quick work issue.",
+      "timestamp": "2026-08-15T11:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 8)"
+      "content": "Welcome back, Sam! Ready for session #4. What's the main challenge right now?",
+      "timestamp": "2026-08-15T11:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Check-in session #5: dealing with a quick work issue.",
+      "timestamp": "2026-09-01T16:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 10)"
+      "content": "Welcome back, Sam! Ready for session #5. What's the main challenge right now?",
+      "timestamp": "2026-09-01T16:45:15+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Check-in session #6: dealing with a quick work issue.",
+      "timestamp": "2026-06-01T14:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 12)"
+      "content": "Welcome back, Sam! Ready for session #6. What's the main challenge right now?",
+      "timestamp": "2026-06-01T14:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Check-in session #7: dealing with a quick work issue.",
+      "timestamp": "2026-06-25T18:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 14)"
+      "content": "Welcome back, Sam! Ready for session #7. What's the main challenge right now?",
+      "timestamp": "2026-06-25T18:30:15+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Check-in session #8: dealing with a quick work issue.",
+      "timestamp": "2026-07-20T09:15:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 16)"
+      "content": "Welcome back, Sam! Ready for session #8. What's the main challenge right now?",
+      "timestamp": "2026-07-20T09:15:15+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Check-in session #9: dealing with a quick work issue.",
+      "timestamp": "2026-08-15T11:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 18)"
+      "content": "Welcome back, Sam! Ready for session #9. What's the main challenge right now?",
+      "timestamp": "2026-08-15T11:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Check-in session #10: dealing with a quick work issue.",
+      "timestamp": "2026-09-01T16:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 20)"
+      "content": "Welcome back, Sam! Ready for session #10. What's the main challenge right now?",
+      "timestamp": "2026-09-01T16:45:15+00:00"
     }
   ]
 }

@@ -7,22 +7,22 @@
     "user_id_hash": "usr_audit_active_42",
     "preferences": {
       "communication_style": "balanced",
-      "preferred_name": "Active",
+      "preferred_name": "Alex",
       "gender": "male",
       "preferred_coping_tools": [
-        "breathing_exercise",
-        "grounding_54321",
-        "journaling"
+        "pomodoro_focus",
+        "thought_journal",
+        "box_breathing"
       ],
       "wellness_goals": [
-        "reduce_anxiety",
-        "improve_sleep",
-        "work_life_balance"
+        "reduce_work_stress",
+        "manage_deadlines",
+        "better_sleep"
       ],
       "avoided_topics": [
         "substance_use"
       ],
-      "custom_instructions": "Keep answers structured and practical.",
+      "custom_instructions": "Give concise, structured recommendations.",
       "ui_settings": {
         "personalization": {
           "baseStyle": "friendly",
@@ -34,31 +34,31 @@
     },
     "clinical": {
       "presenting_problems": [
-        "generalized_anxiety",
-        "sleep_disturbance"
+        "workplace_burnout",
+        "time_management_stress"
       ],
       "suspected_diagnoses": [
-        "GAD"
+        "Occupational Stress"
       ],
-      "treatment_plan": "Cognitive restructuring & daily relaxation techniques.",
+      "treatment_plan": "Cognitive reframing, Pomodoro structuring, and evening shutdown routines.",
       "phq9_history": [
         {
-          "score": 12,
-          "date": "2026-01-15"
+          "score": 7,
+          "date": "2026-08-01"
         },
         {
-          "score": 9,
-          "date": "2026-02-15"
+          "score": 5,
+          "date": "2026-08-20"
         }
       ],
       "gad7_history": [
         {
-          "score": 14,
-          "date": "2026-01-15"
+          "score": 9,
+          "date": "2026-08-01"
         },
         {
-          "score": 11,
-          "date": "2026-02-15"
+          "score": 6,
+          "date": "2026-08-20"
         }
       ]
     }
@@ -67,1239 +67,1539 @@
     "version": 4,
     "atoms": [
       {
-        "id": "atom_1",
+        "id": "atom_act_1",
         "category": "work",
-        "value": "Works as a software engineer with high workload.",
-        "confidence": 0.95
+        "value": "Lead backend developer managing a major product launch.",
+        "confidence": 0.98
       },
       {
-        "id": "atom_2",
-        "category": "health",
-        "value": "Experiences anxiety and sleep difficulty.",
+        "id": "atom_act_2",
+        "category": "lifestyle",
+        "value": "Struggles with late-night coding and boundary setting.",
+        "confidence": 0.92
+      },
+      {
+        "id": "atom_act_3",
+        "category": "coping",
+        "value": "Finds Pomodoro technique and box breathing effective during crunch periods.",
         "confidence": 0.9
-      },
-      {
-        "id": "atom_3",
-        "category": "preference",
-        "value": "Prefers breathing exercises over meditation.",
-        "confidence": 0.85
       }
     ]
   },
   "memory_summary": {
-    "summary": "## Overview\nUser is a software engineer dealing with stress and sleep anxiety.\n\n## Emotional Patterns & Coping\nResponds well to grounding exercises and breathing routines.\n\n## Work & Studies\nHigh workload with frequent tight deadlines."
+    "summary": "## Overview\nAlex is a lead developer navigating high workload during a product launch.\n\n## Emotional Patterns & Coping\nProne to deadline anxiety; responds well to Pomodoro focus sessions and box breathing.\n\n## Work & Studies\nManages a team of engineers with tight sprint deadlines."
   },
   "user_snapshot": {
-    "situational_summary": "User (active) is currently tracking wellness goals with active chat engagement.",
+    "situational_summary": "Alex is actively balancing sprint deliverables with improved evening wind-down routines.",
     "recent_emotions": [
-      "anxious",
-      "hopeful"
+      "focused",
+      "slightly anxious"
     ],
     "active_triggers": [
-      "work deadlines"
+      "sprint review deadlines"
     ],
-    "coping_effectiveness": "moderate"
+    "coping_effectiveness": "high"
   },
   "history": [
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on sprint deadline for module A today (session #1). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-01T12:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 2)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #1, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-01T12:58:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on code review queue today (session #2). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-01T13:41:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 4)"
+      "content": "I understand, Alex. For code review queue in session #2, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-01T13:41:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on Pomodoro focus block today (session #3). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-01T14:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 6)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #3, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-01T14:02:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on team architecture sync today (session #4). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-01T17:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 8)"
+      "content": "I understand, Alex. For team architecture sync in session #4, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-01T17:26:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on late night debugging session today (session #5). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-01T18:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 10)"
+      "content": "I understand, Alex. For late night debugging session in session #5, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-01T18:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on sleep hygiene routine today (session #6). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-01T20:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 12)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #6, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-01T20:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on blue light filter setup today (session #7). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-01T21:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 14)"
+      "content": "I understand, Alex. For blue light filter setup in session #7, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-01T21:20:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on bedtime wind-down today (session #8). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-01T22:10:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 16)"
+      "content": "I understand, Alex. For bedtime wind-down in session #8, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-01T22:10:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on PR review disagreement today (session #9). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T01:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 18)"
+      "content": "I understand, Alex. For PR review disagreement in session #9, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T01:33:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on boundary setting with lead today (session #10). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T02:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 20)"
+      "content": "I understand, Alex. For boundary setting with lead in session #10, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T02:14:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on manager 1-on-1 prep today (session #11). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T05:22:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 22)"
+      "content": "I understand, Alex. For manager 1-on-1 prep in session #11, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T05:22:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on priority alignment check today (session #12). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T08:46:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 24)"
+      "content": "I understand, Alex. For priority alignment check in session #12, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T08:46:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on database migration refactoring today (session #13). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T11:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 26)"
+      "content": "I understand, Alex. For database migration refactoring in session #13, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T11:20:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on technical debt cleanup today (session #14). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T11:57:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 28)"
+      "content": "I understand, Alex. For technical debt cleanup in session #14, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T11:57:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on stress management break today (session #15). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T14:43:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 30)"
+      "content": "I understand, Alex. For stress management break in session #15, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T14:43:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on taking walking pauses today (session #16). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T16:46:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 32)"
+      "content": "I understand, Alex. For taking walking pauses in session #16, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T16:46:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on sprint deadline for module A today (session #17). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T17:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 34)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #17, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T17:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on code review queue today (session #18). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T17:31:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 36)"
+      "content": "I understand, Alex. For code review queue in session #18, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T17:31:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on Pomodoro focus block today (session #19). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T18:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 38)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #19, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T18:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on team architecture sync today (session #20). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T19:19:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 40)"
+      "content": "I understand, Alex. For team architecture sync in session #20, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T19:19:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on late night debugging session today (session #21). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T20:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 42)"
+      "content": "I understand, Alex. For late night debugging session in session #21, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T20:33:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on sleep hygiene routine today (session #22). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-02T22:57:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 44)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #22, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-02T22:57:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on blue light filter setup today (session #23). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T01:46:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 46)"
+      "content": "I understand, Alex. For blue light filter setup in session #23, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T01:46:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on bedtime wind-down today (session #24). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T02:07:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 48)"
+      "content": "I understand, Alex. For bedtime wind-down in session #24, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T02:07:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on PR review disagreement today (session #25). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T04:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 50)"
+      "content": "I understand, Alex. For PR review disagreement in session #25, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T04:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on boundary setting with lead today (session #26). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T05:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 52)"
+      "content": "I understand, Alex. For boundary setting with lead in session #26, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T05:50:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on manager 1-on-1 prep today (session #27). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T09:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 54)"
+      "content": "I understand, Alex. For manager 1-on-1 prep in session #27, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T09:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on priority alignment check today (session #28). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T12:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 56)"
+      "content": "I understand, Alex. For priority alignment check in session #28, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T12:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on database migration refactoring today (session #29). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T15:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 58)"
+      "content": "I understand, Alex. For database migration refactoring in session #29, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T15:23:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on technical debt cleanup today (session #30). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T17:57:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 60)"
+      "content": "I understand, Alex. For technical debt cleanup in session #30, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T17:57:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on stress management break today (session #31). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T19:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 62)"
+      "content": "I understand, Alex. For stress management break in session #31, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T19:59:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on taking walking pauses today (session #32). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T21:10:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 64)"
+      "content": "I understand, Alex. For taking walking pauses in session #32, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T21:10:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on sprint deadline for module A today (session #33). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-03T23:19:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 66)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #33, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-03T23:19:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on code review queue today (session #34). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-04T02:04:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 68)"
+      "content": "I understand, Alex. For code review queue in session #34, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-04T02:04:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on Pomodoro focus block today (session #35). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-04T03:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 70)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #35, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-04T03:30:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on team architecture sync today (session #36). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-04T07:12:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 72)"
+      "content": "I understand, Alex. For team architecture sync in session #36, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-04T07:12:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on late night debugging session today (session #37). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-04T11:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 74)"
+      "content": "I understand, Alex. For late night debugging session in session #37, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-04T11:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on sleep hygiene routine today (session #38). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-04T11:25:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 76)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #38, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-04T11:25:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on blue light filter setup today (session #39). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-04T14:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 78)"
+      "content": "I understand, Alex. For blue light filter setup in session #39, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-04T14:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on bedtime wind-down today (session #40). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-04T18:35:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 80)"
+      "content": "I understand, Alex. For bedtime wind-down in session #40, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-04T18:35:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on PR review disagreement today (session #41). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-04T19:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 82)"
+      "content": "I understand, Alex. For PR review disagreement in session #41, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-04T19:30:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on boundary setting with lead today (session #42). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-04T22:43:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 84)"
+      "content": "I understand, Alex. For boundary setting with lead in session #42, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-04T22:43:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on manager 1-on-1 prep today (session #43). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T00:46:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 86)"
+      "content": "I understand, Alex. For manager 1-on-1 prep in session #43, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T00:46:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on priority alignment check today (session #44). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T02:28:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 88)"
+      "content": "I understand, Alex. For priority alignment check in session #44, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T02:28:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on database migration refactoring today (session #45). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T03:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 90)"
+      "content": "I understand, Alex. For database migration refactoring in session #45, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T03:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on technical debt cleanup today (session #46). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T04:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 92)"
+      "content": "I understand, Alex. For technical debt cleanup in session #46, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T04:48:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on stress management break today (session #47). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T05:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 94)"
+      "content": "I understand, Alex. For stress management break in session #47, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T05:58:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on taking walking pauses today (session #48). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T09:28:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 96)"
+      "content": "I understand, Alex. For taking walking pauses in session #48, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T09:28:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on sprint deadline for module A today (session #49). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T11:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 98)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #49, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T11:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on code review queue today (session #50). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T11:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 100)"
+      "content": "I understand, Alex. For code review queue in session #50, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T11:50:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on Pomodoro focus block today (session #51). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T12:28:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 102)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #51, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T12:28:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on team architecture sync today (session #52). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T14:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 104)"
+      "content": "I understand, Alex. For team architecture sync in session #52, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T14:20:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on late night debugging session today (session #53). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T14:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 106)"
+      "content": "I understand, Alex. For late night debugging session in session #53, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T14:59:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on sleep hygiene routine today (session #54). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T16:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 108)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #54, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T16:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on blue light filter setup today (session #55). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T20:36:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 110)"
+      "content": "I understand, Alex. For blue light filter setup in session #55, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T20:36:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on bedtime wind-down today (session #56). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-05T22:19:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 112)"
+      "content": "I understand, Alex. For bedtime wind-down in session #56, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-05T22:19:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on PR review disagreement today (session #57). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T01:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 114)"
+      "content": "I understand, Alex. For PR review disagreement in session #57, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T01:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on boundary setting with lead today (session #58). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T02:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 116)"
+      "content": "I understand, Alex. For boundary setting with lead in session #58, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T02:30:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on manager 1-on-1 prep today (session #59). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T06:11:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 118)"
+      "content": "I understand, Alex. For manager 1-on-1 prep in session #59, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T06:11:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on priority alignment check today (session #60). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T06:37:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 120)"
+      "content": "I understand, Alex. For priority alignment check in session #60, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T06:37:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on database migration refactoring today (session #61). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T09:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 122)"
+      "content": "I understand, Alex. For database migration refactoring in session #61, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T09:58:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on technical debt cleanup today (session #62). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T12:10:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 124)"
+      "content": "I understand, Alex. For technical debt cleanup in session #62, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T12:10:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on stress management break today (session #63). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T14:42:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 126)"
+      "content": "I understand, Alex. For stress management break in session #63, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T14:42:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on taking walking pauses today (session #64). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T15:28:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 128)"
+      "content": "I understand, Alex. For taking walking pauses in session #64, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T15:28:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on sprint deadline for module A today (session #65). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T17:19:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 130)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #65, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T17:19:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on code review queue today (session #66). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T17:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 132)"
+      "content": "I understand, Alex. For code review queue in session #66, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T17:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on Pomodoro focus block today (session #67). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T20:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 134)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #67, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T20:30:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on team architecture sync today (session #68). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-06T22:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 136)"
+      "content": "I understand, Alex. For team architecture sync in session #68, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-06T22:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on late night debugging session today (session #69). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T01:47:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 138)"
+      "content": "I understand, Alex. For late night debugging session in session #69, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T01:47:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on sleep hygiene routine today (session #70). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T04:42:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 140)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #70, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T04:42:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on blue light filter setup today (session #71). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T07:35:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 142)"
+      "content": "I understand, Alex. For blue light filter setup in session #71, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T07:35:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on bedtime wind-down today (session #72). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T11:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 144)"
+      "content": "I understand, Alex. For bedtime wind-down in session #72, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T11:30:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on PR review disagreement today (session #73). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T13:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 146)"
+      "content": "I understand, Alex. For PR review disagreement in session #73, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T13:17:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on boundary setting with lead today (session #74). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T15:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 148)"
+      "content": "I understand, Alex. For boundary setting with lead in session #74, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T15:59:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on manager 1-on-1 prep today (session #75). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T17:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 150)"
+      "content": "I understand, Alex. For manager 1-on-1 prep in session #75, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T17:03:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on priority alignment check today (session #76). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T20:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 152)"
+      "content": "I understand, Alex. For priority alignment check in session #76, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T20:18:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on database migration refactoring today (session #77). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T20:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 154)"
+      "content": "I understand, Alex. For database migration refactoring in session #77, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T20:50:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on technical debt cleanup today (session #78). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-07T21:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 156)"
+      "content": "I understand, Alex. For technical debt cleanup in session #78, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-07T21:16:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on stress management break today (session #79). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T00:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 158)"
+      "content": "I understand, Alex. For stress management break in session #79, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T00:20:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on taking walking pauses today (session #80). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T01:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 160)"
+      "content": "I understand, Alex. For taking walking pauses in session #80, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T01:33:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on sprint deadline for module A today (session #81). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T05:05:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 162)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #81, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T05:05:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on code review queue today (session #82). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T06:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 164)"
+      "content": "I understand, Alex. For code review queue in session #82, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T06:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on Pomodoro focus block today (session #83). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T07:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 166)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #83, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T07:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on team architecture sync today (session #84). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T11:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 168)"
+      "content": "I understand, Alex. For team architecture sync in session #84, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T11:02:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on late night debugging session today (session #85). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T12:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 170)"
+      "content": "I understand, Alex. For late night debugging session in session #85, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T12:16:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on sleep hygiene routine today (session #86). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T16:12:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 172)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #86, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T16:12:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on blue light filter setup today (session #87). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T16:52:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 174)"
+      "content": "I understand, Alex. For blue light filter setup in session #87, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T16:52:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on bedtime wind-down today (session #88). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T18:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 176)"
+      "content": "I understand, Alex. For bedtime wind-down in session #88, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T18:44:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on PR review disagreement today (session #89). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T20:10:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 178)"
+      "content": "I understand, Alex. For PR review disagreement in session #89, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T20:10:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on boundary setting with lead today (session #90). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-08T22:21:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 180)"
+      "content": "I understand, Alex. For boundary setting with lead in session #90, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-08T22:21:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on manager 1-on-1 prep today (session #91). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T01:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 182)"
+      "content": "I understand, Alex. For manager 1-on-1 prep in session #91, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T01:18:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on priority alignment check today (session #92). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T05:06:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 184)"
+      "content": "I understand, Alex. For priority alignment check in session #92, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T05:06:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on database migration refactoring today (session #93). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T06:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 186)"
+      "content": "I understand, Alex. For database migration refactoring in session #93, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T06:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on technical debt cleanup today (session #94). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T07:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 188)"
+      "content": "I understand, Alex. For technical debt cleanup in session #94, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T07:50:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on stress management break today (session #95). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T09:39:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 190)"
+      "content": "I understand, Alex. For stress management break in session #95, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T09:39:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on taking walking pauses today (session #96). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T11:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 192)"
+      "content": "I understand, Alex. For taking walking pauses in session #96, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T11:24:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on sprint deadline for module A today (session #97). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T12:32:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 194)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #97, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T12:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on code review queue today (session #98). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T15:38:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 196)"
+      "content": "I understand, Alex. For code review queue in session #98, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T15:38:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on Pomodoro focus block today (session #99). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T17:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 198)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #99, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T17:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on team architecture sync today (session #100). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T20:15:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 200)"
+      "content": "I understand, Alex. For team architecture sync in session #100, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T20:15:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on late night debugging session today (session #101). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-09T23:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 202)"
+      "content": "I understand, Alex. For late night debugging session in session #101, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-09T23:24:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on sleep hygiene routine today (session #102). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T02:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 204)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #102, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T02:24:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on blue light filter setup today (session #103). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T02:57:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 206)"
+      "content": "I understand, Alex. For blue light filter setup in session #103, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T02:57:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on bedtime wind-down today (session #104). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T05:47:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 208)"
+      "content": "I understand, Alex. For bedtime wind-down in session #104, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T05:47:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on PR review disagreement today (session #105). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T08:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 210)"
+      "content": "I understand, Alex. For PR review disagreement in session #105, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T08:44:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on boundary setting with lead today (session #106). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T09:42:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 212)"
+      "content": "I understand, Alex. For boundary setting with lead in session #106, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T09:42:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on manager 1-on-1 prep today (session #107). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T12:13:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 214)"
+      "content": "I understand, Alex. For manager 1-on-1 prep in session #107, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T12:13:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on priority alignment check today (session #108). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T15:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 216)"
+      "content": "I understand, Alex. For priority alignment check in session #108, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T15:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on database migration refactoring today (session #109). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T16:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 218)"
+      "content": "I understand, Alex. For database migration refactoring in session #109, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T16:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on technical debt cleanup today (session #110). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T17:47:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 220)"
+      "content": "I understand, Alex. For technical debt cleanup in session #110, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T17:47:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on stress management break today (session #111). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T20:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 222)"
+      "content": "I understand, Alex. For stress management break in session #111, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T20:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on taking walking pauses today (session #112). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T21:52:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 224)"
+      "content": "I understand, Alex. For taking walking pauses in session #112, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T21:52:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on sprint deadline for module A today (session #113). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-10T23:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 226)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #113, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-10T23:16:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on code review queue today (session #114). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-11T02:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 228)"
+      "content": "I understand, Alex. For code review queue in session #114, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-11T02:14:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on Pomodoro focus block today (session #115). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-11T05:25:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 230)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #115, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-11T05:25:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on team architecture sync today (session #116). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-11T08:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 232)"
+      "content": "I understand, Alex. For team architecture sync in session #116, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-11T08:02:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on late night debugging session today (session #117). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-11T09:13:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 234)"
+      "content": "I understand, Alex. For late night debugging session in session #117, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-11T09:13:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on sleep hygiene routine today (session #118). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-11T12:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 236)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #118, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-11T12:23:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on blue light filter setup today (session #119). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-11T14:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 238)"
+      "content": "I understand, Alex. For blue light filter setup in session #119, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-11T14:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on bedtime wind-down today (session #120). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-11T17:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 240)"
+      "content": "I understand, Alex. For bedtime wind-down in session #120, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-11T17:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on PR review disagreement today (session #121). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-11T21:22:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 242)"
+      "content": "I understand, Alex. For PR review disagreement in session #121, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-11T21:22:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on boundary setting with lead today (session #122). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T00:55:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 244)"
+      "content": "I understand, Alex. For boundary setting with lead in session #122, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T00:55:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on manager 1-on-1 prep today (session #123). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T01:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 246)"
+      "content": "I understand, Alex. For manager 1-on-1 prep in session #123, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T01:24:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on priority alignment check today (session #124). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T02:37:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 248)"
+      "content": "I understand, Alex. For priority alignment check in session #124, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T02:37:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on database migration refactoring today (session #125). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T06:22:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 250)"
+      "content": "I understand, Alex. For database migration refactoring in session #125, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T06:22:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on technical debt cleanup today (session #126). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T06:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 252)"
+      "content": "I understand, Alex. For technical debt cleanup in session #126, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T06:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on stress management break today (session #127). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T10:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 254)"
+      "content": "I understand, Alex. For stress management break in session #127, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T10:26:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on taking walking pauses today (session #128). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T12:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 256)"
+      "content": "I understand, Alex. For taking walking pauses in session #128, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T12:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on sprint deadline for module A today (session #129). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T13:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 258)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #129, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T13:58:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on code review queue today (session #130). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T15:21:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 260)"
+      "content": "I understand, Alex. For code review queue in session #130, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T15:21:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on Pomodoro focus block today (session #131). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T15:52:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 262)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #131, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T15:52:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on team architecture sync today (session #132). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T17:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 264)"
+      "content": "I understand, Alex. For team architecture sync in session #132, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T17:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on late night debugging session today (session #133). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T19:41:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 266)"
+      "content": "I understand, Alex. For late night debugging session in session #133, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T19:41:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on sleep hygiene routine today (session #134). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-12T23:40:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 268)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #134, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-12T23:40:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on blue light filter setup today (session #135). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T02:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 270)"
+      "content": "I understand, Alex. For blue light filter setup in session #135, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T02:58:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on bedtime wind-down today (session #136). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T04:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 272)"
+      "content": "I understand, Alex. For bedtime wind-down in session #136, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T04:33:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on PR review disagreement today (session #137). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T05:42:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 274)"
+      "content": "I understand, Alex. For PR review disagreement in session #137, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T05:42:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on boundary setting with lead today (session #138). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T08:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 276)"
+      "content": "I understand, Alex. For boundary setting with lead in session #138, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T08:44:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on manager 1-on-1 prep today (session #139). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T11:06:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 278)"
+      "content": "I understand, Alex. For manager 1-on-1 prep in session #139, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T11:06:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on priority alignment check today (session #140). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T13:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 280)"
+      "content": "I understand, Alex. For priority alignment check in session #140, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T13:02:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on database migration refactoring today (session #141). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T16:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 282)"
+      "content": "I understand, Alex. For database migration refactoring in session #141, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T16:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on technical debt cleanup today (session #142). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T18:13:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 284)"
+      "content": "I understand, Alex. For technical debt cleanup in session #142, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T18:13:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on stress management break today (session #143). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T19:04:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 286)"
+      "content": "I understand, Alex. For stress management break in session #143, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T19:04:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on taking walking pauses today (session #144). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T20:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 288)"
+      "content": "I understand, Alex. For taking walking pauses in session #144, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T20:26:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on sprint deadline for module A today (session #145). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T21:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 290)"
+      "content": "I understand, Alex. For sprint deadline for module A in session #145, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T21:16:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "I'm working on code review queue today (session #146). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-13T22:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 292)"
+      "content": "I understand, Alex. For code review queue in session #146, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-13T22:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "I'm working on Pomodoro focus block today (session #147). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-14T01:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 294)"
+      "content": "I understand, Alex. For Pomodoro focus block in session #147, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-14T01:59:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "I'm working on team architecture sync today (session #148). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-14T04:37:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 296)"
+      "content": "I understand, Alex. For team architecture sync in session #148, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-14T04:37:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "I'm working on late night debugging session today (session #149). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-14T07:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 298)"
+      "content": "I understand, Alex. For late night debugging session in session #149, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-14T07:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "I'm working on sleep hygiene routine today (session #150). Feeling a bit pressed for time.",
+      "timestamp": "2026-08-14T08:31:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 300)"
+      "content": "I understand, Alex. For sleep hygiene routine in session #150, let's use a focused 25-minute block to make steady, calm progress.",
+      "timestamp": "2026-08-14T08:31:20+00:00"
     }
   ]
 }
