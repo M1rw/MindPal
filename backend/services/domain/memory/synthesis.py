@@ -137,13 +137,33 @@ async def synthesize_memory_narrative(
         if understanding_lines:
             context_parts.append("Per-Message AI Understanding:\n" + "\n".join(understanding_lines))
 
+    # Token Optimization: Deduplicate facts and cap inputs to prevent token bloat
     if extracted_facts:
-        facts_text = "\n".join(f"- {f}" for f in extracted_facts if f.strip())
+        deduped_facts: list[str] = []
+        seen_facts: set[str] = set()
+        for f in extracted_facts:
+            clean_f = f.strip()
+            if clean_f and clean_f.lower() not in seen_facts:
+                seen_facts.add(clean_f.lower())
+                deduped_facts.append(clean_f)
+
+        facts_text = "\n".join(f"- {f}" for f in deduped_facts[:30])
         if facts_text:
             context_parts.append(f"Extracted Facts:\n{facts_text}")
 
     if user_texts and not understandings:
-        recent_convo = "\n".join(f"- {t}" for t in user_texts[-20:] if t.strip())
+        deduped_texts: list[str] = []
+        seen_texts: set[str] = set()
+        for t in reversed(user_texts):
+            clean_t = t.strip()
+            if clean_t and clean_t.lower() not in seen_texts:
+                seen_texts.add(clean_t.lower())
+                deduped_texts.append(clean_t)
+            if len(deduped_texts) >= 15:
+                break
+        deduped_texts.reverse()
+
+        recent_convo = "\n".join(f"- {t}" for t in deduped_texts)
         if recent_convo:
             context_parts.append(f"Recent User Conversation Snippets:\n{recent_convo}")
 
