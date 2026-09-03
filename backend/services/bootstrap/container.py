@@ -2,8 +2,7 @@
 Service container and lifecycle management.
 
 The ServiceContainer holds all application services and manages their
-unified lifecycle (start/stop). This separates container definition
-from builder logic for cleaner architecture.
+unified lifecycle (start/stop).
 """
 
 from __future__ import annotations
@@ -22,6 +21,9 @@ from backend.services.domain.admin import AdminAuthority
 from backend.services.domain.auth import AuthService
 from backend.services.domain.features import FeatureFlagsService, FeaturePolicyStore
 from backend.services.domain.intelligence import ResponseIntelligenceService
+from backend.services.domain.intelligence.message_understanding import MessageUnderstandingService
+from backend.services.domain.intelligence.taxonomy_service import TaxonomyService
+from backend.services.domain.intelligence.user_snapshot_service import UserSnapshotService
 from backend.services.domain.llm import LLMService
 from backend.services.domain.memory import BrainService, MemoryService
 from backend.services.domain.quota import IdempotencyService, QuotaService, RateLimitService
@@ -44,23 +46,6 @@ class ServiceNotFoundError(KeyError):
 class ServiceContainer:
     """
     Production service container holding all application services.
-
-    All services are initialized together in a single pass via
-    bootstrap.composition.build_service_container().
-
-    Guarantees:
-    - Consistent health state at startup
-    - Clear dependency ordering
-    - Atomic startup/shutdown
-    - Easy service replacement for testing
-
-    Usage:
-        >>> container = build_service_container()
-        >>> await container.start()
-        >>> try:
-        ...     response = await container.llm.generate(prompt)
-        ... finally:
-        ...     await container.stop()
     """
 
     settings: Settings
@@ -85,6 +70,9 @@ class ServiceContainer:
     http_client: httpx.AsyncClient
     cache: CacheService | None = None
     job_queue: AsyncJobQueueService | None = None
+    message_understanding: MessageUnderstandingService | None = None
+    taxonomy: TaxonomyService | None = None
+    user_snapshot: UserSnapshotService | None = None
     _singletons: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _factories: dict[str, Callable[..., Any]] = field(default_factory=dict, init=False, repr=False)
     _lifecycle_hooks: dict[str, list[Callable[..., Any]]] = field(default_factory=dict, init=False, repr=False)
@@ -97,7 +85,6 @@ class ServiceContainer:
         self._lock = asyncio.Lock()
 
     def register_singleton(self, key: str, service: Any, on_shutdown: Callable[..., Any] | None = None) -> None:
-        """Compatibility helper for the older dependency-injection container API."""
         self._singletons[key] = service
         if on_shutdown is not None:
             self._lifecycle_hooks.setdefault(key, []).append(on_shutdown)
@@ -147,7 +134,7 @@ class ServiceContainer:
                         await hook(self._singletons.get(key))
                     else:
                         hook(self._singletons.get(key))
-                except Exception as exc:  # pragma: no cover - defensive cleanup
+                except Exception as exc:  # pragma: no cover
                     logger.warning("Shutdown hook failed for %s: %s", key, exc)
         self._singletons.clear()
         self._factories.clear()
@@ -155,19 +142,7 @@ class ServiceContainer:
         await self.stop()
 
     async def start(self) -> None:
-        """
-        Start all services with proper ordering.
-
-        Services that depend on DB must wait for DB to start.
-        This is handled automatically by dependency order in
-        build_service_container().
-
-        Raises:
-            Exception: If any service startup fails
-        """
         logger.info("Starting service container...")
-
-        # Start core services first (DB before anything else)
         try:
             if hasattr(self.db, "start"):
                 await self.db.start()
@@ -181,16 +156,7 @@ class ServiceContainer:
         logger.info("✓ Services started successfully")
 
     async def stop(self) -> None:
-        """
-        Stop all services in reverse dependency order.
-
-        Services depending on DB stop first, then DB stops.
-
-        Raises:
-            Exception: If any service shutdown fails (still attempts others)
-        """
         logger.info("Stopping service container...")
-
         try:
             if hasattr(self.db, "stop"):
                 await self.db.stop()
@@ -205,7 +171,6 @@ class ServiceContainer:
         logger.info("✓ Services stopped successfully")
 
     def sync_health(self) -> dict:
-        """Get a synchronous health snapshot with readiness semantics for deployment probes."""
         services = {
             "auth": self.auth.health() if hasattr(self.auth, "health") else {},
             "db": "checking...",
@@ -226,7 +191,6 @@ class ServiceContainer:
         }
 
     async def health(self) -> dict:
-        """Compatibility async health API expected by the API layer and tests."""
         base = self.sync_health()
         db_health = await self.db.health() if hasattr(self.db, "health") else {}
         base["services"]["db"] = db_health
@@ -290,9 +254,7 @@ class ServiceContainer:
         return "healthy"
 
     async def async_health(self) -> dict:
-        """Alias for the canonical async health contract."""
         return await self.health()
 
     async def aclose(self) -> None:
-        """Compatibility with old API."""
         await self.stop()

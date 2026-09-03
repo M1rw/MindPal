@@ -1,4 +1,4 @@
-# backend/api/user_router.py
+# backend/api/routers/user.py
 
 from __future__ import annotations
 
@@ -31,13 +31,6 @@ MAX_SESSION_HASH_CHARS = 120
 class CurrentUserResponse(BaseModel):
     """
     Sanitized authenticated user/session view.
-
-    Deliberately does not expose:
-    - raw Firebase UID
-    - bearer tokens
-    - cookies
-    - Firebase decoded token payload
-    - provider credentials
     """
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
@@ -61,15 +54,7 @@ class CurrentUserResponse(BaseModel):
 
 
 class UserProfileReplacePayload(BaseModel):
-    """
-    Full profile replacement payload.
-
-    Submitted user_id_hash is ignored and rebound to the verified Firebase
-    session hash. Prefer PATCH /profile for normal updates.
-    """
-
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-
     profile: UserProfile
 
 
@@ -78,11 +63,6 @@ async def current_user(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> CurrentUserResponse:
-    """
-    Return sanitized authenticated session identity.
-
-    Requires Firebase authentication.
-    """
     assert_authenticated(context)
 
     provider = sanitize_text(
@@ -110,12 +90,6 @@ async def load_profile(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> UserProfileResponse:
-    """
-    Load authenticated user's profile.
-
-    Does not accept arbitrary user IDs.
-    Anonymous sessions are not allowed.
-    """
     assert_authenticated(context)
 
     try:
@@ -140,11 +114,6 @@ async def update_profile(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> UserProfileResponse:
-    """
-    Partially update authenticated user's profile.
-
-    The target profile is always context.session.user_id_hash.
-    """
     assert_authenticated(context)
 
     try:
@@ -173,11 +142,6 @@ async def replace_profile(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> UserProfileResponse:
-    """
-    Replace authenticated user's profile.
-
-    Client-submitted user_id_hash is ignored to prevent spoofing.
-    """
     assert_authenticated(context)
 
     try:
@@ -220,11 +184,6 @@ async def reset_profile(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> UserProfileResponse:
-    """
-    Reset authenticated user's profile to defaults.
-
-    This preserves the verified session user_id_hash and does not delete memory.
-    """
     assert_authenticated(context)
 
     try:
@@ -259,6 +218,130 @@ async def reset_profile(
                 "request_id": context.request_id,
             },
         ) from exc
+
+
+class UserAnalyticsResponse(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    activity_count: int
+    theme_distribution: dict[str, int]
+    tone_trajectory: list[dict[str, Any]]
+
+
+@router.get("/analytics", response_model=UserAnalyticsResponse)
+async def get_user_analytics(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> UserAnalyticsResponse:
+    """Serve activity count, dynamic theme distribution from dynamic taxonomy, and tone trajectory."""
+    assert_authenticated(context)
+    user_hash = context.session.user_id_hash
+
+    understandings = (
+        services.message_understanding.list_understandings_for_user(user_hash)
+        if services.message_understanding
+        else []
+    )
+    taxonomy = (
+        services.taxonomy.get_user_taxonomy(user_hash)
+        if services.taxonomy
+        else None
+    )
+
+    theme_dist: dict[str, int] = {}
+    if taxonomy and taxonomy.themes:
+        for t in taxonomy.themes:
+            theme_dist[t.name] = t.occurrence_count
+    else:
+        for u in understandings:
+            for theme in u.themes:
+                theme_dist[theme] = theme_dist.get(theme, 0) + 1
+
+    trajectory: list[dict[str, Any]] = [
+        {
+            "analyzed_at": u.analyzed_at.isoformat(),
+            "emotional_state": u.emotional_state,
+        }
+        for u in understandings
+    ]
+
+    return UserAnalyticsResponse(
+        activity_count=len(understandings),
+        theme_distribution=theme_dist,
+        tone_trajectory=trajectory,
+    )
+
+
+@router.get("/export", response_model=dict[str, Any])
+async def export_user_data(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> dict[str, Any]:
+    """Export all user data including profile, memory graph, and message understanding/snapshot data."""
+    assert_authenticated(context)
+    user_hash = context.session.user_id_hash
+
+    profile_res = await services.db.load_user_profile(user_hash)
+    understandings = (
+        [
+            u.model_dump(mode="json")
+            for u in services.message_understanding.list_understandings_for_user(user_hash)
+        ]
+        if services.message_understanding
+        else []
+    )
+    taxonomy = (
+        services.taxonomy.get_user_taxonomy(user_hash).model_dump(mode="json")
+        if services.taxonomy
+        else None
+    )
+    snapshot = (
+        services.user_snapshot.get_snapshot(user_hash).model_dump(mode="json")
+        if services.user_snapshot and services.user_snapshot.get_snapshot(user_hash)
+        else None
+    )
+
+    return {
+        "user_id_hash": user_hash,
+        "profile": profile_res.profile.model_dump(mode="json"),
+        "understandings": understandings,
+        "taxonomy": taxonomy,
+        "context_snapshot": snapshot,
+    }
+
+
+@router.delete("/data", response_model=dict[str, Any])
+async def cascade_delete_user_data(
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> dict[str, Any]:
+    """Cascade delete all user data across DB, memory graph, understanding, taxonomy, and snapshot."""
+    assert_authenticated(context)
+    user_hash = context.session.user_id_hash
+
+    und_deleted = (
+        services.message_understanding.delete_understandings_for_user(user_hash)
+        if services.message_understanding
+        else 0
+    )
+    tax_deleted = (
+        services.taxonomy.delete_taxonomy_for_user(user_hash)
+        if services.taxonomy
+        else False
+    )
+    snap_deleted = (
+        services.user_snapshot.delete_snapshot_for_user(user_hash)
+        if services.user_snapshot
+        else False
+    )
+
+    return {
+        "status": "deleted",
+        "user_id_hash": user_hash,
+        "understandings_deleted": und_deleted,
+        "taxonomy_deleted": tax_deleted,
+        "snapshot_deleted": snap_deleted,
+    }
 
 
 class MentalHealthInsightsResponse(BaseModel):
@@ -326,16 +409,8 @@ async def user_health(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
 ) -> dict[str, Any]:
-    """
-    User subsystem health.
-
-    Requires authentication because this route belongs to the user surface.
-    Does not expose profile contents.
-    """
     assert_authenticated(context)
-
     return {"status": "ok", "request_id": context.request_id}
-
 
 
 async def _limit_profile_write(services: Any, context: Any) -> None:
@@ -346,18 +421,13 @@ async def _limit_profile_write(services: Any, context: Any) -> None:
         window_seconds=60,
     )
 
+
 def _profile_for_session(
     profile: UserProfile,
     *,
     user_id_hash: str,
     channel: Any,
 ) -> UserProfile:
-    """
-    Rebind a UserProfile to the authenticated session.
-
-    Prevents client-submitted profile.user_id_hash from targeting another user.
-    Uses model_copy to preserve future model fields.
-    """
     clean_user_hash = sanitize_text(user_id_hash, MAX_SESSION_HASH_CHARS)
 
     if not clean_user_hash:
@@ -375,5 +445,3 @@ def _profile_for_session(
             "channel": channel,
         }
     )
-
-

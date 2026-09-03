@@ -1,7 +1,8 @@
-# backend/api/chat_router.py
+# backend/api/routers/chat.py
 
 """
-Chat API router delivering conversational endpoints with quota, idempotency, and safety.
+Chat API router delivering conversational endpoints with quota, idempotency, safety,
+out-of-band message understanding, dynamic taxonomy tracking, and user snapshot context injection.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from backend.models.brain import BrainPolicyTier
 from backend.models.chat import ChatRequest, ChatResponse, LLMMessage, LLMRole
 from backend.models.memory import MemoryGraph, summary_from_memory_graph
 from backend.models.schemas import ProviderChainTrace
+from backend.models.understanding import AssistantTelemetry
 from backend.services.domain.intelligence import finalize_user_reply
 from backend.services.domain.llm import build_llm_request
 from backend.services.domain.llm.chat_orchestrator import (
@@ -111,7 +113,7 @@ async def chat(
     context: RequestContextDep,
     header_timezone: Annotated[str, Depends(get_timezone)] = "UTC",
 ) -> ChatResponse:
-    """Synchronous chat endpoint with rate limits, safety, RAG, and memory graph integration."""
+    """Synchronous chat endpoint with rate limits, safety, RAG, memory graph, and out-of-band intelligence."""
     user_timezone = payload.metadata.timezone or header_timezone or "UTC"
     locale = resolve_locale(payload, context.locale)
     authenticated = bool(context.session.authenticated)
@@ -156,6 +158,20 @@ async def chat(
                 request_id=quota_request_id,
                 cost=credit_cost,
                 operation="chat_pro" if clinical_mode else "chat_standard",
+            )
+
+        # Trigger out-of-band / asynchronous message understanding analysis (0ms added response latency)
+        if services.message_understanding:
+            history_list = [
+                {"role": m.role.value if hasattr(m.role, "value") else str(m.role), "content": m.content}
+                for m in (payload.history or [])
+            ]
+            services.message_understanding.enqueue_background_analysis(
+                message_id=context.request_id,
+                user_id_hash=context.session.user_id_hash,
+                message_text=payload.message,
+                chat_history=history_list,
+                request_id=context.request_id,
             )
 
         safety_decision = await services.safety.classify_input_with_context(
@@ -219,6 +235,7 @@ async def chat(
         memory_summary = None
         memory_graph = None
         memory_prompt = ""
+        user_snapshot_injected = False
         memory_allowed = bool(authenticated and profile.preferences.safety.allow_memory)
         if memory_allowed:
             memory_graph = await services.memory_repo.load(context.session.user_id_hash)
@@ -249,6 +266,20 @@ async def chat(
                 except Exception:
                     logger.warning("Brain context planning failed for %s", context.request_id, exc_info=True)
                     memory_prompt = build_memory_graph_prompt(memory_graph)
+
+            # Inject User Context Snapshot alongside memory prompt if available
+            if services.user_snapshot:
+                snapshot = services.user_snapshot.get_snapshot(context.session.user_id_hash)
+                if snapshot and snapshot.situational_portrait:
+                    user_snapshot_injected = True
+                    snapshot_str = (
+                        f"Current Situational Understanding:\n"
+                        f"- Tone/Trajectory: {snapshot.tone_trajectory}\n"
+                        f"- Active Stressors: {', '.join(snapshot.active_stressors)}\n"
+                        f"- Effective Coping: {', '.join(snapshot.what_helps)}\n"
+                        f"- Portrait: {snapshot.situational_portrait}"
+                    )
+                    memory_prompt = f"{memory_prompt}\n\n{snapshot_str}".strip()
 
         rag_tags = services.safety.rag_tags_for_decision(safety_decision)
         intent_context = build_intent_context(payload.message, locale=locale)
@@ -459,6 +490,26 @@ async def chat(
                 user_id_hash=context.session.user_id_hash,
                 usage=usage,
                 clinical_mode=clinical_mode,
+            )
+
+        # Record AssistantTelemetry
+        if services.message_understanding:
+            services.message_understanding.record_telemetry(
+                AssistantTelemetry(
+                    request_id=context.request_id,
+                    latency_ms=llm_result.response.latency_ms,
+                    model=llm_result.response.model_name or "standard",
+                    personalization_snapshot={
+                        "locale": locale,
+                        "channel": context.channel.value,
+                        "mode": user_preference,
+                    },
+                    token_usage={},
+                    memory_injected=bool(memory_prompt),
+                    user_snapshot_injected=user_snapshot_injected,
+                    safety_path_triggered=safety_decision.level.value,
+                    completion_status="completed",
+                )
             )
 
         result = ChatResponse(
