@@ -6,59 +6,73 @@
   "profile": {
     "user_id_hash": "usr_audit_screening_42",
     "preferences": {
-      "communication_style": "balanced",
-      "preferred_name": "Screening",
+      "communication_style": "detailed",
+      "preferred_name": "Jordan",
       "gender": "male",
       "preferred_coping_tools": [
-        "breathing_exercise",
-        "grounding_54321",
-        "journaling"
+        "phq9_tracking",
+        "gad7_tracking",
+        "mood_journal"
       ],
       "wellness_goals": [
-        "reduce_anxiety",
-        "improve_sleep",
-        "work_life_balance"
+        "track_clinical_progress",
+        "understand_mood_trends"
       ],
-      "avoided_topics": [
-        "substance_use"
-      ],
-      "custom_instructions": "Keep answers structured and practical.",
+      "avoided_topics": [],
+      "custom_instructions": "Review clinical screening score changes periodically.",
       "ui_settings": {
         "personalization": {
-          "baseStyle": "friendly",
-          "warmth": "high",
+          "baseStyle": "professional",
+          "warmth": "default",
           "useHeadersLists": true,
-          "emojiSupport": true
+          "emojiSupport": false
         }
       }
     },
     "clinical": {
       "presenting_problems": [
-        "generalized_anxiety",
-        "sleep_disturbance"
+        "depressive_episodes",
+        "generalized_anxiety"
       ],
       "suspected_diagnoses": [
+        "Major Depressive Disorder",
         "GAD"
       ],
-      "treatment_plan": "Cognitive restructuring & daily relaxation techniques.",
+      "treatment_plan": "Bi-weekly PHQ-9 / GAD-7 screening and longitudinal symptom tracking.",
       "phq9_history": [
         {
-          "score": 12,
-          "date": "2026-01-15"
+          "score": 18,
+          "date": "2026-06-01"
         },
         {
-          "score": 9,
-          "date": "2026-02-15"
+          "score": 15,
+          "date": "2026-07-01"
+        },
+        {
+          "score": 11,
+          "date": "2026-08-01"
+        },
+        {
+          "score": 8,
+          "date": "2026-08-25"
         }
       ],
       "gad7_history": [
         {
-          "score": 14,
-          "date": "2026-01-15"
+          "score": 16,
+          "date": "2026-06-01"
         },
         {
-          "score": 11,
-          "date": "2026-02-15"
+          "score": 13,
+          "date": "2026-07-01"
+        },
+        {
+          "score": 9,
+          "date": "2026-08-01"
+        },
+        {
+          "score": 6,
+          "date": "2026-08-25"
         }
       ]
     }
@@ -67,1239 +81,1533 @@
     "version": 4,
     "atoms": [
       {
-        "id": "atom_1",
-        "category": "work",
-        "value": "Works as a software engineer with high workload.",
-        "confidence": 0.95
+        "id": "atom_scr_1",
+        "category": "clinical",
+        "value": "Completed bi-weekly PHQ-9/GAD-7 screenings with steady score improvements.",
+        "confidence": 0.98
       },
       {
-        "id": "atom_2",
-        "category": "health",
-        "value": "Experiences anxiety and sleep difficulty.",
-        "confidence": 0.9
-      },
-      {
-        "id": "atom_3",
-        "category": "preference",
-        "value": "Prefers breathing exercises over meditation.",
-        "confidence": 0.85
+        "id": "atom_scr_2",
+        "category": "progress",
+        "value": "Depression score dropped from 18 (moderately severe) to 8 (mild).",
+        "confidence": 0.96
       }
     ]
   },
   "memory_summary": {
-    "summary": "## Overview\nUser is a software engineer dealing with stress and sleep anxiety.\n\n## Emotional Patterns & Coping\nResponds well to grounding exercises and breathing routines.\n\n## Work & Studies\nHigh workload with frequent tight deadlines."
+    "summary": "## Overview\nJordan is actively engaged in bi-weekly clinical screening and progress tracking.\n\n## Emotional Patterns & Coping\nResponds positively to objective score tracking and visual trend reviews.\n\n## Work & Studies\nAccountant maintaining regular health check-ins."
   },
   "user_snapshot": {
-    "situational_summary": "User (screening) is currently tracking wellness goals with active chat engagement.",
+    "situational_summary": "Jordan has shown consistent clinical improvement across PHQ-9 (18->8) and GAD-7 (16->6) over 3 months.",
     "recent_emotions": [
-      "anxious",
-      "hopeful"
+      "encouraged",
+      "reflective"
     ],
     "active_triggers": [
-      "work deadlines"
+      "monthly performance reports"
     ],
-    "coping_effectiveness": "moderate"
+    "coping_effectiveness": "high"
   },
   "history": [
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #1. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-04T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 2)"
+      "content": "Thank you for tracking check-in #1, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-04T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #2. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-05T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 4)"
+      "content": "Thank you for tracking check-in #2, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-05T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #3. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-06T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 6)"
+      "content": "Thank you for tracking check-in #3, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-06T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #4. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-09T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 8)"
+      "content": "Thank you for tracking check-in #4, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-09T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #5. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-11T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 10)"
+      "content": "Thank you for tracking check-in #5, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-11T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #6. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-12T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 12)"
+      "content": "Thank you for tracking check-in #6, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-12T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #7. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-13T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 14)"
+      "content": "Thank you for tracking check-in #7, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-13T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #8. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-14T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 16)"
+      "content": "Thank you for tracking check-in #8, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-14T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #9. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-17T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 18)"
+      "content": "Thank you for tracking check-in #9, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-17T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #10. Current depression self-assessment score is 18.",
+      "timestamp": "2026-08-18T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 20)"
+      "content": "Thank you for tracking check-in #10, Jordan. Your score of 18 reflects your ongoing progress.",
+      "timestamp": "2026-08-18T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #11. Current depression self-assessment score is 17.",
+      "timestamp": "2026-08-21T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 22)"
+      "content": "Thank you for tracking check-in #11, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-08-21T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #12. Current depression self-assessment score is 17.",
+      "timestamp": "2026-08-24T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 24)"
+      "content": "Thank you for tracking check-in #12, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-08-24T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #13. Current depression self-assessment score is 17.",
+      "timestamp": "2026-08-27T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 26)"
+      "content": "Thank you for tracking check-in #13, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-08-27T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #14. Current depression self-assessment score is 17.",
+      "timestamp": "2026-08-28T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 28)"
+      "content": "Thank you for tracking check-in #14, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-08-28T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #15. Current depression self-assessment score is 17.",
+      "timestamp": "2026-08-31T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 30)"
+      "content": "Thank you for tracking check-in #15, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-08-31T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #16. Current depression self-assessment score is 17.",
+      "timestamp": "2026-09-02T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 32)"
+      "content": "Thank you for tracking check-in #16, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-09-02T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #17. Current depression self-assessment score is 17.",
+      "timestamp": "2026-09-03T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 34)"
+      "content": "Thank you for tracking check-in #17, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-09-03T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #18. Current depression self-assessment score is 17.",
+      "timestamp": "2026-09-04T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 36)"
+      "content": "Thank you for tracking check-in #18, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-09-04T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #19. Current depression self-assessment score is 17.",
+      "timestamp": "2026-09-05T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 38)"
+      "content": "Thank you for tracking check-in #19, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-09-05T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #20. Current depression self-assessment score is 17.",
+      "timestamp": "2026-09-06T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 40)"
+      "content": "Thank you for tracking check-in #20, Jordan. Your score of 17 reflects your ongoing progress.",
+      "timestamp": "2026-09-06T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #21. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-07T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 42)"
+      "content": "Thank you for tracking check-in #21, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-07T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #22. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-10T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 44)"
+      "content": "Thank you for tracking check-in #22, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-10T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #23. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-13T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 46)"
+      "content": "Thank you for tracking check-in #23, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-13T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #24. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-14T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 48)"
+      "content": "Thank you for tracking check-in #24, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-14T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #25. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-17T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 50)"
+      "content": "Thank you for tracking check-in #25, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-17T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #26. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-18T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 52)"
+      "content": "Thank you for tracking check-in #26, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-18T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #27. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-21T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 54)"
+      "content": "Thank you for tracking check-in #27, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-21T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #28. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-24T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 56)"
+      "content": "Thank you for tracking check-in #28, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-24T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #29. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-27T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 58)"
+      "content": "Thank you for tracking check-in #29, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-27T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #30. Current depression self-assessment score is 16.",
+      "timestamp": "2026-09-30T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 60)"
+      "content": "Thank you for tracking check-in #30, Jordan. Your score of 16 reflects your ongoing progress.",
+      "timestamp": "2026-09-30T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #31. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-02T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 62)"
+      "content": "Thank you for tracking check-in #31, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-02T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #32. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-03T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 64)"
+      "content": "Thank you for tracking check-in #32, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-03T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #33. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-05T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 66)"
+      "content": "Thank you for tracking check-in #33, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-05T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #34. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-08T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 68)"
+      "content": "Thank you for tracking check-in #34, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-08T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #35. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-10T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 70)"
+      "content": "Thank you for tracking check-in #35, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-10T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #36. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-11T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 72)"
+      "content": "Thank you for tracking check-in #36, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-11T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #37. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-12T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 74)"
+      "content": "Thank you for tracking check-in #37, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-12T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #38. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-15T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 76)"
+      "content": "Thank you for tracking check-in #38, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-15T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #39. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-17T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 78)"
+      "content": "Thank you for tracking check-in #39, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-17T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #40. Current depression self-assessment score is 15.",
+      "timestamp": "2026-10-19T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 80)"
+      "content": "Thank you for tracking check-in #40, Jordan. Your score of 15 reflects your ongoing progress.",
+      "timestamp": "2026-10-19T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #41. Current depression self-assessment score is 14.",
+      "timestamp": "2026-10-21T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 82)"
+      "content": "Thank you for tracking check-in #41, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-10-21T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #42. Current depression self-assessment score is 14.",
+      "timestamp": "2026-10-22T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 84)"
+      "content": "Thank you for tracking check-in #42, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-10-22T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #43. Current depression self-assessment score is 14.",
+      "timestamp": "2026-10-23T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 86)"
+      "content": "Thank you for tracking check-in #43, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-10-23T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #44. Current depression self-assessment score is 14.",
+      "timestamp": "2026-10-25T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 88)"
+      "content": "Thank you for tracking check-in #44, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-10-25T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #45. Current depression self-assessment score is 14.",
+      "timestamp": "2026-10-26T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 90)"
+      "content": "Thank you for tracking check-in #45, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-10-26T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #46. Current depression self-assessment score is 14.",
+      "timestamp": "2026-10-27T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 92)"
+      "content": "Thank you for tracking check-in #46, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-10-27T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #47. Current depression self-assessment score is 14.",
+      "timestamp": "2026-10-29T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 94)"
+      "content": "Thank you for tracking check-in #47, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-10-29T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #48. Current depression self-assessment score is 14.",
+      "timestamp": "2026-10-30T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 96)"
+      "content": "Thank you for tracking check-in #48, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-10-30T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #49. Current depression self-assessment score is 14.",
+      "timestamp": "2026-11-01T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 98)"
+      "content": "Thank you for tracking check-in #49, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-11-01T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #50. Current depression self-assessment score is 14.",
+      "timestamp": "2026-11-03T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 100)"
+      "content": "Thank you for tracking check-in #50, Jordan. Your score of 14 reflects your ongoing progress.",
+      "timestamp": "2026-11-03T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #51. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-06T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 102)"
+      "content": "Thank you for tracking check-in #51, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-06T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #52. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-08T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 104)"
+      "content": "Thank you for tracking check-in #52, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-08T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #53. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-09T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 106)"
+      "content": "Thank you for tracking check-in #53, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-09T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #54. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-12T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 108)"
+      "content": "Thank you for tracking check-in #54, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-12T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #55. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-14T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 110)"
+      "content": "Thank you for tracking check-in #55, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-14T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #56. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-17T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 112)"
+      "content": "Thank you for tracking check-in #56, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-17T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #57. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-18T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 114)"
+      "content": "Thank you for tracking check-in #57, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-18T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #58. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-20T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 116)"
+      "content": "Thank you for tracking check-in #58, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-20T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #59. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-21T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 118)"
+      "content": "Thank you for tracking check-in #59, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-21T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #60. Current depression self-assessment score is 13.",
+      "timestamp": "2026-11-24T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 120)"
+      "content": "Thank you for tracking check-in #60, Jordan. Your score of 13 reflects your ongoing progress.",
+      "timestamp": "2026-11-24T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #61. Current depression self-assessment score is 12.",
+      "timestamp": "2026-11-26T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 122)"
+      "content": "Thank you for tracking check-in #61, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-11-26T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #62. Current depression self-assessment score is 12.",
+      "timestamp": "2026-11-29T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 124)"
+      "content": "Thank you for tracking check-in #62, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-11-29T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #63. Current depression self-assessment score is 12.",
+      "timestamp": "2026-12-02T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 126)"
+      "content": "Thank you for tracking check-in #63, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-12-02T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #64. Current depression self-assessment score is 12.",
+      "timestamp": "2026-12-04T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 128)"
+      "content": "Thank you for tracking check-in #64, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-12-04T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #65. Current depression self-assessment score is 12.",
+      "timestamp": "2026-12-07T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 130)"
+      "content": "Thank you for tracking check-in #65, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-12-07T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #66. Current depression self-assessment score is 12.",
+      "timestamp": "2026-12-08T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 132)"
+      "content": "Thank you for tracking check-in #66, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-12-08T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #67. Current depression self-assessment score is 12.",
+      "timestamp": "2026-12-11T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 134)"
+      "content": "Thank you for tracking check-in #67, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-12-11T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #68. Current depression self-assessment score is 12.",
+      "timestamp": "2026-12-12T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 136)"
+      "content": "Thank you for tracking check-in #68, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-12-12T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #69. Current depression self-assessment score is 12.",
+      "timestamp": "2026-12-13T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 138)"
+      "content": "Thank you for tracking check-in #69, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-12-13T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #70. Current depression self-assessment score is 12.",
+      "timestamp": "2026-12-16T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 140)"
+      "content": "Thank you for tracking check-in #70, Jordan. Your score of 12 reflects your ongoing progress.",
+      "timestamp": "2026-12-16T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #71. Current depression self-assessment score is 11.",
+      "timestamp": "2026-12-17T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 142)"
+      "content": "Thank you for tracking check-in #71, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2026-12-17T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #72. Current depression self-assessment score is 11.",
+      "timestamp": "2026-12-19T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 144)"
+      "content": "Thank you for tracking check-in #72, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2026-12-19T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #73. Current depression self-assessment score is 11.",
+      "timestamp": "2026-12-20T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 146)"
+      "content": "Thank you for tracking check-in #73, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2026-12-20T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #74. Current depression self-assessment score is 11.",
+      "timestamp": "2026-12-21T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 148)"
+      "content": "Thank you for tracking check-in #74, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2026-12-21T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #75. Current depression self-assessment score is 11.",
+      "timestamp": "2026-12-22T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 150)"
+      "content": "Thank you for tracking check-in #75, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2026-12-22T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #76. Current depression self-assessment score is 11.",
+      "timestamp": "2026-12-24T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 152)"
+      "content": "Thank you for tracking check-in #76, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2026-12-24T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #77. Current depression self-assessment score is 11.",
+      "timestamp": "2026-12-26T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 154)"
+      "content": "Thank you for tracking check-in #77, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2026-12-26T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #78. Current depression self-assessment score is 11.",
+      "timestamp": "2026-12-28T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 156)"
+      "content": "Thank you for tracking check-in #78, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2026-12-28T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #79. Current depression self-assessment score is 11.",
+      "timestamp": "2026-12-31T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 158)"
+      "content": "Thank you for tracking check-in #79, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2026-12-31T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #80. Current depression self-assessment score is 11.",
+      "timestamp": "2027-01-02T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 160)"
+      "content": "Thank you for tracking check-in #80, Jordan. Your score of 11 reflects your ongoing progress.",
+      "timestamp": "2027-01-02T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #81. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-03T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 162)"
+      "content": "Thank you for tracking check-in #81, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-03T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #82. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-05T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 164)"
+      "content": "Thank you for tracking check-in #82, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-05T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #83. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-07T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 166)"
+      "content": "Thank you for tracking check-in #83, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-07T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #84. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-08T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 168)"
+      "content": "Thank you for tracking check-in #84, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-08T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #85. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-11T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 170)"
+      "content": "Thank you for tracking check-in #85, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-11T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #86. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-13T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 172)"
+      "content": "Thank you for tracking check-in #86, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-13T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #87. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-16T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 174)"
+      "content": "Thank you for tracking check-in #87, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-16T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #88. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-19T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 176)"
+      "content": "Thank you for tracking check-in #88, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-19T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #89. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-22T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 178)"
+      "content": "Thank you for tracking check-in #89, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-22T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #90. Current depression self-assessment score is 10.",
+      "timestamp": "2027-01-23T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 180)"
+      "content": "Thank you for tracking check-in #90, Jordan. Your score of 10 reflects your ongoing progress.",
+      "timestamp": "2027-01-23T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #91. Current depression self-assessment score is 9.",
+      "timestamp": "2027-01-26T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 182)"
+      "content": "Thank you for tracking check-in #91, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-01-26T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #92. Current depression self-assessment score is 9.",
+      "timestamp": "2027-01-29T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 184)"
+      "content": "Thank you for tracking check-in #92, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-01-29T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #93. Current depression self-assessment score is 9.",
+      "timestamp": "2027-01-30T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 186)"
+      "content": "Thank you for tracking check-in #93, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-01-30T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #94. Current depression self-assessment score is 9.",
+      "timestamp": "2027-02-02T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 188)"
+      "content": "Thank you for tracking check-in #94, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-02-02T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #95. Current depression self-assessment score is 9.",
+      "timestamp": "2027-02-05T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 190)"
+      "content": "Thank you for tracking check-in #95, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-02-05T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #96. Current depression self-assessment score is 9.",
+      "timestamp": "2027-02-06T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 192)"
+      "content": "Thank you for tracking check-in #96, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-02-06T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #97. Current depression self-assessment score is 9.",
+      "timestamp": "2027-02-07T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 194)"
+      "content": "Thank you for tracking check-in #97, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-02-07T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #98. Current depression self-assessment score is 9.",
+      "timestamp": "2027-02-09T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 196)"
+      "content": "Thank you for tracking check-in #98, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-02-09T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #99. Current depression self-assessment score is 9.",
+      "timestamp": "2027-02-11T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 198)"
+      "content": "Thank you for tracking check-in #99, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-02-11T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #100. Current depression self-assessment score is 9.",
+      "timestamp": "2027-02-13T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 200)"
+      "content": "Thank you for tracking check-in #100, Jordan. Your score of 9 reflects your ongoing progress.",
+      "timestamp": "2027-02-13T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #101. Current depression self-assessment score is 8.",
+      "timestamp": "2027-02-16T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 202)"
+      "content": "Thank you for tracking check-in #101, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-02-16T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #102. Current depression self-assessment score is 8.",
+      "timestamp": "2027-02-19T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 204)"
+      "content": "Thank you for tracking check-in #102, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-02-19T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #103. Current depression self-assessment score is 8.",
+      "timestamp": "2027-02-22T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 206)"
+      "content": "Thank you for tracking check-in #103, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-02-22T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #104. Current depression self-assessment score is 8.",
+      "timestamp": "2027-02-23T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 208)"
+      "content": "Thank you for tracking check-in #104, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-02-23T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #105. Current depression self-assessment score is 8.",
+      "timestamp": "2027-02-26T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 210)"
+      "content": "Thank you for tracking check-in #105, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-02-26T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #106. Current depression self-assessment score is 8.",
+      "timestamp": "2027-02-28T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 212)"
+      "content": "Thank you for tracking check-in #106, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-02-28T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #107. Current depression self-assessment score is 8.",
+      "timestamp": "2027-03-01T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 214)"
+      "content": "Thank you for tracking check-in #107, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-03-01T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #108. Current depression self-assessment score is 8.",
+      "timestamp": "2027-03-02T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 216)"
+      "content": "Thank you for tracking check-in #108, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-03-02T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #109. Current depression self-assessment score is 8.",
+      "timestamp": "2027-03-03T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 218)"
+      "content": "Thank you for tracking check-in #109, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-03-03T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #110. Current depression self-assessment score is 8.",
+      "timestamp": "2027-03-05T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 220)"
+      "content": "Thank you for tracking check-in #110, Jordan. Your score of 8 reflects your ongoing progress.",
+      "timestamp": "2027-03-05T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #111. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-07T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 222)"
+      "content": "Thank you for tracking check-in #111, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-07T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #112. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-09T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 224)"
+      "content": "Thank you for tracking check-in #112, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-09T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #113. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-10T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 226)"
+      "content": "Thank you for tracking check-in #113, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-10T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #114. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-11T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 228)"
+      "content": "Thank you for tracking check-in #114, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-11T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #115. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-14T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 230)"
+      "content": "Thank you for tracking check-in #115, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-14T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #116. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-17T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 232)"
+      "content": "Thank you for tracking check-in #116, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-17T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #117. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-19T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 234)"
+      "content": "Thank you for tracking check-in #117, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-19T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #118. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-20T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 236)"
+      "content": "Thank you for tracking check-in #118, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-20T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #119. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-23T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 238)"
+      "content": "Thank you for tracking check-in #119, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-23T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #120. Current depression self-assessment score is 7.",
+      "timestamp": "2027-03-25T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 240)"
+      "content": "Thank you for tracking check-in #120, Jordan. Your score of 7 reflects your ongoing progress.",
+      "timestamp": "2027-03-25T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #121. Current depression self-assessment score is 6.",
+      "timestamp": "2027-03-27T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 242)"
+      "content": "Thank you for tracking check-in #121, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-03-27T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #122. Current depression self-assessment score is 6.",
+      "timestamp": "2027-03-30T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 244)"
+      "content": "Thank you for tracking check-in #122, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-03-30T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #123. Current depression self-assessment score is 6.",
+      "timestamp": "2027-04-01T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 246)"
+      "content": "Thank you for tracking check-in #123, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-04-01T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #124. Current depression self-assessment score is 6.",
+      "timestamp": "2027-04-02T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 248)"
+      "content": "Thank you for tracking check-in #124, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-04-02T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #125. Current depression self-assessment score is 6.",
+      "timestamp": "2027-04-04T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 250)"
+      "content": "Thank you for tracking check-in #125, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-04-04T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #126. Current depression self-assessment score is 6.",
+      "timestamp": "2027-04-05T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 252)"
+      "content": "Thank you for tracking check-in #126, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-04-05T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #127. Current depression self-assessment score is 6.",
+      "timestamp": "2027-04-06T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 254)"
+      "content": "Thank you for tracking check-in #127, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-04-06T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #128. Current depression self-assessment score is 6.",
+      "timestamp": "2027-04-09T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 256)"
+      "content": "Thank you for tracking check-in #128, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-04-09T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #129. Current depression self-assessment score is 6.",
+      "timestamp": "2027-04-12T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 258)"
+      "content": "Thank you for tracking check-in #129, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-04-12T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #130. Current depression self-assessment score is 6.",
+      "timestamp": "2027-04-15T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 260)"
+      "content": "Thank you for tracking check-in #130, Jordan. Your score of 6 reflects your ongoing progress.",
+      "timestamp": "2027-04-15T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #131. Current depression self-assessment score is 5.",
+      "timestamp": "2027-04-17T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 262)"
+      "content": "Thank you for tracking check-in #131, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-04-17T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #132. Current depression self-assessment score is 5.",
+      "timestamp": "2027-04-20T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 264)"
+      "content": "Thank you for tracking check-in #132, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-04-20T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #133. Current depression self-assessment score is 5.",
+      "timestamp": "2027-04-23T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 266)"
+      "content": "Thank you for tracking check-in #133, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-04-23T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #134. Current depression self-assessment score is 5.",
+      "timestamp": "2027-04-25T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 268)"
+      "content": "Thank you for tracking check-in #134, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-04-25T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #135. Current depression self-assessment score is 5.",
+      "timestamp": "2027-04-28T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 270)"
+      "content": "Thank you for tracking check-in #135, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-04-28T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #136. Current depression self-assessment score is 5.",
+      "timestamp": "2027-04-30T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 272)"
+      "content": "Thank you for tracking check-in #136, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-04-30T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #137. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-02T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 274)"
+      "content": "Thank you for tracking check-in #137, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-02T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #138. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-03T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 276)"
+      "content": "Thank you for tracking check-in #138, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-03T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #139. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-04T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 278)"
+      "content": "Thank you for tracking check-in #139, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-04T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #140. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-07T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 280)"
+      "content": "Thank you for tracking check-in #140, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-07T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #141. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-09T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 282)"
+      "content": "Thank you for tracking check-in #141, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-09T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #142. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-10T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 284)"
+      "content": "Thank you for tracking check-in #142, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-10T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #143. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-11T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 286)"
+      "content": "Thank you for tracking check-in #143, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-11T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #144. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-12T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 288)"
+      "content": "Thank you for tracking check-in #144, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-12T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #145. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-13T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 290)"
+      "content": "Thank you for tracking check-in #145, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-13T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+      "content": "Completing bi-weekly screening check-in #146. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-16T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 292)"
+      "content": "Thank you for tracking check-in #146, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-16T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "That makes sense. What about sleep hygiene?"
+      "content": "Completing bi-weekly screening check-in #147. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-17T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 294)"
+      "content": "Thank you for tracking check-in #147, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-17T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "What should I do when I wake up at 3 AM worrying?"
+      "content": "Completing bi-weekly screening check-in #148. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-20T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 296)"
+      "content": "Thank you for tracking check-in #148, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-20T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "How do I set better boundaries with my colleagues?"
+      "content": "Completing bi-weekly screening check-in #149. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-22T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 298)"
+      "content": "Thank you for tracking check-in #149, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-22T10:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Can we review my goals for this week?"
+      "content": "Completing bi-weekly screening check-in #150. Current depression self-assessment score is 5.",
+      "timestamp": "2027-05-25T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 300)"
+      "content": "Thank you for tracking check-in #150, Jordan. Your score of 5 reflects your ongoing progress.",
+      "timestamp": "2027-05-25T10:00:20+00:00"
     }
   ]
 }
