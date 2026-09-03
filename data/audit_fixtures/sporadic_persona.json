@@ -1,0 +1,185 @@
+{
+  "persona": "sporadic",
+  "seed": 42,
+  "message_count": 20,
+  "user_id_hash": "usr_audit_sporadic_42",
+  "profile": {
+    "user_id_hash": "usr_audit_sporadic_42",
+    "preferences": {
+      "communication_style": "balanced",
+      "preferred_name": "Sporadic",
+      "gender": "male",
+      "preferred_coping_tools": [
+        "breathing_exercise",
+        "grounding_54321",
+        "journaling"
+      ],
+      "wellness_goals": [
+        "reduce_anxiety",
+        "improve_sleep",
+        "work_life_balance"
+      ],
+      "avoided_topics": [
+        "substance_use"
+      ],
+      "custom_instructions": "Keep answers structured and practical.",
+      "ui_settings": {
+        "personalization": {
+          "baseStyle": "friendly",
+          "warmth": "high",
+          "useHeadersLists": true,
+          "emojiSupport": true
+        }
+      }
+    },
+    "clinical": {
+      "presenting_problems": [
+        "generalized_anxiety",
+        "sleep_disturbance"
+      ],
+      "suspected_diagnoses": [
+        "GAD"
+      ],
+      "treatment_plan": "Cognitive restructuring & daily relaxation techniques.",
+      "phq9_history": [
+        {
+          "score": 12,
+          "date": "2026-01-15"
+        },
+        {
+          "score": 9,
+          "date": "2026-02-15"
+        }
+      ],
+      "gad7_history": [
+        {
+          "score": 14,
+          "date": "2026-01-15"
+        },
+        {
+          "score": 11,
+          "date": "2026-02-15"
+        }
+      ]
+    }
+  },
+  "memory_graph": {
+    "version": 4,
+    "atoms": [
+      {
+        "id": "atom_1",
+        "category": "work",
+        "value": "Works as a software engineer with high workload.",
+        "confidence": 0.95
+      },
+      {
+        "id": "atom_2",
+        "category": "health",
+        "value": "Experiences anxiety and sleep difficulty.",
+        "confidence": 0.9
+      },
+      {
+        "id": "atom_3",
+        "category": "preference",
+        "value": "Prefers breathing exercises over meditation.",
+        "confidence": 0.85
+      }
+    ]
+  },
+  "memory_summary": {
+    "summary": "## Overview\nUser is a software engineer dealing with stress and sleep anxiety.\n\n## Emotional Patterns & Coping\nResponds well to grounding exercises and breathing routines.\n\n## Work & Studies\nHigh workload with frequent tight deadlines."
+  },
+  "user_snapshot": {
+    "situational_summary": "User (sporadic) is currently tracking wellness goals with active chat engagement.",
+    "recent_emotions": [
+      "anxious",
+      "hopeful"
+    ],
+    "active_triggers": [
+      "work deadlines"
+    ],
+    "coping_effectiveness": "moderate"
+  },
+  "history": [
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 2)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 4)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 6)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 8)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 10)"
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling quite overwhelmed with work deadlines lately."
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 12)"
+    },
+    {
+      "role": "user",
+      "content": "That makes sense. What about sleep hygiene?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 14)"
+    },
+    {
+      "role": "user",
+      "content": "What should I do when I wake up at 3 AM worrying?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 16)"
+    },
+    {
+      "role": "user",
+      "content": "How do I set better boundaries with my colleagues?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 18)"
+    },
+    {
+      "role": "user",
+      "content": "Can we review my goals for this week?"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand. Let's work through this step by step. (Turn 20)"
+    }
+  ]
+}
