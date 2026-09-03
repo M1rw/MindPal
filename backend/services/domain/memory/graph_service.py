@@ -235,7 +235,7 @@ class BrainService:
             id=atom.id,
             node_type=self.node_type_for(atom),
             category=atom.category,
-            title=atom.display_value[:180],
+            title=atom.display_value[:500],
             summary=atom.value,
             confidence=atom.confidence,
             sensitivity=atom.sensitivity,
@@ -1030,7 +1030,7 @@ def _clean_avoid_value(value: str) -> str:
 
 
 def _clean_value(value: str, *, max_words: int) -> str:
-    cleaned = sanitize_text(str(value or ""), 180)
+    cleaned = sanitize_text(str(value or ""), 500)
     cleaned = _WHITESPACE_RE.sub(" ", cleaned).strip(" .,!?:;،؟'\"")
     words = cleaned.split()
     if len(words) > max_words:
