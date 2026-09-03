@@ -8,6 +8,7 @@ from typing import Any, Sequence
 
 from backend.core.security import normalize_locale, sanitize_text
 from backend.models.memory import MemoryInteraction, MemoryInteractionRole, MemoryGraph
+from backend.models.understanding import MessageUnderstanding, UserContextSnapshot
 from backend.services.domain.llm.request_builder import build_llm_request
 from backend.services.domain.llm.service import LLMService
 
@@ -75,7 +76,8 @@ NARRATIVE FORMAT & STRUCTURE:
   * `## Emotional Patterns & Coping` (stressors, feelings, reflection style)
   * `## What Helps` (effective strategies, relaxing activities, support systems)
   * `## Personal Preferences` (communication style, tone, boundaries)
-- Under each section header, write rich, descriptive sentences drawing directly from the user's conversation history and facts. Do NOT compress or summarize into a single brief sentence or ellipsis.
+- Under each section header, write rich, descriptive sentences drawing directly from the intelligence-derived message understandings, context snapshot, and facts.
+- Do NOT compress or summarize into a single brief sentence or ellipsis.
 - If very little is known, produce an `## Overview` section with whatever genuine details exist.
 - Write in warm, respectful, third-person perspective ("The user...", "They...", or in Arabic "يفضل...", "يعمل في...").
 - Keep the tone private, supportive, and non-clinical.
@@ -91,11 +93,14 @@ async def synthesize_memory_narrative(
     existing_narrative: str = "",
     edit_instruction: str = "",
     extracted_facts: Sequence[str] = (),
+    understandings: Sequence[MessageUnderstanding] = (),
+    context_snapshot: UserContextSnapshot | None = None,
     fallback_locale: str = "auto",
     request_id: str = "mem_synth",
 ) -> tuple[str, str]:
     """
-    Synthesize narrative memory profile and detect language.
+    Synthesize narrative memory profile consuming intelligence-derived message understandings
+    and user-context snapshot alongside extracted facts for lower-cost, richer structured summaries.
 
     Returns:
         tuple[narrative_text, detected_language_code]
@@ -111,12 +116,33 @@ async def synthesize_memory_narrative(
     if edit_instruction.strip():
         context_parts.append(f"User Edit Request (SUPERSEDES contradicting prior info):\n{edit_instruction.strip()}")
 
+    if context_snapshot:
+        snapshot_summary = (
+            f"User Context Snapshot (Version {context_snapshot.version}):\n"
+            f"- Dominant Themes: {', '.join(context_snapshot.dominant_themes)}\n"
+            f"- Tone Trajectory: {context_snapshot.tone_trajectory}\n"
+            f"- Active Stressors: {', '.join(context_snapshot.active_stressors)}\n"
+            f"- Effective Coping / What Helps: {', '.join(context_snapshot.what_helps)}\n"
+            f"- Situational Portrait: {context_snapshot.situational_portrait}"
+        )
+        context_parts.append(snapshot_summary)
+
+    if understandings:
+        understanding_lines: list[str] = []
+        for u in understandings[-10:]:
+            u_text = f"- Emotional state: {u.emotional_state} | Themes: {', '.join(u.themes)} | Significance: {u.significance}"
+            if u.memory_worthiness >= 0.5:
+                u_text += f" | Key Memory Rationale: {u.memory_rationale}"
+            understanding_lines.append(u_text)
+        if understanding_lines:
+            context_parts.append("Per-Message AI Understanding:\n" + "\n".join(understanding_lines))
+
     if extracted_facts:
         facts_text = "\n".join(f"- {f}" for f in extracted_facts if f.strip())
         if facts_text:
             context_parts.append(f"Extracted Facts:\n{facts_text}")
 
-    if user_texts:
+    if user_texts and not understandings:
         recent_convo = "\n".join(f"- {t}" for t in user_texts[-20:] if t.strip())
         if recent_convo:
             context_parts.append(f"Recent User Conversation Snippets:\n{recent_convo}")
