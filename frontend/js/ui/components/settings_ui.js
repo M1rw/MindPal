@@ -503,9 +503,35 @@ export function formatRelativeTime(isoString) {
   return `${Math.floor(elapsedSecs / 86400)} days ago`;
 }
 
+let _cachedMemoryV4Summary = null;
+
+function _renderSummaryData(data, summaryContent, updatedLabel) {
+  const relativeTime = formatRelativeTime(data.last_updated_at);
+  const updatedText = `Updated ${relativeTime}`;
+  if (summaryContent) {
+    summaryContent.innerHTML = sanitizeRichHtml(formatMarkdown(data.summary_text));
+    const isRtl = Boolean(data.detected_language && data.detected_language.startsWith("ar"));
+    summaryContent.setAttribute("dir", isRtl ? "rtl" : "ltr");
+    summaryContent.setAttribute("data-detected-lang", data.detected_language || "en");
+
+    const editInput = document.getElementById("memory-edit-input");
+    if (editInput) {
+      editInput.setAttribute("dir", isRtl ? "rtl" : "ltr");
+    }
+  }
+  if (updatedLabel) updatedLabel.textContent = updatedText;
+}
+
 async function loadMemoryV4Data() {
   const summaryContent = document.getElementById("memory-narrative-content");
   const updatedLabel = document.getElementById("memory-last-updated");
+
+  // Instant render from cache if available or show subtle skeleton
+  if (_cachedMemoryV4Summary && summaryContent) {
+    _renderSummaryData(_cachedMemoryV4Summary, summaryContent, updatedLabel);
+  } else if (summaryContent && (!summaryContent.innerHTML || summaryContent.innerHTML.trim() === "")) {
+    summaryContent.innerHTML = `<div class="animate-pulse space-y-2 py-2"><div class="h-3.5 bg-gray-200 dark:bg-zinc-700/60 rounded w-3/4"></div><div class="h-3.5 bg-gray-200 dark:bg-zinc-700/60 rounded w-1/2"></div></div>`;
+  }
 
   try {
     const token = await getIdToken();
@@ -514,21 +540,8 @@ async function loadMemoryV4Data() {
     const summaryRes = await fetch("/api/memory/summary", { headers });
     if (summaryRes.ok) {
       const data = await summaryRes.json();
-      const relativeTime = formatRelativeTime(data.last_updated_at);
-      const updatedText = `Updated ${relativeTime}`;
-      if (summaryContent) {
-        summaryContent.innerHTML = sanitizeRichHtml(formatMarkdown(data.summary_text));
-        const isRtl = Boolean(data.detected_language && data.detected_language.startsWith("ar"));
-        summaryContent.setAttribute("dir", isRtl ? "rtl" : "ltr");
-        summaryContent.setAttribute("data-detected-lang", data.detected_language || "en");
-
-        // Also apply RTL attribute to the input box container if Arabic
-        const editInput = document.getElementById("memory-edit-input");
-        if (editInput) {
-          editInput.setAttribute("dir", isRtl ? "rtl" : "ltr");
-        }
-      }
-      if (updatedLabel) updatedLabel.textContent = updatedText;
+      _cachedMemoryV4Summary = data;
+      _renderSummaryData(data, summaryContent, updatedLabel);
     }
   } catch (err) {
     console.warn("Failed to load Memory data:", err);

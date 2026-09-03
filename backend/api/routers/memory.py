@@ -37,6 +37,7 @@ from backend.services.domain.memory.synthesis import (
     detect_user_language,
     synthesize_memory_narrative,
 )
+from backend.services.memory_repository import MemoryVersionConflictError
 
 router = APIRouter(prefix="/api/memory", tags=["memory"])
 MAX_MEMORY_INTERACTIONS = 50
@@ -183,30 +184,43 @@ async def edit_memory_summary(
         )
 
         from backend.models.memory import BrainCollection, utcnow
-        now = utcnow()
-        graph.updated_at = now
-        col = BrainCollection(id="coll_narrative_summary", title=new_summary, created_at=now, updated_at=now)
-        graph.brain.collections = [col]
 
-        if instruction:
-            atom = make_memory_atom(
-                user_id_hash=context.session.user_id_hash,
-                category=MemoryCategory.PREFERENCES,
-                value=f"User memory instruction: {instruction}",
-                source=MemorySource.MANUAL,
-            )
-            graph.atoms.append(atom)
+        # Concurrency retry loop for versioned replace
+        for attempt in range(3):
+            now = utcnow()
+            graph.updated_at = now
+            col = BrainCollection(id="coll_narrative_summary", title=new_summary, created_at=now, updated_at=now)
+            graph.brain.collections = [col]
 
-        await services.memory_repo.replace(
-            user_id_hash=context.session.user_id_hash,
-            graph=graph,
-            expected_version=graph.version,
-        )
+            if instruction:
+                instruction_text = f"User memory instruction: {instruction}"
+                if not any(a.value == instruction_text for a in graph.atoms):
+                    atom = make_memory_atom(
+                        user_id_hash=context.session.user_id_hash,
+                        category=MemoryCategory.PREFERENCES,
+                        value=instruction_text,
+                        source=MemorySource.MANUAL,
+                    )
+                    graph.atoms.append(atom)
+
+            try:
+                await services.memory_repo.replace(
+                    user_id_hash=context.session.user_id_hash,
+                    graph=graph,
+                    expected_version=graph.version,
+                )
+                break
+            except MemoryVersionConflictError:
+                if attempt == 2:
+                    raise
+                # Reload latest graph state and re-apply summary update on top
+                latest_graph = await services.memory_repo.load(context.session.user_id_hash)
+                graph = latest_graph
 
         return MemorySummaryResponse(
             summary_text=new_summary,
             detected_language=detected_lang,
-            last_updated_at=now.isoformat(),
+            last_updated_at=graph.updated_at.isoformat(),
             node_count=len(graph.active_atoms),
             is_enabled=graph.full_snapshot,
             is_empty=False,
@@ -242,22 +256,33 @@ async def refresh_memory_summary(
         )
 
         from backend.models.memory import BrainCollection, utcnow
-        now = utcnow()
-        graph.updated_at = now
-        col = BrainCollection(id="coll_narrative_summary", title=new_summary, created_at=now, updated_at=now)
-        graph.brain.collections = [col]
 
-        await services.memory_repo.replace(
-            user_id_hash=context.session.user_id_hash,
-            graph=graph,
-            expected_version=graph.version,
-        )
+        # Concurrency retry loop for versioned replace
+        for attempt in range(3):
+            now = utcnow()
+            graph.updated_at = now
+            col = BrainCollection(id="coll_narrative_summary", title=new_summary, created_at=now, updated_at=now)
+            graph.brain.collections = [col]
+
+            try:
+                await services.memory_repo.replace(
+                    user_id_hash=context.session.user_id_hash,
+                    graph=graph,
+                    expected_version=graph.version,
+                )
+                break
+            except MemoryVersionConflictError:
+                if attempt == 2:
+                    raise
+                # Reload latest graph state and re-apply summary collection on top
+                latest_graph = await services.memory_repo.load(context.session.user_id_hash)
+                graph = latest_graph
 
         return MemorySummaryResponse(
             summary_text=new_summary,
             detected_language=detected_lang,
-            last_updated_at=now.isoformat(),
-            node_count=len(active_atoms),
+            last_updated_at=graph.updated_at.isoformat(),
+            node_count=len(graph.active_atoms),
             is_enabled=graph.full_snapshot,
             is_empty=False,
         )
