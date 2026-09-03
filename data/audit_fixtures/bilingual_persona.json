@@ -7,1299 +7,1570 @@
     "user_id_hash": "usr_audit_bilingual_42",
     "preferences": {
       "communication_style": "balanced",
-      "preferred_name": "Bilingual",
+      "preferred_name": "Nour",
       "gender": "female",
       "preferred_coping_tools": [
         "breathing_exercise",
-        "grounding_54321",
-        "journaling"
+        "reflection_journal"
       ],
       "wellness_goals": [
-        "reduce_anxiety",
-        "improve_sleep",
+        "bilingual_expression",
         "work_life_balance"
       ],
-      "avoided_topics": [
-        "substance_use"
-      ],
-      "custom_instructions": "Keep answers structured and practical.",
+      "avoided_topics": [],
+      "custom_instructions": "Respond in Egyptian Arabic when I speak Arabic, and English when I speak English.",
       "ui_settings": {
         "personalization": {
-          "baseStyle": "friendly",
+          "baseStyle": "warm",
           "warmth": "high",
-          "useHeadersLists": true,
+          "useHeadersLists": false,
           "emojiSupport": true
         }
       }
     },
     "clinical": {
       "presenting_problems": [
-        "generalized_anxiety",
-        "sleep_disturbance"
+        "acculturative_stress",
+        "family_expectations"
       ],
-      "suspected_diagnoses": [
-        "GAD"
-      ],
-      "treatment_plan": "Cognitive restructuring & daily relaxation techniques.",
-      "phq9_history": [
-        {
-          "score": 12,
-          "date": "2026-01-15"
-        },
-        {
-          "score": 9,
-          "date": "2026-02-15"
-        }
-      ],
-      "gad7_history": [
-        {
-          "score": 14,
-          "date": "2026-01-15"
-        },
-        {
-          "score": 11,
-          "date": "2026-02-15"
-        }
-      ]
+      "suspected_diagnoses": [],
+      "treatment_plan": "Supportive listening and bilingual cognitive reframing.",
+      "phq9_history": [],
+      "gad7_history": []
     }
   },
   "memory_graph": {
     "version": 4,
     "atoms": [
       {
-        "id": "atom_1",
-        "category": "work",
-        "value": "Works as a software engineer with high workload.",
-        "confidence": 0.95
+        "id": "atom_bi_1",
+        "category": "culture",
+        "value": "Lives abroad, switches naturally between Egyptian Arabic and English.",
+        "confidence": 0.96
       },
       {
-        "id": "atom_2",
-        "category": "health",
-        "value": "Experiences anxiety and sleep difficulty.",
-        "confidence": 0.9
-      },
-      {
-        "id": "atom_3",
-        "category": "preference",
-        "value": "Prefers breathing exercises over meditation.",
-        "confidence": 0.85
+        "id": "atom_bi_2",
+        "category": "family",
+        "value": "Feels family pressure regarding career choices.",
+        "confidence": 0.88
       }
     ]
   },
   "memory_summary": {
-    "summary": "## Overview\nUser is a software engineer dealing with stress and sleep anxiety.\n\n## Emotional Patterns & Coping\nResponds well to grounding exercises and breathing routines.\n\n## Work & Studies\nHigh workload with frequent tight deadlines."
+    "summary": "## Overview\nNour is an Egyptian professional living abroad, navigating dual-cultural dynamics.\n\n## Emotional Patterns & Coping\nExpresses deep emotional themes in Arabic and workplace topics in English.\n\n## Work & Studies\nWorks in digital marketing while maintaining close family ties in Cairo."
   },
   "user_snapshot": {
-    "situational_summary": "User (bilingual) is currently tracking wellness goals with active chat engagement.",
+    "situational_summary": "Nour is navigating family communication and career balance using bilingual expression.",
     "recent_emotions": [
-      "anxious",
-      "hopeful"
+      "nostalgic",
+      "motivated"
     ],
     "active_triggers": [
+      "family phone calls",
       "work deadlines"
     ],
-    "coping_effectiveness": "moderate"
+    "coping_effectiveness": "high"
   },
   "history": [
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 1 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-01T11:12:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 2)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 1، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-01T11:12:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #2 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-01T11:39:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 4)"
+      "content": "You're doing great on project update #2, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-01T11:39:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 3 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-01T14:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 6)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 3، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-01T14:14:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #4 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-01T16:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 8)"
+      "content": "You're doing great on project update #4, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-01T16:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 5 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-01T18:43:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 10)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 5، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-01T18:43:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #6 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-01T20:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 12)"
+      "content": "You're doing great on project update #6, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-01T20:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 7 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-01T21:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 14)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 7، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-01T21:16:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #8 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-02T02:10:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 16)"
+      "content": "You're doing great on project update #8, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-02T02:10:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 9 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-02T03:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 18)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 9، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-02T03:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #10 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-02T07:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 20)"
+      "content": "You're doing great on project update #10, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-02T07:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 11 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-02T07:31:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 22)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 11، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-02T07:31:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #12 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-02T08:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 24)"
+      "content": "You're doing great on project update #12, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-02T08:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 13 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-02T09:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 26)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 13، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-02T09:03:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #14 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-02T11:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 28)"
+      "content": "You're doing great on project update #14, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-02T11:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 15 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-02T13:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 30)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 15، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-02T13:23:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #16 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-02T17:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 32)"
+      "content": "You're doing great on project update #16, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-02T17:56:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 17 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-02T18:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 34)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 17، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-02T18:24:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #18 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-02T20:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 36)"
+      "content": "You're doing great on project update #18, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-02T20:20:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 19 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-03T01:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 38)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 19، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-03T01:14:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #20 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-03T05:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 40)"
+      "content": "You're doing great on project update #20, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-03T05:03:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 21 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-03T07:10:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 42)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 21، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-03T07:10:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #22 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-03T11:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 44)"
+      "content": "You're doing great on project update #22, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-03T11:14:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 23 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-03T13:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 46)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 23، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-03T13:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #24 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-03T14:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 48)"
+      "content": "You're doing great on project update #24, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-03T14:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 25 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-03T15:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 50)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 25، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-03T15:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #26 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-03T19:36:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 52)"
+      "content": "You're doing great on project update #26, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-03T19:36:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 27 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-03T22:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 54)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 27، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-03T22:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #28 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-04T01:22:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 56)"
+      "content": "You're doing great on project update #28, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-04T01:22:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 29 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-04T02:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 58)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 29، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-04T02:56:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #30 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-04T05:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 60)"
+      "content": "You're doing great on project update #30, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-04T05:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 31 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-04T08:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 62)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 31، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-04T08:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #32 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-04T09:15:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 64)"
+      "content": "You're doing great on project update #32, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-04T09:15:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 33 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-04T10:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 66)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 33، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-04T10:17:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #34 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-04T13:46:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 68)"
+      "content": "You're doing great on project update #34, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-04T13:46:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 35 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-04T14:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 70)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 35، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-04T14:50:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #36 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-04T18:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 72)"
+      "content": "You're doing great on project update #36, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-04T18:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 37 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-04T21:19:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 74)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 37، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-04T21:19:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #38 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-04T23:49:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 76)"
+      "content": "You're doing great on project update #38, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-04T23:49:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 39 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-05T00:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 78)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 39، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-05T00:26:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #40 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-05T04:36:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 80)"
+      "content": "You're doing great on project update #40, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-05T04:36:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 41 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-05T09:25:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 82)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 41، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-05T09:25:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #42 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-05T10:43:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 84)"
+      "content": "You're doing great on project update #42, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-05T10:43:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 43 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-05T14:11:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 86)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 43، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-05T14:11:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #44 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-05T15:06:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 88)"
+      "content": "You're doing great on project update #44, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-05T15:06:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 45 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-05T20:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 90)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 45، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-05T20:03:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #46 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-05T22:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 92)"
+      "content": "You're doing great on project update #46, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-05T22:48:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 47 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-06T02:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 94)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 47، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-06T02:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #48 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-06T04:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 96)"
+      "content": "You're doing great on project update #48, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-06T04:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 49 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-06T04:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 98)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 49، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-06T04:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #50 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-06T05:29:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 100)"
+      "content": "You're doing great on project update #50, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-06T05:29:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 51 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-06T07:40:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 102)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 51، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-06T07:40:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #52 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-06T10:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 104)"
+      "content": "You're doing great on project update #52, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-06T10:23:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 53 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-06T11:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 106)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 53، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-06T11:18:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #54 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-06T13:32:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 108)"
+      "content": "You're doing great on project update #54, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-06T13:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 55 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-06T14:38:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 110)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 55، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-06T14:38:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #56 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-06T18:07:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 112)"
+      "content": "You're doing great on project update #56, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-06T18:07:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 57 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-06T20:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 114)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 57، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-06T20:44:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #58 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-07T00:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 116)"
+      "content": "You're doing great on project update #58, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-07T00:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 59 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-07T04:12:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 118)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 59، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-07T04:12:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #60 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-07T05:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 120)"
+      "content": "You're doing great on project update #60, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-07T05:50:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 61 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-07T09:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 122)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 61، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-07T09:14:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #62 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-07T12:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 124)"
+      "content": "You're doing great on project update #62, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-07T12:30:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 63 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-07T14:32:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 126)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 63، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-07T14:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #64 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-07T17:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 128)"
+      "content": "You're doing great on project update #64, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-07T17:03:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 65 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-07T17:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 130)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 65، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-07T17:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #66 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-07T19:36:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 132)"
+      "content": "You're doing great on project update #66, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-07T19:36:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 67 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-08T00:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 134)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 67، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-08T00:24:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #68 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-08T02:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 136)"
+      "content": "You're doing great on project update #68, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-08T02:44:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 69 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-08T04:22:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 138)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 69، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-08T04:22:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #70 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-08T08:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 140)"
+      "content": "You're doing great on project update #70, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-08T08:33:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 71 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-08T12:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 142)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 71، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-08T12:02:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #72 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-08T14:35:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 144)"
+      "content": "You're doing great on project update #72, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-08T14:35:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 73 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-08T19:35:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 146)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 73، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-08T19:35:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #74 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-08T21:42:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 148)"
+      "content": "You're doing great on project update #74, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-08T21:42:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 75 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-09T00:43:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 150)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 75، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-09T00:43:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #76 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-09T01:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 152)"
+      "content": "You're doing great on project update #76, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-09T01:26:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 77 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-09T03:38:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 154)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 77، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-09T03:38:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #78 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-09T04:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 156)"
+      "content": "You're doing great on project update #78, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-09T04:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 79 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-09T07:05:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 158)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 79، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-09T07:05:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #80 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-09T10:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 160)"
+      "content": "You're doing great on project update #80, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-09T10:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 81 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-09T13:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 162)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 81، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-09T13:17:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #82 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-09T14:05:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 164)"
+      "content": "You're doing great on project update #82, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-09T14:05:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 83 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-09T16:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 166)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 83، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-09T16:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #84 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-09T19:04:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 168)"
+      "content": "You're doing great on project update #84, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-09T19:04:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 85 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-09T21:07:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 170)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 85، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-09T21:07:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #86 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-10T01:37:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 172)"
+      "content": "You're doing great on project update #86, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-10T01:37:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 87 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-10T05:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 174)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 87، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-10T05:14:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #88 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-10T09:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 176)"
+      "content": "You're doing great on project update #88, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-10T09:23:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 89 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-10T10:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 178)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 89، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-10T10:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #90 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-10T13:21:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 180)"
+      "content": "You're doing great on project update #90, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-10T13:21:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 91 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-10T14:47:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 182)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 91، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-10T14:47:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #92 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-10T17:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 184)"
+      "content": "You're doing great on project update #92, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-10T17:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 93 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-10T21:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 186)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 93، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-10T21:58:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #94 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-11T00:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 188)"
+      "content": "You're doing great on project update #94, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-11T00:27:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 95 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-11T04:21:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 190)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 95، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-11T04:21:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #96 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-11T08:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 192)"
+      "content": "You're doing great on project update #96, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-11T08:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 97 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-11T11:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 194)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 97، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-11T11:20:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #98 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-11T13:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 196)"
+      "content": "You're doing great on project update #98, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-11T13:27:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 99 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-11T14:52:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 198)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 99، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-11T14:52:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #100 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-11T19:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 200)"
+      "content": "You're doing great on project update #100, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-11T19:27:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 101 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-11T23:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 202)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 101، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-11T23:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #102 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-12T00:55:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 204)"
+      "content": "You're doing great on project update #102, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-12T00:55:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 103 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-12T01:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 206)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 103، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-12T01:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #104 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-12T02:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 208)"
+      "content": "You're doing great on project update #104, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-12T02:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 105 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-12T04:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 210)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 105، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-12T04:18:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #106 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-12T05:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 212)"
+      "content": "You're doing great on project update #106, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-12T05:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 107 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-12T09:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 214)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 107، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-12T09:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #108 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-12T10:32:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 216)"
+      "content": "You're doing great on project update #108, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-12T10:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 109 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-12T14:04:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 218)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 109، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-12T14:04:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #110 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-12T17:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 220)"
+      "content": "You're doing great on project update #110, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-12T17:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 111 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-12T21:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 222)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 111، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-12T21:48:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #112 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-13T02:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 224)"
+      "content": "You're doing great on project update #112, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-13T02:33:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 113 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-13T04:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 226)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 113، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-13T04:56:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #114 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-13T09:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 228)"
+      "content": "You're doing great on project update #114, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-13T09:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 115 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-13T10:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 230)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 115، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-13T10:14:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #116 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-13T11:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 232)"
+      "content": "You're doing great on project update #116, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-13T11:27:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 117 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-13T16:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 234)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 117، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-13T16:16:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #118 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-13T18:47:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 236)"
+      "content": "You're doing great on project update #118, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-13T18:47:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 119 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-13T21:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 238)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 119، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-13T21:56:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #120 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-13T23:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 240)"
+      "content": "You're doing great on project update #120, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-13T23:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 121 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-14T01:53:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 242)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 121، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-14T01:53:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #122 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-14T05:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 244)"
+      "content": "You're doing great on project update #122, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-14T05:50:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 123 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-14T07:25:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 246)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 123، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-14T07:25:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #124 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-14T11:32:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 248)"
+      "content": "You're doing great on project update #124, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-14T11:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 125 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-14T11:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 250)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 125، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-14T11:48:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #126 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-14T14:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 252)"
+      "content": "You're doing great on project update #126, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-14T14:17:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 127 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-14T18:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 254)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 127، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-14T18:48:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #128 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-14T20:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 256)"
+      "content": "You're doing great on project update #128, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-14T20:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 129 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-15T01:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 258)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 129، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-15T01:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #130 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-15T02:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 260)"
+      "content": "You're doing great on project update #130, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-15T02:17:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 131 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-15T05:04:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 262)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 131، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-15T05:04:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #132 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-15T09:38:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 264)"
+      "content": "You're doing great on project update #132, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-15T09:38:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 133 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-15T11:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 266)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 133، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-15T11:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #134 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-15T13:07:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 268)"
+      "content": "You're doing great on project update #134, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-15T13:07:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 135 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-15T16:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 270)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 135، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-15T16:33:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #136 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-15T18:10:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 272)"
+      "content": "You're doing great on project update #136, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-15T18:10:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 137 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-15T23:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 274)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 137، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-15T23:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #138 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-16T03:47:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 276)"
+      "content": "You're doing great on project update #138, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-16T03:47:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 139 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-16T04:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 278)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 139، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-16T04:02:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #140 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-16T07:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 280)"
+      "content": "You're doing great on project update #140, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-16T07:02:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 141 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-16T11:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 282)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 141، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-16T11:27:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "I'm working on project update #142 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-16T11:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 284)"
+      "content": "You're doing great on project update #142, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-16T11:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 143 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-16T13:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 286)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 143، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-16T13:03:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "I'm working on project update #144 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-16T16:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 288)"
+      "content": "You're doing great on project update #144, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-16T16:23:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 145 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-16T19:15:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 290)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 145، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-16T19:15:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسس بضغط كبير من الشغل ومش عارف أنام كويس بليل."
+      "content": "I'm working on project update #146 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-16T21:32:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 292)"
+      "content": "You're doing great on project update #146, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-16T21:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "Yesterday was really hard at work, but Today I feel a bit better."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 147 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-16T22:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 294)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 147، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-16T22:16:20+00:00"
     },
     {
       "role": "user",
-      "content": "هل فيه تمارين تنفس معينة تقدر تنصحني بيها دلوقتي؟"
+      "content": "I'm working on project update #148 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-17T00:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 296)"
+      "content": "You're doing great on project update #148, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-17T00:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "Sometimes I feel overwhelmed by everything expected of me."
+      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 149 ومحتاجة أرتب أفكاري.",
+      "timestamp": "2026-08-17T01:29:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 298)"
+      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 149، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "timestamp": "2026-08-17T01:29:20+00:00"
     },
     {
       "role": "user",
-      "content": "Today was okay, I managed to take a short walk in the evening."
+      "content": "I'm working on project update #150 in English and feeling slightly nervous.",
+      "timestamp": "2026-08-17T02:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I understand. Let's work through this step by step. (Turn 300)"
+      "content": "You're doing great on project update #150, Nour! Focus on your 3 key points and take a steady breath.",
+      "timestamp": "2026-08-17T02:27:20+00:00"
     }
   ]
 }
