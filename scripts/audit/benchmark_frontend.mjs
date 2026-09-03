@@ -5,11 +5,23 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 
-// Simple static server for frontend/ directory
+const FRONTEND_DIR = path.resolve(process.cwd(), 'frontend');
+
+// Simple static server for frontend/ directory with strict path sanitization
 function createServer(port) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
-      let filePath = path.join(process.cwd(), 'frontend', req.url === '/' ? 'index.html' : req.url.split('?')[0]);
+      // Prevent path traversal by sanitizing request URL against FRONTEND_DIR root
+      const reqPath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+      const safePath = path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, '');
+      let filePath = path.join(FRONTEND_DIR, safePath);
+
+      if (!filePath.startsWith(FRONTEND_DIR)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+      }
+
       if (!fs.existsSync(filePath)) {
         res.writeHead(404);
         res.end('Not found');
