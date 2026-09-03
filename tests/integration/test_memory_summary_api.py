@@ -2,8 +2,43 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, patch
 import pytest
 from backend.models.memory import MemoryGraph, build_memory_prompt_from_graph
+
+
+def test_summary_persistence_zero_synthesis_on_get(auth_client):
+    """
+    Guard/Contract Test: Asserts that fetching GET /api/memory/summary N times
+    triggers exactly ZERO LLM synthesis calls, proving the summary is a stored artifact.
+    Clicking POST /refresh or PUT /summary triggers synthesis calls.
+    """
+    with patch(
+        "backend.api.routers.memory.synthesize_memory_narrative",
+        new_callable=AsyncMock,
+        return_value=("## Overview\n\nSynthesized summary", "en"),
+    ) as mock_synth:
+        # Fetch GET /api/memory/summary 10 times
+        for _ in range(10):
+            res = auth_client.get("/api/memory/summary")
+            assert res.status_code == 200
+            assert "summary_text" in res.json()
+
+        # Assert exactly ZERO calls were made to synthesis on GET
+        assert mock_synth.call_count == 0, f"Expected 0 synthesis calls on GET, got {mock_synth.call_count}"
+
+        # Trigger POST /refresh
+        ref_res = auth_client.post("/api/memory/summary/refresh")
+        assert ref_res.status_code == 200
+        assert mock_synth.call_count == 1, f"Expected 1 synthesis call after refresh, got {mock_synth.call_count}"
+
+        # Trigger PUT /summary
+        put_res = auth_client.put(
+            "/api/memory/summary",
+            json={"instruction": "Remember I love morning walks.", "action": "update"},
+        )
+        assert put_res.status_code == 200
+        assert mock_synth.call_count == 2, f"Expected 2 total synthesis calls after update, got {mock_synth.call_count}"
 
 
 def test_memory_summary_get_and_edit_roundtrip(auth_client):
