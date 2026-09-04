@@ -8,7 +8,7 @@
                     <h2 id="auth-modal-title" class="auth-modal__title">Back up your MindPal</h2>
                     <p id="auth-modal-description" class="auth-modal__copy">Sign in to securely sync your memory and conversations across devices.</p>
                 </div>
-                <button id="auth-modal-close-btn" class="auth-modal__close" type="button" aria-label="Close sign-in"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <button id="auth-modal-close-btn" class="auth-modal__close focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none" type="button" aria-label="Close sign-in"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
 
             <div id="auth-modal-message" class="auth-modal__message hidden" aria-live="polite"></div>
@@ -29,7 +29,7 @@
                 <h3 class="auth-modal__form-title">Continue with email</h3>
                 <p id="auth-email-mode-copy" class="auth-modal__form-copy">Use your MindPal email and password to sign in.</p>
                 <label class="auth-field"><span>Email</span><input id="auth-email-input" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com"></label>
-                <label class="auth-field"><span>Password</span><div class="auth-password-wrap"><input id="auth-password-input" type="password" autocomplete="current-password" required minlength="6" placeholder="At least 6 characters"><button id="auth-password-visibility-btn" type="button" class="auth-password-visibility" aria-label="Show password"><i data-lucide="eye" class="w-4 h-4"></i></button></div></label>
+                <label class="auth-field"><span>Password</span><div class="auth-password-wrap"><input id="auth-password-input" type="password" autocomplete="current-password" required minlength="6" placeholder="At least 6 characters"><button id="auth-password-visibility-btn" type="button" class="auth-password-visibility focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none" aria-label="Show password" aria-pressed="false"><i data-lucide="eye" class="w-4 h-4"></i></button></div></label>
                 <button id="auth-email-submit-btn" class="auth-modal__primary-btn" type="submit">Sign in</button>
                 <div class="auth-modal__form-footer"><button id="auth-email-mode-btn" class="auth-modal__text-btn" type="button">Create an account</button><button id="auth-password-reset-btn" class="auth-modal__text-btn" type="button">Forgot password?</button></div>
             </form>
