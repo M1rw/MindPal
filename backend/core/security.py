@@ -52,7 +52,7 @@ _API_TOKEN_RE = re.compile(
     r"\b(?:sk-(?:proj|live|test|ant|or|svc)-[A-Za-z0-9_-]{12,}|sk-[A-Za-z0-9_-]{20,}|(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{16,}|AIzaSy[A-Za-z0-9_-]{20,})\b"
 )
 _LONG_TOKEN_RE = re.compile(
-    r"\b(?=[A-Za-z0-9._~+/=-]*[A-Za-z])(?=[A-Za-z0-9._~+/=-]*\d)[A-Za-z0-9._~+/=-]{24,}\b"
+    r"\b(?!(?:usr|req|msg)_)(?=[A-Za-z0-9._~+/=-]*[A-Za-z])(?=[A-Za-z0-9._~+/=-]*\d)[A-Za-z0-9._~+/=-]{24,}\b"
 )
 _IPV4_RE = re.compile(
     r"(?<!\d\.)(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)(?!\.\d)"
