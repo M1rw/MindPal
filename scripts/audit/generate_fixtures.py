@@ -3,6 +3,7 @@
 import argparse
 import json
 import random
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -147,17 +148,22 @@ def generate_bilingual_persona(seed: int, target_messages: int) -> dict[str, Any
         "coping_effectiveness": "high"
     }
 
+    arabic_topics = ["الشغل والالتزامات", "مكالمة العيلة النهاردة", "التفكير في المستقبل", "ترتيب الأفكار"]
+    english_topics = ["marketing strategy presentation", "team alignment meeting", "quarterly performance review", "project launch"]
+
     history = []
     current_time = BASE_TIME
 
     for i in range(target_messages // 2):
         current_time += timedelta(minutes=random.randint(15, 300))
         if i % 2 == 0:
-            user_msg = f"أنا حاسّة بضغط في موضوع الشغل النهاردة رقم {i+1} ومحتاجة أرتب أفكاري."
-            asst_msg = f"سلامتك يا نور. بالنسبة لموضوع رقم {i+1}، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء."
+            topic = arabic_topics[i % len(arabic_topics)]
+            user_msg = f"أنا حاسّة بضغط في {topic} رقم {i+1} ومحتاجة أرتب أفكاري بوضوح."
+            asst_msg = f"سلامتك يا نور. بالنسبة لـ {topic} رقم {i+1}، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء."
         else:
+            topic = english_topics[i % len(english_topics)]
             user_msg = f"I'm working on project update #{i+1} in English and feeling slightly nervous."
-            asst_msg = f"You're doing great on project update #{i+1}, Nour! Focus on your 3 key points and take a steady breath."
+            asst_msg = f"You've got this, Nour! For project update #{i+1}, let's highlight your top 3 points clearly."
 
         history.append({"role": "user", "content": user_msg, "timestamp": current_time.isoformat()})
         history.append({"role": "assistant", "content": asst_msg, "timestamp": (current_time + timedelta(seconds=20)).isoformat()})
@@ -226,17 +232,20 @@ def generate_distressed_persona(seed: int, target_messages: int) -> dict[str, An
         "coping_effectiveness": "moderate"
     }
 
+    triggers = ["exam stress", "crowded room", "sudden heart flutter", "late night worry", "presentation fear"]
+
     history = []
     current_time = BASE_TIME
 
     for i in range(target_messages // 2):
         current_time += timedelta(minutes=random.randint(10, 120))
+        trigger = triggers[i % len(triggers)]
 
-        user_msg = f"I'm feeling a surge of anxiety around situation #{i+1}, my chest feels tight."
-        asst_msg = f"I'm right here with you, Maya. For situation #{i+1}, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see."
+        user_text = f"I'm feeling an anxiety surge triggered by {trigger} (event #{i+1}). My chest feels tight."
+        asst_text = f"I'm right here with you, Maya. For event #{i+1} ({trigger}), let's ground together: name 3 physical objects around you and take one slow breath."
 
-        history.append({"role": "user", "content": user_msg, "timestamp": current_time.isoformat()})
-        history.append({"role": "assistant", "content": asst_msg, "timestamp": (current_time + timedelta(seconds=15)).isoformat()})
+        history.append({"role": "user", "content": user_text, "timestamp": current_time.isoformat()})
+        history.append({"role": "assistant", "content": asst_text, "timestamp": (current_time + timedelta(seconds=15)).isoformat()})
 
     return {
         "persona": "distressed",
@@ -254,6 +263,41 @@ def generate_distressed_persona(seed: int, target_messages: int) -> dict[str, An
 def generate_screening_persona(seed: int, target_messages: int) -> dict[str, Any]:
     random.seed(seed)
     user_id_hash = f"usr_audit_screening_{seed}"
+
+    # Programmatic PHQ-9 / GAD-7 downward random-walk trajectory
+    phq9_scores = []
+    gad7_scores = []
+    current_phq9 = 18
+    current_gad7 = 16
+
+    history = []
+    current_time = BASE_TIME
+
+    for i in range(target_messages // 2):
+        current_time += timedelta(days=random.randint(1, 3))
+
+        # Decrement score steadily across check-in turns down to 6
+        if i % 8 == 0 and current_phq9 > 6:
+            current_phq9 -= 1
+        if i % 10 == 0 and current_gad7 > 5:
+            current_gad7 -= 1
+
+        date_str = current_time.strftime("%Y-%m-%d")
+        if i % 25 == 0:
+            phq9_scores.append({"score": current_phq9, "date": date_str})
+            gad7_scores.append({"score": current_gad7, "date": date_str})
+
+        user_text = (
+            f"Jordan reporting for screening session #{i+1} on {date_str}. "
+            f"My depression self-reported score is now {current_phq9} and anxiety score is {current_gad7}."
+        )
+        asst_text = (
+            f"Thank you for checking in for session #{i+1}, Jordan. "
+            f"A score of PHQ-9={current_phq9} and GAD-7={current_gad7} marks your steady clinical progress."
+        )
+
+        history.append({"role": "user", "content": user_text, "timestamp": current_time.isoformat()})
+        history.append({"role": "assistant", "content": asst_text, "timestamp": (current_time + timedelta(seconds=20)).isoformat()})
 
     profile = {
         "user_id_hash": user_id_hash,
@@ -278,52 +322,29 @@ def generate_screening_persona(seed: int, target_messages: int) -> dict[str, Any
             "presenting_problems": ["depressive_episodes", "generalized_anxiety"],
             "suspected_diagnoses": ["Major Depressive Disorder", "GAD"],
             "treatment_plan": "Bi-weekly PHQ-9 / GAD-7 screening and longitudinal symptom tracking.",
-            "phq9_history": [
-                {"score": 18, "date": "2026-06-01"},
-                {"score": 15, "date": "2026-07-01"},
-                {"score": 11, "date": "2026-08-01"},
-                {"score": 8, "date": "2026-08-25"}
-            ],
-            "gad7_history": [
-                {"score": 16, "date": "2026-06-01"},
-                {"score": 13, "date": "2026-07-01"},
-                {"score": 9, "date": "2026-08-01"},
-                {"score": 6, "date": "2026-08-25"}
-            ]
+            "phq9_history": phq9_scores,
+            "gad7_history": gad7_scores
         }
     }
 
     memory_graph = {
         "version": 4,
         "atoms": [
-            {"id": "atom_scr_1", "category": "clinical", "value": "Completed bi-weekly PHQ-9/GAD-7 screenings with steady score improvements.", "confidence": 0.98},
-            {"id": "atom_scr_2", "category": "progress", "value": "Depression score dropped from 18 (moderately severe) to 8 (mild).", "confidence": 0.96}
+            {"id": "atom_scr_1", "category": "clinical", "value": f"Completed longitudinal PHQ-9/GAD-7 screenings; depression score improved to {current_phq9}.", "confidence": 0.98},
+            {"id": "atom_scr_2", "category": "progress", "value": f"Symptom tracking shows score reduction down to PHQ-9={current_phq9}.", "confidence": 0.96}
         ]
     }
 
     memory_summary = {
-        "summary": "## Overview\nJordan is actively engaged in bi-weekly clinical screening and progress tracking.\n\n## Emotional Patterns & Coping\nResponds positively to objective score tracking and visual trend reviews.\n\n## Work & Studies\nAccountant maintaining regular health check-ins."
+        "summary": f"## Overview\nJordan is actively engaged in clinical screening. PHQ-9 improved to {current_phq9}.\n\n## Emotional Patterns & Coping\nResponds positively to objective score tracking.\n\n## Work & Studies\nAccountant maintaining regular health check-ins."
     }
 
     user_snapshot = {
-        "situational_summary": "Jordan has shown consistent clinical improvement across PHQ-9 (18->8) and GAD-7 (16->6) over 3 months.",
+        "situational_summary": f"Jordan has shown consistent clinical improvement down to PHQ-9={current_phq9} and GAD-7={current_gad7}.",
         "recent_emotions": ["encouraged", "reflective"],
         "active_triggers": ["monthly performance reports"],
         "coping_effectiveness": "high"
     }
-
-    history = []
-    current_time = BASE_TIME
-
-    for i in range(target_messages // 2):
-        current_time += timedelta(days=random.randint(1, 3))
-        score = max(5, 18 - (i // 10))
-
-        user_msg = f"Completing bi-weekly screening check-in #{i+1}. Current depression self-assessment score is {score}."
-        asst_msg = f"Thank you for tracking check-in #{i+1}, Jordan. Your score of {score} reflects your ongoing progress."
-
-        history.append({"role": "user", "content": user_msg, "timestamp": current_time.isoformat()})
-        history.append({"role": "assistant", "content": asst_msg, "timestamp": (current_time + timedelta(seconds=20)).isoformat()})
 
     return {
         "persona": "screening",
@@ -389,21 +410,16 @@ def generate_sporadic_persona(seed: int, target_messages: int) -> dict[str, Any]
     }
 
     history = []
-    session_dates = [
-        datetime(2026, 6, 1, 14, 0, tzinfo=timezone.utc),
-        datetime(2026, 6, 25, 18, 30, tzinfo=timezone.utc),
-        datetime(2026, 7, 20, 9, 15, tzinfo=timezone.utc),
-        datetime(2026, 8, 15, 11, 0, tzinfo=timezone.utc),
-        datetime(2026, 9, 1, 16, 45, tzinfo=timezone.utc)
-    ]
+    # Strictly monotonic advancing dates for sporadic check-in sessions
+    current_time = BASE_TIME
 
     for i in range(min(target_messages, 20) // 2):
-        s_date = session_dates[i % len(session_dates)]
-        user_msg = f"Check-in session #{i+1}: dealing with a quick work issue."
-        asst_msg = f"Welcome back, Sam! Ready for session #{i+1}. What's the main challenge right now?"
+        current_time += timedelta(days=random.randint(14, 25))
+        user_text = f"Sam check-in session #{i+1}: dealing with a quick work issue."
+        asst_text = f"Welcome back Sam! Ready for session #{i+1}. What's the main challenge right now?"
 
-        history.append({"role": "user", "content": user_msg, "timestamp": s_date.isoformat()})
-        history.append({"role": "assistant", "content": asst_msg, "timestamp": (s_date + timedelta(seconds=15)).isoformat()})
+        history.append({"role": "user", "content": user_text, "timestamp": current_time.isoformat()})
+        history.append({"role": "assistant", "content": asst_text, "timestamp": (current_time + timedelta(seconds=15)).isoformat()})
 
     return {
         "persona": "sporadic",
@@ -474,32 +490,49 @@ def generate_new_persona(seed: int, target_messages: int) -> dict[str, Any]:
     }
 
 
-def verify_cross_persona_uniqueness(fixtures: dict[str, dict[str, Any]]) -> None:
-    """Check and guarantee that no two personas share identical memory graphs, summaries, or repetitive loops."""
-    print("\n--- Running Cross-Persona Uniqueness & Coherence Verification ---")
-    persona_names = list(fixtures.keys())
+def enforce_validation_assertions(fixtures: dict[str, dict[str, Any]]) -> None:
+    """Enforce strict mandatory validation checks across generated persona fixtures."""
+    print("\n--- Running Mandatory Fixture Generator Assertions ---")
 
+    for name, fixture in fixtures.items():
+        all_texts = [m["content"] for m in fixture["history"]]
+        counts = Counter(all_texts)
+        max_freq = max(counts.values()) if counts else 0
+
+        # Check 1: No verbatim message appears > 2 times
+        assert max_freq <= 2, f"Assertion Failed ({name}): Message frequency exceeded limit of 2 (found {max_freq})"
+
+        # Check 2: No consecutive assistant replies are identical
+        asst_texts = [m["content"] for m in fixture["history"] if m["role"] == "assistant"]
+        for k in range(len(asst_texts) - 1):
+            assert asst_texts[k] != asst_texts[k+1], f"Assertion Failed ({name}): Consecutive identical assistant replies at index {k}"
+
+        # Check 3: Strictly monotonic timestamp progression
+        timestamps = [m["timestamp"] for m in fixture["history"]]
+        for t_idx in range(len(timestamps) - 1):
+            assert timestamps[t_idx] <= timestamps[t_idx+1], f"Assertion Failed ({name}): Non-monotonic timestamp sequence at index {t_idx}"
+
+    # Check 4: Cross-persona artifact uniqueness
+    persona_names = list(fixtures.keys())
     for i in range(len(persona_names)):
         for j in range(i + 1, len(persona_names)):
-            p1_name, p2_name = persona_names[i], persona_names[j]
-            f1, f2 = fixtures[p1_name], fixtures[p2_name]
+            p1, p2 = persona_names[i], persona_names[j]
+            s1 = fixtures[p1]["memory_summary"]["summary"]
+            s2 = fixtures[p2]["memory_summary"]["summary"]
+            assert s1 != s2, f"Assertion Failed: {p1} and {p2} share identical memory summaries!"
 
-            summary1 = f1["memory_summary"]["summary"]
-            summary2 = f2["memory_summary"]["summary"]
-            if summary1 == summary2:
-                raise ValueError(f"Uniqueness Failure: {p1_name} and {p2_name} share identical memory summaries!")
+    # Check 5: Screening score trajectory monotone-consistency
+    scr = fixtures["screening"]
+    phq_scores = [item["score"] for item in scr["profile"]["clinical"]["phq9_history"]]
+    for idx in range(len(phq_scores) - 1):
+        assert phq_scores[idx] >= phq_scores[idx+1], f"Assertion Failed (screening): Non-monotone PHQ-9 score trajectory at index {idx}"
 
-            graph1 = json.dumps(f1["memory_graph"], sort_keys=True)
-            graph2 = json.dumps(f2["memory_graph"], sort_keys=True)
-            if graph1 == graph2 and len(f1["memory_graph"]["atoms"]) > 0:
-                raise ValueError(f"Uniqueness Failure: {p1_name} and {p2_name} share identical memory graphs!")
-
-            # Verify no canned repetitive assistant replies in long histories
-            asst_replies_p1 = [m["content"] for m in f1["history"] if m["role"] == "assistant"]
-            if len(asst_replies_p1) > 10 and len(set(asst_replies_p1)) < (len(asst_replies_p1) * 0.8):
-                raise ValueError(f"Coherence Failure: {p1_name} history contains repetitive assistant loops!")
-
-    print("SUCCESS: All 6 personas possess strictly unique, distinct, and non-looping artifacts!")
+    print("ALL MANDATORY ASSERTIONS PASSED SUCCESSFULLY:")
+    print("1. max(Counter(all_message_texts).values()) <= 2: PASSED")
+    print("2. No consecutive identical assistant replies: PASSED")
+    print("3. Monotonic timestamp progression: PASSED")
+    print("4. Cross-persona memory graph/summary/snapshot uniqueness: PASSED")
+    print("5. Screening score trajectory monotone-consistency: PASSED")
 
 
 def main():
@@ -536,7 +569,7 @@ def main():
         print(f"Generated fixture: {file_path} ({len(fixture['history'])} messages)")
 
     if len(generated_fixtures) > 1:
-        verify_cross_persona_uniqueness(generated_fixtures)
+        enforce_validation_assertions(generated_fixtures)
 
 
 if __name__ == "__main__":

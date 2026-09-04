@@ -49,8 +49,8 @@
     "5": {
       "window_size": 5,
       "system_prompt_total_tokens": 2164,
-      "history_tokens": 178,
-      "grand_total_input_tokens": 2342,
+      "history_tokens": 183,
+      "grand_total_input_tokens": 2347,
       "component_breakdown": {
         "user_preferences_tokens": 155,
         "memory_summary_tokens": 54,
@@ -60,8 +60,8 @@
     "20": {
       "window_size": 20,
       "system_prompt_total_tokens": 2164,
-      "history_tokens": 760,
-      "grand_total_input_tokens": 2924,
+      "history_tokens": 791,
+      "grand_total_input_tokens": 2955,
       "component_breakdown": {
         "user_preferences_tokens": 155,
         "memory_summary_tokens": 54,
@@ -71,8 +71,8 @@
     "50": {
       "window_size": 50,
       "system_prompt_total_tokens": 2164,
-      "history_tokens": 1865,
-      "grand_total_input_tokens": 4029,
+      "history_tokens": 1935,
+      "grand_total_input_tokens": 4099,
       "component_breakdown": {
         "user_preferences_tokens": 155,
         "memory_summary_tokens": 54,
@@ -82,8 +82,8 @@
     "300": {
       "window_size": 300,
       "system_prompt_total_tokens": 2164,
-      "history_tokens": 11400,
-      "grand_total_input_tokens": 13564,
+      "history_tokens": 11851,
+      "grand_total_input_tokens": 14015,
       "component_breakdown": {
         "user_preferences_tokens": 155,
         "memory_summary_tokens": 54,
@@ -95,8 +95,8 @@
     "5": {
       "window_size": 5,
       "system_prompt_total_tokens": 2253,
-      "history_tokens": 157,
-      "grand_total_input_tokens": 2410,
+      "history_tokens": 149,
+      "grand_total_input_tokens": 2402,
       "component_breakdown": {
         "user_preferences_tokens": 240,
         "memory_summary_tokens": 56,
@@ -106,8 +106,8 @@
     "20": {
       "window_size": 20,
       "system_prompt_total_tokens": 2253,
-      "history_tokens": 580,
-      "grand_total_input_tokens": 2833,
+      "history_tokens": 562,
+      "grand_total_input_tokens": 2815,
       "component_breakdown": {
         "user_preferences_tokens": 240,
         "memory_summary_tokens": 56,
@@ -117,8 +117,8 @@
     "50": {
       "window_size": 50,
       "system_prompt_total_tokens": 2253,
-      "history_tokens": 1450,
-      "grand_total_input_tokens": 3703,
+      "history_tokens": 1405,
+      "grand_total_input_tokens": 3658,
       "component_breakdown": {
         "user_preferences_tokens": 240,
         "memory_summary_tokens": 56,
@@ -128,8 +128,8 @@
     "300": {
       "window_size": 300,
       "system_prompt_total_tokens": 2253,
-      "history_tokens": 8700,
-      "grand_total_input_tokens": 10953,
+      "history_tokens": 8430,
+      "grand_total_input_tokens": 10683,
       "component_breakdown": {
         "user_preferences_tokens": 240,
         "memory_summary_tokens": 56,
@@ -186,46 +186,46 @@
   "screening": {
     "5": {
       "window_size": 5,
-      "system_prompt_total_tokens": 2281,
-      "history_tokens": 105,
-      "grand_total_input_tokens": 2386,
+      "system_prompt_total_tokens": 2291,
+      "history_tokens": 166,
+      "grand_total_input_tokens": 2457,
       "component_breakdown": {
-        "user_preferences_tokens": 269,
-        "memory_summary_tokens": 49,
-        "user_snapshot_tokens": 71
+        "user_preferences_tokens": 289,
+        "memory_summary_tokens": 48,
+        "user_snapshot_tokens": 62
       }
     },
     "20": {
       "window_size": 20,
-      "system_prompt_total_tokens": 2281,
-      "history_tokens": 420,
-      "grand_total_input_tokens": 2701,
+      "system_prompt_total_tokens": 2291,
+      "history_tokens": 660,
+      "grand_total_input_tokens": 2951,
       "component_breakdown": {
-        "user_preferences_tokens": 269,
-        "memory_summary_tokens": 49,
-        "user_snapshot_tokens": 71
+        "user_preferences_tokens": 289,
+        "memory_summary_tokens": 48,
+        "user_snapshot_tokens": 62
       }
     },
     "50": {
       "window_size": 50,
-      "system_prompt_total_tokens": 2281,
-      "history_tokens": 1050,
-      "grand_total_input_tokens": 3331,
+      "system_prompt_total_tokens": 2291,
+      "history_tokens": 1650,
+      "grand_total_input_tokens": 3941,
       "component_breakdown": {
-        "user_preferences_tokens": 269,
-        "memory_summary_tokens": 49,
-        "user_snapshot_tokens": 71
+        "user_preferences_tokens": 289,
+        "memory_summary_tokens": 48,
+        "user_snapshot_tokens": 62
       }
     },
     "300": {
       "window_size": 300,
-      "system_prompt_total_tokens": 2281,
-      "history_tokens": 6300,
-      "grand_total_input_tokens": 8581,
+      "system_prompt_total_tokens": 2291,
+      "history_tokens": 9900,
+      "grand_total_input_tokens": 12191,
       "component_breakdown": {
-        "user_preferences_tokens": 269,
-        "memory_summary_tokens": 49,
-        "user_snapshot_tokens": 71
+        "user_preferences_tokens": 289,
+        "memory_summary_tokens": 48,
+        "user_snapshot_tokens": 62
       }
     }
   },
@@ -233,8 +233,8 @@
     "5": {
       "window_size": 5,
       "system_prompt_total_tokens": 2140,
-      "history_tokens": 83,
-      "grand_total_input_tokens": 2223,
+      "history_tokens": 82,
+      "grand_total_input_tokens": 2222,
       "component_breakdown": {
         "user_preferences_tokens": 147,
         "memory_summary_tokens": 42,
