@@ -605,6 +605,7 @@ function bindAuthModal() {
     const showPassword = passwordInput.type === "password";
     passwordInput.type = showPassword ? "text" : "password";
     passwordVisibilityButton.setAttribute("aria-label", showPassword ? "Hide password" : "Show password");
+    passwordVisibilityButton.setAttribute("aria-pressed", showPassword ? "true" : "false");
     passwordVisibilityButton.innerHTML = `<i data-lucide="${showPassword ? "eye-off" : "eye"}" class="w-4 h-4"></i>`;
     refreshIcons();
   });
