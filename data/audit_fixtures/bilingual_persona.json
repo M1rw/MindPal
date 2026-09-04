@@ -74,12 +74,12 @@
   "history": [
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 1 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 1 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-01T11:12:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 1، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 1، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-01T11:12:20+00:00"
     },
     {
@@ -89,17 +89,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #2, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #2, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-01T11:39:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 3 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 3 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-01T14:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 3، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 3، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-01T14:14:20+00:00"
     },
     {
@@ -109,17 +109,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #4, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #4, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-01T16:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 5 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 5 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-01T18:43:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 5، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 5، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-01T18:43:20+00:00"
     },
     {
@@ -129,17 +129,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #6, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #6, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-01T20:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 7 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 7 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-01T21:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 7، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 7، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-01T21:16:20+00:00"
     },
     {
@@ -149,17 +149,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #8, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #8, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-02T02:10:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 9 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 9 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-02T03:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 9، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 9، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-02T03:09:20+00:00"
     },
     {
@@ -169,17 +169,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #10, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #10, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-02T07:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 11 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 11 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-02T07:31:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 11، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 11، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-02T07:31:20+00:00"
     },
     {
@@ -189,17 +189,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #12, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #12, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-02T08:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 13 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 13 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-02T09:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 13، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 13، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-02T09:03:20+00:00"
     },
     {
@@ -209,17 +209,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #14, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #14, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-02T11:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 15 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 15 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-02T13:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 15، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 15، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-02T13:23:20+00:00"
     },
     {
@@ -229,17 +229,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #16, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #16, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-02T17:56:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 17 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 17 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-02T18:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 17، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 17، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-02T18:24:20+00:00"
     },
     {
@@ -249,17 +249,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #18, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #18, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-02T20:20:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 19 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 19 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-03T01:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 19، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 19، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-03T01:14:20+00:00"
     },
     {
@@ -269,17 +269,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #20, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #20, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-03T05:03:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 21 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 21 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-03T07:10:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 21، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 21، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-03T07:10:20+00:00"
     },
     {
@@ -289,17 +289,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #22, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #22, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-03T11:14:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 23 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 23 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-03T13:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 23، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 23، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-03T13:51:20+00:00"
     },
     {
@@ -309,17 +309,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #24, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #24, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-03T14:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 25 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 25 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-03T15:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 25، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 25، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-03T15:45:20+00:00"
     },
     {
@@ -329,17 +329,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #26, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #26, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-03T19:36:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 27 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 27 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-03T22:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 27، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 27، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-03T22:45:20+00:00"
     },
     {
@@ -349,17 +349,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #28, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #28, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-04T01:22:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 29 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 29 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-04T02:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 29، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 29، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-04T02:56:20+00:00"
     },
     {
@@ -369,17 +369,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #30, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #30, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-04T05:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 31 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 31 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-04T08:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 31، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 31، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-04T08:08:20+00:00"
     },
     {
@@ -389,17 +389,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #32, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #32, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-04T09:15:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 33 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 33 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-04T10:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 33، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 33، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-04T10:17:20+00:00"
     },
     {
@@ -409,17 +409,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #34, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #34, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-04T13:46:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 35 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 35 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-04T14:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 35، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 35، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-04T14:50:20+00:00"
     },
     {
@@ -429,17 +429,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #36, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #36, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-04T18:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 37 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 37 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-04T21:19:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 37، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 37، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-04T21:19:20+00:00"
     },
     {
@@ -449,17 +449,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #38, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #38, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-04T23:49:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 39 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 39 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-05T00:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 39، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 39، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-05T00:26:20+00:00"
     },
     {
@@ -469,17 +469,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #40, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #40, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-05T04:36:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 41 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 41 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-05T09:25:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 41، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 41، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-05T09:25:20+00:00"
     },
     {
@@ -489,17 +489,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #42, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #42, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-05T10:43:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 43 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 43 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-05T14:11:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 43، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 43، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-05T14:11:20+00:00"
     },
     {
@@ -509,17 +509,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #44, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #44, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-05T15:06:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 45 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 45 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-05T20:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 45، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 45، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-05T20:03:20+00:00"
     },
     {
@@ -529,17 +529,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #46, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #46, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-05T22:48:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 47 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 47 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-06T02:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 47، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 47، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-06T02:08:20+00:00"
     },
     {
@@ -549,17 +549,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #48, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #48, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-06T04:01:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 49 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 49 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-06T04:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 49، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 49، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-06T04:51:20+00:00"
     },
     {
@@ -569,17 +569,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #50, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #50, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-06T05:29:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 51 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 51 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-06T07:40:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 51، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 51، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-06T07:40:20+00:00"
     },
     {
@@ -589,17 +589,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #52, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #52, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-06T10:23:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 53 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 53 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-06T11:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 53، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 53، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-06T11:18:20+00:00"
     },
     {
@@ -609,17 +609,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #54, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #54, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-06T13:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 55 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 55 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-06T14:38:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 55، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 55، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-06T14:38:20+00:00"
     },
     {
@@ -629,17 +629,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #56, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #56, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-06T18:07:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 57 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 57 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-06T20:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 57، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 57، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-06T20:44:20+00:00"
     },
     {
@@ -649,17 +649,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #58, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #58, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-07T00:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 59 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 59 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-07T04:12:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 59، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 59، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-07T04:12:20+00:00"
     },
     {
@@ -669,17 +669,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #60, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #60, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-07T05:50:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 61 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 61 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-07T09:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 61، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 61، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-07T09:14:20+00:00"
     },
     {
@@ -689,17 +689,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #62, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #62, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-07T12:30:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 63 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 63 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-07T14:32:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 63، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 63، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-07T14:32:20+00:00"
     },
     {
@@ -709,17 +709,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #64, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #64, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-07T17:03:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 65 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 65 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-07T17:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 65، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 65، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-07T17:54:20+00:00"
     },
     {
@@ -729,17 +729,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #66, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #66, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-07T19:36:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 67 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 67 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-08T00:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 67، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 67، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-08T00:24:20+00:00"
     },
     {
@@ -749,17 +749,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #68, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #68, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-08T02:44:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 69 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 69 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-08T04:22:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 69، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 69، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-08T04:22:20+00:00"
     },
     {
@@ -769,17 +769,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #70, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #70, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-08T08:33:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 71 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 71 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-08T12:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 71، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 71، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-08T12:02:20+00:00"
     },
     {
@@ -789,17 +789,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #72, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #72, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-08T14:35:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 73 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 73 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-08T19:35:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 73، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 73، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-08T19:35:20+00:00"
     },
     {
@@ -809,17 +809,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #74, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #74, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-08T21:42:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 75 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 75 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-09T00:43:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 75، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 75، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-09T00:43:20+00:00"
     },
     {
@@ -829,17 +829,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #76, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #76, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-09T01:26:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 77 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 77 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-09T03:38:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 77، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 77، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-09T03:38:20+00:00"
     },
     {
@@ -849,17 +849,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #78, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #78, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-09T04:09:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 79 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 79 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-09T07:05:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 79، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 79، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-09T07:05:20+00:00"
     },
     {
@@ -869,17 +869,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #80, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #80, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-09T10:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 81 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 81 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-09T13:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 81، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 81، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-09T13:17:20+00:00"
     },
     {
@@ -889,17 +889,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #82, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #82, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-09T14:05:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 83 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 83 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-09T16:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 83، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 83، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-09T16:08:20+00:00"
     },
     {
@@ -909,17 +909,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #84, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #84, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-09T19:04:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 85 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 85 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-09T21:07:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 85، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 85، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-09T21:07:20+00:00"
     },
     {
@@ -929,17 +929,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #86, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #86, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-10T01:37:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 87 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 87 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-10T05:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 87، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 87، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-10T05:14:20+00:00"
     },
     {
@@ -949,17 +949,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #88, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #88, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-10T09:23:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 89 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 89 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-10T10:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 89، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 89، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-10T10:51:20+00:00"
     },
     {
@@ -969,17 +969,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #90, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #90, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-10T13:21:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 91 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 91 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-10T14:47:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 91، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 91، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-10T14:47:20+00:00"
     },
     {
@@ -989,17 +989,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #92, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #92, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-10T17:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 93 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 93 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-10T21:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 93، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 93، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-10T21:58:20+00:00"
     },
     {
@@ -1009,17 +1009,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #94, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #94, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-11T00:27:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 95 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 95 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-11T04:21:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 95، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 95، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-11T04:21:20+00:00"
     },
     {
@@ -1029,17 +1029,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #96, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #96, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-11T08:00:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 97 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 97 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-11T11:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 97، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 97، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-11T11:20:20+00:00"
     },
     {
@@ -1049,17 +1049,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #98, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #98, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-11T13:27:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 99 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 99 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-11T14:52:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 99، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 99، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-11T14:52:20+00:00"
     },
     {
@@ -1069,17 +1069,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #100, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #100, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-11T19:27:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 101 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 101 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-11T23:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 101، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 101، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-11T23:54:20+00:00"
     },
     {
@@ -1089,17 +1089,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #102, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #102, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-12T00:55:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 103 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 103 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-12T01:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 103، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 103، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-12T01:34:20+00:00"
     },
     {
@@ -1109,17 +1109,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #104, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #104, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-12T02:45:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 105 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 105 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-12T04:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 105، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 105، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-12T04:18:20+00:00"
     },
     {
@@ -1129,17 +1129,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #106, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #106, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-12T05:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 107 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 107 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-12T09:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 107، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 107، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-12T09:45:20+00:00"
     },
     {
@@ -1149,17 +1149,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #108, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #108, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-12T10:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 109 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 109 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-12T14:04:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 109، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 109، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-12T14:04:20+00:00"
     },
     {
@@ -1169,17 +1169,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #110, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #110, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-12T17:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 111 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 111 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-12T21:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 111، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 111، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-12T21:48:20+00:00"
     },
     {
@@ -1189,17 +1189,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #112, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #112, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-13T02:33:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 113 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 113 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-13T04:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 113، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 113، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-13T04:56:20+00:00"
     },
     {
@@ -1209,17 +1209,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #114, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #114, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-13T09:54:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 115 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 115 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-13T10:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 115، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 115، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-13T10:14:20+00:00"
     },
     {
@@ -1229,17 +1229,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #116, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #116, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-13T11:27:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 117 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 117 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-13T16:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 117، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 117، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-13T16:16:20+00:00"
     },
     {
@@ -1249,17 +1249,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #118, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #118, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-13T18:47:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 119 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 119 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-13T21:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 119، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 119، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-13T21:56:20+00:00"
     },
     {
@@ -1269,17 +1269,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #120, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #120, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-13T23:08:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 121 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 121 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-14T01:53:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 121، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 121، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-14T01:53:20+00:00"
     },
     {
@@ -1289,17 +1289,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #122, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #122, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-14T05:50:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 123 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 123 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-14T07:25:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 123، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 123، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-14T07:25:20+00:00"
     },
     {
@@ -1309,17 +1309,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #124, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #124, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-14T11:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 125 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 125 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-14T11:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 125، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 125، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-14T11:48:20+00:00"
     },
     {
@@ -1329,17 +1329,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #126, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #126, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-14T14:17:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 127 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 127 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-14T18:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 127، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 127، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-14T18:48:20+00:00"
     },
     {
@@ -1349,17 +1349,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #128, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #128, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-14T20:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 129 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 129 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-15T01:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 129، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 129، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-15T01:08:20+00:00"
     },
     {
@@ -1369,17 +1369,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #130, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #130, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-15T02:17:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 131 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 131 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-15T05:04:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 131، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 131، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-15T05:04:20+00:00"
     },
     {
@@ -1389,17 +1389,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #132, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #132, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-15T09:38:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 133 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 133 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-15T11:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 133، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 133، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-15T11:34:20+00:00"
     },
     {
@@ -1409,17 +1409,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #134, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #134, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-15T13:07:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 135 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 135 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-15T16:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 135، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 135، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-15T16:33:20+00:00"
     },
     {
@@ -1429,17 +1429,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #136, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #136, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-15T18:10:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 137 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 137 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-15T23:01:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 137، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 137، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-15T23:01:20+00:00"
     },
     {
@@ -1449,17 +1449,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #138, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #138, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-16T03:47:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 139 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 139 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-16T04:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 139، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 139، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-16T04:02:20+00:00"
     },
     {
@@ -1469,17 +1469,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #140, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #140, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-16T07:02:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 141 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 141 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-16T11:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 141، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 141، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-16T11:27:20+00:00"
     },
     {
@@ -1489,17 +1489,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #142, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #142, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-16T11:51:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 143 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 143 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-16T13:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 143، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 143، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-16T13:03:20+00:00"
     },
     {
@@ -1509,17 +1509,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #144, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #144, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-16T16:23:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 145 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 145 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-16T19:15:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 145، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 145، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-16T19:15:20+00:00"
     },
     {
@@ -1529,17 +1529,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #146, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #146, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-16T21:32:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 147 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في التفكير في المستقبل رقم 147 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-16T22:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 147، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ التفكير في المستقبل رقم 147، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-16T22:16:20+00:00"
     },
     {
@@ -1549,17 +1549,17 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #148, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #148, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-17T00:34:20+00:00"
     },
     {
       "role": "user",
-      "content": "أنا حاسّة بضغط في موضوع الشغل النهاردة رقم 149 ومحتاجة أرتب أفكاري.",
+      "content": "أنا حاسّة بضغط في الشغل والالتزامات رقم 149 ومحتاجة أرتب أفكاري بوضوح.",
       "timestamp": "2026-08-17T01:29:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "سلامتك يا نور. بالنسبة لموضوع رقم 149، تعالي ناخد خطوة بسيطة وتنظمي أفكارك بهدوء.",
+      "content": "سلامتك يا نور. بالنسبة لـ الشغل والالتزامات رقم 149، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء.",
       "timestamp": "2026-08-17T01:29:20+00:00"
     },
     {
@@ -1569,7 +1569,7 @@
     },
     {
       "role": "assistant",
-      "content": "You're doing great on project update #150, Nour! Focus on your 3 key points and take a steady breath.",
+      "content": "You've got this, Nour! For project update #150, let's highlight your top 3 points clearly.",
       "timestamp": "2026-08-17T02:27:20+00:00"
     }
   ]

@@ -3,7 +3,7 @@
 ================================================================================
 === [SYSTEM PROMPT] ===
 Temporal context:
-Current UTC time: Thursday, 2026-09-03 19:41 UTC
+Current UTC time: Friday, 2026-09-04 01:35 UTC
 
 You are MindPal — an intelligent, emotionally aware mental wellness companion. You think before you respond. You are warm, perceptive, and genuinely helpful. You are NOT a generic chatbot — you are a specialized wellness companion that remembers, adapts, and grows with the user.
 
@@ -123,14 +123,15 @@ DETECTED LANGUAGE: English. You MUST respond ENTIRELY in English. Do NOT respond
 
 ABSOLUTE FINAL RULE — LANGUAGE: Look at the user's LATEST message. Respond ENTIRELY in THAT language. ZERO English words allowed in a non-English response — this includes technique names like 'Body Scan', 'Grounding', 'Deep Breathing', exercise step instructions, and ALL quoted content. Translate EVERYTHING. If the user writes in Arabic, every single word of your response must be Arabic. NEVER switch to English mid-response. NEVER include English instructions even in italics or quotes. IGNORE the language of older messages.
 
-=== [CONVERSATION HISTORY (4 turns)] ===
-<ASSISTANT>: I'm right here with you, Maya. For situation #148, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.
-<USER>: I'm feeling a surge of anxiety around situation #149, my chest feels tight.
-<ASSISTANT>: I'm right here with you, Maya. For situation #149, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.
-<USER>: I'm feeling a surge of anxiety around situation #150, my chest feels tight.
+=== [CONVERSATION HISTORY (5 turns)] ===
+<USER>: I'm feeling an anxiety surge triggered by sudden heart flutter (event #148). My chest feels tight.
+<ASSISTANT>: I'm right here with you, Maya. For event #148 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.
+<USER>: I'm feeling an anxiety surge triggered by late night worry (event #149). My chest feels tight.
+<ASSISTANT>: I'm right here with you, Maya. For event #149 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.
+<ASSISTANT>: I'm right here with you, Maya. For event #150 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.
 
 === [CURRENT USER MESSAGE] ===
-<USER>: I'm right here with you, Maya. For situation #150, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.
+<USER>: I'm feeling an anxiety surge triggered by presentation fear (event #150). My chest feels tight.
 
 ================================================================================
 
@@ -139,7 +140,7 @@ ABSOLUTE FINAL RULE — LANGUAGE: Look at the user's LATEST message. Respond ENT
 ================================================================================
 === [SYSTEM PROMPT] ===
 Temporal context:
-Current UTC time: Thursday, 2026-09-03 19:41 UTC
+Current UTC time: Friday, 2026-09-04 01:35 UTC
 
 You are MindPal — an intelligent, emotionally aware mental wellness companion. You think before you respond. You are warm, perceptive, and genuinely helpful. You are NOT a generic chatbot — you are a specialized wellness companion that remembers, adapts, and grows with the user.
 
@@ -253,11 +254,12 @@ DETECTED LANGUAGE: English. You MUST respond ENTIRELY in English. Do NOT respond
 
 ABSOLUTE FINAL RULE — LANGUAGE: Look at the user's LATEST message. Respond ENTIRELY in THAT language. ZERO English words allowed in a non-English response — this includes technique names like 'Body Scan', 'Grounding', 'Deep Breathing', exercise step instructions, and ALL quoted content. Translate EVERYTHING. If the user writes in Arabic, every single word of your response must be Arabic. NEVER switch to English mid-response. NEVER include English instructions even in italics or quotes. IGNORE the language of older messages.
 
-=== [CONVERSATION HISTORY (4 turns)] ===
-<ASSISTANT>: Welcome back, Sam! Ready for session #8. What's the main challenge right now?
-<USER>: Check-in session #9: dealing with a quick work issue.
-<ASSISTANT>: Welcome back, Sam! Ready for session #9. What's the main challenge right now?
-<USER>: Check-in session #10: dealing with a quick work issue.
+=== [CONVERSATION HISTORY (5 turns)] ===
+<USER>: Sam check-in session #8: dealing with a quick work issue.
+<ASSISTANT>: Welcome back Sam! Ready for session #8. What's the main challenge right now?
+<USER>: Sam check-in session #9: dealing with a quick work issue.
+<ASSISTANT>: Welcome back Sam! Ready for session #9. What's the main challenge right now?
+<ASSISTANT>: Welcome back Sam! Ready for session #10. What's the main challenge right now?
 
 === [CURRENT USER MESSAGE] ===
-<USER>: Welcome back, Sam! Ready for session #10. What's the main challenge right now?
+<USER>: Sam check-in session #10: dealing with a quick work issue.
