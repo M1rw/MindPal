@@ -95,1502 +95,1502 @@
   "history": [
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #1, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #1). My chest feels tight.",
       "timestamp": "2026-08-01T11:31:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #1, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #1 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T11:31:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #2, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #2). My chest feels tight.",
       "timestamp": "2026-08-01T11:55:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #2, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #2 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T11:55:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #3, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #3). My chest feels tight.",
       "timestamp": "2026-08-01T12:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #3, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #3 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T12:08:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #4, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #4). My chest feels tight.",
       "timestamp": "2026-08-01T13:52:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #4, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #4 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T13:52:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #5, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #5). My chest feels tight.",
       "timestamp": "2026-08-01T14:37:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #5, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #5 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T14:37:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #6, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #6). My chest feels tight.",
       "timestamp": "2026-08-01T15:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #6, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #6 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T15:18:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #7, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #7). My chest feels tight.",
       "timestamp": "2026-08-01T15:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #7, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #7 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T15:56:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #8, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #8). My chest feels tight.",
       "timestamp": "2026-08-01T16:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #8, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #8 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T16:23:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #9, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #9). My chest feels tight.",
       "timestamp": "2026-08-01T18:07:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #9, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #9 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T18:07:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #10, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #10). My chest feels tight.",
       "timestamp": "2026-08-01T18:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #10, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #10 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T18:30:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #11, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #11). My chest feels tight.",
       "timestamp": "2026-08-01T20:06:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #11, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #11 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T20:06:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #12, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #12). My chest feels tight.",
       "timestamp": "2026-08-01T21:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #12, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #12 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T21:50:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #13, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #13). My chest feels tight.",
       "timestamp": "2026-08-01T23:09:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #13, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #13 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T23:09:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #14, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #14). My chest feels tight.",
       "timestamp": "2026-08-01T23:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #14, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #14 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-01T23:30:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #15, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #15). My chest feels tight.",
       "timestamp": "2026-08-02T00:55:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #15, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #15 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T00:55:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #16, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #16). My chest feels tight.",
       "timestamp": "2026-08-02T01:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #16, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #16 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T01:59:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #17, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #17). My chest feels tight.",
       "timestamp": "2026-08-02T02:13:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #17, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #17 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T02:13:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #18, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #18). My chest feels tight.",
       "timestamp": "2026-08-02T02:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #18, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #18 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T02:26:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #19, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #19). My chest feels tight.",
       "timestamp": "2026-08-02T02:47:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #19, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #19 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T02:47:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #20, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #20). My chest feels tight.",
       "timestamp": "2026-08-02T03:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #20, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #20 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T03:24:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #21, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #21). My chest feels tight.",
       "timestamp": "2026-08-02T04:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #21, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #21 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T04:03:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #22, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #22). My chest feels tight.",
       "timestamp": "2026-08-02T05:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #22, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #22 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T05:17:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #23, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #23). My chest feels tight.",
       "timestamp": "2026-08-02T06:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #23, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #23 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T06:44:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #24, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #24). My chest feels tight.",
       "timestamp": "2026-08-02T06:57:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #24, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #24 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T06:57:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #25, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #25). My chest feels tight.",
       "timestamp": "2026-08-02T08:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #25, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #25 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T08:18:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #26, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #26). My chest feels tight.",
       "timestamp": "2026-08-02T08:53:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #26, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #26 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T08:53:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #27, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #27). My chest feels tight.",
       "timestamp": "2026-08-02T10:34:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #27, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #27 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T10:34:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #28, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #28). My chest feels tight.",
       "timestamp": "2026-08-02T12:07:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #28, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #28 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T12:07:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #29, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #29). My chest feels tight.",
       "timestamp": "2026-08-02T13:46:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #29, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #29 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T13:46:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #30, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #30). My chest feels tight.",
       "timestamp": "2026-08-02T15:05:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #30, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #30 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T15:05:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #31, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #31). My chest feels tight.",
       "timestamp": "2026-08-02T16:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #31, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #31 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T16:08:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #32, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #32). My chest feels tight.",
       "timestamp": "2026-08-02T16:46:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #32, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #32 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T16:46:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #33, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #33). My chest feels tight.",
       "timestamp": "2026-08-02T17:53:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #33, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #33 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T17:53:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #34, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #34). My chest feels tight.",
       "timestamp": "2026-08-02T19:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #34, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #34 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T19:18:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #35, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #35). My chest feels tight.",
       "timestamp": "2026-08-02T20:03:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #35, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #35 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T20:03:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #36, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #36). My chest feels tight.",
       "timestamp": "2026-08-02T21:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #36, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #36 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T21:56:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #37, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #37). My chest feels tight.",
       "timestamp": "2026-08-02T22:06:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #37, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #37 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T22:06:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #38, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #38). My chest feels tight.",
       "timestamp": "2026-08-02T23:53:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #38, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #38 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-02T23:53:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #39, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #39). My chest feels tight.",
       "timestamp": "2026-08-03T01:46:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #39, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #39 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T01:46:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #40, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #40). My chest feels tight.",
       "timestamp": "2026-08-03T02:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #40, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #40 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T02:16:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #41, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #41). My chest feels tight.",
       "timestamp": "2026-08-03T03:55:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #41, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #41 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T03:55:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #42, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #42). My chest feels tight.",
       "timestamp": "2026-08-03T04:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #42, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #42 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T04:59:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #43, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #43). My chest feels tight.",
       "timestamp": "2026-08-03T05:52:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #43, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #43 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T05:52:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #44, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #44). My chest feels tight.",
       "timestamp": "2026-08-03T06:37:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #44, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #44 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T06:37:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #45, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #45). My chest feels tight.",
       "timestamp": "2026-08-03T07:06:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #45, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #45 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T07:06:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #46, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #46). My chest feels tight.",
       "timestamp": "2026-08-03T07:43:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #46, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #46 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T07:43:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #47, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #47). My chest feels tight.",
       "timestamp": "2026-08-03T09:30:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #47, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #47 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T09:30:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #48, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #48). My chest feels tight.",
       "timestamp": "2026-08-03T10:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #48, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #48 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T10:23:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #49, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #49). My chest feels tight.",
       "timestamp": "2026-08-03T10:46:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #49, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #49 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T10:46:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #50, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #50). My chest feels tight.",
       "timestamp": "2026-08-03T11:07:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #50, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #50 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T11:07:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #51, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #51). My chest feels tight.",
       "timestamp": "2026-08-03T12:05:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #51, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #51 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T12:05:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #52, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #52). My chest feels tight.",
       "timestamp": "2026-08-03T12:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #52, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #52 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T12:27:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #53, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #53). My chest feels tight.",
       "timestamp": "2026-08-03T13:22:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #53, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #53 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T13:22:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #54, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #54). My chest feels tight.",
       "timestamp": "2026-08-03T15:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #54, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #54 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T15:20:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #55, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #55). My chest feels tight.",
       "timestamp": "2026-08-03T16:14:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #55, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #55 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T16:14:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #56, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #56). My chest feels tight.",
       "timestamp": "2026-08-03T17:41:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #56, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #56 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T17:41:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #57, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #57). My chest feels tight.",
       "timestamp": "2026-08-03T18:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #57, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #57 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T18:24:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #58, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #58). My chest feels tight.",
       "timestamp": "2026-08-03T20:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #58, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #58 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T20:17:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #59, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #59). My chest feels tight.",
       "timestamp": "2026-08-03T20:32:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #59, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #59 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T20:32:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #60, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #60). My chest feels tight.",
       "timestamp": "2026-08-03T22:15:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #60, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #60 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T22:15:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #61, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #61). My chest feels tight.",
       "timestamp": "2026-08-03T23:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #61, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #61 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-03T23:23:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #62, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #62). My chest feels tight.",
       "timestamp": "2026-08-04T00:41:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #62, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #62 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T00:41:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #63, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #63). My chest feels tight.",
       "timestamp": "2026-08-04T01:06:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #63, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #63 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T01:06:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #64, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #64). My chest feels tight.",
       "timestamp": "2026-08-04T02:04:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #64, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #64 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T02:04:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #65, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #65). My chest feels tight.",
       "timestamp": "2026-08-04T02:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #65, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #65 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T02:24:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #66, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #66). My chest feels tight.",
       "timestamp": "2026-08-04T03:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #66, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #66 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T03:44:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #67, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #67). My chest feels tight.",
       "timestamp": "2026-08-04T04:31:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #67, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #67 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T04:31:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #68, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #68). My chest feels tight.",
       "timestamp": "2026-08-04T06:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #68, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #68 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T06:27:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #69, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #69). My chest feels tight.",
       "timestamp": "2026-08-04T07:57:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #69, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #69 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T07:57:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #70, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #70). My chest feels tight.",
       "timestamp": "2026-08-04T09:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #70, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #70 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T09:26:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #71, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #71). My chest feels tight.",
       "timestamp": "2026-08-04T11:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #71, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #71 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T11:26:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #72, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #72). My chest feels tight.",
       "timestamp": "2026-08-04T12:22:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #72, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #72 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T12:22:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #73, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #73). My chest feels tight.",
       "timestamp": "2026-08-04T13:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #73, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #73 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T13:45:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #74, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #74). My chest feels tight.",
       "timestamp": "2026-08-04T14:19:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #74, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #74 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T14:19:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #75, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #75). My chest feels tight.",
       "timestamp": "2026-08-04T15:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #75, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #75 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T15:59:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #76, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #76). My chest feels tight.",
       "timestamp": "2026-08-04T16:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #76, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #76 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T16:17:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #77, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #77). My chest feels tight.",
       "timestamp": "2026-08-04T16:32:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #77, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #77 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T16:32:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #78, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #78). My chest feels tight.",
       "timestamp": "2026-08-04T18:06:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #78, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #78 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T18:06:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #79, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #79). My chest feels tight.",
       "timestamp": "2026-08-04T18:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #79, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #79 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T18:45:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #80, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #80). My chest feels tight.",
       "timestamp": "2026-08-04T20:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #80, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #80 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T20:33:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #81, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #81). My chest feels tight.",
       "timestamp": "2026-08-04T21:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #81, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #81 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T21:20:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #82, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #82). My chest feels tight.",
       "timestamp": "2026-08-04T21:40:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #82, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #82 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T21:40:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #83, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #83). My chest feels tight.",
       "timestamp": "2026-08-04T23:39:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #83, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #83 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-04T23:39:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #84, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #84). My chest feels tight.",
       "timestamp": "2026-08-05T00:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #84, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #84 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T00:18:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #85, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #85). My chest feels tight.",
       "timestamp": "2026-08-05T02:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #85, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #85 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T02:18:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #86, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #86). My chest feels tight.",
       "timestamp": "2026-08-05T02:40:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #86, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #86 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T02:40:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #87, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #87). My chest feels tight.",
       "timestamp": "2026-08-05T03:38:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #87, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #87 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T03:38:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #88, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #88). My chest feels tight.",
       "timestamp": "2026-08-05T04:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #88, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #88 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T04:23:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #89, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #89). My chest feels tight.",
       "timestamp": "2026-08-05T05:31:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #89, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #89 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T05:31:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #90, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #90). My chest feels tight.",
       "timestamp": "2026-08-05T07:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #90, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #90 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T07:02:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #91, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #91). My chest feels tight.",
       "timestamp": "2026-08-05T08:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #91, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #91 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T08:58:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #92, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #92). My chest feels tight.",
       "timestamp": "2026-08-05T09:54:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #92, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #92 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T09:54:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #93, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #93). My chest feels tight.",
       "timestamp": "2026-08-05T10:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #93, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #93 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T10:24:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #94, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #94). My chest feels tight.",
       "timestamp": "2026-08-05T11:21:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #94, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #94 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T11:21:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #95, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #95). My chest feels tight.",
       "timestamp": "2026-08-05T12:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #95, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #95 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T12:16:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #96, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #96). My chest feels tight.",
       "timestamp": "2026-08-05T12:52:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #96, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #96 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T12:52:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #97, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #97). My chest feels tight.",
       "timestamp": "2026-08-05T14:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #97, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #97 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T14:27:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #98, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #98). My chest feels tight.",
       "timestamp": "2026-08-05T15:11:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #98, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #98 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T15:11:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #99, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #99). My chest feels tight.",
       "timestamp": "2026-08-05T16:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #99, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #99 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T16:50:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #100, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #100). My chest feels tight.",
       "timestamp": "2026-08-05T18:27:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #100, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #100 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T18:27:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #101, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #101). My chest feels tight.",
       "timestamp": "2026-08-05T19:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #101, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #101 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T19:59:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #102, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #102). My chest feels tight.",
       "timestamp": "2026-08-05T20:18:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #102, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #102 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T20:18:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #103, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #103). My chest feels tight.",
       "timestamp": "2026-08-05T21:45:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #103, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #103 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T21:45:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #104, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #104). My chest feels tight.",
       "timestamp": "2026-08-05T23:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #104, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #104 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T23:16:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #105, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #105). My chest feels tight.",
       "timestamp": "2026-08-05T23:47:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #105, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #105 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-05T23:47:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #106, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #106). My chest feels tight.",
       "timestamp": "2026-08-06T01:05:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #106, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #106 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T01:05:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #107, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #107). My chest feels tight.",
       "timestamp": "2026-08-06T02:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #107, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #107 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T02:48:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #108, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #108). My chest feels tight.",
       "timestamp": "2026-08-06T03:29:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #108, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #108 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T03:29:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #109, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #109). My chest feels tight.",
       "timestamp": "2026-08-06T03:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #109, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #109 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T03:59:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #110, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #110). My chest feels tight.",
       "timestamp": "2026-08-06T05:08:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #110, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #110 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T05:08:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #111, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #111). My chest feels tight.",
       "timestamp": "2026-08-06T06:06:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #111, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #111 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T06:06:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #112, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #112). My chest feels tight.",
       "timestamp": "2026-08-06T06:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #112, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #112 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T06:50:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #113, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #113). My chest feels tight.",
       "timestamp": "2026-08-06T08:21:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #113, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #113 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T08:21:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #114, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #114). My chest feels tight.",
       "timestamp": "2026-08-06T09:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #114, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #114 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T09:59:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #115, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #115). My chest feels tight.",
       "timestamp": "2026-08-06T11:20:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #115, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #115 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T11:20:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #116, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #116). My chest feels tight.",
       "timestamp": "2026-08-06T11:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #116, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #116 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T11:58:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #117, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #117). My chest feels tight.",
       "timestamp": "2026-08-06T13:35:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #117, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #117 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T13:35:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #118, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #118). My chest feels tight.",
       "timestamp": "2026-08-06T14:26:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #118, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #118 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T14:26:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #119, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #119). My chest feels tight.",
       "timestamp": "2026-08-06T16:23:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #119, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #119 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T16:23:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #120, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #120). My chest feels tight.",
       "timestamp": "2026-08-06T18:11:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #120, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #120 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T18:11:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #121, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #121). My chest feels tight.",
       "timestamp": "2026-08-06T20:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #121, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #121 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T20:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #122, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #122). My chest feels tight.",
       "timestamp": "2026-08-06T20:17:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #122, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #122 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T20:17:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #123, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #123). My chest feels tight.",
       "timestamp": "2026-08-06T20:56:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #123, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #123 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T20:56:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #124, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #124). My chest feels tight.",
       "timestamp": "2026-08-06T22:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #124, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #124 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T22:51:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #125, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #125). My chest feels tight.",
       "timestamp": "2026-08-06T23:05:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #125, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #125 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-06T23:05:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #126, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #126). My chest feels tight.",
       "timestamp": "2026-08-07T00:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #126, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #126 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T00:58:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #127, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #127). My chest feels tight.",
       "timestamp": "2026-08-07T01:48:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #127, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #127 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T01:48:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #128, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #128). My chest feels tight.",
       "timestamp": "2026-08-07T02:49:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #128, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #128 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T02:49:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #129, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #129). My chest feels tight.",
       "timestamp": "2026-08-07T03:33:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #129, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #129 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T03:33:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #130, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #130). My chest feels tight.",
       "timestamp": "2026-08-07T03:51:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #130, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #130 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T03:51:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #131, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #131). My chest feels tight.",
       "timestamp": "2026-08-07T04:28:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #131, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #131 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T04:28:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #132, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #132). My chest feels tight.",
       "timestamp": "2026-08-07T05:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #132, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #132 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T05:50:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #133, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #133). My chest feels tight.",
       "timestamp": "2026-08-07T07:31:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #133, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #133 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T07:31:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #134, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #134). My chest feels tight.",
       "timestamp": "2026-08-07T08:21:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #134, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #134 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T08:21:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #135, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #135). My chest feels tight.",
       "timestamp": "2026-08-07T08:58:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #135, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #135 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T08:58:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #136, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #136). My chest feels tight.",
       "timestamp": "2026-08-07T10:31:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #136, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #136 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T10:31:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #137, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #137). My chest feels tight.",
       "timestamp": "2026-08-07T11:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #137, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #137 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T11:44:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #138, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #138). My chest feels tight.",
       "timestamp": "2026-08-07T12:44:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #138, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #138 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T12:44:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #139, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #139). My chest feels tight.",
       "timestamp": "2026-08-07T14:16:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #139, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #139 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T14:16:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #140, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #140). My chest feels tight.",
       "timestamp": "2026-08-07T15:24:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #140, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #140 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T15:24:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #141, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #141). My chest feels tight.",
       "timestamp": "2026-08-07T15:52:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #141, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #141 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T15:52:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #142, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #142). My chest feels tight.",
       "timestamp": "2026-08-07T16:35:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #142, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #142 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T16:35:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #143, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #143). My chest feels tight.",
       "timestamp": "2026-08-07T17:02:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #143, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #143 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T17:02:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #144, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #144). My chest feels tight.",
       "timestamp": "2026-08-07T17:43:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #144, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #144 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T17:43:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #145, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #145). My chest feels tight.",
       "timestamp": "2026-08-07T19:28:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #145, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #145 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T19:28:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #146, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by exam stress (event #146). My chest feels tight.",
       "timestamp": "2026-08-07T20:49:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #146, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #146 (exam stress), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T20:49:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #147, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by crowded room (event #147). My chest feels tight.",
       "timestamp": "2026-08-07T22:07:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #147, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #147 (crowded room), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T22:07:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #148, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by sudden heart flutter (event #148). My chest feels tight.",
       "timestamp": "2026-08-07T22:50:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #148, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #148 (sudden heart flutter), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-07T22:50:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #149, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by late night worry (event #149). My chest feels tight.",
       "timestamp": "2026-08-08T00:35:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #149, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #149 (late night worry), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-08T00:35:15+00:00"
     },
     {
       "role": "user",
-      "content": "I'm feeling a surge of anxiety around situation #150, my chest feels tight.",
+      "content": "I'm feeling an anxiety surge triggered by presentation fear (event #150). My chest feels tight.",
       "timestamp": "2026-08-08T01:59:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "I'm right here with you, Maya. For situation #150, let's do a 5-4-3-2-1 grounding exercise together. Tell me 3 things you can see.",
+      "content": "I'm right here with you, Maya. For event #150 (presentation fear), let's ground together: name 3 physical objects around you and take one slow breath.",
       "timestamp": "2026-08-08T01:59:15+00:00"
     }
   ]

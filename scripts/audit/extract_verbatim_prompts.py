@@ -48,16 +48,20 @@ def extract_full_assembled_prompt(persona_file: str, history_window: int = 5) ->
         user_preferences=user_prefs_prompt,
     )
 
-    raw_history = data["history"][-history_window:]
-    latest_user_message = raw_history[-1]["content"] if raw_history else "Hello"
-    history_messages = raw_history[:-1]
+    all_history = data["history"]
+    # Find the latest user message
+    user_msgs = [m for m in all_history if m["role"] == "user"]
+    latest_user_message = user_msgs[-1]["content"] if user_msgs else "Hello"
 
-    history_str_list = [f"<{m['role'].upper()}>: {m['content']}" for m in history_messages]
+    # History window preceding the latest user message
+    preceding_history = [m for m in all_history if m["content"] != latest_user_message][-history_window:]
+
+    history_str_list = [f"<{m['role'].upper()}>: {m['content']}" for m in preceding_history]
     formatted_history = "\n".join(history_str_list)
 
     full_assembled = (
         f"=== [SYSTEM PROMPT] ===\n{system_prompt}\n\n"
-        f"=== [CONVERSATION HISTORY ({len(history_messages)} turns)] ===\n{formatted_history}\n\n"
+        f"=== [CONVERSATION HISTORY ({len(preceding_history)} turns)] ===\n{formatted_history}\n\n"
         f"=== [CURRENT USER MESSAGE] ===\n<USER>: {latest_user_message}"
     )
 
