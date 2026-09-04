@@ -64,103 +64,103 @@
   "history": [
     {
       "role": "user",
-      "content": "Check-in session #1: dealing with a quick work issue.",
-      "timestamp": "2026-06-01T14:00:00+00:00"
+      "content": "Sam check-in session #1: dealing with a quick work issue.",
+      "timestamp": "2026-08-25T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #1. What's the main challenge right now?",
-      "timestamp": "2026-06-01T14:00:15+00:00"
+      "content": "Welcome back Sam! Ready for session #1. What's the main challenge right now?",
+      "timestamp": "2026-08-25T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Check-in session #2: dealing with a quick work issue.",
-      "timestamp": "2026-06-25T18:30:00+00:00"
+      "content": "Sam check-in session #2: dealing with a quick work issue.",
+      "timestamp": "2026-09-09T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #2. What's the main challenge right now?",
-      "timestamp": "2026-06-25T18:30:15+00:00"
+      "content": "Welcome back Sam! Ready for session #2. What's the main challenge right now?",
+      "timestamp": "2026-09-09T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Check-in session #3: dealing with a quick work issue.",
-      "timestamp": "2026-07-20T09:15:00+00:00"
+      "content": "Sam check-in session #3: dealing with a quick work issue.",
+      "timestamp": "2026-09-23T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #3. What's the main challenge right now?",
-      "timestamp": "2026-07-20T09:15:15+00:00"
+      "content": "Welcome back Sam! Ready for session #3. What's the main challenge right now?",
+      "timestamp": "2026-09-23T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Check-in session #4: dealing with a quick work issue.",
-      "timestamp": "2026-08-15T11:00:00+00:00"
+      "content": "Sam check-in session #4: dealing with a quick work issue.",
+      "timestamp": "2026-10-18T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #4. What's the main challenge right now?",
-      "timestamp": "2026-08-15T11:00:15+00:00"
+      "content": "Welcome back Sam! Ready for session #4. What's the main challenge right now?",
+      "timestamp": "2026-10-18T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Check-in session #5: dealing with a quick work issue.",
-      "timestamp": "2026-09-01T16:45:00+00:00"
+      "content": "Sam check-in session #5: dealing with a quick work issue.",
+      "timestamp": "2026-11-05T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #5. What's the main challenge right now?",
-      "timestamp": "2026-09-01T16:45:15+00:00"
+      "content": "Welcome back Sam! Ready for session #5. What's the main challenge right now?",
+      "timestamp": "2026-11-05T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Check-in session #6: dealing with a quick work issue.",
-      "timestamp": "2026-06-01T14:00:00+00:00"
+      "content": "Sam check-in session #6: dealing with a quick work issue.",
+      "timestamp": "2026-11-22T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #6. What's the main challenge right now?",
-      "timestamp": "2026-06-01T14:00:15+00:00"
+      "content": "Welcome back Sam! Ready for session #6. What's the main challenge right now?",
+      "timestamp": "2026-11-22T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Check-in session #7: dealing with a quick work issue.",
-      "timestamp": "2026-06-25T18:30:00+00:00"
+      "content": "Sam check-in session #7: dealing with a quick work issue.",
+      "timestamp": "2026-12-09T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #7. What's the main challenge right now?",
-      "timestamp": "2026-06-25T18:30:15+00:00"
+      "content": "Welcome back Sam! Ready for session #7. What's the main challenge right now?",
+      "timestamp": "2026-12-09T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Check-in session #8: dealing with a quick work issue.",
-      "timestamp": "2026-07-20T09:15:00+00:00"
+      "content": "Sam check-in session #8: dealing with a quick work issue.",
+      "timestamp": "2026-12-25T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #8. What's the main challenge right now?",
-      "timestamp": "2026-07-20T09:15:15+00:00"
+      "content": "Welcome back Sam! Ready for session #8. What's the main challenge right now?",
+      "timestamp": "2026-12-25T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Check-in session #9: dealing with a quick work issue.",
-      "timestamp": "2026-08-15T11:00:00+00:00"
+      "content": "Sam check-in session #9: dealing with a quick work issue.",
+      "timestamp": "2027-01-19T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #9. What's the main challenge right now?",
-      "timestamp": "2026-08-15T11:00:15+00:00"
+      "content": "Welcome back Sam! Ready for session #9. What's the main challenge right now?",
+      "timestamp": "2027-01-19T10:00:15+00:00"
     },
     {
       "role": "user",
-      "content": "Check-in session #10: dealing with a quick work issue.",
-      "timestamp": "2026-09-01T16:45:00+00:00"
+      "content": "Sam check-in session #10: dealing with a quick work issue.",
+      "timestamp": "2027-02-03T10:00:00+00:00"
     },
     {
       "role": "assistant",
-      "content": "Welcome back, Sam! Ready for session #10. What's the main challenge right now?",
-      "timestamp": "2026-09-01T16:45:15+00:00"
+      "content": "Welcome back Sam! Ready for session #10. What's the main challenge right now?",
+      "timestamp": "2027-02-03T10:00:15+00:00"
     }
   ]
 }
