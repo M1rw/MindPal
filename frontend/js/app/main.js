@@ -1636,25 +1636,25 @@ async function appendMessageToUI(text, sender, { smoothScroll = true, typewriter
 
 function buildMessageActions(text) {
   const actionDiv = document.createElement("div");
-  actionDiv.className = "flex items-center gap-1 mt-3 text-gray-500 dark:text-[#c4c7c5] action-buttons transition-opacity duration-300 opacity-100";
+  actionDiv.className = "flex items-center gap-1 mt-1 text-gray-500 dark:text-gray-400 action-buttons transition-opacity duration-300 opacity-100";
 
   // Extract only the user-visible portion (strip chain-of-thought)
   const visibleText = extractVisibleText(text);
 
   actionDiv.innerHTML = `
-    <button class="action-play p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Read aloud" aria-label="Read aloud">
+    <button class="action-play p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Read aloud" aria-label="Read aloud">
       <i data-lucide="volume-2" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-copy p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Copy text" aria-label="Copy message text">
+    <button class="action-copy p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Copy text" aria-label="Copy message text">
       <i data-lucide="copy" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-like p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Good response" aria-label="Good response">
+    <button class="action-like p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Good response" aria-label="Good response">
       <i data-lucide="thumbs-up" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-dislike p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Bad response" aria-label="Bad response">
+    <button class="action-dislike p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Bad response" aria-label="Bad response">
       <i data-lucide="thumbs-down" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-retry p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Regenerate" aria-label="Regenerate response">
+    <button class="action-retry p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Regenerate" aria-label="Regenerate response">
       <i data-lucide="rotate-cw" class="w-[15px] h-[15px]"></i>
     </button>
   `;
