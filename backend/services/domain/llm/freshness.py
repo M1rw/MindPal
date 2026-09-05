@@ -5,8 +5,6 @@ from __future__ import annotations
 import re
 from typing import Final
 
-from backend.core.security import sanitize_text
-
 _VOLATILE_OFFICEHOLDER_RE: Final[re.Pattern[str]] = re.compile(
     r"\b(?:mayor|president|prime minister|governor|senator|representative|"
     r"member of parliament|mp|ceo|chair(?:man|woman)?|minister|commissioner)\b",

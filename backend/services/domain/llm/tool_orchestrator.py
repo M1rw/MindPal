@@ -14,9 +14,9 @@ import logging
 import re
 from typing import Any, Final
 
-from backend.services.domain.llm.freshness import requires_verified_web_search
 from backend.core.security import sanitize_text
 from backend.models.runtime_trace import RuntimeNode
+from backend.services.domain.llm.freshness import requires_verified_web_search
 from backend.services.domain.llm.request_builder import build_llm_request
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,6 @@ VALID_TOOL_NAMES: Final[set[str]] = {
 
 class ToolOrchestrator:
     """Domain orchestrator for tool selection and pre-execution."""
-    pass
 
 
 async def pre_execute_tools(
