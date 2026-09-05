@@ -75,7 +75,7 @@ def _is_trusted_redirect(url: str) -> bool:
         return False
 
     # Block userinfo in redirect URLs (e.g. https://user:pass@domain.com) to prevent parser ambiguity/bypass
-    if parsed.username is not None or parsed.password is not None:
+    if "@" in parsed.netloc or parsed.username is not None or parsed.password is not None:
         return False
 
     try:

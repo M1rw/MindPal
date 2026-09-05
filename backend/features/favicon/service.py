@@ -64,7 +64,7 @@ def is_trusted_redirect(url: str) -> bool:
     if parsed.scheme.lower() != "https":
         return False
 
-    if parsed.username is not None or parsed.password is not None:
+    if "@" in parsed.netloc or parsed.username is not None or parsed.password is not None:
         return False
 
     try:
