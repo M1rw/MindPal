@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import math
 import re
@@ -895,6 +896,7 @@ class MemoryWriteResult(BaseModel):
 # Graph Utility Functions
 # ═══════════════════════════════════════════════════════════════
 
+@functools.lru_cache(maxsize=4096)
 def normalize_memory_value(value: str) -> str:
     """Normalize a memory value for deduplication matching."""
     cleaned = sanitize_text(str(value or ""), MAX_ATOM_TEXT_CHARS).lower()
