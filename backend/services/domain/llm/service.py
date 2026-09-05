@@ -17,7 +17,8 @@ from backend.core.settings_helpers import is_production
 from backend.models.chat import LLMMessage, LLMRequest, LLMResponse, LLMRole
 from backend.models.schemas import ProviderCallTrace, ProviderChainTrace
 from backend.services.configs import LLMServiceConfig
-from backend.services.core.circuit_breaker import circuit_open as _circuit_open, trip_circuit as _trip_circuit
+from backend.services.core.circuit_breaker import circuit_open as _circuit_open
+from backend.services.core.circuit_breaker import trip_circuit as _trip_circuit
 from backend.services.domain.llm.protocols import LLMProvider
 from backend.services.domain.llm.response_parser import (
     clamp_fallback_count,
@@ -316,7 +317,7 @@ class LLMService:
 
             except asyncio.CancelledError:
                 raise
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 if has_yielded:
                     raise
                 fallback_count += 1
@@ -447,7 +448,7 @@ class LLMService:
             except asyncio.CancelledError:
                 raise
 
-            except asyncio.TimeoutError as exc:
+            except TimeoutError as exc:
                 latency_ms = round((perf_counter() - started) * 1000, 3)
                 traces.append(
                     ProviderCallTrace(

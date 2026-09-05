@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Protocol, TypeAlias, runtime_checkable
+from collections.abc import AsyncIterator
+from typing import Any, Protocol, TypeAlias, runtime_checkable
 
 from backend.models.chat import LLMRequest, LLMResponse
 

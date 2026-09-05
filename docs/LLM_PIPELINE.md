@@ -44,6 +44,10 @@ sequenceDiagram
 
 ### 2. Conversation History Slicing & The Off-by-One Bug
 
+#### History Contract Specification
+- **`payload.history`**: Contains conversation turns BEFORE the current message only. Must not contain the active user message.
+- **`payload.message`**: Contains the active current user message ONLY.
+
 #### History Conversion Logic
 - **File**: `backend/services/domain/llm/chat_orchestrator.py` (`convert_history` at line 377)
 ```python
@@ -55,7 +59,7 @@ def convert_history(payload: ChatRequest) -> list[LLMMessage]:
         ...
 ```
 
-#### Identified Off-by-One Slicing Bug
+#### Identified Off-by-One Slicing Bug & Remediation
 1. **History Inconsistency in Stats vs. LLM Payload**:
    In `chat_history_stats` (`chat_orchestrator.py:81`), history completeness check:
    ```python
@@ -66,3 +70,7 @@ def convert_history(payload: ChatRequest) -> list[LLMMessage]:
 
 2. **Duplicate Message Injection**:
    If the frontend client includes the current prompt inside `payload.history`, slicing the last 30 items retains the user message at index `-1`. `build_llm_request` then passes `user_message` as the trailing message, resulting in the user's latest prompt being sent to Gemini **twice in succession** (`USER: <msg>`, `USER: <msg>`), triggering degraded LLM outputs or invalid prompt sequences.
+
+3. **Remediation Contract Enforced**:
+   - `convert_history(payload)` validates and drops trailing duplicate user messages matching `payload.message` both before and after slicing the last 30 history turns.
+   - `build_llm_request` enforces a defensive check dropping trailing duplicate user messages from history and logging a `history_contract_violation` telemetry event.
