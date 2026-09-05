@@ -10,7 +10,6 @@ from __future__ import annotations
 from .chat_orchestrator import ChatOrchestrator
 from .freshness import requires_verified_web_search
 from .message_classifier import MessageClassification, classify_message
-from .protocols import LLMProvider
 from .prompts import (
     CLINICAL_PRO_PROMPT,
     PRODUCT_BOUNDARY_PROMPT,
@@ -24,6 +23,7 @@ from .prompts import (
     infer_response_mode,
     infer_response_mode_for_preference,
 )
+from .protocols import LLMProvider
 from .request_builder import build_llm_request
 from .response_parser import normalize_provider_response
 from .service import LLMService, LLMServiceResult, OfflineLLMProvider
