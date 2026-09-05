@@ -34,7 +34,6 @@ SAFETY_EVENT_TIMEOUT_SECONDS: Final[float] = 4.0
 
 class ChatOrchestrator:
     """Domain orchestrator for chat workflows."""
-    pass
 
 
 def maybe_answer_chat_context_question(payload: ChatRequest) -> str | None:
@@ -262,7 +261,7 @@ async def persist_safety_event_inline(
         )
 
         return True
-    except (asyncio.TimeoutError, Exception):
+    except (TimeoutError, Exception):
         logger.debug("Safety event persistence failed for %s", context.request_id)
         return False
 
@@ -304,7 +303,7 @@ async def persist_memory_graph_inline(
         if not merged.changed:
             return None
         return {"delta": delta, "snapshot": merged.snapshot}
-    except (asyncio.TimeoutError, Exception):
+    except (TimeoutError, Exception):
         logger.warning("Memory graph persistence failed for %s", context.request_id, exc_info=True)
         return None
 
@@ -339,7 +338,7 @@ async def extract_clinical_inline(
             context.session.user_id_hash,
             update_clinical,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.info("Clinical extraction timed out for %s", context.request_id)
     except Exception:
         logger.warning("Clinical extraction failed for %s", context.request_id, exc_info=True)
@@ -377,14 +376,38 @@ async def mirror_usage_profile(
 def convert_history(payload: ChatRequest) -> list[LLMMessage]:
     """
     Convert incoming payload message history into normalized LLMMessage domain list.
+
+    Enforces the contract where payload.history contains turns BEFORE the active payload.message.
+    Strips trailing duplicate user turns matching payload.message both before and after slicing
+    the last MAX_HISTORY_FOR_LLM items.
     """
+    raw_history = list(payload.history or [])
+    current_message = (payload.message or "").strip()
+
+    # Strip trailing current user message from raw history before slicing
+    while raw_history and _history_role(raw_history[-1]) == "user":
+        if current_message and _history_content(raw_history[-1]).strip() == current_message:
+            raw_history.pop()
+        else:
+            break
+
+    # Slice to last MAX_HISTORY_FOR_LLM items
+    sliced_history = raw_history[-MAX_HISTORY_FOR_LLM:]
+
+    # Strip trailing current user message again after slicing (in case of consecutive duplicate user messages)
+    while sliced_history and _history_role(sliced_history[-1]) == "user":
+        if current_message and _history_content(sliced_history[-1]).strip() == current_message:
+            sliced_history.pop()
+        else:
+            break
+
     history: list[LLMMessage] = []
-    for message in payload.history[-MAX_HISTORY_FOR_LLM:]:
-        role = LLMRole.USER if message.role.value == "user" else LLMRole.ASSISTANT
+    for message in sliced_history:
+        role = LLMRole.USER if _history_role(message) == "user" else LLMRole.ASSISTANT
         history.append(
             LLMMessage(
                 role=role,
-                content=message.content,
+                content=_history_content(message),
             )
         )
     return history

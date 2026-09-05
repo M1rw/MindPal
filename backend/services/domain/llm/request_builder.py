@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 from backend.models.chat import LLMMessage, LLMRequest, LLMRole
+
+logger = logging.getLogger(__name__)
 
 
 def build_llm_request(
@@ -40,8 +43,24 @@ def build_llm_request(
         LLMMessage(role=LLMRole.SYSTEM, content=system_prompt),
     ]
 
-    if history:
-        messages.extend(history)
+    history_list = list(history) if history else []
+    cleaned_user_msg = user_message.strip()
+
+    # Defensive check: drop trailing duplicate user message from history if it matches active user_message
+    if history_list and history_list[-1].role == LLMRole.USER and history_list[-1].content.strip() == cleaned_user_msg:
+        logger.warning(
+            "history_contract_violation: trailing duplicate user turn found in history for request_id=%s. Dropping trailing history turn.",
+            request_id,
+            extra={
+                "event": "history_contract_violation",
+                "request_id": request_id,
+                "user_message_length": len(cleaned_user_msg),
+            },
+        )
+        history_list.pop()
+
+    if history_list:
+        messages.extend(history_list)
 
     messages.append(
         LLMMessage(
