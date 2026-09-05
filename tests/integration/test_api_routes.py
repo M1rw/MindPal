@@ -243,3 +243,17 @@ def test_changelog_routes(client):
     dismiss_res = client.post("/api/features/changelog/dismiss", json={"version": "4.0.0"})
     assert dismiss_res.status_code == 200
     assert dismiss_res.json()["dismissed"] is True
+
+
+def test_favicon_route_and_redirect_security(client):
+    from backend.features.favicon.service import is_trusted_redirect
+
+    # Valid route call with invalid/unsafe targets
+    res_bad = client.get("/api/favicon?url=http://127.0.0.1/logo.png")
+    assert res_bad.status_code == 400
+
+    # Test userinfo in redirect URLs is rejected
+    assert not is_trusted_redirect("https://user:pass@www.google.com/s2/favicons")
+    assert not is_trusted_redirect("https://user@www.google.com/s2/favicons")
+    assert not is_trusted_redirect("https://:pass@www.google.com/s2/favicons")
+    assert is_trusted_redirect("https://www.google.com/s2/favicons?domain_url=https://example.com")

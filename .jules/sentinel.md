@@ -1,3 +1,8 @@
+## 2026-09-05 - Userinfo Ambiguity in Trusted Redirect URL Validation
+**Vulnerability:** Checking `parsed.username` or `parsed.password` on `urllib.parse.urlparse` results can miss malformed or ambiguous URLs containing `@` in authority/netloc components, potentially bypassing trusted redirect checks.
+**Learning:** Certain HTTP clients and URL parsers handle raw userinfo syntax or malformed authority components differently than standard `urlparse`. Checking for raw `@` in `parsed.netloc` ensures any embedded credentials in redirect URLs are strictly rejected.
+**Prevention:** In URL redirection/proxy validators, explicitly check `"@" in parsed.netloc` in addition to `parsed.username` and `parsed.password` to prevent parser ambiguity or credentials smuggling.
+
 ## 2026-09-03 - SSRF Bypass via Multicast and Reserved IP Address Literals
 **Vulnerability:** Python's `ipaddress.ip_address` evaluates IPv4 multicast (`224.0.0.0/4`, e.g. `224.0.0.1`) and IPv6 multicast (`ff00::/8`, e.g. `ff02::1`) address literals with `is_global = True`, enabling SSRF bypasses when validating URL hostnames solely against `is_global`.
 **Learning:** Multicast IP addresses are intended for one-to-many broadcast communication rather than unicast host endpoints. System network stacks, dual-stack sockets, and proxy libraries may route requests sent to multicast IP literals onto local network interfaces or internal multicast listener groups.
