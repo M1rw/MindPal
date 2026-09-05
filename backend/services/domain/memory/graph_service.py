@@ -161,12 +161,24 @@ def _cosine_similarity(left: list[float] | None, right: list[float] | None) -> f
     return max(0.0, min(1.0, dot / (left_norm * right_norm)))
 
 
-def _concept_similarity(query_tokens: set[str], candidate_tokens: set[str]) -> float:
+def _concept_similarity(
+    query_tokens: set[str],
+    candidate_tokens: set[str],
+    *,
+    query_concepts: list[frozenset[str]] | None = None,
+) -> float:
     if not query_tokens or not candidate_tokens:
         return 0.0
+    concepts_to_check = (
+        query_concepts
+        if query_concepts is not None
+        else [terms for terms in _CONCEPTS.values() if query_tokens.intersection(terms)]
+    )
+    if not concepts_to_check:
+        return 0.0
     shared_concepts = 0
-    for terms in _CONCEPTS.values():
-        if query_tokens.intersection(terms) and candidate_tokens.intersection(terms):
+    for terms in concepts_to_check:
+        if candidate_tokens.intersection(terms):
             shared_concepts += 1
     return min(1.0, shared_concepts / max(1, min(len(_CONCEPTS), 2)))
 
@@ -392,12 +404,17 @@ class BrainService:
         query_tokens = _tokens(query)
         if not query_tokens:
             return []
+        normalized_query = normalize_memory_value(query)
+        query_concepts = [terms for terms in _CONCEPTS.values() if query_tokens.intersection(terms)]
         scored: list[tuple[float, MemoryAtom]] = []
         for atom in self.visible_atoms(graph, policy_tier=policy_tier, categories=categories):
-            atom_tokens = _tokens(" ".join([atom.value, atom.display_value, *atom.aliases]))
+            if not atom.aliases and atom.display_value == atom.value:
+                atom_tokens = {part for part in _TOKEN_RE.split(atom.normalized_value) if len(part) > 1}
+            else:
+                atom_tokens = _tokens(" ".join([atom.value, atom.display_value, *atom.aliases]))
             lexical = len(query_tokens.intersection(atom_tokens)) / len(query_tokens)
-            alias = 1.0 if any(normalize_memory_value(query) in normalize_memory_value(alias) for alias in atom.aliases) else 0.0
-            semantic = _concept_similarity(query_tokens, atom_tokens)
+            alias = 1.0 if any(normalized_query in normalize_memory_value(alias) for alias in atom.aliases) else 0.0
+            semantic = _concept_similarity(query_tokens, atom_tokens, query_concepts=query_concepts)
             score = 0.64 * lexical + 0.22 * semantic + 0.14 * min(1.0, atom.relevance_score()) + 0.12 * alias
             if score > 0.0:
                 scored.append((score, atom))
@@ -525,14 +542,18 @@ class BrainService:
         proximity_ids: set[str],
     ) -> list[tuple[float, MemoryAtom, str]]:
         now = utcnow()
+        query_concepts = [terms for terms in _CONCEPTS.values() if query_tokens.intersection(terms)]
         ranked: list[tuple[float, MemoryAtom, str]] = []
         for atom in atoms:
-            atom_tokens = _tokens(" ".join([atom.value, atom.display_value, *atom.aliases]))
+            if not atom.aliases and atom.display_value == atom.value:
+                atom_tokens = {part for part in _TOKEN_RE.split(atom.normalized_value) if len(part) > 1}
+            else:
+                atom_tokens = _tokens(" ".join([atom.value, atom.display_value, *atom.aliases]))
             lexical = len(query_tokens.intersection(atom_tokens)) / max(1, len(query_tokens))
-            phrase = 1.0 if normalized_query and normalized_query in normalize_memory_value(atom.value) else 0.0
+            phrase = 1.0 if normalized_query and normalized_query in atom.normalized_value else 0.0
             alias = 1.0 if normalized_query and any(normalized_query in normalize_memory_value(alias) for alias in atom.aliases) else 0.0
             vector_score = _cosine_similarity(query_vector, atom.vector)
-            semantic = vector_score if vector_score > 0 else _concept_similarity(query_tokens, atom_tokens)
+            semantic = vector_score if vector_score > 0 else _concept_similarity(query_tokens, atom_tokens, query_concepts=query_concepts)
             recency = min(1.0, atom.relevance_score(now=now))
             evidence_score = min(1.0, math.log1p(atom.evidence_count) / math.log(11))
             proximity = 1.0 if atom.id in proximity_ids else 0.0
@@ -567,7 +588,7 @@ class BrainService:
         seen_text: set[str] = set()
         for score, atom, why in candidates:
             node_type = self.node_type_for(atom)
-            normalized = normalize_memory_value(atom.value)
+            normalized = atom.normalized_value
             if normalized in seen_text or counts[node_type] >= 2:
                 continue
             selected.append((score, atom, why))

@@ -6,6 +6,7 @@ Memory domain schemas, MemoryAtom, MemoryGraph, and taxonomy models.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import math
 import re
@@ -214,6 +215,7 @@ def make_memory_atom(
     )
 
 
+@functools.lru_cache(maxsize=4096)
 def normalize_memory_value(value: str) -> str:
     cleaned = sanitize_text(value, MAX_ATOM_TEXT_CHARS).lower()
     return re.sub(r"\s+", " ", cleaned).strip()
