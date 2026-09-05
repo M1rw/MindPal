@@ -1642,20 +1642,20 @@ function buildMessageActions(text) {
   const visibleText = extractVisibleText(text);
 
   actionDiv.innerHTML = `
-    <button class="action-play w-6 h-6 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Read aloud" aria-label="Read aloud">
-      <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+    <button class="action-play w-7 h-7 min-h-0 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Read aloud" aria-label="Read aloud">
+      <i data-lucide="volume-2" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-copy w-6 h-6 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Copy text" aria-label="Copy message text">
-      <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+    <button class="action-copy w-7 h-7 min-h-0 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Copy text" aria-label="Copy message text">
+      <i data-lucide="copy" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-like w-6 h-6 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Good response" aria-label="Good response">
-      <i data-lucide="thumbs-up" class="w-3.5 h-3.5"></i>
+    <button class="action-like w-7 h-7 min-h-0 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Good response" aria-label="Good response">
+      <i data-lucide="thumbs-up" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-dislike w-6 h-6 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Bad response" aria-label="Bad response">
-      <i data-lucide="thumbs-down" class="w-3.5 h-3.5"></i>
+    <button class="action-dislike w-7 h-7 min-h-0 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Bad response" aria-label="Bad response">
+      <i data-lucide="thumbs-down" class="w-[15px] h-[15px]"></i>
     </button>
-    <button class="action-retry w-6 h-6 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Regenerate" aria-label="Regenerate response">
-      <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+    <button class="action-retry w-7 h-7 min-h-0 flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-0 bg-transparent transition-colors" title="Regenerate" aria-label="Regenerate response">
+      <i data-lucide="rotate-cw" class="w-[15px] h-[15px]"></i>
     </button>
   `;
 
