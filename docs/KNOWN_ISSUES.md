@@ -8,10 +8,11 @@ This document consolidates all confirmed architectural, frontend, backend, telem
 
 ## Registry of Confirmed Issues
 
-### BUG-001: History Slicing & Duplicate Message Slicing
-- **File & Line**: `backend/services/domain/llm/chat_orchestrator.py:382` & `backend/api/routers/chat.py:390`
+### BUG-001: History Slicing & Duplicate Message Slicing [FIXED]
+- **File & Line**: `backend/services/domain/llm/chat_orchestrator.py:382` & `backend/services/domain/llm/request_builder.py:43`
 - **Severity**: High
-- **Description**: `convert_history` slices `payload.history[-30:]`. If the current prompt is included in `payload.history` by the frontend, `build_llm_request` appends `user_message` again, sending the user's latest prompt to Gemini twice in succession.
+- **Status**: FIXED
+- **Description**: `convert_history` sliced `payload.history[-30:]` without stripping trailing duplicate user messages matching `payload.message`. `build_llm_request` then appended `user_message` separately, resulting in duplicate user turns. Fixed by adding duplicate stripping in `convert_history`, a defensive guard in `build_llm_request` with `history_contract_violation` event logging, and contract tests.
 
 ### BUG-002: Synthetic Memory Benchmark Metrics (`performance.memory`)
 - **File & Line**: `scripts/audit/benchmark_frontend.mjs:177`
