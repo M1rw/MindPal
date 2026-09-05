@@ -35,6 +35,10 @@ button, input, select, textarea, [role="button"] {
   min-height: 44px;
 }
 
+.action-buttons button {
+  min-height: unset;
+}
+
 /* Responsive Safe Area Top Padding */
 .pt-safe-top {
   padding-top: 12px; /* fallback */
