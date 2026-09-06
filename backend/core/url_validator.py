@@ -120,7 +120,14 @@ def validate_url(
             f"URL scheme '{parsed.scheme}' not in allowed schemes: {sorted(schemes)}"
         )
 
-    hostname = (parsed.hostname or "").strip().lower()
+    if "@" in parsed.netloc or parsed.username is not None or parsed.password is not None:
+        raise ValueError("URL contains userinfo credentials")
+
+    try:
+        hostname = (parsed.hostname or "").strip().lower()
+    except ValueError as exc:
+        raise ValueError(f"Invalid hostname or port in URL: {exc}") from exc
+
     if not hostname:
         raise ValueError("URL has no hostname")
 
