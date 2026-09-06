@@ -75,3 +75,16 @@ def test_multicast_and_reserved_ip_url_validation():
         assert not is_safe_url(url), f"Expected unsafe URL for: {url}"
         with pytest.raises(ValueError, match="not globally routable"):
             validate_url(url)
+
+
+def test_userinfo_url_validation_rejection():
+    userinfo_urls = [
+        "http://user:pass@example.com/api",
+        "https://admin@example.org/dashboard",
+        "http://user:secret@127.0.0.1/admin",
+        "http://127.0.0.1@google.com/search",
+    ]
+    for url in userinfo_urls:
+        assert not is_safe_url(url), f"Expected unsafe URL for userinfo in: {url}"
+        with pytest.raises(ValueError, match="userinfo credentials"):
+            validate_url(url)

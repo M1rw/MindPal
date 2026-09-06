@@ -86,6 +86,8 @@ def test_web_search_url_ssrf_filtering():
         "http://[fec0:0:0:0:1::1]/secret",
         "file:///etc/passwd",
         "gopher://127.0.0.1:70",
+        "http://user:pass@example.com/secret",
+        "http://user:secret@127.0.0.1/admin",
     ]
 
     for target in ssrf_targets:
