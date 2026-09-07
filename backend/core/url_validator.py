@@ -14,10 +14,12 @@ Guards external HTTP clients against SSRF attacks including:
 from __future__ import annotations
 
 import ipaddress
+import re
 from typing import Final
 from urllib.parse import urlparse
 
 _SAFE_URL_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
+_URL_CONTROL_CHARS_RE: Final[re.Pattern[str]] = re.compile(r"[\x00-\x20\x7f]")
 
 
 def parse_ip_literal(hostname: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
@@ -109,6 +111,10 @@ def validate_url(
     cleaned = str(url or "").strip()
     if not cleaned or len(cleaned) > max_length:
         raise ValueError("URL is empty or exceeds maximum allowed length")
+
+    # Reject unencoded control characters and whitespace (ASCII 0x00-0x20, 0x7F) to prevent CR/LF injection and parser ambiguity
+    if _URL_CONTROL_CHARS_RE.search(cleaned):
+        raise ValueError("URL contains invalid control characters or unencoded whitespace")
 
     try:
         parsed = urlparse(cleaned)

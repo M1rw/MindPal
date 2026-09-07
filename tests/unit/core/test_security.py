@@ -88,3 +88,18 @@ def test_userinfo_url_validation_rejection():
         assert not is_safe_url(url), f"Expected unsafe URL for userinfo in: {url}"
         with pytest.raises(ValueError, match="userinfo credentials"):
             validate_url(url)
+
+
+def test_control_chars_and_unencoded_whitespace_url_rejection():
+    unsafe_control_urls = [
+        "http://example.com/path\r\nX-Injected: true",
+        "http://example.com/path\nInjected",
+        "http://example.com/path\x00null",
+        "http://example.com/path with space",
+        "http://example.com/path\ttab",
+        "http://127.0.0.1\r\n.example.com",
+    ]
+    for url in unsafe_control_urls:
+        assert not is_safe_url(url), f"Expected unsafe URL for control chars/whitespace in: {repr(url)}"
+        with pytest.raises(ValueError, match="invalid control characters or unencoded whitespace"):
+            validate_url(url)
