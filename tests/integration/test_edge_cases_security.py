@@ -93,3 +93,46 @@ def test_web_search_url_ssrf_filtering():
     for target in ssrf_targets:
         assert clean_url_string(target) == "", f"clean_url_string failed to reject {target}"
         assert _clean_url(target) == "", f"_clean_url failed to reject {target}"
+
+
+def test_chat_debug_access_control(auth_client):
+    from backend.models.schemas import ProviderCallTrace, ProviderChainTrace
+
+    services = auth_client.app.state.service_container
+    me_res = auth_client.get("/api/user/me")
+    assert me_res.status_code == 200
+    user_hash = me_res.json()["user_id_hash"]
+
+    # 1. Trace owned by another user -> 403 Forbidden
+    other_trace = ProviderChainTrace(
+        request_id="req_other_user_123",
+        provider_used="offline",
+        user_id_hash="usr_other_user_hash_456",
+        calls=[ProviderCallTrace(provider="offline", attempted=True, succeeded=True)],
+    )
+    services.llm._cache_trace(other_trace)
+    res_other = auth_client.get(f"/api/chat/debug/{other_trace.request_id}")
+    assert res_other.status_code == 403
+
+    # 2. Trace with no user_id_hash (None) -> 403 Forbidden
+    unassigned_trace = ProviderChainTrace(
+        request_id="req_unassigned_123",
+        provider_used="offline",
+        user_id_hash=None,
+        calls=[ProviderCallTrace(provider="offline", attempted=True, succeeded=True)],
+    )
+    services.llm._cache_trace(unassigned_trace)
+    res_unassigned = auth_client.get(f"/api/chat/debug/{unassigned_trace.request_id}")
+    assert res_unassigned.status_code == 403
+
+    # 3. Trace owned by the requesting user -> 200 OK
+    owner_trace = ProviderChainTrace(
+        request_id="req_owner_user_123",
+        provider_used="offline",
+        user_id_hash=user_hash,
+        calls=[ProviderCallTrace(provider="offline", attempted=True, succeeded=True)],
+    )
+    services.llm._cache_trace(owner_trace)
+    res_owner = auth_client.get(f"/api/chat/debug/{owner_trace.request_id}")
+    assert res_owner.status_code == 200
+    assert res_owner.json()["request_id"] == owner_trace.request_id

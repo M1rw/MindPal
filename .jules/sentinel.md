@@ -1,3 +1,8 @@
+## 2026-09-08 - Falsy Truthiness Bypass in Trace Authorization Checks
+**Vulnerability:** Checking `if trace and trace.user_id_hash and trace.user_id_hash != session.user_id_hash` evaluates to `False` when `trace.user_id_hash` is `None`, allowing unassigned/anonymous debug traces to bypass ownership checks.
+**Learning:** Truthiness guards on optional resource properties can cause ownership checks to be skipped entirely when the property is `None` or empty.
+**Prevention:** Explicitly compute resource ownership (`is_owner = resource.owner_id is not None and resource.owner_id == caller_id`) and verify whether `not is_owner and not is_admin` to ensure authorization checks execute deterministically.
+
 ## 2026-09-05 - Userinfo Ambiguity in Trusted Redirect URL Validation
 **Vulnerability:** Checking `parsed.username` or `parsed.password` on `urllib.parse.urlparse` results can miss malformed or ambiguous URLs containing `@` in authority/netloc components, potentially bypassing trusted redirect checks.
 **Learning:** Certain HTTP clients and URL parsers handle raw userinfo syntax or malformed authority components differently than standard `urlparse`. Checking for raw `@` in `parsed.netloc` ensures any embedded credentials in redirect URLs are strictly rejected.
