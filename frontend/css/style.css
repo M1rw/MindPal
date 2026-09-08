@@ -642,11 +642,17 @@ details > summary::-webkit-details-marker { display: none; }
 }
 
 .settings-choice-trigger:hover,
-.settings-choice-trigger:focus-visible,
 .settings-choice.open .settings-choice-trigger {
   border-color: rgba(15, 23, 42, 0.24);
   background: #f8fafc;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.settings-choice-trigger:focus-visible {
+  border-color: rgba(15, 23, 42, 0.24);
+  background: #f8fafc;
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .settings-choice-menu {
@@ -716,11 +722,17 @@ details > summary::-webkit-details-marker { display: none; }
 }
 
 .dark .settings-choice-trigger:hover,
-.dark .settings-choice-trigger:focus-visible,
 .dark .settings-choice.open .settings-choice-trigger {
   border-color: rgba(255, 255, 255, 0.24);
   background: #2a2f36;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dark .settings-choice-trigger:focus-visible {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: #2a2f36;
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
 }
 
 .dark .settings-choice-menu {
@@ -848,6 +860,12 @@ details > summary::-webkit-details-marker { display: none; }
   border-color: #ef4444;
 }
 
+.settings-pill-btn:focus-visible,
+.settings-danger-pill:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 .dark .settings-pill-btn {
   border-color: #444444;
   color: #ffffff;
@@ -855,6 +873,12 @@ details > summary::-webkit-details-marker { display: none; }
 
 .dark .settings-pill-btn:hover {
   background: #2f2f2f;
+}
+
+.dark .settings-pill-btn:focus-visible,
+.dark .settings-danger-pill:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
 }
 
 .settings-danger-pill:hover {
