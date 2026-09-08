@@ -17,8 +17,8 @@ from backend.core.errors import SafetyError
 from backend.core.security import Locale, normalize_locale, sanitize_text
 from backend.core.settings_helpers import is_production
 from backend.services.configs import OutputGuardServiceConfig
-from backend.services.domain.llm.service import LLMService
 from backend.services.domain.llm.request_builder import build_llm_request
+from backend.services.domain.llm.service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,7 @@ class CompiledOutputRule:
     confidence: float
     description: str
     patterns: tuple[Pattern[str], ...]
+    source_locale: Locale = "auto"
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,7 +369,7 @@ class OutputGuardService:
                 error_code="empty_output",
             )
 
-        matches = self._find_matches(cleaned)
+        matches = self._find_matches(cleaned, locale=resolved_locale)
 
         if not matches:
             return OutputGuardResult(
@@ -537,10 +538,14 @@ class OutputGuardService:
         rewrite = sanitize_text(str(payload.get("rewrite", "")), MAX_REWRITE_OUTPUT_CHARS)
         return rewrite
 
-    def _find_matches(self, text: str) -> list[OutputGuardMatch]:
+    def _find_matches(self, text: str, locale: Locale = "auto") -> list[OutputGuardMatch]:
         matches: list[OutputGuardMatch] = []
 
         for rule in self._rules:
+            # Bolt: Skip evaluating rules explicitly designed for a different locale when locale is explicitly provided
+            if locale != "auto" and rule.source_locale != "auto" and rule.source_locale != locale:
+                continue
+
             for index, pattern in enumerate(rule.patterns):
                 if not pattern.search(text):
                     continue
@@ -808,6 +813,17 @@ class OutputGuardService:
 
         patterns = self._compile_patterns(raw_rule.get("patterns"), rule_id=rule_id)
 
+        # Bolt: Parse or infer source_locale to skip cross-locale regex evaluation
+        raw_source_locale = raw_rule.get("source_locale")
+        if raw_source_locale:
+            source_locale = normalize_locale(str(raw_source_locale))
+        elif rule_id.endswith("_en"):
+            source_locale = "en"
+        elif rule_id.endswith("_ar"):
+            source_locale = "ar"
+        else:
+            source_locale = "auto"
+
         return CompiledOutputRule(
             rule_id=rule_id,
             category=category,
@@ -816,6 +832,7 @@ class OutputGuardService:
             confidence=confidence,
             description=description,
             patterns=patterns,
+            source_locale=source_locale,
         )
 
     def _compile_patterns(self, patterns: Any, *, rule_id: str) -> tuple[Pattern[str], ...]:
