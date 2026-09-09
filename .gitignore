@@ -1,5 +1,3 @@
-# .gitignore
-
 # Python
 __pycache__/
 *.py[cod]
@@ -30,8 +28,8 @@ secrets/
 *.crt
 *service-account*.json
 firebase-service-account.json
-
-# Firebase / Google credentials
+firebase-credentials*.json
+firebase-credentials-base64.txt
 google-application-credentials.json
 application_default_credentials.json
 
@@ -41,32 +39,30 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+pnpm-lock.yaml
 
-# OS / editor
+# OS / editor / agent tooling
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+.cursor/
+.jules/
+.Jules/
 *.swp
 *.swo
 
-# Logs
+# Logs and runtime
 logs/
 *.log
-
-# Runtime data
 tmp/
 temp/
 .cache/
-
-# MindPal generated/local state
 var/
 local_data/
-secrets/firebase-service-account.json
 .vercel
-.env*
 
-# Frontend and Voice build outputs are generated in the local/Vercel build workspace.
+# Generated frontend / voice assets
 frontend/css/tailwind.generated.css
 frontend/dist/
 frontend/voice/dist/
@@ -75,11 +71,4 @@ frontend/voice/public/assets/
 frontend/voice-v3/
 voice/dist/
 voice/public/assets/
-
-# Voice internal human review artifacts
 artifacts/voice-persona-review/
-
-# Firebase Credentials
-firebase-service-account.json
-firebase-credentials-minified.json
-firebase-credentials-base64.txt
