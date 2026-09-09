@@ -107,10 +107,9 @@ def _build_time_context(user_timezone: str = "UTC") -> str:
             local_str = ""
 
     utc_str = f"Current UTC time: {now_utc.strftime('%A, %Y-%m-%d %H:%M UTC')}"
-    parts = [utc_str]
     if local_str:
-        parts.append(local_str)
-    return "Temporal context:\n" + "\n".join(parts)
+        return f"Temporal context:\n{utc_str}\n{local_str}"
+    return f"Temporal context:\n{utc_str}"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -289,9 +288,10 @@ def _build_safety_section(safety_level: str) -> str:
     return "\n".join(lines)
 
 
-def _build_chain_section(classification: MessageClassification, clinical_mode: bool) -> str:
+@lru_cache(maxsize=4)
+def _build_chain_section(skip_thought: bool, clinical_mode: bool) -> str:
     """Provide private planning instructions without requiring reasoning to be emitted."""
-    if classification.skip_thought:
+    if skip_thought:
         return ""
 
     proto = _clinical() if clinical_mode else _standard()
@@ -335,7 +335,8 @@ def _build_chain_section(classification: MessageClassification, clinical_mode: b
     return "\n".join(lines)
 
 
-def _build_clear_response_contract(classification: MessageClassification) -> str:
+@lru_cache(maxsize=8)
+def _build_clear_response_contract(tier: str) -> str:
     """Make compassionate, direct replies observable and regression-testable."""
     lines = [
         "CLEAR RESPONSE CONTRACT:",
@@ -349,9 +350,9 @@ def _build_clear_response_contract(classification: MessageClassification) -> str
         "Avoid empty reassurance, exaggerated praise, clinical certainty, and claims about root causes the user did not provide.",
     ]
 
-    if classification.tier == "greeting":
+    if tier == "greeting":
         lines.append("For a greeting, be warm and concise (one to three sentences) and invite a simple next topic.")
-    elif classification.tier == "casual":
+    elif tier == "casual":
         lines.append("For a casual request, answer the request first; add wellness support only when it is relevant.")
     else:
         lines.append("For emotional or clinical support, reflect one concrete detail before offering a small, tailored next step.")
@@ -359,7 +360,8 @@ def _build_clear_response_contract(classification: MessageClassification) -> str
     return "\n".join(lines)
 
 
-def _build_presentation_contract(classification: MessageClassification) -> str:
+@lru_cache(maxsize=8)
+def _build_presentation_contract(tier: str) -> str:
     """Tell the model to select a response shape that serves the current request."""
     lines = [
         "ADAPTIVE PRESENTATION:",
@@ -373,7 +375,7 @@ def _build_presentation_contract(classification: MessageClassification) -> str:
         "- Include Markdown links only for tool-provided, verified sources. Never invent a URL, source name, citation, or research claim.",
         "Never expose internal reasoning or add meta labels such as Thought, Analysis, Response, or Balanced Reframe.",
     ]
-    if classification.tier in {"emotional", "clinical"}:
+    if tier in {"emotional", "clinical"}:
         lines.append("In emotional support, warmth and clarity come before formatting: use structure only when it reduces cognitive load.")
     return "\n".join(lines)
 
@@ -407,7 +409,8 @@ def _build_channel_section(channel: str) -> str:
     return channels.get(channel, channels.get("unknown", ""))
 
 
-def _build_language_section(classification: MessageClassification, locale: str) -> str:
+@lru_cache(maxsize=32)
+def _build_language_section(language: str, locale: str) -> str:
     locale_data = _locale()
     lines = []
 
@@ -419,7 +422,7 @@ def _build_language_section(classification: MessageClassification, locale: str) 
 
     # Detected language override
     overrides = locale_data.get("language_overrides", {})
-    lang_override = overrides.get(classification.language, {})
+    lang_override = overrides.get(language, {})
     if lang_override:
         instruction = lang_override.get("instruction", "")
         if instruction:
@@ -438,7 +441,8 @@ def _build_language_section(classification: MessageClassification, locale: str) 
     return "\n".join(lines)
 
 
-def _build_greeting_instructions(classification: MessageClassification, clinical_mode: bool) -> str:
+@lru_cache(maxsize=2)
+def _build_greeting_instructions(clinical_mode: bool) -> str:
     """Special lightweight instructions for greetings — skip thinking chain entirely."""
     if clinical_mode:
         return (
@@ -456,6 +460,7 @@ def _build_greeting_instructions(classification: MessageClassification, clinical
     )
 
 
+@lru_cache(maxsize=1)
 def _build_off_topic_instructions() -> str:
     identity = _identity()
     redirect = identity.get("off_topic_redirect", "I can only help with emotional wellbeing topics.")
@@ -466,6 +471,7 @@ def _build_off_topic_instructions() -> str:
     )
 
 
+@lru_cache(maxsize=8)
 def _build_meta_instructions(language: str) -> str:
     """Build instructions for answering meta-questions about MindPal."""
     knowledge = get_self_knowledge_response(language)
@@ -516,11 +522,13 @@ def build_tiered_prompt(
 
     tier = classification.tier
 
+    norm_locale = normalize_locale(locale)
+
     # ── Crisis: minimal prompt ──
     if tier == "crisis":
         sections.append(_build_identity_section(clinical_mode))
         sections.append(_build_safety_section(safety_level))
-        sections.append(_build_language_section(classification, normalize_locale(locale)))
+        sections.append(_build_language_section(classification.language, norm_locale))
         prompt = "\n\n".join(s for s in sections if s and s.strip())
         return safe_truncate(prompt, max_chars)
 
@@ -528,7 +536,7 @@ def build_tiered_prompt(
     if tier == "off_topic":
         sections.append(_build_identity_section(clinical_mode))
         sections.append(_build_off_topic_instructions())
-        sections.append(_build_language_section(classification, normalize_locale(locale)))
+        sections.append(_build_language_section(classification.language, norm_locale))
         prompt = "\n\n".join(s for s in sections if s and s.strip())
         return safe_truncate(prompt, max_chars)
 
@@ -536,15 +544,15 @@ def build_tiered_prompt(
     if tier == "meta_question":
         sections.append(_build_identity_section(clinical_mode))
         sections.append(_build_meta_instructions(classification.language))
-        sections.append(_build_language_section(classification, normalize_locale(locale)))
+        sections.append(_build_language_section(classification.language, norm_locale))
         prompt = "\n\n".join(s for s in sections if s and s.strip())
         return safe_truncate(prompt, max_chars)
 
     # ── Greeting: lightweight warm opener ──
     if tier == "greeting":
         sections.append(_build_identity_section(clinical_mode))
-        sections.append(_build_clear_response_contract(classification))
-        sections.append(_build_greeting_instructions(classification, clinical_mode))
+        sections.append(_build_clear_response_contract(tier))
+        sections.append(_build_greeting_instructions(clinical_mode))
         sections.append(_build_boundaries_section())
 
         if response_brief:
@@ -557,7 +565,7 @@ def build_tiered_prompt(
                 + sanitize_text(memory_prompt, 1_000)
             )
 
-        sections.append(_build_language_section(classification, normalize_locale(locale)))
+        sections.append(_build_language_section(classification.language, norm_locale))
         prompt = "\n\n".join(s for s in sections if s and s.strip())
         return safe_truncate(prompt, max_chars)
 
@@ -566,13 +574,13 @@ def build_tiered_prompt(
     if tier == "casual":
         sections.append(_build_identity_section(clinical_mode))
 
-        sections.append(_build_clear_response_contract(classification))
+        sections.append(_build_clear_response_contract(tier))
 
         # Light boundaries
         sections.append(_build_boundaries_section())
 
         # Presentation and format rules
-        sections.append(_build_presentation_contract(classification))
+        sections.append(_build_presentation_contract(tier))
         sections.append(_build_format_rules_section())
 
         # Memory (if available — for personalization)
@@ -590,7 +598,7 @@ def build_tiered_prompt(
             sections.append(sanitize_text(response_brief, 1_500))
 
         # Language (LAST)
-        sections.append(_build_language_section(classification, normalize_locale(locale)))
+        sections.append(_build_language_section(classification.language, norm_locale))
         prompt = "\n\n".join(s for s in sections if s and s.strip())
         return safe_truncate(prompt, max_chars)
 
@@ -600,10 +608,10 @@ def build_tiered_prompt(
     if tier == "emotional":
         sections.append(_build_identity_section(clinical_mode))
 
-        sections.append(_build_clear_response_contract(classification))
+        sections.append(_build_clear_response_contract(tier))
 
         # Private planning protocol; the final reply must not expose it.
-        chain = _build_chain_section(classification, clinical_mode)
+        chain = _build_chain_section(classification.skip_thought, clinical_mode)
         if chain:
             sections.append(chain)
 
@@ -624,7 +632,7 @@ def build_tiered_prompt(
             sections.append(mode_text)
 
         # Presentation and format rules
-        sections.append(_build_presentation_contract(classification))
+        sections.append(_build_presentation_contract(tier))
         sections.append(_build_format_rules_section())
 
         # Intent context
@@ -654,7 +662,7 @@ def build_tiered_prompt(
             sections.append(sanitize_text(response_brief, 1_500))
 
         # Language (LAST)
-        sections.append(_build_language_section(classification, normalize_locale(locale)))
+        sections.append(_build_language_section(classification.language, norm_locale))
         prompt = "\n\n".join(s for s in sections if s and s.strip())
         return safe_truncate(prompt, max_chars)
 
@@ -663,10 +671,10 @@ def build_tiered_prompt(
     # This is the heaviest prompt — used only for Pro mode with substantive content.
     sections.append(_build_identity_section(clinical_mode))
 
-    sections.append(_build_clear_response_contract(classification))
+    sections.append(_build_clear_response_contract(tier))
 
     # Full private planning protocol; the final reply must not expose it.
-    chain = _build_chain_section(classification, clinical_mode)
+    chain = _build_chain_section(classification.skip_thought, clinical_mode)
     if chain:
         sections.append(chain)
 
@@ -687,7 +695,7 @@ def build_tiered_prompt(
         sections.append(mode_text)
 
     # Presentation and format rules
-    sections.append(_build_presentation_contract(classification))
+    sections.append(_build_presentation_contract(tier))
     format_text = _build_format_rules_section()
     if format_text:
         sections.append(format_text)
@@ -734,7 +742,7 @@ def build_tiered_prompt(
         sections.append(sanitize_text(response_brief, 1_500))
 
     # Language (LAST — recency bias = strongest compliance)
-    sections.append(_build_language_section(classification, normalize_locale(locale)))
+    sections.append(_build_language_section(classification.language, norm_locale))
 
     prompt = "\n\n".join(s for s in sections if s and s.strip())
     return safe_truncate(prompt, max_chars)
