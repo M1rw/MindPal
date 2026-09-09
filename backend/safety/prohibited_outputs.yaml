@@ -207,6 +207,66 @@ rules:
       - '(?i)(?:هذه|دي)\s+نصيحة\s+طبية'
       - '(?i)(?:استخدمه|استخدميه)\s+بدل\s+(?:العلاج|الدكتور|الطبيب|المساعدة\s+المهنية)'
 
+  - id: output_score_praise_high_en
+    category: forbidden_score_praise
+    severity: high
+    action: block_and_fallback
+    confidence: 0.95
+    description: Assistant must not praise screening scores of 10 or higher as progress.
+    patterns:
+      - '(?i)\b(?:score|result|rating|phq-?9|gad-?7)\s*(?:of|=|:)?\s*(?:1[0-9]|2[0-7])\b.*?\b(?:great|good|steady|clinical|excellent|awesome)\s+progress\b'
+      - '(?i)\b(?:great|good|steady|clinical|excellent|awesome)\s+progress\b.*?\b(?:score|result|rating|phq-?9|gad-?7)\s*(?:of|=|:)?\s*(?:1[0-9]|2[0-7])\b'
+      - '(?i)\b(?:congratulations|great job|well done)\b.*?\b(?:score|result)\s*(?:of|=|:)?\s*(?:1[0-9]|2[0-7])\b'
+
+  - id: output_score_praise_high_ar
+    category: forbidden_score_praise
+    severity: high
+    action: block_and_fallback
+    confidence: 0.95
+    description: Arabic praise of screening scores of 10 or higher is prohibited.
+    patterns:
+      - '(?i)(?:تقدم|نتيجة|درجة|درجتك)\s*(?:1[0-9]|2[0-7]).*?(?:ممتاز|رائع|تقدم ملحوظ|تقدم إيجابي|إيجابي)'
+      - '(?i)(?:مبروك|ممتاز|رائع)\b.*?(?:درجة|نتيجة)\s*(?:1[0-9]|2[0-7])'
+
+  - id: output_pii_leakage_en
+    category: pii_leakage
+    severity: critical
+    action: block_and_fallback
+    confidence: 0.98
+    description: Assistant must not output leaked secret keys, credentials, or PII.
+    patterns:
+      - '(?i)\b(?:sk_live|sk_test|AIzaSy|eyJhbGciOi)[A-Za-z0-9_-]{10,}\b'
+      - '(?i)-----BEGIN\s+(?:PRIVATE\s+KEY|RSA\s+PRIVATE\s+KEY)-----'
+      - '(?i)\b\d{3}-\d{2}-\d{4}\b'
+
+  - id: output_pii_leakage_ar
+    category: pii_leakage
+    severity: critical
+    action: block_and_fallback
+    confidence: 0.98
+    description: Arabic pattern catch for secret leakage or credentials.
+    patterns:
+      - '(?i)\b(?:sk_live|sk_test|AIzaSy|eyJhbGciOi)[A-Za-z0-9_-]{10,}\b'
+      - '(?i)-----BEGIN\s+(?:PRIVATE\s+KEY|RSA\s+PRIVATE\s+KEY)-----'
+
+  - id: output_minimizing_language_en
+    category: minimizing_language
+    severity: medium
+    action: safe_rewrite
+    confidence: 0.88
+    description: Assistant must not minimize user distress or dismiss concerns.
+    patterns:
+      - '(?i)\b(?:you(?:''re|\s+are)\s+just\s+exaggerating|it(?:''s|\s+is)\s+no\s+big\s+deal|you(?:''re|\s+are)\s+making\s+a\s+big\s+deal\s+out\s+of\s+nothing|get\s+over\s+it)\b'
+
+  - id: output_minimizing_language_ar
+    category: minimizing_language
+    severity: medium
+    action: safe_rewrite
+    confidence: 0.88
+    description: Arabic minimizing language is prohibited.
+    patterns:
+      - '(?i)(?:أنت\s+بتبالغ|انت\s+بتبالغي|موضوع\s+بسيط|كبرت\s+الموضوع|بتكبر\s+الموضوع)'
+
 safe_rewrite_guidelines:
   en:
     - Restate that MindPal can provide general wellness support only.

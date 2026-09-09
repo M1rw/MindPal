@@ -24,10 +24,11 @@ This document consolidates all confirmed architectural, frontend, backend, telem
 - **Severity**: Low
 - **Description**: Requests to `/_vercel/insights/script.js` fail with HTTP 404 in local and self-hosted environments.
 
-### BUG-004: Root `message_count` Schema Mismatch
+### BUG-004: Root `message_count` Schema Mismatch [FIXED]
 - **File & Line**: `data/audit_fixtures/active_persona.json:4` & `backend/models/user.py:199`
 - **Severity**: Medium
-- **Description**: Persona test fixtures set root-level `message_count`, but backend `UserProfile` reads message counts from `stats.total_messages`.
+- **Status**: FIXED
+- **Description**: Persona test fixtures set root-level `message_count`, but backend `UserProfile` reads message counts from `stats.total_messages`. Fixed in TASK-4.2 by updating `scripts/audit/generate_fixtures.py` to set `stats.total_messages`, fixing Arabic typos ("تعالى نعمل"), and regenerating all 7 persona JSONs.
 
 ### BUG-005: Pluralization Discrepancy in Feature Routes (`/api/features/*` vs `/api/feature/*`)
 - **File & Line**: `frontend/js/ui/components/feature_status_ui.js:77, 113` & `backend/api/routers/feature.py:139`

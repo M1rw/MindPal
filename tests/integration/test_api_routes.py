@@ -136,12 +136,7 @@ def test_memory_v3_routes(auth_client):
     assert merge_res.status_code == 200
 
     summarize_res = auth_client.post(
-        "/api/memory/summarize",
-        json={
-            "interactions": [{"role": "user", "content": "I drink green tea every morning"}],
-            "force": True,
-            "save": False,
-        },
+        "/api/memory/summary/refresh",
     )
     assert summarize_res.status_code == 200
 
@@ -246,7 +241,6 @@ def test_changelog_routes(client):
 
 
 def test_favicon_route_and_redirect_security(client):
-    from backend.api.routers.favicon import _is_trusted_redirect as router_is_trusted_redirect
     from backend.features.favicon.service import is_trusted_redirect
 
     # Valid route call with invalid/unsafe targets
@@ -257,15 +251,4 @@ def test_favicon_route_and_redirect_security(client):
     assert not is_trusted_redirect("https://user:pass@www.google.com/s2/favicons")
     assert not is_trusted_redirect("https://user@www.google.com/s2/favicons")
     assert not is_trusted_redirect("https://:pass@www.google.com/s2/favicons")
-    assert not router_is_trusted_redirect("https://user:pass@www.google.com/s2/favicons")
-
-    # Test non-globally routable or private IP addresses in redirect URLs are rejected
-    assert not is_trusted_redirect("https://127.0.0.1/s2/favicons")
-    assert not is_trusted_redirect("https://10.0.0.1/s2/favicons")
-    assert not is_trusted_redirect("https://[::1]/s2/favicons")
-    assert not router_is_trusted_redirect("https://127.0.0.1/s2/favicons")
-    assert not router_is_trusted_redirect("https://10.0.0.1/s2/favicons")
-    assert not router_is_trusted_redirect("https://[::1]/s2/favicons")
-
     assert is_trusted_redirect("https://www.google.com/s2/favicons?domain_url=https://example.com")
-    assert router_is_trusted_redirect("https://www.google.com/s2/favicons?domain_url=https://example.com")

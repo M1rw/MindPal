@@ -2,276 +2,276 @@
   "active": {
     "5": {
       "window_size": 5,
-      "system_prompt_total_tokens": 2238,
-      "history_tokens": 132,
-      "grand_total_input_tokens": 2370,
+      "system_prompt_total_tokens": 2572,
+      "history_tokens": 163,
+      "grand_total_input_tokens": 2735,
       "component_breakdown": {
-        "user_preferences_tokens": 235,
-        "memory_summary_tokens": 57,
-        "user_snapshot_tokens": 54
+        "user_preferences_tokens": 257,
+        "memory_summary_tokens": 80,
+        "user_snapshot_tokens": 70
       }
     },
     "20": {
       "window_size": 20,
-      "system_prompt_total_tokens": 2238,
-      "history_tokens": 512,
-      "grand_total_input_tokens": 2750,
+      "system_prompt_total_tokens": 2572,
+      "history_tokens": 628,
+      "grand_total_input_tokens": 3200,
       "component_breakdown": {
-        "user_preferences_tokens": 235,
-        "memory_summary_tokens": 57,
-        "user_snapshot_tokens": 54
+        "user_preferences_tokens": 257,
+        "memory_summary_tokens": 80,
+        "user_snapshot_tokens": 70
       }
     },
     "50": {
       "window_size": 50,
-      "system_prompt_total_tokens": 2238,
-      "history_tokens": 1284,
-      "grand_total_input_tokens": 3522,
+      "system_prompt_total_tokens": 2572,
+      "history_tokens": 1563,
+      "grand_total_input_tokens": 4135,
       "component_breakdown": {
-        "user_preferences_tokens": 235,
-        "memory_summary_tokens": 57,
-        "user_snapshot_tokens": 54
+        "user_preferences_tokens": 257,
+        "memory_summary_tokens": 80,
+        "user_snapshot_tokens": 70
       }
     },
     "300": {
       "window_size": 300,
-      "system_prompt_total_tokens": 2238,
-      "history_tokens": 7726,
-      "grand_total_input_tokens": 9964,
+      "system_prompt_total_tokens": 2572,
+      "history_tokens": 9341,
+      "grand_total_input_tokens": 11913,
       "component_breakdown": {
-        "user_preferences_tokens": 235,
-        "memory_summary_tokens": 57,
-        "user_snapshot_tokens": 54
+        "user_preferences_tokens": 257,
+        "memory_summary_tokens": 80,
+        "user_snapshot_tokens": 70
       }
     }
   },
   "bilingual": {
     "5": {
       "window_size": 5,
-      "system_prompt_total_tokens": 2164,
-      "history_tokens": 183,
-      "grand_total_input_tokens": 2347,
+      "system_prompt_total_tokens": 2518,
+      "history_tokens": 118,
+      "grand_total_input_tokens": 2636,
       "component_breakdown": {
-        "user_preferences_tokens": 155,
-        "memory_summary_tokens": 54,
-        "user_snapshot_tokens": 57
+        "user_preferences_tokens": 191,
+        "memory_summary_tokens": 83,
+        "user_snapshot_tokens": 72
       }
     },
     "20": {
       "window_size": 20,
-      "system_prompt_total_tokens": 2164,
-      "history_tokens": 791,
-      "grand_total_input_tokens": 2955,
+      "system_prompt_total_tokens": 2518,
+      "history_tokens": 465,
+      "grand_total_input_tokens": 2983,
       "component_breakdown": {
-        "user_preferences_tokens": 155,
-        "memory_summary_tokens": 54,
-        "user_snapshot_tokens": 57
+        "user_preferences_tokens": 191,
+        "memory_summary_tokens": 83,
+        "user_snapshot_tokens": 72
       }
     },
     "50": {
       "window_size": 50,
-      "system_prompt_total_tokens": 2164,
-      "history_tokens": 1935,
-      "grand_total_input_tokens": 4099,
+      "system_prompt_total_tokens": 2518,
+      "history_tokens": 1162,
+      "grand_total_input_tokens": 3680,
       "component_breakdown": {
-        "user_preferences_tokens": 155,
-        "memory_summary_tokens": 54,
-        "user_snapshot_tokens": 57
+        "user_preferences_tokens": 191,
+        "memory_summary_tokens": 83,
+        "user_snapshot_tokens": 72
       }
     },
     "300": {
       "window_size": 300,
-      "system_prompt_total_tokens": 2164,
-      "history_tokens": 11851,
-      "grand_total_input_tokens": 14015,
+      "system_prompt_total_tokens": 2518,
+      "history_tokens": 6921,
+      "grand_total_input_tokens": 9439,
       "component_breakdown": {
-        "user_preferences_tokens": 155,
-        "memory_summary_tokens": 54,
-        "user_snapshot_tokens": 57
+        "user_preferences_tokens": 191,
+        "memory_summary_tokens": 83,
+        "user_snapshot_tokens": 72
       }
     }
   },
   "distressed": {
     "5": {
       "window_size": 5,
-      "system_prompt_total_tokens": 2253,
-      "history_tokens": 149,
-      "grand_total_input_tokens": 2402,
+      "system_prompt_total_tokens": 2566,
+      "history_tokens": 180,
+      "grand_total_input_tokens": 2746,
       "component_breakdown": {
-        "user_preferences_tokens": 240,
-        "memory_summary_tokens": 56,
-        "user_snapshot_tokens": 65
+        "user_preferences_tokens": 253,
+        "memory_summary_tokens": 72,
+        "user_snapshot_tokens": 76
       }
     },
     "20": {
       "window_size": 20,
-      "system_prompt_total_tokens": 2253,
-      "history_tokens": 562,
-      "grand_total_input_tokens": 2815,
+      "system_prompt_total_tokens": 2566,
+      "history_tokens": 680,
+      "grand_total_input_tokens": 3246,
       "component_breakdown": {
-        "user_preferences_tokens": 240,
-        "memory_summary_tokens": 56,
-        "user_snapshot_tokens": 65
+        "user_preferences_tokens": 253,
+        "memory_summary_tokens": 72,
+        "user_snapshot_tokens": 76
       }
     },
     "50": {
       "window_size": 50,
-      "system_prompt_total_tokens": 2253,
-      "history_tokens": 1405,
-      "grand_total_input_tokens": 3658,
+      "system_prompt_total_tokens": 2566,
+      "history_tokens": 1700,
+      "grand_total_input_tokens": 4266,
       "component_breakdown": {
-        "user_preferences_tokens": 240,
-        "memory_summary_tokens": 56,
-        "user_snapshot_tokens": 65
+        "user_preferences_tokens": 253,
+        "memory_summary_tokens": 72,
+        "user_snapshot_tokens": 76
       }
     },
     "300": {
       "window_size": 300,
-      "system_prompt_total_tokens": 2253,
-      "history_tokens": 8430,
-      "grand_total_input_tokens": 10683,
+      "system_prompt_total_tokens": 2566,
+      "history_tokens": 10137,
+      "grand_total_input_tokens": 12703,
       "component_breakdown": {
-        "user_preferences_tokens": 240,
-        "memory_summary_tokens": 56,
-        "user_snapshot_tokens": 65
+        "user_preferences_tokens": 253,
+        "memory_summary_tokens": 72,
+        "user_snapshot_tokens": 76
       }
     }
   },
   "new": {
     "5": {
       "window_size": 5,
-      "system_prompt_total_tokens": 1953,
-      "history_tokens": 79,
-      "grand_total_input_tokens": 2032,
+      "system_prompt_total_tokens": 2239,
+      "history_tokens": 99,
+      "grand_total_input_tokens": 2338,
       "component_breakdown": {
-        "user_preferences_tokens": 9,
-        "memory_summary_tokens": 9,
-        "user_snapshot_tokens": 42
+        "user_preferences_tokens": 14,
+        "memory_summary_tokens": 11,
+        "user_snapshot_tokens": 49
       }
     },
     "20": {
       "window_size": 20,
-      "system_prompt_total_tokens": 1953,
-      "history_tokens": 79,
-      "grand_total_input_tokens": 2032,
+      "system_prompt_total_tokens": 2239,
+      "history_tokens": 99,
+      "grand_total_input_tokens": 2338,
       "component_breakdown": {
-        "user_preferences_tokens": 9,
-        "memory_summary_tokens": 9,
-        "user_snapshot_tokens": 42
+        "user_preferences_tokens": 14,
+        "memory_summary_tokens": 11,
+        "user_snapshot_tokens": 49
       }
     },
     "50": {
       "window_size": 50,
-      "system_prompt_total_tokens": 1953,
-      "history_tokens": 79,
-      "grand_total_input_tokens": 2032,
+      "system_prompt_total_tokens": 2239,
+      "history_tokens": 99,
+      "grand_total_input_tokens": 2338,
       "component_breakdown": {
-        "user_preferences_tokens": 9,
-        "memory_summary_tokens": 9,
-        "user_snapshot_tokens": 42
+        "user_preferences_tokens": 14,
+        "memory_summary_tokens": 11,
+        "user_snapshot_tokens": 49
       }
     },
     "300": {
       "window_size": 300,
-      "system_prompt_total_tokens": 1953,
-      "history_tokens": 79,
-      "grand_total_input_tokens": 2032,
+      "system_prompt_total_tokens": 2239,
+      "history_tokens": 99,
+      "grand_total_input_tokens": 2338,
       "component_breakdown": {
-        "user_preferences_tokens": 9,
-        "memory_summary_tokens": 9,
-        "user_snapshot_tokens": 42
+        "user_preferences_tokens": 14,
+        "memory_summary_tokens": 11,
+        "user_snapshot_tokens": 49
       }
     }
   },
   "screening": {
     "5": {
       "window_size": 5,
-      "system_prompt_total_tokens": 2291,
-      "history_tokens": 166,
-      "grand_total_input_tokens": 2457,
+      "system_prompt_total_tokens": 2594,
+      "history_tokens": 172,
+      "grand_total_input_tokens": 2766,
       "component_breakdown": {
-        "user_preferences_tokens": 289,
-        "memory_summary_tokens": 48,
-        "user_snapshot_tokens": 62
+        "user_preferences_tokens": 296,
+        "memory_summary_tokens": 66,
+        "user_snapshot_tokens": 67
       }
     },
     "20": {
       "window_size": 20,
-      "system_prompt_total_tokens": 2291,
-      "history_tokens": 660,
-      "grand_total_input_tokens": 2951,
+      "system_prompt_total_tokens": 2594,
+      "history_tokens": 690,
+      "grand_total_input_tokens": 3284,
       "component_breakdown": {
-        "user_preferences_tokens": 289,
-        "memory_summary_tokens": 48,
-        "user_snapshot_tokens": 62
+        "user_preferences_tokens": 296,
+        "memory_summary_tokens": 66,
+        "user_snapshot_tokens": 67
       }
     },
     "50": {
       "window_size": 50,
-      "system_prompt_total_tokens": 2291,
-      "history_tokens": 1650,
-      "grand_total_input_tokens": 3941,
+      "system_prompt_total_tokens": 2594,
+      "history_tokens": 1725,
+      "grand_total_input_tokens": 4319,
       "component_breakdown": {
-        "user_preferences_tokens": 289,
-        "memory_summary_tokens": 48,
-        "user_snapshot_tokens": 62
+        "user_preferences_tokens": 296,
+        "memory_summary_tokens": 66,
+        "user_snapshot_tokens": 67
       }
     },
     "300": {
       "window_size": 300,
-      "system_prompt_total_tokens": 2291,
-      "history_tokens": 9900,
-      "grand_total_input_tokens": 12191,
+      "system_prompt_total_tokens": 2594,
+      "history_tokens": 10366,
+      "grand_total_input_tokens": 12960,
       "component_breakdown": {
-        "user_preferences_tokens": 289,
-        "memory_summary_tokens": 48,
-        "user_snapshot_tokens": 62
+        "user_preferences_tokens": 296,
+        "memory_summary_tokens": 66,
+        "user_snapshot_tokens": 67
       }
     }
   },
   "sporadic": {
     "5": {
       "window_size": 5,
-      "system_prompt_total_tokens": 2140,
-      "history_tokens": 82,
-      "grand_total_input_tokens": 2222,
+      "system_prompt_total_tokens": 2453,
+      "history_tokens": 96,
+      "grand_total_input_tokens": 2549,
       "component_breakdown": {
-        "user_preferences_tokens": 147,
-        "memory_summary_tokens": 42,
-        "user_snapshot_tokens": 59
+        "user_preferences_tokens": 164,
+        "memory_summary_tokens": 55,
+        "user_snapshot_tokens": 69
       }
     },
     "20": {
       "window_size": 20,
-      "system_prompt_total_tokens": 2140,
-      "history_tokens": 320,
-      "grand_total_input_tokens": 2460,
+      "system_prompt_total_tokens": 2453,
+      "history_tokens": 371,
+      "grand_total_input_tokens": 2824,
       "component_breakdown": {
-        "user_preferences_tokens": 147,
-        "memory_summary_tokens": 42,
-        "user_snapshot_tokens": 59
+        "user_preferences_tokens": 164,
+        "memory_summary_tokens": 55,
+        "user_snapshot_tokens": 69
       }
     },
     "50": {
       "window_size": 50,
-      "system_prompt_total_tokens": 2140,
-      "history_tokens": 320,
-      "grand_total_input_tokens": 2460,
+      "system_prompt_total_tokens": 2453,
+      "history_tokens": 371,
+      "grand_total_input_tokens": 2824,
       "component_breakdown": {
-        "user_preferences_tokens": 147,
-        "memory_summary_tokens": 42,
-        "user_snapshot_tokens": 59
+        "user_preferences_tokens": 164,
+        "memory_summary_tokens": 55,
+        "user_snapshot_tokens": 69
       }
     },
     "300": {
       "window_size": 300,
-      "system_prompt_total_tokens": 2140,
-      "history_tokens": 320,
-      "grand_total_input_tokens": 2460,
+      "system_prompt_total_tokens": 2453,
+      "history_tokens": 371,
+      "grand_total_input_tokens": 2824,
       "component_breakdown": {
-        "user_preferences_tokens": 147,
-        "memory_summary_tokens": 42,
-        "user_snapshot_tokens": 59
+        "user_preferences_tokens": 164,
+        "memory_summary_tokens": 55,
+        "user_snapshot_tokens": 69
       }
     }
   }

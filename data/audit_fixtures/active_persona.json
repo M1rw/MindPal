@@ -1,7 +1,6 @@
 {
   "persona": "active",
   "seed": 42,
-  "message_count": 300,
   "user_id_hash": "usr_audit_active_42",
   "profile": {
     "user_id_hash": "usr_audit_active_42",
@@ -61,7 +60,13 @@
           "date": "2026-08-20"
         }
       ]
+    },
+    "stats": {
+      "total_messages": 300
     }
+  },
+  "stats": {
+    "total_messages": 300
   },
   "memory_graph": {
     "version": 4,

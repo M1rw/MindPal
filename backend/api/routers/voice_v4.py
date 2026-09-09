@@ -17,7 +17,7 @@ from backend.models.feature_flags import FeatureContext
 logger = logging.getLogger(__name__)
 
 
-router = APIRouter(prefix="/api/voice/v4", tags=["voice-v4"])
+router = APIRouter(prefix="/api/voice", tags=["voice"])
 
 
 def _session_email_hash(session: object) -> str | None:
@@ -37,7 +37,68 @@ class VoiceV4TokenResponse(BaseModel):
     request_id: str
 
 
-@router.post("/token", response_model=VoiceV4TokenResponse)
+class VoiceSummarizeRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    user_transcript: str = ""
+    ai_transcript: str = ""
+
+
+class VoiceSummarizeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str
+    request_id: str
+
+
+@router.post("/summarize", response_model=VoiceSummarizeResponse)
+async def summarize_voice_session(
+    payload: VoiceSummarizeRequest,
+    services: ServicesDep,
+    context: AuthenticatedRequestContextDep,
+) -> VoiceSummarizeResponse:
+    """Summarize a voice/chat session transcript within 200 tokens."""
+    assert_authenticated(context)
+
+    user_text = (payload.user_transcript or "").strip()
+    ai_text = (payload.ai_transcript or "").strip()
+
+    if not user_text and not ai_text:
+        return VoiceSummarizeResponse(
+            summary="Brief voice interaction with no spoken content recorded.",
+            request_id=context.request_id,
+        )
+
+    prompt = (
+        "Summarize this short voice call transcript between a User and MindPal AI in 1-2 clear, compassionate sentences (max 150 words). "
+        "Focus on key emotional themes and practical topics discussed:\n\n"
+        f"User: {user_text}\n"
+        f"AI: {ai_text}"
+    )
+
+    try:
+        from backend.services.domain.llm.request_builder import build_llm_request
+        llm_req = build_llm_request(
+            request_id=context.request_id,
+            system_prompt="You are MindPal's call summarization engine. Be concise and supportive.",
+            user_message=prompt,
+            max_output_tokens=200,
+        )
+        res = await services.llm.generate_with_trace(llm_req)
+        summary = res.response.text.strip() or "Voice session completed."
+        return VoiceSummarizeResponse(
+            summary=summary,
+            request_id=context.request_id,
+        )
+    except Exception:
+        logger.warning("Voice summarization failed for %s", context.request_id, exc_info=True)
+        return VoiceSummarizeResponse(
+            summary=f"Voice call session ({len(user_text.split()) + len(ai_text.split())} words exchanged).",
+            request_id=context.request_id,
+        )
+
+
+@router.post("/v4/token", response_model=VoiceV4TokenResponse)
 async def issue_voice_v4_token(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,

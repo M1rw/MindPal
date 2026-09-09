@@ -387,10 +387,14 @@ def _load_changelog_entries_from_disk() -> tuple[str, list[ChangelogEntry]]:
 @router.get("/changelog", response_model=ChangelogResponse)
 async def get_changelog(
     context: FeatureContextDep,
+    response: Response,
 ) -> ChangelogResponse:
     user_hash = context.user_id_hash or "anonymous"
     dismissed = list(_DISMISSED_CHANGELOGS.get(user_hash, set()))
     current_version, entries = _load_changelog_entries_from_disk()
+
+    # Edge CDN caching for static changelog payload
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
 
     return ChangelogResponse(
         current_version=current_version,

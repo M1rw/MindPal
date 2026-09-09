@@ -23,6 +23,7 @@ export function emitNeuralEvent(stage, details = {}) {
     timestamp: Date.now(),
     input_bucket: normalizeBucket(details.inputLength),
     duration_bucket: normalizeDuration(details.durationMs),
+    status: Number.isInteger(Number(details.status)) ? Number(details.status) : (details.error ? 0 : 200),
     source: "mindpal_client",
   };
 

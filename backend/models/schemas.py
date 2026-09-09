@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from datetime import datetime
 from enum import Enum
 
@@ -10,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from backend.core.security import Locale, normalize_locale, sanitize_text
 from backend.models._helpers import sanitize_metadata, utcnow
-
 
 MAX_ERROR_MESSAGE_CHARS = 500
 MAX_ERROR_CODE_CHARS = 120
@@ -294,6 +292,9 @@ class ProviderChainTrace(BaseModel):
     fallback_count: int = Field(default=0, ge=0, le=10)
     user_id_hash: str | None = Field(default=None, max_length=120)
     calls: list[ProviderCallTrace] = Field(default_factory=list, max_length=10)
+    clinical_logic_version: str = Field(default="v4.0", max_length=40)
+    prompt_hash: str | None = Field(default=None, max_length=120)
+    safety_gate_version: str = Field(default="v1.2", max_length=40)
 
     @field_validator("request_id", "provider_used", mode="before")
     @classmethod

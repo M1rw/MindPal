@@ -74,7 +74,7 @@ function createFeatureRow(key, feature) {
 
 export async function checkAndShowChangelogModal(forceShow = false) {
   try {
-    const res = await fetch("/api/features/changelog");
+    const res = await fetch("/api/feature/changelog");
     if (!res.ok) return;
     const data = await res.json();
     const currentVer = data.current_version || "4.0.0";
@@ -110,7 +110,7 @@ export async function checkAndShowChangelogModal(forceShow = false) {
       modal.classList.add("opacity-0", "pointer-events-none");
       modal.classList.remove("opacity-100");
       try {
-        await fetch("/api/features/changelog/dismiss", {
+        await fetch("/api/feature/changelog/dismiss", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ version: currentVer }),
@@ -157,7 +157,7 @@ export function openInsightsModal() {
   backdrop.querySelector("#insights-close-btn")?.addEventListener("click", () => backdrop.remove());
   backdrop.addEventListener("click", (e) => { if (e.target === backdrop) backdrop.remove(); });
 
-  fetch("/api/features/insights").then((res) => res.json()).then((data) => {
+  fetch("/api/user/insights").then((res) => res.json()).then((data) => {
     const bodyEl = content.querySelector("#insights-body");
     if (!bodyEl) return;
     const history = data.screening_history || [];

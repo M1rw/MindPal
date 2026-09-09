@@ -1,7 +1,6 @@
 {
   "persona": "new",
   "seed": 42,
-  "message_count": 5,
   "user_id_hash": "usr_audit_new_42",
   "profile": {
     "user_id_hash": "usr_audit_new_42",
@@ -21,7 +20,13 @@
       "treatment_plan": "",
       "phq9_history": [],
       "gad7_history": []
+    },
+    "stats": {
+      "total_messages": 5
     }
+  },
+  "stats": {
+    "total_messages": 5
   },
   "memory_graph": {
     "version": 4,

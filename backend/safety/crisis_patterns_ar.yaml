@@ -99,6 +99,25 @@ rules:
       - '(?i)(?:انا|أنا)?\s*(?:منهار|منهارة|مضغوط|مضغوطة|مستنزف|مستنزفة|مش\s+قادر\s+اتحمل|مش\s+قادرة\s+اتحمل)'
       - '(?i)(?:محدش\s+مهتم|مافيش\s+حد\s+مهتم|مفيش\s+حد\s+مهتم|انا\s+لوحدي|أنا\s+لوحدي)'
 
+  - id: ar_panic_acute_anxiety_chest_tightness
+    level: self_harm_ambiguous
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: true
+    user_visible_category: acute_anxiety_grounding
+    confidence: 0.85
+    priority: 750
+    match_mode: any
+    rag_tags:
+      - panic_grounding
+      - acute_anxiety
+      - grounding
+    patterns:
+      - '(?i)(?:صدري|صبرى)\s+(?:مطبوق|متقول|مقبوض|متقفول|ثقيل|تشار بالضيق)'
+      - '(?i)(?:ضيق|ثقل)\s+في\s+(?:الصدر|صدري).{0,80}(?:هلع|خوف|مش\s+قادر\s+اتنفس|نوبة)'
+      - '(?i)(?:نوبة\s+هلع|نوبة\s+فزع|مش\s+قادر\s+اتنفس).{0,80}(?:أكتر|اكتر|بقالي|بقالي\s+من)\s*(?:20|30|45|60)\s*(?:دقيقة|دايقة)'
+
   - id: ar_panic_or_anxiety_grounding
     level: supportive
     action: continue_to_llm

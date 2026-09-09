@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <!-- Deployment-owned browser configuration (contains no private provider keys). -->
     <script src="./runtime-config.js"></script>
-    <!-- Preload Google Identity Services before any user-initiated cloud sign-in. -->
-    <script defer src="https://accounts.google.com/gsi/client" data-mindpal-google-identity></script>
+    <!-- Resource hints for critical render path -->
+    <link rel="preload" href="./css/tailwind.generated.css" as="style">
+    <link rel="preload" href="./css/style.css" as="style">
     <link rel="stylesheet" href="./css/tailwind.generated.css">
     <link rel="stylesheet" href="./css/style.css" id="main-css">
     <script defer src="./dist/lucide.bundle.js"></script>
@@ -54,11 +55,20 @@
     <meta name="twitter:image:alt" content="MindPal — AI support that remembers what matters">
     <!-- /MindPal SEO / Social / PWA -->
 
-    <!-- Vercel Web Analytics -->
-    <script defer src="/_vercel/insights/script.js"></script>
+    <!-- Vercel Web Analytics & Speed Insights (Loaded only when running on Vercel production) -->
+    <script>
+      if (window.location.hostname.endsWith(".vercel.app")) {
+        const insightsScript = document.createElement("script");
+        insightsScript.defer = true;
+        insightsScript.src = "/_vercel/insights/script.js";
+        document.head.appendChild(insightsScript);
 
-    <!-- Vercel Speed Insights -->
-    <script defer src="/_vercel/speed-insights/script.js"></script>
+        const speedScript = document.createElement("script");
+        speedScript.defer = true;
+        speedScript.src = "/_vercel/speed-insights/script.js";
+        document.head.appendChild(speedScript);
+      }
+    </script>
 </head>
 
 <body class="bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText h-dvh-safe flex flex-col font-sans overflow-hidden antialiased transition-colors duration-300">

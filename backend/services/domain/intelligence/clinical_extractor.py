@@ -11,8 +11,8 @@ from datetime import UTC, datetime
 
 from backend.models.chat import LLMMessage
 from backend.models.user import ClinicalProfile, ClinicalScore
-from backend.services.domain.llm.service import LLMService
 from backend.services.domain.llm.request_builder import build_llm_request
+from backend.services.domain.llm.service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ async def extract_clinical_profile(
         if "treatment_plan" in data and isinstance(data["treatment_plan"], str):
             current_profile.treatment_plan = data["treatment_plan"][:500]
 
-        today_str = datetime.now(UTC).strftime("%Y-%m-%d")
+        today_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         if "phq9_score" in data and isinstance(data["phq9_score"], (int, float)):
             score = max(0, min(27, int(data["phq9_score"])))

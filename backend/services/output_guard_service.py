@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -53,6 +54,8 @@ CRITICAL_CATEGORIES: frozenset[str] = frozenset(
         "self_harm_instruction",
         "violence_instruction",
         "medication_instruction",
+        "pii_leakage",
+        "forbidden_score_praise",
     }
 )
 
@@ -92,7 +95,6 @@ class CompiledOutputRule:
     confidence: float
     description: str
     patterns: tuple[Pattern[str], ...]
-    source_locale: Locale = "auto"
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,6 +235,9 @@ class OutputGuardService:
         if local_result.is_safe:
             return local_result
 
+        # Log safety_gate_rejection event
+        self._log_rejection_event(generated_text, local_result)
+
         if not self._should_attempt_llm_rewrite(local_result):
             return local_result
 
@@ -369,7 +374,7 @@ class OutputGuardService:
                 error_code="empty_output",
             )
 
-        matches = self._find_matches(cleaned, locale=resolved_locale)
+        matches = self._find_matches(cleaned)
 
         if not matches:
             return OutputGuardResult(
@@ -398,6 +403,22 @@ class OutputGuardService:
             blocked_original=True,
             locale=resolved_locale,
             fallback_used=True,
+        )
+
+    def _log_rejection_event(self, original_text: str, result: OutputGuardResult) -> None:
+        reply_hash = hashlib.sha256(original_text.encode("utf-8")).hexdigest()
+        logger.warning(
+            "safety_gate_rejection: output rejected by output guard (rules=%s, action=%s, hash=%s)",
+            ",".join(result.matched_rules),
+            result.action,
+            reply_hash,
+            extra={
+                "event": "safety_gate_rejection",
+                "matched_rules": list(result.matched_rules),
+                "action": result.action,
+                "reply_hash": reply_hash,
+                "locale": result.locale,
+            },
         )
 
     def _should_attempt_llm_rewrite(self, result: OutputGuardResult) -> bool:
@@ -538,14 +559,10 @@ class OutputGuardService:
         rewrite = sanitize_text(str(payload.get("rewrite", "")), MAX_REWRITE_OUTPUT_CHARS)
         return rewrite
 
-    def _find_matches(self, text: str, locale: Locale = "auto") -> list[OutputGuardMatch]:
+    def _find_matches(self, text: str) -> list[OutputGuardMatch]:
         matches: list[OutputGuardMatch] = []
 
         for rule in self._rules:
-            # Bolt: Skip evaluating rules explicitly designed for a different locale when locale is explicitly provided
-            if locale != "auto" and rule.source_locale != "auto" and rule.source_locale != locale:
-                continue
-
             for index, pattern in enumerate(rule.patterns):
                 if not pattern.search(text):
                     continue
@@ -813,17 +830,6 @@ class OutputGuardService:
 
         patterns = self._compile_patterns(raw_rule.get("patterns"), rule_id=rule_id)
 
-        # Bolt: Parse or infer source_locale to skip cross-locale regex evaluation
-        raw_source_locale = raw_rule.get("source_locale")
-        if raw_source_locale:
-            source_locale = normalize_locale(str(raw_source_locale))
-        elif rule_id.endswith("_en"):
-            source_locale = "en"
-        elif rule_id.endswith("_ar"):
-            source_locale = "ar"
-        else:
-            source_locale = "auto"
-
         return CompiledOutputRule(
             rule_id=rule_id,
             category=category,
@@ -832,7 +838,6 @@ class OutputGuardService:
             confidence=confidence,
             description=description,
             patterns=patterns,
-            source_locale=source_locale,
         )
 
     def _compile_patterns(self, patterns: Any, *, rule_id: str) -> tuple[Pattern[str], ...]:
