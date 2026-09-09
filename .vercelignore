@@ -20,4 +20,4 @@ env
 .env
 .env.local
 *.md
-!README.MD
+!README.md

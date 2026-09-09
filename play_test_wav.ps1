@@ -1,5 +1,0 @@
-param([Parameter(Mandatory=$true)][string]$Path)
-$player = New-Object System.Media.SoundPlayer($Path)
-$player.Load()
-$player.PlaySync()
-$player.Dispose()
