@@ -95,9 +95,7 @@ async def chat_debug(
         )
 
     is_owner = trace.user_id_hash is not None and trace.user_id_hash == context.session.user_id_hash
-    is_admin = await services.admin_authority.is_admin(context.session) if hasattr(services, "admin_authority") and services.admin_authority else False
-
-    if not is_owner and not is_admin:
+    if not is_owner and not await services.admin_authority.is_admin(context.session):
         logger.warning(
             "User %s attempted to access trace %s owned by %s",
             context.session.user_id_hash,
