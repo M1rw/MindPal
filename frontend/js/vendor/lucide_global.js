@@ -140,7 +140,21 @@ for (const [name, definition] of Object.entries(definitions)) {
 }
 
 function createIcons(options = {}) {
-  return lucideCreateIcons({ ...options, icons });
+  const root = options.root || document;
+  const nodes = root.querySelectorAll("i[data-lucide]");
+  for (const node of nodes) {
+    const iconName = node.getAttribute("data-lucide");
+    const iconDef = icons[iconName] || icons[kebab(iconName)];
+    if (!iconDef) continue;
+    const attrs = {
+      class: node.getAttribute("class") || "",
+      "aria-hidden": "true",
+    };
+    const nodeId = node.getAttribute("id");
+    if (nodeId) attrs.id = nodeId;
+    const svg = createElement(iconDef, attrs);
+    if (svg) node.replaceWith(svg);
+  }
 }
 
 window.lucide = Object.freeze({
