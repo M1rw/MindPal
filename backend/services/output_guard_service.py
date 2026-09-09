@@ -95,6 +95,7 @@ class CompiledOutputRule:
     confidence: float
     description: str
     patterns: tuple[Pattern[str], ...]
+    source_locale: str = "auto"
 
 
 @dataclass(frozen=True, slots=True)
@@ -374,7 +375,7 @@ class OutputGuardService:
                 error_code="empty_output",
             )
 
-        matches = self._find_matches(cleaned)
+        matches = self._find_matches(cleaned, locale=resolved_locale)
 
         if not matches:
             return OutputGuardResult(
@@ -559,10 +560,14 @@ class OutputGuardService:
         rewrite = sanitize_text(str(payload.get("rewrite", "")), MAX_REWRITE_OUTPUT_CHARS)
         return rewrite
 
-    def _find_matches(self, text: str) -> list[OutputGuardMatch]:
+    def _find_matches(self, text: str, locale: str | None = "auto") -> list[OutputGuardMatch]:
         matches: list[OutputGuardMatch] = []
+        target_locale = normalize_locale(locale)
 
         for rule in self._rules:
+            if target_locale != "auto" and rule.source_locale != "auto" and rule.source_locale != target_locale:
+                continue
+
             for index, pattern in enumerate(rule.patterns):
                 if not pattern.search(text):
                     continue
@@ -830,6 +835,11 @@ class OutputGuardService:
 
         patterns = self._compile_patterns(raw_rule.get("patterns"), rule_id=rule_id)
 
+        source_locale = sanitize_text(
+            str(raw_rule.get("source_locale") or ("ar" if rule_id.endswith("_ar") else "en" if rule_id.endswith("_en") else "auto")),
+            20,
+        )
+
         return CompiledOutputRule(
             rule_id=rule_id,
             category=category,
@@ -838,6 +848,7 @@ class OutputGuardService:
             confidence=confidence,
             description=description,
             patterns=patterns,
+            source_locale=source_locale,
         )
 
     def _compile_patterns(self, patterns: Any, *, rule_id: str) -> tuple[Pattern[str], ...]:

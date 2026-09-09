@@ -23,6 +23,11 @@
   }
 }
 
+/* Global hidden fallback utility */
+.hidden {
+  display: none !important;
+}
+
 /* Mobile & PWA safe area insets and visualViewport dynamic height handling */
 @supports (height: 100dvh) {
   body, .app-root {

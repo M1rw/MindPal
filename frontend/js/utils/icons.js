@@ -40,7 +40,23 @@ function renderScopedIcons(root) {
     if (nodeId) attrs.id = nodeId;
 
     let svg = null;
-    if (typeof iconDefinition.toSvg === "function") {
+    if (Array.isArray(iconDefinition)) {
+      const [tag, defaultAttrs, children] = iconDefinition;
+      svg = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      const merged = { ...defaultAttrs, ...attrs };
+      for (const [k, v] of Object.entries(merged)) {
+        if (v !== undefined && v !== null && v !== "") {
+          svg.setAttribute(k, String(v));
+        }
+      }
+      for (const [childTag, childAttrs] of children) {
+        const child = document.createElementNS("http://www.w3.org/2000/svg", childTag);
+        for (const [ck, cv] of Object.entries(childAttrs)) {
+          child.setAttribute(ck, String(cv));
+        }
+        svg.appendChild(child);
+      }
+    } else if (typeof iconDefinition.toSvg === "function") {
       const template = document.createElement("template");
       template.innerHTML = iconDefinition.toSvg(attrs).trim();
       svg = template.content.firstElementChild;
@@ -62,9 +78,9 @@ function renderScopedIcons(root) {
  * updated. Otherwise a single rAF-batched full-page scan is scheduled.
  */
 export function refreshIcons(root = document) {
-  if (!window.lucide?.createIcons) return;
+  if (!window.lucide) return;
 
-  if (root !== document && renderScopedIcons(root)) {
+  if (renderScopedIcons(root)) {
     return;
   }
 
@@ -72,7 +88,7 @@ export function refreshIcons(root = document) {
 
   iconRefreshFrame = window.requestAnimationFrame(() => {
     iconRefreshFrame = null;
-    window.lucide.createIcons();
+    renderScopedIcons(document);
   });
 }
 
