@@ -12,6 +12,8 @@ from urllib.parse import quote, urlparse
 
 import httpx
 
+from backend.core.security import validate_url
+
 _CACHE_TTL_SECONDS = 86_400
 _CACHE_MAX_ITEMS = 256
 _MAX_FAVICON_BYTES = 65_536
@@ -57,14 +59,9 @@ def store_icon(key: str, body: bytes, media_type: str) -> None:
 
 def is_trusted_redirect(url: str) -> bool:
     try:
+        validate_url(url, allowed_schemes=frozenset({"https"}))
         parsed = urlparse(url)
     except Exception:
-        return False
-
-    if parsed.scheme.lower() != "https":
-        return False
-
-    if "@" in parsed.netloc or parsed.username is not None or parsed.password is not None:
         return False
 
     try:
