@@ -160,6 +160,7 @@ class ClinicalScore(BaseModel):
             return f"{text}T00:00:00Z"
         return text
 
+
 class ClinicalProfile(BaseModel):
     """
     Structured clinical data for MindPal Pro.

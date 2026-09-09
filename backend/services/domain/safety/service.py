@@ -278,11 +278,23 @@ class SafetyService:
 
         # Trigger outbound operator dispatch webhook on IMMINENT or escalation rank >= 2
         if effective_level == SafetyLevel.SELF_HARM_IMMINENT or new_rank >= 2:
-            self.dispatch_operator_webhook(
-                session_key=session_key,
-                level=effective_level,
-                rank=new_rank,
-            )
+            import asyncio
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(
+                    asyncio.to_thread(
+                        self.dispatch_operator_webhook,
+                        session_key=session_key,
+                        level=effective_level,
+                        rank=new_rank,
+                    )
+                )
+            except RuntimeError:
+                self.dispatch_operator_webhook(
+                    session_key=session_key,
+                    level=effective_level,
+                    rank=new_rank,
+                )
 
         return effective_level, escalation_triggered, new_rank
 
