@@ -80,21 +80,23 @@ async def chat_debug(
     """Retrieve LLM trace telemetry for a specific request ID."""
     trace = services.llm.get_trace(sanitize_text(request_id, 80))
 
-    if trace and trace.user_id_hash and trace.user_id_hash != context.session.user_id_hash:
-        logger.warning(
-            "User %s attempted to access trace %s owned by %s",
-            context.session.user_id_hash,
-            request_id,
-            trace.user_id_hash,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "access_denied",
-                "message": "You do not have permission to view this trace",
-                "request_id": context.request_id,
-            },
-        )
+    if trace:
+        is_owner = trace.user_id_hash is not None and trace.user_id_hash == context.session.user_id_hash
+        if not is_owner and not await services.admin_authority.is_admin(context.session):
+            logger.warning(
+                "User %s attempted to access trace %s owned by %s",
+                context.session.user_id_hash,
+                request_id,
+                trace.user_id_hash,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "access_denied",
+                    "message": "You do not have permission to view this trace",
+                    "request_id": context.request_id,
+                },
+            )
 
     if not trace:
         raise HTTPException(
