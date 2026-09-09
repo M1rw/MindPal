@@ -93,7 +93,7 @@ def test_convert_history_and_request_builder_contract_cases(caplog):
     history_a = convert_history(payload_a)
     assert len(history_a) == 2
     assert history_a[-1].role == LLMRole.ASSISTANT
-
+    
     request_a = build_llm_request(
         request_id="req_a",
         system_prompt="System prompt",
@@ -172,14 +172,17 @@ def test_audit_persona_fixtures_prompt_assembly():
         with open(fixture_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        chat_history_raw = data.get("chat_history", [])
+        # Assert BUG-004 schema alignment: stats.total_messages present
+        assert "stats" in data and "total_messages" in data["stats"], f"BUG-004 violation in {fixture_path.name}: stats.total_messages missing"
+
+        chat_history_raw = data.get("history", []) or data.get("chat_history", [])
         if not chat_history_raw:
             continue
 
         # Extract current turn vs history
         last_item = chat_history_raw[-1]
         user_msg = last_item.get("content") or last_item.get("text") or "Hello MindPal"
-
+        
         # Build payload with full history including current message to test duplicate stripping
         history_objs = [
             ChatMessage(
@@ -189,7 +192,7 @@ def test_audit_persona_fixtures_prompt_assembly():
             for item in chat_history_raw
         ]
 
-        payload = ChatRequest(message=user_msg, history=history_objs)
+        payload = ChatRequest(message=user_msg, history=history_objs[:60])
         converted = convert_history(payload)
 
         request = build_llm_request(
@@ -211,3 +214,99 @@ def test_audit_persona_fixtures_prompt_assembly():
         # Current user message appears exactly once as the final message
         assert non_system_messages[-1].role == LLMRole.USER
         assert non_system_messages[-1].content == user_msg
+
+
+from backend.models.user import (
+    ClinicalProfile,
+    ClinicalScore,
+    UserPreferences,
+    UserProfile,
+)
+from backend.services.domain.llm.chat_orchestrator import build_user_preferences_prompt
+from backend.services.domain.llm.message_classifier import MessageClassification
+from backend.services.domain.llm.prompts import build_tiered_prompt
+
+
+def test_state_wired_prompt_generation_and_framing():
+    # 1. Sporadic persona with gap_days prompt wiring
+    profile = UserProfile(
+        user_id_hash="usr_sporadic",
+        preferences=UserPreferences(preferred_name="Alex"),
+        clinical=ClinicalProfile(
+            phq9_history=[ClinicalScore(date="2026-08-01", score=12)],
+        )
+    )
+    prefs_prompt = build_user_preferences_prompt(profile)
+
+    classification = MessageClassification(
+        tier="emotional",
+        language="english",
+        confidence=0.9,
+        signals=[],
+        skip_thought=False,
+        max_thought_words=100,
+        max_response_tokens=500,
+        temperature=0.4,
+    )
+    memory_prompt_with_gap = (
+        "User Memory Summary:\n- Prefers concise coping tools\n\n"
+        "Current Situational & Working Context Understanding:\n"
+        "- Active Topic / Working Context: Workplace conflict with manager\n"
+        "- Absence Gap: User has been absent for 5 days. Open warmly acknowledging the time away and gently recall their active working topic/stressor."
+    )
+
+    prompt = build_tiered_prompt(
+        classification=classification,
+        locale="en",
+        memory_prompt=memory_prompt_with_gap,
+        user_preferences=prefs_prompt,
+    )
+
+    assert "Workplace conflict" in prompt
+    assert "absent for 5 days" in prompt
+    assert "phq9_history" in prefs_prompt
+
+
+from backend.services.domain.llm.reply_strategy_engine import (
+    ReplyStrategy,
+    ReplyStrategyEngine,
+    SessionFSM,
+    SessionState,
+)
+
+
+def test_reply_strategy_engine_fsm_and_distribution():
+    fsm = SessionFSM()
+    engine = ReplyStrategyEngine()
+
+    # 1. FSM State progression test
+    assert fsm.transition(turn_count=1, is_emotional=False) == SessionState.GREET
+    assert fsm.transition(turn_count=2, is_emotional=True) == SessionState.ASSESS
+    assert fsm.transition(turn_count=5, is_emotional=True) == SessionState.EXPLORE
+    assert fsm.transition(turn_count=12, is_emotional=False) == SessionState.CONSOLIDATE
+    assert fsm.transition(turn_count=13, is_emotional=False, user_wants_closing=True) == SessionState.CLOSE
+
+    # 2. Crisis bypass test
+    crisis_strat, _ = engine.select_strategy(SessionState.EXPLORE, turn_count=5, is_crisis=True)
+    assert crisis_strat == ReplyStrategy.DEESCALATE_GROUND
+
+    # 3. 150-message turn sequence: zero identical consecutive strategies
+    last_strat = None
+    strategies_used = []
+
+    for turn in range(1, 151):
+        fsm_state = fsm.transition(turn_count=turn, is_emotional=(turn % 2 == 0))
+        strat, _ = engine.select_strategy(
+            fsm_state=fsm_state,
+            turn_count=turn,
+            active_topic="college exam stress",
+            last_strategy=last_strat,
+        )
+        if last_strat is not None:
+            assert strat != last_strat, f"Consecutive identical strategy '{strat}' on turn {turn}"
+        last_strat = strat
+        strategies_used.append(strat)
+
+    # Confirm strategy diversity across 150 turns
+    unique_strategies = set(strategies_used)
+    assert len(unique_strategies) >= 5

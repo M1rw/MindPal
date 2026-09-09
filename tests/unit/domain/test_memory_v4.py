@@ -52,3 +52,15 @@ def test_memory_v4_long_summary_untruncated(auth_client):
     assert not get_data["summary_text"].endswith("…")
     assert not get_data["summary_text"].endswith("...")
     assert len(get_data["summary_text"]) > 200
+
+
+def test_legacy_memory_endpoints_deprecated_410(auth_client, caplog):
+    # Deprecated PUT /api/memory -> 410 Gone
+    res_put = auth_client.put("/api/memory", json={"summary": {"user_id_hash": "usr_test", "summary": "test"}})
+    assert res_put.status_code == 410
+
+    # Deprecated POST /api/memory/summarize -> 410 Gone
+    res_post = auth_client.post("/api/memory/summarize", json={})
+    assert res_post.status_code == 410
+
+    assert "legacy_memory_endpoint_hit" in caplog.text

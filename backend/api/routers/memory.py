@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -15,24 +16,18 @@ from backend.core.security import normalize_locale, sanitize_text
 from backend.models.memory import (
     MemoryAtom,
     MemoryCategory,
-    MemoryCompactionRequest,
-    MemoryCompactionResult,
     MemoryGraph,
     MemoryGraphLoadResult,
     MemoryGraphPatch,
     MemoryGraphWriteResult,
     MemoryInteraction,
     MemoryLoadResult,
-    MemorySensitivity,
     MemorySource,
-    MemoryStatus,
     MemorySummary,
     MemoryWriteResult,
     make_memory_atom,
-    memory_graph_from_summary,
     summary_from_memory_graph,
 )
-from backend.services.domain.memory import memory_graph_delta_from_summary
 from backend.services.domain.memory.synthesis import (
     detect_user_language,
     synthesize_memory_narrative,
@@ -49,7 +44,7 @@ class MemorySummaryResponse(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     summary_text: str
     detected_language: str = "en"
-    key_supports: List[str] = Field(default_factory=list)
+    key_supports: list[str] = Field(default_factory=list)
     last_updated_at: str
     node_count: int = 0
     is_enabled: bool = True
@@ -58,8 +53,8 @@ class MemorySummaryResponse(BaseModel):
 
 class MemoryEditPayload(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-    instruction: Optional[str] = None
-    highlighted_text: Optional[str] = None
+    instruction: str | None = None
+    highlighted_text: str | None = None
     action: str = "update"  # "update", "delete", "replace"
 
 
@@ -71,7 +66,7 @@ class MemorySettingsPatchPayload(BaseModel):
 class MemoryProvenanceResponse(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     response_id: str
-    used_node_ids: List[str] = Field(default_factory=list)
+    used_node_ids: list[str] = Field(default_factory=list)
     used_summary_snippet: str = ""
     reasoning: str = ""
 
@@ -305,6 +300,7 @@ async def reset_memory_summary(
 
         # 30-day safety retention logging for deleted/reset memory
         from datetime import timedelta
+
         from backend.models.memory import BrainEvidence, MemorySensitivity, utcnow
         now = utcnow()
         retention_log = BrainEvidence(
@@ -341,11 +337,11 @@ async def reset_memory_summary(
         raise _internal_error("memory_summary_reset_failed", "Failed to reset memory summary", context.request_id, exc)
 
 
-@router.get("/nodes", response_model=List[MemoryAtom])
+@router.get("/nodes", response_model=list[MemoryAtom])
 async def list_memory_nodes(
     services: ServicesDep,
     context: AuthenticatedRequestContextDep,
-) -> List[MemoryAtom]:
+) -> list[MemoryAtom]:
     assert_authenticated(context)
     try:
         graph = await services.memory_repo.load(context.session.user_id_hash)
@@ -581,105 +577,50 @@ async def load_memory(
         raise _internal_error("memory_load_failed", "Failed to load memory", context.request_id, exc)
 
 
-@router.post("/summarize", response_model=MemoryCompactionResult)
+@router.post("/summarize", status_code=status.HTTP_410_GONE)
 async def summarize_memory(
-    payload: MemorySummarizePayload,
-    services: ServicesDep,
     context: AuthenticatedRequestContextDep,
-) -> MemoryCompactionResult:
+) -> None:
+    """Deprecated legacy endpoint: use POST /api/memory/summary/refresh instead."""
     assert_authenticated(context)
-    operation_id = sanitize_text(f"{context.request_id}:memory-summary", 120)
-    claim = None
-    reserved = False
-    try:
-        await services.rate_limits.consume(
-            scope="memory_summary",
-            subject=context.session.user_id_hash,
-            limit=services.settings.SAFETY_DIAGNOSTIC_RATE_LIMIT_PER_MINUTE,
-            window_seconds=60,
-        )
-        claim = await services.idempotency.claim(
-            user_id_hash=context.session.user_id_hash,
-            key=context.request_id,
-            operation="memory_summary",
-            payload_hash=services.idempotency.payload_hash(payload.model_dump(mode="json")),
-        )
-        if claim.completed and claim.response:
-            return MemoryCompactionResult.model_validate(claim.response)
-        await services.quota.reserve(
-            user_id_hash=context.session.user_id_hash,
-            request_id=operation_id,
-            cost=services.settings.PROVIDER_OPERATION_QUOTA_COST,
-            operation="memory_summary",
-        )
-        reserved = True
-        graph = await services.memory_repo.load(context.session.user_id_hash)
-        compaction = await services.memory.compact(
-            MemoryCompactionRequest(
-                request_id=context.request_id,
-                user_id_hash=context.session.user_id_hash,
-                existing_summary=summary_from_memory_graph(graph),
-                interactions=payload.interactions,
-                locale=payload.locale if payload.locale != "auto" else context.locale,
-                force=payload.force,
-            )
-        )
-        final = compaction
-        if payload.save and compaction.changed:
-            delta = memory_graph_delta_from_summary(compaction.summary, source=MemorySource.BACKEND_COMPACTION)
-            merged = await services.memory_repo.merge(user_id_hash=context.session.user_id_hash, delta=delta)
-            final = compaction.model_copy(
-                update={"summary": summary_from_memory_graph(merged.snapshot), "changed": merged.changed}
-            )
-        used_llm = bool(getattr(services.memory.last_meta, "used_llm", False))
-        if used_llm:
-            await services.quota.commit(user_id_hash=context.session.user_id_hash, request_id=operation_id)
-        else:
-            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
-        await services.idempotency.complete(claim=claim, response=final.model_dump(mode="json"))
-        return final
-    except AppError as exc:
-        if reserved:
-            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
-        if claim:
-            await services.idempotency.fail(claim=claim)
-        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
-    except Exception as exc:
-        if reserved:
-            await services.quota.refund(user_id_hash=context.session.user_id_hash, request_id=operation_id)
-        if claim:
-            await services.idempotency.fail(claim=claim)
-        raise _internal_error("memory_summarize_failed", "Failed to summarize memory", context.request_id, exc)
+    import logging
+    logging.getLogger("mindpal.memory").warning(
+        "legacy_memory_endpoint_hit: POST /api/memory/summarize called by %s",
+        context.session.user_id_hash,
+        extra={"event": "legacy_memory_endpoint_hit", "endpoint": "/api/memory/summarize"},
+    )
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={
+            "code": "legacy_endpoint_deprecated",
+            "message": "This legacy memory endpoint is deprecated. Use POST /api/memory/summary/refresh instead.",
+            "canonical_endpoint": "/api/memory/summary/refresh",
+            "request_id": context.request_id,
+        },
+    )
 
 
-@router.put("", response_model=MemoryWriteResult)
+@router.put("", status_code=status.HTTP_410_GONE)
 async def save_memory(
-    payload: MemorySavePayload,
-    services: ServicesDep,
     context: AuthenticatedRequestContextDep,
-) -> MemoryWriteResult:
-    """Legacy write mapped atomically into canonical Memory Graph V3."""
+) -> None:
+    """Deprecated legacy endpoint: use PUT /api/memory/summary or PUT /api/memory/v3 instead."""
     assert_authenticated(context)
-    try:
-        await _limit_write(services, context)
-        summary = _summary_for_session(payload.summary, user_id_hash=context.session.user_id_hash)
-        graph = memory_graph_from_summary(summary)
-        existing = await services.memory_repo.load(context.session.user_id_hash)
-        result = await services.memory_repo.replace(
-            user_id_hash=context.session.user_id_hash,
-            graph=graph,
-            expected_version=existing.version,
-        )
-        return MemoryWriteResult(
-            user_id_hash=context.session.user_id_hash,
-            saved=True,
-            provider=services.db.provider.name,
-            memory_updated=result.changed,
-        )
-    except AppError as exc:
-        raise http_error_from_app_error(exc, request_id=context.request_id) from exc
-    except Exception as exc:
-        raise _internal_error("memory_save_failed", "Failed to save memory", context.request_id, exc)
+    import logging
+    logging.getLogger("mindpal.memory").warning(
+        "legacy_memory_endpoint_hit: PUT /api/memory called by %s",
+        context.session.user_id_hash,
+        extra={"event": "legacy_memory_endpoint_hit", "endpoint": "/api/memory"},
+    )
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={
+            "code": "legacy_endpoint_deprecated",
+            "message": "This un-versioned legacy memory endpoint is deprecated. Use PUT /api/memory/v3 or PUT /api/memory/summary instead.",
+            "canonical_endpoint": "/api/memory/v3",
+            "request_id": context.request_id,
+        },
+    )
 
 
 @router.delete("", response_model=MemoryWriteResult)

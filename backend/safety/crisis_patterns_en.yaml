@@ -107,6 +107,26 @@ rules:
       - '(?i)\b(?:i\s+)?(?:am|''m)\s+(?:overwhelmed|exhausted|burned\s*out|burnt\s*out)\b'
       - '(?i)\b(?:no\s+one\s+cares|nobody\s+cares|i\s+have\s+no\s+one)\b'
 
+  - id: en_panic_acute_anxiety_chest_tightness
+    level: self_harm_ambiguous
+    action: deescalate
+    bypass_llm: false
+    response_template_id: null
+    should_log: true
+    user_visible_category: acute_anxiety_grounding
+    confidence: 0.85
+    priority: 750
+    match_mode: any
+    rag_tags:
+      - panic_grounding
+      - acute_anxiety
+      - grounding
+    patterns:
+      - '(?i)\bmy\s+chest\s+(?:feels\s+)?(?:tight|heavy|crushing|squeezing)\b'
+      - '(?i)\bchest\s+tightness\b.*?\b(?:panic|anxiety|scared|fear|can''t\s+breathe|shaking)\b'
+      - '(?i)\b(?:panic\s+attack|anxiety\s+attack)\b.*?\b(?:for\s+more\s+than|for\s+over|>)?\s*(?:20|30|45|60)\s*(?:min|mins|minutes)\b'
+      - '(?i)\b(?:can''t|cannot)\s+breathe\b.*?\b(?:for\s+more\s+than|for\s+over|>)?\s*(?:20|30|45|60)\s*(?:min|mins|minutes)\b'
+
   - id: en_panic_or_anxiety_grounding
     level: supportive
     action: continue_to_llm

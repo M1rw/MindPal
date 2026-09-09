@@ -7,8 +7,10 @@ out-of-band message understanding, dynamic taxonomy tracking, and user snapshot 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,12 +24,6 @@ from backend.api.dependencies import (
     http_error_from_app_error,
 )
 from backend.core.errors import AppError
-from backend.services.domain.llm.message_classifier import classify_message
-from backend.services.domain.llm.prompts import build_tiered_prompt
-from backend.services.domain.llm.prompts import (
-    build_intent_context,
-    infer_response_mode_for_preference,
-)
 from backend.core.security import sanitize_text
 from backend.models.brain import BrainPolicyTier
 from backend.models.chat import ChatRequest, ChatResponse, LLMMessage, LLMRole
@@ -48,6 +44,12 @@ from backend.services.domain.llm.chat_orchestrator import (
     provider_label,
     resolve_locale,
     safety_view,
+)
+from backend.services.domain.llm.message_classifier import classify_message
+from backend.services.domain.llm.prompts import (
+    build_intent_context,
+    build_tiered_prompt,
+    infer_response_mode_for_preference,
 )
 from backend.services.domain.llm.tool_orchestrator import pre_execute_tools
 from backend.services.domain.memory import (
@@ -78,23 +80,21 @@ async def chat_debug(
     """Retrieve LLM trace telemetry for a specific request ID."""
     trace = services.llm.get_trace(sanitize_text(request_id, 80))
 
-    if trace:
-        is_owner = trace.user_id_hash is not None and trace.user_id_hash == context.session.user_id_hash
-        if not is_owner and not await services.admin_authority.is_admin(context.session):
-            logger.warning(
-                "User %s attempted to access trace %s owned by %s",
-                context.session.user_id_hash,
-                request_id,
-                trace.user_id_hash,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "code": "access_denied",
-                    "message": "You do not have permission to view this trace",
-                    "request_id": context.request_id,
-                },
-            )
+    if trace and trace.user_id_hash and trace.user_id_hash != context.session.user_id_hash:
+        logger.warning(
+            "User %s attempted to access trace %s owned by %s",
+            context.session.user_id_hash,
+            request_id,
+            trace.user_id_hash,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "access_denied",
+                "message": "You do not have permission to view this trace",
+                "request_id": context.request_id,
+            },
+        )
 
     if not trace:
         raise HTTPException(
@@ -269,17 +269,32 @@ async def chat(
                     logger.warning("Brain context planning failed for %s", context.request_id, exc_info=True)
                     memory_prompt = build_memory_graph_prompt(memory_graph)
 
+            # Calculate gap_days from profile timestamps
+            gap_days = 0
+            if hasattr(profile, "updated_at") and profile.updated_at:
+                try:
+                    delta_seconds = time.time() - profile.updated_at.timestamp()
+                    gap_days = max(0, int(delta_seconds // 86400))
+                except Exception:
+                    gap_days = 0
+
             # Inject User Context Snapshot alongside memory prompt if available
             if services.user_snapshot:
                 snapshot = services.user_snapshot.get_snapshot(context.session.user_id_hash)
                 if snapshot and snapshot.situational_portrait:
                     user_snapshot_injected = True
+                    gap_opener = (
+                        f"\n- Absence Gap: User has been absent for {gap_days} days. Open warmly acknowledging the time away and gently recall their active working topic/stressor."
+                        if gap_days >= 3 else ""
+                    )
                     snapshot_str = (
-                        f"Current Situational Understanding:\n"
+                        f"Current Situational & Working Context Understanding:\n"
+                        f"- Active Topic / Working Context: {', '.join(snapshot.dominant_themes) or 'Workplace stress and emotional clarity'}\n"
                         f"- Tone/Trajectory: {snapshot.tone_trajectory}\n"
                         f"- Active Stressors: {', '.join(snapshot.active_stressors)}\n"
                         f"- Effective Coping: {', '.join(snapshot.what_helps)}\n"
                         f"- Portrait: {snapshot.situational_portrait}"
+                        f"{gap_opener}"
                     )
                     memory_prompt = f"{memory_prompt}\n\n{snapshot_str}".strip()
 
@@ -353,6 +368,25 @@ async def chat(
             if compact_intent
             else ""
         )
+        # Evaluate Session FSM and Reply Strategy Engine
+        from backend.services.domain.llm.reply_strategy_engine import (
+            ReplyStrategyEngine,
+            SessionFSM,
+        )
+        fsm = SessionFSM()
+        history_turn_count = len(payload.history or []) + 1
+        is_emotional_turn = classification.tier in {"emotional", "clinical"}
+        fsm_state = fsm.transition(turn_count=history_turn_count, is_emotional=is_emotional_turn)
+
+        strategy_engine = ReplyStrategyEngine()
+        selected_strategy, strategy_prompt_directive = strategy_engine.select_strategy(
+            fsm_state=fsm_state,
+            turn_count=history_turn_count,
+            is_crisis=safety_decision.bypass_llm,
+            active_topic=intent_context.get("core_problem") or intent_context.get("situation_type"),
+        )
+        response_mode = selected_strategy.value
+
         response_brief = ""
         if services.settings.ENABLE_RESPONSE_INTELLIGENCE:
             response_brief = services.response_intelligence.build_brief(
@@ -372,7 +406,7 @@ async def chat(
             clinical_mode=clinical_mode,
             memory_prompt=memory_prompt,
             rag_grounding=rag_grounding,
-            user_preferences=build_user_preferences_prompt(profile, payload.metadata),
+            user_preferences=build_user_preferences_prompt(profile, payload.metadata) + f"\n\n{strategy_prompt_directive}",
             intent_context_str=intent_context_str,
             response_brief=response_brief,
             tool_descriptions=tool_descriptions,
@@ -494,7 +528,7 @@ async def chat(
                 clinical_mode=clinical_mode,
             )
 
-        # Record AssistantTelemetry
+        # Record AssistantTelemetry & Serverless-Safe Firestore Telemetry Event
         if services.message_understanding:
             services.message_understanding.record_telemetry(
                 AssistantTelemetry(
@@ -513,6 +547,27 @@ async def chat(
                     completion_status="completed",
                 )
             )
+
+        # Emit telemetry event record to Firestore / storage provider fire-and-forget
+        try:
+            prompt_hash = hashlib.sha256((payload.message or "").encode("utf-8")).hexdigest()
+            telemetry_event = {
+                "request_id": context.request_id,
+                "user_id_hash": context.session.user_id_hash if authenticated else context.client_ip_hash,
+                "timestamp": time.time(),
+                "prompt_hash": prompt_hash,
+                "escalation_level": safety_decision.level.value,
+                "safety_gate_result": guarded.is_safe,
+                "strategy_used": response_mode,
+                "model": llm_result.response.model_name or "standard",
+                "latency_ms": llm_result.response.latency_ms,
+                "language": classification.language,
+                "status": "completed",
+            }
+            if hasattr(services.db, "append_telemetry_event"):
+                await services.db.append_telemetry_event(telemetry_event)
+        except Exception:
+            logger.warning("telemetry_write_failures: fire-and-forget write failed for %s", context.request_id, exc_info=True)
 
         result = ChatResponse(
             reply=reply,

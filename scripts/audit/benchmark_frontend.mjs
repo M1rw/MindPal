@@ -172,13 +172,20 @@ async function runBenchmark() {
     });
     await page.waitForTimeout(300);
 
-    // Measure Memory & JS Heap
+    // Measure Memory & JS Heap (Chromium-supported window.performance.memory only)
     const performanceMetrics = await page.evaluate(() => {
-      const perfMemory = window.performance.memory ? {
+      const isChromium = !!window.chrome;
+      const perfMemory = window.performance?.memory ? {
+        memory_supported: true,
+        is_chromium: isChromium,
         usedJSHeapSize: window.performance.memory.usedJSHeapSize,
         totalJSHeapSize: window.performance.memory.totalJSHeapSize,
         jsHeapSizeLimit: window.performance.memory.jsHeapSizeLimit,
-      } : null;
+      } : {
+        memory_supported: false,
+        is_chromium: isChromium,
+        note: "performance.memory is unavailable in non-Chromium / non-supported browsers",
+      };
       return { perfMemory };
     });
 

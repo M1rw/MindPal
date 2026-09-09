@@ -1,7 +1,6 @@
 {
   "persona": "sporadic",
   "seed": 42,
-  "message_count": 20,
   "user_id_hash": "usr_audit_sporadic_42",
   "profile": {
     "user_id_hash": "usr_audit_sporadic_42",
@@ -34,7 +33,13 @@
       "treatment_plan": "As-needed situational problem-solving.",
       "phq9_history": [],
       "gad7_history": []
+    },
+    "stats": {
+      "total_messages": 20
     }
+  },
+  "stats": {
+    "total_messages": 20
   },
   "memory_graph": {
     "version": 4,

@@ -22,7 +22,6 @@ from backend.models._helpers import (
     utcnow,
 )
 
-
 MAX_USER_ID_CHARS = 160
 MAX_DISPLAY_NAME_CHARS = 80
 MAX_TIMEZONE_CHARS = 80
@@ -150,6 +149,16 @@ class ClinicalScore(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     date: str = Field(min_length=1, max_length=80)
     score: int = Field(ge=0, le=30)
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def _normalize_iso8601_date(cls, value: object) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        if len(text) == 10 and text.count("-") == 2:
+            return f"{text}T00:00:00Z"
+        return text
 
 class ClinicalProfile(BaseModel):
     """

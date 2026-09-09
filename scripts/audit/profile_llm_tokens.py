@@ -4,21 +4,26 @@ import json
 import argparse
 from pathlib import Path
 from typing import Any
-import tiktoken
 
-from backend.models.chat import ChatMessage, ChatRequest, ChatMetadata
+from backend.models.chat import ChatMessage
 from backend.models.user import UserProfile, UserPreferences
 from backend.services.domain.llm.message_classifier import MessageClassification
 from backend.services.domain.llm.prompts.prompt_builder import build_tiered_prompt
 from backend.services.domain.llm.chat_orchestrator import build_user_preferences_prompt
 
-# Use cl100k_base tokenizer (standard for GPT-4 / Claude / Gemini approximations)
-tokenizer = tiktoken.get_encoding("cl100k_base")
-
-def count_tokens(text: str) -> int:
-    if not text:
-        return 0
-    return len(tokenizer.encode(text))
+try:
+    import tiktoken
+    tokenizer = tiktoken.get_encoding("cl100k_base")
+    def count_tokens(text: str) -> int:
+        if not text:
+            return 0
+        return len(tokenizer.encode(text))
+except ImportError:
+    def count_tokens(text: str) -> int:
+        if not text:
+            return 0
+        # Fallback estimation for tokens (~4 chars per token for EN, ~2 for AR)
+        return int(len(text) / 3.5)
 
 def profile_persona(fixture_path: Path, windows: list[int]) -> dict[str, Any]:
     with open(fixture_path, "r", encoding="utf-8") as f:
@@ -70,10 +75,6 @@ def profile_persona(fixture_path: Path, windows: list[int]) -> dict[str, Any]:
             user_preferences=user_prefs_prompt,
         )
 
-        # Token breakdown per component
-        time_context_tokens = count_tokens("Temporal context:\nCurrent UTC time: Tuesday, 2026-09-01 12:00 UTC")
-        identity_tokens = count_tokens("You are MindPal.")
-        clear_contract_tokens = count_tokens("CLEAR RESPONSE CONTRACT:\nC — Capture...\nL — Lead...")
         user_prefs_tokens = count_tokens(user_prefs_prompt)
         memory_summary_tokens = count_tokens(memory_prompt)
         snapshot_tokens = count_tokens(user_snapshot_str)

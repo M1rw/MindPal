@@ -4,12 +4,12 @@ import argparse
 import json
 import random
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 OUTPUT_DIR = Path("data/audit_fixtures")
-BASE_TIME = datetime(2026, 8, 1, 10, 0, 0, tzinfo=timezone.utc)
+BASE_TIME = datetime(2026, 8, 1, 10, 0, 0, tzinfo=UTC)
 
 
 def generate_active_persona(seed: int, target_messages: int) -> dict[str, Any]:
@@ -84,12 +84,14 @@ def generate_active_persona(seed: int, target_messages: int) -> dict[str, Any]:
         history.append({"role": "user", "content": user_msg, "timestamp": current_time.isoformat()})
         history.append({"role": "assistant", "content": asst_msg, "timestamp": (current_time + timedelta(seconds=20)).isoformat()})
 
+    profile["stats"] = {"total_messages": len(history)}
+
     return {
         "persona": "active",
         "seed": seed,
-        "message_count": len(history),
         "user_id_hash": user_id_hash,
         "profile": profile,
+        "stats": {"total_messages": len(history)},
         "memory_graph": memory_graph,
         "memory_summary": memory_summary,
         "user_snapshot": user_snapshot,
@@ -159,7 +161,7 @@ def generate_bilingual_persona(seed: int, target_messages: int) -> dict[str, Any
         if i % 2 == 0:
             topic = arabic_topics[i % len(arabic_topics)]
             user_msg = f"أنا حاسّة بضغط في {topic} رقم {i+1} ومحتاجة أرتب أفكاري بوضوح."
-            asst_msg = f"سلامتك يا نور. بالنسبة لـ {topic} رقم {i+1}، تعالينعمل خطوة بسيطة وتنظمي أفكارك بهدوء."
+            asst_msg = f"سلامتك يا نور. بالنسبة لـ {topic} رقم {i+1}، تعالى نعمل خطوة بسيطة وتنظمي أفكارك بهدوء."
         else:
             topic = english_topics[i % len(english_topics)]
             user_msg = f"I'm working on project update #{i+1} in English and feeling slightly nervous."
@@ -168,12 +170,14 @@ def generate_bilingual_persona(seed: int, target_messages: int) -> dict[str, Any
         history.append({"role": "user", "content": user_msg, "timestamp": current_time.isoformat()})
         history.append({"role": "assistant", "content": asst_msg, "timestamp": (current_time + timedelta(seconds=20)).isoformat()})
 
+    profile["stats"] = {"total_messages": len(history)}
+
     return {
         "persona": "bilingual",
         "seed": seed,
-        "message_count": len(history),
         "user_id_hash": user_id_hash,
         "profile": profile,
+        "stats": {"total_messages": len(history)},
         "memory_graph": memory_graph,
         "memory_summary": memory_summary,
         "user_snapshot": user_snapshot,
@@ -247,12 +251,14 @@ def generate_distressed_persona(seed: int, target_messages: int) -> dict[str, An
         history.append({"role": "user", "content": user_text, "timestamp": current_time.isoformat()})
         history.append({"role": "assistant", "content": asst_text, "timestamp": (current_time + timedelta(seconds=15)).isoformat()})
 
+    profile["stats"] = {"total_messages": len(history)}
+
     return {
         "persona": "distressed",
         "seed": seed,
-        "message_count": len(history),
         "user_id_hash": user_id_hash,
         "profile": profile,
+        "stats": {"total_messages": len(history)},
         "memory_graph": memory_graph,
         "memory_summary": memory_summary,
         "user_snapshot": user_snapshot,
@@ -346,12 +352,14 @@ def generate_screening_persona(seed: int, target_messages: int) -> dict[str, Any
         "coping_effectiveness": "high"
     }
 
+    profile["stats"] = {"total_messages": len(history)}
+
     return {
         "persona": "screening",
         "seed": seed,
-        "message_count": len(history),
         "user_id_hash": user_id_hash,
         "profile": profile,
+        "stats": {"total_messages": len(history)},
         "memory_graph": memory_graph,
         "memory_summary": memory_summary,
         "user_snapshot": user_snapshot,
@@ -421,12 +429,14 @@ def generate_sporadic_persona(seed: int, target_messages: int) -> dict[str, Any]
         history.append({"role": "user", "content": user_text, "timestamp": current_time.isoformat()})
         history.append({"role": "assistant", "content": asst_text, "timestamp": (current_time + timedelta(seconds=15)).isoformat()})
 
+    profile["stats"] = {"total_messages": len(history)}
+
     return {
         "persona": "sporadic",
         "seed": seed,
-        "message_count": len(history),
         "user_id_hash": user_id_hash,
         "profile": profile,
+        "stats": {"total_messages": len(history)},
         "memory_graph": memory_graph,
         "memory_summary": memory_summary,
         "user_snapshot": user_snapshot,
@@ -477,12 +487,14 @@ def generate_new_persona(seed: int, target_messages: int) -> dict[str, Any]:
         {"role": "user", "content": "Sure, let's try a short relaxation exercise.", "timestamp": (current_time + timedelta(minutes=3)).isoformat()}
     ]
 
+    profile["stats"] = {"total_messages": len(history)}
+
     return {
         "persona": "new",
         "seed": seed,
-        "message_count": len(history),
         "user_id_hash": user_id_hash,
         "profile": profile,
+        "stats": {"total_messages": len(history)},
         "memory_graph": memory_graph,
         "memory_summary": memory_summary,
         "user_snapshot": user_snapshot,

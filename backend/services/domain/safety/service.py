@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import re
+import urllib.error
+import urllib.request
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 from re import Pattern
 from typing import Any
@@ -26,8 +29,9 @@ from backend.models.safety import (
     SafetySource,
 )
 from backend.services.configs import SafetyServiceConfig
+from backend.services.domain.llm.request_builder import build_llm_request
+from backend.services.domain.llm.service import LLMService
 from backend.services.domain.safety.classifier import (
-    hash_matched_fragment,
     strip_code_fence,
 )
 from backend.services.domain.safety.rules import (
@@ -36,8 +40,6 @@ from backend.services.domain.safety.rules import (
     SafetyClassifierMeta,
     SafetyRuleMatch,
 )
-from backend.services.domain.llm.service import LLMService
-from backend.services.domain.llm.request_builder import build_llm_request
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,15 @@ _SAFETY_RANK: dict[SafetyLevel, int] = {
     SafetyLevel.SELF_HARM_AMBIGUOUS: 3,
     SafetyLevel.ABUSE_OR_VIOLENCE: 4,
     SafetyLevel.SELF_HARM_IMMINENT: 5,
+}
+
+_RANK_TO_SAFETY_LEVEL: dict[int, SafetyLevel] = {
+    0: SafetyLevel.SAFE,
+    1: SafetyLevel.SUPPORTIVE,
+    2: SafetyLevel.TOXICITY,
+    3: SafetyLevel.SELF_HARM_AMBIGUOUS,
+    4: SafetyLevel.ABUSE_OR_VIOLENCE,
+    5: SafetyLevel.SELF_HARM_IMMINENT,
 }
 
 _SAFE_DECISION = SafetyDecision.safe()
@@ -170,6 +181,167 @@ class SafetyService:
         self._candidate_exclusions_by_locale = exclusions_by_locale
         self._templates = templates
         self._fallback_templates = fallbacks
+
+        # In-memory durable session escalation accumulator fallback store
+        self._session_escalation_store: dict[str, int] = {}
+
+    @staticmethod
+    def map_phq9_severity(score: int) -> dict[str, str | bool]:
+        """
+        Deterministic severity mapper for PHQ-9 scores.
+        Bands: 0-4 (minimal), 5-9 (mild), 10-14 (moderate), 15-19 (moderately severe), 20-27 (severe).
+        """
+        clamped = max(0, min(27, int(score)))
+        if clamped <= 4:
+            band, label, suggests_pro_care = "minimal", "Minimal depression", False
+        elif clamped <= 9:
+            band, label, suggests_pro_care = "mild", "Mild depression", False
+        elif clamped <= 14:
+            band, label, suggests_pro_care = "moderate", "Moderate depression", True
+        elif clamped <= 19:
+            band, label, suggests_pro_care = "moderately_severe", "Moderately severe depression", True
+        else:
+            band, label, suggests_pro_care = "severe", "Severe depression", True
+
+        return {
+            "score": clamped,
+            "band": band,
+            "label": label,
+            "suggests_professional_care": suggests_pro_care,
+        }
+
+    @staticmethod
+    def map_gad7_severity(score: int) -> dict[str, str | bool]:
+        """
+        Deterministic severity mapper for GAD-7 scores.
+        Bands: 0-4 (minimal), 5-9 (mild), 10-14 (moderate), 15-21 (severe).
+        """
+        clamped = max(0, min(21, int(score)))
+        if clamped <= 4:
+            band, label, suggests_pro_care = "minimal", "Minimal anxiety", False
+        elif clamped <= 9:
+            band, label, suggests_pro_care = "mild", "Mild anxiety", False
+        elif clamped <= 14:
+            band, label, suggests_pro_care = "moderate", "Moderate anxiety", True
+        else:
+            band, label, suggests_pro_care = "severe", "Severe anxiety", True
+
+        return {
+            "score": clamped,
+            "band": band,
+            "label": label,
+            "suggests_professional_care": suggests_pro_care,
+        }
+
+    def get_session_escalation_level(self, session_key: str) -> int:
+        """Get accumulated escalation level for user+session."""
+        return self._session_escalation_store.get(session_key, 0)
+
+    def record_session_escalation(
+        self,
+        session_key: str,
+        detected_level: SafetyLevel,
+    ) -> tuple[SafetyLevel, bool, int]:
+        """
+        Accumulate session safety level monotonically.
+        consecutive/aggregate crisis flags raise the level over time; never resets mid-session.
+        Returns: (effective_level, escalation_triggered, new_level_rank)
+        """
+        current_rank = self._session_escalation_store.get(session_key, 0)
+        detected_rank = _SAFETY_RANK.get(detected_level, 0)
+
+        # Increment escalation counter if crisis flags repeat or escalate
+        if detected_rank >= 3 and current_rank >= 3:
+            new_rank = min(5, max(detected_rank, current_rank + 1))
+        else:
+            new_rank = max(current_rank, detected_rank)
+
+        escalation_triggered = new_rank > current_rank
+        self._session_escalation_store[session_key] = new_rank
+
+        effective_level = _RANK_TO_SAFETY_LEVEL.get(new_rank, detected_level)
+
+        if escalation_triggered:
+            logger.warning(
+                "EscalationTriggered: session %s escalated from level %s to %s",
+                session_key,
+                current_rank,
+                new_rank,
+                extra={
+                    "event": "EscalationTriggered",
+                    "session_key": session_key,
+                    "previous_rank": current_rank,
+                    "new_rank": new_rank,
+                    "effective_level": effective_level.value,
+                },
+            )
+
+        # Trigger outbound operator dispatch webhook on IMMINENT or escalation rank >= 2
+        if effective_level == SafetyLevel.SELF_HARM_IMMINENT or new_rank >= 2:
+            self.dispatch_operator_webhook(
+                session_key=session_key,
+                level=effective_level,
+                rank=new_rank,
+            )
+
+        return effective_level, escalation_triggered, new_rank
+
+    def dispatch_operator_webhook(
+        self,
+        *,
+        session_key: str,
+        level: SafetyLevel,
+        rank: int,
+    ) -> bool:
+        """
+        Outbound crisis webhook dispatch with retry and dispatch_failed alerting.
+        """
+        webhook_url = getattr(self.settings, "SAFETY_OPERATOR_WEBHOOK_URL", None) or getattr(self.config, "operator_webhook_url", None)
+
+        if not webhook_url or not str(webhook_url).startswith(("http://", "https://")):
+            logger.info("Operator webhook URL not configured or invalid scheme; crisis logged locally for session %s", session_key)
+            return False
+
+        payload = json.dumps({
+            "event": "CRISIS_OPERATOR_DISPATCH",
+            "session_key": session_key,
+            "safety_level": level.value,
+            "escalation_rank": rank,
+            "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }).encode("utf-8")
+
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                req = urllib.request.Request(
+                    webhook_url,
+                    data=payload,
+                    headers={"Content-Type": "application/json", "User-Agent": "MindPal-Safety-Dispatcher/1.0"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=5.0) as resp:  # nosec B310
+                    if 200 <= resp.status < 300:
+                        logger.info("Operator webhook dispatched successfully for %s", session_key)
+                        return True
+            except Exception as exc:
+                logger.warning("Operator webhook dispatch attempt %d/%d failed: %s", attempt, max_retries, exc)
+
+        # Loud dispatch_failed alert path - a failed crisis notification must be LOUD
+        logger.error(
+            "CRITICAL: dispatch_failed - Crisis operator notification failed after %d attempts for session %s (level=%s, rank=%d)",
+            max_retries,
+            session_key,
+            level.value,
+            rank,
+            extra={
+                "event": "dispatch_failed",
+                "session_key": session_key,
+                "safety_level": level.value,
+                "escalation_rank": rank,
+                "alert": "CRISIS_DISPATCH_FAILED",
+            },
+        )
+        return False
 
     def classify_input(self, text: str, locale: str | None = "auto") -> SafetyDecision:
         cleaned = sanitize_text(text, MAX_CLASSIFICATION_TEXT_CHARS)

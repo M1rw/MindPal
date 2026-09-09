@@ -36,6 +36,31 @@ class ChatOrchestrator:
     """Domain orchestrator for chat workflows."""
 
 
+def determine_target_model(
+    payload: ChatRequest,
+    classification: MessageClassification,
+    safety_decision: SafetyDecision,
+) -> str:
+    """
+    Intelligently route chat requests to appropriate model tier based on safety and classification.
+
+    - Crisis / deterministic bypass -> 'deterministic'
+    - Short reframing / greeting / casual -> 'flash-lite'
+    - Open-ended exploration / clinical / pro request -> 'pro'
+    """
+    if safety_decision.bypass_llm or classification.tier in ("crisis", "off_topic"):
+        return "deterministic"
+
+    req_model = (payload.metadata.model or "").lower()
+    if req_model in ("pro", "frontier") or classification.tier == "clinical":
+        return "pro"
+
+    if classification.tier in ("greeting", "casual", "meta_question"):
+        return "flash-lite"
+
+    return "flash"
+
+
 def maybe_answer_chat_context_question(payload: ChatRequest) -> str | None:
     """
     Provide deterministic answers for meta-questions about the current chat context state.

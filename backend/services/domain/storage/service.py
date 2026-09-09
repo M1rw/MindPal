@@ -3,15 +3,29 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import asdict
-from typing import Any, Callable
+from typing import Any
 
 from backend.core.config import Settings, get_settings
 from backend.core.errors import DatabaseError
 from backend.core.logging import log_event
 from backend.core.security import redact_basic_pii, sanitize_text
-from backend.core.settings_helpers import is_production, setting_bool, setting_secret_str, setting_str
-from backend.models.memory import MemoryGraph, MemoryGraphLoadResult, MemoryGraphWriteResult, MemoryLoadResult, MemorySource, MemorySummary, MemoryWriteResult
+from backend.core.settings_helpers import (
+    is_production,
+    setting_bool,
+    setting_secret_str,
+    setting_str,
+)
+from backend.models.memory import (
+    MemoryGraph,
+    MemoryGraphLoadResult,
+    MemoryGraphWriteResult,
+    MemoryLoadResult,
+    MemorySource,
+    MemorySummary,
+    MemoryWriteResult,
+)
 from backend.models.safety import SafetyEvent
 from backend.models.user import UserProfile, UserProfileResponse, UserProfileUpdate
 
@@ -149,12 +163,49 @@ class StorageService:
         try:
             clean_profile = _sanitize_user_profile(profile)
             await self.provider.set_document(self.USER_COLLECTION, clean_profile.user_id_hash, clean_profile.model_dump(mode="json"))
+            await self.sync_clinical_scores_to_supabase_projection(clean_profile)
             return UserProfileResponse(profile=clean_profile, loaded=True, provider=self.provider.name)
         except DatabaseError:
             raise
         except Exception as exc:
             user_id_hash = getattr(profile, "user_id_hash", "unknown")
             raise DatabaseError("Failed to save user profile", code="db_user_profile_save_failed", details={"provider": self.provider.name, "user_id_hash": sanitize_text(str(user_id_hash), 80)}) from exc
+
+    async def sync_clinical_scores_to_supabase_projection(self, profile: UserProfile) -> bool:
+        """
+        Synchronized projection function: projects Firestore UserProfile clinical scores to Supabase screening tables.
+        Failure alerts loud, but never fails primary Firestore write.
+        """
+        try:
+            if not hasattr(self, "supabase_client") or self.supabase_client is None:
+                return True
+
+            user_hash = profile.user_id_hash
+            phq9_records = [
+                {"user_id_hash": user_hash, "instrument": "PHQ-9", "score": item.score, "recorded_at": item.date}
+                for item in profile.clinical.phq9_history
+            ]
+            gad7_records = [
+                {"user_id_hash": user_hash, "instrument": "GAD-7", "score": item.score, "recorded_at": item.date}
+                for item in profile.clinical.gad7_history
+            ]
+
+            all_records = phq9_records + gad7_records
+            if all_records:
+                await self.supabase_client.upsert("clinical_screenings", all_records)
+            return True
+        except Exception as exc:
+            logger.error(
+                "CRITICAL: clinical_score_projection_failed - Supabase clinical score projection failed for user %s: %s",
+                profile.user_id_hash,
+                exc,
+                extra={
+                    "event": "clinical_score_projection_failed",
+                    "user_id_hash": profile.user_id_hash,
+                    "error": str(exc),
+                },
+            )
+            return False
 
     async def update_user_profile(self, user_id_hash: str, update: UserProfileUpdate) -> UserProfileResponse:
         def apply(profile: UserProfile) -> UserProfile:
@@ -187,7 +238,9 @@ class StorageService:
                 return updated_profile.model_dump(mode="json")
 
             updated_data = await self.provider.atomic_update_document(self.USER_COLLECTION, user_id_hash, dict_updater)
-            return UserProfileResponse(profile=UserProfile.model_validate(updated_data), loaded=True, provider=self.provider.name)
+            updated_profile = UserProfile.model_validate(updated_data)
+            await self.sync_clinical_scores_to_supabase_projection(updated_profile)
+            return UserProfileResponse(profile=updated_profile, loaded=True, provider=self.provider.name)
         except DatabaseError:
             raise
         except Exception as exc:
