@@ -52,6 +52,10 @@ from backend.services.domain.llm.prompts import (
     infer_response_mode_for_preference,
 )
 from backend.services.domain.llm.tool_orchestrator import pre_execute_tools
+from backend.services.domain.llm.reply_strategy_engine import (
+    ReplyStrategyEngine,
+    SessionFSM,
+)
 from backend.services.domain.memory import (
     build_memory_graph_prompt,
     render_context_pack_for_prompt,
@@ -80,24 +84,6 @@ async def chat_debug(
     """Retrieve LLM trace telemetry for a specific request ID."""
     trace = services.llm.get_trace(sanitize_text(request_id, 80))
 
-    if trace:
-        is_owner = trace.user_id_hash is not None and trace.user_id_hash == context.session.user_id_hash
-        if not is_owner and not await services.admin_authority.is_admin(context.session):
-            logger.warning(
-                "User %s attempted to access trace %s owned by %s",
-                context.session.user_id_hash,
-                request_id,
-                trace.user_id_hash,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "code": "access_denied",
-                    "message": "You do not have permission to view this trace",
-                    "request_id": context.request_id,
-                },
-            )
-
     if not trace:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -107,6 +93,24 @@ async def chat_debug(
                 "request_id": context.request_id,
             },
         )
+
+    is_owner = trace.user_id_hash is not None and trace.user_id_hash == context.session.user_id_hash
+    if not is_owner and not await services.admin_authority.is_admin(context.session):
+        logger.warning(
+            "User %s attempted to access trace %s owned by %s",
+            context.session.user_id_hash,
+            request_id,
+            trace.user_id_hash,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "access_denied",
+                "message": "You do not have permission to view this trace",
+                "request_id": context.request_id,
+            },
+        )
+
     return trace
 
 
@@ -371,10 +375,6 @@ async def chat(
             else ""
         )
         # Evaluate Session FSM and Reply Strategy Engine
-        from backend.services.domain.llm.reply_strategy_engine import (
-            ReplyStrategyEngine,
-            SessionFSM,
-        )
         fsm = SessionFSM()
         history_turn_count = len(payload.history or []) + 1
         is_emotional_turn = classification.tier in {"emotional", "clinical"}

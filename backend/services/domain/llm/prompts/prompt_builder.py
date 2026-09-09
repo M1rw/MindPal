@@ -457,6 +457,7 @@ def _build_off_topic_instructions() -> str:
     )
 
 
+@lru_cache(maxsize=8)
 def _build_meta_instructions(language: str) -> str:
     """Build instructions for answering meta-questions about MindPal."""
     knowledge = get_self_knowledge_response(language)

@@ -233,6 +233,7 @@ export function bindUnifiedSelector({ isSessionLocked, isGenerating } = {}) {
 
   function openDropdown() {
     dropdown?.classList.remove("hidden");
+    _updateCheckmarks();
     btn?.setAttribute("aria-expanded", "true");
     chevron?.classList.add("rotate-180");
     const first = dropdown?.querySelector('[role="menuitem"]');
