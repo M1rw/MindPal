@@ -67,15 +67,9 @@ def _image_media_type(response: httpx.Response) -> str:
 
 def _is_trusted_redirect(url: str) -> bool:
     try:
+        validate_url(url, allowed_schemes=frozenset({"https"}))
         parsed = urlparse(url)
     except Exception:
-        return False
-
-    if parsed.scheme.lower() != "https":
-        return False
-
-    # Block userinfo in redirect URLs (e.g. https://user:pass@domain.com) to prevent parser ambiguity/bypass
-    if "@" in parsed.netloc or parsed.username is not None or parsed.password is not None:
         return False
 
     try:
