@@ -49,7 +49,7 @@ async def test_output_safety_gate_fault_injection(caplog):
     assert "safety_gate_rejection" in caplog.text
 
     # Fault 2: PII / Secret key leakage
-    violating_pii = "Here is your API token: sk_live_1111111111111111111111111"
+    violating_pii = "Here is your API token: sk_live_xxxxxxxxx"
     res2 = await guard.validate_output_with_rewrite(violating_pii, locale="en")
     assert res2.is_safe is False
     assert res2.action == "block_and_fallback"
