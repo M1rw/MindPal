@@ -112,6 +112,14 @@ textarea:focus::-webkit-scrollbar { width: 6px; }
 input:checked ~ .toggle-bg { background-color: #3b82f6; }
 .dark input:checked ~ .toggle-bg { background-color: #a8c7fa; }
 input:checked ~ .toggle-dot { transform: translateX(100%); }
+input:focus-visible ~ .toggle-bg {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+.dark input:focus-visible ~ .toggle-bg {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
 
 /* Model info tooltip — shown on hover of the ⓘ icon next to model names */
 .model-tooltip-wrap { display: inline-flex; align-items: center; }
