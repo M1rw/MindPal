@@ -222,6 +222,35 @@ def test_voice_v4_token_route(auth_client):
     assert token_res.status_code in {200, 502, 403}
 
 
+def test_voice_summarize_sanitization_and_rate_limit(auth_client):
+    # Test normal summarize call
+    res = auth_client.post(
+        "/api/voice/summarize",
+        json={"user_transcript": "Hello AI", "ai_transcript": "Hello User"},
+    )
+    assert res.status_code == 200
+    assert "summary" in res.json()
+
+    # Test input truncation with oversized transcript
+    oversized = "A" * 20_000
+    res_oversized = auth_client.post(
+        "/api/voice/summarize",
+        json={"user_transcript": oversized, "ai_transcript": "Short response"},
+    )
+    assert res_oversized.status_code == 200
+
+    # Test rate limit enforcement by exceeding per-minute limit
+    limit = auth_client.app.state.service_container.settings.VOICE_V4_TOKEN_RATE_LIMIT_PER_MINUTE
+    for _ in range(limit + 5):
+        rate_res = auth_client.post(
+            "/api/voice/summarize",
+            json={"user_transcript": "Test", "ai_transcript": "Test"},
+        )
+        if rate_res.status_code == 429:
+            break
+    assert rate_res.status_code == 429
+
+
 def test_feature_flags_routes(client):
     features_res = client.get("/api/features")
     assert features_res.status_code == 200

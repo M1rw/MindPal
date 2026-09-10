@@ -12,6 +12,7 @@ from backend.api.dependencies import (
     http_error_from_app_error,
 )
 from backend.core.errors import AppError
+from backend.core.security import sanitize_text
 from backend.models.feature_flags import FeatureContext
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,9 @@ class VoiceSummarizeResponse(BaseModel):
     request_id: str
 
 
+MAX_TRANSCRIPT_CHARS = 10_000
+
+
 @router.post("/summarize", response_model=VoiceSummarizeResponse)
 async def summarize_voice_session(
     payload: VoiceSummarizeRequest,
@@ -60,8 +64,16 @@ async def summarize_voice_session(
     """Summarize a voice/chat session transcript within 200 tokens."""
     assert_authenticated(context)
 
-    user_text = (payload.user_transcript or "").strip()
-    ai_text = (payload.ai_transcript or "").strip()
+    # Rate limit voice summarization calls per user to prevent DoS and LLM budget abuse.
+    await services.rate_limits.consume(
+        scope="voice_summarize_user",
+        subject=context.session.user_id_hash,
+        limit=services.settings.VOICE_V4_TOKEN_RATE_LIMIT_PER_MINUTE,
+        window_seconds=60,
+    )
+
+    user_text = sanitize_text(payload.user_transcript or "", MAX_TRANSCRIPT_CHARS)
+    ai_text = sanitize_text(payload.ai_transcript or "", MAX_TRANSCRIPT_CHARS)
 
     if not user_text and not ai_text:
         return VoiceSummarizeResponse(
