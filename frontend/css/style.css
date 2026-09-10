@@ -1913,6 +1913,11 @@ button:active,
   background: #f9fafb;
 }
 
+.auth-provider-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 .auth-provider-btn:active,
 .auth-modal__primary-btn:active,
 .auth-modal__text-btn:active,
@@ -1930,6 +1935,11 @@ button:active,
 .dark .auth-provider-btn:hover {
   border-color: #52525b;
   background: #303030;
+}
+
+.dark .auth-provider-btn:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
 }
 
 .auth-provider-btn--email {
