@@ -228,14 +228,17 @@ def test_feature_flags_routes(client):
     assert "features" in features_res.json()
 
 
-def test_changelog_routes(client):
+def test_changelog_routes(auth_client, client):
     res = client.get("/api/features/changelog")
     assert res.status_code == 200
     data = res.json()
     assert "current_version" in data
     assert "entries" in data
 
-    dismiss_res = client.post("/api/features/changelog/dismiss", json={"version": "4.0.0"})
+    unauth_dismiss = client.post("/api/features/changelog/dismiss", json={"version": "4.0.0"})
+    assert unauth_dismiss.status_code == 401
+
+    dismiss_res = auth_client.post("/api/features/changelog/dismiss", json={"version": "4.0.0"})
     assert dismiss_res.status_code == 200
     assert dismiss_res.json()["dismissed"] is True
 

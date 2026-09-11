@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.api.dependencies import (
     AdminRequestContextDep,
+    AuthenticatedRequestContextDep,
     ChannelDep,
     LocaleDep,
     ServicesDep,
@@ -406,9 +407,10 @@ async def get_changelog(
 @router.post("/changelog/dismiss")
 async def dismiss_changelog(
     payload: ChangelogDismissPayload,
-    context: FeatureContextDep,
+    context: AuthenticatedRequestContextDep,
 ) -> dict[str, object]:
-    user_hash = context.user_id_hash or "anonymous"
+    assert_authenticated(context)
+    user_hash = context.session.user_id_hash
     if user_hash not in _DISMISSED_CHANGELOGS:
         _DISMISSED_CHANGELOGS[user_hash] = set()
     _DISMISSED_CHANGELOGS[user_hash].add(payload.version)
