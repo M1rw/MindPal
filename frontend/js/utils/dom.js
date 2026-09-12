@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { scrollChatToBottom } from "./chat_scroll.js";
-export { scrollChatToBottom };
+import { escapeHtml } from "./html_escape.js";
+export { escapeHtml, scrollChatToBottom };
 
 const RICH_HTML_POLICY = Object.freeze({
   ALLOWED_TAGS: [
@@ -23,15 +24,6 @@ const TOKEN_SUFFIX = "@@";
 
 export function sanitizeRichHtml(html) {
   return DOMPurify.sanitize(String(html || ""), RICH_HTML_POLICY);
-}
-
-export function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
 
 /**
