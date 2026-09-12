@@ -157,9 +157,12 @@ function _showProConfirmationDialog(onConfirm) {
   overlay.id = "pro-confirm-overlay";
   overlay.className = "fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm";
   overlay.style.animation = "fadeIn 0.2s ease";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", "pro-confirm-title");
   overlay.innerHTML = `
     <div class="bg-white dark:bg-[#1e1f20] rounded-2xl shadow-2xl max-w-md w-[90%] p-6" style="animation: scaleIn 0.25s ease">
-      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Switch to MindPal Pro</h3>
+      <h3 id="pro-confirm-title" class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Switch to MindPal Pro</h3>
       <p class="text-xs text-gray-500 dark:text-gray-400 mb-5">Clinical AI Mode</p>
 
       <div class="flex items-start gap-2.5 text-sm text-amber-600 dark:text-amber-400 mb-5 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/15">
@@ -171,16 +174,16 @@ function _showProConfirmationDialog(onConfirm) {
         <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">I understand the risks</span>
         <div class="relative">
           <input type="checkbox" id="pro-confirm-toggle" class="sr-only peer">
-          <div class="w-11 h-6 bg-gray-200 dark:bg-gray-700 rounded-full peer-checked:bg-red-500 transition-colors"></div>
+          <div class="w-11 h-6 bg-gray-200 dark:bg-gray-700 rounded-full peer-checked:bg-red-500 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2"></div>
           <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5"></div>
         </div>
       </label>
 
       <div class="flex gap-3">
-        <button id="pro-confirm-cancel" class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+        <button id="pro-confirm-cancel" class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none">
           Cancel
         </button>
-        <button id="pro-confirm-accept" disabled class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-400 rounded-xl transition-colors cursor-not-allowed opacity-60">
+        <button id="pro-confirm-accept" disabled class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-400 rounded-xl transition-colors cursor-not-allowed opacity-60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none">
           Confirm Switch
         </button>
       </div>
@@ -192,6 +195,23 @@ function _showProConfirmationDialog(onConfirm) {
 
   const toggle = document.getElementById("pro-confirm-toggle");
   const acceptBtn = document.getElementById("pro-confirm-accept");
+  const cancelBtn = document.getElementById("pro-confirm-cancel");
+
+  cancelBtn?.focus();
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      cleanupAndClose();
+    }
+  };
+
+  const cleanupAndClose = () => {
+    document.removeEventListener("keydown", handleKeyDown);
+    overlay.remove();
+  };
+
+  document.addEventListener("keydown", handleKeyDown);
 
   toggle?.addEventListener("change", () => {
     if (toggle.checked) {
@@ -206,14 +226,14 @@ function _showProConfirmationDialog(onConfirm) {
   });
 
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
+    if (e.target === overlay) cleanupAndClose();
   });
 
-  document.getElementById("pro-confirm-cancel").addEventListener("click", () => overlay.remove());
+  cancelBtn?.addEventListener("click", () => cleanupAndClose());
 
-  acceptBtn.addEventListener("click", () => {
+  acceptBtn?.addEventListener("click", () => {
     if (acceptBtn.disabled) return;
-    overlay.remove();
+    cleanupAndClose();
     onConfirm();
   });
 }
