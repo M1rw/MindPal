@@ -7,6 +7,7 @@ import {
   searchBrain,
   updateBrainEdge,
 } from "../../services/api.js";
+import { escapeHtml } from "../../utils/html_escape.js";
 
 const CATEGORY_META = {
   people: ["People", "#ea7aaf"],
@@ -464,7 +465,6 @@ function layoutNodes(nodes) {
 function nodeColor(node) { return CATEGORY_META[node.category]?.[1] || "#6f67df"; }
 function trimLabel(value, limit) { const text = String(value || ""); return text.length > limit ? `${text.slice(0, limit - 1)}…` : text; }
 function formatDate(value) { const date = new Date(value || 0); return Number.isFinite(date.getTime()) && date.getTime() > 0 ? date.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "Not confirmed"; }
-function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]); }
 function escapeAttribute(value) { return escapeHtml(value).replace(/`/g, "&#96;"); }
 function emptyOverview() { return { graph_version: 1, visible_node_count: 0, visible_edge_count: 0, pending_review_count: 0, pinned_nodes: [], recent_patterns: [], suggested_tools: [] }; }
 function setStatus(value) { const target = document.getElementById("brain-status-copy"); if (target) target.textContent = value; }
