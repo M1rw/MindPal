@@ -2,9 +2,7 @@
 module.exports = {
   content: [
     './frontend/index.html',
-    './frontend/index.template.html',
-    './frontend/components/**/*.html',
-    './frontend/js/**/*.js',
+    './frontend/src/**/*.{ts,tsx,js,jsx}',
   ],
   darkMode: 'class',
   theme: {
