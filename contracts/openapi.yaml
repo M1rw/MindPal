@@ -1,0 +1,375 @@
+openapi: 3.1.0
+info:
+  title: MindPal API
+  version: 5.0.0
+  description: >
+    Source of truth for HTTP. FastAPI may only expose operations listed here.
+    Brain (Obsidian workspace HTTP) is retired; memory graph is the durable store.
+
+x-mindpal-catalog:
+  ai-access-values: [hidden, catalog, schema, invoke]
+  audience-values: [public, user, admin, system]
+  retired:
+    - /api/brain/*
+
+paths:
+  /api/health:
+    get:
+      operationId: healthLive
+      tags: [health]
+      summary: Process liveness
+      x-mindpal:
+        owner: system
+        status: live
+        audience: public
+        ai-access: invoke
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200":
+          description: Process is up
+
+  /api/health/ready:
+    get:
+      operationId: healthReady
+      tags: [health]
+      summary: Dependency readiness
+      x-mindpal:
+        owner: system
+        status: live
+        audience: public
+        ai-access: catalog
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200":
+          description: Ready
+        "503":
+          description: Not ready
+
+  /api/release/changelog:
+    get:
+      operationId: releaseChangelogGet
+      tags: [release]
+      summary: Product changelog (verbatim contracts/changelog.json)
+      x-mindpal:
+        owner: release
+        status: live
+        audience: public
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200":
+          description: Changelog document
+    post:
+      operationId: releaseChangelogDismiss
+      tags: [release]
+      summary: Dismiss a changelog version for the current user
+      x-mindpal:
+        owner: release
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: string }
+      responses:
+        "204": { description: Dismissed }
+        "401": { description: Sign in required }
+
+  /api/chat/stream:
+    post:
+      operationId: chatStream
+      tags: [chat]
+      summary: Guarded chat SSE of already-safe text
+      x-mindpal:
+        owner: chat
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: text/event-stream }
+        "401": { description: Sign in required }
+
+  /api/chats/current:
+    get:
+      operationId: sessionsGetCurrent
+      tags: [sessions]
+      x-mindpal:
+        owner: sessions
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Chat document }
+    put:
+      operationId: sessionsReplaceCurrent
+      tags: [sessions]
+      x-mindpal:
+        owner: sessions
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Saved }
+    delete:
+      operationId: sessionsDeleteCurrent
+      tags: [sessions]
+      x-mindpal:
+        owner: sessions
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Deleted }
+
+  /api/chats/current/messages:
+    post:
+      operationId: sessionsAppendMessages
+      tags: [sessions]
+      x-mindpal:
+        owner: sessions
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Appended }
+
+  /api/user/me:
+    get:
+      operationId: identityMe
+      tags: [identity]
+      x-mindpal:
+        owner: identity
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Session view }
+
+  /api/user/profile:
+    get:
+      operationId: identityGetProfile
+      tags: [identity]
+      x-mindpal:
+        owner: identity
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Profile }
+    patch:
+      operationId: identityPatchProfile
+      tags: [identity]
+      x-mindpal:
+        owner: identity
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Profile }
+
+  /api/user/insights:
+    get:
+      operationId: identityGetInsights
+      tags: [identity]
+      x-mindpal:
+        owner: identity
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Insights }
+
+  /api/user/export:
+    get:
+      operationId: identityExport
+      tags: [identity]
+      x-mindpal:
+        owner: identity
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Export payload }
+
+  /api/user/data:
+    delete:
+      operationId: identityDeleteData
+      tags: [identity]
+      x-mindpal:
+        owner: identity
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Deleted }
+
+  /api/memory/graph:
+    get:
+      operationId: memoryGetGraph
+      tags: [memory]
+      summary: Canonical durable memory graph
+      x-mindpal:
+        owner: memory
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Graph }
+    put:
+      operationId: memoryPutGraph
+      tags: [memory]
+      x-mindpal:
+        owner: memory
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Graph }
+
+  /api/memory/graph/items/{atom_id}:
+    delete:
+      operationId: memoryDeleteGraphItem
+      tags: [memory]
+      x-mindpal:
+        owner: memory
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Graph after delete }
+
+  /api/memory/summary:
+    get:
+      operationId: memoryGetSummary
+      tags: [memory]
+      x-mindpal:
+        owner: memory
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Summary }
+
+  /api/memory/summary/refresh:
+    post:
+      operationId: memoryRefreshSummary
+      tags: [memory]
+      x-mindpal:
+        owner: memory
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Summary }
+
+  /api/voice/session-token:
+    post:
+      operationId: voiceCreateSessionToken
+      tags: [voice]
+      summary: Ephemeral Live session token
+      x-mindpal:
+        owner: voice
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Short-lived token }
+
+  /api/features:
+    get:
+      operationId: flagsSnapshot
+      tags: [flags]
+      x-mindpal:
+        owner: flags
+        status: preview
+        audience: public
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Feature snapshot }
+
+  /api/system/route-catalog:
+    get:
+      operationId: systemRouteCatalog
+      tags: [system]
+      summary: OpenAPI operations filtered by caller ai-access
+      x-mindpal:
+        owner: system
+        status: preview
+        audience: admin
+        ai-access: hidden
+        client: none
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Filtered catalog }
+        "401": { description: Sign in required }
+        "403": { description: Admin only }

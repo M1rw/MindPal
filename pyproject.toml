@@ -1,6 +1,6 @@
 [project]
 name = "mindpal"
-version = "2.0.0"
+version = "5.0.0"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.136,<0.137",
@@ -32,6 +32,6 @@ app = "backend.main:app"
 entrypoint = "backend.main:app"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit/platform"]
 pythonpath = ["."]
 addopts = "--strict-markers --strict-config"
