@@ -29,15 +29,13 @@ def test_live_health_and_changelog():
     assert changelog.json()["current_version"] == "5.0.0"
 
 
-def test_preview_chat_is_unavailable():
+def test_chat_stream_mounted():
     from fastapi.testclient import TestClient
 
     client = TestClient(create_app(serve_frontend=False))
-    res = client.post("/api/chat/stream")
-    assert res.status_code == 503
-    body = res.json()
-    assert body["code"] == "unavailable"
-    assert body["client_action"] == "retry"
+    res = client.post("/api/chat/stream", json={"message": "hello"})
+    assert res.status_code == 200
+    assert "text/event-stream" in res.headers["content-type"]
 
 
 def test_error_catalog_status():
