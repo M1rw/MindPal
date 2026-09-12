@@ -24,9 +24,15 @@ def test_live_health_and_changelog():
     health = client.get("/api/health")
     assert health.status_code == 200
     assert health.json()["status"] == "rebuilding"
+    assert health.headers["x-content-type-options"] == "nosniff"
+    assert health.headers["x-frame-options"] == "DENY"
+    assert health.headers["x-xss-protection"] == "1; mode=block"
+    assert health.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
     changelog = client.get("/api/release/changelog")
     assert changelog.status_code == 200
     assert changelog.json()["current_version"] == "5.0.0"
+    assert changelog.headers["cache-control"] == "public, max-age=300, stale-while-revalidate=600"
 
 
 def test_preview_chat_is_unavailable():
