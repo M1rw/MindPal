@@ -1,0 +1,18 @@
+{
+  "product": "mindpal",
+  "current_version": "5.0.0",
+  "entries": [
+    {
+      "version": "5.0.0",
+      "released_at": "2026-09-10",
+      "major": true,
+      "title": "Backend platform",
+      "summary": "The HTTP contract is now a versioned OpenAPI catalog. The previous backend tree is archived and will be replaced by a single chat pipeline and a single changelog URL.",
+      "highlights": [
+        "contracts/openapi.yaml is the only allowed route list",
+        "GET /api/release/changelog serves this file",
+        "Brain HTTP retired; memory graph remains the store"
+      ]
+    }
+  ]
+}

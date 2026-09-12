@@ -10,7 +10,8 @@ Use it before changing product logic.
 ## Documentation Index
 
 ### Architecture
-- `docs/architecture/system-overview.md`
+- `docs/architecture/backend-platform.md` — **current backend constitution** (OpenAPI contract, tree, TODOs)
+- `docs/architecture/system-overview.md` — historical overview (pre-platform; do not extend)
 
 ### Product
 - `docs/product/current-state-and-roadmap.md`
