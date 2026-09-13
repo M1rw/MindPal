@@ -15,13 +15,7 @@ import type {
   FeatureSnapshot,
   MemoryAtom,
 } from '../types';
-
-function getApiBaseUrl(): string {
-  if (typeof window !== 'undefined' && (window as any).MINDPAL_CONFIG?.API_BASE_URL) {
-    return String((window as any).MINDPAL_CONFIG.API_BASE_URL).replace(/\/$/, '');
-  }
-  return '/api';
-}
+import { getApiBaseUrl } from './config';
 
 async function fetchWithAuth(path: string, options: RequestInit = {}): Promise<Response> {
   const { idToken, appCheckToken } = useSessionStore.getState();
