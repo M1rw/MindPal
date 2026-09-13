@@ -1,9 +1,10 @@
 import React from 'react';
+import { getAppConfig } from '../../services/config';
 
 export const EnvTag: React.FC = () => {
   const getEnvLabel = (): string => {
     if (typeof window === 'undefined') return 'Local';
-    const configEnv = (window as any).MINDPAL_CONFIG?.APP_ENV;
+    const configEnv = getAppConfig().ENVIRONMENT;
     if (configEnv) {
       if (configEnv === 'production') return 'Production';
       if (configEnv === 'preview') return 'Preview';

@@ -7,20 +7,13 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
+import { getAppConfig, getFirebaseConfig, isFirebaseConfigured } from './config';
+
+export { isFirebaseConfigured };
 
 let _app: FirebaseApp | null = null;
 let _auth: Auth | null = null;
 let _appCheck: AppCheck | null = null;
-
-function getFirebaseConfig(): Record<string, string> | null {
-  const config = (window as any).MINDPAL_CONFIG?.FIREBASE_CONFIG;
-  if (!config) return null;
-  return config;
-}
-
-export function isFirebaseConfigured(): boolean {
-  return Boolean(getFirebaseConfig());
-}
 
 export function getFirebaseApp(): FirebaseApp | null {
   const config = getFirebaseConfig();
@@ -50,7 +43,7 @@ export function initFirebaseAppCheck(): AppCheck | null {
   const app = getFirebaseApp();
   if (!app) return null;
 
-  const siteKey = (window as any).MINDPAL_CONFIG?.FIREBASE_APPCHECK_SITE_KEY;
+  const siteKey = getAppConfig().FIREBASE_APPCHECK_SITE_KEY;
   if (!siteKey) return null;
 
   try {

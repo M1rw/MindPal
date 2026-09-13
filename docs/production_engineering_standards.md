@@ -195,20 +195,28 @@ In Google (using internal systems like Aubrey and Moma) and Meta/OpenAI (using S
 
 ## 4. MindPal Architecture Modernization Blueprint
 
-### 4.1 What Has Been Completed (Remediation)
+### 4.1 What Has Been Completed (Remediation & Upgrades)
 
 1. **Purged Dead `VOICE_V4_*` Variables**:
    - Removed `VOICE_V4_PREVIEW_APPROVED`, `VOICE_V4_PREVIEW_SESSION_ENABLED`, `VOICE_V4_DIAGNOSTICS`, and `SHOW_RESPONSE_DEBUG` from [backend/main.py](file:///e:/Synthos/MindPal/backend/main.py) and [frontend/runtime-config.js](file:///e:/Synthos/MindPal/frontend/runtime-config.js).
-2. **Normalized Backend Feature Flags**:
-   - Updated [backend/domain/flags/flags.py](file:///e:/Synthos/MindPal/backend/domain/flags/flags.py) to return semantic domain capabilities (`voice_enabled`, `memory_enabled`, `pro_model_enabled`, `changelog_enabled`) matching the React frontend's TypeScript contract (`FeatureSnapshot`).
-3. **Secured Backend / Client Boundary**:
-   - Verified via automated tests in [tests/unit/platform/test_contract.py](file:///e:/Synthos/MindPal/tests/unit/platform/test_contract.py) that server secrets (`FIREBASE_CREDENTIALS_JSON`, service account private keys) are never exposed to client runtime payloads.
+2. **Enterprise Feature Lifecycle Engine Implemented**:
+   - Built [backend/domain/flags/models.py](file:///e:/Synthos/MindPal/backend/domain/flags/models.py) defining standard stages (`DARK_LAUNCH`, `CANARY`, `BETA`, `GA`, `SUNSET`) and audit reasons.
+   - Built [backend/domain/flags/engine.py](file:///e:/Synthos/MindPal/backend/domain/flags/engine.py) with deterministic SHA-256 consistent bucketing (`compute_bucket`) and dual-layer telemetry.
+   - Updated [backend/domain/flags/flags.py](file:///e:/Synthos/MindPal/backend/domain/flags/flags.py) to wrap the engine and serve `GET /api/features`.
+3. **Pattern B Document JSON Bootstrapping Deployed**:
+   - Updated [backend/main.py](file:///e:/Synthos/MindPal/backend/main.py) (`GET /`) to synchronously inject `<script id="__MINDPAL_BOOTSTRAP__" type="application/json">` and frozen config directly into the initial HTML document payload.
+   - Replaced `<script src="/runtime-config.js"></script>` in [frontend/index.html](file:///e:/Synthos/MindPal/frontend/index.html) with the inline bootstrap script. Zero network round-trips; instant React hydration.
+   - Created [frontend/src/services/config.ts](file:///e:/Synthos/MindPal/frontend/src/services/config.ts) for strongly-typed client configuration access.
+4. **Automated Enterprise Governance Test Suite**:
+   - Added [tests/unit/platform/test_feature_lifecycle.py](file:///e:/Synthos/MindPal/tests/unit/platform/test_feature_lifecycle.py) validating:
+     - No version numbers allowed in feature keys (rejects `_v2`, `_v3`, `_v4`).
+     - Consistent hashing determinism.
+     - All lifecycle stage semantics (`DARK_LAUNCH`, `CANARY`, `GA`, `SUNSET`).
+     - Zero service account secrets in document payloads.
 
 ---
 
-### 4.2 Target Production Architecture (Next Evolution)
-
-The next step in elevating MindPal to tier-1 enterprise standards is transitioning from the transitional `/runtime-config.js` endpoint to **Pattern B (Document JSON Bootstrapping)** or **Pattern C (BFF Session Bootstrapping)**:
+### 4.2 Production Document Bootstrapping Architecture
 
 ```mermaid
 sequenceDiagram
@@ -218,15 +226,15 @@ sequenceDiagram
     participant API as FastAPI Backend (api/index.py)
     participant Auth as Firebase Auth
 
-    Note over User,API: Target Architecture: Single Round-Trip Document Bootstrapping
+    Note over User,API: Deployed Architecture: Single Round-Trip Document Bootstrapping
     User->>CDN: GET / (Document Request)
     CDN->>API: Route to Serverless Handler
     API->>API: Read Environment (12-Factor)
-    API-->>User: HTML Shell with embedded <script id="__CONFIG__" type="application/json">
+    API-->>User: HTML Shell with embedded <script id="__MINDPAL_BOOTSTRAP__" type="application/json">
     User->>User: React Hydrates synchronously (Zero extra network requests)
     User->>Auth: Authenticate User via Firebase Web SDK
-    User->>API: GET /api/session/bootstrap (Bearer ID Token)
-    API-->>User: Authenticated User Profile + Evaluated Feature Capabilities
+    User->>API: GET /api/features (Bearer ID Token)
+    API-->>User: Evaluated Feature Capabilities + Telemetry Snapshot
 ```
 
 ### 4.3 Checklist for Future Features

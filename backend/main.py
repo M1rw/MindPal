@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend.http.wire import wire_http
@@ -58,6 +58,48 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
     return app
 
 
+def _build_public_bootstrap_payload() -> dict[str, Any]:
+    """Generates the non-secret client runtime bootstrap configuration."""
+    api_key = os.environ.get("FIREBASE_WEB_API_KEY", "").strip() or os.environ.get("FIREBASE_API_KEY", "").strip()
+    project_id = (
+        os.environ.get("FIREBASE_WEB_PROJECT_ID", "").strip()
+        or os.environ.get("FIREBASE_PROJECT_ID", "").strip()
+        or os.environ.get("GOOGLE_CLOUD_PROJECT", "").strip()
+    )
+    app_id = os.environ.get("FIREBASE_WEB_APP_ID", "").strip() or os.environ.get("FIREBASE_APP_ID", "").strip()
+    auth_domain = os.environ.get("FIREBASE_AUTH_DOMAIN", "").strip() or (f"{project_id}.firebaseapp.com" if project_id else "")
+    storage_bucket = os.environ.get("FIREBASE_STORAGE_BUCKET", "").strip() or (f"{project_id}.appspot.com" if project_id else "")
+    messaging_sender_id = os.environ.get("FIREBASE_MESSAGING_SENDER_ID", "").strip()
+    measurement_id = os.environ.get("FIREBASE_MEASUREMENT_ID", "").strip()
+    google_client_id = os.environ.get("FIREBASE_WEB_GOOGLE_CLIENT_ID", "").strip()
+    app_check_site_key = os.environ.get("FIREBASE_APPCHECK_SITE_KEY", "").strip()
+    enable_firebase_env = os.environ.get("ENABLE_FIREBASE", "true").strip().lower()
+    firebase_allowed = enable_firebase_env not in ("false", "0", "no")
+    firebase_ready = bool(firebase_allowed and api_key and project_id and app_id)
+    firebase_config = (
+        {
+            "apiKey": api_key,
+            "authDomain": auth_domain,
+            "projectId": project_id,
+            "storageBucket": storage_bucket,
+            "messagingSenderId": messaging_sender_id,
+            "appId": app_id,
+            "measurementId": measurement_id,
+            "googleClientId": google_client_id,
+        }
+        if firebase_ready
+        else None
+    )
+
+    return {
+        "API_BASE_URL": os.environ.get("PUBLIC_API_BASE_URL", "/api").strip() or "/api",
+        "ENVIRONMENT": os.environ.get("ENVIRONMENT", "production"),
+        "FIREBASE_APPCHECK_SITE_KEY": app_check_site_key,
+        "FIREBASE_CONFIG": firebase_config,
+        "FIREBASE_ENABLED": firebase_ready,
+    }
+
+
 def _mount_frontend(app: FastAPI) -> None:
     for prefix, folder in (
         ("/css", FRONTEND / "css"),
@@ -70,44 +112,7 @@ def _mount_frontend(app: FastAPI) -> None:
 
     @app.get("/runtime-config.js", include_in_schema=False)
     def runtime_config() -> Response:
-        api_key = os.environ.get("FIREBASE_WEB_API_KEY", "").strip() or os.environ.get("FIREBASE_API_KEY", "").strip()
-        project_id = (
-            os.environ.get("FIREBASE_WEB_PROJECT_ID", "").strip()
-            or os.environ.get("FIREBASE_PROJECT_ID", "").strip()
-            or os.environ.get("GOOGLE_CLOUD_PROJECT", "").strip()
-        )
-        app_id = os.environ.get("FIREBASE_WEB_APP_ID", "").strip() or os.environ.get("FIREBASE_APP_ID", "").strip()
-        auth_domain = os.environ.get("FIREBASE_AUTH_DOMAIN", "").strip() or (f"{project_id}.firebaseapp.com" if project_id else "")
-        storage_bucket = os.environ.get("FIREBASE_STORAGE_BUCKET", "").strip() or (f"{project_id}.appspot.com" if project_id else "")
-        messaging_sender_id = os.environ.get("FIREBASE_MESSAGING_SENDER_ID", "").strip()
-        measurement_id = os.environ.get("FIREBASE_MEASUREMENT_ID", "").strip()
-        google_client_id = os.environ.get("FIREBASE_WEB_GOOGLE_CLIENT_ID", "").strip()
-        app_check_site_key = os.environ.get("FIREBASE_APPCHECK_SITE_KEY", "").strip()
-        enable_firebase_env = os.environ.get("ENABLE_FIREBASE", "true").strip().lower()
-        firebase_allowed = enable_firebase_env not in ("false", "0", "no")
-        firebase_ready = bool(firebase_allowed and api_key and project_id and app_id)
-        firebase_config = (
-            {
-                "apiKey": api_key,
-                "authDomain": auth_domain,
-                "projectId": project_id,
-                "storageBucket": storage_bucket,
-                "messagingSenderId": messaging_sender_id,
-                "appId": app_id,
-                "measurementId": measurement_id,
-                "googleClientId": google_client_id,
-            }
-            if firebase_ready
-            else None
-        )
-
-        payload = {
-            "API_BASE_URL": os.environ.get("PUBLIC_API_BASE_URL", "/api").strip() or "/api",
-            "ENVIRONMENT": os.environ.get("ENVIRONMENT", "production"),
-            "FIREBASE_APPCHECK_SITE_KEY": app_check_site_key,
-            "FIREBASE_CONFIG": firebase_config,
-            "FIREBASE_ENABLED": firebase_ready,
-        }
+        payload = _build_public_bootstrap_payload()
         script = (
             "(() => { window.MINDPAL_CONFIG = Object.freeze("
             + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
@@ -116,8 +121,30 @@ def _mount_frontend(app: FastAPI) -> None:
         return Response(content=script, media_type="text/javascript; charset=utf-8", headers={"Cache-Control": "no-store"})
 
     @app.get("/")
-    def index() -> FileResponse:
-        return FileResponse(FRONTEND / "index.html")
+    def index() -> Response:
+        index_file = FRONTEND / "index.html"
+        if not index_file.exists():
+            return HTMLResponse("<!DOCTYPE html><html><body>Missing index.html</body></html>", status_code=404)
+
+        raw_html = index_file.read_text(encoding="utf-8")
+        payload = _build_public_bootstrap_payload()
+        bootstrap_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+        # Tier-1 Document Bootstrapping (Zero Network Waterfall):
+        # 1. Non-executable, immutable, CSP-compliant JSON script block
+        # 2. Synchronous window freeze for instant hydration
+        bootstrap_block = (
+            f'<script id="__MINDPAL_BOOTSTRAP__" type="application/json">{bootstrap_json}</script>\n'
+            f'    <script>window.MINDPAL_CONFIG = Object.freeze({bootstrap_json});</script>'
+        )
+
+        target = '<script id="__MINDPAL_BOOTSTRAP__" type="application/json">{}</script>'
+        if target in raw_html:
+            rendered = raw_html.replace(target, bootstrap_block, 1)
+        else:
+            rendered = raw_html.replace("</head>", f"    {bootstrap_block}\n</head>", 1)
+
+        return HTMLResponse(content=rendered, headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
 app = create_app()

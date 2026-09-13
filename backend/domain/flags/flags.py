@@ -4,19 +4,15 @@ from __future__ import annotations
 
 from typing import Dict, Any
 
+from backend.domain.flags.engine import FeatureLifecycleEngine
+
 
 class FeatureFlagsService:
     """Evaluates dynamic feature flags and client operational capabilities."""
 
+    def __init__(self, engine: FeatureLifecycleEngine | None = None) -> None:
+        self.engine = engine or FeatureLifecycleEngine()
+
     def get_flags_snapshot(self, user_id_hash: str) -> Dict[str, Any]:
-        return {
-            "user_id_hash": user_id_hash,
-            "flags": {
-                "voice_enabled": True,
-                "memory_enabled": True,
-                "pro_model_enabled": True,
-                "changelog_enabled": True,
-                "clinical_guidance": True,
-                "analytics_insights": True,
-            },
-        }
+        return self.engine.get_snapshot(user_id_hash)
+
