@@ -2699,29 +2699,38 @@ button:active,
   100%{ opacity: 1; transform: translateY(0);   }
 }
 
-/* Streaming text — subtle cursor blink on last char */
-.streaming-text::after {
-  content: '▋';
-  display: inline-block;
-  width: 0.55ch;
-  margin-left: 1px;
-  opacity: 1;
-  animation: streamCursor 0.9s step-start infinite;
-  color: #4140FD;
-  font-size: 0.85em;
-  vertical-align: middle;
-}
-.dark .streaming-text::after {
-  color: #A39CF9;
+/*
+  Streaming prose fade-in — every new word/token that lands inside
+  .chat-streaming gets a short fade-up via the universal child selector.
+  We animate the direct text nodes by wrapping them at renderMarkdown time
+  is complex, so instead we do a continuous shimmer on the whole block
+  while it is live, then it settles once the class is removed.
+*/
+.chat-streaming {
+  animation: streamFadeIn 0.25s ease-out both;
 }
 
-@keyframes streamCursor {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
+@keyframes streamFadeIn {
+  0%  { opacity: 0.6; }
+  100%{ opacity: 1;   }
+}
+
+/*
+  Each incremental render triggers a re-paint; giving the element a
+  subtle entering feel by keeping a very short opacity transition.
+*/
+.chat-streaming * {
+  transition: opacity 0.15s ease-out;
 }
 
 /* Message action icon buttons — strip min-height override */
 .msg-action-btn {
+  min-height: unset !important;
+  min-width: unset !important;
+}
+
+/* Toast dismiss button — strip min-height */
+.toast-dismiss-btn {
   min-height: unset !important;
   min-width: unset !important;
 }

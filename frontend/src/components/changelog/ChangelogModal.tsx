@@ -1,129 +1,164 @@
-import React from 'react';
-import { Sparkles, X, Check, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+﻿import React, { useEffect, useRef, useState } from 'react';
+import { Check, X } from 'lucide-react';
 import { useChangelogStore, useToastStore } from '../../store';
 import { ApiClient } from '../../services/api';
+
+// Hero gradient — atmospheric dark landscape feel
+const HERO_GRADIENT = `
+  radial-gradient(ellipse at 60% 0%, #6572F2 0%, transparent 55%),
+  radial-gradient(ellipse at 20% 80%, #A39CF9 0%, transparent 50%),
+  linear-gradient(160deg, #1a1040 0%, #0d0d1a 60%, #121218 100%)
+`;
 
 export const ChangelogModal: React.FC = () => {
   const { isOpen, setIsOpen, changelog } = useChangelogStore();
   const { push: pushToast } = useToastStore();
+  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen || !changelog) return null;
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true);
+      requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
+    } else {
+      setVisible(false);
+      const t = setTimeout(() => setMounted(false), 320);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  if (!mounted || !changelog) return null;
 
   const currentVersion = changelog.current_version || '5.0.0';
-  const majorEntry = changelog.entries?.find((e) => e.version === currentVersion) || changelog.entries?.[0];
+  const entry = changelog.entries?.find((e) => e.version === currentVersion) ?? changelog.entries?.[0];
 
   const handleDismiss = async () => {
     try {
       localStorage.setItem('mindpal_last_seen_changelog', currentVersion);
       await ApiClient.dismissChangelog(currentVersion);
-    } catch {
-      // Graceful offline fallback
-    }
+    } catch { /* offline graceful */ }
     setIsOpen(false);
-    pushToast('Welcome to MindPal 5.0!', 'info');
+    pushToast(`Welcome to MindPal ${currentVersion}! ✨`, 'success');
   };
 
   return (
     <div
       id="changelog-modal"
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="changelog-title"
       onClick={handleDismiss}
+      className={[
+        'fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4 sm:p-6',
+        'transition-all duration-300 ease-out',
+        visible ? 'bg-black/60 backdrop-blur-md' : 'bg-transparent backdrop-blur-none',
+      ].join(' ')}
     >
       <div
-        className="bg-white dark:bg-[#16161E] w-full max-w-lg rounded-[28px] shadow-2xl overflow-hidden border border-black/[0.08] dark:border-white/[0.12] flex flex-col max-h-[85vh] transition-all transform animate-fade-in relative"
         onClick={(e) => e.stopPropagation()}
+        className={[
+          'w-full max-w-[360px] rounded-[28px] overflow-hidden shadow-2xl flex flex-col',
+          'bg-[#111118] text-white',
+          'transition-all duration-320 ease-out',
+          visible
+            ? 'opacity-100 translate-y-0 scale-100'
+            : 'opacity-0 translate-y-6 scale-[0.95]',
+        ].join(' ')}
+        style={{ maxHeight: '92dvh' }}
       >
-        {/* Subtle Ambient Top Glow */}
-        <div className="absolute top-0 inset-x-0 h-28 bg-gradient-to-b from-[#4140FD]/15 via-[#6572F2]/5 to-transparent pointer-events-none" />
-
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-black/[0.06] dark:border-white/[0.08] relative z-10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#4140FD]/10 dark:bg-[#6572F2]/20 flex items-center justify-center text-[#4140FD] dark:text-[#A39CF9]">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] uppercase tracking-wider">
-                  Major Release
-                </span>
-                <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-500">
-                  v{currentVersion}
-                </span>
-              </div>
-              <h2
-                id="changelog-title"
-                className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5"
-              >
-                {majorEntry?.title || "What's New in MindPal"}
-              </h2>
-            </div>
+        {/* Hero Section */}
+        <div
+          className="relative h-[180px] flex-shrink-0 overflow-hidden"
+          style={{ background: HERO_GRADIENT }}
+        >
+          {/* Floating orbs */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-[#6572F2]/30 blur-3xl" />
+            <div className="absolute bottom-0 left-4 w-32 h-32 rounded-full bg-[#A39CF9]/20 blur-2xl" />
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-white/5 blur-xl" />
           </div>
 
+          {/* Version chip */}
+          <div className="absolute top-4 left-5 flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/15 text-white uppercase tracking-widest backdrop-blur-sm border border-white/20">
+              v{currentVersion} · Major Release
+            </span>
+          </div>
+
+          {/* Close */}
           <button
             type="button"
             onClick={handleDismiss}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-            aria-label="Close changelog"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white/70 hover:text-white transition-colors backdrop-blur-sm"
+            aria-label="Close"
           >
             <X className="w-4 h-4" />
           </button>
+
+          {/* Hero Text */}
+          <div className="absolute bottom-5 left-5 right-5">
+            <h2
+              id="changelog-title"
+              className="text-[22px] font-bold leading-tight text-white"
+            >
+              {entry?.title ?? "What's New in MindPal"}
+            </h2>
+          </div>
         </div>
 
-        {/* Content Body */}
-        <div className="px-6 py-5 overflow-y-auto custom-scrollbar space-y-4 text-xs text-zinc-700 dark:text-zinc-300 relative z-10">
-          {majorEntry?.summary && (
-            <p className="text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-300 font-medium">
-              {majorEntry.summary}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 pt-4 pb-2 space-y-3 custom-scrollbar">
+          {entry?.summary && (
+            <p className="text-[13px] leading-relaxed text-zinc-400 font-normal">
+              {entry.summary}
             </p>
           )}
 
-          {/* Feature Highlights */}
-          <div className="space-y-2.5 pt-1">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-              Key Capabilities
-            </div>
-
-            {majorEntry?.highlights?.map((highlight, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-3 p-3 rounded-2xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.04] dark:border-white/[0.06] transition-colors"
-              >
-                <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Check className="w-3 h-3 stroke-[2.5]" />
-                </div>
-                <div className="text-xs leading-relaxed text-zinc-700 dark:text-zinc-200 font-medium">
-                  {highlight}
-                </div>
+          {/* What You'll Get */}
+          {entry?.highlights && entry.highlights.length > 0 && (
+            <div className="space-y-1 pt-1">
+              <div className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-2">
+                What&apos;s New
               </div>
-            ))}
-          </div>
+              {entry.highlights.map((h, i) => {
+                // Split on first ' — ' into title + desc if present
+                const dashIdx = h.indexOf(' — ');
+                const title = dashIdx > 0 ? h.slice(0, dashIdx) : h;
+                const desc = dashIdx > 0 ? h.slice(dashIdx + 3) : null;
 
-          {/* Security & Privacy Banner */}
-          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20">
-            <ShieldCheck className="w-4 h-4 flex-shrink-0" />
-            <span className="text-[11px] font-medium">
-              Strict clinical safety protocols & in-memory zero-transit privacy.
-            </span>
-          </div>
+                return (
+                  <div key={i} className="flex items-start gap-3 py-2">
+                    <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5 border border-white/15">
+                      <Check className="w-3 h-3 text-white stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <div className="text-[13px] font-semibold text-white leading-snug">{title}</div>
+                      {desc && (
+                        <div className="text-[12px] text-zinc-500 leading-relaxed mt-0.5">{desc}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-black/[0.06] dark:border-white/[0.08] bg-zinc-50/70 dark:bg-[#121218]/70 flex items-center justify-between gap-3 relative z-10">
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-            MindPal 5.0 Clinical Suite
-          </span>
-
+        {/* Footer Buttons */}
+        <div className="px-5 py-4 flex items-center gap-2 flex-shrink-0 border-t border-white/[0.06]">
           <button
             type="button"
             onClick={handleDismiss}
-            className="px-5 py-2.5 rounded-xl bg-[#4140FD] hover:bg-[#3231d6] text-white text-xs font-semibold shadow-md active:scale-95 transition-all flex items-center gap-1.5"
+            className="flex-1 h-11 rounded-full bg-white/10 hover:bg-white/15 text-white/80 hover:text-white text-[14px] font-medium transition-colors"
           >
-            <span>Explore MindPal</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="flex-1 h-11 rounded-full bg-white hover:bg-zinc-100 text-zinc-900 text-[14px] font-semibold transition-colors shadow-lg"
+          >
+            Explore MindPal
           </button>
         </div>
       </div>
