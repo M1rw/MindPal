@@ -188,7 +188,7 @@ export const AuthModal: React.FC = () => {
       {/* Modal Card */}
       <section
         id="auth-modal-content"
-        className="relative w-full sm:max-w-[420px] bg-white dark:bg-[#1E1E2E] border border-black/5 dark:border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom,1.25rem))] sm:p-6 z-10 animate-fade-in"
+        className="relative w-full sm:max-w-[420px] bg-white dark:bg-[#18181B] border border-black/[0.08] dark:border-white/[0.08] rounded-t-2xl sm:rounded-2xl shadow-xl px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom,1.25rem))] sm:p-6 z-10 animate-fade-in"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
@@ -297,8 +297,8 @@ export const AuthModal: React.FC = () => {
 
             {/* Divider */}
             <div className="relative py-2 flex items-center justify-center">
-              <div className="w-full border-t border-gray-200 dark:border-zinc-700" />
-              <span className="absolute bg-white dark:bg-[#1E1E2E] px-3 text-[11px] text-gray-400 uppercase">
+              <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
+              <span className="absolute bg-white dark:bg-[#18181B] px-3 text-[11px] text-zinc-400 uppercase">
                 or
               </span>
             </div>
@@ -403,7 +403,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-[#4140FD] hover:bg-[#6572F2] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#4140FD]/20 disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-[#4140FD] hover:bg-[#5251fd] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99]"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{isRegisterMode ? 'Create account' : 'Sign in'}</span>
@@ -470,7 +470,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={loading || !phoneNumber}
-              className="w-full py-3 rounded-xl bg-[#4140FD] hover:bg-[#6572F2] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#4140FD]/20 disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-[#4140FD] hover:bg-[#5251fd] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99]"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>Send verification code</span>
@@ -516,7 +516,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={loading || phoneCode.length < 6}
-              className="w-full py-3 rounded-xl bg-[#4140FD] hover:bg-[#6572F2] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#4140FD]/20 disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-[#4140FD] hover:bg-[#5251fd] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99]"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>Verify and continue</span>

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import Optional, Dict, Any
 from fastapi import APIRouter, Header
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -18,6 +18,8 @@ orchestrator = ChatOrchestrator()
 class ChatStreamPayload(BaseModel):
     message: str
     session_id: Optional[str] = None
+    model: Optional[str] = "standard"
+    telemetry: Optional[Dict[str, Any]] = None
 
 
 @router.post("/api/chat/stream", operation_id="chatStream")
@@ -25,12 +27,14 @@ async def chat_stream(payload: ChatStreamPayload, authorization: Optional[str] =
     session = verify_auth_header(authorization)
 
     async def sse_generator():
-        async for token in orchestrator.execute_turn_stream(
+        async for chunk in orchestrator.execute_turn_stream(
             user_id_hash=session.user_id_hash,
             message=payload.message,
             session_id=payload.session_id,
+            model=payload.model or "standard",
+            telemetry=payload.telemetry,
         ):
-            data = json.dumps({"text": token}, ensure_ascii=False)
+            data = json.dumps(chunk, ensure_ascii=False)
             yield f"data: {data}\n\n"
         yield "data: [DONE]\n\n"
 

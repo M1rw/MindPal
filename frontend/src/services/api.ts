@@ -66,11 +66,18 @@ export const ApiClient = {
     onChunk: (chunk: string, strategy?: string) => void,
     onComplete: () => void,
     onError: (err: Error) => void,
+    options?: { model?: string; telemetry?: any },
   ): Promise<void> {
     try {
       const res = await fetchWithAuth('/api/chat/stream', {
         method: 'POST',
-        body: JSON.stringify({ message, history, stream: true }),
+        body: JSON.stringify({
+          message,
+          history,
+          stream: true,
+          model: options?.model || 'standard',
+          telemetry: options?.telemetry,
+        }),
       });
 
       if (!res.ok) {

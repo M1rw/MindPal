@@ -11,13 +11,13 @@
   /* Colors -- full palette */
   --color-brand-primary:     #4140FD;
   --color-theme-light:       #EFF3FB;
-  --color-theme-dark:        #1E1E2E;
+  --color-theme-dark:        #0C0C0E;
   --color-bg-light:          #EFF3FB;
-  --color-bg-dark:           #1E1E2E;
+  --color-bg-dark:           #0C0C0E;
   --color-surface-light:     #FFFFFF;
-  --color-surface-dark:      #2A2A3E;
+  --color-surface-dark:      #18181B;
   --color-text-light:        #1A1A2E;
-  --color-text-dark:         #E8EAF6;
+  --color-text-dark:         #F4F4F5;
 
   /* Typography */
   --font-family-base:        Inter, system-ui, -apple-system, sans-serif;
@@ -35,9 +35,9 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg:      #1E1E2E;
-    --color-surface: #2A2A3E;
-    --color-text:    #E8EAF6;
-    --color-theme:   #1E1E2E;
+    --color-bg:      #0C0C0E;
+    --color-surface: #18181B;
+    --color-text:    #F4F4F5;
+    --color-theme:   #0C0C0E;
   }
 }

@@ -119,10 +119,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
     >
       <div
         id="profile-content"
-        className="bg-white dark:bg-[#1E1E2E] w-full sm:max-w-[860px] h-[92vh] sm:h-[min(760px,92vh)] flex flex-col sm:flex-row rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden border-0 sm:border border-black/5 dark:border-white/10 text-gray-900 dark:text-gray-100 animate-fade-in"
+        className="bg-white dark:bg-[#18181B] w-full sm:max-w-[860px] h-[92vh] sm:h-[min(760px,92vh)] flex flex-col sm:flex-row rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden border-0 sm:border border-black/[0.08] dark:border-white/[0.08] text-zinc-900 dark:text-zinc-100 animate-fade-in"
       >
         {/* Desktop Sidebar */}
-        <aside className="w-[220px] flex-none bg-gray-50 dark:bg-[#28283D] border-r border-gray-100 dark:border-zinc-800 p-3 hidden sm:flex flex-col justify-between">
+        <aside className="w-[220px] flex-none bg-zinc-50 dark:bg-[#141416] border-r border-zinc-200 dark:border-zinc-800/80 p-3 hidden sm:flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between px-2 mb-3">
               <span className="text-sm font-bold tracking-tight text-gray-800 dark:text-gray-200">
@@ -149,8 +149,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                     type="button"
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
                       isActive
-                        ? 'bg-[#4140FD] text-white shadow-sm shadow-[#4140FD]/20'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
+                        ? 'bg-[#4140FD] text-white'
+                        : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60'
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
@@ -274,7 +274,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-[#EFF3FB] dark:bg-[#28283D] border border-[#E2E6F0] dark:border-[#35354A] text-xs text-gray-900 dark:text-gray-100 space-y-2">
+                <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-[#1C1C20] border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 space-y-2">
                   <div className="font-semibold flex items-center gap-1.5">
                     <Activity className="w-4 h-4 text-[#4140FD] dark:text-[#A39CF9]" />
                     24/7 Immediate Crisis Support
@@ -652,7 +652,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                         setIsOpen(false);
                         openAuthModal();
                       }}
-                      className="px-6 py-2.5 rounded-xl bg-[#4140FD] hover:bg-[#6572F2] text-white text-xs font-bold transition-colors shadow-md shadow-[#4140FD]/20"
+                      className="px-6 py-2.5 rounded-xl bg-[#4140FD] hover:bg-[#5251fd] text-white text-xs font-bold transition-colors"
                     >
                       Sign In or Create Account
                     </button>
