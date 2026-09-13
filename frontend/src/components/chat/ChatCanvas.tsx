@@ -43,7 +43,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
             <h1 className="text-4xl sm:text-5xl font-medium tracking-tight mb-2">
               <span
                 id="greeting-text"
-                className="bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570]"
+                className="bg-clip-text text-transparent bg-gradient-to-r from-[#A39CF9] via-[#6572F2] to-[#4140FD]"
               >
                 {getGreeting()}
               </span>
@@ -57,30 +57,30 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
               <button
                 type="button"
                 onClick={() => onSelectMood?.('I feel overwhelmed')}
-                className="px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-all duration-200 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                className="px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-[#E2E6F0] dark:hover:bg-[#35354A] transition-all duration-200 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
                 aria-label="Start reflection: I feel overwhelmed"
               >
-                <Waves className="w-4 h-4 text-blue-500" />
+                <Waves className="w-4 h-4 text-[#4140FD]" />
                 <span>I feel overwhelmed</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onSelectMood?.("I'm feeling anxious")}
-                className="px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-all duration-200 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                className="px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-[#E2E6F0] dark:hover:bg-[#35354A] transition-all duration-200 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
                 aria-label="Start reflection: I'm feeling anxious"
               >
-                <Wind className="w-4 h-4 text-purple-500" />
+                <Wind className="w-4 h-4 text-[#6572F2]" />
                 <span>I'm feeling anxious</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onSelectMood?.('I feel stuck')}
-                className="px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-gray-200 dark:hover:bg-zinc-800 transition-all duration-200 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                className="px-4 py-3 rounded-2xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-[#E2E6F0] dark:hover:bg-[#35354A] transition-all duration-200 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
                 aria-label="Start reflection: I feel stuck"
               >
-                <Anchor className="w-4 h-4 text-rose-500" />
+                <Anchor className="w-4 h-4 text-[#A39CF9]" />
                 <span>I feel stuck</span>
               </button>
             </div>
@@ -101,8 +101,8 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${
                   isUser
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gemini-surface dark:bg-gemini-darkSurface text-blue-500 border border-black/5 dark:border-white/10'
+                    ? 'bg-[#4140FD] text-white shadow-sm'
+                    : 'bg-gemini-surface dark:bg-gemini-darkSurface text-[#4140FD] border border-black/5 dark:border-white/10'
                 }`}
               >
                 {isUser ? (
@@ -116,7 +116,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
                     <User className="w-4 h-4" />
                   )
                 ) : (
-                  <Sparkles className="w-4 h-4 text-blue-500" />
+                  <Sparkles className="w-4 h-4 text-[#4140FD]" />
                 )}
               </div>
 
@@ -129,7 +129,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
                 <div
                   className={`rounded-2xl px-5 py-3.5 text-[15px] leading-relaxed transition-colors ${
                     isUser
-                      ? 'bg-blue-600 text-white rounded-tr-sm shadow-sm'
+                      ? 'bg-[#4140FD] text-white rounded-tr-sm shadow-sm'
                       : 'bg-gemini-surface dark:bg-gemini-darkSurface text-gray-900 dark:text-gray-100 rounded-tl-sm border border-black/5 dark:border-white/5'
                   }`}
                   dangerouslySetInnerHTML={{ __html: htmlContent }}
@@ -145,7 +145,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
                     )}
                     <button
                       onClick={() => copyToClipboard(msg.id, msg.content)}
-                      className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                      className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
                       title="Copy response"
                       aria-label="Copy response"
                     >
@@ -166,13 +166,13 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
       {/* Generating pulse indicator */}
       {isGenerating && (
         <div className="flex gap-3.5 items-start animate-fade-in">
-          <div className="w-8 h-8 rounded-full bg-gemini-surface dark:bg-gemini-darkSurface text-blue-500 flex items-center justify-center shrink-0 border border-black/5 dark:border-white/10">
-            <Sparkles className="w-4 h-4 animate-spin text-blue-500" style={{ animationDuration: '3s' }} />
+          <div className="w-8 h-8 rounded-full bg-gemini-surface dark:bg-gemini-darkSurface text-[#4140FD] flex items-center justify-center shrink-0 border border-black/5 dark:border-white/10">
+            <Sparkles className="w-4 h-4 animate-spin text-[#4140FD]" style={{ animationDuration: '3s' }} />
           </div>
           <div className="bg-gemini-surface dark:bg-gemini-darkSurface rounded-2xl rounded-tl-sm px-5 py-4 border border-black/5 dark:border-white/5 flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="w-2 h-2 rounded-full bg-[#4140FD] animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 rounded-full bg-[#6572F2] animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 rounded-full bg-[#A39CF9] animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
         </div>
       )}

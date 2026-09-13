@@ -54,7 +54,7 @@ export const VoiceOverlay: React.FC = () => {
 
         <div className="text-[15px] font-medium tracking-tight flex items-center gap-1.5">
           <span>MindPal</span>
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-[#4140FD] dark:text-[#A39CF9] uppercase tracking-wider">
             Voice
           </span>
         </div>
@@ -66,9 +66,9 @@ export const VoiceOverlay: React.FC = () => {
               setIncognito(next);
               pushToast(next ? 'Incognito mode: call won’t be saved' : 'Standard mode', 'info');
             }}
-            className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+            className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
               incognito
-                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                ? 'bg-[#EFF3FB] dark:bg-[#28283D] text-[#4140FD] dark:text-[#A39CF9]'
                 : 'hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400'
             }`}
             title="Private session (do not save to history)"
@@ -79,9 +79,9 @@ export const VoiceOverlay: React.FC = () => {
 
           <button
             onClick={() => setShowCaptions(!showCaptions)}
-            className={`min-w-10 h-10 px-2 flex items-center justify-center gap-1 rounded-full transition-colors active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+            className={`min-w-10 h-10 px-2 flex items-center justify-center gap-1 rounded-full transition-colors active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
               showCaptions
-                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                ? 'bg-[#EFF3FB] dark:bg-[#28283D] text-[#4140FD] dark:text-[#A39CF9]'
                 : 'hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400'
             }`}
             title="Toggle captions"
@@ -101,7 +101,7 @@ export const VoiceOverlay: React.FC = () => {
               status === 'Listening'
                 ? 'bg-emerald-500 animate-pulse'
                 : status === 'Speaking'
-                ? 'bg-blue-500 animate-bounce'
+                ? 'bg-[#4140FD] animate-bounce'
                 : 'bg-amber-400 animate-ping'
             }`}
           />
@@ -112,9 +112,9 @@ export const VoiceOverlay: React.FC = () => {
       {/* ── Main Visualizer: Animated Orb ── */}
       <div className="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto px-6 text-center relative z-20 space-y-8">
         <div className="relative flex items-center justify-center">
-          <div className="absolute w-56 h-56 rounded-full bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 animate-ping" />
-          <div className="absolute w-44 h-44 rounded-full bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 animate-pulse" />
-          <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-[#4285f4] via-[#9b72cb] to-[#d96570] flex items-center justify-center shadow-2xl shadow-purple-500/30 z-10 transition-transform duration-300 hover:scale-105">
+          <div className="absolute w-56 h-56 rounded-full bg-gradient-to-r from-[#A39CF9]/20 via-[#6572F2]/20 to-[#4140FD]/20 animate-ping" />
+          <div className="absolute w-44 h-44 rounded-full bg-gradient-to-r from-[#A39CF9]/30 via-[#6572F2]/30 to-[#4140FD]/30 animate-pulse" />
+          <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-[#A39CF9] via-[#6572F2] to-[#4140FD] flex items-center justify-center shadow-2xl shadow-[#4140FD]/30 z-10 transition-transform duration-300 hover:scale-105">
             <Sparkles className="w-12 h-12 text-white animate-spin-slow" />
           </div>
         </div>

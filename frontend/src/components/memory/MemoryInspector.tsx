@@ -75,11 +75,11 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
       aria-modal="true"
       aria-label="Memory Profile"
     >
-      <div className="bg-white dark:bg-[#1f1f1f] border border-black/5 dark:border-white/10 rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden text-gray-900 dark:text-gray-100 animate-fade-in">
+      <div className="bg-white dark:bg-[#1E1E2E] border border-black/5 dark:border-white/10 rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden text-gray-900 dark:text-gray-100 animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-zinc-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="w-10 h-10 rounded-2xl bg-[#EFF3FB] dark:bg-[#6572F2]/20 flex items-center justify-center text-[#4140FD] dark:text-[#A39CF9]">
               <Brain className="w-5 h-5" />
             </div>
             <div>
@@ -93,7 +93,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
             aria-label="Close memory modal"
           >
             <X className="w-5 h-5" />
@@ -107,7 +107,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
             onClick={() => setActiveTab('summary')}
             className={`pb-2.5 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === 'summary'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                ? 'border-[#4140FD] text-[#4140FD] dark:text-[#A39CF9]'
                 : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
             }`}
           >
@@ -118,7 +118,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
             onClick={() => setActiveTab('atoms')}
             className={`pb-2.5 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
               activeTab === 'atoms'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                ? 'border-[#4140FD] text-[#4140FD] dark:text-[#A39CF9]'
                 : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
             }`}
           >
@@ -165,7 +165,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded-md bg-[#EFF3FB] dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                           <Tag className="w-2.5 h-2.5" />
                           {atom.type}
                         </span>

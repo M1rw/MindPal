@@ -58,7 +58,7 @@ export const GlobalLoader: React.FC = () => {
       <div className="flex-1 flex items-center justify-center">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-medium tracking-tight">
           <span
-            className="bg-clip-text text-transparent bg-gradient-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570] transition-opacity duration-300"
+            className="bg-clip-text text-transparent bg-gradient-to-r from-[#A39CF9] via-[#6572F2] to-[#4140FD] transition-opacity duration-300"
             style={{ opacity: visible ? 1 : 0 }}
           >
             {displayText}

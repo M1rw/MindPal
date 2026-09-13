@@ -46,7 +46,7 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-dvh-safe flex flex-col bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText font-sans overflow-hidden transition-colors duration-300 selection:bg-blue-500 selection:text-white relative">
+    <div className="h-dvh-safe flex flex-col bg-gemini-bg dark:bg-gemini-darkBg text-gemini-text dark:text-gemini-darkText font-sans overflow-hidden transition-colors duration-300 selection:bg-brand-primary selection:text-white relative">
       {/* Initial Global Loader overlay */}
       {!appReady && <GlobalLoader />}
 

@@ -70,7 +70,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
         {/* New Chat Button */}
         <button
           onClick={clearMessages}
-          className="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          className="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
           title="New Chat"
           aria-label="New chat"
         >
@@ -80,18 +80,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
         {/* Memory Profile Button */}
         <button
           onClick={onOpenMemory}
-          className="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          className="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
           title="Memory Profile"
           aria-label="Memory profile"
         >
-          <Brain className="w-5 h-5 text-blue-500" />
+          <Brain className="w-5 h-5 text-[#4140FD]" />
         </button>
 
         {/* Theme Toggle Button */}
         <button
           id="theme-toggle-btn"
           onClick={toggleTheme}
-          className="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          className="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           aria-label="Toggle theme"
         >
@@ -102,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
         <button
           id="streak-btn"
           onClick={() => setStreakOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors text-[14px] font-medium focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors text-[14px] font-medium focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
           title="View Journey & Streak"
           aria-label="View daily streak progress"
         >
@@ -114,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
         <button
           id="profile-btn"
           onClick={handleProfileClick}
-          className="p-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          className="p-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
           title={user ? `${user.displayName || user.email || 'User'} — Settings` : 'Sign In'}
           aria-label={user ? 'Profile & Settings' : 'Sign in to sync'}
         >
@@ -125,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
               className="w-8 h-8 rounded-full border border-gray-300 dark:border-zinc-600 object-cover"
             />
           ) : user ? (
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-medium text-xs border border-blue-500">
+            <div className="w-8 h-8 rounded-full bg-[#4140FD] text-white flex items-center justify-center font-medium text-xs border border-[#6572F2]">
               {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
             </div>
           ) : (

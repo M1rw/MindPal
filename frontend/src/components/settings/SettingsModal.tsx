@@ -119,10 +119,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
     >
       <div
         id="profile-content"
-        className="bg-white dark:bg-[#1f1f1f] w-full sm:max-w-[860px] h-[92vh] sm:h-[min(760px,92vh)] flex flex-col sm:flex-row rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden border-0 sm:border border-black/5 dark:border-white/10 text-gray-900 dark:text-gray-100 animate-fade-in"
+        className="bg-white dark:bg-[#1E1E2E] w-full sm:max-w-[860px] h-[92vh] sm:h-[min(760px,92vh)] flex flex-col sm:flex-row rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden border-0 sm:border border-black/5 dark:border-white/10 text-gray-900 dark:text-gray-100 animate-fade-in"
       >
         {/* Desktop Sidebar */}
-        <aside className="w-[220px] flex-none bg-gray-50 dark:bg-[#18181b] border-r border-gray-100 dark:border-zinc-800 p-3 hidden sm:flex flex-col justify-between">
+        <aside className="w-[220px] flex-none bg-gray-50 dark:bg-[#28283D] border-r border-gray-100 dark:border-zinc-800 p-3 hidden sm:flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between px-2 mb-3">
               <span className="text-sm font-bold tracking-tight text-gray-800 dark:text-gray-200">
@@ -130,7 +130,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
               </span>
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-gray-400 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-500 dark:text-gray-400 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
                 title="Close settings"
                 type="button"
               >
@@ -147,9 +147,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     type="button"
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-sm'
+                        ? 'bg-[#4140FD] text-white shadow-sm shadow-[#4140FD]/20'
                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-zinc-800/60'
                     }`}
                   >
@@ -234,7 +234,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                           className={`px-3 py-1.5 rounded-xl text-xs font-medium capitalize border transition-all ${
                             (t === 'dark' && document.documentElement.classList.contains('dark')) ||
                             (t === 'light' && !document.documentElement.classList.contains('dark'))
-                              ? 'bg-blue-600 text-white border-blue-600'
+                              ? 'bg-[#4140FD] text-white border-[#4140FD]'
                               : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300'
                           }`}
                         >
@@ -255,7 +255,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                       type="checkbox"
                       checked={settings.soundEnabled}
                       onChange={(e) => updateSettings({ soundEnabled: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-[#4140FD] rounded focus:ring-[#4140FD]"
                     />
                   </div>
                 </div>
@@ -274,9 +274,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-xs text-blue-900 dark:text-blue-200 space-y-2">
+                <div className="p-4 rounded-2xl bg-[#EFF3FB] dark:bg-[#28283D] border border-[#E2E6F0] dark:border-[#35354A] text-xs text-gray-900 dark:text-gray-100 space-y-2">
                   <div className="font-semibold flex items-center gap-1.5">
-                    <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <Activity className="w-4 h-4 text-[#4140FD] dark:text-[#A39CF9]" />
                     24/7 Immediate Crisis Support
                   </div>
                   <p>
@@ -486,7 +486,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                         setIsOpen(false);
                         onOpenMemory?.();
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-xs font-semibold hover:bg-blue-100 transition-colors"
+                      className="px-3 py-1.5 rounded-xl bg-[#EFF3FB] dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-xs font-semibold hover:bg-[#E2E6F0] transition-colors"
                     >
                       Manage Memory
                     </button>
@@ -510,7 +510,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                 <div className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-800 space-y-3">
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-medium text-gray-800 dark:text-gray-200">Tier</span>
-                    <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold uppercase">
+                    <span className="px-2 py-0.5 rounded-md bg-[#EFF3FB] dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-xs font-bold uppercase">
                       Preview / Unlimited
                     </span>
                   </div>
@@ -618,7 +618,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                           className="w-14 h-14 rounded-full border border-gray-300 dark:border-zinc-600 object-cover"
                         />
                       ) : (
-                        <div className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xl">
+                        <div className="w-14 h-14 rounded-full bg-[#4140FD] text-white flex items-center justify-center font-bold text-xl">
                           {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -652,7 +652,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                         setIsOpen(false);
                         openAuthModal();
                       }}
-                      className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm"
+                      className="px-6 py-2.5 rounded-xl bg-[#4140FD] hover:bg-[#6572F2] text-white text-xs font-bold transition-colors shadow-md shadow-[#4140FD]/20"
                     >
                       Sign In or Create Account
                     </button>
