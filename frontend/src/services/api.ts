@@ -99,19 +99,25 @@ export const ApiClient = {
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith('data: ')) continue;
-          const jsonStr = trimmed.slice(6);
-          if (jsonStr === '[DONE]') {
+          if (!line.startsWith('data:')) continue;
+          const rawData = line.slice(5).replace(/^ /, '');
+          if (rawData === '[DONE]') {
             onComplete();
             return;
           }
           try {
-            const data = JSON.parse(jsonStr);
-            const textChunk: string = data.text ?? data.content ?? data.token ?? '';
-            if (textChunk) onChunk(textChunk, data.strategy_used);
+            const data = JSON.parse(rawData);
+            if (typeof data === 'object' && data !== null) {
+              const textChunk: string = data.text ?? data.content ?? data.token ?? '';
+              if (textChunk) onChunk(textChunk, data.strategy_used);
+            } else if (typeof data === 'string') {
+              onChunk(data);
+            }
           } catch {
-            // Non-JSON SSE line — skip
+            // Raw text fallback if backend sends unescaped token string
+            if (rawData) {
+              onChunk(rawData);
+            }
           }
         }
       }

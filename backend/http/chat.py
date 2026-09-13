@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Optional
 from fastapi import APIRouter, Header
 from fastapi.responses import StreamingResponse
@@ -29,7 +30,8 @@ async def chat_stream(payload: ChatStreamPayload, authorization: Optional[str] =
             message=payload.message,
             session_id=payload.session_id,
         ):
-            yield f"data: {token}\n\n"
+            data = json.dumps({"text": token}, ensure_ascii=False)
+            yield f"data: {data}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(sse_generator(), media_type="text/event-stream")
