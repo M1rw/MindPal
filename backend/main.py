@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -18,6 +18,16 @@ FRONTEND = ROOT / "frontend"
 
 def create_app(*, serve_frontend: bool = True) -> FastAPI:
     app = FastAPI(title="MindPal", version="5.0.0", docs_url=None, redoc_url=None)
+
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
     wire_http(app)
 
     if serve_frontend and FRONTEND.exists():
