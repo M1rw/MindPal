@@ -104,10 +104,6 @@ def _mount_frontend(app: FastAPI) -> None:
         payload = {
             "API_BASE_URL": os.environ.get("PUBLIC_API_BASE_URL", "/api").strip() or "/api",
             "ENVIRONMENT": os.environ.get("ENVIRONMENT", "production"),
-            "VOICE_V4_PREVIEW_APPROVED": False,
-            "VOICE_V4_PREVIEW_SESSION_ENABLED": False,
-            "VOICE_V4_DIAGNOSTICS": False,
-            "SHOW_RESPONSE_DEBUG": False,
             "FIREBASE_APPCHECK_SITE_KEY": app_check_site_key,
             "FIREBASE_CONFIG": firebase_config,
             "FIREBASE_ENABLED": firebase_ready,
