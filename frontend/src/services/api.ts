@@ -270,4 +270,15 @@ export const ApiClient = {
     });
     if (!res.ok) throw new Error(`Dismiss changelog error: ${res.statusText}`);
   },
+
+  async getGreeting(
+    tzOffsetMinutes: number,
+    displayName?: string,
+  ): Promise<{ greeting: string; tone: string; period: string; cached: boolean }> {
+    const params = new URLSearchParams({ tz_offset: String(tzOffsetMinutes) });
+    if (displayName) params.set('display_name', displayName);
+    const res = await fetchWithAuth(`/api/greeting?${params.toString()}`);
+    if (!res.ok) throw new Error(`Greeting error: ${res.statusText}`);
+    return res.json();
+  },
 };
