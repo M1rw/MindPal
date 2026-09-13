@@ -3,24 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
-    <!-- Google Fonts: Inter -->
+<!-- BRAND:START -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Resource hints for critical render path -->
-    <link rel="preload" href="./css/tailwind.generated.css" as="style">
-    <link rel="preload" href="./css/style.css" as="style">
-    <!-- Preload Google Identity Services before any user-initiated cloud sign-in. -->
-    <script defer src="https://accounts.google.com/gsi/client" data-mindpal-google-identity></script>
-    <link rel="stylesheet" href="./css/tailwind.generated.css">
-    <link rel="stylesheet" href="./css/style.css" id="main-css">
 
-    <!-- MindPal SEO / Social / PWA -->
+    <!-- SEO core -->
     <title>MindPal — AI support that remembers what matters</title>
     <meta name="description" content="MindPal is a private AI companion for reflection, emotional clarity, voice journaling, memory, and practical support.">
     <meta name="robots" content="index, follow, max-image-preview:large">
     <link rel="canonical" href="https://mindpal-demo.vercel.app/">
 
+    <!-- PWA / App identity -->
     <meta name="application-name" content="MindPal">
     <meta name="apple-mobile-web-app-title" content="MindPal">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -28,14 +23,19 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="format-detection" content="telephone=no">
 
+    <!-- Theme color (browser chrome) -->
     <meta name="theme-color" content="#EFF3FB" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#1E1E2E" media="(prefers-color-scheme: dark)">
 
+    <!-- Icons & manifest -->
     <link rel="manifest" href="/site.webmanifest">
     <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/assets/brand/icon-16.png" type="image/png" sizes="16x16">
     <link rel="icon" href="/assets/brand/icon-32.png" type="image/png" sizes="32x32">
+    <link rel="icon" href="/assets/brand/icon-128.png" type="image/png" sizes="128x128">
     <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
 
+    <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="MindPal">
     <meta property="og:title" content="MindPal — AI support that remembers what matters">
@@ -49,12 +49,23 @@
     <meta property="og:image:alt" content="MindPal — AI support that remembers what matters">
     <meta property="og:locale" content="en_US">
 
+    <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="MindPal — AI support that remembers what matters">
     <meta name="twitter:description" content="MindPal is a private AI companion for reflection, emotional clarity, voice journaling, memory, and practical support.">
     <meta name="twitter:image" content="https://mindpal-demo.vercel.app/assets/brand/og-image.png">
     <meta name="twitter:image:alt" content="MindPal — AI support that remembers what matters">
-    <!-- /MindPal SEO / Social / PWA -->
+    <!-- BRAND:END -->
+
+    <!-- Infrastructure: static assets, stylesheet links, identity services -->
+    <!-- (These are NOT brand tokens — do not move inside BRAND:START/END) -->
+    <link rel="preload" href="./css/tailwind.generated.css" as="style">
+    <link rel="preload" href="./css/style.css" as="style">
+    <link rel="preload" href="./css/brand-tokens.css" as="style">
+    <script defer src="https://accounts.google.com/gsi/client" data-mindpal-google-identity></script>
+    <link rel="stylesheet" href="./css/tailwind.generated.css">
+    <link rel="stylesheet" href="./css/style.css" id="main-css">
+    <link rel="stylesheet" href="./css/brand-tokens.css">
 
     <!-- Vercel Web Analytics & Speed Insights (Loaded only when running on Vercel production) -->
     <script>

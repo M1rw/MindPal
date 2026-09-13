@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brand.schema.json",
+  "title": "MindPal Brand Token Schema",
+  "description": "Schema for brand.json — the single source of truth for all MindPal brand tokens.",
+  "type": "object",
+  "required": ["identity", "colors", "typography", "assets", "social", "pwa"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "_comment": { "type": "string" },
+    "identity": {
+      "type": "object",
+      "required": ["name", "short_name", "tagline", "description", "locale", "canonical_url", "robots"],
+      "additionalProperties": false,
+      "properties": {
+        "name":          { "type": "string", "minLength": 1 },
+        "short_name":    { "type": "string", "minLength": 1, "maxLength": 12 },
+        "tagline":       { "type": "string", "minLength": 1 },
+        "description":   { "type": "string", "minLength": 1, "maxLength": 300 },
+        "locale":        { "type": "string", "pattern": "^[a-z]{2}_[A-Z]{2}$" },
+        "canonical_url": { "type": "string", "format": "uri" },
+        "robots":        { "type": "string" }
+      }
+    },
+    "colors": {
+      "type": "object",
+      "required": ["primary", "theme_light", "theme_dark", "background_light", "background_dark", "surface_light", "surface_dark", "text_light", "text_dark"],
+      "additionalProperties": false,
+      "properties": {
+        "primary":          { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "theme_light":      { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "theme_dark":       { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "background_light": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "background_dark":  { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "surface_light":    { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "surface_dark":     { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "text_light":       { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "text_dark":        { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "required": ["font_family", "font_url"],
+      "additionalProperties": false,
+      "properties": {
+        "font_family": { "type": "string" },
+        "font_url":    { "type": "string", "format": "uri" }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "required": ["favicon_ico", "icon_32", "icon_192", "icon_512", "apple_touch_icon", "og_image", "og_image_width", "og_image_height"],
+      "additionalProperties": false,
+      "properties": {
+        "favicon_ico":      { "type": "string" },
+        "icon_16":          { "type": "string" },
+        "icon_32":          { "type": "string" },
+        "icon_128":         { "type": "string" },
+        "icon_192":         { "type": "string" },
+        "icon_256":         { "type": "string" },
+        "icon_512":         { "type": "string" },
+        "apple_touch_icon": { "type": "string" },
+        "og_image":         { "type": "string" },
+        "og_image_width":   { "type": "integer", "minimum": 1 },
+        "og_image_height":  { "type": "integer", "minimum": 1 }
+      }
+    },
+    "social": {
+      "type": "object",
+      "required": ["twitter_handle", "twitter_card"],
+      "additionalProperties": false,
+      "properties": {
+        "twitter_handle": { "type": "string" },
+        "twitter_card":   {
+          "type": "string",
+          "enum": ["summary", "summary_large_image", "app", "player"]
+        }
+      }
+    },
+    "pwa": {
+      "type": "object",
+      "required": ["display", "orientation", "start_url", "scope"],
+      "additionalProperties": false,
+      "properties": {
+        "display":     { "type": "string", "enum": ["standalone", "fullscreen", "minimal-ui", "browser"] },
+        "orientation": { "type": "string" },
+        "start_url":   { "type": "string" },
+        "scope":       { "type": "string" }
+      }
+    }
+  }
+}

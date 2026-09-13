@@ -4,7 +4,9 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "prebuild": "node scripts/verify_lockfile_registry.mjs",
+    "brand": "python scripts/apply_brand.py",
+    "brand:check": "python scripts/apply_brand.py --check",
+    "prebuild": "python scripts/apply_brand.py && node scripts/verify_lockfile_registry.mjs",
     "build": "npm run build:css && npm run build:app",
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
     "build:app": "esbuild frontend/src/main.tsx --bundle --format=esm --platform=browser --target=es2022 --minify --loader:.tsx=tsx --loader:.ts=ts --outfile=frontend/dist/app.bundle.js",
