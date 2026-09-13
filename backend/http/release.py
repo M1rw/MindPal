@@ -18,12 +18,25 @@ class DismissPayload(BaseModel):
 
 
 @router.get("/api/release/changelog", operation_id="releaseChangelogGet")
-def get_changelog() -> Dict[str, Any]:
-    return release_service.get_changelog()
+def get_changelog(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    user_id_hash = "anonymous"
+    if authorization:
+        try:
+            session = verify_auth_header(authorization)
+            user_id_hash = session.user_id_hash
+        except Exception:
+            pass
+    return release_service.get_changelog(user_id_hash)
 
 
 @router.post("/api/release/changelog", operation_id="releaseChangelogDismiss", status_code=204)
 def dismiss_changelog(payload: DismissPayload, authorization: Optional[str] = Header(None)) -> Response:
-    session = verify_auth_header(authorization)
-    release_service.dismiss_changelog(session.user_id_hash, payload.version)
+    user_id_hash = "anonymous"
+    if authorization:
+        try:
+            session = verify_auth_header(authorization)
+            user_id_hash = session.user_id_hash
+        except Exception:
+            pass
+    release_service.dismiss_changelog(user_id_hash, payload.version)
     return Response(status_code=204)

@@ -14,6 +14,7 @@ import type {
   HealthStatus,
   FeatureSnapshot,
   MemoryAtom,
+  ChangelogResponse,
 } from '../types';
 import { getApiBaseUrl } from './config';
 
@@ -257,7 +258,7 @@ export const ApiClient = {
   // ─────────────────────────────────────────────
   // Changelog / Release
   // ─────────────────────────────────────────────
-  async getChangelog(): Promise<FeatureChangelogItem[]> {
+  async getChangelog(): Promise<ChangelogResponse> {
     const res = await fetchWithAuth('/api/release/changelog');
     if (!res.ok) throw new Error(`Changelog error: ${res.statusText}`);
     return res.json();
