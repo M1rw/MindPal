@@ -10,11 +10,11 @@
 
   /* Colors -- full palette */
   --color-brand-primary:     #4140FD;
-  --color-theme-light:       #EFF3FB;
+  --color-theme-light:       #FFFFFF;
   --color-theme-dark:        #0C0C0E;
-  --color-bg-light:          #EFF3FB;
+  --color-bg-light:          #FFFFFF;
   --color-bg-dark:           #0C0C0E;
-  --color-surface-light:     #FFFFFF;
+  --color-surface-light:     #EFF3FB;
   --color-surface-dark:      #18181B;
   --color-text-light:        #1A1A2E;
   --color-text-dark:         #F4F4F5;
@@ -26,10 +26,10 @@
 /* Semantic aliases that adapt to color scheme */
 @media (prefers-color-scheme: light) {
   :root {
-    --color-bg:      #EFF3FB;
-    --color-surface: #FFFFFF;
+    --color-bg:      #FFFFFF;
+    --color-surface: #EFF3FB;
     --color-text:    #1A1A2E;
-    --color-theme:   #EFF3FB;
+    --color-theme:   #FFFFFF;
   }
 }
 

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, KeyboardEvent, forwardRef, useImper
 import { useChatStore, useVoiceStore, useStreakStore, useToastStore } from '../../store';
 import { ApiClient } from '../../services/api';
 import { telemetry } from '../../services/telemetry';
-import { ArrowUp, AudioWaveform, ChevronDown, Check, Mic, Square, Sparkles, X } from 'lucide-react';
+import { ArrowUp, AudioWaveform, ChevronDown, Check, Mic, Square, Sparkles, X, Info } from 'lucide-react';
 
 export interface ChatInputHandle {
   sendMessage: (text: string) => void;
@@ -12,11 +12,18 @@ export interface ChatInputHandle {
 export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
   const [input, setInput] = useState('');
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [showProInfo, setShowProInfo] = useState(false);
   const [isDictating, setIsDictating] = useState(false);
+  const [audioVolume, setAudioVolume] = useState(0);
 
   const selectorRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
+  const isDictatingRef = useRef<boolean>(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const savedPreDictationTextRef = useRef<string>('');
   const currentDictationSpeechRef = useRef<string>('');
@@ -40,6 +47,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
     const handleClickOutside = (e: MouseEvent) => {
       if (selectorRef.current && !selectorRef.current.contains(e.target as Node)) {
         setSelectorOpen(false);
+        setShowProInfo(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -59,15 +67,79 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
     adjustHeight();
   }, [input]);
 
+  const stopAudioAnalysis = () => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close();
+      } catch {
+        // AudioContext close error ignored
+      }
+      audioContextRef.current = null;
+    }
+    setAudioVolume(0);
+  };
+
+  const startAudioAnalysis = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) return;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const audioCtx = new AudioCtx();
+      audioContextRef.current = audioCtx;
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.6;
+      analyserRef.current = analyser;
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const updateVolume = () => {
+        if (!isDictatingRef.current) return;
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / bufferLength;
+        const normalized = Math.min(100, Math.round((average / 128) * 100));
+        setAudioVolume(normalized);
+        animFrameRef.current = requestAnimationFrame(updateVolume);
+      };
+
+      animFrameRef.current = requestAnimationFrame(updateVolume);
+    } catch (err) {
+      console.warn('Audio analysis unavailable or permission denied:', err);
+    }
+  };
+
   useEffect(() => {
     return () => {
+      isDictatingRef.current = false;
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      stopAudioAnalysis();
     };
   }, []);
 
-  // Real-time voice dictation with OpenAI/Claude style controls (X cancel, waveform, ✓ confirm, ↑ send)
+  // Real-time voice dictation with full audio reactivity & live transcription
   const startDictation = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -81,19 +153,21 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
-      // Save baseline text before dictation
       savedPreDictationTextRef.current = input;
       currentDictationSpeechRef.current = '';
+      isDictatingRef.current = true;
 
       recognition.onstart = () => {
         setIsDictating(true);
+        startAudioAnalysis();
       };
 
       recognition.onresult = (event: any) => {
-        let interimTranscript = '';
         let finalTranscript = '';
+        let interimTranscript = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        // Iterate over ALL results from 0 to results.length to retain previous sentences
+        for (let i = 0; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript;
           } else {
@@ -113,36 +187,55 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
         console.warn('Speech recognition error:', event.error);
         if (event.error === 'not-allowed') {
           pushToast('Microphone access denied. Please allow microphone permissions.', 'error');
+          isDictatingRef.current = false;
+          setIsDictating(false);
+          stopAudioAnalysis();
         }
-        setIsDictating(false);
       };
 
       recognition.onend = () => {
-        setIsDictating(false);
+        // If user is still dictating (not cancelled or confirmed), restart for continuous dictation
+        if (isDictatingRef.current) {
+          try {
+            recognition.start();
+          } catch {
+            isDictatingRef.current = false;
+            setIsDictating(false);
+            stopAudioAnalysis();
+          }
+        } else {
+          setIsDictating(false);
+          stopAudioAnalysis();
+        }
       };
 
       recognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
       console.error('Failed to start speech recognition:', err);
+      isDictatingRef.current = false;
       setIsDictating(false);
+      stopAudioAnalysis();
     }
   };
 
   const cancelDictation = () => {
+    isDictatingRef.current = false;
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
-    // Revert to pre-dictation snapshot!
+    stopAudioAnalysis();
     setInput(savedPreDictationTextRef.current);
     currentDictationSpeechRef.current = '';
     setIsDictating(false);
   };
 
   const confirmDictation = () => {
+    isDictatingRef.current = false;
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
+    stopAudioAnalysis();
     setIsDictating(false);
   };
 
@@ -236,219 +329,280 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
 
   return (
     <div className="w-full max-w-4xl mx-auto relative z-10 px-4 pb-safe pb-4">
-      {/* Container with solid surface background matching top header items */}
-      <div className="bg-gemini-surface dark:bg-gemini-darkSurface rounded-2xl sm:rounded-3xl p-2 sm:p-2.5 flex flex-col relative transition-all duration-200 w-full border border-black/[0.06] dark:border-white/[0.08] focus-within:border-[#4140FD]/60 dark:focus-within:border-[#6572F2]/60 shadow-sm">
+      {/* Container with modern squircle curvature, generous balanced padding */}
+      <div className="bg-gemini-surface dark:bg-gemini-darkSurface rounded-2xl p-2.5 sm:p-3 sm:px-4 flex flex-col relative transition-all duration-200 w-full border border-black/[0.08] dark:border-white/[0.08] focus-within:border-[#4140FD]/60 dark:focus-within:border-[#6572F2]/60 shadow-sm">
         
-        {/* Tier-1 Voice Dictation UI Bar (Matching Screenshots 3, 4, 5) */}
-        {isDictating ? (
-          <div className="flex items-center justify-between w-full h-11 px-2 animate-fade-in">
+        {/* Tier-1 Voice Dictation Top Bar with Real Reactive Audio Visualizer */}
+        {isDictating && (
+          <div className="flex items-center justify-between w-full pb-2 mb-1.5 border-b border-black/[0.06] dark:border-white/[0.06] animate-fade-in">
             {/* Left: Cancel Button (X) */}
             <button
               type="button"
               onClick={cancelDictation}
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+              className="px-2.5 py-1 rounded-lg flex items-center gap-1.5 bg-black/5 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-black/10 dark:hover:bg-white/20 text-xs font-medium transition-colors"
               title="Cancel dictation & revert text"
               aria-label="Cancel dictation"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
+              <span>Cancel</span>
             </button>
 
-            {/* Center: Live Dotted / Amplitude Soundwave Visualizer */}
-            <div className="flex-1 flex items-center justify-center gap-1 mx-4 h-6 overflow-hidden">
-              {[...Array(28)].map((_, i) => (
-                <span
-                  key={i}
-                  className="w-0.5 bg-[#4140FD] dark:bg-[#6572F2] rounded-full animate-sound-wave"
-                  style={{
-                    animationDelay: `${(i % 5) * 120}ms`,
-                    height: `${8 + (i % 4) * 4}px`,
-                  }}
-                />
-              ))}
+            {/* Center: Real Voice-Reactive Soundwave */}
+            <div className="flex-1 flex items-center justify-center gap-1 mx-3 h-6 overflow-hidden">
+              <span className="text-[11px] font-medium text-[#4140FD] dark:text-[#6572F2] flex items-center gap-1.5 mr-2">
+                <span className="w-2 h-2 rounded-full bg-[#4140FD] dark:bg-[#6572F2] animate-ping" />
+                Listening
+              </span>
+              {[...Array(18)].map((_, i) => {
+                const height = Math.max(
+                  4,
+                  Math.min(22, 4 + (audioVolume / 100) * 18 * (0.5 + 0.5 * Math.sin(i * 0.8)))
+                );
+                return (
+                  <span
+                    key={i}
+                    className="w-1 bg-[#4140FD] dark:bg-[#6572F2] rounded-full transition-all duration-75"
+                    style={{
+                      height: `${height}px`,
+                      opacity: 0.6 + (audioVolume / 250),
+                    }}
+                  />
+                );
+              })}
             </div>
 
-            {/* Right: Confirm (✓) and Send (↑) */}
+            {/* Right: Done (✓) and Send (↑) */}
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={confirmDictation}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+                className="px-2.5 py-1 rounded-lg flex items-center gap-1 bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/10 dark:hover:bg-white/20 text-xs font-medium transition-colors"
                 title="Done dictating"
                 aria-label="Confirm dictation"
               >
-                <Check className="w-4 h-4 stroke-[2.5]" />
+                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Done</span>
               </button>
 
               <button
                 type="button"
                 onClick={confirmAndSendDictation}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-[#4140FD] hover:bg-[#5251fd] text-white transition-colors"
+                className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#4140FD] hover:bg-[#5251fd] text-white transition-colors"
                 title="Send message"
                 aria-label="Send message"
               >
-                <ArrowUp className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* Standard Input Bar */
-          <div className="flex items-end w-full">
-            <textarea
-              id="chat-input"
-              ref={textareaRef}
-              rows={1}
-              dir="auto"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-3 pr-2 py-2 text-[15px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 leading-6 min-h-[42px]"
-              placeholder="Ask MindPal"
-              aria-label="Ask MindPal"
-            />
-
-            {/* Actions Cluster */}
-            <div className="flex items-center gap-1.5 pr-0.5 h-10 self-end">
-              {/* Collapsible Secondary Options: Model Selector & Dictation Trigger */}
-              <div
-                className={`flex items-center gap-1 transition-all duration-300 ease-out ${
-                  hasText
-                    ? 'max-w-0 opacity-0 overflow-hidden pointer-events-none -translate-x-1'
-                    : 'max-w-[280px] opacity-100 translate-x-0'
-                }`}
-              >
-                {/* Minimalist 2-Choice Model Selector (Standard vs Pro) */}
-                <div className="relative flex items-center" ref={selectorRef}>
-                  <button
-                    id="unified-selector-btn"
-                    type="button"
-                    onClick={() => setSelectorOpen(!selectorOpen)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-medium text-zinc-700 dark:text-zinc-300 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
-                    aria-haspopup="true"
-                    aria-expanded={selectorOpen}
-                    aria-label="Select model: Standard or Pro"
-                  >
-                    <span>{isPro ? 'Pro' : 'Standard'}</span>
-                    {isPro && (
-                      <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1 py-0.5 rounded font-semibold uppercase">
-                        Depth
-                      </span>
-                    )}
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
-                        selectorOpen ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-
-                  {/* Minimalist Model Dropdown */}
-                  {selectorOpen && (
-                    <div
-                      id="unified-dropdown"
-                      className="absolute bottom-full right-0 mb-2 w-64 bg-gemini-surface dark:bg-gemini-darkSurface border border-black/[0.08] dark:border-white/[0.08] rounded-2xl shadow-xl p-1.5 z-50 animate-fade-in"
-                      role="menu"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveModel('standard');
-                          setSelectorOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-colors ${
-                          !isPro
-                            ? 'bg-black/5 dark:bg-white/10'
-                            : 'hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
-                      >
-                        <div>
-                          <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Standard</div>
-                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Warm peer support. Fast & safe.</div>
-                        </div>
-                        {!isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveModel('pro');
-                          setSelectorOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-colors mt-1 ${
-                          isPro
-                            ? 'bg-black/5 dark:bg-white/10'
-                            : 'hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Pro</span>
-                            <Sparkles className="w-3 h-3 text-[#4140FD]" />
-                          </div>
-                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Clinical reasoning & deep analysis.</div>
-                        </div>
-                        {isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Real-time Voice Dictation Trigger */}
-                <button
-                  type="button"
-                  onClick={startDictation}
-                  className="w-8 h-8 flex items-center justify-center rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                  title="Start voice dictation"
-                  aria-label="Start voice dictation"
-                >
-                  <Mic className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Dynamic Action Button */}
-              <button
-                id="action-btn"
-                type="button"
-                onClick={() => {
-                  if (isGenerating) {
-                    setIsGenerating(false);
-                  } else if (hasText) {
-                    send(input);
-                  } else {
-                    setIsVoiceActive(true);
-                  }
-                }}
-                className={`w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center rounded-full transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
-                  isGenerating
-                    ? 'bg-black/10 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/20 dark:hover:bg-white/20'
-                    : hasText
-                    ? 'bg-[#4140FD] hover:bg-[#5251fd] text-white hover:scale-105 active:scale-95'
-                    : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200'
-                }`}
-                aria-label={
-                  isGenerating
-                    ? "Stop generating"
-                    : hasText
-                    ? "Send message"
-                    : "Open live voice conversation"
-                }
-                title={
-                  isGenerating
-                    ? "Stop generating"
-                    : hasText
-                    ? "Send"
-                    : "Live Voice Mode"
-                }
-              >
-                {isGenerating ? (
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                ) : hasText ? (
-                  <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
-                ) : (
-                  <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-600 dark:text-zinc-300" />
-                )}
+                <ArrowUp className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         )}
+
+        {/* Input Bar — Always visible so the user sees live streaming words */}
+        <div className="flex items-end w-full">
+          <textarea
+            id="chat-input"
+            ref={textareaRef}
+            rows={1}
+            dir="auto"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-2 pr-2 py-1.5 text-[15px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 leading-relaxed min-h-[44px]"
+            placeholder={isDictating ? 'Speaking to MindPal...' : 'Ask MindPal'}
+            aria-label="Ask MindPal"
+          />
+
+          {/* Actions Cluster */}
+          <div className="flex items-center gap-1.5 pr-0.5 pb-0.5 self-end">
+            {/* Collapsible Secondary Options: Model Selector & Dictation Trigger */}
+            <div
+              className={`flex items-center gap-1 transition-all duration-300 ease-out ${
+                hasText && !isDictating
+                  ? 'max-w-0 opacity-0 overflow-hidden pointer-events-none -translate-x-1'
+                  : 'max-w-[320px] opacity-100 translate-x-0'
+              }`}
+            >
+              {/* Minimalist 2-Choice Model Selector (Standard vs Pro) with PRO tag & info description */}
+              <div className="relative flex items-center" ref={selectorRef}>
+                <button
+                  id="unified-selector-btn"
+                  type="button"
+                  onClick={() => setSelectorOpen(!selectorOpen)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-medium text-zinc-700 dark:text-zinc-300 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+                  aria-haspopup="true"
+                  aria-expanded={selectorOpen}
+                  aria-label="Select model: Standard or Pro"
+                >
+                  <span>{isPro ? 'Pro' : 'Standard'}</span>
+                  {isPro && (
+                    <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                      PRO
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
+                      selectorOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {/* Pro info tooltip icon */}
+                {isPro && (
+                  <div className="relative group/info">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowProInfo(!showProInfo);
+                      }}
+                      className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full transition-colors"
+                      title="Pro model information (2x usage)"
+                      aria-label="Pro model information"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                    {/* Tooltip on hover/click */}
+                    <div
+                      className={`${
+                        showProInfo ? 'block' : 'hidden group-hover/info:block'
+                      } absolute bottom-full right-0 mb-2 w-64 p-3 rounded-xl bg-zinc-900 dark:bg-zinc-800 text-white text-xs shadow-2xl border border-white/10 z-50 animate-fade-in`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold text-[#A39CF9] text-[11px] tracking-wide uppercase">
+                          PRO MODEL · 2X USAGE
+                        </span>
+                        <span className="text-[10px] text-zinc-400">Clinical Tier</span>
+                      </div>
+                      <div className="text-[11px] text-zinc-300 leading-relaxed">
+                        Uses 2x compute budget for in-depth clinical reasoning, longitudinal memory synthesis, and emotional nuance.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Minimalist Model Dropdown */}
+                {selectorOpen && (
+                  <div
+                    id="unified-dropdown"
+                    className="absolute bottom-full right-0 mb-2 w-72 bg-gemini-surface dark:bg-gemini-darkSurface border border-black/[0.08] dark:border-white/[0.08] rounded-2xl shadow-xl p-1.5 z-50 animate-fade-in"
+                    role="menu"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveModel('standard');
+                        setSelectorOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors ${
+                        !isPro
+                          ? 'bg-black/5 dark:bg-white/10'
+                          : 'hover:bg-black/5 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Standard</span>
+                          <span className="text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded">
+                            1x
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                          Warm peer support. Fast, safe & lightweight.
+                        </div>
+                      </div>
+                      {!isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveModel('pro');
+                        setSelectorOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors mt-1 ${
+                        isPro
+                          ? 'bg-black/5 dark:bg-white/10'
+                          : 'hover:bg-black/5 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Pro</span>
+                          <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                            PRO · 2X
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                          Clinical reasoning & deep analysis. Uses 2x compute.
+                        </div>
+                      </div>
+                      {isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Real-time Voice Dictation Trigger */}
+              <button
+                type="button"
+                onClick={isDictating ? confirmDictation : startDictation}
+                className={`w-8 h-8 flex items-center justify-center rounded-xl transition-colors ${
+                  isDictating
+                    ? 'bg-[#4140FD] text-white shadow-sm'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10'
+                }`}
+                title={isDictating ? 'Stop dictating' : 'Start voice dictation'}
+                aria-label="Voice dictation"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Dynamic Action Button */}
+            <button
+              id="action-btn"
+              type="button"
+              onClick={() => {
+                if (isGenerating) {
+                  setIsGenerating(false);
+                } else if (hasText) {
+                  send(input);
+                } else {
+                  setIsVoiceActive(true);
+                }
+              }}
+              className={`w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center rounded-full transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
+                isGenerating
+                  ? 'bg-black/10 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/20 dark:hover:bg-white/20'
+                  : hasText
+                  ? 'bg-[#4140FD] hover:bg-[#5251fd] text-white hover:scale-105 active:scale-95 shadow-sm'
+                  : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200'
+              }`}
+              aria-label={
+                isGenerating
+                  ? "Stop generating"
+                  : hasText
+                  ? "Send message"
+                  : "Open live voice conversation"
+              }
+              title={
+                isGenerating
+                  ? "Stop generating"
+                  : hasText
+                  ? "Send"
+                  : "Live Voice Mode"
+              }
+            >
+              {isGenerating ? (
+                <Square className="w-3.5 h-3.5 fill-current" />
+              ) : hasText ? (
+                <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
+              ) : (
+                <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-600 dark:text-zinc-300" />
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Privacy Guarantee Note */}

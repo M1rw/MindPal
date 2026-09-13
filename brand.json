@@ -12,11 +12,11 @@
   },
   "colors": {
     "primary": "#4140FD",
-    "theme_light": "#EFF3FB",
+    "theme_light": "#FFFFFF",
     "theme_dark": "#0C0C0E",
-    "background_light": "#EFF3FB",
+    "background_light": "#FFFFFF",
     "background_dark": "#0C0C0E",
-    "surface_light": "#FFFFFF",
+    "surface_light": "#EFF3FB",
     "surface_dark": "#18181B",
     "text_light": "#1A1A2E",
     "text_dark": "#F4F4F5"

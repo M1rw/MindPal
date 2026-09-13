@@ -1,4 +1,4 @@
-﻿# backend/http/wire.py â€” Route Assembly and Wire Registration
+# backend/http/wire.py â€” Route Assembly and Wire Registration
 
 from __future__ import annotations
 
@@ -40,6 +40,7 @@ IMPLEMENTED = frozenset(
         "memoryGetSummary",
         "memoryRefreshSummary",
         "voiceCreateSessionToken",
+        "greetingGet",
         "flagsSnapshot",
         "systemRouteCatalog",
     }
