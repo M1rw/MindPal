@@ -10,22 +10,24 @@ const COMPONENTS_DIR = path.join(FRONTEND_DIR, "components");
 const TEMPLATE_PATH = path.join(FRONTEND_DIR, "index.template.html");
 const OUTPUT_PATH = path.join(FRONTEND_DIR, "index.html");
 
-const INCLUDE_REGEX = /<!--\s*include\s+([\w\/\.\-]+)\s*-->/g;
+const INCLUDE_REGEX = /<!--\s*include\s+([^>]+?)\s*-->/g;
 
 export function assembleHtml(templatePath = TEMPLATE_PATH, visited = new Set()) {
-  if (visited.has(templatePath)) {
-    throw new Error(`Circular include detected: ${templatePath}`);
+  const normalizedPath = path.resolve(templatePath);
+  if (visited.has(normalizedPath)) {
+    throw new Error(`Circular include detected: ${normalizedPath}`);
   }
-  visited.add(templatePath);
+  visited.add(normalizedPath);
 
-  if (!fs.existsSync(templatePath)) {
-    throw new Error(`Template file not found: ${templatePath}`);
+  if (!fs.existsSync(normalizedPath)) {
+    throw new Error(`Template file not found: ${normalizedPath}`);
   }
 
-  let content = fs.readFileSync(templatePath, "utf-8");
+  let content = fs.readFileSync(normalizedPath, "utf-8");
 
-  content = content.replace(INCLUDE_REGEX, (match, relPath) => {
-    const componentPath = path.resolve(FRONTEND_DIR, relPath);
+  content = content.replace(INCLUDE_REGEX, (match, rawRelPath) => {
+    const relPath = rawRelPath.trim();
+    const componentPath = path.isAbsolute(relPath) ? relPath : path.resolve(FRONTEND_DIR, relPath);
     return assembleHtml(componentPath, new Set(visited));
   });
 

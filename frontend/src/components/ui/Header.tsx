@@ -1,96 +1,142 @@
-import React, { useState } from 'react';
-import { useSettingsStore, useChatStore } from '../../store';
-import { Sparkles, Brain, Settings, Plus, ChevronDown, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Moon, Sun, Flame, User, Brain, Plus } from 'lucide-react';
+import { useAuthStore, useStreakStore, useSettingsStore, useChatStore } from '../../store';
+import { EnvTag } from './EnvTag';
 
 interface HeaderProps {
   onOpenMemory: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
+  const { user, openAuthModal } = useAuthStore();
+  const { streak, setIsOpen: setStreakOpen } = useStreakStore();
   const { setIsOpen: setSettingsOpen } = useSettingsStore();
-  const { clearMessages, activeModel, setActiveModel } = useChatStore();
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const { clearMessages } = useChatStore();
 
-  const models = [
-    { id: 'pro', name: 'MindPal Pro 2.5', desc: 'Deep reflection & clinical reasoning' },
-    { id: 'flash-lite', name: 'MindPal Fast', desc: 'Rapid responses & light checks' },
-  ];
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof document !== 'undefined') {
+      return document.documentElement.classList.contains('dark');
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    // Sync initial theme
+    const dark = document.documentElement.classList.contains('dark');
+    setIsDark(dark);
+  }, []);
+
+  const toggleTheme = () => {
+    const nextDark = !isDark;
+    setIsDark(nextDark);
+    if (nextDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('mindpal_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('mindpal_theme', 'light');
+    }
+  };
+
+  const handleProfileClick = () => {
+    if (user) {
+      setSettingsOpen(true);
+    } else {
+      openAuthModal();
+    }
+  };
 
   return (
-    <header className="sticky top-0 z-30 w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-4 py-3">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Brand */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={clearMessages}
-            className="flex items-center gap-2 group text-left focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded-xl"
-          >
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-4 h-4" />
+    <header
+      id="header"
+      className="flex items-center justify-between px-5 pt-safe-top pb-3 transition-all duration-300 flex-none z-20 bg-transparent absolute top-0 w-full"
+    >
+      {/* Brand & Environment Tag */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={clearMessages}
+          className="flex items-center gap-2 group text-left focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded-lg"
+          title="Start new conversation"
+        >
+          <span className="text-xl font-medium tracking-tight text-gray-800 dark:text-gray-200">
+            MindPal
+          </span>
+        </button>
+        <EnvTag />
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex items-center gap-1 sm:gap-2 text-gray-600 dark:text-gray-300">
+        {/* New Chat Button */}
+        <button
+          onClick={clearMessages}
+          className="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          title="New Chat"
+          aria-label="New chat"
+        >
+          <Plus className="w-5 h-5" />
+        </button>
+
+        {/* Memory Profile Button */}
+        <button
+          onClick={onOpenMemory}
+          className="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          title="Memory Profile"
+          aria-label="Memory profile"
+        >
+          <Brain className="w-5 h-5 text-blue-500" />
+        </button>
+
+        {/* Theme Toggle Button */}
+        <button
+          id="theme-toggle-btn"
+          onClick={toggleTheme}
+          className="p-2 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label="Toggle theme"
+        >
+          {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-gray-700" />}
+        </button>
+
+        {/* Streak Button */}
+        <button
+          id="streak-btn"
+          onClick={() => setStreakOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors text-[14px] font-medium focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          title="View Journey & Streak"
+          aria-label="View daily streak progress"
+        >
+          <span id="streak-counter">{streak.count}</span>
+          <Flame className="w-4 h-4 text-orange-500 dark:text-orange-400 fill-orange-500/20" />
+        </button>
+
+        {/* Profile / Auth Button */}
+        <button
+          id="profile-btn"
+          onClick={handleProfileClick}
+          className="p-1.5 hover:bg-gemini-surface dark:hover:bg-gemini-darkSurface rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          title={user ? `${user.displayName || user.email || 'User'} — Settings` : 'Sign In'}
+          aria-label={user ? 'Profile & Settings' : 'Sign in to sync'}
+        >
+          {user?.photoURL ? (
+            <img
+              src={user.photoURL}
+              alt={user.displayName || 'Profile'}
+              className="w-8 h-8 rounded-full border border-gray-300 dark:border-zinc-600 object-cover"
+            />
+          ) : user ? (
+            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-medium text-xs border border-blue-500">
+              {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
             </div>
-            <span className="font-bold text-lg text-slate-800 dark:text-slate-100 tracking-tight">MindPal</span>
-          </button>
-
-          {/* Model Selector Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          ) : (
+            <div
+              id="profile-avatar"
+              className="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-zinc-600"
             >
-              <span>{models.find((m) => m.id === activeModel)?.name || 'MindPal Pro'}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-
-            {modelDropdownOpen && (
-              <div className="absolute top-full mt-2 left-0 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl py-2 z-50 animate-fade-in">
-                {models.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => {
-                      setActiveModel(m.id);
-                      setModelDropdownOpen(false);
-                    }}
-                    className="w-full px-4 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700/60 flex items-start justify-between gap-2 transition-colors"
-                  >
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{m.name}</p>
-                      <p className="text-[11px] text-slate-400">{m.desc}</p>
-                    </div>
-                    {activeModel === m.id && <Check className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={clearMessages}
-            className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-            title="New Chat"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={onOpenMemory}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-            title="Memory Profile"
-          >
-            <Brain className="w-4 h-4 text-blue-500" />
-            <span className="hidden sm:inline">Memory Profile</span>
-          </button>
-
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-            title="Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-        </div>
+              <User className="w-4 h-4" />
+            </div>
+          )}
+        </button>
       </div>
     </header>
   );
