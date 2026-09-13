@@ -12,8 +12,10 @@ class FeatureFlagsService:
         return {
             "user_id_hash": user_id_hash,
             "flags": {
-                "voice_v4_enabled": True,
-                "memory_graph_v2": True,
+                "voice_enabled": True,
+                "memory_enabled": True,
+                "pro_model_enabled": True,
+                "changelog_enabled": True,
                 "clinical_guidance": True,
                 "analytics_insights": True,
             },
