@@ -329,8 +329,8 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
 
   return (
     <div className="w-full max-w-4xl mx-auto relative z-10 px-4 pb-safe pb-4">
-      {/* Container with modern squircle curvature, generous balanced padding */}
-      <div className="bg-gemini-surface dark:bg-gemini-darkSurface rounded-2xl p-2.5 sm:p-3 sm:px-4 flex flex-col relative transition-all duration-200 w-full border border-black/[0.08] dark:border-white/[0.08] focus-within:border-[#4140FD]/60 dark:focus-within:border-[#6572F2]/60 shadow-sm">
+      {/* Pill Container with smooth rounded-full geometry */}
+      <div className="bg-gemini-surface dark:bg-gemini-darkSurface rounded-full p-2 sm:p-2.5 px-4 sm:px-5 flex flex-col relative transition-all duration-200 w-full border border-black/[0.08] dark:border-white/[0.08] focus-within:border-[#4140FD]/60 dark:focus-within:border-[#6572F2]/60 shadow-sm">
         
         {/* Tier-1 Voice Dictation Top Bar with Real Reactive Audio Visualizer */}
         {isDictating && (
@@ -558,7 +558,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
               </button>
             </div>
 
-            {/* Dynamic Action Button */}
+            {/* Dynamic Action Button — True circular geometry */}
             <button
               id="action-btn"
               type="button"
@@ -571,11 +571,11 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                   setIsVoiceActive(true);
                 }
               }}
-              className={`w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0 flex items-center justify-center rounded-full transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
+              className={`w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] aspect-square flex-shrink-0 flex items-center justify-center rounded-full transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
                 isGenerating
                   ? 'bg-black/10 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/20 dark:hover:bg-white/20'
                   : hasText
-                  ? 'bg-[#4140FD] hover:bg-[#5251fd] text-white hover:scale-105 active:scale-95 shadow-sm'
+                  ? 'bg-[#4140FD] hover:bg-[#5251fd] text-white shadow-sm'
                   : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200'
               }`}
               aria-label={
