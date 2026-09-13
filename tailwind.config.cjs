@@ -15,19 +15,19 @@ module.exports = {
           indigo400: '#6572F2',     // Indigo 400 (Gradient mid, hover states)
           periwinkle300: '#A39CF9', // Periwinkle 300 (Gradient highlight, accents)
           mist100: '#EFF3FB',       // Mist 100 (Section backgrounds)
-          ink900: '#1E1E2E',        // Ink 900 (Body text, dark surfaces)
+          ink900: '#0C0C0E',        // Deep neutral dark
         },
         gemini: {
           bg: '#ffffff',
           surface: '#EFF3FB',       // Mist 100
-          darkBg: '#1E1E2E',        // Ink 900
-          darkSurface: '#28283D',   // Elevated Ink 900 for dark mode cards & menus
-          text: '#1E1E2E',          // Ink 900
-          darkText: '#EFF3FB',      // Mist 100
+          darkBg: '#0C0C0E',        // Tier-1 deep charcoal neutral
+          darkSurface: '#18181B',   // Elevated card & menu surface
+          text: '#1A1A2E',
+          darkText: '#F4F4F5',      // Crisp near-white
           muted: '#5A5E72',
-          darkMuted: '#A0A3BD',
+          darkMuted: '#A1A1AA',     // Neutral secondary
           border: '#E2E6F0',
-          darkBorder: '#35354A',
+          darkBorder: '#27272A',    // Subtle zinc border
         },
       },
       backgroundImage: {
@@ -50,12 +50,17 @@ module.exports = {
           '0%': { transform: 'rotate(0deg)' },
           '100%': { transform: 'rotate(360deg)' },
         },
+        soundWave: {
+          '0%, 100%': { height: '6px' },
+          '50%': { height: '22px' },
+        },
       },
       animation: {
         'fade-in': 'fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards',
         'fade-in-fast': 'fadeIn 0.2s ease-out forwards',
         'scale-in': 'scaleIn 0.2s cubic-bezier(0.16,1,0.3,1) forwards',
         'spin-slow': 'spin-slow 3s linear infinite',
+        'sound-wave': 'soundWave 1.2s ease-in-out infinite',
       },
     },
   },

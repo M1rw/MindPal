@@ -68,8 +68,8 @@ export const VoiceOverlay: React.FC = () => {
             }}
             className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
               incognito
-                ? 'bg-[#EFF3FB] dark:bg-[#28283D] text-[#4140FD] dark:text-[#A39CF9]'
-                : 'hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400'
+                ? 'bg-zinc-100 dark:bg-[#18181B] text-[#4140FD] dark:text-[#A39CF9]'
+                : 'hover:bg-black/5 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400'
             }`}
             title="Private session (do not save to history)"
             aria-label="Toggle incognito"
@@ -81,8 +81,8 @@ export const VoiceOverlay: React.FC = () => {
             onClick={() => setShowCaptions(!showCaptions)}
             className={`min-w-10 h-10 px-2 flex items-center justify-center gap-1 rounded-full transition-colors active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
               showCaptions
-                ? 'bg-[#EFF3FB] dark:bg-[#28283D] text-[#4140FD] dark:text-[#A39CF9]'
-                : 'hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400'
+                ? 'bg-zinc-100 dark:bg-[#18181B] text-[#4140FD] dark:text-[#A39CF9]'
+                : 'hover:bg-black/5 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400'
             }`}
             title="Toggle captions"
             aria-label="Toggle captions"
@@ -114,7 +114,7 @@ export const VoiceOverlay: React.FC = () => {
         <div className="relative flex items-center justify-center">
           <div className="absolute w-56 h-56 rounded-full bg-gradient-to-r from-[#A39CF9]/20 via-[#6572F2]/20 to-[#4140FD]/20 animate-ping" />
           <div className="absolute w-44 h-44 rounded-full bg-gradient-to-r from-[#A39CF9]/30 via-[#6572F2]/30 to-[#4140FD]/30 animate-pulse" />
-          <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-[#A39CF9] via-[#6572F2] to-[#4140FD] flex items-center justify-center shadow-2xl shadow-[#4140FD]/30 z-10 transition-transform duration-300 hover:scale-105">
+          <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-[#A39CF9] via-[#6572F2] to-[#4140FD] flex items-center justify-center border border-white/20 z-10 transition-transform duration-300 hover:scale-105 shadow-md">
             <Sparkles className="w-12 h-12 text-white animate-spin-slow" />
           </div>
         </div>

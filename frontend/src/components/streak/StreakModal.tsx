@@ -29,16 +29,16 @@ export const StreakModal: React.FC = () => {
       {/* Content */}
       <div
         id="streak-content"
-        className="relative bg-white dark:bg-[#1E1E2E] w-full max-w-sm flex flex-col rounded-[28px] shadow-2xl overflow-hidden border border-black/5 dark:border-white/10 z-10 animate-fade-in"
+        className="relative bg-white dark:bg-[#18181B] w-full max-w-sm flex flex-col rounded-2xl shadow-xl overflow-hidden border border-black/[0.08] dark:border-white/[0.08] z-10 animate-fade-in"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-zinc-800">
-          <h2 id="streak-modal-title" className="text-base font-semibold text-gray-900 dark:text-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
+          <h2 id="streak-modal-title" className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
             Your Journey
           </h2>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+            className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
             title="Close progress modal"
             aria-label="Close progress view"
           >
@@ -50,13 +50,13 @@ export const StreakModal: React.FC = () => {
         <div className="p-8 flex flex-col items-center gap-8">
           {/* Flame & Count */}
           <div className="flex flex-col items-center text-center">
-            <div className="w-20 h-20 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-500 flex items-center justify-center mb-4 shadow-sm border border-orange-100 dark:border-orange-800/30">
+            <div className="w-20 h-20 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-500 flex items-center justify-center mb-4 border border-orange-100 dark:border-orange-800/30">
               <Flame className="w-10 h-10 fill-orange-500 text-orange-500 animate-pulse" />
             </div>
-            <div className="text-4xl font-bold text-gray-900 dark:text-white mb-1">
+            <div className="text-4xl font-bold text-zinc-900 dark:text-white mb-1">
               {streak.count} Day Streak
             </div>
-            <div className="text-sm text-gray-500 dark:text-[#c4c7c5]">
+            <div className="text-sm text-zinc-500 dark:text-zinc-400">
               {streak.count > 0
                 ? "You're building emotional resilience and clarity."
                 : 'Complete a reflection today to begin your streak!'}
@@ -65,7 +65,7 @@ export const StreakModal: React.FC = () => {
 
           {/* 7-Day Tracker */}
           <div className="w-full">
-            <h3 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4 text-center">
+            <h3 className="text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4 text-center">
               Weekly Progress
             </h3>
             <div className="flex justify-between items-center w-full px-2" id="weekly-tracker">
@@ -78,10 +78,10 @@ export const StreakModal: React.FC = () => {
                     <div
                       className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
                         isCompleted
-                          ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/30'
+                          ? 'bg-orange-500 text-white'
                           : isToday
                           ? 'border-2 border-orange-500 text-orange-500 bg-orange-50/50 dark:bg-orange-950/20'
-                          : 'bg-gray-100 dark:bg-zinc-800 text-gray-400 dark:text-gray-500'
+                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500'
                       }`}
                     >
                       {isCompleted ? <Check className="w-4 h-4 stroke-[2.5]" /> : day}

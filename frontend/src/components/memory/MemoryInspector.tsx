@@ -75,9 +75,9 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
       aria-modal="true"
       aria-label="Memory Profile"
     >
-      <div className="bg-white dark:bg-[#1E1E2E] border border-black/5 dark:border-white/10 rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden text-gray-900 dark:text-gray-100 animate-fade-in">
+      <div className="bg-white dark:bg-[#18181B] border border-black/[0.08] dark:border-white/[0.08] rounded-2xl shadow-xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden text-zinc-900 dark:text-zinc-100 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-zinc-800">
+        <div className="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#EFF3FB] dark:bg-[#6572F2]/20 flex items-center justify-center text-[#4140FD] dark:text-[#A39CF9]">
               <Brain className="w-5 h-5" />

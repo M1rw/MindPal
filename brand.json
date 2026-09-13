@@ -1,57 +1,51 @@
 {
   "$schema": "./brand.schema.json",
   "_comment": "SINGLE SOURCE OF TRUTH — edit this file, then run `npm run brand` (or push; CI runs it automatically).",
-
   "identity": {
     "name": "MindPal",
     "short_name": "MindPal",
-    "tagline": "AI support that remembers what matters",
+    "tagline": "You've never had a mind this good on your side.",
     "description": "MindPal is a private AI companion for reflection, emotional clarity, voice journaling, memory, and practical support.",
     "locale": "en_US",
     "canonical_url": "https://mindpal-demo.vercel.app",
     "robots": "index, follow, max-image-preview:large"
   },
-
   "colors": {
-    "primary":          "#4140FD",
-    "theme_light":      "#EFF3FB",
-    "theme_dark":       "#1E1E2E",
+    "primary": "#4140FD",
+    "theme_light": "#EFF3FB",
+    "theme_dark": "#0C0C0E",
     "background_light": "#EFF3FB",
-    "background_dark":  "#1E1E2E",
-    "surface_light":    "#FFFFFF",
-    "surface_dark":     "#2A2A3E",
-    "text_light":       "#1A1A2E",
-    "text_dark":        "#E8EAF6"
+    "background_dark": "#0C0C0E",
+    "surface_light": "#FFFFFF",
+    "surface_dark": "#18181B",
+    "text_light": "#1A1A2E",
+    "text_dark": "#F4F4F5"
   },
-
   "typography": {
     "font_family": "Inter, system-ui, -apple-system, sans-serif",
     "font_url": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
   },
-
   "assets": {
-    "favicon_ico":      "/favicon.ico",
-    "icon_16":          "/assets/brand/icon-16.png",
-    "icon_32":          "/assets/brand/icon-32.png",
-    "icon_128":         "/assets/brand/icon-128.png",
-    "icon_192":         "/assets/brand/icon-192.png",
-    "icon_256":         "/assets/brand/icon-256.png",
-    "icon_512":         "/assets/brand/icon-512.png",
+    "favicon_ico": "/favicon.ico",
+    "icon_16": "/assets/brand/icon-16.png",
+    "icon_32": "/assets/brand/icon-32.png",
+    "icon_128": "/assets/brand/icon-128.png",
+    "icon_192": "/assets/brand/icon-192.png",
+    "icon_256": "/assets/brand/icon-256.png",
+    "icon_512": "/assets/brand/icon-512.png",
     "apple_touch_icon": "/assets/brand/apple-touch-icon.png",
-    "og_image":         "/assets/brand/og-image.png",
-    "og_image_width":   1200,
-    "og_image_height":  630
+    "og_image": "/assets/brand/og-image.png",
+    "og_image_width": 1200,
+    "og_image_height": 630
   },
-
   "social": {
     "twitter_handle": "@mindpal_ai",
-    "twitter_card":   "summary_large_image"
+    "twitter_card": "summary_large_image"
   },
-
   "pwa": {
-    "display":      "standalone",
-    "orientation":  "portrait-primary",
-    "start_url":    "/",
-    "scope":        "/"
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "start_url": "/",
+    "scope": "/"
   }
 }
