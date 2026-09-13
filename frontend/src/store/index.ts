@@ -1,5 +1,25 @@
+/**
+ * MindPal Zustand Stores
+ * Unidirectional reactive state — views emit actions, store mutates, views re-render.
+ * Security: sensitive tokens are held only in memory (never localStorage/sessionStorage).
+ */
+
 import { create } from 'zustand';
-import { ChatMessage, UserUISettings, MemorySummaryResponse } from '../types';
+import type {
+  ChatMessage,
+  UserUISettings,
+  MemorySummaryResponse,
+  AuthUser,
+  ToastItem,
+  ToastKind,
+  StreakData,
+  FeatureSnapshot,
+  UsageQuota,
+} from '../types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session Store — Auth tokens (in-memory only, cleared on logout/tab close)
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface SessionState {
   userId: string | null;
@@ -17,25 +37,61 @@ export const useSessionStore = create<SessionState>((set) => ({
   isAuthenticated: false,
   setAuth: (userId, idToken, appCheckToken = null) =>
     set({ userId, idToken, appCheckToken, isAuthenticated: Boolean(idToken) }),
-  clearAuth: () => set({ userId: null, idToken: null, appCheckToken: null, isAuthenticated: false }),
+  clearAuth: () =>
+    set({ userId: null, idToken: null, appCheckToken: null, isAuthenticated: false }),
 }));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth Store — Firebase user profile state
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface AuthState {
+  user: AuthUser | null;
+  isLoading: boolean;
+  isAuthModalOpen: boolean;
+  authModalView: 'choice' | 'email' | 'phone' | 'phone-code';
+  setUser: (user: AuthUser | null) => void;
+  setIsLoading: (loading: boolean) => void;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
+  setAuthModalView: (view: AuthState['authModalView']) => void;
+}
+
+export const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  isLoading: true,
+  isAuthModalOpen: false,
+  authModalView: 'choice',
+  setUser: (user) => set({ user }),
+  setIsLoading: (isLoading) => set({ isLoading }),
+  openAuthModal: () => set({ isAuthModalOpen: true, authModalView: 'choice' }),
+  closeAuthModal: () => set({ isAuthModalOpen: false }),
+  setAuthModalView: (authModalView) => set({ authModalView }),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chat Store — Messages, generation state, model/mode selection
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface ChatState {
   messages: ChatMessage[];
   isGenerating: boolean;
   activeModel: string;
+  activeMode: string;
   strategyUsed: string | null;
   addMessage: (msg: ChatMessage) => void;
   updateLastMessage: (content: string, strategy?: string) => void;
   setIsGenerating: (generating: boolean) => void;
   setActiveModel: (model: string) => void;
+  setActiveMode: (mode: string) => void;
   clearMessages: () => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   isGenerating: false,
-  activeModel: 'pro',
+  activeModel: 'standard',
+  activeMode: 'Active Listen',
   strategyUsed: null,
   addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
   updateLastMessage: (content, strategy) =>
@@ -46,13 +102,18 @@ export const useChatStore = create<ChatState>((set) => ({
       if (strategy) last.strategy_used = strategy;
       return {
         messages: [...state.messages.slice(0, -1), last],
-        strategyUsed: strategy || state.strategyUsed,
+        strategyUsed: strategy ?? state.strategyUsed,
       };
     }),
   setIsGenerating: (isGenerating) => set({ isGenerating }),
   setActiveModel: (activeModel) => set({ activeModel }),
+  setActiveMode: (activeMode) => set({ activeMode }),
   clearMessages: () => set({ messages: [], strategyUsed: null }),
 }));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Voice Store
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface VoiceState {
   isActive: boolean;
@@ -79,26 +140,52 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   setIsCapturing: (isCapturing) => set({ isCapturing }),
   setTranscript: (transcript) => set({ transcript }),
   appendAiTranscript: (text) => set((state) => ({ aiTranscript: state.aiTranscript + text })),
-  resetVoice: () => set({ isActive: false, isMuted: false, isCapturing: false, transcript: '', aiTranscript: '' }),
+  resetVoice: () =>
+    set({ isActive: false, isMuted: false, isCapturing: false, transcript: '', aiTranscript: '' }),
 }));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Memory Store
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface MemoryState {
   summary: MemorySummaryResponse | null;
+  isOpen: boolean;
   isLoading: boolean;
   error: string | null;
   setSummary: (summary: MemorySummaryResponse) => void;
+  setIsOpen: (open: boolean) => void;
   setIsLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
 }
 
 export const useMemoryStore = create<MemoryState>((set) => ({
   summary: null,
+  isOpen: false,
   isLoading: false,
   error: null,
   setSummary: (summary) => set({ summary, error: null }),
+  setIsOpen: (isOpen) => set({ isOpen }),
   setIsLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
 }));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Settings Store
+// ─────────────────────────────────────────────────────────────────────────────
+
+const defaultSettings: UserUISettings = {
+  theme: 'dark',
+  soundEnabled: true,
+  voiceModel: 'advanced',
+  voiceLanguage: 'auto',
+  personalization: {
+    baseStyle: 'balanced',
+    warmth: 'warm',
+    useHeadersLists: true,
+    emojiSupport: true,
+  },
+};
 
 interface SettingsState {
   settings: UserUISettings;
@@ -110,20 +197,127 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
-  settings: {
-    theme: 'dark',
-    soundEnabled: true,
-    personalization: {
-      baseStyle: 'balanced',
-      warmth: 'warm',
-      useHeadersLists: true,
-      emojiSupport: true,
-    },
-  },
+  settings: defaultSettings,
   isOpen: false,
   activeTab: 'general',
   updateSettings: (partial) =>
     set((state) => ({ settings: { ...state.settings, ...partial } })),
   setIsOpen: (isOpen) => set({ isOpen }),
   setActiveTab: (activeTab) => set({ activeTab }),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Toast Store
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ToastState {
+  toasts: ToastItem[];
+  push: (message: string, kind?: ToastKind) => void;
+  dismiss: (id: string) => void;
+}
+
+export const useToastStore = create<ToastState>((set) => ({
+  toasts: [],
+  push: (message, kind = 'info') => {
+    const id = `toast_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    set((state) => ({ toasts: [...state.toasts, { id, message, kind }] }));
+    // Auto-dismiss after 4 seconds
+    setTimeout(() => {
+      set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+    }, 4000);
+  },
+  dismiss: (id) => set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Streak Store
+// ─────────────────────────────────────────────────────────────────────────────
+
+const defaultStreak: StreakData = {
+  count: 0,
+  lastActiveDate: null,
+  weeklyDays: [false, false, false, false, false, false, false],
+};
+
+interface StreakState {
+  streak: StreakData;
+  isOpen: boolean;
+  setStreak: (streak: StreakData) => void;
+  setIsOpen: (open: boolean) => void;
+  recordActivity: () => void;
+}
+
+export const useStreakStore = create<StreakState>((set) => ({
+  streak: (() => {
+    // Restore streak from localStorage (non-sensitive; just streak metadata)
+    try {
+      const raw = localStorage.getItem('mindpal_streak');
+      if (raw) return JSON.parse(raw) as StreakData;
+    } catch { /* ignore */ }
+    return defaultStreak;
+  })(),
+  isOpen: false,
+  setStreak: (streak) => {
+    set({ streak });
+    try { localStorage.setItem('mindpal_streak', JSON.stringify(streak)); } catch { /* ignore */ }
+  },
+  setIsOpen: (isOpen) => set({ isOpen }),
+  recordActivity: () => {
+    set((state) => {
+      const today = new Date().toISOString().split('T')[0];
+      const last = state.streak.lastActiveDate;
+      if (last === today) return state; // Already recorded today
+
+      const yesterday = new Date(Date.now() - 86_400_000).toISOString().split('T')[0];
+      const newCount = last === yesterday ? state.streak.count + 1 : 1;
+      const dayIndex = new Date().getDay(); // 0=Sun...6=Sat → remap to Mon=0
+      const monIndex = (dayIndex + 6) % 7;
+      const newWeekly = [...state.streak.weeklyDays] as boolean[];
+      // Reset weekly if new week
+      if (last && new Date(last).getDay() !== new Date().getDay()) {
+        newWeekly[monIndex] = true;
+      }
+
+      const newStreak: StreakData = {
+        count: newCount,
+        lastActiveDate: today,
+        weeklyDays: newWeekly,
+      };
+      try { localStorage.setItem('mindpal_streak', JSON.stringify(newStreak)); } catch { /* ignore */ }
+      return { streak: newStreak };
+    });
+  },
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Feature Flags Store
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface FlagsState {
+  flags: FeatureSnapshot;
+  setFlags: (flags: FeatureSnapshot) => void;
+}
+
+export const useFlagsStore = create<FlagsState>((set) => ({
+  flags: {
+    voice_enabled: true,
+    pro_model_enabled: true,
+    memory_enabled: true,
+    changelog_enabled: true,
+  },
+  setFlags: (flags) => set({ flags }),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Usage Store
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface UsageState {
+  quota: UsageQuota | null;
+  setQuota: (quota: UsageQuota) => void;
+}
+
+export const useUsageStore = create<UsageState>((set) => ({
+  quota: null,
+  setQuota: (quota) => set({ quota }),
 }));

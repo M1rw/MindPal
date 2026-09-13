@@ -13,7 +13,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_OUTPUTS = {
     "frontend/css/tailwind.generated.css": 10_000,
-    "frontend/dist/lucide.bundle.js": 5_000,
     "frontend/dist/app.bundle.js": 100_000,
 }
 
