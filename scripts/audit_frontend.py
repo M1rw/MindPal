@@ -124,9 +124,11 @@ def check_build_outputs() -> None:
         if path.stat().st_size < minimum_size:
             fail(f"Generated build output is unexpectedly small: {relative}")
 
-    runtime_config = (FRONTEND / "runtime-config.js").read_text(encoding="utf-8")
-    if re.search(r"GEMINI_(?:API_)?KEY", runtime_config, flags=re.IGNORECASE):
-        fail("runtime-config.js must never contain a Gemini provider secret")
+    # Verify the bootstrap payload baked into index.html at build time never
+    # contains provider secrets (Pattern B replaces runtime-config.js).
+    index_html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    if re.search(r"GEMINI_(?:API_)?KEY", index_html, flags=re.IGNORECASE):
+        fail("index.html __MINDPAL_BOOTSTRAP__ block must never contain a Gemini provider secret")
 
 
 def _to_kebab(name: str) -> str:

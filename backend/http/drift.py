@@ -10,7 +10,7 @@ from fastapi.routing import APIRoute
 from backend.core.contract import iter_operations
 
 SKIP_PATH_PREFIXES = ("/css", "/js", "/dist", "/assets")
-SKIP_PATHS = {"/", "/runtime-config.js", "/openapi.json", "/docs", "/redoc"}
+SKIP_PATHS = {"/", "/openapi.json", "/docs", "/redoc"}
 
 
 def contract_ops() -> set[tuple[str, str, str]]:

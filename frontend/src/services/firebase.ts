@@ -1,7 +1,8 @@
 /**
  * Firebase App Initialization
- * Reads configuration from window.MINDPAL_CONFIG.FIREBASE_CONFIG
- * which is injected at runtime by frontend/runtime-config.js
+ * Reads configuration from the __MINDPAL_BOOTSTRAP__ JSON node,
+ * injected synchronously into the document by the server on GET /.
+ * See: backend/main.py → _build_public_bootstrap_payload()
  */
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';

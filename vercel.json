@@ -55,15 +55,6 @@
         }
       ]
     },
-    {
-      "source": "/runtime-config.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
-    }
   ],
   "routes": [
     {
