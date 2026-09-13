@@ -40,8 +40,11 @@ button, input, select, textarea, [role="button"] {
   min-height: 44px;
 }
 
-.action-buttons button {
-  min-height: unset;
+.action-buttons button,
+.voice-action-btn,
+.chat-compact-btn,
+#model-selector-btn {
+  min-height: unset !important;
 }
 
 /* Responsive Safe Area Top Padding */

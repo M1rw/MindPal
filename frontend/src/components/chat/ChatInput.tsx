@@ -2,17 +2,16 @@ import React, { useState, useRef, useEffect, KeyboardEvent, forwardRef, useImper
 import { useChatStore, useVoiceStore, useStreakStore, useToastStore } from '../../store';
 import { ApiClient } from '../../services/api';
 import { telemetry } from '../../services/telemetry';
-import { ArrowUp, AudioWaveform, ChevronDown, Check, Mic, Square, Sparkles, X, Info } from 'lucide-react';
+import { ArrowUp, AudioWaveform, ChevronDown, Check, Mic, Square, X } from 'lucide-react';
 
 export interface ChatInputHandle {
   sendMessage: (text: string) => void;
   setInputText: (text: string) => void;
 }
 
-export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
+export const ChatInput = forwardRef<ChatInputHandle>((_props, ref) => {
   const [input, setInput] = useState('');
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const [showProInfo, setShowProInfo] = useState(false);
   const [isDictating, setIsDictating] = useState(false);
   const [audioVolume, setAudioVolume] = useState(0);
 
@@ -47,7 +46,6 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
     const handleClickOutside = (e: MouseEvent) => {
       if (selectorRef.current && !selectorRef.current.contains(e.target as Node)) {
         setSelectorOpen(false);
-        setShowProInfo(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -141,10 +139,43 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
 
   // Real-time voice dictation with full audio reactivity & live transcription
   const startDictation = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    let SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition ||
+      (window as any).__MOCK_SPEECH_RECOGNITION__;
+
     if (!SpeechRecognition) {
-      pushToast('Voice dictation is not supported in this browser. Try Chrome, Edge, or Safari.', 'warning');
-      return;
+      if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mockSpeech') === 'true') {
+        SpeechRecognition = class {
+          continuous = true;
+          interimResults = true;
+          lang = 'en-US';
+          onstart: any = null;
+          onresult: any = null;
+          onerror: any = null;
+          onend: any = null;
+          start() {
+            setTimeout(() => {
+              if (this.onstart) this.onstart();
+              setTimeout(() => {
+                if (this.onresult) {
+                  this.onresult({
+                    results: [
+                      [{ transcript: 'hello how are you', isFinal: true }]
+                    ]
+                  });
+                }
+              }, 120);
+            }, 60);
+          }
+          stop() {
+            if (this.onend) this.onend();
+          }
+        };
+      } else {
+        pushToast('Voice dictation is not supported in this browser. Try Chrome, Edge, or Safari.', 'warning');
+        return;
+      }
     }
 
     try {
@@ -332,274 +363,259 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
       {/* Pill Container with smooth rounded-full geometry */}
       <div className="bg-[#f0f4f9] dark:bg-gemini-darkSurface rounded-[32px] p-2 flex flex-col relative transition-all duration-200 w-full border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
         
-        {/* Tier-1 Voice Dictation Top Bar with Real Reactive Audio Visualizer */}
-        {isDictating && (
-          <div className="flex items-center justify-between w-full pb-2 mb-1.5 border-b border-black/[0.06] dark:border-white/[0.06] animate-fade-in">
-            {/* Left: Cancel Button (X) */}
-            <button
-              type="button"
-              onClick={cancelDictation}
-              className="px-2.5 py-1 rounded-lg flex items-center gap-1.5 bg-black/5 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-black/10 dark:hover:bg-white/20 text-xs font-medium transition-colors"
-              title="Cancel dictation & revert text"
-              aria-label="Cancel dictation"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Cancel</span>
-            </button>
+        {isDictating ? (
+          /* ChatGPT-style Voice Dictation Mode */
+          <div className="flex flex-col w-full px-2.5 py-1 sm:px-3 animate-fade-in">
+            {/* Live streaming text with subtle opacity to indicate actively listening */}
+            <textarea
+              id="chat-input"
+              ref={textareaRef}
+              rows={1}
+              dir="auto"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full bg-transparent resize-none outline-none max-h-[160px] px-2 pt-1 pb-2 text-[15px] opacity-65 text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 dark:placeholder-zinc-500 leading-relaxed min-h-[42px] transition-opacity"
+              placeholder="Listening..."
+              aria-label="Listening to your voice"
+            />
 
-            {/* Center: Real Voice-Reactive Soundwave */}
-            <div className="flex-1 flex items-center justify-center gap-1 mx-3 h-6 overflow-hidden">
-              <span className="text-[11px] font-medium text-[#4140FD] dark:text-[#6572F2] flex items-center gap-1.5 mr-2">
-                <span className="w-2 h-2 rounded-full bg-[#4140FD] dark:bg-[#6572F2] animate-ping" />
-                Listening
-              </span>
-              {[...Array(18)].map((_, i) => {
-                const height = Math.max(
-                  4,
-                  Math.min(22, 4 + (audioVolume / 100) * 18 * (0.5 + 0.5 * Math.sin(i * 0.8)))
-                );
-                return (
-                  <span
-                    key={i}
-                    className="w-1 bg-[#4140FD] dark:bg-[#6572F2] rounded-full transition-all duration-75"
-                    style={{
-                      height: `${height}px`,
-                      opacity: 0.6 + (audioVolume / 250),
-                    }}
-                  />
-                );
-              })}
-            </div>
-
-            {/* Right: Done (✓) and Send (↑) */}
-            <div className="flex items-center gap-1.5">
+            {/* Clean ChatGPT-Style Voice Bar */}
+            <div className="flex items-center justify-between w-full pt-1 pb-1 px-0.5 gap-3">
+              {/* Left: Circular Cancel Button (X) */}
               <button
                 type="button"
-                onClick={confirmDictation}
-                className="px-2.5 py-1 rounded-lg flex items-center gap-1 bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/10 dark:hover:bg-white/20 text-xs font-medium transition-colors"
-                title="Done dictating"
-                aria-label="Confirm dictation"
+                onClick={cancelDictation}
+                className="voice-action-btn w-9 h-9 min-w-[36px] min-h-[36px] max-w-[36px] max-h-[36px] !min-h-[36px] aspect-square rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-black/10 dark:hover:bg-white/20 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors active:scale-95 flex-shrink-0 p-0"
+                title="Cancel dictation"
+                aria-label="Cancel dictation"
               >
-                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>Done</span>
+                <X className="w-4 h-4" />
               </button>
 
-              <button
-                type="button"
-                onClick={confirmAndSendDictation}
-                className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#4140FD] hover:bg-[#5251fd] text-white transition-colors"
-                title="Send message"
-                aria-label="Send message"
+              {/* Center: Real Voice-Reactive Waveform */}
+              <div className="flex-1 flex items-center justify-center gap-[3px] mx-2 h-8 overflow-hidden">
+                {[...Array(28)].map((_, i) => {
+                  const centerDist = Math.abs(i - 13.5) / 13.5;
+                  const envelope = Math.max(0.2, 1 - centerDist * 0.7);
+                  const isActive = audioVolume > 3;
+                  const barHeight = isActive
+                    ? Math.max(
+                        3,
+                        Math.min(
+                          22,
+                          3 + (audioVolume / 100) * 19 * envelope * (0.4 + 0.6 * Math.sin(i * 0.7))
+                        )
+                      )
+                    : 3;
+                  return (
+                    <span
+                      key={i}
+                      className={`rounded-full transition-all duration-75 ${
+                        isActive && barHeight > 4
+                          ? 'w-[3px] bg-[#4140FD] dark:bg-white'
+                          : 'w-[3px] h-[3px] bg-zinc-300 dark:bg-zinc-600'
+                      }`}
+                      style={{
+                        height: `${barHeight}px`,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Right: Circular Stop (■) & Send (↑) Buttons */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={confirmDictation}
+                  className="voice-action-btn w-9 h-9 min-w-[36px] min-h-[36px] max-w-[36px] max-h-[36px] !min-h-[36px] aspect-square rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/10 dark:hover:bg-white/20 transition-colors active:scale-95 flex-shrink-0 p-0"
+                  title="Done dictating"
+                  aria-label="Done dictating"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmAndSendDictation}
+                  disabled={!hasText}
+                  className="voice-action-btn w-9 h-9 min-w-[36px] min-h-[36px] max-w-[36px] max-h-[36px] !min-h-[36px] aspect-square rounded-full flex items-center justify-center bg-[#4140FD] hover:bg-[#3231d6] text-white transition-colors active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed shadow-sm flex-shrink-0 p-0"
+                  title="Send message"
+                  aria-label="Send message"
+                >
+                  <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Standard Input Bar */
+          <div className="flex items-end w-full">
+            <textarea
+              id="chat-input"
+              ref={textareaRef}
+              rows={1}
+              dir="auto"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-4 pr-2 py-2.5 text-[15px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 leading-6 min-h-[44px]"
+              placeholder="Ask MindPal"
+              aria-label="Ask MindPal"
+            />
+
+            {/* Actions Cluster */}
+            <div className="flex items-center gap-1.5 pr-0.5 pb-0.5 self-end">
+              {/* Collapsible Secondary Options: Model Selector & Dictation Trigger */}
+              <div
+                className={`flex items-center gap-1 transition-all duration-300 ease-out ${
+                  hasText
+                    ? 'max-w-0 opacity-0 overflow-hidden pointer-events-none -translate-x-1'
+                    : 'max-w-[320px] opacity-100 translate-x-0'
+                }`}
               >
-                <ArrowUp className="w-3.5 h-3.5" />
+                {/* Minimalist 2-Choice Model Selector (Standard vs Pro) with PRO tag */}
+                <div className="relative flex items-center" ref={selectorRef}>
+                  <button
+                    type="button"
+                    id="model-selector-btn"
+                    onClick={() => setSelectorOpen(!selectorOpen)}
+                    className="chat-compact-btn flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[13px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  >
+                    <span>{isPro ? 'Pro' : 'Standard'}</span>
+                    {isPro && (
+                      <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                        PRO
+                      </span>
+                    )}
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${
+                        selectorOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {/* Minimalist Model Dropdown */}
+                  {selectorOpen && (
+                    <div
+                      id="unified-dropdown"
+                      className="absolute bottom-full right-0 mb-2 w-72 bg-gemini-surface dark:bg-gemini-darkSurface border border-black/[0.08] dark:border-white/[0.08] rounded-xl shadow-xl p-1.5 z-50 animate-fade-in"
+                      role="menu"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveModel('standard');
+                          setSelectorOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors ${
+                          !isPro
+                            ? 'bg-black/5 dark:bg-white/10'
+                            : 'hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Standard</span>
+                            <span className="text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded">
+                              1x
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Warm peer support. Fast, safe & lightweight.
+                          </div>
+                        </div>
+                        {!isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveModel('pro');
+                          setSelectorOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors mt-1 ${
+                          isPro
+                            ? 'bg-black/5 dark:bg-white/10'
+                            : 'hover:bg-black/5 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Pro</span>
+                            <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                              PRO · 2X
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Clinical reasoning & deep analysis. Uses 2x compute.
+                          </div>
+                        </div>
+                        {isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Real-time Voice Dictation Trigger */}
+                <button
+                  type="button"
+                  onClick={startDictation}
+                  className="chat-compact-btn w-8 h-8 flex items-center justify-center rounded-xl text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  title="Start voice dictation"
+                  aria-label="Voice dictation"
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Dynamic Action Button — True circular geometry */}
+              <button
+                id="action-btn"
+                type="button"
+                onClick={() => {
+                  if (isGenerating) {
+                    setIsGenerating(false);
+                  } else if (hasText) {
+                    send(input);
+                  } else {
+                    setIsVoiceActive(true);
+                  }
+                }}
+                className={`w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] aspect-square flex-shrink-0 flex items-center justify-center rounded-full transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
+                  isGenerating
+                    ? 'bg-black/10 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/20 dark:hover:bg-white/20'
+                    : hasText
+                    ? 'bg-[#1A1A2E] dark:bg-white text-white dark:text-[#1A1A2E] shadow-sm hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-95'
+                    : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200'
+                }`}
+                aria-label={
+                  isGenerating
+                    ? "Stop generating"
+                    : hasText
+                    ? "Send message"
+                    : "Open live voice conversation"
+                }
+                title={
+                  isGenerating
+                    ? "Stop generating"
+                    : hasText
+                    ? "Send"
+                    : "Live Voice Mode"
+                }
+              >
+                {isGenerating ? (
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                ) : hasText ? (
+                  <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
+                ) : (
+                  <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-600 dark:text-zinc-300" />
+                )}
               </button>
             </div>
           </div>
         )}
-
-        {/* Input Bar — Always visible so the user sees live streaming words */}
-        <div className="flex items-end w-full">
-          <textarea
-            id="chat-input"
-            ref={textareaRef}
-            rows={1}
-            dir="auto"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-4 pr-2 py-2.5 text-[15px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 leading-6 min-h-[44px]"
-            placeholder={isDictating ? 'Speaking to MindPal...' : 'Ask MindPal'}
-            aria-label="Ask MindPal"
-          />
-
-          {/* Actions Cluster */}
-          <div className="flex items-center gap-1.5 pr-0.5 pb-0.5 self-end">
-            {/* Collapsible Secondary Options: Model Selector & Dictation Trigger */}
-            <div
-              className={`flex items-center gap-1 transition-all duration-300 ease-out ${
-                hasText && !isDictating
-                  ? 'max-w-0 opacity-0 overflow-hidden pointer-events-none -translate-x-1'
-                  : 'max-w-[320px] opacity-100 translate-x-0'
-              }`}
-            >
-              {/* Minimalist 2-Choice Model Selector (Standard vs Pro) with PRO tag & info description */}
-              <div className="relative flex items-center" ref={selectorRef}>
-                <button
-                  type="button"
-                  id="model-selector-btn"
-                  onClick={() => setSelectorOpen(!selectorOpen)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                >
-                  <span>{isPro ? 'Pro' : 'Standard'}</span>
-                  {isPro && (
-                    <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1 py-0.2 rounded font-bold uppercase tracking-wider">
-                      PRO
-                    </span>
-                  )}
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${
-                      selectorOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-
-                {/* Pro info tooltip icon */}
-                {isPro && (
-                  <div className="relative group/info">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowProInfo(!showProInfo);
-                      }}
-                      className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full transition-colors"
-                      title="Pro model information (2x usage)"
-                      aria-label="Pro model information"
-                    >
-                      <Info className="w-3.5 h-3.5" />
-                    </button>
-                    {/* Tooltip on hover/click */}
-                    <div
-                      className={`${
-                        showProInfo ? 'block' : 'hidden group-hover/info:block'
-                      } absolute bottom-full right-0 mb-2 w-64 p-3 rounded-xl bg-zinc-900 dark:bg-zinc-800 text-white text-xs shadow-2xl border border-white/10 z-50 animate-fade-in`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-[#A39CF9] text-[11px] tracking-wide uppercase">
-                          PRO MODEL · 2X USAGE
-                        </span>
-                        <span className="text-[10px] text-zinc-400">Clinical Tier</span>
-                      </div>
-                      <div className="text-[11px] text-zinc-300 leading-relaxed">
-                        Uses 2x compute budget for in-depth clinical reasoning, longitudinal memory synthesis, and emotional nuance.
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Minimalist Model Dropdown */}
-                {selectorOpen && (
-                  <div
-                    id="unified-dropdown"
-                    className="absolute bottom-full right-0 mb-2 w-72 bg-gemini-surface dark:bg-gemini-darkSurface border border-black/[0.08] dark:border-white/[0.08] rounded-2xl shadow-xl p-1.5 z-50 animate-fade-in"
-                    role="menu"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveModel('standard');
-                        setSelectorOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors ${
-                        !isPro
-                          ? 'bg-black/5 dark:bg-white/10'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Standard</span>
-                          <span className="text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded">
-                            1x
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          Warm peer support. Fast, safe & lightweight.
-                        </div>
-                      </div>
-                      {!isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveModel('pro');
-                        setSelectorOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors mt-1 ${
-                        isPro
-                          ? 'bg-black/5 dark:bg-white/10'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Pro</span>
-                          <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                            PRO · 2X
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          Clinical reasoning & deep analysis. Uses 2x compute.
-                        </div>
-                      </div>
-                      {isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Real-time Voice Dictation Trigger */}
-              <button
-                type="button"
-                onClick={isDictating ? confirmDictation : startDictation}
-                className={`w-8 h-8 flex items-center justify-center rounded-xl transition-colors ${
-                  isDictating
-                    ? 'bg-[#4140FD] text-white shadow-sm'
-                    : 'text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10'
-                }`}
-                title={isDictating ? 'Stop dictating' : 'Start voice dictation'}
-                aria-label="Voice dictation"
-              >
-                <Mic className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Dynamic Action Button — True circular geometry */}
-            <button
-              id="action-btn"
-              type="button"
-              onClick={() => {
-                if (isGenerating) {
-                  setIsGenerating(false);
-                } else if (hasText) {
-                  send(input);
-                } else {
-                  setIsVoiceActive(true);
-                }
-              }}
-              className={`w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] aspect-square flex-shrink-0 flex items-center justify-center rounded-full transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
-                isGenerating
-                  ? 'bg-black/10 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/20 dark:hover:bg-white/20'
-                  : hasText
-                  ? 'bg-[#1A1A2E] dark:bg-white text-white dark:text-[#1A1A2E] shadow-sm hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-95'
-                  : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200'
-              }`}
-              aria-label={
-                isGenerating
-                  ? "Stop generating"
-                  : hasText
-                  ? "Send message"
-                  : "Open live voice conversation"
-              }
-              title={
-                isGenerating
-                  ? "Stop generating"
-                  : hasText
-                  ? "Send"
-                  : "Live Voice Mode"
-              }
-            >
-              {isGenerating ? (
-                <Square className="w-3.5 h-3.5 fill-current" />
-              ) : hasText ? (
-                <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
-              ) : (
-                <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-600 dark:text-zinc-300" />
-              )}
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Privacy Guarantee Note */}
