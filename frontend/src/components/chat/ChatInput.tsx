@@ -36,6 +36,8 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
     setIsGenerating,
     activeModel,
     setActiveModel,
+    activeMode,
+    setActiveMode,
   } = useChatStore();
 
   const { setIsActive: setIsVoiceActive } = useVoiceStore();
@@ -330,7 +332,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
   return (
     <div className="w-full max-w-4xl mx-auto relative z-10 px-4 pb-safe pb-4">
       {/* Pill Container with smooth rounded-full geometry */}
-      <div className="bg-gemini-surface dark:bg-gemini-darkSurface rounded-full p-2 sm:p-2.5 px-4 sm:px-5 flex flex-col relative transition-all duration-200 w-full border border-black/[0.08] dark:border-white/[0.08] focus-within:border-[#4140FD]/60 dark:focus-within:border-[#6572F2]/60 shadow-sm">
+      <div className="bg-[#f0f4f9] dark:bg-gemini-darkSurface rounded-[32px] p-2 flex flex-col relative transition-all duration-200 w-full border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
         
         {/* Tier-1 Voice Dictation Top Bar with Real Reactive Audio Visualizer */}
         {isDictating && (
@@ -407,7 +409,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-2 pr-2 py-1.5 text-[15px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 leading-relaxed min-h-[44px]"
+            className="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-4 pr-2 py-2.5 text-[15px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 leading-6 min-h-[44px]"
             placeholder={isDictating ? 'Speaking to MindPal...' : 'Ask MindPal'}
             aria-label="Ask MindPal"
           />
@@ -433,7 +435,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                   aria-expanded={selectorOpen}
                   aria-label="Select model: Standard or Pro"
                 >
-                  <span>{isPro ? 'Pro' : 'Standard'}</span>
+                  <span>{isPro ? 'Pro' : 'Standard'} · {activeMode}</span>
                   {isPro && (
                     <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
                       PRO
@@ -446,98 +448,121 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                   />
                 </button>
 
-                {/* Pro info tooltip icon */}
-                {isPro && (
-                  <div className="relative group/info">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowProInfo(!showProInfo);
-                      }}
-                      className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full transition-colors"
-                      title="Pro model information (2x usage)"
-                      aria-label="Pro model information"
-                    >
-                      <Info className="w-3.5 h-3.5" />
-                    </button>
-                    {/* Tooltip on hover/click */}
-                    <div
-                      className={`${
-                        showProInfo ? 'block' : 'hidden group-hover/info:block'
-                      } absolute bottom-full right-0 mb-2 w-64 p-3 rounded-xl bg-zinc-900 dark:bg-zinc-800 text-white text-xs shadow-2xl border border-white/10 z-50 animate-fade-in`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-[#A39CF9] text-[11px] tracking-wide uppercase">
-                          PRO MODEL · 2X USAGE
-                        </span>
-                        <span className="text-[10px] text-zinc-400">Clinical Tier</span>
-                      </div>
-                      <div className="text-[11px] text-zinc-300 leading-relaxed">
-                        Uses 2x compute budget for in-depth clinical reasoning, longitudinal memory synthesis, and emotional nuance.
-                      </div>
-                    </div>
-                  </div>
-                )}
 
-                {/* Minimalist Model Dropdown */}
+
+                {/* Unified Model + Listening Style Dropdown */}
                 {selectorOpen && (
                   <div
                     id="unified-dropdown"
-                    className="absolute bottom-full right-0 mb-2 w-72 bg-gemini-surface dark:bg-gemini-darkSurface border border-black/[0.08] dark:border-white/[0.08] rounded-2xl shadow-xl p-1.5 z-50 animate-fade-in"
+                    className="absolute bottom-full right-0 mb-2 w-72 bg-white dark:bg-[#28283D] border border-[#E2E6F0] dark:border-[#35354A] rounded-2xl shadow-xl p-2 z-50 animate-fade-in"
                     role="menu"
                   >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveModel('standard');
-                        setSelectorOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors ${
-                        !isPro
-                          ? 'bg-black/5 dark:bg-white/10'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Standard</span>
-                          <span className="text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded">
-                            1x
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          Warm peer support. Fast, safe & lightweight.
-                        </div>
-                      </div>
-                      {!isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
-                    </button>
+                    {/* Model Section Header */}
+                    <div className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 px-3 py-1.5 uppercase tracking-wider">
+                      Model
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveModel('pro');
-                        setSelectorOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors mt-1 ${
-                        isPro
-                          ? 'bg-black/5 dark:bg-white/10'
-                          : 'hover:bg-black/5 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Pro</span>
-                          <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                            PRO · 2X
-                          </span>
+                    {/* Standard Option */}
+                    <div className="relative group/std">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveModel('standard');
+                          setSelectorOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[#EFF3FB] dark:hover:bg-[#1E1E2E] transition-colors text-left"
+                        role="menuitem"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Standard</span>
+                            <button
+                              type="button"
+                              className="p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full transition-colors flex-shrink-0"
+                              title="About Standard model"
+                              aria-label="Standard model info"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Info className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Warm peer support. Fast & safe.
+                          </div>
                         </div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          Clinical reasoning & deep analysis. Uses 2x compute.
-                        </div>
+                        {activeModel === 'standard' && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
+                      </button>
+                      {/* Standard hover tooltip */}
+                      <div className="hidden group-hover/std:block absolute left-full top-0 ml-2 w-56 p-2.5 rounded-xl bg-zinc-900 dark:bg-zinc-800 text-white text-[11px] leading-relaxed shadow-2xl border border-white/10 z-[60] pointer-events-none">
+                        Fast, warm peer-support model. Safety-first with low latency. Best for everyday check-ins and emotional support.
                       </div>
-                      {isPro && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
-                    </button>
+                    </div>
+
+                    {/* Pro Option */}
+                    <div className="relative group/pro">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveModel('pro');
+                          setSelectorOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[#EFF3FB] dark:hover:bg-[#1E1E2E] transition-colors text-left"
+                        role="menuitem"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Pro</span>
+                            <span className="bg-[#A39CF9]/20 text-[#4140FD] dark:bg-[#6572F2]/20 dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider">
+                              Clinical
+                            </span>
+                            <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider">
+                              2× Usage
+                            </span>
+                            <button
+                              type="button"
+                              className="p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full transition-colors flex-shrink-0"
+                              title="About Pro model"
+                              aria-label="Pro model info"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Info className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                            Deep analysis, diagnostic thinking.
+                          </div>
+                        </div>
+                        {activeModel === 'pro' && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
+                      </button>
+                      {/* Pro hover tooltip */}
+                      <div className="hidden group-hover/pro:block absolute left-full top-0 ml-2 w-56 p-2.5 rounded-xl bg-zinc-900 dark:bg-zinc-800 text-white text-[11px] leading-relaxed shadow-2xl border border-white/10 z-[60] pointer-events-none">
+                        <div className="font-semibold text-[#A39CF9] mb-1 text-[10px] uppercase tracking-wide">Pro · 2× Usage</div>
+                        Uses 2× compute budget for in-depth clinical reasoning, longitudinal memory synthesis, and emotional nuance.
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-zinc-200 dark:bg-[#35354A] mx-2 my-1.5" />
+
+                    {/* Listening Style Section */}
+                    <div className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 px-3 py-1.5 uppercase tracking-wider">
+                      Listening Style
+                    </div>
+
+                    {(['Active Listen', 'Guided Coach', 'Cognitive Tools'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          setActiveMode(mode);
+                          setSelectorOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-[#EFF3FB] dark:hover:bg-[#1E1E2E] transition-colors text-left"
+                        role="menuitem"
+                      >
+                        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">{mode}</span>
+                        {activeMode === mode && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -575,7 +600,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                 isGenerating
                   ? 'bg-black/10 dark:bg-white/10 text-zinc-700 dark:text-zinc-200 hover:bg-black/20 dark:hover:bg-white/20'
                   : hasText
-                  ? 'bg-[#4140FD] hover:bg-[#5251fd] text-white shadow-sm'
+                  ? 'bg-[#1A1A2E] dark:bg-white text-white dark:text-[#1A1A2E] shadow-sm hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-95'
                   : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-zinc-700 dark:text-zinc-200'
               }`}
               aria-label={
