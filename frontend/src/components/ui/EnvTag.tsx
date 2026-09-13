@@ -1,4 +1,5 @@
 import React from 'react';
+import { Cloud, Laptop } from 'lucide-react';
 import { getAppConfig } from '../../services/config';
 
 export const EnvTag: React.FC = () => {
@@ -22,15 +23,16 @@ export const EnvTag: React.FC = () => {
   return (
     <span
       id="env-tag"
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-medium text-gray-500 dark:text-gray-400 select-none border border-black/[0.04] dark:border-white/[0.06]"
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gemini-surface dark:bg-gemini-darkSurface text-[10px] font-medium text-gray-500 dark:text-gray-400 transition-colors select-none border border-black/[0.04] dark:border-white/[0.06]"
     >
-      <span
-        className={`w-1.5 h-1.5 rounded-full ${
-          isCloud ? 'bg-[#4140FD] dark:bg-[#6572F2]' : 'bg-emerald-500'
-        }`}
-      />
-      {label}
+      {isCloud ? (
+        <Cloud className="w-3 h-3 text-[#4140FD] dark:text-[#A39CF9]" />
+      ) : (
+        <Laptop className="w-3 h-3 text-emerald-500" />
+      )}
+      <span>{label}</span>
     </span>
   );
 };
+
 
