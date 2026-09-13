@@ -79,3 +79,34 @@ def record_session_telemetry(payload: SessionTelemetryPayload, authorization: Op
     identity_service.store.set_document("session_telemetry", doc_key, record)
     return {"status": "ok", "session_id": payload.session_id}
 
+
+
+from backend.domain.greeting.engine import GreetingEngine
+from backend.domain.memory.graph import MemoryGraphService
+
+_greeting_engine = GreetingEngine()
+_memory_service = MemoryGraphService()
+
+
+@router.get("/api/greeting", operation_id="greetingGet")
+def get_greeting(
+    tz_offset: int = 0,
+    display_name: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+) -> Dict[str, Any]:
+    """
+    Returns a contextual, cached greeting for the authenticated user.
+    Uses timezone offset, return gap, and memory graph to score specificity.
+    AI is only called when score >= 5 and memory context exists.
+    Cache key: greeting_cache:{uid}:{date}:{period} — max 4 generations/day.
+    """
+    session = verify_auth_header(authorization)
+    graph = _memory_service.get_memory_graph(session.user_id_hash)
+    result = _greeting_engine.get_greeting(
+        user_id_hash=session.user_id_hash,
+        display_name=display_name,
+        tz_offset_minutes=tz_offset,
+        memory_summary=graph.summary,
+        memory_atoms=[{"category": a.category, "value": a.value} for a in graph.atoms],
+    )
+    return result

@@ -263,19 +263,19 @@ details > summary::-webkit-details-marker { display: none; }
 }
 
 /* MindPal brand design tokens */
-.bg-gemini-bg { background-color: #ffffff; }
-.bg-gemini-surface { background-color: #EFF3FB; }
-.text-gemini-text { color: #1E1E2E; }
+.bg-gemini-bg { background-color: var(--color-bg-light, #ffffff); }
+.bg-gemini-surface { background-color: var(--color-surface-light, #EFF3FB); }
+.text-gemini-text { color: var(--color-text-light, #1A1A2E); }
 .text-gemini-muted { color: #5A5E72; }
 .border-gemini-border { border-color: #E2E6F0; }
 .hover\:bg-gemini-surface:hover { background-color: #EFF3FB; }
 
-.dark .dark\:bg-gemini-darkBg { background-color: #1E1E2E; }
-.dark .dark\:bg-gemini-darkSurface { background-color: #28283D; }
-.dark .dark\:text-gemini-darkText { color: #EFF3FB; }
-.dark .dark\:text-gemini-darkMuted { color: #A0A3BD; }
-.dark .dark\:border-gemini-darkBorder { border-color: #35354A; }
-.dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #28283D; }
+.dark .dark\:bg-gemini-darkBg { background-color: var(--color-bg-dark, #0C0C0E); }
+.dark .dark\:bg-gemini-darkSurface { background-color: var(--color-surface-dark, #18181B); }
+.dark .dark\:text-gemini-darkText { color: var(--color-text-dark, #F4F4F5); }
+.dark .dark\:text-gemini-darkMuted { color: #A1A1AA; }
+.dark .dark\:border-gemini-darkBorder { border-color: #27272A; }
+.dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #18181B; }
 
 /* Message content box padding for proper spacing on all screen sizes */
 .content-box {

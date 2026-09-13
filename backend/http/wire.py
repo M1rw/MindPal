@@ -1,4 +1,4 @@
-# backend/http/wire.py — Route Assembly and Wire Registration
+﻿# backend/http/wire.py â€” Route Assembly and Wire Registration
 
 from __future__ import annotations
 
@@ -58,3 +58,4 @@ def wire_http(app: FastAPI) -> None:
     app.include_router(flags_router)
     app.include_router(system_router)
     app.include_router(register_preview_placeholders(set(IMPLEMENTED)))
+
