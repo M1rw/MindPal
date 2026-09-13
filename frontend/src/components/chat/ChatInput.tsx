@@ -361,7 +361,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((_props, ref) => {
   return (
     <div className="w-full max-w-4xl mx-auto relative z-10 px-4 pb-safe pb-4">
       {/* Pill Container with smooth rounded-full geometry */}
-      <div className="bg-[#f0f4f9] dark:bg-gemini-darkSurface rounded-[32px] p-2 flex flex-col relative transition-all duration-200 w-full border border-black/[0.04] dark:border-white/[0.06] shadow-sm">
+      <div className="bg-[#f0f4f9] dark:bg-gemini-darkSurface rounded-[32px] p-2 flex flex-col relative transition-all duration-200 w-full shadow-sm">
         
         {isDictating ? (
           /* ChatGPT-style Voice Dictation Mode */
