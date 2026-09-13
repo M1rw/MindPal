@@ -1,0 +1,164 @@
+import {
+  Activity,
+  AlertCircle,
+  BarChart2,
+  AlertTriangle,
+  Anchor,
+  ArrowLeft,
+  ArrowUp,
+  AudioWaveform,
+  BadgeAlert,
+  Brain,
+  Captions,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  CircleMinus,
+  CircleUserRound,
+  Cloud,
+  CloudUpload,
+  Copy,
+  Crosshair,
+  Database,
+  DatabaseZap,
+  Eye,
+  EyeOff,
+  Flame,
+  Gauge,
+  GitBranch,
+  Info,
+  ListTree,
+  Loader2,
+  Mic,
+  MicOff,
+  Moon,
+  Network,
+  Orbit,
+  Pencil,
+  Phone,
+  PhoneOff,
+  Pin,
+  PinOff,
+  Quote,
+  RefreshCw,
+  RotateCw,
+  ScanEye,
+  Search,
+  Settings,
+  ShieldAlert,
+  Sliders,
+  ShieldCheck,
+  Sparkles,
+  Square,
+  Sun,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+  User,
+  Volume2,
+  Waves,
+  Wind,
+  X,
+  createElement,
+  createIcons as lucideCreateIcons,
+} from "lucide";
+
+const definitions = {
+  Activity,
+  AlertCircle,
+  BarChart2,
+  AlertTriangle,
+  Anchor,
+  ArrowLeft,
+  ArrowUp,
+  AudioWaveform,
+  BadgeAlert,
+  Brain,
+  Captions,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  CircleMinus,
+  CircleUserRound,
+  Cloud,
+  CloudCheck: Cloud,
+  CloudUpload,
+  Copy,
+  Crosshair,
+  Database,
+  DatabaseZap,
+  Eye,
+  EyeOff,
+  Flame,
+  Gauge,
+  GitBranch,
+  Info,
+  ListTree,
+  Loader2,
+  Mic,
+  MicOff,
+  Moon,
+  Network,
+  Orbit,
+  Pencil,
+  Phone,
+  PhoneOff,
+  Pin,
+  PinOff,
+  Quote,
+  RefreshCw,
+  RotateCw,
+  ScanEye,
+  Search,
+  Settings,
+  ShieldAlert,
+  Sliders,
+  ShieldCheck,
+  Sparkles,
+  Square,
+  Sun,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+  User,
+  Volume2,
+  Waves,
+  Wind,
+  X,
+};
+
+const kebab = (name) => name
+  .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+  .replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
+  .replace(/([A-Za-z])([0-9])/g, "$1-$2")
+  .toLowerCase();
+
+const icons = {};
+for (const [name, definition] of Object.entries(definitions)) {
+  icons[name] = definition;
+  icons[kebab(name)] = definition;
+}
+
+function createIcons(options = {}) {
+  const root = options.root || document;
+  const nodes = root.querySelectorAll("i[data-lucide]");
+  for (const node of nodes) {
+    const iconName = node.getAttribute("data-lucide");
+    const iconDef = icons[iconName] || icons[kebab(iconName)];
+    if (!iconDef) continue;
+    const attrs = {
+      class: node.getAttribute("class") || "",
+      "aria-hidden": "true",
+    };
+    const nodeId = node.getAttribute("id");
+    if (nodeId) attrs.id = nodeId;
+    const svg = createElement(iconDef, attrs);
+    if (svg) node.replaceWith(svg);
+  }
+}
+
+window.lucide = Object.freeze({
+  createElement,
+  createIcons,
+  icons: Object.freeze(icons),
+});

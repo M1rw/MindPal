@@ -5,27 +5,29 @@
   "type": "module",
   "scripts": {
     "prebuild": "node scripts/verify_lockfile_registry.mjs",
-    "build": "npm run build:html && npm run build:css && npm run build:icons && npm run build:app",
-    "build:html": "node scripts/assemble_html.mjs",
-    "watch:html": "node scripts/assemble_html.mjs --watch",
-    "dev": "npm run watch:html",
-    "watch": "npm run watch:html",
+    "build": "npm run build:css && npm run build:icons && npm run build:app",
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
-    "build:icons": "esbuild frontend/js/vendor/lucide_global.js --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=frontend/dist/lucide.bundle.js",
-    "build:app": "esbuild frontend/js/app.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/app.bundle.js",
+    "build:icons": "esbuild frontend/vendor/lucide_global.js --bundle --format=iife --platform=browser --target=es2022 --minify --outfile=frontend/dist/lucide.bundle.js",
+    "build:app": "esbuild frontend/src/main.tsx --bundle --format=esm --platform=browser --target=es2022 --minify --loader:.tsx=tsx --loader:.ts=ts --outfile=frontend/dist/app.bundle.js",
     "build:vercel": "npm run build",
     "test": "node --test tests/*.mjs",
-    "audit:frontend": "python scripts/audit_frontend.py",
-    "audit:syntax": "python3 scripts/audit_syntax_integrity.py",
-    "verify:build": "python scripts/verify_frontend_build.py",
-    "verify:prebuilt": "npm run verify:build"
+    "verify:build": "python scripts/verify_frontend_build.py"
   },
   "dependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "clsx": "^2.1.1",
     "dompurify": "^3.4.11",
-    "esbuild": "0.28.1",
+    "esbuild": "^0.28.1",
     "firebase": "11.6.1",
     "lucide": "0.468.0",
-    "tailwindcss": "3.4.17"
+    "lucide-react": "^1.45.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "3.4.17",
+    "typescript": "^7.0.2",
+    "zustand": "^5.0.15"
   },
   "engines": {
     "node": "24.x",
