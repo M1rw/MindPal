@@ -110,16 +110,6 @@ def _mount_frontend(app: FastAPI) -> None:
         if folder.exists():
             app.mount(prefix, StaticFiles(directory=str(folder)), name=prefix.strip("/"))
 
-    @app.get("/runtime-config.js", include_in_schema=False)
-    def runtime_config() -> Response:
-        payload = _build_public_bootstrap_payload()
-        script = (
-            "(() => { window.MINDPAL_CONFIG = Object.freeze("
-            + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-            + "); })();"
-        )
-        return Response(content=script, media_type="text/javascript; charset=utf-8", headers={"Cache-Control": "no-store"})
-
     @app.get("/")
     def index() -> Response:
         index_file = FRONTEND / "index.html"

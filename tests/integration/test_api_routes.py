@@ -20,10 +20,15 @@ def test_health_and_readiness_endpoints(client):
     assert "status" in ready_res.json()
 
 
-def test_runtime_config_endpoint(client):
-    response = client.get("/runtime-config.js")
+def test_bootstrap_json_served_at_features_endpoint(client):
+    """GET /api/features must return the canonical bootstrap payload (no secrets)."""
+    response = client.get("/api/features")
     assert response.status_code == 200
-    assert "window.MINDPAL_CONFIG" in response.text
+    data = response.json()
+    assert "features" in data
+    text = json.dumps(data)
+    assert "private_key" not in text
+    assert "FIREBASE_CREDENTIALS_JSON" not in text
 
 
 def test_chat_sync_and_debug_routes(auth_client):

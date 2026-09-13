@@ -79,10 +79,13 @@ def assert_static_invariants() -> None:
         if "quick_llm_generate" in text:
             violations.append(f"{path.relative_to(ROOT)} references retired quick_llm_generate")
 
-    runtime_config = (ROOT / "frontend/runtime-config.js").read_text(encoding="utf-8").lower()
-    for secret_name in ("gemini_api_key", "openrouter_api_key", "groq_api_key", "private_key"):
-        if secret_name in runtime_config:
-            violations.append(f"frontend runtime config contains provider/server secret field: {secret_name}")
+    # Pattern B: secrets must never appear in the bootstrap node embedded in index.html.
+    index_html_path = ROOT / "frontend/index.html"
+    if index_html_path.exists():
+        index_html = index_html_path.read_text(encoding="utf-8").lower()
+        for secret_name in ("gemini_api_key", "openrouter_api_key", "groq_api_key", "private_key"):
+            if secret_name in index_html:
+                violations.append(f"frontend/index.html bootstrap node contains provider/server secret field: {secret_name}")
 
     config_text = (ROOT / "backend/core/config.py").read_text(encoding="utf-8")
     if 'raise ValueError("Wildcard CORS is not allowed in production")' not in config_text:
