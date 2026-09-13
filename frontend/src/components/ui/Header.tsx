@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Moon, Sun, Flame, User, Brain, Plus } from 'lucide-react';
-import { useAuthStore, useStreakStore, useSettingsStore, useChatStore } from '../../store';
+import { Moon, Sun, Flame, User, Brain, Plus, History } from 'lucide-react';
+import { useAuthStore, useStreakStore, useSettingsStore, useChatStore, useChatHistoryModalStore } from '../../store';
 import { EnvTag } from './EnvTag';
 
 interface HeaderProps {
@@ -12,6 +12,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
   const { streak, setIsOpen: setStreakOpen } = useStreakStore();
   const { setIsOpen: setSettingsOpen } = useSettingsStore();
   const { clearMessages } = useChatStore();
+  const { setIsOpen: setHistoryOpen } = useChatHistoryModalStore();
 
   const [isDark, setIsDark] = useState<boolean>(() => {
     if (typeof document !== 'undefined') {
@@ -67,6 +68,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
 
       {/* Action Buttons */}
       <div className="flex items-center gap-1 sm:gap-2 text-zinc-600 dark:text-zinc-300">
+        {/* History Button */}
+        <button
+          onClick={() => setHistoryOpen(true)}
+          className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+          title="Chat History"
+          aria-label="Open chat history"
+        >
+          <History className="w-5 h-5" />
+        </button>
+
         {/* New Chat Button */}
         <button
           onClick={clearMessages}

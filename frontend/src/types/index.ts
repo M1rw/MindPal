@@ -5,6 +5,15 @@
 
 export type ChatRole = 'user' | 'assistant' | 'system';
 
+/** A saved chat session for history */
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string; // ISO string
+  updatedAt: string;
+  messages: ChatMessage[];
+}
+
 export interface ChatMessage {
   id: string;
   role: ChatRole;
@@ -41,6 +50,22 @@ export interface MemorySummaryResponse {
 
 export interface MemorySummaryUpdate {
   summary: string;
+}
+
+export interface ChangelogEntry {
+  version: string;
+  released_at?: string;
+  major?: boolean;
+  title: string;
+  summary: string;
+  highlights: string[];
+}
+
+export interface ChangelogResponse {
+  product: string;
+  current_version: string;
+  entries: ChangelogEntry[];
+  dismissed_versions?: string[];
 }
 
 export interface FeatureChangelogItem {

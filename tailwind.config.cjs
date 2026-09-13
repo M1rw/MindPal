@@ -54,6 +54,14 @@ module.exports = {
           '0%, 100%': { height: '6px' },
           '50%': { height: '22px' },
         },
+        msgIn: {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        streamPulse: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.5' },
+        },
       },
       animation: {
         'fade-in': 'fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards',
@@ -61,6 +69,8 @@ module.exports = {
         'scale-in': 'scaleIn 0.2s cubic-bezier(0.16,1,0.3,1) forwards',
         'spin-slow': 'spin-slow 3s linear infinite',
         'sound-wave': 'soundWave 1.2s ease-in-out infinite',
+        'msg-in': 'msgIn 0.35s cubic-bezier(0.16,1,0.3,1) both',
+        'stream-pulse': 'streamPulse 1.5s ease-in-out infinite',
       },
     },
   },

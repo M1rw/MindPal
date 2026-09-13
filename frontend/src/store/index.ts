@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import type {
   ChatMessage,
+  ChatSession,
   UserUISettings,
   MemorySummaryResponse,
   AuthUser,
@@ -15,6 +16,7 @@ import type {
   StreakData,
   FeatureSnapshot,
   UsageQuota,
+  ChangelogResponse,
 } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -320,4 +322,96 @@ interface UsageState {
 export const useUsageStore = create<UsageState>((set) => ({
   quota: null,
   setQuota: (quota) => set({ quota }),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Changelog Store
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ChangelogState {
+  isOpen: boolean;
+  changelog: ChangelogResponse | null;
+  setIsOpen: (isOpen: boolean) => void;
+  setChangelog: (changelog: ChangelogResponse | null) => void;
+}
+
+export const useChangelogStore = create<ChangelogState>((set) => ({
+  isOpen: false,
+  changelog: null,
+  setIsOpen: (isOpen) => set({ isOpen }),
+  setChangelog: (changelog) => set({ changelog }),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chat History Store — Persistent session list (localStorage)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const HISTORY_KEY = 'mindpal_chat_sessions';
+
+const loadSessions = (): ChatSession[] => {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) return JSON.parse(raw) as ChatSession[];
+  } catch { /* ignore */ }
+  return [];
+};
+
+const saveSessions = (sessions: ChatSession[]) => {
+  try {
+    // Keep last 100 sessions
+    const trimmed = sessions.slice(0, 100);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+  } catch { /* ignore */ }
+};
+
+interface ChatHistoryState {
+  sessions: ChatSession[];
+  activeSessionId: string | null;
+  saveSession: (session: ChatSession) => void;
+  deleteSession: (id: string) => void;
+  clearHistory: () => void;
+  setActiveSessionId: (id: string | null) => void;
+}
+
+export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
+  sessions: loadSessions(),
+  activeSessionId: null,
+  saveSession: (session) =>
+    set((state) => {
+      const existing = state.sessions.findIndex((s) => s.id === session.id);
+      let next: ChatSession[];
+      if (existing >= 0) {
+        next = [...state.sessions];
+        next[existing] = session;
+      } else {
+        next = [session, ...state.sessions];
+      }
+      saveSessions(next);
+      return { sessions: next };
+    }),
+  deleteSession: (id) =>
+    set((state) => {
+      const next = state.sessions.filter((s) => s.id !== id);
+      saveSessions(next);
+      return { sessions: next, activeSessionId: state.activeSessionId === id ? null : state.activeSessionId };
+    }),
+  clearHistory: () => {
+    saveSessions([]);
+    set({ sessions: [], activeSessionId: null });
+  },
+  setActiveSessionId: (id) => set({ activeSessionId: id }),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chat History Modal Store
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ChatHistoryModalState {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+}
+
+export const useChatHistoryModalStore = create<ChatHistoryModalState>((set) => ({
+  isOpen: false,
+  setIsOpen: (isOpen) => set({ isOpen }),
 }));
