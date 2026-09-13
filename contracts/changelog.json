@@ -4,14 +4,15 @@
   "entries": [
     {
       "version": "5.0.0",
-      "released_at": "2026-09-10",
+      "released_at": "2026-09-14",
       "major": true,
-      "title": "Backend platform",
-      "summary": "The HTTP contract is now a versioned OpenAPI catalog. The previous backend tree is archived and will be replaced by a single chat pipeline and a single changelog URL.",
+      "title": "What's New in MindPal 5.0",
+      "summary": "MindPal 5.0 introduces real-time voice dictation with live audio reactivity, clinical-grade Pro model reasoning, and an exclusive preview of MindPal Presence spatial vision.",
       "highlights": [
-        "contracts/openapi.yaml is the only allowed route list",
-        "GET /api/release/changelog serves this file",
-        "Brain HTTP retired; memory graph remains the store"
+        "Real-Time Voice Dictation — Fluid speech transcription with live waveform visualizer and streaming word opacity",
+        "Pro Clinical Tier — 2× compute budget for in-depth diagnostic inquiry, memory synthesis, and emotional nuance",
+        "MindPal Presence Preview — On-device spatial vision for Solo reflection, Couples mediation, and Group circles",
+        "Refined Clinical Design — Borderless starter chips with vibrant mood colors, compact squircle controls, and elevated layout"
       ]
     }
   ]

@@ -5,10 +5,11 @@ import {
   useAuthStore,
   useToastStore,
   useUsageStore,
+  useChangelogStore,
 } from '../../store';
 import { ApiClient } from '../../services/api';
 import { signOut } from '../../services/auth';
-import type { FeatureChangelogItem } from '../../types';
+import type { ChangelogResponse } from '../../types';
 import {
   X,
   Settings,
@@ -22,11 +23,8 @@ import {
   ShieldCheck,
   User,
   LogOut,
-  Check,
   Download,
   Trash2,
-  ExternalLink,
-  Volume2,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -38,15 +36,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
   const { clearAuth } = useSessionStore();
   const { user, setUser, openAuthModal } = useAuthStore();
   const { push: pushToast } = useToastStore();
-  const { quota } = useUsageStore();
 
-  const [changelog, setChangelog] = useState<FeatureChangelogItem[]>([]);
+  const [changelogData, setChangelogData] = useState<ChangelogResponse | null>(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (isOpen && activeTab === 'features') {
       ApiClient.getChangelog()
-        .then(setChangelog)
+        .then((data) => {
+          setChangelogData(data);
+          useChangelogStore.getState().setChangelog(data);
+        })
         .catch((err) => console.error('Failed to load changelog:', err));
     }
   }, [isOpen, activeTab]);
@@ -319,9 +319,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                   </p>
                 </div>
 
-                {changelog.length > 0 ? (
+                {changelogData?.entries && changelogData.entries.length > 0 ? (
                   <div className="space-y-4">
-                    {changelog.map((item) => (
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-[#4140FD]/10 dark:bg-[#6572F2]/15 border border-[#4140FD]/20">
+                      <div>
+                        <div className="text-sm font-semibold text-[#4140FD] dark:text-[#A39CF9]">
+                          MindPal {changelogData.current_version || '5.0'} Announcement
+                        </div>
+                        <div className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                          View the official launch modal with interactive feature tour.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          useChangelogStore.getState().setChangelog(changelogData);
+                          useChangelogStore.getState().setIsOpen(true);
+                          setIsOpen(false);
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-[#4140FD] hover:bg-[#3231d6] text-white text-xs font-semibold shadow-sm active:scale-95 transition-all"
+                      >
+                        View What's New
+                      </button>
+                    </div>
+
+                    {changelogData.entries.map((item) => (
                       <div
                         key={item.version}
                         className="p-4 rounded-2xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-800"
@@ -330,16 +352,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onOpenMemory }) =>
                           <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
                             v{item.version}
                           </span>
-                          <span className="text-[11px] text-gray-400">{item.date}</span>
+                          {item.released_at && (
+                            <span className="text-[11px] text-gray-400">{item.released_at}</span>
+                          )}
                         </div>
                         <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mt-1">
                           {item.title}
                         </h4>
-                        <ul className="mt-2 list-disc pl-5 text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                          {item.changes.map((c, i) => (
-                            <li key={i}>{c}</li>
-                          ))}
-                        </ul>
+                        {item.summary && (
+                          <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
+                            {item.summary}
+                          </p>
+                        )}
+                        {item.highlights && item.highlights.length > 0 && (
+                          <ul className="mt-2.5 list-disc pl-5 text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                            {item.highlights.map((h, i) => (
+                              <li key={i}>{h}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     ))}
                   </div>
