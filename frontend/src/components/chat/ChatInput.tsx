@@ -541,28 +541,6 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                       </div>
                     </div>
 
-                    <div className="h-px bg-zinc-200 dark:bg-[#35354A] mx-2 my-1.5" />
-
-                    {/* Listening Style Section */}
-                    <div className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 px-3 py-1.5 uppercase tracking-wider">
-                      Listening Style
-                    </div>
-
-                    {(['Active Listen', 'Guided Coach', 'Cognitive Tools'] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => {
-                          setActiveMode(mode);
-                          setSelectorOpen(false);
-                        }}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-[#EFF3FB] dark:hover:bg-[#1E1E2E] transition-colors text-left"
-                        role="menuitem"
-                      >
-                        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">{mode}</span>
-                        {activeMode === mode && <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />}
-                      </button>
-                    ))}
                   </div>
                 )}
               </div>
