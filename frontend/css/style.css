@@ -2686,3 +2686,42 @@ button:active,
     text-align: center;
     overflow-wrap: anywhere;
 }
+
+/* ═══ Chat Message Animations ═══ */
+
+/* Message entrance */
+.animate-msg-in {
+  animation: msgIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes msgIn {
+  0%  { opacity: 0; transform: translateY(8px); }
+  100%{ opacity: 1; transform: translateY(0);   }
+}
+
+/* Streaming text — subtle cursor blink on last char */
+.streaming-text::after {
+  content: '▋';
+  display: inline-block;
+  width: 0.55ch;
+  margin-left: 1px;
+  opacity: 1;
+  animation: streamCursor 0.9s step-start infinite;
+  color: #4140FD;
+  font-size: 0.85em;
+  vertical-align: middle;
+}
+.dark .streaming-text::after {
+  color: #A39CF9;
+}
+
+@keyframes streamCursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* Message action icon buttons — strip min-height override */
+.msg-action-btn {
+  min-height: unset !important;
+  min-width: unset !important;
+}

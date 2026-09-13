@@ -1,32 +1,63 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/ui/Header';
 import { TabBar, AppTab } from './components/ui/TabBar';
 import { ChatCanvas } from './components/chat/ChatCanvas';
 import { ChatInput, ChatInputHandle } from './components/chat/ChatInput';
+import { ChatHistoryModal } from './components/chat/ChatHistoryModal';
 import { PresenceShell } from './components/presence/PresenceShell';
 import { VoiceOverlay } from './components/voice/VoiceOverlay';
 import { MemoryInspector } from './components/memory/MemoryInspector';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { StreakModal } from './components/streak/StreakModal';
 import { AuthModal } from './components/auth/AuthModal';
+import { ChangelogModal } from './components/changelog/ChangelogModal';
 import { GlobalLoader } from './components/ui/GlobalLoader';
 import { Toast } from './components/ui/Toast';
-import { Plus, MessageSquare } from 'lucide-react';
-import { useAuthStore, useSessionStore, useChatStore } from './store';
+import { useAuthStore, useSessionStore, useChatStore, useChangelogStore, useChatHistoryStore } from './store';
 import { onAuthStateChange, getIdToken, getAppCheckToken } from './services/auth';
+import { ApiClient } from './services/api';
 
 export const App: React.FC = () => {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [appReady, setAppReady] = useState(false);
   const [activeTab, setActiveTab] = useState<AppTab>('chat');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const chatInputRef = useRef<ChatInputHandle>(null);
+  const sessionIdRef = useRef<string>(`sess_${Date.now()}`);
 
   const { setUser, setIsLoading } = useAuthStore();
   const { setAuth } = useSessionStore();
   const { messages } = useChatStore();
+  const { saveSession } = useChatHistoryStore();
 
   const hasMessages = messages.length > 0;
+
+  // Auto-save session whenever messages change (debounced)
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const timer = setTimeout(() => {
+      // Derive title from first user message
+      const firstUser = messages.find((m) => m.role === 'user');
+      const title = firstUser
+        ? firstUser.content.slice(0, 60).trim() + (firstUser.content.length > 60 ? '…' : '')
+        : 'Conversation';
+
+      saveSession({
+        id: sessionIdRef.current,
+        title,
+        createdAt: messages[0].timestamp,
+        updatedAt: new Date().toISOString(),
+        messages: [...messages],
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [messages, saveSession]);
+
+  // Reset session ID when messages are cleared (new chat)
+  useEffect(() => {
+    if (messages.length === 0) {
+      sessionIdRef.current = `sess_${Date.now()}`;
+    }
+  }, [messages.length]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (user) => {
@@ -42,6 +73,26 @@ export const App: React.FC = () => {
     });
 
     const timer = setTimeout(() => setAppReady(true), 800);
+
+    // Automatic What's New changelog check on mount
+    const checkChangelog = async () => {
+      try {
+        const data = await ApiClient.getChangelog();
+        if (!data) return;
+        const currentVer = data.current_version || '5.0.0';
+        const lastSeen = localStorage.getItem('mindpal_last_seen_changelog');
+        const hasMajor = data.entries?.some((e) => e.version === currentVer && e.major);
+
+        if (hasMajor && lastSeen !== currentVer) {
+          useChangelogStore.getState().setChangelog(data);
+          useChangelogStore.getState().setIsOpen(true);
+        }
+      } catch (err) {
+        console.warn('Changelog check on mount:', err);
+      }
+    };
+
+    checkChangelog();
 
     return () => {
       unsubscribe();
@@ -70,43 +121,34 @@ export const App: React.FC = () => {
           role="tabpanel"
           aria-labelledby="tab-chat"
           className={[
-            'absolute inset-0 flex transition-all duration-220 ease-out',
+            'absolute inset-0 flex flex-col transition-all duration-220 ease-out',
             activeTab === 'chat'
               ? 'opacity-100 scale-100 pointer-events-auto'
               : 'opacity-0 scale-[0.98] pointer-events-none',
           ].join(' ')}
           style={{ transitionTimingFunction: 'cubic-bezier(0.4,0,0.2,1)' }}
         >
-          {/* Chat Sidebar — collapses on mobile */}
-          {hasMessages && (
-            <aside
-              className={[
-                'flex-shrink-0 border-r border-black/[0.06] dark:border-white/[0.06] flex flex-col',
-                'bg-gemini-bg dark:bg-gemini-darkBg transition-all duration-200 overflow-hidden',
-                sidebarOpen ? 'w-52' : 'w-0',
-              ].join(' ')}
-            >
-              <div className="p-3 flex flex-col gap-1 min-w-[13rem]">
-                <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-[#4140FD]/10 dark:bg-[#4140FD]/15 text-[#4140FD] dark:text-[#A39CF9]">
-                  <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="text-xs font-semibold truncate">My Chat</span>
-                </div>
-                <button
-                  type="button"
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-zinc-500 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>New Chat</span>
-                </button>
-              </div>
-            </aside>
-          )}
-
-          {/* Chat Content */}
-          <div className="flex-1 flex flex-col max-w-5xl w-full mx-auto overflow-hidden">
+          {/* Smooth layout transition: empty=center, has messages=bottom */}
+          <div
+            className={[
+              'flex-1 flex flex-col overflow-hidden transition-all duration-400 ease-out',
+            ].join(' ')}
+          >
             <ChatCanvas onSelectMood={(moodText) => chatInputRef.current?.sendMessage(moodText)}>
               {!hasMessages && <ChatInput ref={chatInputRef} />}
             </ChatCanvas>
+          </div>
+
+          {/* Input animates from inside canvas to bottom */}
+          <div
+            className={[
+              'transition-all duration-400 ease-out flex-shrink-0',
+              hasMessages
+                ? 'opacity-100 translate-y-0 pb-0'
+                : 'opacity-0 pointer-events-none translate-y-2 h-0 overflow-hidden',
+            ].join(' ')}
+            style={{ transitionTimingFunction: 'cubic-bezier(0.4,0,0.2,1)' }}
+          >
             {hasMessages && <ChatInput ref={chatInputRef} />}
           </div>
         </div>
@@ -131,10 +173,11 @@ export const App: React.FC = () => {
       <SettingsModal onOpenMemory={() => setMemoryOpen(true)} />
       <StreakModal />
       <AuthModal />
+      <ChangelogModal />
+      <ChatHistoryModal />
 
       {/* Global Toast */}
       <Toast />
     </div>
   );
 };
-
