@@ -188,12 +188,12 @@ export const AuthModal: React.FC = () => {
       {/* Modal Card */}
       <section
         id="auth-modal-content"
-        className="relative w-full sm:max-w-[420px] bg-white dark:bg-[#1f1f1f] border border-black/5 dark:border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom,1.25rem))] sm:p-6 z-10 animate-fade-in"
+        className="relative w-full sm:max-w-[420px] bg-white dark:bg-[#1E1E2E] border border-black/5 dark:border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom,1.25rem))] sm:p-6 z-10 animate-fade-in"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4140FD] dark:text-[#A39CF9]">
               MindPal Cloud
             </p>
             <h2 id="auth-modal-title" className="text-xl font-semibold text-gray-900 dark:text-gray-100 tracking-tight mt-0.5">
@@ -205,7 +205,7 @@ export const AuthModal: React.FC = () => {
           </div>
           <button
             onClick={closeAuthModal}
-            className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
             type="button"
             aria-label="Close sign-in"
           >
@@ -248,7 +248,7 @@ export const AuthModal: React.FC = () => {
                 <span>Continue with Google</span>
               </div>
               {lastUsed === 'google' && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#EFF3FB] dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9]">
                   Last used
                 </span>
               )}
@@ -259,7 +259,7 @@ export const AuthModal: React.FC = () => {
               type="button"
               onClick={handleAppleSignIn}
               disabled={loading}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all text-sm font-medium text-gray-800 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all text-sm font-medium text-gray-800 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
             >
               <div className="flex items-center gap-3">
                 <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
@@ -268,7 +268,7 @@ export const AuthModal: React.FC = () => {
                 <span>Continue with Apple</span>
               </div>
               {lastUsed === 'apple' && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#EFF3FB] dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9]">
                   Last used
                 </span>
               )}
@@ -279,7 +279,7 @@ export const AuthModal: React.FC = () => {
               type="button"
               onClick={() => setAuthModalView('phone')}
               disabled={loading}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all text-sm font-medium text-gray-800 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all text-sm font-medium text-gray-800 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
             >
               <div className="flex items-center gap-3">
                 <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -289,7 +289,7 @@ export const AuthModal: React.FC = () => {
                 <span>Continue with Phone</span>
               </div>
               {lastUsed === 'phone' && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#EFF3FB] dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9]">
                   Last used
                 </span>
               )}
@@ -298,7 +298,7 @@ export const AuthModal: React.FC = () => {
             {/* Divider */}
             <div className="relative py-2 flex items-center justify-center">
               <div className="w-full border-t border-gray-200 dark:border-zinc-700" />
-              <span className="absolute bg-white dark:bg-[#1f1f1f] px-3 text-[11px] text-gray-400 uppercase">
+              <span className="absolute bg-white dark:bg-[#1E1E2E] px-3 text-[11px] text-gray-400 uppercase">
                 or
               </span>
             </div>
@@ -308,7 +308,7 @@ export const AuthModal: React.FC = () => {
               type="button"
               onClick={() => setAuthModalView('email')}
               disabled={loading}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all text-sm font-medium text-gray-800 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-all text-sm font-medium text-gray-800 dark:text-gray-200 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
             >
               <div className="flex items-center gap-3">
                 <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -318,7 +318,7 @@ export const AuthModal: React.FC = () => {
                 <span>Continue with Email</span>
               </div>
               {lastUsed === 'email' && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#EFF3FB] dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9]">
                   Last used
                 </span>
               )}
@@ -343,7 +343,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="button"
               onClick={() => setAuthModalView('choice')}
-              className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              className="flex items-center gap-1.5 text-xs text-[#4140FD] dark:text-[#A39CF9] hover:underline"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> All sign-in methods
             </button>
@@ -403,7 +403,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-[#4140FD] hover:bg-[#6572F2] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#4140FD]/20 disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{isRegisterMode ? 'Create account' : 'Sign in'}</span>
@@ -413,7 +413,7 @@ export const AuthModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsRegisterMode(!isRegisterMode)}
-                className="hover:underline text-blue-600 dark:text-blue-400 font-medium"
+                className="hover:underline text-[#4140FD] dark:text-[#A39CF9] font-medium"
               >
                 {isRegisterMode ? 'Already have an account? Sign in' : 'Create an account'}
               </button>
@@ -436,7 +436,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="button"
               onClick={() => setAuthModalView('choice')}
-              className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              className="flex items-center gap-1.5 text-xs text-[#4140FD] dark:text-[#A39CF9] hover:underline"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> All sign-in methods
             </button>
@@ -460,7 +460,7 @@ export const AuthModal: React.FC = () => {
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="+20 10 1234 5678"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#4140FD]"
               />
               <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
                 Include your country code, for example <strong>+1</strong> or <strong>+20</strong>.
@@ -470,7 +470,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={loading || !phoneNumber}
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-[#4140FD] hover:bg-[#6572F2] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#4140FD]/20 disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>Send verification code</span>
@@ -484,7 +484,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="button"
               onClick={() => setAuthModalView('phone')}
-              className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              className="flex items-center gap-1.5 text-xs text-[#4140FD] dark:text-[#A39CF9] hover:underline"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Change number
             </button>
@@ -509,14 +509,14 @@ export const AuthModal: React.FC = () => {
                 value={phoneCode}
                 onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, ''))}
                 placeholder="123456"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-center tracking-widest font-mono text-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-center tracking-widest font-mono text-lg text-gray-900 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#4140FD]"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading || phoneCode.length < 6}
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-[#4140FD] hover:bg-[#6572F2] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 shadow-md shadow-[#4140FD]/20 disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>Verify and continue</span>

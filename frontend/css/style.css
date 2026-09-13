@@ -200,8 +200,13 @@ details > summary { list-style: none; }
 details > summary::-webkit-details-marker { display: none; }
 
 :root {
-  --mindpal-user-bubble-bg: #f0f4f9;
-  --mindpal-user-bubble-text: #1f1f1f;
+  --mindpal-user-bubble-bg: #4140FD;
+  --mindpal-user-bubble-text: #ffffff;
+  --mindpal-brand-primary: #4140FD;
+  --mindpal-brand-indigo400: #6572F2;
+  --mindpal-brand-periwinkle300: #A39CF9;
+  --mindpal-brand-mist100: #EFF3FB;
+  --mindpal-brand-ink900: #1E1E2E;
 }
 
 :root[data-accent="orange"] {
@@ -215,21 +220,11 @@ details > summary::-webkit-details-marker { display: none; }
 }
 
 .dark {
-  --mindpal-user-bubble-bg: #1e1f20;
-  --mindpal-user-bubble-text: #e3e3e3;
+  --mindpal-user-bubble-bg: #4140FD;
+  --mindpal-user-bubble-text: #ffffff;
 }
 
-.dark[data-accent="orange"] {
-  --mindpal-user-bubble-bg: #3a2418;
-  --mindpal-user-bubble-text: #fed7aa;
-}
-
-.dark[data-accent="green"] {
-  --mindpal-user-bubble-bg: #163023;
-  --mindpal-user-bubble-text: #bbf7d0;
-}
-
-[data-contrast="high"] {
+:root[data-contrast="high"] {
   --mindpal-user-bubble-bg: #111827;
   --mindpal-user-bubble-text: #ffffff;
 }
@@ -239,9 +234,9 @@ details > summary::-webkit-details-marker { display: none; }
   color: var(--mindpal-user-bubble-text) !important;
 }
 
-/* Shimmer text for AI loading state */
+/* Shimmer text for AI loading state with Signature Gradient */
 .shimmer-text {
-    background: linear-gradient(90deg, #4285f4 0%, #9b72cb 50%, #4285f4 100%);
+    background: linear-gradient(115deg, #A39CF9 0%, #6572F2 50%, #4140FD 100%);
     background-size: 200% auto;
     color: transparent;
     -webkit-background-clip: text;
@@ -249,7 +244,7 @@ details > summary::-webkit-details-marker { display: none; }
     animation: shimmer 2s linear infinite;
 }
 .dark .shimmer-text {
-    background: linear-gradient(90deg, #a8c7fa 0%, #d3bcfa 50%, #a8c7fa 100%);
+    background: linear-gradient(115deg, #A39CF9 0%, #6572F2 50%, #4140FD 100%);
     background-size: 200% auto;
     -webkit-background-clip: text;
 }
@@ -267,87 +262,20 @@ details > summary::-webkit-details-marker { display: none; }
     color: #ef4444 !important;
 }
 
-/* MindPal design tokens extracted from the prototype Tailwind config. */
+/* MindPal brand design tokens */
 .bg-gemini-bg { background-color: #ffffff; }
-.bg-gemini-surface { background-color: #f0f4f9; }
-.text-gemini-text { color: #1f1f1f; }
-.text-gemini-muted { color: #444746; }
-.border-gemini-border { border-color: #e0e0e0; }
-.hover\:bg-gemini-surface:hover { background-color: #f0f4f9; }
+.bg-gemini-surface { background-color: #EFF3FB; }
+.text-gemini-text { color: #1E1E2E; }
+.text-gemini-muted { color: #5A5E72; }
+.border-gemini-border { border-color: #E2E6F0; }
+.hover\:bg-gemini-surface:hover { background-color: #EFF3FB; }
 
-.dark .dark\:bg-gemini-darkBg { background-color: #131314; }
-.dark .dark\:bg-gemini-darkSurface { background-color: #1e1f20; }
-.dark .dark\:text-gemini-darkText { color: #e3e3e3; }
-.dark .dark\:text-gemini-darkMuted { color: #c4c7c5; }
-.dark .dark\:border-gemini-darkBorder { border-color: #444746; }
-.dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #1e1f20; }
-
-/* MindPal custom utility fallbacks.
-   These preserve the prototype colors if Tailwind CDN config is delayed. */
-
-.bg-gemini-bg { background-color: #ffffff; }
-.bg-gemini-surface { background-color: #f0f4f9; }
-.text-gemini-text { color: #1f1f1f; }
-/* Shimmer text for AI loading state */
-.shimmer-text {
-    background: linear-gradient(90deg, #4285f4 0%, #9b72cb 50%, #4285f4 100%);
-    background-size: 200% auto;
-    color: transparent;
-    -webkit-background-clip: text;
-    background-clip: text;
-    animation: shimmer 2s linear infinite;
-}
-.dark .shimmer-text {
-    background: linear-gradient(90deg, #a8c7fa 0%, #d3bcfa 50%, #a8c7fa 100%);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-}
-@keyframes shimmer { to { background-position: 200% center; } }
-
-/* Voice Recording Pulse */
-@keyframes pulse-ring {
-    0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-    100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-.recording-pulse {
-    animation: pulse-ring 2s infinite;
-    background-color: rgba(239, 68, 68, 0.1);
-    color: #ef4444 !important;
-}
-
-/* MindPal design tokens extracted from the prototype Tailwind config. */
-.bg-gemini-bg { background-color: #ffffff; }
-.bg-gemini-surface { background-color: #f0f4f9; }
-.text-gemini-text { color: #1f1f1f; }
-.text-gemini-muted { color: #444746; }
-.border-gemini-border { border-color: #e0e0e0; }
-.hover\:bg-gemini-surface:hover { background-color: #f0f4f9; }
-
-.dark .dark\:bg-gemini-darkBg { background-color: #131314; }
-.dark .dark\:bg-gemini-darkSurface { background-color: #1e1f20; }
-.dark .dark\:text-gemini-darkText { color: #e3e3e3; }
-.dark .dark\:text-gemini-darkMuted { color: #c4c7c5; }
-.dark .dark\:border-gemini-darkBorder { border-color: #444746; }
-.dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #1e1f20; }
-
-/* MindPal custom utility fallbacks.
-   These preserve the prototype colors if Tailwind CDN config is delayed. */
-
-.bg-gemini-bg { background-color: #ffffff; }
-.bg-gemini-surface { background-color: #f0f4f9; }
-.text-gemini-text { color: #1f1f1f; }
-.text-gemini-muted { color: #444746; }
-.border-gemini-border { border-color: #e0e0e0; }
-
-.dark .dark\:bg-gemini-darkBg { background-color: #131314; }
-.dark .dark\:bg-gemini-darkSurface { background-color: #1e1f20; }
-.dark .dark\:text-gemini-darkText { color: #e3e3e3; }
-.dark .dark\:text-gemini-darkMuted { color: #c4c7c5; }
-.dark .dark\:border-gemini-darkBorder { border-color: #444746; }
-
-.hover\:bg-gemini-surface:hover { background-color: #f0f4f9; }
-.dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #1e1f20; }
+.dark .dark\:bg-gemini-darkBg { background-color: #1E1E2E; }
+.dark .dark\:bg-gemini-darkSurface { background-color: #28283D; }
+.dark .dark\:text-gemini-darkText { color: #EFF3FB; }
+.dark .dark\:text-gemini-darkMuted { color: #A0A3BD; }
+.dark .dark\:border-gemini-darkBorder { border-color: #35354A; }
+.dark .dark\:hover\:bg-gemini-darkSurface:hover { background-color: #28283D; }
 
 /* Message content box padding for proper spacing on all screen sizes */
 .content-box {

@@ -149,7 +149,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
               id="unified-selector-btn"
               type="button"
               onClick={() => setSelectorOpen(!selectorOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-medium text-gray-700 dark:text-gray-300 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-[13px] font-medium text-gray-700 dark:text-gray-300 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
               aria-haspopup="true"
               aria-expanded={selectorOpen}
               aria-label="Select model and listening style"
@@ -166,7 +166,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
             {selectorOpen && (
               <div
                 id="unified-dropdown"
-                className="absolute bottom-full right-0 mb-2 w-72 bg-white dark:bg-[#1e1f20] border border-black/10 dark:border-white/10 rounded-2xl shadow-xl p-2 z-50 animate-fade-in"
+                className="absolute bottom-full right-0 mb-2 w-72 bg-white dark:bg-[#28283D] border border-[#E2E6F0] dark:border-[#35354A] rounded-2xl shadow-xl p-2 z-50 animate-fade-in"
                 role="menu"
               >
                 {/* Model Section */}
@@ -180,7 +180,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                     setActiveModel('standard');
                     setSelectorOpen(false);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[#EFF3FB] dark:hover:bg-[#1E1E2E] transition-colors text-left"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
@@ -193,7 +193,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                     </div>
                   </div>
                   {activeModel === 'standard' && (
-                    <Check className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />
                   )}
                 </button>
 
@@ -203,14 +203,14 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                     setActiveModel('pro');
                     setSelectorOpen(false);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[#EFF3FB] dark:hover:bg-[#1E1E2E] transition-colors text-left"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                         Pro
                       </span>
-                      <span className="bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider">
+                      <span className="bg-[#A39CF9]/20 text-[#4140FD] dark:bg-[#6572F2]/20 dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider">
                         Clinical
                       </span>
                     </div>
@@ -219,11 +219,11 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                     </div>
                   </div>
                   {activeModel === 'pro' && (
-                    <Check className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                    <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />
                   )}
                 </button>
 
-                <div className="h-px bg-gray-200 dark:bg-zinc-800 mx-2 my-1.5" />
+                <div className="h-px bg-gray-200 dark:bg-[#35354A] mx-2 my-1.5" />
 
                 {/* Listening Mode Section */}
                 <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 px-3 py-1.5 uppercase tracking-wider">
@@ -238,13 +238,13 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
                       setActiveMode(mode);
                       setSelectorOpen(false);
                     }}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-[#EFF3FB] dark:hover:bg-[#1E1E2E] transition-colors text-left"
                   >
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                       {mode}
                     </span>
                     {activeMode === mode && (
-                      <Check className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <Check className="w-4 h-4 text-[#4140FD] flex-shrink-0" />
                     )}
                   </button>
                 ))}
@@ -257,7 +257,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
             id="voice-btn"
             type="button"
             onClick={() => setIsVoiceActive(true)}
-            className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
             title="Start voice conversation"
             aria-label="Start voice conversation"
           >
@@ -271,7 +271,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((props, ref) => {
               type="button"
               onClick={() => send(input)}
               disabled={isGenerating}
-              className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-black dark:bg-white text-white dark:text-black transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-[#4140FD] hover:bg-[#6572F2] text-white transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none shadow-md shadow-[#4140FD]/20"
               aria-label="Send message"
             >
               <ArrowUp className="w-5 h-5" />

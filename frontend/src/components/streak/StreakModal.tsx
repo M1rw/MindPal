@@ -29,7 +29,7 @@ export const StreakModal: React.FC = () => {
       {/* Content */}
       <div
         id="streak-content"
-        className="relative bg-white dark:bg-[#1e1f20] w-full max-w-sm flex flex-col rounded-[28px] shadow-2xl overflow-hidden border border-black/5 dark:border-white/10 z-10 animate-fade-in"
+        className="relative bg-white dark:bg-[#1E1E2E] w-full max-w-sm flex flex-col rounded-[28px] shadow-2xl overflow-hidden border border-black/5 dark:border-white/10 z-10 animate-fade-in"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-zinc-800">
@@ -38,7 +38,7 @@ export const StreakModal: React.FC = () => {
           </h2>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
             title="Close progress modal"
             aria-label="Close progress view"
           >
