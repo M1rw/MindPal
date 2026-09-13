@@ -54,11 +54,11 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood, children }
             </p>
 
             {/* Quick Mood Starter Chips */}
-            <div className="flex flex-wrap justify-center gap-3 mb-8">
+            <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3 mb-8">
               <button
                 type="button"
                 onClick={() => onSelectMood?.('I feel overwhelmed')}
-                className="px-4 py-2.5 rounded-xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-150 text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-2 border border-black/[0.04] dark:border-white/[0.06] hover:scale-[1.01] active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+                className="px-4 py-2.5 rounded-xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-[#4140FD]/5 dark:hover:bg-zinc-800 transition-all duration-150 text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-2 border border-black/[0.06] dark:border-white/[0.08] hover:border-[#4140FD]/30 hover:scale-[1.01] active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none shadow-sm"
               >
                 <Waves className="w-4 h-4 text-[#4140FD]" />
                 <span>I feel overwhelmed</span>
@@ -67,7 +67,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood, children }
               <button
                 type="button"
                 onClick={() => onSelectMood?.("I'm feeling anxious")}
-                className="px-4 py-2.5 rounded-xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-150 text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-2 border border-black/[0.04] dark:border-white/[0.06] hover:scale-[1.01] active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+                className="px-4 py-2.5 rounded-xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-[#6572F2]/5 dark:hover:bg-zinc-800 transition-all duration-150 text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-2 border border-black/[0.06] dark:border-white/[0.08] hover:border-[#6572F2]/30 hover:scale-[1.01] active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none shadow-sm"
               >
                 <Wind className="w-4 h-4 text-[#6572F2]" />
                 <span>I'm feeling anxious</span>
@@ -76,7 +76,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood, children }
               <button
                 type="button"
                 onClick={() => onSelectMood?.('I feel stuck')}
-                className="px-4 py-2.5 rounded-xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all duration-150 text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-2 border border-black/[0.04] dark:border-white/[0.06] hover:scale-[1.01] active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+                className="px-4 py-2.5 rounded-xl bg-gemini-surface dark:bg-gemini-darkSurface hover:bg-[#A39CF9]/10 dark:hover:bg-zinc-800 transition-all duration-150 text-sm font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-2 border border-black/[0.06] dark:border-white/[0.08] hover:border-[#A39CF9]/40 hover:scale-[1.01] active:scale-95 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none shadow-sm"
               >
                 <Anchor className="w-4 h-4 text-[#A39CF9]" />
                 <span>I feel stuck</span>

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { MessageSquare, Eye } from 'lucide-react';
 
 export type AppTab = 'chat' | 'presence';
@@ -40,7 +40,7 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange }) => {
           >
             {tab.icon}
             <span>{tab.label}</span>
-            {tab.badge && !isActive && (
+            {tab.badge && (
               <span className="bg-[#4140FD]/10 dark:bg-[#6572F2]/20 text-[#4140FD] dark:text-[#A39CF9] text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase leading-none">
                 {tab.badge}
               </span>
