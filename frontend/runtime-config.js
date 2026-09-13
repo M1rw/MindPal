@@ -1,6 +1,9 @@
 // Deployment-owned, non-secret browser configuration.
 // Override window.MINDPAL_RUNTIME_CONFIG before this file when embedding MindPal.
 (() => {
+  if (window.MINDPAL_CONFIG && window.MINDPAL_CONFIG.FIREBASE_CONFIG) {
+    return;
+  }
   const host = window.location.hostname;
   const isLocal = host === "localhost" || host === "127.0.0.1";
   const defaultApiBase = isLocal

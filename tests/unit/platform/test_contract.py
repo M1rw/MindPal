@@ -29,6 +29,18 @@ def test_live_health_and_changelog():
     assert changelog.json()["current_version"] == "5.0.0"
 
 
+def test_runtime_config_endpoint():
+    from fastapi.testclient import TestClient
+
+    client = TestClient(create_app(serve_frontend=True))
+    res = client.get("/runtime-config.js")
+    assert res.status_code == 200
+    assert "window.MINDPAL_CONFIG" in res.text
+    assert "no-store" in res.headers.get("cache-control", "")
+    assert "FIREBASE_CREDENTIALS_JSON" not in res.text
+    assert "private_key" not in res.text
+
+
 def test_chat_stream_mounted():
     from fastapi.testclient import TestClient
 
