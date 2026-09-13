@@ -53,6 +53,15 @@ def test_flags_snapshot(app_client):
     assert "flags" in res.json()
 
 
+def test_security_headers(app_client):
+    res = app_client.get("/api/health")
+    assert res.status_code == 200
+    assert res.headers["x-content-type-options"] == "nosniff"
+    assert res.headers["x-frame-options"] == "DENY"
+    assert res.headers["x-xss-protection"] == "1; mode=block"
+    assert res.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
+
 @pytest.mark.asyncio
 async def test_chat_orchestrator_crisis():
     orchestrator = ChatOrchestrator()
