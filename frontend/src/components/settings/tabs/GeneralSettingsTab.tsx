@@ -27,9 +27,11 @@ export const GeneralSettingsTab: React.FC<SettingsTabContentProps> = ({ settings
                 updateSettings({ theme });
                 if (theme === 'dark') {
                   document.documentElement.classList.add('dark');
+                  document.documentElement.classList.remove('light');
                   localStorage.setItem(STORAGE_KEYS.THEME, 'dark');
                 } else {
                   document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('light');
                   localStorage.setItem(STORAGE_KEYS.THEME, 'light');
                 }
               }}

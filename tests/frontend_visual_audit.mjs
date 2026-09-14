@@ -82,6 +82,8 @@ const auditPage = async (page, label, viewport) => {
   await page.goto(`${baseUrl}/index.html`);
   await page.getByPlaceholder('Ask MindPal').waitFor({ state: 'visible' });
   await page.waitForTimeout(1_200);
+  await page.getByRole('button', { name: 'Toggle theme' }).click();
+  await page.waitForTimeout(250);
   await page.screenshot({ path: `${evidenceDir}/${label}-initial.png`, fullPage: true });
   results.screenshots.push(`${label}-initial.png`);
 
@@ -112,8 +114,8 @@ const auditPage = async (page, label, viewport) => {
   addCheck(`${label} has named visible controls`, geometry.controls.every((control) => control.ariaLabel || control.title || control.text), JSON.stringify(geometry.controls));
   addCheck(`${label} has main and navigation landmarks`, geometry.landmarks.includes('main') && geometry.landmarks.includes('nav'), JSON.stringify(geometry.landmarks));
   addCheck(`${label} has no empty-state ambient glow`, await page.locator('.ambient-canvas-glow').count() === 0, 'The empty chat state should not add a top aura.');
+  addCheck(`${label} light theme is explicit`, await page.evaluate(() => document.documentElement.classList.contains('light') && !document.documentElement.classList.contains('dark')), 'Light mode must not rely on the OS fallback token set.');
 
-  await page.getByRole('button', { name: 'Toggle theme' }).click();
   await page.getByRole('button', { name: 'Open chat history' }).click();
   await page.getByRole('dialog', { name: 'Chat history' }).waitFor({ state: 'visible' });
   await page.waitForTimeout(350);
