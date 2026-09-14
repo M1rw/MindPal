@@ -82,6 +82,8 @@ interface ChatState {
   activeMode: string;
   strategyUsed: string | null;
   addMessage: (msg: ChatMessage) => void;
+  updateMessage: (id: string, content: string, strategy?: string) => void;
+  removeMessage: (id: string) => void;
   updateLastMessage: (content: string, strategy?: string) => void;
   setIsGenerating: (generating: boolean) => void;
   setActiveModel: (model: string) => void;
@@ -96,6 +98,19 @@ export const useChatStore = create<ChatState>((set) => ({
   activeMode: 'Active Listen',
   strategyUsed: null,
   addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
+  updateMessage: (id, content, strategy) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id
+          ? { ...m, content, ...(strategy ? { strategy_used: strategy } : {}) }
+          : m
+      ),
+      strategyUsed: strategy ?? state.strategyUsed,
+    })),
+  removeMessage: (id) =>
+    set((state) => ({
+      messages: state.messages.filter((m) => m.id !== id),
+    })),
   updateLastMessage: (content, strategy) =>
     set((state) => {
       if (state.messages.length === 0) return state;

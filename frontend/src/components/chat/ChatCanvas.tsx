@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Waves, Wind, Anchor, Copy, Check, Volume2, ThumbsUp, ThumbsDown, RefreshCw, BarChart2 } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Waves, Wind, Anchor, Copy, Check, Volume2, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useChatStore, useAuthStore } from '../../store';
 import { renderMarkdown } from '../../utils/markdown';
@@ -36,13 +36,14 @@ async function saveFeedback(
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood, children }) => {
-  const { messages, isGenerating, addMessage, updateLastMessage, setIsGenerating, activeModel } = useChatStore();
+  const { messages, isGenerating, updateMessage, setIsGenerating, activeModel } = useChatStore();
   const { user } = useAuthStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [thumbsState, setThumbsState] = useState<Record<string, FeedbackKind | null>>({});
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const { greeting, isLoading: greetingLoading } = useGreeting(
     user ? { uid: user.uid, displayName: user.displayName } : null
   );
@@ -83,32 +84,61 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood, children }
     await saveFeedback(user?.uid ?? null, msgId, content, kind);
   }, [user?.uid]);
 
-  const handleRegenerate = useCallback(async () => {
-    // Find last user message and re-send it
-    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
-    if (!lastUser || isGenerating) return;
+  const handleRegenerate = useCallback(async (targetMsgId?: string) => {
+    if (isGenerating) return;
 
-    // Remove last assistant message and re-trigger
-    const { ApiClient } = await import('../../services/api');
-    const history = messages.slice(0, -1).filter((m) => m.role !== 'assistant' || messages.indexOf(m) < messages.length - 1);
+    // Find target assistant message
+    const target = targetMsgId
+      ? messages.find((m) => m.id === targetMsgId)
+      : [...messages].reverse().find((m) => m.role === 'assistant');
+
+    if (!target || target.role !== 'assistant') return;
+
+    const targetIdx = messages.findIndex((m) => m.id === target.id);
+    if (targetIdx === -1) return;
+
+    // Find the user message that prompted this assistant message
+    let userMsg: (typeof messages)[0] | undefined;
+    for (let i = targetIdx - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userMsg = messages[i];
+        break;
+      }
+    }
+    if (!userMsg) return;
+
+    const userIdx = messages.findIndex((m) => m.id === userMsg.id);
+    const history = messages.slice(Math.max(0, userIdx - 10), userIdx);
 
     setIsGenerating(true);
-    const assistantMsgId = `msg_regen_${Date.now()}`;
-    addMessage({ id: assistantMsgId, role: 'assistant', content: '', timestamp: new Date().toISOString() });
+    setRegeneratingId(target.id);
 
+    // In-place regeneration: CLEAR existing content, do NOT add a new message!
+    updateMessage(target.id, '');
+
+    const { ApiClient } = await import('../../services/api');
     let current = '';
+
     await ApiClient.streamChat(
-      lastUser.content,
-      messages.slice(-12, -1),
-      (chunk) => {
+      userMsg.content,
+      history,
+      (chunk, strategy) => {
         current += chunk;
-        updateLastMessage(current);
+        updateMessage(target.id, current, strategy);
       },
-      () => setIsGenerating(false),
-      () => { updateLastMessage('Unable to regenerate. Please try again.'); setIsGenerating(false); },
+      () => {
+        setIsGenerating(false);
+        setRegeneratingId(null);
+      },
+      (err) => {
+        console.error('Regeneration error:', err);
+        updateMessage(target.id, 'Unable to regenerate. Please try again.');
+        setIsGenerating(false);
+        setRegeneratingId(null);
+      },
       { model: activeModel }
     );
-  }, [messages, isGenerating, activeModel, addMessage, updateLastMessage, setIsGenerating]);
+  }, [messages, isGenerating, activeModel, updateMessage, setIsGenerating]);
 
   return (
     <div
@@ -164,7 +194,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood, children }
             {messages.map((msg, idx) => {
               const isUser = msg.role === 'user';
               const isLast = idx === messages.length - 1;
-              const isStreaming = isLast && isGenerating && !isUser;
+              const isStreamingThis = !isUser && ((isGenerating && isLast && !regeneratingId) || regeneratingId === msg.id);
               const htmlContent = renderMarkdown(msg.content);
               const thumbed = thumbsState[msg.id] ?? null;
 
@@ -183,15 +213,38 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood, children }
                     ) : (
                       /* Assistant — clean prose, no card */
                       <div className="w-full">
-                        {/* Empty streaming placeholder — elegant "Thinking…" */}
-                        {isStreaming && msg.content === '' ? (
-                          <div className="flex items-center gap-2 py-1 text-zinc-400 dark:text-zinc-500 animate-fade-in">
-                            <BarChart2 className="w-4 h-4 opacity-70" />
-                            <span className="text-[14px] font-medium">Thinking</span>
-                            <span className="flex gap-0.5">
-                              <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                              <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" style={{ animationDelay: '120ms' }} />
-                              <span className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-500 animate-bounce" style={{ animationDelay: '240ms' }} />
+                        {/* Empty streaming placeholder — elegant 3-bar "Thinking ..." */}
+                        {isStreamingThis && msg.content === '' ? (
+                          <div className="flex items-center gap-2 py-1.5 text-zinc-500 dark:text-zinc-400 animate-fade-in select-none">
+                            {/* 3-bar signal icon matching reference image */}
+                            <div className="flex items-end gap-[2px] h-[15px] pb-[1px]" aria-hidden="true">
+                              <span
+                                className="w-[2px] h-[6px] bg-zinc-400 dark:bg-zinc-500 rounded-full animate-pulse"
+                                style={{ animationDuration: '1.2s', animationDelay: '0ms' }}
+                              />
+                              <span
+                                className="w-[2px] h-[14px] bg-zinc-400 dark:bg-zinc-500 rounded-full animate-pulse"
+                                style={{ animationDuration: '1.2s', animationDelay: '200ms' }}
+                              />
+                              <span
+                                className="w-[2px] h-[9px] bg-zinc-400 dark:bg-zinc-500 rounded-full animate-pulse"
+                                style={{ animationDuration: '1.2s', animationDelay: '400ms' }}
+                              />
+                            </div>
+                            <span className="text-[14px] font-medium text-zinc-500 dark:text-zinc-400">Thinking</span>
+                            <span className="flex items-center gap-[2.5px] ml-0.5" aria-hidden="true">
+                              <span
+                                className="w-[3px] h-[3px] rounded-full bg-zinc-400 dark:bg-zinc-500 animate-pulse"
+                                style={{ animationDuration: '1.4s', animationDelay: '0ms' }}
+                              />
+                              <span
+                                className="w-[3px] h-[3px] rounded-full bg-zinc-400 dark:bg-zinc-500 animate-pulse"
+                                style={{ animationDuration: '1.4s', animationDelay: '250ms' }}
+                              />
+                              <span
+                                className="w-[3px] h-[3px] rounded-full bg-zinc-400 dark:bg-zinc-500 animate-pulse"
+                                style={{ animationDuration: '1.4s', animationDelay: '500ms' }}
+                              />
                             </span>
                           </div>
                         ) : (
@@ -200,14 +253,14 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood, children }
                               'text-[15px] leading-[1.8] text-zinc-800 dark:text-zinc-100',
                               'prose prose-sm dark:prose-invert max-w-none',
                               'prose-p:my-1.5 prose-headings:mb-2 prose-headings:mt-4 prose-li:my-0.5',
-                              isStreaming ? 'chat-streaming' : '',
+                              isStreamingThis ? 'chat-streaming' : '',
                             ].join(' ')}
                             dangerouslySetInnerHTML={{ __html: htmlContent }}
                           />
                         )}
 
                         {/* Action row — always visible once done */}
-                        {!isStreaming && msg.content && (
+                        {!isStreamingThis && msg.content && (
                           <div className="flex items-center gap-0.5 mt-2.5">
                             {/* Copy */}
                             <button
@@ -260,16 +313,17 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood, children }
                               <ThumbsDown className="w-4 h-4" />
                             </button>
 
-                            {/* Regenerate — only on last assistant message */}
-                            {isLast && (
-                              <button
-                                onClick={handleRegenerate}
-                                className="msg-action-btn p-1.5 rounded-lg text-zinc-400 hover:text-[#4140FD] hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                                title="Regenerate" aria-label="Regenerate response"
-                              >
-                                <RefreshCw className="w-4 h-4" />
-                              </button>
-                            )}
+                            {/* Regenerate — in-place regeneration of this message */}
+                            <button
+                              onClick={() => handleRegenerate(msg.id)}
+                              disabled={isGenerating}
+                              className={`msg-action-btn p-1.5 rounded-lg text-zinc-400 hover:text-[#4140FD] hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors ${
+                                isGenerating ? 'opacity-40 cursor-not-allowed' : ''
+                              }`}
+                              title="Regenerate" aria-label="Regenerate response"
+                            >
+                              <RefreshCw className={`w-4 h-4 ${regeneratingId === msg.id ? 'animate-spin' : ''}`} />
+                            </button>
                           </div>
                         )}
                       </div>
