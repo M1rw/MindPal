@@ -41,11 +41,14 @@ import { App } from './App';
     const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
     if (savedTheme === 'light') {
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
     } else {
       document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
     }
   } catch {
     document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('light');
   }
 })();
 

@@ -33,9 +33,11 @@ export const Header: React.FC<HeaderProps> = () => {
     setIsDark(nextDark);
     if (nextDark) {
       document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
       localStorage.setItem(STORAGE_KEYS.THEME, 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
       localStorage.setItem(STORAGE_KEYS.THEME, 'light');
     }
   };
