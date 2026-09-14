@@ -45,8 +45,8 @@ const mockApi = async (route) => {
 
   if (path === '/api/features') {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      voice_enabled: false,
-      presence_enabled: false,
+      voice_enabled: true,
+      presence_enabled: true,
       pro_model_enabled: true,
       memory_enabled: true,
       changelog_enabled: false,

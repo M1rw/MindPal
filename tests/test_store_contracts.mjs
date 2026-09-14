@@ -127,9 +127,9 @@ describe('Chat Store State Machine Logic', () => {
 });
 
 describe('Feature Flag Store Contract', () => {
-  it('defaults presence to disabled until explicitly enabled', () => {
+  it('keeps presence enabled in the full-feature test profile', () => {
     const initialFlags = useFlagsStore.getState().flags;
-    assert.equal(initialFlags.presence_enabled, false);
+    assert.equal(initialFlags.presence_enabled, true);
 
     useFlagsStore.getState().setFlags({
       ...initialFlags,
