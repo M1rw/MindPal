@@ -49,6 +49,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
               type="button"
+              aria-current={isActive ? 'page' : undefined}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-colors text-left focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none ${
                 isActive
                   ? 'bg-[#4140FD] text-white'

@@ -1,5 +1,5 @@
-import { fetchJson, fetchBlob, expectOk } from './http';
-import type { UserProfile, UserInsightsResponse } from '../../types';
+import { fetchJson, fetchBlob, expectOk } from './http.ts';
+import type { UserProfile, UserInsightsResponse } from '../../types/index.ts';
 
 export const usersApi = {
   async getUserMe(): Promise<unknown> {

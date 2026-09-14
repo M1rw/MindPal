@@ -12,7 +12,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
   isOpen,
   onClose,
 }) => {
-  const { summary, setSummary, isLoading, setIsLoading, setError } = useMemoryStore();
+  const { summary, setSummary, isLoading, error, setIsLoading, setError } = useMemoryStore();
   const { push: pushToast } = useToastStore();
   const modalContentRef = useFocusTrap<HTMLDivElement>({
     isOpen,
@@ -24,6 +24,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
 
   const loadData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const [sumRes, graphRes] = await Promise.allSettled([
         ApiClient.getMemorySummary(),
@@ -35,6 +36,10 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
       }
       if (graphRes.status === 'fulfilled') {
         setAtoms(graphRes.value?.atoms || []);
+      }
+      if (sumRes.status === 'rejected' || graphRes.status === 'rejected') {
+        const failedResource = sumRes.status === 'rejected' ? 'summary' : 'memory items';
+        setError(`Could not load your memory ${failedResource}. Please try again.`);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load memory context.');
@@ -100,6 +105,18 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           {isLoading ? (
             <SkeletonMemoryView mode={activeTab} />
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center text-rose-600 dark:text-rose-400">
+              <p className="text-sm font-medium">Memory unavailable</p>
+              <p className="text-xs mt-1 text-content-muted">{error}</p>
+              <button
+                type="button"
+                onClick={loadData}
+                className="mt-4 px-3.5 py-2 rounded-xl text-xs font-semibold bg-brand-primary text-white hover:bg-brand-hover transition-colors"
+              >
+                Retry loading memory
+              </button>
+            </div>
           ) : activeTab === 'summary' ? (
             <div className="prose dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
               {summary?.summary || (
@@ -147,6 +164,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
                       onClick={() => handleDeleteAtom(atom.id)}
                       className="p-1.5 rounded-lg hover:bg-rose-500/10 text-content-muted hover:text-rose-500 transition-colors"
                       title="Forget this memory"
+                      aria-label={`Forget memory: ${atom.value}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -167,6 +185,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleRefresh}
               disabled={isLoading}
               className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-surface-subtle hover:bg-surface-elevated text-content-primary border border-edge-subtle flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"

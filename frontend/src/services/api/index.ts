@@ -1,7 +1,7 @@
-import { chatApi } from './chat';
-import { chatsApi } from './chats';
-import { usersApi } from './users';
-import { memoryApi } from './memory';
+import { chatApi } from './chat.ts';
+import { chatsApi } from './chats.ts';
+import { usersApi } from './users.ts';
+import { memoryApi } from './memory.ts';
 import type {
   MemorySummaryResponse,
   VoiceTokenResponse,
@@ -13,8 +13,8 @@ import type {
   ChangelogResponse,
   ChatSession,
   UserPersonalization,
-} from '../../types';
-import { fetchJson, fetchBlob, expectOk } from './http';
+} from '../../types/index.ts';
+import { fetchJson, fetchBlob, expectOk } from './http.ts';
 
 export { fetchJson, fetchBlob, expectOk };
 

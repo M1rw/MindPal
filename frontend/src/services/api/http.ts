@@ -1,5 +1,5 @@
-import { useSessionStore } from '../../store';
-import { getApiBaseUrl } from '../config';
+import { useSessionStore } from '../../store/index.ts';
+import { getApiBaseUrl } from '../config.ts';
 
 export async function fetchWithAuth(path: string, options: RequestInit = {}): Promise<Response> {
   const { idToken, appCheckToken } = useSessionStore.getState();

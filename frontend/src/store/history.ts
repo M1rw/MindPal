@@ -30,6 +30,7 @@ interface ChatHistoryState {
   sessions: ChatSession[];
   activeSessionId: string | null;
   isLoadingCloud: boolean;
+  cloudError: string | null;
   saveSession: (session: ChatSession) => void;
   renameSession: (id: string, title: string) => void;
   deleteSession: (id: string) => void;
@@ -42,6 +43,7 @@ export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
   sessions: loadSessions(),
   activeSessionId: null,
   isLoadingCloud: false,
+  cloudError: null,
   saveSession: (session) => {
     set((state) => {
       const filtered = state.sessions.filter((s) => s.id !== session.id);
@@ -50,7 +52,7 @@ export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
       return { sessions: next, activeSessionId: session.id };
     });
     if (useSessionStore.getState().isAuthenticated) {
-      import('../services/api/index').then(({ ApiClient }) => {
+      import('../services/api/index.ts').then(({ ApiClient }) => {
         ApiClient.saveChatSession(session).catch((err) => {
           console.warn('Failed to sync chat session to cloud:', err);
         });
@@ -67,7 +69,7 @@ export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
       const next = state.sessions.map((s) => (s.id === id ? updated : s));
       saveSessions(next);
       if (useSessionStore.getState().isAuthenticated) {
-        import('../services/api/index').then(({ ApiClient }) => {
+        import('../services/api/index.ts').then(({ ApiClient }) => {
           ApiClient.saveChatSession(updated).catch((err) => {
             console.warn('Failed to sync renamed session to cloud:', err);
           });
@@ -83,7 +85,7 @@ export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
       return { sessions: next, activeSessionId: state.activeSessionId === id ? null : state.activeSessionId };
     });
     if (useSessionStore.getState().isAuthenticated) {
-      import('../services/api/index').then(({ ApiClient }) => {
+      import('../services/api/index.ts').then(({ ApiClient }) => {
         ApiClient.deleteChatSession(id).catch((err) => {
           console.warn('Failed to delete cloud chat session:', err);
         });
@@ -98,8 +100,8 @@ export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
   loadCloudSessions: async () => {
     try {
       if (!useSessionStore.getState().isAuthenticated) return;
-      set({ isLoadingCloud: true });
-      const { ApiClient } = await import('../services/api/index');
+      set({ isLoadingCloud: true, cloudError: null });
+      const { ApiClient } = await import('../services/api/index.ts');
       const res = await ApiClient.listChatSessions();
       if (res?.sessions && Array.isArray(res.sessions)) {
         set((state) => {
@@ -120,11 +122,14 @@ export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
           return { sessions: merged, isLoadingCloud: false };
         });
       } else {
-        set({ isLoadingCloud: false });
+        set({ isLoadingCloud: false, cloudError: 'Cloud history returned an invalid response.' });
       }
     } catch (err) {
       console.warn('Failed to load cloud sessions:', err);
-      set({ isLoadingCloud: false });
+      set({
+        isLoadingCloud: false,
+        cloudError: 'Could not sync cloud history. Your local conversations are still available.',
+      });
     }
   },
 }));

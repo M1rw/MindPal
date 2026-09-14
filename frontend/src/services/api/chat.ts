@@ -1,6 +1,6 @@
-import { useSettingsStore } from '../../store';
-import type { UserPersonalization } from '../../types';
-import { fetchJson, fetchWithAuth, expectOk, parseErrorMessage } from './http';
+import { useSettingsStore } from '../../store/index.ts';
+import type { UserPersonalization } from '../../types/index.ts';
+import { fetchJson, fetchWithAuth, expectOk, parseErrorMessage } from './http.ts';
 
 export const chatApi = {
   async streamChat(

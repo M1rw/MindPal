@@ -104,6 +104,7 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
             {!isStreamingThis && msg.content && (
               <div className="flex items-center gap-0.5 mt-2.5">
                 <button
+                  type="button"
                   onClick={() => onCopy(msg.id, msg.content)}
                   className="msg-action-btn p-1.5 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface-subtle transition-colors"
                   title="Copy"
@@ -117,6 +118,7 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => onToggleSpeak(msg.id, msg.content)}
                   className={`msg-action-btn p-1.5 rounded-lg transition-colors ${
                     speakingId === msg.id
@@ -124,12 +126,13 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
                       : 'text-content-muted hover:text-content-primary hover:bg-surface-subtle'
                   }`}
                   title={speakingId === msg.id ? 'Stop reading' : 'Read aloud'}
-                  aria-label="Read aloud"
+                  aria-label={speakingId === msg.id ? 'Stop reading aloud' : 'Read aloud'}
                 >
                   <Volume2 className="w-4 h-4" />
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => onThumb(msg.id, msg.content, 'thumbs_up')}
                   className={`msg-action-btn p-1.5 rounded-lg transition-colors ${
                     thumbed === 'thumbs_up'
@@ -143,6 +146,7 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => onThumb(msg.id, msg.content, 'thumbs_down')}
                   className={`msg-action-btn p-1.5 rounded-lg transition-colors ${
                     thumbed === 'thumbs_down'
@@ -156,6 +160,7 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => onRegenerate(msg.id)}
                   disabled={isGenerating}
                   className={`msg-action-btn p-1.5 rounded-lg text-content-muted hover:text-brand-primary hover:bg-surface-subtle transition-colors ${

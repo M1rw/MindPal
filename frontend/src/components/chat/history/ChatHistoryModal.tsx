@@ -44,6 +44,7 @@ export const ChatHistoryModal: React.FC = () => {
   const sessions = useChatHistoryStore((s) => s.sessions);
   const activeSessionId = useChatHistoryStore((s) => s.activeSessionId);
   const isLoadingCloud = useChatHistoryStore((s) => s.isLoadingCloud);
+  const cloudError = useChatHistoryStore((s) => s.cloudError);
   const deleteSession = useChatHistoryStore((s) => s.deleteSession);
   const renameSession = useChatHistoryStore((s) => s.renameSession);
   const setActiveSessionId = useChatHistoryStore((s) => s.setActiveSessionId);
@@ -212,6 +213,19 @@ export const ChatHistoryModal: React.FC = () => {
         <div className="overflow-y-auto custom-scrollbar flex-1" style={{ maxHeight: 'calc(100dvh - 180px)' }}>
           {isLoadingCloud && groups.length === 0 ? (
             <SkeletonHistoryList count={4} />
+          ) : cloudError && groups.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
+              <MessageSquare className="w-8 h-8 text-rose-500/70 mb-3" />
+              <p className="text-sm font-medium text-content-primary">Cloud history unavailable</p>
+              <p className="text-xs text-content-muted mt-1 mb-4">Your local conversations are safe. Retry the sync when you are ready.</p>
+              <button
+                type="button"
+                onClick={() => useChatHistoryStore.getState().loadCloudSessions()}
+                className="px-4 py-2 rounded-xl text-xs font-medium bg-brand-primary text-white hover:bg-brand-hover transition-transform active:scale-95 shadow-sm"
+              >
+                Retry sync
+              </button>
+            </div>
           ) : groups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
               <MessageSquare className="w-8 h-8 text-content-muted mb-3" />
@@ -246,6 +260,18 @@ export const ChatHistoryModal: React.FC = () => {
             />
           )}
         </div>
+        {cloudError && groups.length > 0 && (
+          <div className="flex items-center justify-between gap-3 border-t border-edge-subtle bg-amber-500/5 px-4 py-2.5 text-xs text-content-secondary">
+            <span>{cloudError}</span>
+            <button
+              type="button"
+              onClick={() => useChatHistoryStore.getState().loadCloudSessions()}
+              className="flex-shrink-0 font-semibold text-brand-primary hover:text-brand-hover"
+            >
+              Retry sync
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
