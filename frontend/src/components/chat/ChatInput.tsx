@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, KeyboardEvent, forwardRef, useImperativeHandle } from 'react';
 import { useChatStore, useVoiceStore, useStreakStore, useToastStore } from '../../store';
 import { ApiClient } from '../../services/api';
-import { telemetry } from '../../services/telemetry';
 import { ArrowUp, AudioWaveform, ChevronDown, Check, Mic, Square, X } from 'lucide-react';
 
 export interface ChatInputHandle {
@@ -311,7 +310,6 @@ export const ChatInput = forwardRef<ChatInputHandle>((_props, ref) => {
     });
 
     let currentContent = '';
-    const telemetrySnapshot = telemetry.getSnapshot();
 
     await ApiClient.streamChat(
       trimmed,
@@ -330,7 +328,6 @@ export const ChatInput = forwardRef<ChatInputHandle>((_props, ref) => {
       },
       {
         model: activeModel,
-        telemetry: telemetrySnapshot,
       }
     );
   };
