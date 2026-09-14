@@ -25,7 +25,6 @@ class TelemetryManager {
   private isIdle: boolean = false;
   private idleStartTime: number = 0;
   private lastIdleDurationSeconds: number = 0;
-  private timer: number | null = null;
   private isOnline: boolean = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
   // Inactivity threshold: 30 seconds of no interaction
@@ -90,7 +89,7 @@ class TelemetryManager {
   }
 
   private startLoop() {
-    this.timer = window.setInterval(() => {
+    window.setInterval(() => {
       const now = Date.now();
       const elapsedSinceActivity = now - this.lastActivityTime;
 

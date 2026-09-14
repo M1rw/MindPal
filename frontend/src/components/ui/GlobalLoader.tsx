@@ -58,7 +58,7 @@ export const GlobalLoader: React.FC = () => {
       <div className="flex-1 flex items-center justify-center">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-medium tracking-tight">
           <span
-            className="bg-clip-text text-transparent bg-gradient-to-r from-[#A39CF9] via-[#6572F2] to-[#4140FD] transition-opacity duration-300"
+            className="bg-clip-text text-transparent bg-brand-gradient transition-opacity duration-300"
             style={{ opacity: visible ? 1 : 0 }}
           >
             {displayText}
@@ -69,7 +69,7 @@ export const GlobalLoader: React.FC = () => {
       {/* Composer skeleton */}
       <div className="w-full pb-6 px-4 flex justify-center flex-none">
         <div className="w-full max-w-4xl">
-          <div className="bg-gemini-surface dark:bg-gemini-darkSurface rounded-[32px] p-2 flex items-center w-full">
+          <div className="bg-surface-subtle border border-edge-subtle rounded-[32px] p-2 flex items-center w-full specular-card">
             <div className="flex-1 h-5 bg-gray-300/30 dark:bg-zinc-700/40 rounded-md animate-pulse ml-4 max-w-[140px] sm:max-w-[180px]" style={{ animationDelay: '300ms' }} />
             <div className="flex items-center gap-1.5 pr-1 ml-auto">
               <div className="w-36 h-8 rounded-xl bg-gray-200/40 dark:bg-zinc-700/30 animate-pulse" style={{ animationDelay: '350ms' }} />

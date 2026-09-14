@@ -1,11 +1,17 @@
 import React from 'react';
 import { X, Flame, Check } from 'lucide-react';
 import { useStreakStore } from '../../store';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 const DAYS_OF_WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export const StreakModal: React.FC = () => {
   const { streak, isOpen, setIsOpen } = useStreakStore();
+  const modalContentRef = useFocusTrap<HTMLDivElement>({
+    isOpen,
+    onClose: () => setIsOpen(false),
+    autoFocus: true,
+  });
 
   if (!isOpen) return null;
 
@@ -28,17 +34,18 @@ export const StreakModal: React.FC = () => {
 
       {/* Content */}
       <div
+        ref={modalContentRef}
         id="streak-content"
-        className="relative bg-white dark:bg-[#18181B] w-full max-w-sm flex flex-col rounded-2xl shadow-xl overflow-hidden border border-black/[0.08] dark:border-white/[0.08] z-10 animate-fade-in"
+        className="relative bg-surface-card w-full max-w-sm flex flex-col rounded-2xl specular-card shadow-modal overflow-hidden border border-edge-subtle z-10 animate-fade-in"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
-          <h2 id="streak-modal-title" className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-edge-subtle">
+          <h2 id="streak-modal-title" className="text-base font-semibold text-content-primary">
             Your Journey
           </h2>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+            className="p-1.5 hover:bg-surface-subtle rounded-full text-content-muted hover:text-content-primary transition-colors focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none"
             title="Close progress modal"
             aria-label="Close progress view"
           >
@@ -50,13 +57,13 @@ export const StreakModal: React.FC = () => {
         <div className="p-8 flex flex-col items-center gap-8">
           {/* Flame & Count */}
           <div className="flex flex-col items-center text-center">
-            <div className="w-20 h-20 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-500 flex items-center justify-center mb-4 border border-orange-100 dark:border-orange-800/30">
+            <div className="w-20 h-20 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-500 flex items-center justify-center mb-4 border border-orange-200 dark:border-orange-800/30 shadow-[0_0_24px_rgba(249,115,22,0.18)]">
               <Flame className="w-10 h-10 fill-orange-500 text-orange-500 animate-pulse" />
             </div>
-            <div className="text-4xl font-bold text-zinc-900 dark:text-white mb-1">
+            <div className="text-4xl font-bold text-content-primary mb-1">
               {streak.count} Day Streak
             </div>
-            <div className="text-sm text-zinc-500 dark:text-zinc-400">
+            <div className="text-sm text-content-secondary">
               {streak.count > 0
                 ? "You're building emotional resilience and clarity."
                 : 'Complete a reflection today to begin your streak!'}
@@ -65,7 +72,7 @@ export const StreakModal: React.FC = () => {
 
           {/* 7-Day Tracker */}
           <div className="w-full">
-            <h3 className="text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-4 text-center">
+            <h3 className="text-2xs font-bold text-content-muted uppercase tracking-wider mb-4 text-center">
               Weekly Progress
             </h3>
             <div className="flex justify-between items-center w-full px-2" id="weekly-tracker">
@@ -78,15 +85,15 @@ export const StreakModal: React.FC = () => {
                     <div
                       className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
                         isCompleted
-                          ? 'bg-orange-500 text-white'
+                          ? 'bg-orange-500 text-white shadow-sm'
                           : isToday
                           ? 'border-2 border-orange-500 text-orange-500 bg-orange-50/50 dark:bg-orange-950/20'
-                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500'
+                          : 'bg-surface-subtle text-content-muted'
                       }`}
                     >
                       {isCompleted ? <Check className="w-4 h-4 stroke-[2.5]" /> : day}
                     </div>
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                    <span className="text-2xs text-content-muted">
                       {isToday ? 'Today' : day}
                     </span>
                   </div>

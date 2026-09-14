@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ApiClient } from '../services/api';
+import { ApiClient } from '../services/api/index';
 
 interface GreetingCache {
   text: string;

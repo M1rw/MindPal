@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useVoiceStore, useToastStore } from '../../store';
-import { ApiClient } from '../../services/api';
+import { ApiClient } from '../../services/api/index';
 import {
   ArrowLeft,
   Eye,

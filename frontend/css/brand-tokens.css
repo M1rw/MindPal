@@ -6,38 +6,181 @@
 
 :root {
   /* Brand identity */
-  --brand-name:              "MindPal";
+  --brand-name:                  "MindPal";
 
-  /* Colors -- full palette */
-  --color-brand-primary:     #4140FD;
-  --color-theme-light:       #FFFFFF;
-  --color-theme-dark:        #0C0C0E;
-  --color-bg-light:          #FFFFFF;
-  --color-bg-dark:           #0C0C0E;
-  --color-surface-light:     #EFF3FB;
-  --color-surface-dark:      #18181B;
-  --color-text-light:        #1A1A2E;
-  --color-text-dark:         #F4F4F5;
+  /* Core Brand Colors */
+  --color-brand-primary:         #4140FD;
+  --brand-primary:               #4140FD;
+  --brand-primary-hover:         #3534DF;
+  --brand-primary-active:        #2B2AC2;
+  --brand-primary-subtle:        rgba(65, 64, 253, 0.08);
+  --brand-secondary:             #6572F2;
+  --brand-accent:                #A39CF9;
+  --brand-mist:                  #EFF3FB;
+  --brand-gradient:              linear-gradient(115deg, #A39CF9 0%, #6572F2 50%, #4140FD 100%);
 
-  /* Typography */
-  --font-family-base:        Inter, system-ui, -apple-system, sans-serif;
+  /* Backward compatibility variables */
+  --color-theme-light:           #FFFFFF;
+  --color-theme-dark:            #0C0C0E;
+  --color-bg-light:              #FFFFFF;
+  --color-bg-dark:               #0C0C0E;
+  --color-surface-light:         #EFF3FB;
+  --color-surface-dark:          #18181B;
+  --color-text-light:            #1A1A2E;
+  --color-text-dark:             #F4F4F5;
+
+  /* Typography System */
+  --font-family-base:            Inter, system-ui, -apple-system, sans-serif;
+  --font-size-2xs:               0.625rem;  /* 10px */
+  --font-size-xs:                0.75rem;   /* 12px */
+  --font-size-sm:                0.84375rem;/* 13.5px */
+  --font-size-base:              0.9375rem; /* 15px */
+  --font-size-md:                1rem;      /* 16px */
+  --font-size-lg:                1.125rem;  /* 18px */
+  --font-size-xl:                1.25rem;   /* 20px */
+  --font-size-2xl:               1.5rem;    /* 24px */
+  --font-size-3xl:               1.875rem;  /* 30px */
+  --font-size-4xl:               2.25rem;   /* 36px */
+  --font-size-5xl:               3rem;      /* 48px */
+
+  /* Motion & Physics */
+  --ease-spring:                 cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth:                 cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-expo:               cubic-bezier(0.19, 1, 0.22, 1);
+  --duration-instant:            100ms;
+  --duration-fast:               150ms;
+  --duration-normal:             250ms;
+  --duration-slow:               400ms;
+
+  /* Default Light Mode Semantic Tokens */
+  --color-bg:                    #FFFFFF;
+  --color-surface:               #EFF3FB;
+  --color-text:                  #1A1A2E;
+  --color-theme:                 #FFFFFF;
+
+  --surface-canvas:              #FFFFFF;
+  --surface-card:                #FFFFFF;
+  --surface-elevated:            #FFFFFF;
+  --surface-sunken:              #F4F6FB;
+  --surface-subtle:              #F0F4F9;
+  --surface-glass:               rgba(255, 255, 255, 0.85);
+  --surface-glass-border:        rgba(0, 0, 0, 0.08);
+
+  --border-subtle:               rgba(0, 0, 0, 0.06);
+  --border-default:              rgba(0, 0, 0, 0.10);
+  --border-hover:                rgba(0, 0, 0, 0.16);
+  --border-highlight:            rgba(255, 255, 255, 0.9);
+  --border-focus:                #4140FD;
+
+  --text-primary:                #1A1A2E;
+  --text-secondary:              #5A5E72;
+  --text-tertiary:               #888C9E;
+  --text-muted:                  #9CA3AF;
+  --text-inverse:                #F4F4F5;
+  --text-brand:                  #4140FD;
+
+  --feedback-success:            #10B981;
+  --feedback-success-subtle:     rgba(16, 185, 129, 0.08);
+  --feedback-warning:            #F59E0B;
+  --feedback-warning-subtle:     rgba(245, 158, 11, 0.08);
+  --feedback-danger:             #EF4444;
+  --feedback-danger-subtle:      rgba(239, 68, 68, 0.08);
+  --feedback-info:               #3B82F6;
+  --feedback-info-subtle:        rgba(59, 130, 246, 0.08);
+
+  --shadow-card:                 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-modal:                0 12px 36px -4px rgba(0, 0, 0, 0.12), 0 4px 16px -2px rgba(0, 0, 0, 0.08);
+  --shadow-glow-brand:           0 0 24px -4px rgba(65, 64, 253, 0.22);
+  --shadow-inner-specular:       inset 0 1px 0 0 rgba(255, 255, 255, 0.85);
+  --skeleton-shimmer-from:       #EFF3FB;
+  --skeleton-shimmer-via:        #E2E6F0;
+  --skeleton-shimmer-to:         #EFF3FB;
 }
 
-/* Semantic aliases that adapt to color scheme */
-@media (prefers-color-scheme: light) {
-  :root {
-    --color-bg:      #FFFFFF;
-    --color-surface: #EFF3FB;
-    --color-text:    #1A1A2E;
-    --color-theme:   #FFFFFF;
-  }
+/* Dark Mode Override via .dark class on html element */
+html.dark {
+  --color-bg:                    #0C0C0E;
+  --color-surface:               #18181B;
+  --color-text:                  #F4F4F5;
+  --color-theme:                 #0C0C0E;
+
+  --brand-primary-subtle:        rgba(163, 156, 249, 0.12);
+
+  --surface-canvas:              #0C0C0E;
+  --surface-card:                #18181B;
+  --surface-elevated:            #202024;
+  --surface-sunken:              #121215;
+  --surface-subtle:              #1C1C20;
+  --surface-glass:               rgba(24, 24, 27, 0.85);
+  --surface-glass-border:        rgba(255, 255, 255, 0.08);
+
+  --border-subtle:               rgba(255, 255, 255, 0.06);
+  --border-default:              rgba(255, 255, 255, 0.10);
+  --border-hover:                rgba(255, 255, 255, 0.16);
+  --border-highlight:            rgba(255, 255, 255, 0.12);
+  --border-focus:                #6572F2;
+
+  --text-primary:                #F4F4F5;
+  --text-secondary:              #A1A1AA;
+  --text-tertiary:               #71717A;
+  --text-muted:                  #52525B;
+  --text-inverse:                #1A1A2E;
+  --text-brand:                  #A39CF9;
+
+  --feedback-success:            #34D399;
+  --feedback-success-subtle:     rgba(52, 211, 153, 0.12);
+  --feedback-warning:            #FBBF24;
+  --feedback-warning-subtle:     rgba(251, 191, 36, 0.12);
+  --feedback-danger:             #F87171;
+  --feedback-danger-subtle:      rgba(248, 113, 113, 0.12);
+  --feedback-info:               #60A5FA;
+  --feedback-info-subtle:        rgba(96, 165, 250, 0.12);
+
+  --shadow-card:                 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-modal:                0 16px 48px -4px rgba(0, 0, 0, 0.6), 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  --shadow-glow-brand:           0 0 32px -4px rgba(101, 114, 242, 0.28);
+  --shadow-inner-specular:       inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+  --skeleton-shimmer-from:       #18181B;
+  --skeleton-shimmer-via:        #27272A;
+  --skeleton-shimmer-to:         #18181B;
 }
 
+/* Media query dark fallback */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg:      #0C0C0E;
-    --color-surface: #18181B;
-    --color-text:    #F4F4F5;
-    --color-theme:   #0C0C0E;
+  :root:not(.light) {
+    --color-bg:                  #0C0C0E;
+    --color-surface:             #18181B;
+    --color-text:                #F4F4F5;
+    --color-theme:               #0C0C0E;
+
+    --brand-primary-subtle:      rgba(163, 156, 249, 0.12);
+    --surface-canvas:            #0C0C0E;
+    --surface-card:              #18181B;
+    --surface-elevated:          #202024;
+    --surface-sunken:            #121215;
+    --surface-subtle:            #1C1C20;
+    --surface-glass:             rgba(24, 24, 27, 0.85);
+    --surface-glass-border:      rgba(255, 255, 255, 0.08);
+
+    --border-subtle:             rgba(255, 255, 255, 0.06);
+    --border-default:            rgba(255, 255, 255, 0.10);
+    --border-hover:              rgba(255, 255, 255, 0.16);
+    --border-highlight:          rgba(255, 255, 255, 0.12);
+    --border-focus:              #6572F2;
+
+    --text-primary:              #F4F4F5;
+    --text-secondary:            #A1A1AA;
+    --text-tertiary:             #71717A;
+    --text-muted:                #52525B;
+    --text-inverse:              #1A1A2E;
+    --text-brand:                #A39CF9;
+
+    --shadow-card:               0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-modal:              0 16px 48px -4px rgba(0, 0, 0, 0.6), 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+    --shadow-glow-brand:         0 0 32px -4px rgba(101, 114, 242, 0.28);
+    --shadow-inner-specular:     inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+    --skeleton-shimmer-from:     #18181B;
+    --skeleton-shimmer-via:      #27272A;
+    --skeleton-shimmer-to:       #18181B;
   }
 }

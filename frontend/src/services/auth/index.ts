@@ -7,7 +7,6 @@
 import {
   GoogleAuthProvider,
   OAuthProvider,
-  PhoneAuthProvider,
   RecaptchaVerifier,
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -21,8 +20,8 @@ import {
   type ConfirmationResult,
 } from 'firebase/auth';
 import { getToken as appCheckGetToken } from 'firebase/app-check';
-import { getFirebaseAuth, initFirebaseAppCheck } from './firebase';
-import type { AuthUser } from '../types';
+import { getFirebaseAuth, initFirebaseAppCheck } from '../firebase/index';
+import type { AuthUser } from '../../types/index';
 
 /** Convert Firebase User to our AuthUser shape */
 function toAuthUser(user: User): AuthUser {
@@ -156,7 +155,8 @@ export async function signOut(): Promise<void> {
 
 /** Format human-readable auth error messages */
 export function formatAuthError(error: unknown): string {
-  const code = String((error as any)?.code || '');
+  const errorDetails = error as Partial<{ code?: string; message?: string }> | null;
+  const code = String(errorDetails?.code ?? '');
   if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'That email or password is not correct.';
   if (code.includes('user-not-found')) return 'No MindPal account exists for that email yet.';
   if (code.includes('email-already-in-use')) return 'An account already exists for that email. Try signing in instead.';
@@ -169,5 +169,5 @@ export function formatAuthError(error: unknown): string {
   if (code.includes('operation-not-allowed')) return 'This sign-in method is not enabled yet.';
   if (code.includes('popup-closed-by-user')) return 'Sign-in was cancelled.';
   if (code.includes('network-request-failed')) return 'Network error. Check your connection and try again.';
-  return (error as any)?.message || 'An unexpected error occurred. Please try again.';
+  return errorDetails?.message ?? 'An unexpected error occurred. Please try again.';
 }

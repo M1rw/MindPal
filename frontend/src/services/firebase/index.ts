@@ -8,7 +8,7 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
-import { getAppConfig, getFirebaseConfig, isFirebaseConfigured } from './config';
+import { getAppConfig, getFirebaseConfig, isFirebaseConfigured } from '../config';
 
 export { isFirebaseConfigured };
 

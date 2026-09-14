@@ -1,40 +1,47 @@
-﻿import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { useToastStore } from '../../store';
 import type { ToastItem } from '../../types';
 
-const CONFIG: Record<string, { icon: React.FC<any>; bar: string; bg: string; text: string }> = {
+type ToastConfig = {
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+  bar: string;
+  bg: string;
+  text: string;
+};
+
+const CONFIG: Record<string, ToastConfig> = {
   success: {
     icon: CheckCircle2,
     bar: 'bg-emerald-500',
-    bg: 'bg-white dark:bg-zinc-900',
-    text: 'text-zinc-800 dark:text-zinc-100',
+    bg: 'bg-surface-card border border-edge-subtle specular-card',
+    text: 'text-content-primary',
   },
   error: {
     icon: XCircle,
-    bar: 'bg-red-500',
-    bg: 'bg-white dark:bg-zinc-900',
-    text: 'text-zinc-800 dark:text-zinc-100',
+    bar: 'bg-rose-500',
+    bg: 'bg-surface-card border border-edge-subtle specular-card',
+    text: 'text-content-primary',
   },
   warning: {
     icon: AlertTriangle,
     bar: 'bg-amber-400',
-    bg: 'bg-white dark:bg-zinc-900',
-    text: 'text-zinc-800 dark:text-zinc-100',
+    bg: 'bg-surface-card border border-edge-subtle specular-card',
+    text: 'text-content-primary',
   },
   info: {
     icon: Info,
-    bar: 'bg-[#4140FD]',
-    bg: 'bg-white dark:bg-zinc-900',
-    text: 'text-zinc-800 dark:text-zinc-100',
+    bar: 'bg-brand-primary',
+    bg: 'bg-surface-card border border-edge-subtle specular-card',
+    text: 'text-content-primary',
   },
 };
 
 const ICON_COLOR: Record<string, string> = {
   success: 'text-emerald-500',
-  error: 'text-red-500',
+  error: 'text-rose-500',
   warning: 'text-amber-400',
-  info: 'text-[#4140FD]',
+  info: 'text-brand-primary',
 };
 
 const ToastEntry: React.FC<{ toast: ToastItem }> = ({ toast }) => {
@@ -74,7 +81,7 @@ const ToastEntry: React.FC<{ toast: ToastItem }> = ({ toast }) => {
       {/* Left color accent bar */}
       <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${cfg.bar} rounded-l-2xl`} />
 
-      <Icon className={`w-4 h-4 flex-shrink-0 ${ICON_COLOR[toast.kind]}`} aria-hidden="true" />
+      <Icon className={`w-4 h-4 flex-shrink-0 ${ICON_COLOR[toast.kind]}`} aria-hidden={true} />
 
       <span className="flex-1 text-[13px] leading-snug font-medium">{toast.message}</span>
 

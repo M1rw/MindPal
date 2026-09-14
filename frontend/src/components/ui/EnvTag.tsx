@@ -23,10 +23,10 @@ export const EnvTag: React.FC = () => {
   return (
     <span
       id="env-tag"
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gemini-surface dark:bg-gemini-darkSurface text-[10px] font-medium text-gray-500 dark:text-gray-400 transition-colors select-none border border-black/[0.04] dark:border-white/[0.06]"
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-subtle text-2xs font-medium text-content-secondary transition-colors select-none border border-edge-subtle"
     >
       {isCloud ? (
-        <Cloud className="w-3 h-3 text-[#4140FD] dark:text-[#A39CF9]" />
+        <Cloud className="w-3 h-3 text-brand-primary" />
       ) : (
         <Laptop className="w-3 h-3 text-emerald-500" />
       )}
