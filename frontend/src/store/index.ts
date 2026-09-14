@@ -384,33 +384,74 @@ const saveSessions = (sessions: ChatSession[]) => {
 interface ChatHistoryState {
   sessions: ChatSession[];
   activeSessionId: string | null;
+  isLoadingCloud: boolean;
   saveSession: (session: ChatSession) => void;
   deleteSession: (id: string) => void;
   clearHistory: () => void;
   setActiveSessionId: (id: string | null) => void;
+  loadCloudSessions: () => Promise<void>;
 }
 
 export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
   sessions: loadSessions(),
   activeSessionId: null,
-  saveSession: (session) =>
+  isLoadingCloud: false,
+  saveSession: (session) => {
     set((state) => {
       const filtered = state.sessions.filter((s) => s.id !== session.id);
       const next = [session, ...filtered];
       saveSessions(next);
       return { sessions: next, activeSessionId: session.id };
-    }),
-  deleteSession: (id) =>
+    });
+    if (useSessionStore.getState().isAuthenticated) {
+      import('../services/api').then(({ ApiClient }) => {
+        ApiClient.saveChatSession(session).catch((err) => {
+          console.warn('Failed to sync chat session to cloud:', err);
+        });
+      });
+    }
+  },
+  deleteSession: (id) => {
     set((state) => {
       const next = state.sessions.filter((s) => s.id !== id);
       saveSessions(next);
       return { sessions: next, activeSessionId: state.activeSessionId === id ? null : state.activeSessionId };
-    }),
+    });
+    if (useSessionStore.getState().isAuthenticated) {
+      import('../services/api').then(({ ApiClient }) => {
+        ApiClient.deleteChatSession(id).catch((err) => {
+          console.warn('Failed to delete cloud chat session:', err);
+        });
+      });
+    }
+  },
   clearHistory: () => {
     saveSessions([]);
     set({ sessions: [], activeSessionId: null });
   },
   setActiveSessionId: (id) => set({ activeSessionId: id }),
+  loadCloudSessions: async () => {
+    try {
+      if (!useSessionStore.getState().isAuthenticated) return;
+      set({ isLoadingCloud: true });
+      const { ApiClient } = await import('../services/api');
+      const res = await ApiClient.listChatSessions();
+      if (res?.sessions && Array.isArray(res.sessions)) {
+        set((state) => {
+          const cloudIds = new Set(res.sessions.map((s) => s.id));
+          const localOnly = state.sessions.filter((s) => !cloudIds.has(s.id));
+          const merged = [...res.sessions, ...localOnly];
+          saveSessions(merged);
+          return { sessions: merged, isLoadingCloud: false };
+        });
+      } else {
+        set({ isLoadingCloud: false });
+      }
+    } catch (err) {
+      console.warn('Failed to load cloud sessions:', err);
+      set({ isLoadingCloud: false });
+    }
+  },
 }));
 
 // ─────────────────────────────────────────────────────────────────────────────

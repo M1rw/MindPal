@@ -1,26 +1,51 @@
-/* ═══ Safari / Mobile Viewport Safety ═══ */
-/* Uses a JS-set --app-height (most reliable for standalone/PWA on iOS),
-   falls back to 100dvh then 100vh. */
+/* ═══ Safari / Mobile Viewport Safety & High-End iPhone Adaptation ═══ */
 :root {
   --app-height: 100vh;
+  --keyboard-offset: 0px;
 }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
+}
+
+body {
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 .h-dvh-safe {
   height: 100vh;
   height: 100dvh;
   height: var(--app-height);
 }
 
-/* ═══ Prevent iOS Safari Auto-Zoom on Form Focus ═══ */
-@media screen and (max-width: 768px) {
+/* ═══ Prevent iOS Safari Auto-Zoom on Form Focus (Strict 16px Rule) ═══ */
+@media screen and (max-width: 820px) {
+  input,
   input[type="text"],
   input[type="number"],
   input[type="email"],
   input[type="password"],
   input[type="search"],
+  input[type="tel"],
+  input[type="url"],
   select,
   textarea {
     font-size: 16px !important;
   }
+}
+
+/* ═══ Native Smooth Momentum Touch Scrolling ═══ */
+.custom-scrollbar {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(160, 160, 160, 0.3) transparent;
 }
 
 /* Global hidden fallback utility */

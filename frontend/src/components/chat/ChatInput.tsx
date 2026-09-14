@@ -372,7 +372,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((_props, ref) => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full bg-transparent resize-none outline-none max-h-[160px] px-2 pt-1 pb-2 text-[15px] opacity-65 text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 dark:placeholder-zinc-500 leading-relaxed min-h-[42px] transition-opacity"
+              className="w-full bg-transparent resize-none outline-none max-h-[160px] px-2 pt-1 pb-2 text-[16px] sm:text-[15px] opacity-65 text-zinc-700 dark:text-zinc-300 placeholder-zinc-400 dark:placeholder-zinc-500 leading-relaxed min-h-[42px] transition-opacity"
               placeholder="Listening..."
               aria-label="Listening to your voice"
             />
@@ -457,7 +457,7 @@ export const ChatInput = forwardRef<ChatInputHandle>((_props, ref) => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-4 pr-2 py-2.5 text-[15px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 leading-6 min-h-[44px]"
+              className="flex-1 bg-transparent resize-none outline-none max-h-[200px] pl-4 pr-2 py-2.5 text-[16px] sm:text-[15px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 leading-6 min-h-[44px]"
               placeholder="Ask MindPal"
               aria-label="Ask MindPal"
             />

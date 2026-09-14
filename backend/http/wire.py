@@ -43,6 +43,11 @@ IMPLEMENTED = frozenset(
         "greetingGet",
         "flagsSnapshot",
         "systemRouteCatalog",
+        "chatsList",
+        "chatsSave",
+        "chatsGet",
+        "chatsDelete",
+        "sessionsRecordTelemetry",
     }
 )
 

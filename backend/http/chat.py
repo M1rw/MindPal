@@ -20,6 +20,7 @@ class ChatStreamPayload(BaseModel):
     session_id: Optional[str] = None
     model: Optional[str] = "standard"
     telemetry: Optional[Dict[str, Any]] = None
+    personalization: Optional[Dict[str, Any]] = None
 
 
 @router.post("/api/chat/stream", operation_id="chatStream")
@@ -33,6 +34,7 @@ async def chat_stream(payload: ChatStreamPayload, authorization: Optional[str] =
             session_id=payload.session_id,
             model=payload.model or "standard",
             telemetry=payload.telemetry,
+            personalization=payload.personalization,
         ):
             data = json.dumps(chunk, ensure_ascii=False)
             yield f"data: {data}\n\n"

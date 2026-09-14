@@ -4,7 +4,7 @@
  * Auth tokens are read from Zustand session store (in-memory only, never localStorage).
  */
 
-import { useSessionStore } from '../store';
+import { useSessionStore, useSettingsStore } from '../store';
 import type {
   MemorySummaryResponse,
   VoiceTokenResponse,
@@ -15,6 +15,7 @@ import type {
   FeatureSnapshot,
   MemoryAtom,
   ChangelogResponse,
+  ChatSession,
 } from '../types';
 import { getApiBaseUrl } from './config';
 
@@ -67,9 +68,10 @@ export const ApiClient = {
     onChunk: (chunk: string, strategy?: string) => void,
     onComplete: () => void,
     onError: (err: Error) => void,
-    options?: { model?: string; telemetry?: any },
+    options?: { model?: string; telemetry?: any; personalization?: any },
   ): Promise<void> {
     try {
+      const activePersonalization = options?.personalization ?? useSettingsStore.getState().settings.personalization;
       const res = await fetchWithAuth('/api/chat/stream', {
         method: 'POST',
         body: JSON.stringify({
@@ -78,6 +80,7 @@ export const ApiClient = {
           stream: true,
           model: options?.model || 'standard',
           telemetry: options?.telemetry,
+          personalization: activePersonalization,
         }),
       });
 
@@ -156,6 +159,37 @@ export const ApiClient = {
     });
     if (!res.ok) throw new Error(`Append message error: ${res.statusText}`);
     return res.json();
+  },
+
+  // ─────────────────────────────────────────────
+  // Multi-Session Chat Cloud Persistence (Firestore)
+  // ─────────────────────────────────────────────
+  async listChatSessions(): Promise<{ sessions: ChatSession[] }> {
+    const res = await fetchWithAuth('/api/chats');
+    if (!res.ok) throw new Error(`List chats error: ${res.statusText}`);
+    return res.json();
+  },
+
+  async saveChatSession(session: ChatSession): Promise<ChatSession> {
+    const res = await fetchWithAuth('/api/chats', {
+      method: 'POST',
+      body: JSON.stringify(session),
+    });
+    if (!res.ok) throw new Error(`Save chat error: ${res.statusText}`);
+    return res.json();
+  },
+
+  async getChatSession(id: string): Promise<ChatSession> {
+    const res = await fetchWithAuth(`/api/chats/${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error(`Get chat session error: ${res.statusText}`);
+    return res.json();
+  },
+
+  async deleteChatSession(id: string): Promise<void> {
+    const res = await fetchWithAuth(`/api/chats/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(`Delete chat session error: ${res.statusText}`);
   },
 
   // ─────────────────────────────────────────────
