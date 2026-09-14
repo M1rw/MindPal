@@ -21,47 +21,22 @@ class ChatTurnResult:
     session_id: Optional[str] = None
 
 
-class ChatOrchestrator:
-    """
-    Unified Chat Execution Pipeline.
-    Used by both HTTP JSON POST /api/chat and SSE streaming /api/chat/stream.
-    """
-
-    def __init__(
-        self,
-        *,
-        safety_service: Optional[SafetyService] = None,
-        grounding_service: Optional[GroundingService] = None,
-        memory_service: Optional[MemoryGraphService] = None,
-        llm_gateway: Optional[LLMGateway] = None,
-        output_guard: Optional[OutputGuardService] = None,
-    ) -> None:
-        self.safety_service = safety_service or SafetyService()
-        self.grounding_service = grounding_service or GroundingService()
-        self.memory_service = memory_service or MemoryGraphService()
-        self.llm_gateway = llm_gateway or get_llm_gateway()
-        self.output_guard = output_guard or OutputGuardService()
-
 import re
 from backend.infra.store.store import InMemoryStore, get_store
 
 
-def detect_cognitive_strategy(message: str, model: str = "standard", telemetry: Optional[Dict[str, Any]] = None) -> tuple[str, str]:
+def detect_cognitive_strategy(
+    message: str,
+    model: str = "standard",
+    telemetry: Optional[Dict[str, Any]] = None,
+    personalization: Optional[Dict[str, Any]] = None,
+) -> tuple[str, str]:
     """
     Tier-1 Dynamic Situation Classifier.
-    Understands user situation, emotional state, and engagement telemetry to select
-    the optimal cognitive support strategy and tailored clinical prompt directive.
+    Understands user situation, emotional state, engagement telemetry, and
+    user personalization settings to select optimal cognitive strategy and directive.
     """
     msg_lower = message.lower()
-
-    if model.lower() == "pro":
-        strategy = "Clinical Depth"
-        directive = (
-            "Strategy: Clinical Depth. Engage with multi-layered psychological reasoning. "
-            "Explore underlying cognitive schemas, somatic reactions, and dialectical synthesis. "
-            "Provide high-clarity structural insights while maintaining warm therapeutic rapport."
-        )
-        return strategy, directive
 
     # Telemetry-aware hesitation / emotional friction detection
     inactivity_count = (telemetry or {}).get("inactivity_count", 0)
@@ -73,6 +48,46 @@ def detect_cognitive_strategy(message: str, model: str = "standard", telemetry: 
             "They may be experiencing cognitive friction or emotional vulnerability. Use gentle pacing and extra warmth.]"
         )
 
+    # Personalization directives
+    personalization_note = ""
+    if personalization:
+        style = personalization.get("baseStyle", "balanced")
+        warmth = personalization.get("warmth", "warm")
+        headers = personalization.get("useHeadersLists", True)
+        emoji = personalization.get("emojiSupport", True)
+
+        directives = []
+        if style == "concise":
+            directives.append("Keep response concise, focused, and avoid unnecessary filler.")
+        elif style == "detailed":
+            directives.append("Provide rich, structured, and comprehensive depth with clear formatting.")
+        
+        if warmth == "clinical":
+            directives.append("Maintain an objective, analytical, and clinical posture.")
+        elif warmth == "warm":
+            directives.append("Infuse compassionate warmth and deeply empathetic presence.")
+        elif warmth == "enthusiastic":
+            directives.append("Maintain an encouraging, upbeat, and energizing tone.")
+
+        if not headers:
+            directives.append("Write in flowing narrative prose rather than bulleted lists.")
+        if not emoji:
+            directives.append("Do not use emojis in the response.")
+        elif emoji:
+            directives.append("Gentle, supportive emoji usage is welcomed.")
+
+        if directives:
+            personalization_note = " [Personalization: " + " ".join(directives) + "]"
+
+    if model.lower() == "pro":
+        strategy = "Clinical Depth"
+        directive = (
+            "Strategy: Clinical Depth. Engage with multi-layered psychological reasoning. "
+            "Explore underlying cognitive schemas, somatic reactions, and dialectical synthesis. "
+            f"Provide high-clarity structural insights while maintaining therapeutic rapport.{pacing_note}{personalization_note}"
+        )
+        return strategy, directive
+
     # 1. Acute Distress & Emotional Venting -> Active Empathetic Reflection
     distress_patterns = r"\b(overwhelm|crying|panic|scared|sad|depressed|hopeless|exhausted|hurt|hurts|anxious|anxiety|grief|lonely|alone|broken|can't take|terrified)\b"
     if re.search(distress_patterns, msg_lower):
@@ -80,7 +95,7 @@ def detect_cognitive_strategy(message: str, model: str = "standard", telemetry: 
         directive = (
             "Strategy: Active Empathetic Reflection. The user is in an emotional or overwhelmed state. "
             "Prioritize deep validation, emotional attunement, non-judgmental containment, and somatic grounding. "
-            f"DO NOT jump to unsolicited advice or problem-solving yet.{pacing_note}"
+            f"DO NOT jump to unsolicited advice or problem-solving yet.{pacing_note}{personalization_note}"
         )
         return strategy, directive
 
@@ -91,7 +106,7 @@ def detect_cognitive_strategy(message: str, model: str = "standard", telemetry: 
         directive = (
             "Strategy: Cognitive Tools. The user is caught in cognitive distortion or catastrophic thought loops. "
             "Gently guide them with cognitive defusion, evidence-testing questions, and self-compassion reframing. "
-            f"Help them observe the thought without identifying fully with it.{pacing_note}"
+            f"Help them observe the thought without identifying fully with it.{pacing_note}{personalization_note}"
         )
         return strategy, directive
 
@@ -102,7 +117,7 @@ def detect_cognitive_strategy(message: str, model: str = "standard", telemetry: 
         directive = (
             "Strategy: Guided Solution Coaching. The user is seeking clarity or action. "
             "Help them deconstruct the challenge into manageable, atomic micro-steps using structured Socratic coaching. "
-            f"Foster their own agency rather than prescribing rigid answers.{pacing_note}"
+            f"Foster their own agency rather than prescribing rigid answers.{pacing_note}{personalization_note}"
         )
         return strategy, directive
 
@@ -110,7 +125,7 @@ def detect_cognitive_strategy(message: str, model: str = "standard", telemetry: 
     strategy = "Active Listen"
     directive = (
         "Strategy: Mindful Presence. Meet the user where they are with warmth, reflective mirroring, "
-        f"and thoughtful, curious inquiry.{pacing_note}"
+        f"and thoughtful, curious inquiry.{pacing_note}{personalization_note}"
     )
     return strategy, directive
 
@@ -164,6 +179,7 @@ class ChatOrchestrator:
         session_id: Optional[str] = None,
         model: str = "standard",
         telemetry: Optional[Dict[str, Any]] = None,
+        personalization: Optional[Dict[str, Any]] = None,
     ) -> ChatTurnResult:
         """Executes a non-streamed chat turn."""
         self.record_session_telemetry(user_id_hash, session_id, telemetry)
@@ -179,8 +195,13 @@ class ChatOrchestrator:
                 session_id=session_id,
             )
 
-        # 2. Dynamic Cognitive Strategy & Telemetry Guidance
-        strategy, strategy_directive = detect_cognitive_strategy(message, model=model, telemetry=telemetry)
+        # 2. Dynamic Cognitive Strategy, Telemetry Guidance & Personalization
+        strategy, strategy_directive = detect_cognitive_strategy(
+            message,
+            model=model,
+            telemetry=telemetry,
+            personalization=personalization,
+        )
 
         # 3. Context & Grounding
         memory_graph = self.memory_service.get_memory_graph(user_id_hash)
@@ -219,6 +240,7 @@ class ChatOrchestrator:
         session_id: Optional[str] = None,
         model: str = "standard",
         telemetry: Optional[Dict[str, Any]] = None,
+        personalization: Optional[Dict[str, Any]] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """Executes a streaming chat turn yielding tokens and chosen strategy."""
         self.record_session_telemetry(user_id_hash, session_id, telemetry)
@@ -229,8 +251,13 @@ class ChatOrchestrator:
             yield {"text": safety.crisis_response, "strategy_used": "Safety Shield"}
             return
 
-        # 2. Dynamic Cognitive Strategy & Telemetry Guidance
-        strategy, strategy_directive = detect_cognitive_strategy(message, model=model, telemetry=telemetry)
+        # 2. Dynamic Cognitive Strategy, Telemetry Guidance & Personalization
+        strategy, strategy_directive = detect_cognitive_strategy(
+            message,
+            model=model,
+            telemetry=telemetry,
+            personalization=personalization,
+        )
 
         # 3. Context & Grounding
         memory_graph = self.memory_service.get_memory_graph(user_id_hash)

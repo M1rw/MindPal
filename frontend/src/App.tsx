@@ -85,6 +85,7 @@ export const App: React.FC = () => {
         const idToken = await getIdToken();
         const appCheckToken = await getAppCheckToken();
         setAuth(user.uid, idToken, appCheckToken);
+        useChatHistoryStore.getState().loadCloudSessions();
       } else {
         setAuth(null, null, null);
       }

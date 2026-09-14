@@ -70,6 +70,7 @@ export const ChatHistoryModal: React.FC = () => {
   useEffect(() => {
     if (isOpen) {
       setMounted(true);
+      useChatHistoryStore.getState().loadCloudSessions();
       // Fast single tick transition without nested RAF stutter
       const raf = requestAnimationFrame(() => setVisible(true));
       const focusTimer = setTimeout(() => searchRef.current?.focus(), 60);

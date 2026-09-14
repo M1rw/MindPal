@@ -9,13 +9,18 @@ import { App } from './App';
   win.va = win.va || function () { (win.vaq = win.vaq || []).push(arguments); };
   win.si = win.si || function () { (win.siq = win.siq || []).push(arguments); };
 
-  // iOS Safari / Mobile Dynamic Viewport Fix
+  // iOS Safari / Mobile Dynamic Viewport Fix with visualViewport support
   const setAppHeight = () => {
-    document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty('--app-height', `${height}px`);
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });
   window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 150), { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', setAppHeight, { passive: true });
+    window.visualViewport.addEventListener('scroll', setAppHeight, { passive: true });
+  }
 
   // PWA Standalone Mode Indicator
   const isStandalone =

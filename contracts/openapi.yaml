@@ -163,6 +163,98 @@ paths:
       responses:
         "200": { description: Appended }
 
+  /api/chats:
+    get:
+      operationId: chatsList
+      tags: [sessions]
+      summary: List all persistent chat sessions
+      x-mindpal:
+        owner: sessions
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: List of chat sessions }
+    post:
+      operationId: chatsSave
+      tags: [sessions]
+      summary: Save persistent chat session
+      x-mindpal:
+        owner: sessions
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Saved session }
+
+  /api/chats/{session_id}:
+    get:
+      operationId: chatsGet
+      tags: [sessions]
+      summary: Get chat session by ID
+      x-mindpal:
+        owner: sessions
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Chat session }
+    delete:
+      operationId: chatsDelete
+      tags: [sessions]
+      summary: Delete chat session by ID
+      x-mindpal:
+        owner: sessions
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Deleted }
+
+  /api/sessions/telemetry:
+    post:
+      operationId: sessionsRecordTelemetry
+      tags: [sessions]
+      summary: Ingest client interaction telemetry
+      x-mindpal:
+        owner: sessions
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Recorded }
+
+  /api/greeting:
+    get:
+      operationId: greetingGet
+      tags: [greeting]
+      summary: Personalized time-of-day greeting with memory context
+      x-mindpal:
+        owner: identity
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Personalized greeting }
+
   /api/user/me:
     get:
       operationId: identityMe
