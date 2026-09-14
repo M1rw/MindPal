@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Moon, Sun, Flame, User, Brain, Plus, History } from 'lucide-react';
+import { Moon, Sun, Flame, User, Plus, History } from 'lucide-react';
 import { useAuthStore, useStreakStore, useSettingsStore, useChatStore, useChatHistoryModalStore } from '../../store';
 import { EnvTag } from './EnvTag';
 
 interface HeaderProps {
-  onOpenMemory: () => void;
+  onOpenMemory?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
+export const Header: React.FC<HeaderProps> = () => {
   const { user, openAuthModal } = useAuthStore();
   const { streak, setIsOpen: setStreakOpen } = useStreakStore();
   const { setIsOpen: setSettingsOpen } = useSettingsStore();
@@ -68,16 +68,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
 
       {/* Action Buttons */}
       <div className="flex items-center gap-1 sm:gap-2 text-zinc-600 dark:text-zinc-300">
-        {/* History Button */}
-        <button
-          onClick={() => setHistoryOpen(true)}
-          className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
-          title="Chat History"
-          aria-label="Open chat history"
-        >
-          <History className="w-5 h-5" />
-        </button>
-
         {/* New Chat Button */}
         <button
           onClick={clearMessages}
@@ -88,14 +78,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMemory }) => {
           <Plus className="w-5 h-5" />
         </button>
 
-        {/* Memory Profile Button */}
+        {/* History Button */}
         <button
-          onClick={onOpenMemory}
+          onClick={() => setHistoryOpen(true)}
           className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
-          title="Memory Profile"
-          aria-label="Memory profile"
+          title="Chat History"
+          aria-label="Open chat history"
         >
-          <Brain className="w-5 h-5 text-[#4140FD]" />
+          <History className="w-5 h-5" />
         </button>
 
         {/* Theme Toggle Button */}
