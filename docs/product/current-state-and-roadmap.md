@@ -1,5 +1,7 @@
 # Current State And Roadmap
 
+Status: directional. Prefer [`docs/architecture/`](../architecture/backend-platform.md) and [`docs/FRONTEND_MAP.md`](../FRONTEND_MAP.md) when this page disagrees with the tree.
+
 The pasted plan is directionally right: stabilize first, then add RAG, then memory, observability, tests, and release polish. The improved order below separates baseline preservation from feature work and avoids mixing risky systems.
 
 Current state:

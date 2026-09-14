@@ -1,8 +1,11 @@
-# Archived backend (2026-09-10)
+# Archive
 
-Read-only snapshot of the pre-platform FastAPI tree.
+Read-only snapshots. Do not extend these trees. Port behavior into the current `backend/` and `frontend/src/` layouts, or drop it.
 
-Do not add features here. Port behavior into the new layout described in
-`docs/architecture/backend-platform.md`, or drop it.
+| Path | What it is |
+|---|---|
+| `backend-legacy-2026-09-10/` | Pre-platform FastAPI tree |
+| `frontend-legacy-2026-09-13/` | Pre-React ES-module client |
+| `docs-historical/` | Dated audits, sprint reports, research notes, and one-off gap analyses |
 
-To inspect history: this folder is a normal git tree at the archive commit.
+Current operating docs: [`docs/README.md`](../docs/README.md).
