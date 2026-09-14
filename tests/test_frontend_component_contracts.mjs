@@ -10,6 +10,7 @@ const componentSources = {
   authModal: 'frontend/src/components/auth/AuthModal.tsx',
   settingsModal: 'frontend/src/components/settings/SettingsModal.tsx',
   historyModal: 'frontend/src/components/chat/history/ChatHistoryModal.tsx',
+  settingsSidebar: 'frontend/src/components/settings/SettingsSidebar.tsx',
 };
 
 describe('Frontend component contracts', () => {
@@ -57,5 +58,13 @@ describe('Frontend component contracts', () => {
     assert.match(source, /Search conversations/);
     assert.match(source, /Cloud history unavailable/);
     assert.match(source, /Retry sync/);
+  });
+
+  it('keeps Settings responsive navigation visible at the correct breakpoint', async () => {
+    const sidebar = await readSource(componentSources.settingsSidebar);
+    const style = await readFile(new URL('../frontend/css/style.css', import.meta.url), 'utf8');
+
+    assert.match(sidebar, /hidden sm:flex/);
+    assert.doesNotMatch(style, /^\.hidden\s*\{[^}]*display:\s*none\s*!important/m);
   });
 });
