@@ -12,8 +12,8 @@ interface FlagsState {
 
 export const useFlagsStore = create<FlagsState>((set) => ({
   flags: {
-    voice_enabled: false,
-    presence_enabled: false,
+    voice_enabled: true,
+    presence_enabled: true,
     pro_model_enabled: true,
     memory_enabled: true,
     changelog_enabled: true,

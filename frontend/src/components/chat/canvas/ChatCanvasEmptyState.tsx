@@ -16,8 +16,6 @@ export const ChatCanvasEmptyState: React.FC<ChatCanvasEmptyStateProps> = ({
   children,
 }) => (
   <div className="relative flex-1 flex flex-col items-center justify-center text-center px-4 animate-fade-in my-auto -translate-y-6 sm:-translate-y-8">
-    <div className="ambient-canvas-glow" aria-hidden="true" />
-
     <div className="relative w-full max-w-2xl text-center mb-6 z-10">
       {greetingLoading ? (
         <SkeletonGreeting />

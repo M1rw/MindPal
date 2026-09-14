@@ -39,7 +39,7 @@ const mockApi = async (route) => {
   const path = new URL(route.request().url()).pathname;
   if (path === '/api/features') {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      voice_enabled: false, presence_enabled: false, pro_model_enabled: true,
+      voice_enabled: true, presence_enabled: true, pro_model_enabled: true,
       memory_enabled: true, changelog_enabled: false, analytics_insights: true,
     }) });
     return;
@@ -111,13 +111,20 @@ const auditPage = async (page, label, viewport) => {
   addCheck(`${label} has no horizontal overflow`, !geometry.horizontalOverflow, JSON.stringify(geometry));
   addCheck(`${label} has named visible controls`, geometry.controls.every((control) => control.ariaLabel || control.title || control.text), JSON.stringify(geometry.controls));
   addCheck(`${label} has main and navigation landmarks`, geometry.landmarks.includes('main') && geometry.landmarks.includes('nav'), JSON.stringify(geometry.landmarks));
+  addCheck(`${label} has no empty-state ambient glow`, await page.locator('.ambient-canvas-glow').count() === 0, 'The empty chat state should not add a top aura.');
 
   await page.getByRole('button', { name: 'Toggle theme' }).click();
   await page.getByRole('button', { name: 'Open chat history' }).click();
   await page.getByRole('dialog', { name: 'Chat history' }).waitFor({ state: 'visible' });
   await page.waitForTimeout(350);
+  const historySearch = page.getByRole('textbox', { name: 'Search conversations' });
+  await historySearch.fill('audit');
+  addCheck(`${label} history removes New action`, await page.getByRole('button', { name: 'New', exact: true }).count() === 0, 'History should not show a New button.');
+  addCheck(`${label} history uses text Clear`, await page.getByRole('button', { name: 'Clear search' }).count() === 1, 'Clear should be a text action.');
+  addCheck(`${label} history separates Clear and close`, await page.locator('.h-5.w-px').count() >= 1, 'Clear and close should have a divider.');
   await page.screenshot({ path: `${evidenceDir}/${label}-history.png`, fullPage: true });
   results.screenshots.push(`${label}-history.png`);
+  await page.getByRole('button', { name: 'Clear search' }).click();
   await page.getByRole('button', { name: 'Close history' }).click();
   await page.getByRole('button', { name: 'Sign in to sync' }).click();
   await page.getByRole('dialog', { name: 'Back up your MindPal' }).waitFor({ state: 'visible' });

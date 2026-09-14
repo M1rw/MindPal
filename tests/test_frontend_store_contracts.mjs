@@ -79,8 +79,8 @@ beforeEach(() => {
 
   useFlagsStore.setState({
     flags: {
-      voice_enabled: false,
-      presence_enabled: false,
+      voice_enabled: true,
+      presence_enabled: true,
       pro_model_enabled: true,
       memory_enabled: true,
       changelog_enabled: true,
@@ -107,11 +107,11 @@ describe('Session store auth lifecycle contract', () => {
 });
 
 describe('Feature flag store contract', () => {
-  it('keeps voice and presence disabled until explicitly enabled', () => {
+  it('keeps voice and presence enabled in the full-feature test profile', () => {
     const flags = useFlagsStore.getState().flags;
 
-    assert.equal(flags.voice_enabled, false);
-    assert.equal(flags.presence_enabled, false);
+    assert.equal(flags.voice_enabled, true);
+    assert.equal(flags.presence_enabled, true);
   });
 });
 

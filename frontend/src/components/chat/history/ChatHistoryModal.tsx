@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, X, MessageSquare, Loader2, Plus } from 'lucide-react';
+import { Search, X, MessageSquare, Loader2 } from 'lucide-react';
 import { useChatHistoryStore, useChatHistoryModalStore, useChatStore } from '../../../store';
 import { useFocusTrap } from '../../../hooks/useFocusTrap';
 import { SkeletonHistoryList } from '../../ui/Skeleton';
@@ -185,22 +185,17 @@ export const ChatHistoryModal: React.FC = () => {
           )}
           {query && (
             <button
+              type="button"
               onClick={() => setQuery('')}
-              className="text-content-muted hover:text-content-primary transition-colors p-1 rounded-lg"
+              className="text-xs font-medium text-content-muted hover:text-content-primary transition-colors px-1 py-1"
               aria-label="Clear search"
             >
-              <X className="w-3.5 h-3.5" />
+              Clear
             </button>
           )}
+          {query && <span aria-hidden="true" className="h-5 w-px bg-edge-subtle" />}
           <button
-            onClick={handleNewChat}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-brand-subtle hover:bg-brand-primary/20 text-brand-primary transition-all active:scale-95"
-            title="Start new conversation"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New</span>
-          </button>
-          <button
+            type="button"
             onClick={() => setIsOpen(false)}
             className="text-content-muted hover:text-content-primary transition-colors ml-1 p-1 rounded-lg hover:bg-surface-subtle"
             aria-label="Close history"
