@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/ui/Header';
 import { TabBar, AppTab } from './components/ui/TabBar';
 import { ChatCanvas } from './components/chat/ChatCanvas';
@@ -27,37 +27,55 @@ export const App: React.FC = () => {
   const { setUser, setIsLoading } = useAuthStore();
   const { setAuth } = useSessionStore();
   const { messages } = useChatStore();
-  const { saveSession } = useChatHistoryStore();
+  const { sessions, activeSessionId, saveSession, setActiveSessionId } = useChatHistoryStore();
 
   const hasMessages = messages.length > 0;
 
-  // Auto-save session whenever messages change (debounced)
+  // Sync session ID when activeSessionId changes (e.g. user loaded history session)
   useEffect(() => {
-    if (messages.length === 0) return;
-    const timer = setTimeout(() => {
-      // Derive title from first user message
-      const firstUser = messages.find((m) => m.role === 'user');
-      const title = firstUser
-        ? firstUser.content.slice(0, 60).trim() + (firstUser.content.length > 60 ? '…' : '')
-        : 'Conversation';
-
-      saveSession({
-        id: sessionIdRef.current,
-        title,
-        createdAt: messages[0].timestamp,
-        updatedAt: new Date().toISOString(),
-        messages: [...messages],
-      });
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [messages, saveSession]);
+    if (activeSessionId) {
+      sessionIdRef.current = activeSessionId;
+    }
+  }, [activeSessionId]);
 
   // Reset session ID when messages are cleared (new chat)
   useEffect(() => {
     if (messages.length === 0) {
       sessionIdRef.current = `sess_${Date.now()}`;
+      if (activeSessionId) {
+        setActiveSessionId(null);
+      }
     }
-  }, [messages.length]);
+  }, [messages.length, activeSessionId, setActiveSessionId]);
+
+  // Auto-save session whenever messages change (debounced)
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const timer = setTimeout(() => {
+      const currentId = activeSessionId || sessionIdRef.current;
+      const existingSession = sessions.find((s) => s.id === currentId);
+
+      // Derive title from first user message, or preserve existing session title
+      const firstUser = messages.find((m) => m.role === 'user');
+      const title =
+        existingSession?.title && existingSession.title !== 'Conversation'
+          ? existingSession.title
+          : firstUser
+          ? firstUser.content.slice(0, 60).trim() + (firstUser.content.length > 60 ? '…' : '')
+          : 'Conversation';
+
+      const createdAt = existingSession?.createdAt || messages[0]?.timestamp || new Date().toISOString();
+
+      saveSession({
+        id: currentId,
+        title,
+        createdAt,
+        updatedAt: new Date().toISOString(),
+        messages: [...messages],
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [messages, activeSessionId, sessions, saveSession]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (user) => {

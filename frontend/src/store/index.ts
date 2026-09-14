@@ -82,6 +82,7 @@ interface ChatState {
   activeMode: string;
   strategyUsed: string | null;
   addMessage: (msg: ChatMessage) => void;
+  setMessages: (messages: ChatMessage[]) => void;
   updateMessage: (id: string, content: string, strategy?: string) => void;
   removeMessage: (id: string) => void;
   updateLastMessage: (content: string, strategy?: string) => void;
@@ -98,6 +99,7 @@ export const useChatStore = create<ChatState>((set) => ({
   activeMode: 'Active Listen',
   strategyUsed: null,
   addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
+  setMessages: (messages) => set({ messages, strategyUsed: null }),
   updateMessage: (id, content, strategy) =>
     set((state) => ({
       messages: state.messages.map((m) =>
@@ -393,16 +395,10 @@ export const useChatHistoryStore = create<ChatHistoryState>((set) => ({
   activeSessionId: null,
   saveSession: (session) =>
     set((state) => {
-      const existing = state.sessions.findIndex((s) => s.id === session.id);
-      let next: ChatSession[];
-      if (existing >= 0) {
-        next = [...state.sessions];
-        next[existing] = session;
-      } else {
-        next = [session, ...state.sessions];
-      }
+      const filtered = state.sessions.filter((s) => s.id !== session.id);
+      const next = [session, ...filtered];
       saveSessions(next);
-      return { sessions: next };
+      return { sessions: next, activeSessionId: session.id };
     }),
   deleteSession: (id) =>
     set((state) => {
