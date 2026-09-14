@@ -1,4 +1,4 @@
-import { beforeEach, describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { STORAGE_KEYS } from '../frontend/src/constants/storage.ts';
@@ -6,6 +6,13 @@ import { useChatStore } from '../frontend/src/store/chat.ts';
 import { useChatHistoryStore } from '../frontend/src/store/history.ts';
 import { useSessionStore } from '../frontend/src/store/session.ts';
 import { useSettingsStore } from '../frontend/src/store/settings.ts';
+import { useFlagsStore } from '../frontend/src/store/flags.ts';
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 const createMockLocalStorage = () => {
   const store = new Map();
@@ -27,6 +34,7 @@ const createMockLocalStorage = () => {
 
 beforeEach(() => {
   globalThis.window = globalThis;
+  globalThis.window.location = { hostname: 'localhost' };
   globalThis.localStorage = createMockLocalStorage();
 
   useSessionStore.setState({
@@ -49,6 +57,7 @@ beforeEach(() => {
     sessions: [],
     activeSessionId: null,
     isLoadingCloud: false,
+    cloudError: null,
   });
 
   useSettingsStore.setState({
@@ -67,6 +76,16 @@ beforeEach(() => {
     isOpen: false,
     activeTab: 'general',
   });
+
+  useFlagsStore.setState({
+    flags: {
+      voice_enabled: false,
+      presence_enabled: false,
+      pro_model_enabled: true,
+      memory_enabled: true,
+      changelog_enabled: true,
+    },
+  });
 });
 
 describe('Session store auth lifecycle contract', () => {
@@ -84,6 +103,15 @@ describe('Session store auth lifecycle contract', () => {
     assert.equal(useSessionStore.getState().idToken, null);
     assert.equal(useSessionStore.getState().appCheckToken, null);
     assert.equal(useSessionStore.getState().isAuthenticated, false);
+  });
+});
+
+describe('Feature flag store contract', () => {
+  it('keeps voice and presence disabled until explicitly enabled', () => {
+    const flags = useFlagsStore.getState().flags;
+
+    assert.equal(flags.voice_enabled, false);
+    assert.equal(flags.presence_enabled, false);
   });
 });
 
@@ -158,5 +186,32 @@ describe('Chat history store persistence contract', () => {
     assert.equal(storedSessions.length, 1);
     assert.equal(storedSessions[0].id, 'session-1');
     assert.equal(useChatHistoryStore.getState().activeSessionId, 'session-1');
+  });
+
+  it('surfaces cloud loading failures while preserving local history', async () => {
+    const localSession = {
+      id: 'local-session',
+      title: 'Local session',
+      createdAt: '2026-09-14T00:00:00.000Z',
+      updatedAt: '2026-09-14T00:00:00.000Z',
+      messages: [],
+    };
+    useChatHistoryStore.setState({ sessions: [localSession] });
+    useSessionStore.setState({ isAuthenticated: true, idToken: 'token' });
+    globalThis.fetch = async () => {
+      throw new Error('offline');
+    };
+    const originalWarn = console.warn;
+    console.warn = () => {};
+
+    try {
+      await useChatHistoryStore.getState().loadCloudSessions();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    assert.equal(useChatHistoryStore.getState().isLoadingCloud, false);
+    assert.match(useChatHistoryStore.getState().cloudError, /Could not sync cloud history/);
+    assert.equal(useChatHistoryStore.getState().sessions[0].id, 'local-session');
   });
 });

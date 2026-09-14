@@ -1,5 +1,5 @@
-import { fetchJson, expectOk } from './http';
-import type { ChatSession } from '../../types';
+import { fetchJson, expectOk } from './http.ts';
+import type { ChatSession } from '../../types/index.ts';
 
 export const chatsApi = {
   async listChatSessions(): Promise<{ sessions: ChatSession[] }> {

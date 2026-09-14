@@ -18,6 +18,9 @@
 - Settings tab content split into focused modules under `frontend/src/components/settings/tabs/` with an explicit folder entrypoint
 - Presence presentation components grouped under `frontend/src/components/presence/parts/` with an explicit folder entrypoint
 - Chat components organized into explicit `canvas/`, `history/`, and `input/` domains with root component files removed
+- Component contracts added for ChatInput, ChatCanvas, AuthModal, SettingsModal, and ChatHistoryModal; browser coverage exercises all except authenticated SettingsModal runtime
+- Tier-1 browser quality harness added with control inventory, event telemetry, API observation, error capture, safe interaction scenarios, and JSON reports
+- Full desktop/mobile visual audit completed; disabled voice controls were removed from the composer and evidence is recorded in `docs/frontend-visual-audit-2026-09-14.md`
 - Error boundaries added at app/section/modal boundaries
 - Focus trap hook added and wired into modal flows
 - `aria-live` support added for streaming updates
@@ -157,17 +160,17 @@
 7. P2-7 and P2-8: cleanup and polish
 
 ## New todo checklist
-- [ ] Gate or wire `VoiceOverlay` behind a feature flag if the real session flow is not ready
-- [ ] Decide whether `PresenceShell` remains visible by default or is behind a rollout flag
+- [x] Gate `VoiceOverlay` behind a disabled-by-default feature flag until the real session flow is ready
+- [x] Keep `PresenceShell` behind a disabled-by-default rollout flag
 - [ ] Add frontend component tests for `ChatInput`, `ChatCanvas`, `AuthModal`, `SettingsModal`, and `ChatHistoryModal`
-- [ ] Add frontend store tests for chat dedupe, history loading, and settings persistence
-- [ ] Add one end-to-end happy-path test for chat send + stream completion
-- [ ] Finish accessibility review for landmarks, labels, contrast, and `aria-live` coverage
+- [x] Add frontend store tests for chat dedupe, history loading, and settings persistence
+- [x] Add one end-to-end happy-path test for chat send + stream completion
+- [x] Finish accessibility review for landmarks, labels, contrast, and `aria-live` coverage
 - [x] Add lazy loading for `SettingsModal`, `VoiceOverlay`, `PresenceShell`, `MemoryInspector`, and `ChangelogModal`
-- [ ] Confirm real data wiring for `UsageSettingsTab` and `AnalyticsSettingsTab`
-- [ ] Improve failure/retry UX for streaming and cloud history actions
-- [ ] Replace remaining raw storage keys in UI/bootstrap files with `STORAGE_KEYS`
-- [ ] Finalize visible loading/empty/error state polish in chat/history/memory flows
+- [x] Confirm real data wiring for `UsageSettingsTab` and `AnalyticsSettingsTab`
+- [x] Improve failure/retry UX for streaming and cloud history actions
+- [x] Replace remaining raw storage keys in UI/bootstrap files with `STORAGE_KEYS`
+- [x] Finalize visible loading/empty/error state polish in chat/history/memory flows
 
 ## Recommended next milestone
 - Target the next milestone as: “Frontend cleanup + product gating + test coverage pass”

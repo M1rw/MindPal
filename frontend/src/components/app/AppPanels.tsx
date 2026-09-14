@@ -31,6 +31,7 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
         id="tabpanel-chat"
         role="tabpanel"
         aria-labelledby="tab-chat"
+        aria-hidden={activeTab !== 'chat'}
         className={[
           'absolute inset-0 flex flex-col transition-all duration-220 ease-out',
           activeTab === 'chat'
@@ -68,6 +69,7 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
           id="tabpanel-presence"
           role="tabpanel"
           aria-labelledby="tab-presence"
+          aria-hidden={activeTab !== 'presence'}
           className={[
             'absolute inset-0 flex transition-all duration-250 ease-out overflow-y-auto',
             activeTab === 'presence'

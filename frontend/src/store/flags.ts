@@ -12,7 +12,7 @@ interface FlagsState {
 
 export const useFlagsStore = create<FlagsState>((set) => ({
   flags: {
-    voice_enabled: true,
+    voice_enabled: false,
     presence_enabled: false,
     pro_model_enabled: true,
     memory_enabled: true,

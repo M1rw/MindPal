@@ -18,7 +18,7 @@ export const VoiceOverlay: React.FC = () => {
 
   const [incognito, setIncognito] = useState(false);
   const [showCaptions, setShowCaptions] = useState(true);
-  const [status, setStatus] = useState<'Connecting' | 'Listening' | 'Speaking'>('Connecting');
+  const [status, setStatus] = useState<'Connecting' | 'Listening' | 'Speaking' | 'Unavailable'>('Connecting');
 
   useEffect(() => {
     if (isActive) {
@@ -28,11 +28,11 @@ export const VoiceOverlay: React.FC = () => {
           setStatus('Listening');
         })
         .catch(() => {
-          // If backend Live voice token endpoint is not configured in this environment, provide graceful feedback
-          setStatus('Listening');
+          setStatus('Unavailable');
+          pushToast('Voice is not available right now. Please use text chat instead.', 'error');
         });
     }
-  }, [isActive]);
+  }, [isActive, pushToast]);
 
   if (!isActive) return null;
 
@@ -102,6 +102,8 @@ export const VoiceOverlay: React.FC = () => {
                 ? 'bg-emerald-500 animate-pulse'
                 : status === 'Speaking'
                 ? 'bg-[#4140FD] animate-bounce'
+                : status === 'Unavailable'
+                ? 'bg-rose-500'
                 : 'bg-amber-400 animate-ping'
             }`}
           />

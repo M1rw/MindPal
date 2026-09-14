@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, KeyboardEvent, forwardRef, useImperativeHandle } from 'react';
-import { useChatStore, useVoiceStore, useStreakStore, useToastStore } from '../../../store';
+import { useChatStore, useFlagsStore, useVoiceStore, useStreakStore, useToastStore } from '../../../store';
 import { ApiClient } from '../../../services/api/index';
 import { useChatInputDictation } from '../../../hooks/useChatInputDictation';
 import { ChatInputActions } from './ChatInputActions';
@@ -33,6 +33,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
   } = useChatStore();
 
   const { setIsActive: setIsVoiceActive } = useVoiceStore();
+  const voiceEnabled = useFlagsStore((state) => Boolean(state.flags.voice_enabled));
   const { recordActivity } = useStreakStore();
   const { push: pushToast } = useToastStore();
 
@@ -118,6 +119,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
         }
       );
     } catch {
+      updateLastMessage('MindPal hit a connection issue while generating this response. Please retry this message.');
       setIsGenerating(false);
       isSendingRef.current = false;
     }
@@ -196,6 +198,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
 
             <ChatInputActions
               hasText={hasText}
+              voiceEnabled={voiceEnabled}
               isGenerating={isGenerating}
               isPro={isPro}
               selectorOpen={selectorOpen}

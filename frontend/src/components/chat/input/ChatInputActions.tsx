@@ -3,6 +3,7 @@ import { ArrowUp, AudioWaveform, Check, ChevronDown, Mic, Square } from 'lucide-
 
 interface ChatInputActionsProps {
   hasText: boolean;
+  voiceEnabled: boolean;
   isGenerating: boolean;
   isPro: boolean;
   selectorOpen: boolean;
@@ -16,6 +17,7 @@ interface ChatInputActionsProps {
 
 export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   hasText,
+  voiceEnabled,
   isGenerating,
   isPro,
   selectorOpen,
@@ -106,18 +108,20 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={onStartDictation}
-        className="chat-compact-btn w-8 h-8 flex items-center justify-center rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface-elevated transition-colors"
-        title="Start voice dictation"
-        aria-label="Voice dictation"
-      >
-        <Mic className="w-4 h-4" />
-      </button>
+      {voiceEnabled && (
+        <button
+          type="button"
+          onClick={onStartDictation}
+          className="chat-compact-btn w-8 h-8 flex items-center justify-center rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface-elevated transition-colors"
+          title="Start voice dictation"
+          aria-label="Voice dictation"
+        >
+          <Mic className="w-4 h-4" />
+        </button>
+      )}
     </div>
 
-    <button
+    {(hasText || isGenerating || voiceEnabled) && <button
       id="action-btn"
       type="button"
       onClick={onToggleGenerateOrVoice}
@@ -140,6 +144,6 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
       ) : (
         <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5 text-content-secondary" />
       )}
-    </button>
+    </button>}
   </div>
 );

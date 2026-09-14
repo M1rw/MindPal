@@ -1,5 +1,5 @@
-import { fetchJson } from './http';
-import type { MemorySummaryResponse, MemoryAtom } from '../../types';
+import { fetchJson } from './http.ts';
+import type { MemorySummaryResponse, MemoryAtom } from '../../types/index.ts';
 
 export const memoryApi = {
   async getMemorySummary(): Promise<MemorySummaryResponse> {
