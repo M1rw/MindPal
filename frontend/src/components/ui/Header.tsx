@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Moon, Sun, Flame, User, Plus, History } from 'lucide-react';
 import { useAuthStore, useStreakStore, useSettingsStore, useChatStore, useChatHistoryModalStore } from '../../store';
+import { STORAGE_KEYS } from '../../constants/storage';
 import { EnvTag } from './EnvTag';
 
 interface HeaderProps {
@@ -32,10 +33,10 @@ export const Header: React.FC<HeaderProps> = () => {
     setIsDark(nextDark);
     if (nextDark) {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('mindpal_theme', 'dark');
+      localStorage.setItem(STORAGE_KEYS.THEME, 'dark');
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('mindpal_theme', 'light');
+      localStorage.setItem(STORAGE_KEYS.THEME, 'light');
     }
   };
 
@@ -56,10 +57,10 @@ export const Header: React.FC<HeaderProps> = () => {
       <div className="flex items-center gap-2">
         <button
           onClick={clearMessages}
-          className="flex items-center gap-2 group text-left focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded-lg"
+          className="flex items-center gap-2 group text-left focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none rounded-lg"
           title="Start new conversation"
         >
-          <span className="text-xl font-medium tracking-tight text-gray-800 dark:text-gray-200">
+          <span className="text-xl font-medium tracking-tight text-content-primary">
             MindPal
           </span>
         </button>
@@ -67,11 +68,11 @@ export const Header: React.FC<HeaderProps> = () => {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-1 sm:gap-2 text-zinc-600 dark:text-zinc-300">
+      <nav aria-label="MindPal actions" className="flex items-center gap-1 sm:gap-2 text-content-secondary">
         {/* New Chat Button */}
         <button
           onClick={clearMessages}
-          className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+          className="p-2 hover:bg-surface-subtle rounded-full transition-all flex-shrink-0 active:scale-95 focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none"
           title="New Chat"
           aria-label="New chat"
         >
@@ -81,7 +82,7 @@ export const Header: React.FC<HeaderProps> = () => {
         {/* History Button */}
         <button
           onClick={() => setHistoryOpen(true)}
-          className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+          className="p-2 hover:bg-surface-subtle rounded-full transition-all flex-shrink-0 active:scale-95 focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none"
           title="Chat History"
           aria-label="Open chat history"
         >
@@ -92,7 +93,7 @@ export const Header: React.FC<HeaderProps> = () => {
         <button
           id="theme-toggle-btn"
           onClick={toggleTheme}
-          className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+          className="p-2 hover:bg-surface-subtle rounded-full transition-all flex-shrink-0 active:scale-95 focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none"
           title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           aria-label="Toggle theme"
         >
@@ -103,7 +104,7 @@ export const Header: React.FC<HeaderProps> = () => {
         <button
           id="streak-btn"
           onClick={() => setStreakOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors text-[14px] font-medium focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+          className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-surface-subtle rounded-full transition-all active:scale-95 text-sm font-medium focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none"
           title="View Journey & Streak"
           aria-label="View daily streak progress"
         >
@@ -115,7 +116,7 @@ export const Header: React.FC<HeaderProps> = () => {
         <button
           id="profile-btn"
           onClick={handleProfileClick}
-          className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
+          className="p-1.5 hover:bg-surface-subtle rounded-full transition-all flex-shrink-0 active:scale-95 focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none"
           title={user ? `${user.displayName || user.email || 'User'} — Settings` : 'Sign In'}
           aria-label={user ? 'Profile & Settings' : 'Sign in to sync'}
         >
@@ -123,22 +124,22 @@ export const Header: React.FC<HeaderProps> = () => {
             <img
               src={user.photoURL}
               alt={user.displayName || 'Profile'}
-              className="w-8 h-8 rounded-full border border-gray-300 dark:border-zinc-600 object-cover"
+              className="w-8 h-8 rounded-full border border-edge-default object-cover"
             />
           ) : user ? (
-            <div className="w-8 h-8 rounded-full bg-[#4140FD] text-white flex items-center justify-center font-medium text-xs border border-[#6572F2]">
+            <div className="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center font-medium text-xs border border-brand-secondary shadow-sm">
               {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
             </div>
           ) : (
             <div
               id="profile-avatar"
-              className="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-zinc-600"
+              className="w-8 h-8 rounded-full bg-surface-subtle flex items-center justify-center text-content-secondary border border-edge-default"
             >
               <User className="w-4 h-4" />
             </div>
           )}
         </button>
-      </div>
+      </nav>
     </header>
   );
 };

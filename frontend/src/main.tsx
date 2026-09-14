@@ -1,11 +1,19 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { STORAGE_KEYS } from './constants/storage';
 import { App } from './App';
 
 // ── Production Bootstrap: Viewport, PWA & Analytics ──────────────────────────
 (() => {
+  type MindPalWindow = Window & {
+    va?: (...args: unknown[]) => void;
+    vaq?: unknown[];
+    si?: (...args: unknown[]) => void;
+    siq?: unknown[];
+  };
+
   // Analytics Queues (Vercel Web Analytics & Speed Insights)
-  const win = window as any;
+  const win = window as MindPalWindow;
   win.va = win.va || function () { (win.vaq = win.vaq || []).push(arguments); };
   win.si = win.si || function () { (win.siq = win.siq || []).push(arguments); };
 
@@ -24,13 +32,13 @@ import { App } from './App';
 
   // PWA Standalone Mode Indicator
   const isStandalone =
-    (navigator as any).standalone === true ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
     window.matchMedia('(display-mode: standalone)').matches;
   document.body.classList.toggle('standalone', isStandalone);
 
   // Theme Initialization
   try {
-    const savedTheme = localStorage.getItem('mindpal_theme');
+    const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
     if (savedTheme === 'light') {
       document.documentElement.classList.remove('dark');
     } else {

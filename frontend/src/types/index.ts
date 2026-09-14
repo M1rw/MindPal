@@ -151,9 +151,12 @@ export interface ModeOption {
 /** Feature flags snapshot */
 export interface FeatureSnapshot {
   voice_enabled: boolean;
+  presence_enabled?: boolean;
   pro_model_enabled: boolean;
   memory_enabled: boolean;
   changelog_enabled: boolean;
+  clinical_guidance?: boolean;
+  analytics_insights?: boolean;
 }
 
 /** User identity / profile */
@@ -163,6 +166,17 @@ export interface UserProfile {
   email: string | null;
   photo_url: string | null;
   created_at: string;
+}
+
+export interface UserInsightsResponse {
+  user_id_hash?: string;
+  reflection_streak_days: number;
+  total_reflections: number;
+  clinical_scores?: {
+    phq9?: number;
+    gad7?: number;
+    [key: string]: number | string | undefined;
+  };
 }
 
 /** Usage quota */

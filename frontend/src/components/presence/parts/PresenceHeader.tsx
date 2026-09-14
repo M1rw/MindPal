@@ -1,0 +1,12 @@
+import React from 'react';
+import { Eye, Sparkles } from 'lucide-react';
+
+export const PresenceHeader: React.FC = () => (
+  <>
+    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#4140FD]/10 dark:bg-[#4140FD]/20 text-[#4140FD] dark:text-[#A39CF9] text-[11px] font-bold uppercase tracking-widest mb-6 border border-[#4140FD]/25 shadow-sm"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4140FD] opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-[#4140FD]" /></span><span>Clinical Alpha Lab · Coming 2026</span></div>
+    <div className="relative mb-6 group cursor-default"><div className="absolute -inset-4 rounded-full border border-[#4140FD]/20 dark:border-[#6572F2]/20 animate-pulse pointer-events-none" /><div className="absolute -inset-8 rounded-full border border-[#4140FD]/10 dark:border-[#6572F2]/10 pointer-events-none" /><div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white/80 dark:bg-[#161622]/80 backdrop-blur-xl border border-black/[0.08] dark:border-white/[0.12] flex items-center justify-center shadow-2xl transition-transform duration-300 group-hover:scale-105"><div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-gradient-to-tr from-[#4140FD] via-[#6572F2] to-[#A39CF9] flex items-center justify-center text-white shadow-inner"><Eye className="w-8 h-8 sm:w-9 sm:h-9" /></div></div></div>
+    <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-3">MindPal Presence</h1>
+    <p className="text-zinc-600 dark:text-zinc-300 text-base sm:text-lg leading-relaxed max-w-xl mb-8">The next dimension of therapeutic connection. Face-to-face spatial presence, somatic attunement, and multi-party circles — computed 100% on your device with zero video leaving local silicon.</p>
+    <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-white/80 dark:bg-zinc-900/80 border border-black/[0.06] dark:border-white/[0.08] shadow-sm mb-8"><div className="text-left"><div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-[#4140FD] dark:text-[#A39CF9]" /><span>Priority Alpha Cohort</span></div><div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Limited rollout for clinicians, couples, and research testbeds.</div></div></div>
+  </>
+);

@@ -25,6 +25,10 @@ export interface MindPalBootstrapConfig {
   FIREBASE_ENABLED: boolean;
 }
 
+type WindowWithBootstrap = Window & {
+  MINDPAL_CONFIG?: MindPalBootstrapConfig;
+};
+
 let _cachedConfig: MindPalBootstrapConfig | null = null;
 
 /**
@@ -56,9 +60,12 @@ export function getAppConfig(): MindPalBootstrapConfig {
   }
 
   // 2. Fallback to window.MINDPAL_CONFIG
-  if (typeof window !== 'undefined' && (window as any).MINDPAL_CONFIG) {
-    _cachedConfig = Object.freeze((window as any).MINDPAL_CONFIG) as MindPalBootstrapConfig;
-    return _cachedConfig;
+  if (typeof window !== 'undefined') {
+    const bootstrapWindow = window as WindowWithBootstrap;
+    if (bootstrapWindow.MINDPAL_CONFIG) {
+      _cachedConfig = Object.freeze(bootstrapWindow.MINDPAL_CONFIG) as MindPalBootstrapConfig;
+      return _cachedConfig;
+    }
   }
 
   // 3. Fallback for static development
