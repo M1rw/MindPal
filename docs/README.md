@@ -1,65 +1,53 @@
-# MindPal Documentation
+# MindPal documentation
 
-MindPal is a wellness-oriented chat product with voice input, cloud chat sync,
-semantic response routing, curated RAG grounding, safety handling, and evolving
-durable memory.
+Operating manual for the current tree. Historical audits, sprint logs, and research dumps live in [`archive/docs-historical/`](../archive/docs-historical/).
 
-This folder is the operating manual for maintainers and future coding agents.
-Use it before changing product logic.
+MindPal is a production wellness companion: FastAPI, Firebase Auth, Memory Graph, and a React client in `frontend/src/`.
 
-## Documentation Index
+## Index
 
 ### Architecture
-- `docs/architecture/backend-platform.md` — **current backend constitution** (OpenAPI contract, tree, TODOs)
-- `docs/architecture/system-overview.md` — historical overview (pre-platform; do not extend)
+- [`architecture/backend-platform.md`](architecture/backend-platform.md) — current backend constitution
+- [`architecture/frontend-platform.md`](architecture/frontend-platform.md) — current frontend stack and invariants
+- [`architecture/memory_v4_design.md`](architecture/memory_v4_design.md)
+- [`ARCHITECTURE_MAP.md`](ARCHITECTURE_MAP.md), [`ENTRY_POINTS.md`](ENTRY_POINTS.md), [`STACK.md`](STACK.md), [`DATA_MODEL.md`](DATA_MODEL.md)
 
 ### Product
-- `docs/product/current-state-and-roadmap.md`
-- `docs/product/response-modes.md`
+- [`product/current-state-and-roadmap.md`](product/current-state-and-roadmap.md)
+- [`product/response-modes.md`](product/response-modes.md)
+- [`product/mindpal-safe-mode-architecture.md`](product/mindpal-safe-mode-architecture.md)
 
 ### Backend
-- `docs/backend/rag-clinical-frameworks.md` — RAG grounding, corpus structure, retrieval flow (with diagrams)
-- `docs/backend/safety-system.md` — Safety classification pipeline, crisis detection, response overrides (with diagrams)
-- `docs/backend/memory-v3.md` — Adaptive Cortical Memory graph system, merge rules, lifecycle (with diagrams)
-- `docs/backend/memory-v2.md` — Legacy memory system (reference only)
-- `docs/backend/chat-sync-and-history.md` — Cloud chat sync via Firebase
-- `docs/backend/tool-framework.md` — Server-side tool system (time, search, memory, web)
-- `docs/backend/prompt-engineering.md` — System prompt construction, safety, memory, language, thought chains
-- `docs/backend/quota-enforcement.md` — Credit-based rate limiting (5h + 1-week windows)
+- [`backend/safety-system.md`](backend/safety-system.md)
+- [`backend/rag-clinical-frameworks.md`](backend/rag-clinical-frameworks.md)
+- [`backend/memory-v3.md`](backend/memory-v3.md) (v2 is legacy reference)
+- [`backend/chat-sync-and-history.md`](backend/chat-sync-and-history.md)
+- [`backend/tool-framework.md`](backend/tool-framework.md)
+- [`backend/prompt-engineering.md`](backend/prompt-engineering.md)
+- [`backend/quota-enforcement.md`](backend/quota-enforcement.md)
+- [`LLM_PIPELINE.md`](LLM_PIPELINE.md), [`API_REFERENCE.md`](API_REFERENCE.md), [`API_CONTRACT_MATRIX.md`](API_CONTRACT_MATRIX.md)
 
 ### Frontend
-- `docs/frontend/welcome-screen.md` — Welcome layout, greeting logic, mood buttons, input bar
-- `docs/frontend/chat-display.md` — Message rendering, copy behavior, markdown, streaming, RTL
-- `docs/frontend/model-mode-selector.md` — Unified model/mode selector, locking during generation
-- `docs/frontend/ui-transitions.md` — Welcome→Chat FLIP animation, loading screen, thought accordion
-- `docs/frontend/pwa-viewport-safearea.md` — PWA config, viewport height fix, safe areas, standalone mode
-- `docs/frontend/settings-delete-actions.md` — Delete actions safety pattern (pill-only click targets)
-- `docs/frontend/voice-and-mobile-ios.md` — Voice input and mobile behavior
-- `docs/frontend/voice_state_machine.md` — Voice recording state machine
-- `docs/frontend/settings-ui.md` — Settings modal tabs, controls, notifications, memory inspector
-- `docs/frontend/mental-health-tab.md` — Clinical insights display (PHQ-9, GAD-7, diagnoses)
-- `docs/frontend/usage-and-quota.md` — Client-side usage tracking, pre-flight checks, quota banner
+- [`FRONTEND_MAP.md`](FRONTEND_MAP.md) — current React surface inventory
+- [`frontend/welcome-screen.md`](frontend/welcome-screen.md)
+- [`frontend/chat-display.md`](frontend/chat-display.md)
+- [`frontend/model-mode-selector.md`](frontend/model-mode-selector.md)
+- [`frontend/settings-ui.md`](frontend/settings-ui.md)
+- [`frontend/pwa-viewport-safearea.md`](frontend/pwa-viewport-safearea.md)
+- [`frontend/voice-and-mobile-ios.md`](frontend/voice-and-mobile-ios.md)
 
-### Ops
-- `docs/ops/release-and-deploy-flow.md`
+### Ops and tests
+- [`ops/release-and-deploy-flow.md`](ops/release-and-deploy-flow.md)
+- [`testing/regression-checklist.md`](testing/regression-checklist.md)
+- [`production_engineering_standards.md`](production_engineering_standards.md)
+- [`legal_pages.md`](legal_pages.md)
 
-### Observability
-- `docs/observability/debug-panel.md`
+## Rules
 
-### Testing
-- `docs/testing/regression-checklist.md`
-
-## Core Rules
-
-1. Keep voice, auth, static serving, providers, RAG, memory, and chat sync as separate systems.
-2. Do not use raw chat history as durable memory.
-3. Do not use RAG corpus files as user memory.
-4. Do not let the LLM answer deterministic product-state questions when the app can answer them.
-5. Safety routing overrides user mode preferences.
-6. Arabic input should get natural Arabic output unless the user asks otherwise.
-7. Clinical frameworks are safe technique guidance, not diagnosis, treatment, or therapy claims.
-8. Settings destructive actions respond only to the pill button, not the row text.
-9. Usage credits: Standard = 1, Pro = 2×. Pre-flight check must run before every API call.
-10. Model/mode selector is locked (grayed out, non-interactive) while AI is generating a response.
-11. Copy button copies visible response text only, never internal thought chains.
-12. Viewport height uses triple-fallback: `100vh` → `100dvh` → JS-measured `--app-height`.
+1. Keep voice, auth, providers, RAG, memory, and chat sync as separate systems.
+2. Do not use raw chat history as durable memory, or RAG corpus files as user memory.
+3. Safety routing overrides user mode preferences.
+4. Do not show a control that the backend cannot honor.
+5. Settings destructive actions respond only to the explicit confirm control.
+6. Viewport height uses `dvh` plus `--app-height` fallback; respect safe areas.
+7. Copy visible assistant text only — never thought chains.
