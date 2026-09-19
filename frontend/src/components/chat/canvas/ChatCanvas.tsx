@@ -57,6 +57,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
   const stickToBottomRef = useRef(true);
   const jumpingRef = useRef(false);
   const jumpTimerRef = useRef(0);
+  const focusReanchorCleanupRef = useRef<(() => void) | null>(null);
   const lastUserIdRef = useRef<string | null>(null);
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
   const [enteringIds, setEnteringIds] = useState<Set<string>>(() => new Set());
@@ -196,13 +197,33 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
     const onFocusIn = (event: FocusEvent) => {
       const target = event.target;
       if (!(target instanceof HTMLTextAreaElement) || target.id !== 'chat-input') return;
-      window.requestAnimationFrame(() => {
-        if (!jumpingRef.current) scrollCanvasToBottom(false);
-      });
+      focusReanchorCleanupRef.current?.();
+      stickToBottomRef.current = true;
+      setShowJumpToLatest(false);
+
+      let frame = 0;
+      let attempts = 0;
+      const reanchor = () => {
+        if (jumpingRef.current || document.activeElement !== target) return;
+        scrollCanvasToBottom(false);
+        attempts += 1;
+        if (attempts < 12) frame = window.requestAnimationFrame(reanchor);
+      };
+
+      frame = window.requestAnimationFrame(reanchor);
+      window.visualViewport?.addEventListener('resize', reanchor, { passive: true });
+      focusReanchorCleanupRef.current = () => {
+        window.cancelAnimationFrame(frame);
+        window.visualViewport?.removeEventListener('resize', reanchor);
+      };
     };
 
     document.addEventListener('focusin', onFocusIn);
-    return () => document.removeEventListener('focusin', onFocusIn);
+    return () => {
+      document.removeEventListener('focusin', onFocusIn);
+      focusReanchorCleanupRef.current?.();
+      focusReanchorCleanupRef.current = null;
+    };
   }, [scrollCanvasToBottom]);
 
   useEffect(() => {
@@ -451,9 +472,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
         ) : (
           <div
             key={activeSessionId || 'draft'}
-            className="chat-thread-enter w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 mx-auto"
+            className="chat-thread-enter w-full max-w-3xl flex-1 px-4 py-4 sm:px-6 sm:py-8 mx-auto"
           >
-            <div className="space-y-8">
+            <div className="space-y-4 sm:space-y-8">
               {messages.map((msg, idx) => {
                 const isUser = msg.role === 'user';
                 const isLast = idx === messages.length - 1;
@@ -499,7 +520,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
               })}
             </div>
 
-            <div className="h-8" />
+            <div className="h-4 sm:h-8" />
           </div>
         )}
       </div>
