@@ -16,4 +16,8 @@ export const STORAGE_KEYS = {
   GUEST_MEMORY: 'mindpal_guest_memory_v1',
 } as const;
 
+export function accountChangelogKey(accountId: string): string {
+  return `${STORAGE_KEYS.LAST_SEEN_CHANGELOG}:${accountId}`;
+}
+
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

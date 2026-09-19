@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { useAuthStore, useChangelogStore, useSessionStore } from '../../store/index';
-import { STORAGE_KEYS } from '../../constants/storage';
+import { accountChangelogKey, STORAGE_KEYS } from '../../constants/storage';
 import { ApiClient } from '../../services/api/index';
+
+let changelogRequestId = 0;
 
 export function useChangelogBootstrap() {
   const authUser = useAuthStore((state) => state.user);
@@ -13,13 +15,17 @@ export function useChangelogBootstrap() {
     if (authUser && !isAuthenticated) return;
 
     const checkChangelog = async () => {
+      const requestId = ++changelogRequestId;
+      const accountId = authUser?.uid ?? null;
       try {
         const data = await ApiClient.getChangelog();
         if (!data) return;
 
+        if (requestId !== changelogRequestId) return;
+
         const currentVer = data.current_version || '5.0.0';
-        const lastSeen = authUser || isAuthenticated
-          ? null
+        const lastSeen = accountId
+          ? localStorage.getItem(accountChangelogKey(accountId))
           : localStorage.getItem(STORAGE_KEYS.LAST_SEEN_CHANGELOG);
         const dismissedForAccount = data.dismissed_versions?.includes(currentVer) ?? false;
         const hasMajor = data.entries?.some((entry) => entry.version === currentVer && entry.major);
