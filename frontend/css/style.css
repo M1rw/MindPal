@@ -3161,6 +3161,10 @@ button:active,
 }
 
 @media (max-width: 639px) {
+  .composer-notice {
+    display: none;
+  }
+
   .chat-stage {
     padding-bottom: calc(var(--keyboard-offset, 0px) + var(--composer-dock-height, 0px));
   }
