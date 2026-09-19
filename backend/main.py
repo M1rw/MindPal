@@ -56,7 +56,7 @@ CONTENT_SECURITY_POLICY = "; ".join(
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         # accounts.google.com serves the Google Sign-In client, which was also
         # being refused — and live voice needs a signed-in account.
-        "script-src 'self' 'unsafe-inline' blob: https://www.gstatic.com https://apis.google.com https://accounts.google.com",
+        "script-src 'self' 'unsafe-inline' blob: https://www.gstatic.com https://apis.google.com https://accounts.google.com https://vercel.live",
         "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
         "worker-src 'self' blob:",
         "media-src 'self' blob:",

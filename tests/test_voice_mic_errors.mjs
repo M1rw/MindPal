@@ -141,4 +141,8 @@ describe('the policy that has to allow the worklets', () => {
     assert.match(scriptSrc, /accounts\.google\.com/);
     assert.match(csp, /"frame-src [^"]*accounts\.google\.com/);
   });
+
+  it('allows Vercel preview feedback tooling', () => {
+    assert.match(scriptSrc, /vercel\.live/);
+  });
 });
