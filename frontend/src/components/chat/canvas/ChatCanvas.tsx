@@ -173,12 +173,13 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
 
     let frame = 0;
     const keepLatestVisible = () => {
+      const inputFocused = document.activeElement?.id === 'chat-input';
+      if (!stickToBottomRef.current && !inputFocused) return;
+      if (jumpingRef.current) return;
       if (frame) window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        if (stickToBottomRef.current && !jumpingRef.current) {
-          scrollCanvasToBottom(false);
-        }
+        scrollCanvasToBottom(false);
       });
     };
 
@@ -189,6 +190,19 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
       viewport.removeEventListener('scroll', keepLatestVisible);
       if (frame) window.cancelAnimationFrame(frame);
     };
+  }, [scrollCanvasToBottom]);
+
+  useEffect(() => {
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLTextAreaElement) || target.id !== 'chat-input') return;
+      window.requestAnimationFrame(() => {
+        if (!jumpingRef.current) scrollCanvasToBottom(false);
+      });
+    };
+
+    document.addEventListener('focusin', onFocusIn);
+    return () => document.removeEventListener('focusin', onFocusIn);
   }, [scrollCanvasToBottom]);
 
   useEffect(() => {
