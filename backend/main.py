@@ -57,7 +57,7 @@ CONTENT_SECURITY_POLICY = "; ".join(
         # accounts.google.com serves the Google Sign-In client, which was also
         # being refused — and live voice needs a signed-in account.
         "script-src 'self' 'unsafe-inline' blob: https://www.gstatic.com https://apis.google.com https://accounts.google.com",
-        "frame-src 'self' https://accounts.google.com",
+        "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com",
         "worker-src 'self' blob:",
         "media-src 'self' blob:",
         "connect-src 'self' https: wss:",
@@ -148,7 +148,7 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
-        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
         response.headers["Permissions-Policy"] = "geolocation=(), camera=(), payment=(), usb=()"
         if _is_production():
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
