@@ -3179,9 +3179,9 @@ button:active,
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 0;
-    transform: translateY(var(--visual-viewport-shift, 0px));
-    transition: transform 180ms ease-out;
+    bottom: var(--visual-viewport-bottom-inset, 0px);
+    transform: none;
+    transition: bottom 180ms ease-out;
     z-index: 20;
   }
 
