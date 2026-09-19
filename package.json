@@ -14,6 +14,7 @@
     "test": "node --test tests/*.mjs",
     "test:frontend:quality": "node --test tests/frontend_quality_harness.mjs",
     "test:frontend:visual": "node --test tests/frontend_visual_audit.mjs",
+    "test:mobile:browserstack": "node tests/browserstack_mobile_audit.mjs",
     "verify:build": "python scripts/verify_frontend_build.py"
   },
   "dependencies": {
@@ -38,6 +39,7 @@
   },
   "packageManager": "npm@10.9.2",
   "devDependencies": {
-    "playwright": "^1.62.1"
+    "playwright": "^1.62.1",
+    "selenium-webdriver": "^4.38.0"
   }
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { STORAGE_KEYS } from '../../../constants/storage';
+import { triggerHaptic } from '../../../utils/ui/haptics';
 import { SettingsHeader, SettingsRow, SettingsSelect } from '../SettingsPrimitives';
 import type { SettingsTabContentProps } from './types';
 
@@ -57,7 +58,9 @@ export const GeneralSettingsTab: React.FC<SettingsTabContentProps> = ({ settings
           value={settings.soundEnabled ? 'true' : 'false'}
           options={SOUND_OPTIONS}
           onChange={(next) => {
+            const enabled = next === 'true';
             updateSettings({ soundEnabled: next === 'true' });
+            triggerHaptic(enabled, enabled ? 'success' : 'selection');
           }}
         />
       </SettingsRow>
