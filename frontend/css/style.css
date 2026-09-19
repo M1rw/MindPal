@@ -1,6 +1,6 @@
 /* ═══ Safari / Mobile Viewport Safety & High-End iPhone Adaptation ═══ */
 :root {
-  --app-height: 100vh;
+  --app-height: 100dvh;
   --keyboard-offset: 0px;
 }
 
@@ -23,9 +23,8 @@ body {
 }
 
 .h-dvh-safe {
-  height: 100vh;
   height: 100dvh;
-  height: var(--app-height);
+  min-height: 100dvh;
 }
 
 /* ═══ Prevent iOS Safari Auto-Zoom on Form Focus (Strict 16px Rule) ═══ */

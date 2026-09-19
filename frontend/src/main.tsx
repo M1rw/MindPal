@@ -2,7 +2,6 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { STORAGE_KEYS } from './constants/storage';
 import { App } from './App';
-import { applyViewportHeight } from './utils/mobile/viewport';
 
 // ── Production Bootstrap: Viewport, PWA & Analytics ──────────────────────────
 (() => {
@@ -18,19 +17,16 @@ import { applyViewportHeight } from './utils/mobile/viewport';
   win.va = win.va || function () { (win.vaq = win.vaq || []).push(arguments); };
   win.si = win.si || function () { (win.siq = win.siq || []).push(arguments); };
 
-  // iOS Safari / Mobile Dynamic Viewport Fix with visualViewport support.
-  // The keyboard changes the visible viewport height before the browser fires a
-  // normal resize event, so we compute the offset from the real visual viewport.
+  // Keep the app anchored to the real viewport height instead of shrinking the
+  // whole layout while the mobile keyboard is open. The keyboard can reduce the
+  // visual viewport without the app needing to reflow the full shell.
   const setAppHeight = () => {
-    applyViewportHeight(window);
+    const height = window.innerHeight || window.visualViewport?.height || 0;
+    document.documentElement.style.setProperty('--app-height', `${Math.max(height, 0)}px`);
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });
   window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 150), { passive: true });
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', setAppHeight, { passive: true });
-    window.visualViewport.addEventListener('scroll', setAppHeight, { passive: true });
-  }
 
   // PWA Standalone Mode Indicator
   const isStandalone =
