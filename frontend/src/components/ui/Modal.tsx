@@ -30,6 +30,7 @@ export interface ModalProps {
   panelClassName?: string;
   closeOnBackdrop?: boolean;
   inert?: boolean;
+  autoFocus?: boolean;
 }
 
 export function Modal({
@@ -47,11 +48,12 @@ export function Modal({
   panelClassName,
   closeOnBackdrop = true,
   inert = false,
+  autoFocus = true,
 }: ModalProps) {
   const panelRef = useFocusTrap<HTMLDivElement>({
     isOpen: open,
     onClose,
-    autoFocus: true,
+    autoFocus,
     paused: inert,
   });
   const { mounted, visible } = useOverlayPresence(open);
