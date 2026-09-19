@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MindPal mobile keyboard playground</title>
+  <style>
+    :root { --layout-height: 844px; --visual-height: 844px; --keyboard-offset: 0px; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #09090b; color: #f4f4f5; font: 16px system-ui, sans-serif; }
+    #app { height: var(--layout-height); display: grid; grid-template-rows: 1fr auto; overflow: hidden; padding-bottom: var(--keyboard-offset); }
+    #messages { display: flex; flex-direction: column; justify-content: flex-end; overflow: auto; padding: 24px 16px 16px; }
+    .message { max-width: 92%; margin: 0 0 24px auto; padding: 12px 14px; border: 1px solid #303047; border-radius: 16px; }
+    #composer-dock { position: fixed; left: 0; right: 0; bottom: var(--keyboard-offset); z-index: 2; transition: bottom 120ms ease-out; }
+    #composer { margin: 0 16px 8px; padding: 15px; border: 2px solid #4140fd; border-radius: 32px; background: #202023; }
+    #keyboard { position: fixed; left: 0; right: 0; bottom: 0; height: 300px; display: none; background: #3b3b3f; }
+    body.keyboard-open #keyboard { display: block; }
+    .meta { position: fixed; top: 8px; left: 8px; font-size: 12px; color: #a1a1aa; }
+  </style>
+</head>
+<body>
+  <div class="meta" id="metrics"></div>
+  <main id="app">
+    <section id="messages" aria-label="Conversation">
+      <div class="message">A long final message that should remain visible above the keyboard when the composer is focused.</div>
+      <div class="message">The composer moves. The conversation is not used as the keyboard offset.</div>
+    </section>
+    <div id="composer-dock">
+      <div id="composer"><input id="chat-input" aria-label="Ask MindPal" placeholder="Ask MindPal"></div>
+    </div>
+  </main>
+  <div id="keyboard" aria-label="Simulated iOS keyboard"></div>
+  <script>
+    const layoutHeight = 844;
+    const visualViewport = { height: layoutHeight };
+    Object.defineProperty(window, 'visualViewport', { value: visualViewport });
+    const root = document.documentElement;
+    const dock = document.getElementById('composer-dock');
+    const metrics = document.getElementById('metrics');
+    function update() {
+      const offset = Math.max(0, layoutHeight - visualViewport.height);
+      root.style.setProperty('--keyboard-offset', `${offset}px`);
+      metrics.textContent = `layout=${layoutHeight} visual=${visualViewport.height} offset=${offset}`;
+    }
+    window.simulateIOSKeyboard = (height) => {
+      visualViewport.height = height;
+      document.body.classList.toggle('keyboard-open', height < layoutHeight);
+      update();
+    };
+    window.getGeometry = () => ({
+      keyboardTop: visualViewport.height,
+      composerTop: dock.getBoundingClientRect().top,
+      composerBottom: dock.getBoundingClientRect().bottom,
+      dockTransform: getComputedStyle(dock).transform,
+      dockPosition: getComputedStyle(dock).position,
+      dockBottom: getComputedStyle(dock).bottom,
+      keyboardOffset: getComputedStyle(root).getPropertyValue('--keyboard-offset').trim(),
+    });
+    update();
+  </script>
+</body>
+</html>
