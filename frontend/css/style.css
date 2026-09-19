@@ -3518,7 +3518,7 @@ html.dark .chat-composer--thinking::after {
 }
 
 .chat-thread-enter {
-  animation: chatThreadIn 180ms ease-out both;
+  animation: none;
 }
 
 .chat-msg-enter {

@@ -1,6 +1,6 @@
 ﻿import React from 'react';
-import { useChangelogStore, useToastStore } from '../../store';
-import { STORAGE_KEYS } from '../../constants/storage';
+import { useAuthStore, useChangelogStore, useSessionStore, useToastStore } from '../../store';
+import { accountChangelogKey, STORAGE_KEYS } from '../../constants/storage';
 import { ApiClient } from '../../services/api/index';
 import { ChangelogHero } from './ChangelogHero';
 import { ChangelogHighlights } from './ChangelogHighlights';
@@ -9,16 +9,26 @@ import { Modal, ModalBody, ModalFooter } from '../ui/Modal';
 export const ChangelogModal: React.FC = () => {
   const { isOpen, setIsOpen, changelog } = useChangelogStore();
   const { push: pushToast } = useToastStore();
+  const accountId = useAuthStore((state) => state.user?.uid ?? null);
+  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
 
   const currentVersion = changelog?.current_version || '5.0.0';
   const entry = changelog?.entries?.find((e) => e.version === currentVersion) ?? changelog?.entries?.[0];
 
   const handleDismiss = async () => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.LAST_SEEN_CHANGELOG, currentVersion);
-      await ApiClient.dismissChangelog(currentVersion);
-    } catch { /* offline graceful */ }
     setIsOpen(false);
+    try {
+      const key = accountId
+        ? accountChangelogKey(accountId)
+        : STORAGE_KEYS.LAST_SEEN_CHANGELOG;
+      localStorage.setItem(key, currentVersion);
+      if (isAuthenticated && accountId) {
+        localStorage.setItem(STORAGE_KEYS.LAST_SEEN_CHANGELOG, currentVersion);
+      }
+      await ApiClient.dismissChangelog(currentVersion);
+    } catch (error) {
+      console.warn('Failed to persist changelog dismissal:', error);
+    }
     pushToast(`Welcome to MindPal ${currentVersion}.`, 'success');
   };
 
