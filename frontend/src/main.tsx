@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { STORAGE_KEYS } from './constants/storage';
 import { App } from './App';
+import { applyViewportHeight } from './utils/mobile/viewport';
 
 // ── Production Bootstrap: Viewport, PWA & Analytics ──────────────────────────
 (() => {
@@ -17,10 +18,11 @@ import { App } from './App';
   win.va = win.va || function () { (win.vaq = win.vaq || []).push(arguments); };
   win.si = win.si || function () { (win.siq = win.siq || []).push(arguments); };
 
-  // iOS Safari / Mobile Dynamic Viewport Fix with visualViewport support
+  // iOS Safari / Mobile Dynamic Viewport Fix with visualViewport support.
+  // The keyboard changes the visible viewport height before the browser fires a
+  // normal resize event, so we compute the offset from the real visual viewport.
   const setAppHeight = () => {
-    const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    document.documentElement.style.setProperty('--app-height', `${height}px`);
+    applyViewportHeight(window);
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });

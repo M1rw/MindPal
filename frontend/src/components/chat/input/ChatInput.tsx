@@ -276,6 +276,26 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
     }
   };
 
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const syncComposerOnKeyboard = () => {
+      const keyboardOffset = Math.max(0, window.innerHeight - viewport.height);
+      const composer = composerRef.current;
+      if (!composer) return;
+      composer.style.bottom = `${Math.min(keyboardOffset, 24)}px`;
+    };
+
+    syncComposerOnKeyboard();
+    viewport.addEventListener('resize', syncComposerOnKeyboard, { passive: true });
+    viewport.addEventListener('scroll', syncComposerOnKeyboard, { passive: true });
+    return () => {
+      viewport.removeEventListener('resize', syncComposerOnKeyboard);
+      viewport.removeEventListener('scroll', syncComposerOnKeyboard);
+    };
+  }, []);
+
   const hasText = input.trim().length > 0;
   const isPro = activeModel === 'pro';
   const showExpand = fieldOverflowing && !isDictating && !isEditingThread;

@@ -12,6 +12,7 @@ import {
   confirmPhoneCode,
   formatAuthError,
   getIdToken,
+  resetPhoneSignInState,
 } from '../../services/auth/index';
 import type { ConfirmationResult } from 'firebase/auth';
 import type { AuthUser } from '../../types';
@@ -45,11 +46,24 @@ export const AuthModal: React.FC = () => {
   // Last used provider
   const [lastUsed, setLastUsed] = useState<string | null>(null);
 
+  const resetPhoneFlow = () => {
+    setConfirmationResult(null);
+    setPhoneCode('');
+    setPhoneNumber('');
+    resetPhoneSignInState();
+  };
+
   useEffect(() => {
     try {
       setLastUsed(localStorage.getItem(STORAGE_KEYS.AUTH_LAST_USED));
     } catch {
       // Ignore
+    }
+  }, [isAuthModalOpen]);
+
+  useEffect(() => {
+    if (!isAuthModalOpen) {
+      resetPhoneFlow();
     }
   }, [isAuthModalOpen]);
 
@@ -68,6 +82,7 @@ export const AuthModal: React.FC = () => {
     }
     const token = await getIdToken();
     setAuth(user.uid, token);
+    resetPhoneFlow();
     pushToast(`Signed in as ${user.displayName || user.email || 'User'}`, 'success');
     closeAuthModal();
   };
@@ -156,6 +171,7 @@ export const AuthModal: React.FC = () => {
       setConfirmationResult(result);
       setAuthModalView('phone-code');
     } catch (err: unknown) {
+      resetPhoneSignInState();
       setErrorMessage(formatAuthError(err));
     } finally {
       setLoading(false);
@@ -172,6 +188,9 @@ export const AuthModal: React.FC = () => {
       const user = await confirmPhoneCode(confirmationResult, phoneCode);
       await handleAuthSuccess(user, 'phone');
     } catch (err: unknown) {
+      resetPhoneSignInState();
+      setConfirmationResult(null);
+      setPhoneCode('');
       setErrorMessage(formatAuthError(err));
     } finally {
       setLoading(false);
@@ -183,7 +202,10 @@ export const AuthModal: React.FC = () => {
       id="auth-modal"
       panelId="auth-modal-content"
       open={isAuthModalOpen}
-      onClose={closeAuthModal}
+      onClose={() => {
+        resetPhoneFlow();
+        closeAuthModal();
+      }}
       labelledBy="auth-modal-title"
       size="md"
       layer={80}
@@ -193,7 +215,10 @@ export const AuthModal: React.FC = () => {
         title="Sign in to MindPal"
         titleId="auth-modal-title"
         description="Use a Firebase account on this device. Chat history stays in this browser; cloud session sync is attempted when you are signed in."
-        onClose={closeAuthModal}
+        onClose={() => {
+          resetPhoneFlow();
+          closeAuthModal();
+        }}
         closeLabel="Close sign-in"
       />
       <ModalBody>

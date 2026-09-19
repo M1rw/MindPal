@@ -4,6 +4,10 @@
   --keyboard-offset: 0px;
 }
 
+html, body, #root {
+  min-height: 100%;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -3154,6 +3158,15 @@ button:active,
   position: relative;
   z-index: 20;
   overflow: visible;
+  transform: translate3d(0, 0, 0);
+  transition: transform 180ms ease-out, bottom 180ms ease-out;
+}
+
+@media (max-width: 820px) {
+  .chat-composer-dock {
+    padding-bottom: max(0.25rem, env(safe-area-inset-bottom, 0px));
+    margin-bottom: max(0px, var(--keyboard-offset));
+  }
 }
 
 /* One capped radius always: 31px is slightly ≥ half of idle ~60px, so one-line

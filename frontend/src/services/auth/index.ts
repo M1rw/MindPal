@@ -156,6 +156,17 @@ export async function sendPasswordReset(email: string): Promise<void> {
 /** Start phone number sign-in — returns ConfirmationResult */
 let _recaptchaVerifier: RecaptchaVerifier | null = null;
 
+export function resetPhoneSignInState(): void {
+  if (_recaptchaVerifier) {
+    try {
+      _recaptchaVerifier.clear();
+    } catch {
+      // Ignore stale verifier teardown issues; the next attempt creates a fresh one.
+    }
+    _recaptchaVerifier = null;
+  }
+}
+
 export async function startPhoneNumberSignIn(
   phoneNumber: string,
   recaptchaContainerId: string,
