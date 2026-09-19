@@ -57,7 +57,6 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
   const stickToBottomRef = useRef(true);
   const jumpingRef = useRef(false);
   const jumpTimerRef = useRef(0);
-  const focusReanchorCleanupRef = useRef<(() => void) | null>(null);
   const lastUserIdRef = useRef<string | null>(null);
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
   const [enteringIds, setEnteringIds] = useState<Set<string>>(() => new Set());
@@ -87,26 +86,6 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
   const scrollCanvasToBottom = useCallback((smooth: boolean) => {
     const el = scrollRef.current;
     if (!el) return;
-
-    const messages = el.querySelectorAll<HTMLElement>('.chat-thread-enter .chat-turn');
-    const lastMessage = messages[messages.length - 1];
-    const composer = document.querySelector<HTMLElement>('.chat-composer-dock');
-    if (lastMessage && composer) {
-      const canvasRect = el.getBoundingClientRect();
-      const composerRect = composer.getBoundingClientRect();
-      const visibleBottom = Math.min(canvasRect.bottom, composerRect.top) - 16;
-      const messageRect = lastMessage.getBoundingClientRect();
-      const delta = messageRect.bottom - visibleBottom;
-
-      if (Math.abs(delta) > 1) {
-        el.scrollTo({
-          top: Math.max(0, el.scrollTop + delta),
-          behavior: smooth ? 'smooth' : 'auto',
-        });
-        return;
-      }
-    }
-
     el.scrollTo({
       top: el.scrollHeight,
       behavior: smooth ? 'smooth' : 'auto',
@@ -164,87 +143,6 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
     if (!stickToBottomRef.current || jumpingRef.current) return;
     scrollCanvasToBottom(false);
   }, [messages, isGenerating, scrollCanvasToBottom]);
-
-  useEffect(() => {
-    const viewport = scrollRef.current;
-    const content = viewport?.querySelector('.chat-thread-enter');
-    if (!viewport || !content) return;
-
-    let frame = 0;
-    const keepLatestVisible = () => {
-      if (!stickToBottomRef.current || jumpingRef.current) return;
-      if (frame) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        scrollCanvasToBottom(false);
-      });
-    };
-
-    const observer = new ResizeObserver(keepLatestVisible);
-    observer.observe(content);
-    return () => {
-      observer.disconnect();
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, [messages.length, scrollCanvasToBottom]);
-
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-
-    let frame = 0;
-    const keepLatestVisible = () => {
-      const inputFocused = document.activeElement?.id === 'chat-input';
-      if (!stickToBottomRef.current && !inputFocused) return;
-      if (jumpingRef.current) return;
-      if (frame) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        scrollCanvasToBottom(false);
-      });
-    };
-
-    viewport.addEventListener('resize', keepLatestVisible, { passive: true });
-    viewport.addEventListener('scroll', keepLatestVisible, { passive: true });
-    return () => {
-      viewport.removeEventListener('resize', keepLatestVisible);
-      viewport.removeEventListener('scroll', keepLatestVisible);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, [scrollCanvasToBottom]);
-
-  useEffect(() => {
-    const onFocusIn = (event: FocusEvent) => {
-      const target = event.target;
-      if (!(target instanceof HTMLTextAreaElement) || target.id !== 'chat-input') return;
-      focusReanchorCleanupRef.current?.();
-      stickToBottomRef.current = true;
-      setShowJumpToLatest(false);
-
-      let frame = 0;
-      let attempts = 0;
-      const reanchor = () => {
-        if (jumpingRef.current || document.activeElement !== target) return;
-        scrollCanvasToBottom(false);
-        attempts += 1;
-        if (attempts < 12) frame = window.requestAnimationFrame(reanchor);
-      };
-
-      frame = window.requestAnimationFrame(reanchor);
-      window.visualViewport?.addEventListener('resize', reanchor, { passive: true });
-      focusReanchorCleanupRef.current = () => {
-        window.cancelAnimationFrame(frame);
-        window.visualViewport?.removeEventListener('resize', reanchor);
-      };
-    };
-
-    document.addEventListener('focusin', onFocusIn);
-    return () => {
-      document.removeEventListener('focusin', onFocusIn);
-      focusReanchorCleanupRef.current?.();
-      focusReanchorCleanupRef.current = null;
-    };
-  }, [scrollCanvasToBottom]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -492,9 +390,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
         ) : (
           <div
             key={activeSessionId || 'draft'}
-            className="chat-thread-enter w-full max-w-3xl flex-1 px-4 py-4 sm:px-6 sm:py-8 mx-auto"
+            className="chat-thread-enter w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 mx-auto"
           >
-            <div className="space-y-4 sm:space-y-8">
+            <div className="space-y-8">
               {messages.map((msg, idx) => {
                 const isUser = msg.role === 'user';
                 const isLast = idx === messages.length - 1;
@@ -540,7 +438,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
               })}
             </div>
 
-            <div className="h-4 sm:h-8" />
+            <div className="h-8" />
           </div>
         )}
       </div>

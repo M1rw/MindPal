@@ -1,13 +1,7 @@
 /* ═══ Safari / Mobile Viewport Safety & High-End iPhone Adaptation ═══ */
 :root {
-  --app-height: 100dvh;
+  --app-height: 100vh;
   --keyboard-offset: 0px;
-}
-
-html, body, #root {
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
 }
 
 html {
@@ -16,21 +10,18 @@ html {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   overscroll-behavior-y: none;
-  overflow: hidden;
 }
 
 body {
   overscroll-behavior-y: none;
-  overflow: hidden;
-  position: fixed;
-  inset: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 .h-dvh-safe {
-  height: var(--app-height, 100dvh);
-  min-height: var(--app-height, 100dvh);
+  height: 100vh;
+  height: 100dvh;
+  height: var(--app-height);
 }
 
 /* ═══ Prevent iOS Safari Auto-Zoom on Form Focus (Strict 16px Rule) ═══ */
@@ -253,7 +244,7 @@ button,
    Uses !important so it adds on top of Tailwind utility pb-* values. */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .pb-safe {
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom)) !important;
   }
 }
 
@@ -3163,35 +3154,6 @@ button:active,
   position: relative;
   z-index: 20;
   overflow: visible;
-  transform: translate3d(0, 0, 0);
-}
-
-@media (max-width: 639px) {
-  .composer-notice {
-    display: none;
-  }
-
-  .chat-stage {
-    padding-bottom: calc(var(--keyboard-offset, 0px) + var(--composer-dock-height, 0px));
-  }
-
-  .chat-composer-dock {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: var(--visual-viewport-bottom-inset, 0px) !important;
-    transform: none !important;
-    transition: none;
-    z-index: 20;
-  }
-
-  body.keyboard-open .chat-composer-dock > div {
-    padding-bottom: 0;
-  }
-
-  .chat-stage--thread .chat-thread-enter {
-    padding-bottom: 1rem;
-  }
 }
 
 /* One capped radius always: 31px is slightly ≥ half of idle ~60px, so one-line
@@ -3484,8 +3446,8 @@ html.dark .chat-composer--thinking::after {
   overflow-anchor: none;
 }
 
-.chat-stage--empty .chat-stage__canvas {
-  justify-content: center;
+.chat-stage:not(.chat-stage--thread) .chat-stage__canvas {
+  justify-content: flex-end;
 }
 
 .chat-jump-latest {
@@ -3525,7 +3487,7 @@ html.dark .chat-composer--thinking::after {
 }
 
 .chat-thread-enter {
-  animation: none;
+  animation: chatThreadIn 180ms ease-out both;
 }
 
 .chat-msg-enter {
