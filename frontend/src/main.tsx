@@ -44,6 +44,7 @@ import { getViewportMetrics } from './utils/mobile/viewport';
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });
   window.visualViewport?.addEventListener('resize', setAppHeight, { passive: true });
+  window.visualViewport?.addEventListener('scroll', setAppHeight, { passive: true });
   window.addEventListener('orientationchange', () => {
     window.setTimeout(() => {
       layoutViewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
