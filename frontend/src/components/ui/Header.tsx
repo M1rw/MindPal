@@ -132,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       id="header"
-      className="relative z-20 flex flex-none items-center gap-2 px-3 pb-2.5 pt-safe-top sm:px-5 bg-transparent transition-colors duration-200 ease-out"
+      className="sticky top-0 z-20 flex flex-none items-center gap-2 px-3 pb-2.5 pt-safe-top sm:px-5 bg-transparent transition-colors duration-200 ease-out"
     >
       <div className="flex min-w-0 items-center gap-2.5">
         <p className="select-none text-xl font-medium tracking-tight text-content-primary">
