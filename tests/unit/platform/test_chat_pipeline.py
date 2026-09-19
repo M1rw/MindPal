@@ -11,7 +11,9 @@ from fastapi.testclient import TestClient
 
 from backend.core.errors import AppError
 from backend.domain.chat.history import normalize_history
-from backend.domain.chat.orchestrator import ChatOrchestrator, detect_cognitive_strategy, personalization_note, provider_model_for_tier
+from backend.domain.chat.orchestrator import ChatOrchestrator, client_context_note, detect_cognitive_strategy, personalization_note, provider_model_for_tier
+from backend.http.chat import ClientContext
+from backend.tools import ClientContextTools, ToolContext, load_tool_catalog
 from backend.domain.identity.identity import IdentityService
 from backend.domain.memory.graph import MemoryAtom, MemoryGraph
 from backend.domain.quota.quota import QuotaService
@@ -80,6 +82,35 @@ def test_personalization_maps_frontend_warmth_keys():
 def test_standard_and_pro_share_the_same_provider_model():
     assert provider_model_for_tier("standard") == provider_model_for_tier("pro") == "gemini-2.5-flash"
     assert "clinical" not in detect_cognitive_strategy("hello", model="pro")[1].lower()
+
+
+def test_client_context_supplies_local_time_and_approximate_location() -> None:
+    note = client_context_note({
+        "timezone": "America/New_York",
+        "location": {"latitude": 40.7128, "longitude": -74.0060},
+    })
+    assert "America/New_York" in note
+    assert "current local date and time" in note.lower()
+    assert "40.7128, -74.0060" in note
+    assert "exact address" in note
+
+
+def test_client_context_discards_invalid_timezone() -> None:
+    context = ClientContext(timezone="not/a-timezone")
+    assert context.timezone is None
+
+
+def test_context_tools_are_available_outside_the_chat_transport() -> None:
+    result = ClientContextTools.current_time(ToolContext(timezone="UTC"))
+    assert "Current local date and time:" in result
+
+
+def test_tool_catalog_drives_context_prompt() -> None:
+    catalog = load_tool_catalog()
+    assert {tool["name"] for tool in catalog} >= {"current_time", "user_location"}
+    note = ClientContextTools.system_note(ToolContext(timezone="UTC"))
+    assert "Returns the user's current local date and time" in note
+    assert "The user asks what time it is." in note
 
 
 def test_history_strips_trailing_current_user_before_slice():

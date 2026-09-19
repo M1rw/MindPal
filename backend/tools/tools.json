@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "tools": [
+    {
+      "name": "current_time",
+      "implementation": "ClientContextTools.current_time",
+      "description": "Returns the user's current local date and time using the browser-provided IANA timezone.",
+      "when_used": [
+        "The user asks what time it is.",
+        "The user asks for the current date or day.",
+        "The user asks about a deadline, schedule, or time-sensitive event relative to now.",
+        "The user asks what time it is in their timezone."
+      ],
+      "inputs": {
+        "timezone": "IANA timezone name such as America/New_York or Europe/London"
+      },
+      "privacy": "Uses timezone only; it does not identify the user's physical location."
+    },
+    {
+      "name": "user_location",
+      "implementation": "ClientContextTools.location",
+      "description": "Returns approximate latitude and longitude that the user has explicitly allowed the browser to share.",
+      "when_used": [
+        "The user asks where they are.",
+        "The user asks about their current location or nearby context.",
+        "The user explicitly asks MindPal to use their shared location."
+      ],
+      "inputs": {
+        "latitude": "Approximate latitude from browser geolocation",
+        "longitude": "Approximate longitude from browser geolocation",
+        "accuracy_m": "Optional browser-reported accuracy in meters"
+      },
+      "privacy": "Location is permission-gated. Never infer or expose an exact address from coordinates."
+    }
+  ]
+}

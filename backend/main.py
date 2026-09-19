@@ -149,7 +149,7 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
         response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
-        response.headers["Permissions-Policy"] = "geolocation=(), camera=(), payment=(), usb=()"
+        response.headers["Permissions-Policy"] = "geolocation=(self), camera=(), payment=(), usb=()"
         if _is_production():
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
