@@ -3176,12 +3176,12 @@ button:active,
   }
 
   .chat-composer-dock {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: var(--visual-viewport-bottom-inset, 0px);
-    transform: none;
-    transition: bottom 180ms ease-out;
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: var(--visual-viewport-bottom-inset, 0px) !important;
+    transform: none !important;
+    transition: none;
     z-index: 20;
   }
 
