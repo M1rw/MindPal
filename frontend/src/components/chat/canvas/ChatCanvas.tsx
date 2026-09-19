@@ -145,6 +145,29 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
   }, [messages, isGenerating, scrollCanvasToBottom]);
 
   useEffect(() => {
+    const viewport = scrollRef.current;
+    const content = viewport?.querySelector('.chat-thread-enter');
+    if (!viewport || !content) return;
+
+    let frame = 0;
+    const keepLatestVisible = () => {
+      if (!stickToBottomRef.current || jumpingRef.current) return;
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        scrollCanvasToBottom(false);
+      });
+    };
+
+    const observer = new ResizeObserver(keepLatestVisible);
+    observer.observe(content);
+    return () => {
+      observer.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [messages.length, scrollCanvasToBottom]);
+
+  useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
 

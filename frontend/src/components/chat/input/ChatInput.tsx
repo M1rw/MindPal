@@ -306,6 +306,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
                 rows={1}
                 dir="auto"
                 spellCheck={false}
+                enterKeyHint="send"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
