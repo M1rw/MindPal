@@ -13,6 +13,6 @@ export type {
   AccountTabProps,
   DataControlsTabProps,
   FeaturesSettingsTabProps,
-  InsightsTabProps,
   SettingsTabContentProps,
+  WellnessTabProps,
 } from './tabs/types';

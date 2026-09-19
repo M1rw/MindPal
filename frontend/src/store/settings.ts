@@ -9,7 +9,7 @@ import type { UserUISettings } from '../types/index';
 const defaultSettings: UserUISettings = {
   theme: 'dark',
   soundEnabled: true,
-  voiceModel: 'advanced',
+  voiceModel: 'Sulafat',
   voiceLanguage: 'auto',
   personalization: {
     baseStyle: 'balanced',

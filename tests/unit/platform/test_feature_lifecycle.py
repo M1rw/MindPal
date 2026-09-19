@@ -43,6 +43,33 @@ def test_consistent_hash_bucketing_is_deterministic() -> None:
     assert isinstance(bucket_a1, int)
 
 
+def test_voice_realtime_defaults_on() -> None:
+    engine = FeatureLifecycleEngine()
+    evaluation = engine.evaluate("voice.realtime", "usr_anyone")
+    assert evaluation.enabled is True
+    assert evaluation.stage == FeatureStage.CANARY
+    snapshot = engine.get_snapshot("usr_anyone")
+    assert snapshot["flags"]["voice_enabled"] is True
+
+
+def test_voice_realtime_off_when_env_zero(monkeypatch) -> None:
+    monkeypatch.setenv("MINDPAL_VOICE_LIVE", "0")
+    engine = FeatureLifecycleEngine()
+    evaluation = engine.evaluate("voice.realtime", "usr_anyone")
+    assert evaluation.enabled is False
+    assert evaluation.stage == FeatureStage.DARK_LAUNCH
+    snapshot = engine.get_snapshot("usr_anyone")
+    assert snapshot["flags"]["voice_enabled"] is False
+
+
+def test_voice_realtime_allowlist_overrides_env_off(monkeypatch) -> None:
+    monkeypatch.setenv("MINDPAL_VOICE_LIVE", "0")
+    monkeypatch.setenv("MINDPAL_VOICE_LIVE_ALLOWLIST", "usr_vip")
+    engine = FeatureLifecycleEngine()
+    assert engine.evaluate("voice.realtime", "usr_vip").enabled is True
+    assert engine.evaluate("voice.realtime", "usr_other").enabled is False
+
+
 def test_feature_lifecycle_stages() -> None:
     """Validates DARK_LAUNCH, CANARY, GA, and SUNSET evaluation semantics."""
     engine = FeatureLifecycleEngine(
@@ -111,4 +138,5 @@ def test_api_features_endpoint_returns_dual_layer_telemetry() -> None:
     assert data["flags"]["voice_enabled"] is True
     assert data["flags"]["memory_enabled"] is True
     assert "voice.realtime" in data["evaluations"]
-    assert data["evaluations"]["voice.realtime"]["stage"] == "general_availability"
+    assert data["evaluations"]["voice.realtime"]["stage"] == "canary"
+    assert data["evaluations"]["voice.realtime"]["enabled"] is True

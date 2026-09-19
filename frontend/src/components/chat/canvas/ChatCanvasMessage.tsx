@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '../../../types';
 import {
   Copy,
@@ -7,11 +7,15 @@ import {
   ThumbsUp,
   ThumbsDown,
   RefreshCw,
+  Pencil,
 } from 'lucide-react';
+import { cn } from '../../../utils/ui/cn';
+import { ChatMemoryReceipt } from './ChatMemoryReceipt';
+import { ChatVoiceReceipt } from './ChatVoiceReceipt';
+import { ChatUserMessageEdit } from './ChatUserMessageEdit';
 
 interface ChatCanvasMessageProps {
   msg: ChatMessage;
-  index: number;
   isUser: boolean;
   isStreamingThis: boolean;
   isGenerating: boolean;
@@ -20,15 +24,51 @@ interface ChatCanvasMessageProps {
   speakingId: string | null;
   thumbed: 'thumbs_up' | 'thumbs_down' | null;
   htmlContent: string;
+  animateEnter?: boolean;
+  canEdit?: boolean;
+  isEditing?: boolean;
+  isPendingReplace?: boolean;
+  hasLaterReplies?: boolean;
   onCopy: (id: string, text: string) => void;
+  onEdit?: (id: string) => void;
+  onCancelEdit?: () => void;
+  onSaveEdit?: (id: string, content: string) => void;
   onToggleSpeak: (id: string, text: string) => void;
   onThumb: (msgId: string, content: string, kind: 'thumbs_up' | 'thumbs_down') => void;
   onRegenerate: (msgId: string) => void;
+  onReviewMemory?: () => void;
+  onDismissMemory?: (msgId: string) => void;
+}
+
+const actionBtnClass = (active?: boolean, activeClass?: string) =>
+  cn(
+    'msg-action-btn rounded-lg p-1.5 text-content-muted',
+    'transition-colors duration-150 ease-out',
+    'hover:bg-surface-subtle hover:text-content-primary',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary',
+    active && activeClass
+  );
+
+const EDIT_MORPH_MS = 240;
+
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function lockBoxSize(shell: HTMLElement, bubble: HTMLElement) {
+  shell.style.width = `${shell.offsetWidth}px`;
+  bubble.style.width = `${bubble.offsetWidth}px`;
+  bubble.style.height = `${bubble.offsetHeight}px`;
+}
+
+function clearBoxSize(shell: HTMLElement, bubble: HTMLElement) {
+  shell.style.width = '';
+  bubble.style.width = '';
+  bubble.style.height = '';
 }
 
 export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
   msg,
-  index,
   isUser,
   isStreamingThis,
   isGenerating,
@@ -37,154 +77,292 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
   speakingId,
   thumbed,
   htmlContent,
+  animateEnter = false,
+  canEdit = false,
+  isEditing = false,
+  isPendingReplace = false,
+  hasLaterReplies = false,
   onCopy,
+  onEdit,
+  onCancelEdit,
+  onSaveEdit,
   onToggleSpeak,
   onThumb,
   onRegenerate,
+  onReviewMemory,
+  onDismissMemory,
 }) => {
-  const delay = `${Math.min(index * 15, 80)}ms`;
   const isRetryableError = msg.content.includes('Please retry this message.');
+  const copied = copiedId === msg.id;
+  const speaking = speakingId === msg.id;
+  const regenerating = regeneratingId === msg.id;
+  const actionsActive = Boolean(copied || speaking || thumbed || regenerating || isRetryableError);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const morphingRef = useRef(false);
+  const morphPlayedRef = useRef(false);
+  const morphGenRef = useRef(0);
+  const liveReceipt = msg.memoryReceipt && msg.memoryReceipt.saved.length > 0 ? msg.memoryReceipt : null;
+  const receiptActive = Boolean(!isStreamingThis && liveReceipt && onReviewMemory && onDismissMemory);
+  const [heldReceipt, setHeldReceipt] = useState(receiptActive ? liveReceipt : null);
+  if (receiptActive && liveReceipt && heldReceipt !== liveReceipt) {
+    setHeldReceipt(liveReceipt);
+  }
+
+  const lockBubbleForMorph = useCallback(() => {
+    const shell = shellRef.current;
+    const bubble = bubbleRef.current;
+    if (!shell || !bubble || prefersReducedMotion()) return;
+    lockBoxSize(shell, bubble);
+    morphingRef.current = true;
+    morphPlayedRef.current = false;
+    morphGenRef.current += 1;
+  }, []);
+
+  useLayoutEffect(() => {
+    const shell = shellRef.current;
+    const bubble = bubbleRef.current;
+    if (!shell || !bubble || !morphingRef.current || morphPlayedRef.current) return;
+    if (prefersReducedMotion()) {
+      clearBoxSize(shell, bubble);
+      morphingRef.current = false;
+      return;
+    }
+
+    const gen = morphGenRef.current;
+    morphPlayedRef.current = true;
+    bubble.classList.add('chat-user-bubble--morph');
+    shell.classList.add('chat-user-shell--morph');
+    void bubble.offsetWidth;
+
+    if (isEditing) {
+      shell.style.width = '100%';
+      bubble.style.width = '100%';
+      bubble.style.height = `${Math.max(bubble.scrollHeight, bubble.offsetHeight)}px`;
+    } else {
+      const fromW = bubble.offsetWidth;
+      const fromH = bubble.offsetHeight;
+      const fromShell = shell.offsetWidth;
+      bubble.style.width = 'auto';
+      bubble.style.height = 'auto';
+      shell.style.width = 'fit-content';
+      const toW = bubble.offsetWidth;
+      const toH = bubble.offsetHeight;
+      const toShell = shell.offsetWidth;
+      bubble.style.width = `${fromW}px`;
+      bubble.style.height = `${fromH}px`;
+      shell.style.width = `${fromShell}px`;
+      void bubble.offsetWidth;
+      bubble.style.width = `${toW}px`;
+      bubble.style.height = `${toH}px`;
+      shell.style.width = `${toShell}px`;
+    }
+
+    let settled = false;
+    const settle = () => {
+      if (settled || gen !== morphGenRef.current) return;
+      settled = true;
+      bubble.classList.remove('chat-user-bubble--morph');
+      shell.classList.remove('chat-user-shell--morph');
+      clearBoxSize(shell, bubble);
+      morphingRef.current = false;
+      morphPlayedRef.current = false;
+    };
+
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target !== bubble) return;
+      if (event.propertyName !== 'width' && event.propertyName !== 'height') return;
+      settle();
+    };
+
+    bubble.addEventListener('transitionend', onEnd);
+    const timeoutId = window.setTimeout(settle, EDIT_MORPH_MS + 40);
+    return () => {
+      bubble.removeEventListener('transitionend', onEnd);
+      window.clearTimeout(timeoutId);
+    };
+  }, [isEditing]);
+
+  if (msg.kind === 'voice_receipt') {
+    return (
+      <div className={cn('chat-turn chat-turn--call-ended', animateEnter && 'chat-msg-enter')}>
+        <ChatVoiceReceipt
+          htmlContent={htmlContent}
+          usedS={msg.voice_used_s}
+          copied={copied}
+          onCopy={() => onCopy(msg.id, msg.content)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-msg-in`}
-      style={{ animationDelay: delay }}
+      className={cn(
+        'chat-turn flex',
+        animateEnter && 'chat-msg-enter',
+        isUser ? 'chat-turn--user justify-end' : 'chat-turn--assistant justify-start',
+        isPendingReplace && 'chat-turn--pending-replace'
+      )}
+      aria-hidden={isPendingReplace || undefined}
+      inert={isPendingReplace || undefined}
     >
-      <div className={`flex flex-col ${isUser ? 'items-end max-w-[78%]' : 'items-start w-full'}`}>
+      <div className={cn('flex flex-col', isUser ? cn('chat-user-shell w-fit max-w-[min(78%,36rem)] items-end', isEditing && 'chat-user-shell--editing w-full') : 'min-w-0 w-full items-start')} ref={isUser ? shellRef : undefined}>
         {isUser ? (
-          <div className="px-4 py-2.5 rounded-[20px] bg-surface-subtle text-content-primary text-base leading-relaxed border border-edge-subtle/60 shadow-sm">
-            {msg.content}
-          </div>
+          <>
+            <div
+              ref={bubbleRef}
+              dir="auto"
+              className={cn(
+                'chat-user-bubble w-fit max-w-full rounded-2xl border border-edge-subtle bg-surface-subtle px-3.5 py-2 text-start text-base leading-relaxed text-content-primary',
+                isEditing ? 'chat-user-bubble--editing w-full' : 'whitespace-pre-wrap'
+              )}
+            >
+              {isEditing && onCancelEdit && onSaveEdit ? (
+                <ChatUserMessageEdit
+                  messageId={msg.id}
+                  initialValue={msg.content}
+                  hasLaterReplies={hasLaterReplies}
+                  onCancel={() => {
+                    lockBubbleForMorph();
+                    onCancelEdit();
+                  }}
+                  onSave={(id, content) => {
+                    lockBubbleForMorph();
+                    onSaveEdit(id, content);
+                  }}
+                />
+              ) : (
+                msg.content
+              )}
+            </div>
+            {msg.content ? (
+              <div
+                className={cn(
+                  'msg-actions flex flex-wrap items-center justify-end gap-0.5',
+                  isEditing && 'msg-actions--away'
+                )}
+                role="group"
+                aria-label="Message actions"
+                data-active={actionsActive ? 'true' : undefined}
+                inert={isEditing || undefined}
+                aria-hidden={isEditing || undefined}
+              >
+                {canEdit && onEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      lockBubbleForMorph();
+                      onEdit(msg.id);
+                    }}
+                    className={actionBtnClass()}
+                    title="Edit and resend — later replies in this thread will be removed."
+                    aria-label="Edit and resend this message"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => onCopy(msg.id, msg.content)}
+                  className={actionBtnClass(copied, 'text-feedback-success')}
+                  title="Copy"
+                  aria-label="Copy message"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            ) : null}
+          </>
         ) : (
-          <div className="w-full">
+          <div className="w-full min-w-0">
             {isStreamingThis && msg.content === '' ? (
-              <div className="flex items-center gap-2 py-1.5 text-content-muted animate-fade-in select-none">
-                <div className="flex items-end gap-[2px] h-[15px] pb-[1px]" aria-hidden="true">
-                  <span
-                    className="w-[2px] h-[6px] bg-content-muted rounded-full animate-pulse"
-                    style={{ animationDuration: '1.2s', animationDelay: '0ms' }}
-                  />
-                  <span
-                    className="w-[2px] h-[14px] bg-content-muted rounded-full animate-pulse"
-                    style={{ animationDuration: '1.2s', animationDelay: '200ms' }}
-                  />
-                  <span
-                    className="w-[2px] h-[9px] bg-content-muted rounded-full animate-pulse"
-                    style={{ animationDuration: '1.2s', animationDelay: '400ms' }}
-                  />
-                </div>
-                <span className="text-sm font-medium text-content-secondary">Thinking</span>
-                <span className="flex items-center gap-[2.5px] ml-0.5" aria-hidden="true">
-                  <span
-                    className="w-[3px] h-[3px] rounded-full bg-content-muted animate-pulse"
-                    style={{ animationDuration: '1.4s', animationDelay: '0ms' }}
-                  />
-                  <span
-                    className="w-[3px] h-[3px] rounded-full bg-content-muted animate-pulse"
-                    style={{ animationDuration: '1.4s', animationDelay: '250ms' }}
-                  />
-                  <span
-                    className="w-[3px] h-[3px] rounded-full bg-content-muted animate-pulse"
-                    style={{ animationDuration: '1.4s', animationDelay: '500ms' }}
-                  />
-                </span>
+              <div className="py-1 text-content-muted" role="status">
+                <span className="sr-only">Responding</span>
+                <span className="chat-caret" aria-hidden="true" />
               </div>
             ) : (
               <div
-                className={[
-                  'text-base leading-relaxed text-content-primary',
-                  'prose prose-sm dark:prose-invert max-w-none',
-                  'prose-p:my-1.5 prose-headings:mb-2 prose-headings:mt-4 prose-li:my-0.5',
-                  isStreamingThis ? 'chat-streaming' : '',
-                ].join(' ')}
+                dir="auto"
+                className={cn('chat-prose text-content-primary', isStreamingThis && 'chat-streaming')}
                 dangerouslySetInnerHTML={{ __html: htmlContent }}
               />
             )}
 
             {!isStreamingThis && msg.content && (
-              <div className="flex items-center gap-0.5 mt-2.5">
+              <div
+                className="msg-actions flex flex-wrap items-center gap-0.5"
+                role="group"
+                aria-label="Response actions"
+                data-active={actionsActive ? 'true' : undefined}
+              >
                 <button
                   type="button"
                   onClick={() => onCopy(msg.id, msg.content)}
-                  className="msg-action-btn p-1.5 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface-subtle transition-colors"
+                  className={actionBtnClass(copied, 'text-feedback-success')}
                   title="Copy"
                   aria-label="Copy response"
                 >
-                  {copiedId === msg.id ? (
-                    <Check className="w-4 h-4 text-emerald-500" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => onToggleSpeak(msg.id, msg.content)}
-                  className={`msg-action-btn p-1.5 rounded-lg transition-colors ${
-                    speakingId === msg.id
-                      ? 'text-brand-primary bg-brand-subtle'
-                      : 'text-content-muted hover:text-content-primary hover:bg-surface-subtle'
-                  }`}
-                  title={speakingId === msg.id ? 'Stop reading' : 'Read aloud'}
-                  aria-label={speakingId === msg.id ? 'Stop reading aloud' : 'Read aloud'}
+                  className={actionBtnClass(speaking, 'bg-brand-subtle text-brand-primary')}
+                  title={speaking ? 'Stop reading' : 'Read aloud'}
+                  aria-label={speaking ? 'Stop reading aloud' : 'Read aloud'}
                 >
-                  <Volume2 className="w-4 h-4" />
+                  <Volume2 className="h-3.5 w-3.5" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => onThumb(msg.id, msg.content, 'thumbs_up')}
-                  className={`msg-action-btn p-1.5 rounded-lg transition-colors ${
-                    thumbed === 'thumbs_up'
-                      ? 'text-emerald-500 bg-emerald-500/10'
-                      : 'text-content-muted hover:text-emerald-500 hover:bg-surface-subtle'
-                  }`}
+                  className={actionBtnClass(thumbed === 'thumbs_up', 'bg-feedback-successSubtle text-feedback-success')}
                   title="Good response"
                   aria-label="Good response"
                 >
-                  <ThumbsUp className="w-4 h-4" />
+                  <ThumbsUp className="h-3.5 w-3.5" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => onThumb(msg.id, msg.content, 'thumbs_down')}
-                  className={`msg-action-btn p-1.5 rounded-lg transition-colors ${
-                    thumbed === 'thumbs_down'
-                      ? 'text-rose-500 bg-rose-500/10'
-                      : 'text-content-muted hover:text-rose-500 hover:bg-surface-subtle'
-                  }`}
+                  className={actionBtnClass(thumbed === 'thumbs_down', 'bg-feedback-dangerSubtle text-feedback-danger')}
                   title="Bad response"
                   aria-label="Bad response"
                 >
-                  <ThumbsDown className="w-4 h-4" />
+                  <ThumbsDown className="h-3.5 w-3.5" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => onRegenerate(msg.id)}
                   disabled={isGenerating}
-                  className={`msg-action-btn p-1.5 rounded-lg text-content-muted hover:text-brand-primary hover:bg-surface-subtle transition-colors ${
-                    isGenerating ? 'opacity-40 cursor-not-allowed' : ''
-                  }`}
+                  className={cn(
+                    actionBtnClass(),
+                    isGenerating && 'cursor-not-allowed opacity-40'
+                  )}
                   title={isRetryableError ? 'Retry response' : 'Regenerate'}
                   aria-label={isRetryableError ? 'Retry response' : 'Regenerate response'}
                 >
-                  <RefreshCw className={`w-4 h-4 ${regeneratingId === msg.id ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={cn('h-3.5 w-3.5', regenerating && 'animate-spin')} />
                 </button>
-
-                {isRetryableError && (
-                  <button
-                    type="button"
-                    onClick={() => onRegenerate(msg.id)}
-                    disabled={isGenerating}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-brand-primary/30 bg-brand-subtle px-2.5 py-1.5 text-xs font-medium text-brand-primary transition-colors hover:border-brand-primary/50 hover:bg-brand-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${regeneratingId === msg.id ? 'animate-spin' : ''}`} />
-                    Retry
-                  </button>
-                )}
               </div>
             )}
+
+            {heldReceipt && onReviewMemory && onDismissMemory ? (
+              <ChatMemoryReceipt
+                receipt={heldReceipt}
+                active={receiptActive}
+                onReview={onReviewMemory}
+                onDismiss={() => {
+                  onDismissMemory(msg.id);
+                  setHeldReceipt(null);
+                }}
+              />
+            ) : null}
           </div>
         )}
       </div>

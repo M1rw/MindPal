@@ -1,9 +1,58 @@
 import React from 'react';
+import { SettingsHeader, SettingsRow, settingsDangerButtonClass, settingsPrimaryButtonClass } from '../SettingsPrimitives';
 import type { AccountTabProps } from './types';
 
 export const AccountSettingsTab: React.FC<AccountTabProps> = ({ user, onSignOut, onSignIn }) => (
-  <div className="space-y-6">
-    <div><h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Account</h2><p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manage your identity and authentication status.</p></div>
-    {user ? <div className="p-5 rounded-2xl bg-gray-50 dark:bg-zinc-800/40 border border-gray-100 dark:border-zinc-800 space-y-4"><div className="flex items-center gap-4">{user.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-14 h-14 rounded-full border border-gray-300 dark:border-zinc-600 object-cover" /> : <div className="w-14 h-14 rounded-full bg-[#4140FD] text-white flex items-center justify-center font-bold text-xl">{(user.displayName || user.email || 'U').charAt(0).toUpperCase()}</div>}<div><h4 className="text-base font-bold text-gray-900 dark:text-gray-100">{user.displayName || 'MindPal Member'}</h4><p className="text-xs text-gray-500 dark:text-gray-400">{user.email || 'No email'}</p><p className="text-[11px] font-mono text-gray-400 dark:text-gray-500 mt-0.5">UID: {user.uid.slice(0, 12)}…</p></div></div><button type="button" onClick={onSignOut} className="w-full py-2.5 rounded-xl border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-semibold text-red-600 dark:text-red-400 transition-colors">Sign Out</button></div> : <div className="p-6 rounded-2xl bg-gray-50 dark:bg-zinc-800/40 border border-gray-100 dark:border-zinc-800 text-center space-y-4"><p className="text-sm text-gray-700 dark:text-gray-300">You are currently browsing as a guest. Sign in to sync your reflections and memories across devices.</p><button type="button" onClick={onSignIn} className="px-6 py-2.5 rounded-xl bg-[#4140FD] hover:bg-[#5251fd] text-white text-xs font-bold transition-colors">Sign In or Create Account</button></div>}
+  <div className="space-y-8">
+    <SettingsHeader
+      title="Account"
+      description="Sign in on this device. Internal account IDs are not shown here."
+    />
+
+    {user ? (
+      <div>
+        <div className="flex items-center gap-4 py-3.5 border-b border-edge-subtle">
+          {user.photoURL ? (
+            <img
+              src={user.photoURL}
+              alt=""
+              className="w-14 h-14 rounded-full border border-edge-default object-cover"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-full border border-edge-subtle text-content-primary flex items-center justify-center font-semibold text-xl">
+              {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-content-primary truncate">
+              {user.displayName || 'Signed in'}
+            </h3>
+            <p className="text-sm text-content-secondary truncate mt-0.5">
+              {user.email || 'No email on this account'}
+            </p>
+          </div>
+        </div>
+        <SettingsRow
+          label="Sign out"
+          description="Ends the signed-in session on this device. Local chat history stays here."
+          danger
+          last
+        >
+          <button type="button" onClick={onSignOut} className={settingsDangerButtonClass}>
+            Sign out
+          </button>
+        </SettingsRow>
+      </div>
+    ) : (
+      <SettingsRow
+        label="Browsing as a guest"
+        description="Conversations and saved memory facts stay on this device. Sign in to attach an account; memory then merges into that account and cloud history sync is attempted."
+        last
+      >
+        <button type="button" onClick={onSignIn} className={settingsPrimaryButtonClass}>
+          Sign in
+        </button>
+      </SettingsRow>
+    )}
   </div>
 );

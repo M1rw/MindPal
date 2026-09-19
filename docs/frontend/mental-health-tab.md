@@ -1,62 +1,36 @@
-# Mental Health Tab
+# Mental health tab
 
-Displays clinical insights collected through MindPal Pro conversations.
-Data comes from the `ClinicalProfile` model in the backend user profile.
+Settings → Mental health shows a **reflection of the person’s own words**, not screening scores.
 
-## Data Sources
+MindPal is a wellness companion. This tab is not a diagnosis, not PHQ-9/GAD-7, and not live clinical monitoring.
 
-| Field | Backend Path | UI Element ID |
-|-------|-------------|---------------|
-| PHQ-9 scores | `profile.clinical.phq9_history` | `#phq9-chart` |
-| GAD-7 scores | `profile.clinical.gad7_history` | `#gad7-chart` |
-| Presenting problems | `profile.clinical.presenting_problems` | `#presenting-problems-display` |
-| Suspected diagnoses | `profile.clinical.suspected_diagnoses` | `#suspected-diagnoses-display` |
-| Treatment plan | `profile.clinical.treatment_plan` | `#treatment-plan-display` |
+## Data sources
 
-## Rendering
+| Viewer | Source | Endpoint / path |
+|---|---|---|
+| Signed-in | Account memory graph + synced chat user turns | `GET /api/user/wellness-timeline` (401 if signed out) |
+| Guest | This-device guest facts + local chat history | Client `reflectWellnessFromDevice` — nothing is invented from the cloud |
 
-`updateMentalHealthUI(profileResponse)` in `frontend/js/ui_state.js` handles all rendering.
+The client does not call the signed-in API as a guest. A 401 is handled as signed-out and falls back to this-device reflection — not “Couldn't load”. Empty account memory is an empty state. Real 5xx stays an error.
 
-Called from:
-- `app.js` line ~430 — when profile loads from local store
-- `cloud_sync.js` line ~131 — when profile loads from cloud
+Delete (`DELETE /api/user/data`) removes the server graph and synced chats this reflection is derived from.
 
-### Charts (PHQ-9 / GAD-7)
+## What the UI shows
 
-Bar charts rendered as flexbox columns inside a container.
+| Surface | When |
+|---|---|
+| Disclaimer | Always |
+| Crisis resources (988 / 111 / findahelpline.com) | Always |
+| Mood over time | Coarse **heavier / mixed / lighter** bars from dated user turns that used mood language |
+| Heavier / lighter day | Only when the API (or local reflection) returns them — enough dated signal, not a single offhand word |
+| Themes | Recurring topics (sleep, work, relationship, …) with mention counts and a short “from your words” snippet |
+| Life events | Explicit events (moved, new job, breakup, …) and a date if a chat turn around then mentioned them |
+| Empty | Honest copy; guests also get a sign-in CTA |
+| Crisis language | A quiet note. Those turns are **not** charted |
 
-- **With data**: Colored bars (indigo for PHQ-9, purple for GAD-7) with hover tooltips showing score and date.
-- **Without data**: Grey mock bars showing a realistic sample pattern. Tooltips say "Sample".
-  - Mock PHQ-9: `[8, 12, 14, 11, 9, 7, 5]` (downward trend)
-  - Mock GAD-7: `[6, 9, 12, 10, 8, 6, 4]` (downward trend)
-  - Bar color: `bg-gray-300/60 dark:bg-gray-600/40`
+## What this is not
 
-Height is computed as `(score / maxScore) * 100%`:
-- PHQ-9 max: 27
-- GAD-7 max: 21
-- Minimum height: 5%
-
-### Text Sections
-
-| Section | With Data | Without Data (Mock) |
-|---------|-----------|-------------------|
-| Presenting problems | Bulleted list from profile | Grey italic: "• Stress management • Sleep difficulties • Mood regulation" |
-| Suspected diagnoses | Bulleted list from profile | Grey italic: "No observations yet — continue chatting with MindPal Pro." |
-| Treatment plan | Plain text from profile | Grey italic: "No active plan — insights build over time through conversations." |
-
-## Clinical Data Flow
-
-```
-User chats with MindPal Pro
-  → Backend extracts clinical signals from conversation
-  → Updates ClinicalProfile in Firestore user document
-  → Frontend fetches profile on load / cloud sync
-  → updateMentalHealthUI() renders the data
-```
-
-## Important Notes
-
-- This is **not** a clinical tool. Suspected diagnoses are preliminary AI observations.
-- The tab description states: "Preliminary observations — not a clinical diagnosis."
-- All data is read-only in the UI. Users cannot edit clinical data directly.
-- Clinical frameworks (CBT, DBT, ACT, MI) are documented in `docs/backend/rag-clinical-frameworks.md`.
+- Not PHQ-9, GAD-7, or 0–100 happiness
+- Not a suicidality sparkline
+- Not a therapist report generated in the client
+- Streaks stay a calendar count of days you sent a message

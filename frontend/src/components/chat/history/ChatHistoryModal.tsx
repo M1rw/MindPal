@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, X, MessageSquare, Loader2 } from 'lucide-react';
+import { Search, MessageSquare, Loader2 } from 'lucide-react';
 import { useChatHistoryStore, useChatHistoryModalStore, useChatStore } from '../../../store';
-import { useFocusTrap } from '../../../hooks/useFocusTrap';
+import { Modal, ModalBody, ModalClose, ModalToolbar } from '../../ui/Modal';
 import { SkeletonHistoryList } from '../../ui/Skeleton';
 import type { ChatSession } from '../../../types';
 import { ChatHistoryGroups } from './ChatHistoryGroups';
@@ -56,13 +56,7 @@ export const ChatHistoryModal: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
-
-  // WCAG 2.1 AA Keyboard Focus Trap
-  const modalCardRef = useFocusTrap<HTMLDivElement>({
-    isOpen,
-    onClose: () => setIsOpen(false),
-    autoFocus: true,
-  });
+  const closeHistory = useCallback(() => setIsOpen(false), [setIsOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -93,6 +87,7 @@ export const ChatHistoryModal: React.FC = () => {
 
   const handleStartRename = useCallback(
     (e: React.MouseEvent, session: ChatSession) => {
+      e.preventDefault();
       e.stopPropagation();
       setEditingId(session.id);
       setEditingTitle(session.title);
@@ -112,8 +107,9 @@ export const ChatHistoryModal: React.FC = () => {
 
   const handleNewChat = useCallback(() => {
     clearMessages();
+    setActiveSessionId(null);
     setIsOpen(false);
-  }, [clearMessages, setIsOpen]);
+  }, [clearMessages, setActiveSessionId, setIsOpen]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -126,86 +122,47 @@ export const ChatHistoryModal: React.FC = () => {
 
   const groups = useMemo(() => groupSessions(filtered), [filtered]);
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (filtered.length > 0) {
-        handleLoadSession(filtered[0]);
-      }
-    }
-  };
-
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-200 ${
-        isOpen ? 'opacity-100 pointer-events-auto visible' : 'opacity-0 pointer-events-none invisible'
-      }`}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Chat history"
-      aria-hidden={!isOpen}
+    <Modal
+      open={isOpen}
+      onClose={closeHistory}
+      label="Chat history"
+      size="lg"
+      flush
+      panelClassName="min-h-[min(24rem,70dvh)] max-h-[min(80dvh,36rem)]"
     >
-      {/* High-speed isolated backdrop */}
-      <div
-        onClick={() => setIsOpen(false)}
-        className={`absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200 ease-out ${
-          isOpen ? 'opacity-100' : 'opacity-0'
-        }`}
-      />
-
-      {/* GPU Accelerated Modal Card with Focus Trap */}
-      <div
-        ref={modalCardRef}
-        className={`relative w-full max-w-lg bg-surface-card rounded-2xl specular-card shadow-modal overflow-hidden border border-edge-subtle transform transition-all duration-200 ease-out flex flex-col ${
-          isOpen ? 'scale-100 translate-y-0 opacity-100' : 'scale-[0.98] -translate-y-2 opacity-0'
-        }`}
-        style={{
-          maxHeight: 'calc(100dvh - 100px)',
-          willChange: 'transform, opacity',
-        }}
-      >
-        {/* Search Bar & Header Controls */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-edge-subtle flex-shrink-0">
-          <Search className="w-4 h-4 text-content-muted flex-shrink-0" />
-          <input
-            ref={searchRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            placeholder="Search conversations... (Press Enter to open)"
-            className="flex-1 bg-transparent outline-none text-sm text-content-primary placeholder-content-muted"
-            aria-label="Search conversations"
-          />
-          {isLoadingCloud && (
-            <div className="flex items-center gap-1.5 text-xs text-brand-primary animate-pulse">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span className="hidden sm:inline">Syncing</span>
-            </div>
-          )}
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="text-xs font-medium text-content-muted hover:text-content-primary transition-colors px-1 py-1"
-              aria-label="Clear search"
-            >
-              Clear
-            </button>
-          )}
-          {query && <span aria-hidden="true" className="h-5 w-px bg-edge-subtle" />}
+      <ModalToolbar>
+        <Search className="w-4 h-4 text-content-muted flex-shrink-0" />
+        <input
+          ref={searchRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search…"
+          className="flex-1 bg-transparent outline-none text-sm text-content-primary placeholder-content-muted"
+          aria-label="Search conversations"
+        />
+        {isLoadingCloud && (
+          <div className="flex items-center gap-1.5 text-xs text-brand-primary animate-pulse">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span className="hidden sm:inline">Syncing</span>
+          </div>
+        )}
+        {query && (
           <button
             type="button"
-            onClick={() => setIsOpen(false)}
-            className="text-content-muted hover:text-content-primary transition-colors ml-1 p-1 rounded-lg hover:bg-surface-subtle"
-            aria-label="Close history"
+            onClick={() => setQuery('')}
+            className="text-xs font-medium text-content-muted hover:text-content-primary transition-colors px-1 py-1"
+            aria-label="Clear search"
           >
-            <X className="w-4 h-4" />
+            Clear
           </button>
-        </div>
+        )}
+        {query && <span aria-hidden="true" className="h-5 w-px bg-edge-subtle" />}
+        <ModalClose onClick={closeHistory} label="Close history" />
+      </ModalToolbar>
 
-        {/* Session List */}
-        <div className="overflow-y-auto custom-scrollbar flex-1" style={{ maxHeight: 'calc(100dvh - 180px)' }}>
+      <ModalBody className="custom-scrollbar">
           {isLoadingCloud && groups.length === 0 ? (
             <SkeletonHistoryList count={4} />
           ) : cloudError && groups.length === 0 ? (
@@ -254,20 +211,19 @@ export const ChatHistoryModal: React.FC = () => {
               onEditingIdChange={setEditingId}
             />
           )}
+      </ModalBody>
+      {cloudError && groups.length > 0 ? (
+        <div className="flex items-center justify-between gap-3 border-t border-edge-subtle bg-amber-500/5 px-4 py-2.5 text-xs text-content-secondary">
+          <span>{cloudError}</span>
+          <button
+            type="button"
+            onClick={() => useChatHistoryStore.getState().loadCloudSessions()}
+            className="flex-shrink-0 font-semibold text-brand-primary hover:text-brand-hover"
+          >
+            Retry sync
+          </button>
         </div>
-        {cloudError && groups.length > 0 && (
-          <div className="flex items-center justify-between gap-3 border-t border-edge-subtle bg-amber-500/5 px-4 py-2.5 text-xs text-content-secondary">
-            <span>{cloudError}</span>
-            <button
-              type="button"
-              onClick={() => useChatHistoryStore.getState().loadCloudSessions()}
-              className="flex-shrink-0 font-semibold text-brand-primary hover:text-brand-hover"
-            >
-              Retry sync
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+      ) : null}
+    </Modal>
   );
 };

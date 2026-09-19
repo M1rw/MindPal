@@ -4,8 +4,10 @@ from backend.domain.chat.orchestrator import detect_cognitive_strategy, ChatOrch
 
 def test_detect_cognitive_strategy_pro():
     strategy, directive = detect_cognitive_strategy("I am feeling fine", model="pro")
-    assert strategy == "Clinical Depth"
-    assert "psychological reasoning" in directive
+    assert strategy == "Thorough"
+    assert "complete, well-organized reply" in directive
+    assert "clinical" not in directive.lower()
+    assert "therapeutic" not in directive.lower()
 
 
 def test_detect_cognitive_strategy_distress():

@@ -1,38 +1,31 @@
 import React from 'react';
 import { Cloud, Laptop } from 'lucide-react';
-import { getAppConfig } from '../../services/config';
+import { useSessionStore } from '../../store';
 
 export const EnvTag: React.FC = () => {
-  const getEnvLabel = (): 'Cloud' | 'Local' => {
-    if (typeof window === 'undefined') return 'Local';
-    const configEnv = getAppConfig().ENVIRONMENT;
-    if (configEnv) {
-      if (configEnv === 'production' || configEnv === 'preview') return 'Cloud';
-      if (configEnv === 'local') return 'Local';
-    }
-    const host = window.location.hostname;
-    if (host.includes('vercel.app') || (host && host !== 'localhost' && host !== '127.0.0.1')) {
-      return 'Cloud';
-    }
-    return 'Local';
-  };
+  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
 
-  const label = getEnvLabel();
-  const isCloud = label === 'Cloud';
+  if (isAuthenticated) {
+    return (
+      <span
+        id="env-tag"
+        title="Signed in. Memory and chat history can follow your account."
+        aria-label="Account"
+        className="inline-flex items-center text-content-muted"
+      >
+        <Cloud className="h-3.5 w-3.5" aria-hidden="true" />
+      </span>
+    );
+  }
 
   return (
     <span
       id="env-tag"
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-subtle text-2xs font-medium text-content-secondary transition-colors select-none border border-edge-subtle"
+      title="This device. Conversations and saved facts stay here until you sign in."
+      aria-label="This device"
+      className="inline-flex items-center text-content-muted"
     >
-      {isCloud ? (
-        <Cloud className="w-3 h-3 text-brand-primary" />
-      ) : (
-        <Laptop className="w-3 h-3 text-emerald-500" />
-      )}
-      <span>{label}</span>
+      <Laptop className="h-3.5 w-3.5" aria-hidden="true" />
     </span>
   );
 };
-
-

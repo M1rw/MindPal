@@ -25,10 +25,10 @@ This document enumerates the REST API endpoints provided by the MindPal backend,
 | `PATCH` | `/api/user/profile` | User / Anon | Partial `UserProfile` | `UserProfileResponse` |
 | `PUT` | `/api/user/profile` | User / Anon | `UserProfile` | `UserProfileResponse` |
 | `POST` | `/api/user/profile/reset` | User / Anon | None | `UserProfileResponse` |
-| `GET` | `/api/user/analytics` | User / Anon | None | `UserAnalyticsResponse` |
-| `GET` | `/api/user/export` | User / Anon | None | `dict[str, Any]` |
-| `DELETE` | `/api/user/data` | User / Anon | None | `dict[str, Any]` |
-| `GET` | `/api/user/insights` | User / Anon | None | `MentalHealthInsightsResponse` |
+| `GET` | `/api/user/export` | Signed-in | None | JSON of server profile, memory graph, and synced chats |
+| `DELETE` | `/api/user/data` | Signed-in | None | Deletes server profile, memory graph, and synced chats |
+| `GET` | `/api/user/insights` | User / Anon | None | Streak counts from synced user turns (not clinical scores) |
+| `GET` | `/api/user/wellness-timeline` | Signed-in | None | Coarse mood/themes/events from saved memory and synced chats. 401 if signed out. |
 | `POST` | `/api/user/improvement-signals` | User / Anon | Signal payload | `dict[str, Any]` |
 | `GET` | `/api/user/health` | Public | None | Status dict |
 
@@ -108,7 +108,11 @@ This document enumerates the REST API endpoints provided by the MindPal backend,
 | `POST` | `/api/tools/execute` | User / Anon | Tool execution request | `ToolExecutionResponse` |
 | `POST` | `/api/tools/batch` | User / Anon | Batch tool requests | `BatchToolResponse` |
 | `GET` | `/api/tools/list` | User / Anon | None | List of available tools |
-| `POST` | `/api/voice/v4/token` | User / Anon | Session parameters | `VoiceV4TokenResponse` |
+| `POST` | `/api/voice/session-token` | Signed-in user + `voice.realtime` (on by default; `MINDPAL_VOICE_LIVE=0` disables) | `{ consent_attested }` | Gemini Live ephemeral grant (30-minute reserve; 30-minute daily cap). Guests get 401. |
+| `POST` | `/api/voice/session-events` | Signed-in user | Floor, transcript, renew, teardown | `stay_support` keeps the live call up; imminent returns `escalate_pause` with `speak_first` before the mute. Settlement uses server clock |
+| `POST` | `/api/voice/reaction` | Signed-in user + `voice.realtime` | `text`, optional `context` | `{reaction}`: smile, surprise, concern, curious or none; any language |
+| `POST` | `/api/voice/recall` | Signed-in user + `voice.realtime` + own open call | `session_id`, `tool` (`search_memory` or `search_past_chats`), `query` | `{result, found}`: short plain text for the live model; rate limited per call |
+| `POST` | `/api/voice/summarize` | Signed-in user | `{ session_id, chat_session_id?, transcripts }` | Recap of what was said, written into chat; skipped when there was almost no speech or a crisis handoff |
 | `GET` | `/api/notifications/settings` | User / Anon | None | `NotificationSettings` |
 | `PUT` | `/api/notifications/settings` | User / Anon | Updated settings | `NotificationSettings` |
 | `POST` | `/api/tts/synthesize` | User / Anon | `TTSRequest` | `TTSResponse` |

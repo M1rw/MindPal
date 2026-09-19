@@ -35,3 +35,12 @@ entrypoint = "backend.main:app"
 testpaths = ["tests/unit/platform"]
 pythonpath = ["."]
 addopts = "--strict-markers --strict-config"
+
+[tool.pyrefly]
+python-interpreter-path = ".venv/Scripts/python.exe"
+search-path = ["."]
+site-package-path = [
+  ".venv/Lib/site-packages",
+  "C:/Users/dimar/AppData/Local/Programs/Python/Python312/Lib/site-packages"
+]
+

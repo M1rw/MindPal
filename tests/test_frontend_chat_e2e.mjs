@@ -96,8 +96,12 @@ test('chat send and stream completion happy path', async () => {
   await page.getByRole('dialog', { name: 'Chat history' }).waitFor({ state: 'visible' });
   await page.getByRole('button', { name: 'Close history' }).click();
 
-  await page.getByRole('button', { name: 'Sign in to sync' }).click();
-  const authDialog = page.getByRole('dialog', { name: 'Back up your MindPal' });
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const settingsDialog = page.getByRole('dialog', { name: 'Settings' });
+  await settingsDialog.waitFor({ state: 'visible' });
+  await settingsDialog.getByRole('button', { name: 'Account' }).click();
+  await settingsDialog.getByRole('button', { name: 'Sign in' }).click();
+  const authDialog = page.getByRole('dialog', { name: 'Sign in to MindPal' });
   await authDialog.waitFor({ state: 'visible' });
   await authDialog.getByRole('button', { name: 'Continue with Email' }).click();
   await authDialog.getByRole('heading', { name: 'Continue with email' }).waitFor({ state: 'visible' });

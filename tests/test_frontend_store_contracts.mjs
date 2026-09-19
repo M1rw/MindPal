@@ -6,7 +6,7 @@ import { useChatStore } from '../frontend/src/store/chat.ts';
 import { useChatHistoryStore } from '../frontend/src/store/history.ts';
 import { useSessionStore } from '../frontend/src/store/session.ts';
 import { useSettingsStore } from '../frontend/src/store/settings.ts';
-import { useFlagsStore } from '../frontend/src/store/flags.ts';
+import { useFlagsStore, DEFAULT_FLAGS } from '../frontend/src/store/flags.ts';
 
 const originalFetch = globalThis.fetch;
 
@@ -51,6 +51,8 @@ beforeEach(() => {
     activeModel: 'standard',
     activeMode: 'Active Listen',
     strategyUsed: null,
+    composerDraft: null,
+    editingUserId: null,
   });
 
   useChatHistoryStore.setState({
@@ -107,6 +109,10 @@ describe('Session store auth lifecycle contract', () => {
 });
 
 describe('Feature flag store contract', () => {
+  it('defaults live voice on', () => {
+    assert.equal(DEFAULT_FLAGS.voice_enabled, true);
+  });
+
   it('keeps voice and presence enabled in the full-feature test profile', () => {
     const flags = useFlagsStore.getState().flags;
 
@@ -144,6 +150,18 @@ describe('Chat store runtime contract', () => {
     assert.equal(controller.signal.aborted, true);
     assert.equal(useChatStore.getState().isGenerating, false);
     assert.equal(useChatStore.getState().abortController, null);
+  });
+
+  it('tracks in-place user-message edit and clears it with the thread', () => {
+    useChatStore.getState().setEditingUserId('msg-user-1');
+    assert.equal(useChatStore.getState().editingUserId, 'msg-user-1');
+
+    useChatStore.getState().setEditingUserId(null);
+    assert.equal(useChatStore.getState().editingUserId, null);
+
+    useChatStore.getState().setEditingUserId('msg-user-1');
+    useChatStore.getState().clearMessages();
+    assert.equal(useChatStore.getState().editingUserId, null);
   });
 });
 
@@ -188,6 +206,17 @@ describe('Chat history store persistence contract', () => {
     assert.equal(useChatHistoryStore.getState().activeSessionId, 'session-1');
   });
 
+  it('ensures an active chat session id without forking a saved history row', () => {
+    useChatHistoryStore.setState({ sessions: [], activeSessionId: null });
+    const first = useChatHistoryStore.getState().ensureActiveSessionId();
+    const second = useChatHistoryStore.getState().ensureActiveSessionId();
+    assert.equal(typeof first, 'string');
+    assert.match(first, /^sess_/);
+    assert.equal(first, second);
+    assert.equal(useChatHistoryStore.getState().activeSessionId, first);
+    assert.equal(useChatHistoryStore.getState().sessions.length, 0);
+  });
+
   it('surfaces cloud loading failures while preserving local history', async () => {
     const localSession = {
       id: 'local-session',
@@ -215,3 +244,132 @@ describe('Chat history store persistence contract', () => {
     assert.equal(useChatHistoryStore.getState().sessions[0].id, 'local-session');
   });
 });
+
+describe('Chat session timestamp contract', () => {
+  it('bumps activity only when messages change, not when a session is reopened', async () => {
+    const { shouldBumpSessionTimestamp } = await import('../frontend/src/utils/chat/sessionHistory.ts');
+    const messages = [
+      { id: 'u1', role: 'user', content: 'hello' },
+      { id: 'a1', role: 'assistant', content: 'hi' },
+    ];
+
+    assert.equal(shouldBumpSessionTimestamp(undefined, messages), true);
+    assert.equal(shouldBumpSessionTimestamp(messages, messages), false);
+    assert.equal(
+      shouldBumpSessionTimestamp(messages, [...messages, { id: 'u2', role: 'user', content: 'again' }]),
+      true
+    );
+    assert.equal(
+      shouldBumpSessionTimestamp(messages, [
+        { id: 'u1', role: 'user', content: 'hello' },
+        { id: 'a1', role: 'assistant', content: 'hi there' },
+      ]),
+      true
+    );
+  });
+
+  it('derives short ChatGPT-style titles instead of dumping the first message', async () => {
+    const { deriveSessionTitle } = await import('../frontend/src/utils/chat/sessionHistory.ts');
+    assert.equal(deriveSessionTitle("I'm feeling anxious"), 'Feeling anxious');
+    assert.equal(deriveSessionTitle('I feel overwhelmed'), 'Feeling overwhelmed');
+    assert.equal(deriveSessionTitle('I feel stuck'), 'Feeling stuck');
+    assert.equal(deriveSessionTitle('Hello, my bad. How are you bro? Hope you are doing good.'), 'Checking in');
+    assert.match(deriveSessionTitle('Can you help me with panic at night'), /panic at night/i);
+  });
+
+  it('formats call duration and seeds live voice from the open text thread', async () => {
+    const { formatCallDuration, threadContinuation } = await import(
+      '../frontend/src/utils/chat/sessionHistory.ts'
+    );
+    assert.equal(formatCallDuration(0), '');
+    assert.equal(formatCallDuration(25), '25s');
+    assert.equal(formatCallDuration(65), '1m 5s');
+    assert.equal(formatCallDuration(120), '2m');
+    const note = threadContinuation([
+      {
+        id: 'u1',
+        role: 'user',
+        content: 'I have been tired at work',
+        timestamp: '2026-09-15T00:00:00.000Z',
+      },
+      {
+        id: 'a1',
+        role: 'assistant',
+        content: 'That sounds heavy.',
+        timestamp: '2026-09-15T00:00:01.000Z',
+      },
+      {
+        id: 'v1',
+        role: 'assistant',
+        kind: 'voice_receipt',
+        content: 'ignored recap',
+        timestamp: '2026-09-15T00:00:02.000Z',
+      },
+    ]);
+    assert.match(note, /same MindPal conversation/);
+    assert.match(note, /tired at work/);
+    assert.match(note, /That sounds heavy/);
+    assert.doesNotMatch(note, /ignored recap/);
+    assert.equal(threadContinuation([]), '');
+  });
+});
+
+describe('Chat memory receipt persistence contract', () => {
+  it('strips memoryReceipt from saved sessions, loaded threads, and fingerprints', async () => {
+    const {
+      withoutMemoryReceipts,
+      withoutSessionMemoryReceipts,
+      shouldBumpSessionTimestamp,
+    } = await import('../frontend/src/utils/chat/sessionHistory.ts');
+
+    const receipt = {
+      count: 1,
+      saved: [{ id: 'profile:preferred_name', type: 'profile', text: 'Preferred name: marwan' }],
+    };
+    const messages = [
+      {
+        id: 'u1',
+        role: 'user',
+        content: 'call me marwan',
+        timestamp: '2026-09-15T00:00:00.000Z',
+      },
+      {
+        id: 'a1',
+        role: 'assistant',
+        content: 'Noted.',
+        timestamp: '2026-09-15T00:00:01.000Z',
+        memoryReceipt: receipt,
+      },
+    ];
+
+    const stripped = withoutMemoryReceipts(messages);
+    assert.equal('memoryReceipt' in stripped[1], false);
+    assert.equal(stripped[1].content, 'Noted.');
+    assert.equal(shouldBumpSessionTimestamp(stripped, messages), false);
+
+    const session = withoutSessionMemoryReceipts({
+      id: 'session-receipt',
+      title: 'Call me marwan',
+      createdAt: '2026-09-15T00:00:00.000Z',
+      updatedAt: '2026-09-15T00:00:01.000Z',
+      messages,
+    });
+    assert.equal('memoryReceipt' in session.messages[1], false);
+
+    useChatHistoryStore.getState().saveSession({
+      id: 'session-receipt',
+      title: 'Call me marwan',
+      createdAt: '2026-09-15T00:00:00.000Z',
+      updatedAt: '2026-09-15T00:00:01.000Z',
+      messages,
+    });
+
+    const storedSessions = JSON.parse(localStorage.getItem(STORAGE_KEYS.CHAT_SESSIONS));
+    assert.equal('memoryReceipt' in storedSessions[0].messages[1], false);
+    assert.equal('memoryReceipt' in useChatHistoryStore.getState().sessions[0].messages[1], false);
+
+    useChatStore.getState().setMessages(messages);
+    assert.equal('memoryReceipt' in useChatStore.getState().messages[1], false);
+  });
+});
+

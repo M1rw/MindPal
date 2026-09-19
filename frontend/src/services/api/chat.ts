@@ -1,6 +1,46 @@
-import { useSettingsStore } from '../../store/index.ts';
-import type { UserPersonalization } from '../../types/index.ts';
+import { useSettingsStore, useUsageStore } from '../../store/index.ts';
+import type { MemoryReceipt, MemoryReceiptItem, UserPersonalization, UsageQuota } from '../../types/index.ts';
 import { fetchJson, fetchWithAuth, expectOk, parseErrorMessage } from './http.ts';
+
+export const MAX_CHAT_HISTORY_TURNS = 30;
+
+function syncUsage(raw: Record<string, unknown>): void {
+  const credits5h = Number(raw.credits_5h ?? 0);
+  const limit5h = Number(raw.limit_5h ?? 50);
+  const reset5h = Number(raw.reset_5h_seconds ?? 0);
+  const quota: UsageQuota = {
+    used: credits5h,
+    limit: limit5h,
+    resets_at: new Date(Date.now() + Math.max(0, reset5h) * 1000).toISOString(),
+    credits_5h: credits5h,
+    limit_5h: limit5h,
+    reset_5h_seconds: reset5h,
+    credits_week: Number(raw.credits_week ?? 0),
+    limit_week: Number(raw.limit_week ?? 500),
+    reset_week_seconds: Number(raw.reset_week_seconds ?? 0),
+    scope: raw.scope === 'network' ? 'network' : 'account',
+  };
+  useUsageStore.getState().setQuota(quota);
+}
+
+export function parseMemoryReceipt(raw: unknown): MemoryReceipt | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const body = raw as Record<string, unknown>;
+  if (!Array.isArray(body.saved)) return null;
+  const saved: MemoryReceiptItem[] = [];
+  for (const item of body.saved) {
+    if (!item || typeof item !== 'object') continue;
+    const record = item as Record<string, unknown>;
+    const id = typeof record.id === 'string' ? record.id.trim() : '';
+    const text = typeof record.text === 'string' ? record.text.trim() : '';
+    if (!id || !text) continue;
+    const type = typeof record.type === 'string' && record.type.trim() ? record.type.trim() : 'facts';
+    saved.push({ id, type, text });
+  }
+  if (saved.length === 0) return null;
+  const count = typeof body.count === 'number' && Number.isFinite(body.count) ? body.count : saved.length;
+  return { saved, count: Math.max(count, saved.length) };
+}
 
 export const chatApi = {
   async streamChat(
@@ -14,6 +54,7 @@ export const chatApi = {
       telemetry?: unknown;
       personalization?: UserPersonalization;
       signal?: AbortSignal;
+      onMemory?: (receipt: MemoryReceipt) => void;
     },
   ): Promise<void> {
     try {
@@ -23,7 +64,10 @@ export const chatApi = {
         signal: options?.signal,
         body: JSON.stringify({
           message,
-          history,
+          history: history.slice(-MAX_CHAT_HISTORY_TURNS).map((turn) => ({
+            role: turn.role,
+            content: turn.content,
+          })),
           stream: true,
           model: options?.model || 'standard',
           telemetry: options?.telemetry,
@@ -68,17 +112,35 @@ export const chatApi = {
             return;
           }
           try {
-            const data = JSON.parse(rawData);
+            const data = JSON.parse(rawData) as Record<string, unknown> | string;
             if (typeof data === 'object' && data !== null) {
-              const textChunk: string = data.text ?? data.content ?? data.token ?? '';
-              if (textChunk) onChunk(textChunk, data.strategy_used);
+              if (data.usage && typeof data.usage === 'object') {
+                syncUsage(data.usage as Record<string, unknown>);
+              }
+              if (data.memory) {
+                const receipt = parseMemoryReceipt(data.memory);
+                if (receipt) options?.onMemory?.(receipt);
+              }
+              if (data.error && typeof data.error === 'object') {
+                const errBody = data.error as { message?: unknown };
+                const message = typeof errBody.message === 'string' && errBody.message.trim()
+                  ? errBody.message
+                  : 'Chat failed';
+                throw new Error(message);
+              }
+              const record = data as Record<string, unknown>;
+              const textChunk = String(record.text ?? record.content ?? record.token ?? '');
+              const strategy = typeof record.strategy_used === 'string' ? record.strategy_used : undefined;
+              if (textChunk) onChunk(textChunk, strategy);
             } else if (typeof data === 'string') {
               onChunk(data);
             }
-          } catch {
-            if (rawData) {
-              onChunk(rawData);
+          } catch (err) {
+            if (err instanceof SyntaxError) {
+              if (rawData) onChunk(rawData);
+              continue;
             }
+            throw err;
           }
         }
       }

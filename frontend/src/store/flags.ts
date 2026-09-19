@@ -10,13 +10,15 @@ interface FlagsState {
   setFlags: (flags: FeatureSnapshot) => void;
 }
 
+export const DEFAULT_FLAGS: FeatureSnapshot = {
+  voice_enabled: true,
+  presence_enabled: false,
+  pro_model_enabled: true,
+  memory_enabled: true,
+  changelog_enabled: true,
+};
+
 export const useFlagsStore = create<FlagsState>((set) => ({
-  flags: {
-    voice_enabled: true,
-    presence_enabled: true,
-    pro_model_enabled: true,
-    memory_enabled: true,
-    changelog_enabled: true,
-  },
+  flags: { ...DEFAULT_FLAGS },
   setFlags: (flags) => set({ flags }),
 }));

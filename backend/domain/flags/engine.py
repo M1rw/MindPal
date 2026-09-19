@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Dict, Any, List, Optional
+import os
+from typing import Dict, Any, List, Optional, Set
 
 from backend.domain.flags.models import (
     FeatureDefinition,
@@ -11,6 +12,11 @@ from backend.domain.flags.models import (
     EvaluationReason,
     FlagEvaluation,
 )
+
+# Explicit kill switch only. Missing env, "1", "true", and "yes" all leave live
+# duplex on. Production fail-closed is MINDPAL_VOICE_LIVE=0 (or false/no/off).
+_VOICE_LIVE_OFF = frozenset({"0", "false", "no", "off"})
+_ON_VALUES = frozenset({"1", "true", "yes", "on"})
 
 
 class FeatureLifecycleEngine:
@@ -26,16 +32,66 @@ class FeatureLifecycleEngine:
             self.register(feature)
 
     @classmethod
+    def _voice_live_enabled(cls) -> bool:
+        raw = os.environ.get("MINDPAL_VOICE_LIVE", "").strip().lower()
+        return raw not in _VOICE_LIVE_OFF
+
+    @classmethod
+    def _voice_realtime_definition(cls) -> FeatureDefinition:
+        """Live duplex preview is on unless MINDPAL_VOICE_LIVE is an explicit off value."""
+        allowlist: Set[str] = {
+            item.strip()
+            for item in os.environ.get("MINDPAL_VOICE_LIVE_ALLOWLIST", "").split(",")
+            if item.strip()
+        }
+        if cls._voice_live_enabled():
+            return FeatureDefinition(
+                key="voice.realtime",
+                stage=FeatureStage.CANARY,
+                rollout_percentage=100,
+                owner="voice-team",
+                description="Preview Gemini Live duplex for signed-in accounts. Not general availability.",
+                allowlist=allowlist,
+            )
+        return FeatureDefinition(
+            key="voice.realtime",
+            stage=FeatureStage.DARK_LAUNCH,
+            rollout_percentage=0,
+            owner="voice-team",
+            description="Gemini Live duplex preview. Disabled via MINDPAL_VOICE_LIVE=0.",
+            allowlist=allowlist,
+        )
+
+    @classmethod
+    def _presence_definition(cls) -> FeatureDefinition:
+        """The Presence surface. Dark by default and honest about it.
+
+        The web client gates its Presence tab on a `presence_enabled` flag that
+        the snapshot never emitted, so the tab was off for a reason no operator
+        could see or change. The flag now exists with an explicit switch; the
+        default stays off because the surface is still preview.
+        """
+        allowlist: Set[str] = {
+            item.strip()
+            for item in os.environ.get("MINDPAL_PRESENCE_ALLOWLIST", "").split(",")
+            if item.strip()
+        }
+        enabled = os.environ.get("MINDPAL_PRESENCE", "").strip().lower() in _ON_VALUES
+        return FeatureDefinition(
+            key="voice.presence",
+            stage=FeatureStage.CANARY if enabled else FeatureStage.DARK_LAUNCH,
+            rollout_percentage=100 if enabled else 0,
+            owner="voice-team",
+            description="Presence surface preview. Enable with MINDPAL_PRESENCE=1.",
+            allowlist=allowlist,
+        )
+
+    @classmethod
     def _default_capabilities(cls) -> List[FeatureDefinition]:
         """Canonical MindPal domain capabilities adhering to domain taxonomy."""
         return [
-            FeatureDefinition(
-                key="voice.realtime",
-                stage=FeatureStage.GA,
-                rollout_percentage=100,
-                owner="voice-team",
-                description="Real-time spoken AI audio dialogue and streaming sessions",
-            ),
+            cls._voice_realtime_definition(),
+            cls._presence_definition(),
             FeatureDefinition(
                 key="memory.graph_sync",
                 stage=FeatureStage.GA,
@@ -158,6 +214,17 @@ class FeatureLifecycleEngine:
             bucket=bucket,
         )
 
+    @staticmethod
+    def _enabled(evaluations: Dict[str, FlagEvaluation], key: str) -> bool:
+        """A capability this engine does not define is off, not a KeyError.
+
+        `get_snapshot` indexed the evaluation map directly, so constructing an
+        engine with a narrower registry — which the tests and the kill-switch
+        path both do — turned /api/features into a 500.
+        """
+        evaluation = evaluations.get(key)
+        return bool(evaluation and evaluation.enabled)
+
     def evaluate_all(self, user_id_hash: str) -> Dict[str, FlagEvaluation]:
         return {key: self.evaluate(key, user_id_hash) for key in self._registry}
 
@@ -170,12 +237,13 @@ class FeatureLifecycleEngine:
 
         # High-level domain capability flags mapped to standard client contract
         flat_flags = {
-            "voice_enabled": evaluations["voice.realtime"].enabled,
-            "memory_enabled": evaluations["memory.graph_sync"].enabled,
-            "pro_model_enabled": evaluations["intelligence.pro_models"].enabled,
-            "changelog_enabled": evaluations["release.changelog"].enabled,
-            "clinical_guidance": evaluations["clinical.guidance"].enabled,
-            "analytics_insights": evaluations["analytics.insights"].enabled,
+            "voice_enabled": self._enabled(evaluations, "voice.realtime"),
+            "presence_enabled": self._enabled(evaluations, "voice.presence"),
+            "memory_enabled": self._enabled(evaluations, "memory.graph_sync"),
+            "pro_model_enabled": self._enabled(evaluations, "intelligence.pro_models"),
+            "changelog_enabled": self._enabled(evaluations, "release.changelog"),
+            "clinical_guidance": self._enabled(evaluations, "clinical.guidance"),
+            "analytics_insights": self._enabled(evaluations, "analytics.insights"),
         }
 
         # Rich telemetry payload for internal observability / DevTools

@@ -9,12 +9,12 @@ interface TabBarProps {
   showPresenceTab?: boolean;
 }
 
-const TABS: { id: AppTab; label: string; icon: React.ReactNode; badge?: string }[] = [
-  { id: 'chat',     label: 'Chat',     icon: <MessageSquare className="w-4 h-4" /> },
-  { id: 'presence', label: 'Presence', icon: <Eye className="w-4 h-4" />, badge: 'New' },
+const TABS: { id: AppTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'chat', label: 'Chat', icon: <MessageSquare className="h-3.5 w-3.5" /> },
+  { id: 'presence', label: 'Presence', icon: <Eye className="h-3.5 w-3.5" /> },
 ];
 
-export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange, showPresenceTab = true }) => {
+export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange, showPresenceTab = false }) => {
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const tabs = showPresenceTab ? TABS : TABS.filter((tab) => tab.id === 'chat');
 
@@ -50,11 +50,15 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange, showPres
     }
   };
 
+  if (tabs.length < 2) {
+    return null;
+  }
+
   return (
     <div
       role="tablist"
       aria-label="MindPal modes"
-      className="flex items-center gap-1 bg-surface-sunken border border-edge-subtle rounded-xl p-0.5"
+      className="flex flex-shrink-0 items-center gap-0.5 rounded-full bg-surface-sunken p-0.5"
     >
       {tabs.map((tab, index) => {
         const isActive = activeTab === tab.id;
@@ -73,20 +77,15 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange, showPres
             onClick={() => onTabChange(tab.id)}
             onKeyDown={(event) => handleTabKeyDown(event, index)}
             className={[
-              'relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium',
-              'transition-all duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary',
+              'header-compact-btn relative flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium sm:gap-1.5 sm:px-3 sm:text-sm',
+              'transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary',
               isActive
-                ? 'bg-surface-card text-content-primary shadow-card specular-card'
+                ? 'bg-surface-card text-content-primary shadow-card'
                 : 'text-content-secondary hover:text-content-primary',
             ].join(' ')}
           >
             {tab.icon}
             <span>{tab.label}</span>
-            {tab.badge && (
-              <span className="bg-brand-subtle text-brand-primary text-2xs px-1.5 py-0.5 rounded-full font-semibold uppercase leading-none">
-                {tab.badge}
-              </span>
-            )}
           </button>
         );
       })}

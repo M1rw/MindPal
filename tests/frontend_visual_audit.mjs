@@ -68,6 +68,16 @@ const addCheck = (name, passed, detail) => {
   assert.equal(passed, true, `${name}: ${detail}`);
 };
 
+const clickHeaderAction = async (page, name) => {
+  const desktop = page.getByRole('button', { name });
+  if (await desktop.isVisible()) {
+    await desktop.click();
+    return;
+  }
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name }).click();
+};
+
 const auditPage = async (page, label, viewport) => {
   await page.setViewportSize(viewport);
   await page.route('**/api/**', mockApi);
@@ -82,7 +92,7 @@ const auditPage = async (page, label, viewport) => {
   await page.goto(`${baseUrl}/index.html`);
   await page.getByPlaceholder('Ask MindPal').waitFor({ state: 'visible' });
   await page.waitForTimeout(1_200);
-  await page.getByRole('button', { name: 'Toggle theme' }).click();
+  await clickHeaderAction(page, 'Toggle theme');
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${evidenceDir}/${label}-initial.png`, fullPage: true });
   results.screenshots.push(`${label}-initial.png`);
@@ -116,7 +126,7 @@ const auditPage = async (page, label, viewport) => {
   addCheck(`${label} has no empty-state ambient glow`, await page.locator('.ambient-canvas-glow').count() === 0, 'The empty chat state should not add a top aura.');
   addCheck(`${label} light theme is explicit`, await page.evaluate(() => document.documentElement.classList.contains('light') && !document.documentElement.classList.contains('dark')), 'Light mode must not rely on the OS fallback token set.');
 
-  await page.getByRole('button', { name: 'Open chat history' }).click();
+  await clickHeaderAction(page, 'Open chat history');
   await page.getByRole('dialog', { name: 'Chat history' }).waitFor({ state: 'visible' });
   await page.waitForTimeout(350);
   const historySearch = page.getByRole('textbox', { name: 'Search conversations' });
@@ -128,8 +138,17 @@ const auditPage = async (page, label, viewport) => {
   results.screenshots.push(`${label}-history.png`);
   await page.getByRole('button', { name: 'Clear search' }).click();
   await page.getByRole('button', { name: 'Close history' }).click();
-  await page.getByRole('button', { name: 'Sign in to sync' }).click();
-  await page.getByRole('dialog', { name: 'Back up your MindPal' }).waitFor({ state: 'visible' });
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'visible' });
+  const sidebarAccount = page.getByRole('button', { name: 'Account' });
+  if (await sidebarAccount.isVisible()) {
+    await sidebarAccount.click();
+  } else {
+    await page.getByRole('button', { name: 'Select settings category' }).click();
+    await page.getByRole('menuitem', { name: 'Account' }).click();
+  }
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('dialog', { name: 'Sign in to MindPal' }).waitFor({ state: 'visible' });
   await page.waitForTimeout(350);
   await page.screenshot({ path: `${evidenceDir}/${label}-auth.png`, fullPage: true });
   results.screenshots.push(`${label}-auth.png`);

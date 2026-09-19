@@ -2,11 +2,13 @@ import { chatApi } from './chat.ts';
 import { chatsApi } from './chats.ts';
 import { usersApi } from './users.ts';
 import { memoryApi } from './memory.ts';
+import { voiceApi } from './voice.ts';
 import type {
   MemorySummaryResponse,
   VoiceTokenResponse,
   UserProfile,
   UserInsightsResponse,
+  WellnessTimeline,
   HealthStatus,
   FeatureSnapshot,
   MemoryAtom,
@@ -46,6 +48,7 @@ export const ApiClient = {
   getUserProfile: usersApi.getUserProfile,
   patchUserProfile: usersApi.patchUserProfile,
   getUserInsights: usersApi.getUserInsights,
+  getWellnessTimeline: usersApi.getWellnessTimeline,
   exportUserData: usersApi.exportUserData,
   deleteUserData: usersApi.deleteUserData,
 
@@ -54,16 +57,32 @@ export const ApiClient = {
   refreshMemorySummary: memoryApi.refreshMemorySummary,
   getMemoryGraph: memoryApi.getMemoryGraph,
   putMemoryGraph: memoryApi.putMemoryGraph,
+  patchMemoryGraphItem: memoryApi.patchMemoryGraphItem,
   deleteMemoryGraphItem: memoryApi.deleteMemoryGraphItem,
+  mergeGuestGraphIntoAccount: memoryApi.mergeGuestGraphIntoAccount,
 
   // Voice
-  async getVoiceSessionToken(): Promise<VoiceTokenResponse> {
-    return fetchJson<VoiceTokenResponse>('/api/voice/session-token', { method: 'POST' }, 'Voice session token error');
-  },
+  mintVoiceSession: voiceApi.mintVoiceSession,
+  recordVoiceSessionEvent: voiceApi.recordVoiceSessionEvent,
+  summarizeVoiceSession: voiceApi.summarizeVoiceSession,
 
   // Feature Flags
   async getFeatureFlags(): Promise<FeatureSnapshot> {
-    return fetchJson<FeatureSnapshot>('/api/features', undefined, 'Features error');
+    const data = await fetchJson<FeatureSnapshot & { flags?: FeatureSnapshot }>(
+      '/api/features',
+      undefined,
+      'Features error',
+    );
+    const inner = data.flags ?? data;
+    return {
+      voice_enabled: Boolean(inner.voice_enabled),
+      presence_enabled: inner.presence_enabled,
+      pro_model_enabled: Boolean(inner.pro_model_enabled),
+      memory_enabled: Boolean(inner.memory_enabled),
+      changelog_enabled: Boolean(inner.changelog_enabled),
+      clinical_guidance: inner.clinical_guidance,
+      analytics_insights: inner.analytics_insights,
+    };
   },
 
   // Changelog / Release
@@ -97,6 +116,7 @@ export type {
   VoiceTokenResponse,
   UserProfile,
   UserInsightsResponse,
+  WellnessTimeline,
   HealthStatus,
   FeatureSnapshot,
   MemoryAtom,
