@@ -60,7 +60,6 @@ export const ChatHistoryModal: React.FC = () => {
 
   useEffect(() => {
     if (isOpen) {
-      searchRef.current?.focus({ preventScroll: true });
       useChatHistoryStore.getState().loadCloudSessions();
     } else {
       setQuery('');
@@ -129,6 +128,7 @@ export const ChatHistoryModal: React.FC = () => {
       label="Chat history"
       size="lg"
       flush
+      autoFocus={false}
       panelClassName="min-h-[min(24rem,70dvh)] max-h-[min(80dvh,36rem)]"
     >
       <ModalToolbar>
