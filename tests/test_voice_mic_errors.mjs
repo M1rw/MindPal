@@ -145,5 +145,6 @@ describe('the policy that has to allow the worklets', () => {
   it('allows Vercel preview feedback tooling', () => {
     assert.match(scriptSrc, /vercel\.live/);
     assert.match(csp, /"frame-src [^"]*vercel\.live/);
+    assert.match(csp, /"font-src [^"]*vercel\.live/);
   });
 });
