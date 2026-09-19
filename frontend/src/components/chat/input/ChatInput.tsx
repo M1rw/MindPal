@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, KeyboardEvent, forwardRef, useImperativeHandle } from 'react';
-import { useChatStore, useFlagsStore, useSessionStore, useStreakStore, useToastStore, useVoiceStore } from '../../../store';
+import { useChatStore, useFlagsStore, useSessionStore, useSettingsStore, useStreakStore, useToastStore, useVoiceStore } from '../../../store';
 import { ApiClient } from '../../../services/api/index';
 import { captureMemoryReceipt } from '../../../utils/memory/guestMemory';
 import { useChatInputDictation } from '../../../hooks/chat/useChatInputDictation';
@@ -9,6 +9,7 @@ import { cn } from '../../../utils/ui/cn';
 import { ChatInputActions } from './ChatInputActions';
 import { ChatInputDictationMode } from './ChatInputDictationMode';
 import { ComposerNotice } from './ComposerNotice';
+import { stopHaptic, triggerHaptic } from '../../../utils/ui/haptics';
 
 /** Keep in sync with `composerThinkOut` duration in style.css. */
 const COMPOSER_THINK_EXIT_MS = 450;
@@ -59,6 +60,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
   const { recordActivity } = useStreakStore();
   const { push: pushToast } = useToastStore();
   const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
+  const soundEnabled = useSettingsStore((state) => state.settings.soundEnabled);
   const liveVoiceEnabled = useFlagsStore((state) => state.flags.voice_enabled);
   const setVoiceActive = useVoiceStore((state) => state.setIsActive);
   const editingUserId = useChatStore((state) => state.editingUserId);
@@ -80,6 +82,27 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
   if (!isGenerating) {
     thinkArmedRef.current = false;
   }
+
+  useEffect(() => {
+    if (!isGenerating || !soundEnabled) {
+      stopHaptic();
+      return;
+    }
+
+    const pulse = () => triggerHaptic(true, 'thinking');
+    pulse();
+    const intervalId = window.setInterval(pulse, 900);
+    const stopOnHidden = () => {
+      if (document.hidden) stopHaptic();
+    };
+    document.addEventListener('visibilitychange', stopOnHidden);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', stopOnHidden);
+      stopHaptic();
+    };
+  }, [isGenerating, soundEnabled]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

@@ -1,10 +1,11 @@
-export type HapticPattern = 'selection' | 'success' | 'warning' | 'error';
+export type HapticPattern = 'selection' | 'success' | 'warning' | 'error' | 'thinking';
 
 const PATTERNS: Record<HapticPattern, number | number[]> = {
   selection: 8,
   success: [10, 24, 10],
   warning: [18, 32, 18],
   error: [24, 36, 24],
+  thinking: [5, 70, 5],
 };
 
 let lastPulseAt = 0;
@@ -25,5 +26,14 @@ export function triggerHaptic(enabled: boolean, pattern: HapticPattern = 'select
     return didVibrate;
   } catch {
     return false;
+  }
+}
+
+export function stopHaptic(): void {
+  if (!canVibrate()) return;
+  try {
+    navigator.vibrate(0);
+  } catch {
+    // Vibration is optional and can be blocked by the browser or device.
   }
 }
