@@ -23,19 +23,8 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
   const { flags } = useFlagsStore();
   const showPresence = Boolean(flags.presence_enabled ?? false);
   const hasMessages = useChatStore((state) => state.messages.length > 0);
-  const [composerHeight, setComposerHeight] = React.useState(0);
   const composerWrapRef = useRef<HTMLDivElement>(null);
   const composerRectRef = useRef<DOMRect | null>(null);
-
-  React.useEffect(() => {
-    const element = composerWrapRef.current;
-    if (!element) return;
-    const updateHeight = () => setComposerHeight(element.getBoundingClientRect().height);
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
 
   useLayoutEffect(() => {
     const el = composerWrapRef.current;
@@ -66,10 +55,7 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
   }, [hasMessages]);
 
   const chatShell = (
-    <div
-      className={`chat-stage ${hasMessages ? 'chat-stage--thread' : ''}`}
-      style={{ '--composer-dock-height': `${composerHeight}px` } as React.CSSProperties}
-    >
+    <div className={`chat-stage ${hasMessages ? 'chat-stage--thread' : ''}`}>
       <div className="chat-stage__canvas">
         <ErrorBoundary
           fallbackTitle="Chat Canvas Error"

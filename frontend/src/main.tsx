@@ -18,28 +18,19 @@ import { getViewportMetrics } from './utils/mobile/viewport';
   win.va = win.va || function () { (win.vaq = win.vaq || []).push(arguments); };
   win.si = win.si || function () { (win.siq = win.siq || []).push(arguments); };
 
-  // Keep the app anchored to the real viewport height while exposing the
-  // keyboard gap for the composer dock to move independently on mobile.
-  let layoutViewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
+  // Let the app follow the visual viewport while the keyboard is open. The
+  // composer remains in normal layout flow, so the chat canvas reserves it.
   const setAppHeight = () => {
     const metrics = getViewportMetrics();
-    const candidateHeight = Math.max(metrics.innerHeight, document.documentElement.clientHeight);
-    if (metrics.visualHeight >= layoutViewportHeight - 80) {
-      layoutViewportHeight = candidateHeight;
-    }
-    document.documentElement.style.setProperty('--app-height', `${Math.max(layoutViewportHeight, 0)}px`);
-    document.documentElement.style.setProperty(
-      '--keyboard-offset',
-      `${Math.max(0, layoutViewportHeight - metrics.visualHeight)}px`,
-    );
-    document.body.classList.toggle('keyboard-open', layoutViewportHeight - metrics.visualHeight > 0);
+    document.documentElement.style.setProperty('--app-height', `${Math.max(metrics.visualHeight, 0)}px`);
+    document.documentElement.style.setProperty('--keyboard-offset', `${metrics.keyboardOffset}px`);
+    document.body.classList.toggle('keyboard-open', metrics.keyboardOffset > 0);
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });
   window.visualViewport?.addEventListener('resize', setAppHeight, { passive: true });
   window.addEventListener('orientationchange', () => {
     window.setTimeout(() => {
-      layoutViewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
       setAppHeight();
     }, 150);
   }, { passive: true });
