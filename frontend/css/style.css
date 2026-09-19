@@ -3161,6 +3161,11 @@ button:active,
 }
 
 @media (max-width: 639px) {
+  .chat-composer-dock {
+    translate: 0 calc(-1 * var(--keyboard-offset, 0px));
+    transition: translate 180ms ease-out;
+  }
+
   .chat-stage--thread .chat-thread-enter {
     padding-bottom: 1rem;
   }

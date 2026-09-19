@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { STORAGE_KEYS } from './constants/storage';
 import { App } from './App';
+import { getViewportMetrics } from './utils/mobile/viewport';
 
 // ── Production Bootstrap: Viewport, PWA & Analytics ──────────────────────────
 (() => {
@@ -17,12 +18,12 @@ import { App } from './App';
   win.va = win.va || function () { (win.vaq = win.vaq || []).push(arguments); };
   win.si = win.si || function () { (win.siq = win.siq || []).push(arguments); };
 
-  // Keep the app anchored to the real viewport height instead of shrinking the
-  // whole layout while the mobile keyboard is open. The keyboard can reduce the
-  // visual viewport without the app needing to reflow the full shell.
+  // Keep the app anchored to the real viewport height while exposing the
+  // keyboard gap for the composer dock to move independently on mobile.
   const setAppHeight = () => {
-    const height = window.innerHeight || window.visualViewport?.height || 0;
-    document.documentElement.style.setProperty('--app-height', `${Math.max(height, 0)}px`);
+    const metrics = getViewportMetrics();
+    document.documentElement.style.setProperty('--app-height', `${Math.max(metrics.innerHeight, 0)}px`);
+    document.documentElement.style.setProperty('--keyboard-offset', `${metrics.keyboardOffset}px`);
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });
