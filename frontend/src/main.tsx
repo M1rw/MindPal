@@ -29,10 +29,16 @@ import { getViewportMetrics } from './utils/mobile/viewport';
       layoutViewportHeight = candidateHeight;
     }
     const offsetTop = viewport?.offsetTop ?? 0;
-    const viewportShift = metrics.visualHeight - layoutViewportHeight + offsetTop;
+    const visualViewportBottomInset = Math.max(
+      0,
+      layoutViewportHeight - metrics.visualHeight - offsetTop,
+    );
     document.documentElement.style.setProperty('--app-height', `${Math.max(layoutViewportHeight, 0)}px`);
-    document.documentElement.style.setProperty('--keyboard-offset', `${Math.max(0, -viewportShift)}px`);
-    document.documentElement.style.setProperty('--visual-viewport-shift', `${viewportShift}px`);
+    document.documentElement.style.setProperty('--keyboard-offset', `${visualViewportBottomInset}px`);
+    document.documentElement.style.setProperty(
+      '--visual-viewport-bottom-inset',
+      `${visualViewportBottomInset}px`,
+    );
     document.body.classList.toggle('keyboard-open', metrics.keyboardOffset > 0);
   };
   setAppHeight();
