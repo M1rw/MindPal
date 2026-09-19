@@ -3191,9 +3191,6 @@ button:active,
 
   .chat-stage--thread .chat-thread-enter {
     padding-bottom: 1rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
   }
 }
 
