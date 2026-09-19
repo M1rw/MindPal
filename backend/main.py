@@ -52,7 +52,7 @@ CONTENT_SECURITY_POLICY = "; ".join(
         "frame-ancestors 'none'",
         "form-action 'self'",
         "img-src 'self' data: blob: https:",
-        "font-src 'self' data: https://fonts.gstatic.com",
+        "font-src 'self' data: https://fonts.gstatic.com https://vercel.live",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         # accounts.google.com serves the Google Sign-In client, which was also
         # being refused — and live voice needs a signed-in account.
