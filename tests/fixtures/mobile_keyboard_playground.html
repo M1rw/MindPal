@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>MindPal mobile keyboard playground</title>
   <style>
-    :root { --layout-height: 844px; --visual-height: 844px; --keyboard-offset: 0px; }
+    :root { --layout-height: 844px; --visual-height: 844px; --keyboard-offset: 0px; --visual-shift: 0px; --composer-dock-height: 0px; }
     * { box-sizing: border-box; }
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #09090b; color: #f4f4f5; font: 16px system-ui, sans-serif; }
-    #app { height: var(--visual-height); display: grid; grid-template-rows: 1fr auto; overflow: hidden; }
+    #app { height: var(--layout-height); display: grid; grid-template-rows: 1fr auto; overflow: hidden; padding-bottom: calc(var(--keyboard-offset) + var(--composer-dock-height)); }
     #messages { display: flex; flex-direction: column; justify-content: flex-end; overflow: auto; padding: 24px 16px 16px; }
     .message { max-width: 92%; margin: 0 0 24px auto; padding: 12px 14px; border: 1px solid #303047; border-radius: 16px; }
-    #composer-dock { position: relative; z-index: 2; }
+    #composer-dock { position: fixed; left: 0; right: 0; bottom: 0; transform: translateY(var(--visual-shift)); z-index: 2; }
     #composer { margin: 0 16px 8px; padding: 15px; border: 2px solid #4140fd; border-radius: 32px; background: #202023; }
     #keyboard { position: fixed; left: 0; right: 0; top: var(--visual-height); height: 300px; display: none; background: #3b3b3f; }
     body.keyboard-open #keyboard { display: block; }
@@ -41,6 +41,8 @@
       const offset = Math.max(0, layoutHeight - visualViewport.height);
       root.style.setProperty('--keyboard-offset', `${offset}px`);
       root.style.setProperty('--visual-height', `${visualViewport.height}px`);
+      root.style.setProperty('--visual-shift', `${visualViewport.height - layoutHeight}px`);
+      root.style.setProperty('--composer-dock-height', `${dock.getBoundingClientRect().height}px`);
       metrics.textContent = `layout=${layoutHeight} visual=${visualViewport.height} offset=${offset}`;
     }
     window.simulateIOSKeyboard = (height) => {
