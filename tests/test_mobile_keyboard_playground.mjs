@@ -42,8 +42,8 @@ test('iOS keyboard simulation pins the composer to the keyboard top', async () =
   assert.equal(geometry.dockPosition, 'fixed');
   assert.ok(Math.abs(Number.parseFloat(geometry.dockBottom) - 334) <= 1, JSON.stringify(geometry));
   assert.ok(Math.abs(geometry.composerBottom - geometry.keyboardTop) <= 1, JSON.stringify(geometry));
-  const lastMessageBottom = await page.locator('.message').last().evaluate((element) => element.getBoundingClientRect().bottom);
-  assert.ok(geometry.composerTop - lastMessageBottom <= 24, JSON.stringify({ geometry, lastMessageBottom }));
+  assert.ok(geometry.lastMessageBottom <= geometry.composerTop, JSON.stringify(geometry));
+  assert.ok(geometry.composerTop - geometry.lastMessageBottom <= 48, JSON.stringify(geometry));
 
   await page.screenshot({ path: 'artifacts/frontend-quality/mobile-keyboard-playground.png', fullPage: true });
   await page.close();

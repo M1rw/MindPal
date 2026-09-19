@@ -8,7 +8,7 @@
     :root { --layout-height: 844px; --visual-height: 844px; --keyboard-offset: 0px; }
     * { box-sizing: border-box; }
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #09090b; color: #f4f4f5; font: 16px system-ui, sans-serif; }
-    #app { height: var(--layout-height); display: grid; grid-template-rows: 1fr auto; overflow: hidden; padding-bottom: var(--keyboard-offset); }
+    #app { height: var(--layout-height); display: grid; grid-template-rows: 1fr auto; overflow: hidden; padding-bottom: calc(var(--keyboard-offset) + var(--composer-dock-height)); }
     #messages { display: flex; flex-direction: column; justify-content: flex-end; overflow: auto; padding: 24px 16px 16px; }
     .message { max-width: 92%; margin: 0 0 24px auto; padding: 12px 14px; border: 1px solid #303047; border-radius: 16px; }
     #composer-dock { position: fixed; left: 0; right: 0; bottom: var(--keyboard-offset); z-index: 2; transition: bottom 120ms ease-out; }
@@ -40,6 +40,7 @@
     function update() {
       const offset = Math.max(0, layoutHeight - visualViewport.height);
       root.style.setProperty('--keyboard-offset', `${offset}px`);
+      root.style.setProperty('--composer-dock-height', `${dock.getBoundingClientRect().height}px`);
       metrics.textContent = `layout=${layoutHeight} visual=${visualViewport.height} offset=${offset}`;
     }
     window.simulateIOSKeyboard = (height) => {
@@ -54,6 +55,7 @@
       dockTransform: getComputedStyle(dock).transform,
       dockPosition: getComputedStyle(dock).position,
       dockBottom: getComputedStyle(dock).bottom,
+      lastMessageBottom: document.querySelector('.message:last-child').getBoundingClientRect().bottom,
       keyboardOffset: getComputedStyle(root).getPropertyValue('--keyboard-offset').trim(),
     });
     update();

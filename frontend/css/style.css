@@ -3162,7 +3162,7 @@ button:active,
 
 @media (max-width: 639px) {
   .chat-stage {
-    padding-bottom: var(--keyboard-offset, 0px);
+    padding-bottom: calc(var(--keyboard-offset, 0px) + var(--composer-dock-height, 0px));
   }
 
   .chat-composer-dock {
@@ -3172,6 +3172,10 @@ button:active,
     bottom: var(--keyboard-offset, 0px);
     transform: none;
     transition: bottom 180ms ease-out;
+  }
+
+  body.keyboard-open .chat-composer-dock > div {
+    padding-bottom: 0;
   }
 
   .chat-stage--thread .chat-thread-enter {
