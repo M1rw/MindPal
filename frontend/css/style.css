@@ -3477,8 +3477,8 @@ html.dark .chat-composer--thinking::after {
   overflow-anchor: none;
 }
 
-.chat-stage:not(.chat-stage--thread) .chat-stage__canvas {
-  justify-content: flex-end;
+.chat-stage--empty .chat-stage__canvas {
+  justify-content: center;
 }
 
 .chat-jump-latest {

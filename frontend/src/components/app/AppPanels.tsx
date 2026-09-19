@@ -67,7 +67,7 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
 
   const chatShell = (
     <div
-      className={`chat-stage ${hasMessages ? 'chat-stage--thread' : ''}`}
+      className={`chat-stage ${hasMessages ? 'chat-stage--thread' : 'chat-stage--empty'}`}
       style={{ '--composer-dock-height': `${composerHeight}px` } as React.CSSProperties}
     >
       <div className="chat-stage__canvas">
