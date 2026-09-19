@@ -32,6 +32,7 @@ import { getViewportMetrics } from './utils/mobile/viewport';
       '--keyboard-offset',
       `${Math.max(0, layoutViewportHeight - metrics.visualHeight)}px`,
     );
+    document.body.classList.toggle('keyboard-open', layoutViewportHeight - metrics.visualHeight > 0);
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });
