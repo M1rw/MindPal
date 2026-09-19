@@ -247,7 +247,7 @@ button,
    Uses !important so it adds on top of Tailwind utility pb-* values. */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .pb-safe {
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom)) !important;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
   }
 }
 
@@ -3158,6 +3158,12 @@ button:active,
   z-index: 20;
   overflow: visible;
   transform: translate3d(0, 0, 0);
+}
+
+@media (max-width: 639px) {
+  .chat-stage--thread .chat-thread-enter {
+    padding-bottom: 1rem;
+  }
 }
 
 /* One capped radius always: 31px is slightly ≥ half of idle ~60px, so one-line

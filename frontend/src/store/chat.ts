@@ -100,5 +100,13 @@ export const useChatStore = create<ChatState>((set) => ({
     }),
   setActiveModel: (activeModel) => set({ activeModel }),
   setActiveMode: (activeMode) => set({ activeMode }),
-  clearMessages: () => set({ messages: [], strategyUsed: null, editingUserId: null }),
+  clearMessages: () =>
+    set({
+      messages: [],
+      strategyUsed: null,
+      editingUserId: null,
+      composerDraft: null,
+      isGenerating: false,
+      abortController: null,
+    }),
 }));
