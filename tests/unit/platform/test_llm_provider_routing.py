@@ -211,6 +211,7 @@ def _drain(agen) -> List[str]:
 def test_chat_streams_from_openrouter_when_selected(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_stream(**kwargs: Any):
         assert "openrouter.ai" in kwargs["base_url"]
+        assert kwargs["model"] == "meta-llama/llama-3.3-70b-instruct"
         for token in ("Hel", "lo", " there"):
             yield token
 

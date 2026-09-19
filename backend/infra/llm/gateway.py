@@ -108,6 +108,15 @@ def _is_rate_limited(exc: BaseException) -> bool:
     text = f"{type(exc).__name__} {exc}".lower()
     return "429" in text or "resource_exhausted" in text or "rate limit" in text
 
+
+def _model_for_provider(provider: str, model: Optional[str], default_model: str) -> Optional[str]:
+    """Use provider-native defaults instead of sending a Gemini id elsewhere."""
+    if provider in {"openrouter", "groq"} and (
+        not model or model == default_model or model.startswith("gemini-")
+    ):
+        return None
+    return model
+
 # 2.5 models think by default and thinking tokens are billed as output AND counted
 # against max_output_tokens. A classifier capped at 80 tokens can spend all of them
 # thinking and return empty text (finish_reason MAX_TOKENS), which this gateway then
@@ -276,7 +285,7 @@ class LLMGateway:
                     provider,
                     prompt=prompt,
                     system_instruction=system_instruction,
-                    model=model,
+                    model=_model_for_provider(provider, model, self.default_model),
                     temperature=temperature,
                     max_tokens=max_tokens,
                     history=history,
