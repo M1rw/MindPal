@@ -134,6 +134,7 @@ describe('the policy that has to allow the worklets', () => {
     assert.doesNotMatch(scriptSrc, /\*|https:(?!\/\/)/, 'script-src must stay on an allow-list');
     assert.match(csp, /"object-src 'none'"/);
     assert.match(csp, /"frame-ancestors 'none'"/);
+    assert.match(csp, /"frame-src [^"]*\*\.firebaseapp\.com/);
   });
 
   it('allows the sign-in client live voice depends on', () => {

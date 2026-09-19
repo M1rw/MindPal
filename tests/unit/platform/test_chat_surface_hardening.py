@@ -253,4 +253,6 @@ def test_security_headers_include_a_content_security_policy(client) -> None:
     headers = client.get("/api/health").headers
     assert "Content-Security-Policy" in headers
     assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
+    assert "https://*.firebaseapp.com" in headers["Content-Security-Policy"]
+    assert headers["cross-origin-opener-policy"] == "same-origin-allow-popups"
     assert headers["x-content-type-options"] == "nosniff"
