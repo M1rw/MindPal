@@ -5,6 +5,8 @@
 import { create } from 'zustand';
 import { STORAGE_KEYS } from '../constants/storage.ts';
 import { useSessionStore } from './session.ts';
+import { useChatStore } from './chat.ts';
+import { useChatHistoryModalStore } from './modals.ts';
 import type { ChatSession } from '../types/index';
 import { withoutSessionMemoryReceipts } from '../utils/chat/sessionHistory.ts';
 
@@ -99,7 +101,18 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => ({
     set((state) => {
       const next = state.sessions.filter((s) => s.id !== id);
       saveSessions(next);
-      return { sessions: next, activeSessionId: state.activeSessionId === id ? null : state.activeSessionId };
+
+      const deletedActiveSession = state.activeSessionId === id;
+
+      if (deletedActiveSession) {
+        useChatStore.getState().clearMessages();
+        useChatHistoryModalStore.getState().setIsOpen(false);
+      }
+
+      return {
+        sessions: next,
+        activeSessionId: deletedActiveSession ? null : state.activeSessionId,
+      };
     });
     if (useSessionStore.getState().isAuthenticated) {
       import('../services/api/index.ts').then(({ ApiClient }) => {
