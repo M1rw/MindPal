@@ -33,13 +33,16 @@ import { getViewportMetrics } from './utils/mobile/viewport';
       0,
       layoutViewportHeight - metrics.visualHeight - offsetTop,
     );
-    document.documentElement.style.setProperty('--app-height', `${Math.max(layoutViewportHeight, 0)}px`);
+    const keyboardOpen = metrics.keyboardOffset > 0;
+    const visibleAppHeight = keyboardOpen ? metrics.visualHeight : layoutViewportHeight;
+    document.documentElement.style.setProperty('--app-height', `${Math.max(visibleAppHeight, 0)}px`);
     document.documentElement.style.setProperty('--keyboard-offset', `${visualViewportBottomInset}px`);
     document.documentElement.style.setProperty(
       '--visual-viewport-bottom-inset',
       `${visualViewportBottomInset}px`,
     );
-    document.body.classList.toggle('keyboard-open', metrics.keyboardOffset > 0);
+    document.body.classList.toggle('keyboard-open', keyboardOpen);
+    if (keyboardOpen) window.scrollTo(0, 0);
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });
