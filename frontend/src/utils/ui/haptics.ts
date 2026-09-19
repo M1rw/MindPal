@@ -11,7 +11,10 @@ const PATTERNS: Record<HapticPattern, number | number[]> = {
 let lastPulseAt = 0;
 
 function canVibrate(): boolean {
-  return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return false;
+  if (navigator.webdriver) return false;
+  const activation = navigator.userActivation;
+  return Boolean(activation?.isActive);
 }
 
 export function triggerHaptic(enabled: boolean, pattern: HapticPattern = 'selection'): boolean {

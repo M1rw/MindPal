@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { STORAGE_KEYS } from './constants/storage';
 import { App } from './App';
+import { applyViewportHeight } from './utils/mobile/viewport';
 
 // ── Production Bootstrap: Viewport, PWA & Analytics ──────────────────────────
 (() => {
@@ -19,8 +20,7 @@ import { App } from './App';
 
   // iOS Safari / Mobile Dynamic Viewport Fix with visualViewport support
   const setAppHeight = () => {
-    const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    document.documentElement.style.setProperty('--app-height', `${height}px`);
+    applyViewportHeight(window);
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });

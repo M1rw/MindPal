@@ -231,6 +231,15 @@ button,
   padding-top: max(env(safe-area-inset-top, 12px), 12px) !important;
 }
 
+@media screen and (max-width: 639px) {
+  .header-compact-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 #header.pt-safe-top {
   padding-top: max(env(safe-area-inset-top, 16px), 16px) !important;
 }
@@ -3151,9 +3160,16 @@ button:active,
 }
 
 .chat-composer-dock {
-  position: relative;
+  position: sticky;
+  bottom: 0;
   z-index: 20;
   overflow: visible;
+}
+
+@media (min-width: 640px) {
+  .chat-composer-dock {
+    position: relative;
+  }
 }
 
 /* One capped radius always: 31px is slightly ≥ half of idle ~60px, so one-line
