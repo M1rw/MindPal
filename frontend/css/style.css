@@ -3161,13 +3161,24 @@ button:active,
 }
 
 @media (max-width: 639px) {
+  .chat-stage {
+    padding-bottom: var(--keyboard-offset, 0px);
+  }
+
   .chat-composer-dock {
-    translate: 0 calc(-1 * var(--keyboard-offset, 0px));
-    transition: translate 180ms ease-out;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--keyboard-offset, 0px);
+    transform: none;
+    transition: bottom 180ms ease-out;
   }
 
   .chat-stage--thread .chat-thread-enter {
     padding-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
   }
 }
 

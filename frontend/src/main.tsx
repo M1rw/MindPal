@@ -20,14 +20,28 @@ import { getViewportMetrics } from './utils/mobile/viewport';
 
   // Keep the app anchored to the real viewport height while exposing the
   // keyboard gap for the composer dock to move independently on mobile.
+  let layoutViewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
   const setAppHeight = () => {
     const metrics = getViewportMetrics();
-    document.documentElement.style.setProperty('--app-height', `${Math.max(metrics.innerHeight, 0)}px`);
-    document.documentElement.style.setProperty('--keyboard-offset', `${metrics.keyboardOffset}px`);
+    const candidateHeight = Math.max(metrics.innerHeight, document.documentElement.clientHeight);
+    if (metrics.visualHeight >= layoutViewportHeight - 80) {
+      layoutViewportHeight = candidateHeight;
+    }
+    document.documentElement.style.setProperty('--app-height', `${Math.max(layoutViewportHeight, 0)}px`);
+    document.documentElement.style.setProperty(
+      '--keyboard-offset',
+      `${Math.max(0, layoutViewportHeight - metrics.visualHeight)}px`,
+    );
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });
-  window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 150), { passive: true });
+  window.visualViewport?.addEventListener('resize', setAppHeight, { passive: true });
+  window.addEventListener('orientationchange', () => {
+    window.setTimeout(() => {
+      layoutViewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
+      setAppHeight();
+    }, 150);
+  }, { passive: true });
 
   // PWA Standalone Mode Indicator
   const isStandalone =
