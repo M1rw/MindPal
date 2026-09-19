@@ -2,7 +2,6 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { STORAGE_KEYS } from './constants/storage';
 import { App } from './App';
-import { getViewportMetrics } from './utils/mobile/viewport';
 
 // ── Production Bootstrap: Viewport, PWA & Analytics ──────────────────────────
 (() => {
@@ -18,42 +17,18 @@ import { getViewportMetrics } from './utils/mobile/viewport';
   win.va = win.va || function () { (win.vaq = win.vaq || []).push(arguments); };
   win.si = win.si || function () { (win.siq = win.siq || []).push(arguments); };
 
-  // Position the composer against the visual viewport. iOS keeps the layout
-  // viewport stable while the keyboard changes the visual viewport.
-  let layoutViewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
+  // iOS Safari / Mobile Dynamic Viewport Fix with visualViewport support
   const setAppHeight = () => {
-    const metrics = getViewportMetrics();
-    const viewport = window.visualViewport;
-    const candidateHeight = Math.max(metrics.innerHeight, document.documentElement.clientHeight);
-    if (!viewport || metrics.visualHeight >= layoutViewportHeight - 80) {
-      layoutViewportHeight = candidateHeight;
-    }
-    const offsetTop = viewport?.offsetTop ?? 0;
-    const visualViewportBottomInset = Math.max(
-      0,
-      layoutViewportHeight - metrics.visualHeight - offsetTop,
-    );
-    const keyboardOpen = metrics.keyboardOffset > 0;
-    const visibleAppHeight = keyboardOpen ? metrics.visualHeight : layoutViewportHeight;
-    document.documentElement.style.setProperty('--app-height', `${Math.max(visibleAppHeight, 0)}px`);
-    document.documentElement.style.setProperty('--keyboard-offset', `${visualViewportBottomInset}px`);
-    document.documentElement.style.setProperty(
-      '--visual-viewport-bottom-inset',
-      `${visualViewportBottomInset}px`,
-    );
-    document.body.classList.toggle('keyboard-open', keyboardOpen);
-    if (keyboardOpen) window.scrollTo(0, 0);
+    const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty('--app-height', `${height}px`);
   };
   setAppHeight();
   window.addEventListener('resize', setAppHeight, { passive: true });
-  window.visualViewport?.addEventListener('resize', setAppHeight, { passive: true });
-  window.visualViewport?.addEventListener('scroll', setAppHeight, { passive: true });
-  window.addEventListener('orientationchange', () => {
-    window.setTimeout(() => {
-      layoutViewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
-      setAppHeight();
-    }, 150);
-  }, { passive: true });
+  window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 150), { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', setAppHeight, { passive: true });
+    window.visualViewport.addEventListener('scroll', setAppHeight, { passive: true });
+  }
 
   // PWA Standalone Mode Indicator
   const isStandalone =

@@ -281,7 +281,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
   const showExpand = fieldOverflowing && !isDictating && !isEditingThread;
 
   return (
-    <div className="w-full max-w-3xl mx-auto relative z-10 px-4 pt-2 pb-safe">
+    <div className="w-full max-w-3xl mx-auto relative z-10 px-4 pt-3 pb-safe pb-4">
       <div
         ref={composerRef}
         className={cn(
@@ -306,7 +306,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
                 rows={1}
                 dir="auto"
                 spellCheck={false}
-                enterKeyHint="send"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}

@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useRef } from 'react';
+import React, { Suspense, useLayoutEffect, useRef } from 'react';
 import { ChatCanvas } from '../chat/canvas/ChatCanvas';
 import { ChatInput, type ChatInputHandle } from '../chat/input/ChatInput';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
@@ -23,24 +23,39 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
   const { flags } = useFlagsStore();
   const showPresence = Boolean(flags.presence_enabled ?? false);
   const hasMessages = useChatStore((state) => state.messages.length > 0);
-  const [composerHeight, setComposerHeight] = React.useState(0);
   const composerWrapRef = useRef<HTMLDivElement>(null);
+  const composerRectRef = useRef<DOMRect | null>(null);
 
-  useEffect(() => {
-    const element = composerWrapRef.current;
-    if (!element) return;
-    const updateHeight = () => setComposerHeight(element.getBoundingClientRect().height);
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  useLayoutEffect(() => {
+    const el = composerWrapRef.current;
+    if (!el) return;
+    if (el.getAnimations().some((animation) => animation.playState !== 'finished')) {
+      return;
+    }
+
+    const next = el.getBoundingClientRect();
+    const prev = composerRectRef.current;
+    composerRectRef.current = next;
+    if (!prev) return;
+
+    const dy = prev.top - next.top;
+    if (Math.abs(dy) < 8) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const animation = el.animate(
+      [
+        { transform: `translateY(${dy}px)` },
+        { transform: 'translateY(0px)' },
+      ],
+      { duration: 420, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'none' }
+    );
+    animation.onfinish = () => {
+      composerRectRef.current = el.getBoundingClientRect();
+    };
+  }, [hasMessages]);
 
   const chatShell = (
-    <div
-      className={`chat-stage ${hasMessages ? 'chat-stage--thread' : 'chat-stage--empty'}`}
-      style={{ '--composer-dock-height': `${composerHeight}px` } as React.CSSProperties}
-    >
+    <div className={`chat-stage ${hasMessages ? 'chat-stage--thread' : ''}`}>
       <div className="chat-stage__canvas">
         <ErrorBoundary
           fallbackTitle="Chat Canvas Error"
