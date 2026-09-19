@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import { useAuthStore, useChangelogStore, useSessionStore, useToastStore } from '../../store';
-import { accountChangelogKey, STORAGE_KEYS } from '../../constants/storage';
+import { STORAGE_KEYS } from '../../constants/storage';
 import { ApiClient } from '../../services/api/index';
 import { ChangelogHero } from './ChangelogHero';
 import { ChangelogHighlights } from './ChangelogHighlights';
@@ -18,11 +18,7 @@ export const ChangelogModal: React.FC = () => {
   const handleDismiss = async () => {
     setIsOpen(false);
     try {
-      const key = accountId
-        ? accountChangelogKey(accountId)
-        : STORAGE_KEYS.LAST_SEEN_CHANGELOG;
-      localStorage.setItem(key, currentVersion);
-      if (isAuthenticated && accountId) {
+      if (!isAuthenticated || !accountId) {
         localStorage.setItem(STORAGE_KEYS.LAST_SEEN_CHANGELOG, currentVersion);
       }
       await ApiClient.dismissChangelog(currentVersion);
