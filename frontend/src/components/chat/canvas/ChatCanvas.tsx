@@ -87,6 +87,26 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
   const scrollCanvasToBottom = useCallback((smooth: boolean) => {
     const el = scrollRef.current;
     if (!el) return;
+
+    const messages = el.querySelectorAll<HTMLElement>('.chat-thread-enter .chat-turn');
+    const lastMessage = messages[messages.length - 1];
+    const composer = document.querySelector<HTMLElement>('.chat-composer-dock');
+    if (lastMessage && composer) {
+      const canvasRect = el.getBoundingClientRect();
+      const composerRect = composer.getBoundingClientRect();
+      const visibleBottom = Math.min(canvasRect.bottom, composerRect.top) - 16;
+      const messageRect = lastMessage.getBoundingClientRect();
+      const delta = messageRect.bottom - visibleBottom;
+
+      if (Math.abs(delta) > 1) {
+        el.scrollTo({
+          top: Math.max(0, el.scrollTop + delta),
+          behavior: smooth ? 'smooth' : 'auto',
+        });
+        return;
+      }
+    }
+
     el.scrollTo({
       top: el.scrollHeight,
       behavior: smooth ? 'smooth' : 'auto',
