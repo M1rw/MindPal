@@ -18,12 +18,21 @@ import { getViewportMetrics } from './utils/mobile/viewport';
   win.va = win.va || function () { (win.vaq = win.vaq || []).push(arguments); };
   win.si = win.si || function () { (win.siq = win.siq || []).push(arguments); };
 
-  // Let the app follow the visual viewport while the keyboard is open. The
-  // composer remains in normal layout flow, so the chat canvas reserves it.
+  // Position the composer against the visual viewport. iOS keeps the layout
+  // viewport stable while the keyboard changes the visual viewport.
+  let layoutViewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
   const setAppHeight = () => {
     const metrics = getViewportMetrics();
-    document.documentElement.style.setProperty('--app-height', `${Math.max(metrics.visualHeight, 0)}px`);
-    document.documentElement.style.setProperty('--keyboard-offset', `${metrics.keyboardOffset}px`);
+    const viewport = window.visualViewport;
+    const candidateHeight = Math.max(metrics.innerHeight, document.documentElement.clientHeight);
+    if (!viewport || metrics.visualHeight >= layoutViewportHeight - 80) {
+      layoutViewportHeight = candidateHeight;
+    }
+    const offsetTop = viewport?.offsetTop ?? 0;
+    const viewportShift = metrics.visualHeight - layoutViewportHeight + offsetTop;
+    document.documentElement.style.setProperty('--app-height', `${Math.max(layoutViewportHeight, 0)}px`);
+    document.documentElement.style.setProperty('--keyboard-offset', `${Math.max(0, -viewportShift)}px`);
+    document.documentElement.style.setProperty('--visual-viewport-shift', `${viewportShift}px`);
     document.body.classList.toggle('keyboard-open', metrics.keyboardOffset > 0);
   };
   setAppHeight();
@@ -31,6 +40,7 @@ import { getViewportMetrics } from './utils/mobile/viewport';
   window.visualViewport?.addEventListener('resize', setAppHeight, { passive: true });
   window.addEventListener('orientationchange', () => {
     window.setTimeout(() => {
+      layoutViewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
       setAppHeight();
     }, 150);
   }, { passive: true });
