@@ -7,7 +7,9 @@ import json
 import logging
 import uuid
 from contextlib import aclosing
+from datetime import datetime
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import StreamingResponse
@@ -61,6 +63,29 @@ class ChatHistoryTurn(BaseModel):
         return (self.content or self.text or "").strip()
 
 
+class ClientLocation(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_m: Optional[float] = Field(default=None, ge=0, le=100_000)
+
+
+class ClientContext(BaseModel):
+    timezone: Optional[str] = Field(default=None, max_length=64)
+    locale: Optional[str] = Field(default=None, max_length=32)
+    location: Optional[ClientLocation] = None
+
+    @field_validator("timezone")
+    @classmethod
+    def valid_timezone(cls, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError):
+            return None
+        return value
+
+
 class ChatStreamPayload(BaseModel):
     message: str = Field(max_length=MAX_MESSAGE_CHARS)
     history: List[ChatHistoryTurn] = Field(default_factory=list, max_length=MAX_HISTORY_TURNS)
@@ -68,6 +93,7 @@ class ChatStreamPayload(BaseModel):
     model: Optional[str] = "standard"
     telemetry: Optional[Dict[str, Any]] = None
     personalization: Optional[Dict[str, Any]] = None
+    client_context: Optional[ClientContext] = None
 
     @field_validator("message")
     @classmethod
@@ -108,6 +134,7 @@ async def chat_stream(
     request_id = request.headers.get("x-request-id") or f"req_{uuid.uuid4().hex[:12]}"
     model = payload.model or "standard"
     history = [{"role": turn.role, "content": turn.body()} for turn in payload.history]
+    client_context = payload.client_context.model_dump(exclude_none=True) if payload.client_context else None
     preflight = orchestrator.preflight_turn(
         user_id_hash=session.user_id_hash,
         message=payload.message,
@@ -130,6 +157,7 @@ async def chat_stream(
                     model=model,
                     telemetry=payload.telemetry,
                     personalization=payload.personalization,
+                    client_context=client_context,
                     request_id=request_id,
                     preflight=preflight,
                     consume_quota=False,

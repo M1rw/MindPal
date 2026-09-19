@@ -4,6 +4,46 @@ import { fetchJson, fetchWithAuth, expectOk, parseErrorMessage } from './http.ts
 
 export const MAX_CHAT_HISTORY_TURNS = 30;
 
+async function getClientContext(): Promise<Record<string, unknown>> {
+  const context: Record<string, unknown> = {};
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timezone) context.timezone = timezone;
+    if (typeof navigator !== 'undefined' && navigator.language) context.locale = navigator.language;
+  } catch {
+    // Browser context is optional.
+  }
+
+  let locationPermission = 'denied';
+  if (typeof navigator !== 'undefined' && navigator.permissions) {
+    try {
+      locationPermission = (await navigator.permissions.query({ name: 'geolocation' })).state;
+    } catch {
+      locationPermission = 'denied';
+    }
+  }
+
+  if (locationPermission === 'granted' && typeof navigator !== 'undefined' && navigator.geolocation) {
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          maximumAge: 300_000,
+          timeout: 4_000,
+        });
+      });
+      context.location = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy_m: position.coords.accuracy,
+      };
+    } catch {
+      // Location is permission-gated and optional; timezone still works.
+    }
+  }
+  return context;
+}
+
 function syncUsage(raw: Record<string, unknown>): void {
   const credits5h = Number(raw.credits_5h ?? 0);
   const limit5h = Number(raw.limit_5h ?? 50);
@@ -59,6 +99,7 @@ export const chatApi = {
   ): Promise<void> {
     try {
       const activePersonalization = options?.personalization ?? useSettingsStore.getState().settings.personalization;
+      const clientContext = await getClientContext();
       const response = await fetchWithAuth('/api/chat/stream', {
         method: 'POST',
         signal: options?.signal,
@@ -72,6 +113,7 @@ export const chatApi = {
           model: options?.model || 'standard',
           telemetry: options?.telemetry,
           personalization: activePersonalization,
+          client_context: clientContext,
         }),
       });
 

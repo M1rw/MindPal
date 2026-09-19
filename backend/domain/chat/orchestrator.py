@@ -18,6 +18,8 @@ from backend.domain.safety.classify import SafetyCheckResult, SafetyService
 from backend.domain.safety.output_guard import OutputGuardService
 from backend.infra.llm.gateway import LLMGateway, LLMGatewayError, get_llm_gateway
 from backend.infra.store.store import InMemoryStore, StoreUnavailable, get_store
+from backend.tools import ClientContextTools
+from backend.tools.context import build_tool_context
 
 logger = logging.getLogger("mindpal.chat")
 
@@ -128,6 +130,18 @@ def provider_model_for_tier(tier: str, default_model: str = "gemini-2.5-flash") 
     """Standard and Pro share one Gemini chat model. Tier changes quota and prompt only."""
     _ = (tier or "").strip().lower()
     return default_model or "gemini-2.5-flash"
+
+
+def client_context_note(client_context: Optional[Dict[str, Any]]) -> str:
+    if not client_context:
+        return ""
+    timezone_name = client_context.get("timezone")
+    if not isinstance(timezone_name, str) or not timezone_name:
+        return ""
+    context = build_tool_context(client_context)
+    if context is None:
+        return ""
+    return ClientContextTools.system_note(context)
 
 
 def detect_cognitive_strategy(
@@ -338,6 +352,7 @@ class ChatOrchestrator:
         model: str,
         telemetry: Optional[Dict[str, Any]],
         personalization: Optional[Dict[str, Any]],
+        client_context: Optional[Dict[str, Any]],
     ) -> tuple[str, str, List[str], int, bool]:
         strategy, strategy_directive = detect_cognitive_strategy(
             message,
@@ -357,6 +372,9 @@ class ChatOrchestrator:
             "- Boundaries: You are a companion for emotional clarity and reflection, not a doctor or crisis line. Do not diagnose or prescribe.\n"
             f"{strategy_directive}\n"
         )
+        context_note = client_context_note(client_context)
+        if context_note:
+            system_instruction += f"{context_note}\n"
         if memory.text:
             system_instruction += f"{memory.text}\n"
         if grounding_chunks:
@@ -383,6 +401,7 @@ class ChatOrchestrator:
         model: str = "standard",
         telemetry: Optional[Dict[str, Any]] = None,
         personalization: Optional[Dict[str, Any]] = None,
+        client_context: Optional[Dict[str, Any]] = None,
         history: Optional[Sequence[Any]] = None,
         request_id: Optional[str] = None,
     ) -> ChatTurnResult:
@@ -399,6 +418,7 @@ class ChatOrchestrator:
             model=model,
             telemetry=telemetry,
             personalization=personalization,
+            client_context=client_context,
             history=history,
             request_id=request_id,
             consume_quota=False,
@@ -433,6 +453,7 @@ class ChatOrchestrator:
         model: str = "standard",
         telemetry: Optional[Dict[str, Any]] = None,
         personalization: Optional[Dict[str, Any]] = None,
+        client_context: Optional[Dict[str, Any]] = None,
         history: Optional[Sequence[Any]] = None,
         request_id: Optional[str] = None,
         preflight: Optional[ChatPreflight] = None,
@@ -500,6 +521,7 @@ class ChatOrchestrator:
                 model=model,
                 telemetry=telemetry,
                 personalization=personalization,
+                client_context=client_context,
             )
             logger.info(
                 "chat_turn_generate request_id=%s strategy=%s history_turns=%s grounding=%s memory_atoms=%s memory_summary=%s",
