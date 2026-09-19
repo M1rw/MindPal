@@ -340,9 +340,17 @@ def _init_firestore_client() -> Optional[Any]:
         if app_name in firebase_admin._apps:
             app = firebase_admin.get_app(app_name)
         else:
+            raw_b64 = os.environ.get("FIREBASE_CREDENTIALS_BASE64", "").strip()
             raw_json = os.environ.get("FIREBASE_CREDENTIALS_JSON", "").strip()
             cred = None
-            if raw_json:
+            if raw_b64:
+                import base64
+                data = json.loads(base64.b64decode(raw_b64).decode("utf-8"))
+                private_key = str(data.get("private_key", ""))
+                if "\\n" in private_key:
+                    data["private_key"] = private_key.replace("\\n", "\n")
+                cred = credentials.Certificate(data)
+            elif raw_json:
                 data = json.loads(raw_json)
                 private_key = str(data.get("private_key", ""))
                 if "\\n" in private_key:
@@ -394,8 +402,8 @@ def _database_exists(client: Any) -> bool:
         return True
     except Exception as exc:  # transport-specific hierarchy
         if is_permanent_store_error(exc):
-            logger.error(
-                "store_probe_failed error=%s — no usable Firestore database for this project",
+            logger.warning(
+                "store_probe_failed error=%s — no usable Firestore database for this project (using in-memory store)",
                 type(exc).__name__,
             )
             return False
