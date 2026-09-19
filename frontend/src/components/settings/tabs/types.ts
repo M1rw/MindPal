@@ -1,4 +1,8 @@
-import type { ChangelogResponse, UserInsightsResponse, UserPersonalization, UserUISettings } from '../../../types';
+import type {
+  ChangelogResponse,
+  UserPersonalization,
+  UserUISettings,
+} from '../../../types';
 
 export interface SettingsTabContentProps {
   settings: UserUISettings;
@@ -8,19 +12,17 @@ export interface SettingsTabContentProps {
 
 export interface FeaturesSettingsTabProps {
   changelogData: ChangelogResponse | null;
+  changelogLoading?: boolean;
+  changelogError?: string | null;
   onOpenWhatsNew: () => void;
 }
 
 export interface DataControlsTabProps {
+  signedIn: boolean;
   exporting: boolean;
+  deleting: boolean;
   onExportData: () => void;
   onDeleteData: () => void;
-}
-
-export interface InsightsTabProps {
-  insights: UserInsightsResponse | null;
-  loading?: boolean;
-  error?: string | null;
 }
 
 export interface AccountTabProps {
@@ -34,4 +36,8 @@ export interface AccountTabProps {
   onSignIn: () => void;
 }
 
-export type { ChangelogResponse, UserInsightsResponse, UserPersonalization, UserUISettings };
+export interface WellnessTabProps {
+  onSignIn: () => void;
+}
+
+export type { ChangelogResponse, UserPersonalization, UserUISettings };

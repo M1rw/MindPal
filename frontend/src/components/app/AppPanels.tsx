@@ -1,9 +1,9 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useLayoutEffect, useRef } from 'react';
 import { ChatCanvas } from '../chat/canvas/ChatCanvas';
 import { ChatInput, type ChatInputHandle } from '../chat/input/ChatInput';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import type { AppTab } from '../ui/TabBar';
-import { useFlagsStore } from '../../store';
+import { useChatStore, useFlagsStore } from '../../store';
 
 const LazyPresenceShell = React.lazy(() =>
   import('../presence/PresenceShell').then((module) => ({ default: module.PresenceShell }))
@@ -11,19 +11,74 @@ const LazyPresenceShell = React.lazy(() =>
 
 interface AppPanelsProps {
   activeTab: AppTab;
-  hasMessages: boolean;
   onSelectMood: (text: string) => void;
   chatInputRef: React.RefObject<ChatInputHandle | null>;
 }
 
 export const AppPanels: React.FC<AppPanelsProps> = ({
   activeTab,
-  hasMessages,
   onSelectMood,
   chatInputRef,
 }) => {
   const { flags } = useFlagsStore();
   const showPresence = Boolean(flags.presence_enabled ?? false);
+  const hasMessages = useChatStore((state) => state.messages.length > 0);
+  const composerWrapRef = useRef<HTMLDivElement>(null);
+  const composerRectRef = useRef<DOMRect | null>(null);
+
+  useLayoutEffect(() => {
+    const el = composerWrapRef.current;
+    if (!el) return;
+    if (el.getAnimations().some((animation) => animation.playState !== 'finished')) {
+      return;
+    }
+
+    const next = el.getBoundingClientRect();
+    const prev = composerRectRef.current;
+    composerRectRef.current = next;
+    if (!prev) return;
+
+    const dy = prev.top - next.top;
+    if (Math.abs(dy) < 8) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const animation = el.animate(
+      [
+        { transform: `translateY(${dy}px)` },
+        { transform: 'translateY(0px)' },
+      ],
+      { duration: 420, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'none' }
+    );
+    animation.onfinish = () => {
+      composerRectRef.current = el.getBoundingClientRect();
+    };
+  }, [hasMessages]);
+
+  const chatShell = (
+    <div className={`chat-stage ${hasMessages ? 'chat-stage--thread' : ''}`}>
+      <div className="chat-stage__canvas">
+        <ErrorBoundary
+          fallbackTitle="Chat Canvas Error"
+          fallbackMessage="Could not display chat messages safely. Your data is preserved."
+        >
+          <ChatCanvas onSelectMood={onSelectMood} />
+        </ErrorBoundary>
+      </div>
+
+      <div ref={composerWrapRef} className="chat-composer-dock">
+        <ChatInput ref={chatInputRef} />
+      </div>
+      <div aria-hidden="true" />
+    </div>
+  );
+
+  if (!showPresence) {
+    return (
+      <main id="chat-main" role="main" className="flex-1 flex flex-col overflow-hidden relative">
+        {chatShell}
+      </main>
+    );
+  }
 
   return (
     <main id="chat-main" role="main" className="flex-1 flex overflow-hidden relative">
@@ -33,35 +88,13 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
         aria-labelledby="tab-chat"
         aria-hidden={activeTab !== 'chat'}
         className={[
-          'absolute inset-0 flex flex-col transition-all duration-220 ease-out',
+          'absolute inset-0 flex flex-col transition-opacity duration-200 ease-out',
           activeTab === 'chat'
-            ? 'opacity-100 scale-100 pointer-events-auto'
-            : 'opacity-0 scale-[0.98] pointer-events-none',
+            ? 'opacity-100 pointer-events-auto'
+            : 'opacity-0 pointer-events-none',
         ].join(' ')}
-        style={{ transitionTimingFunction: 'cubic-bezier(0.4,0,0.2,1)' }}
       >
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <ErrorBoundary
-            fallbackTitle="Chat Canvas Error"
-            fallbackMessage="Could not display chat messages safely. Your data is preserved."
-          >
-            <ChatCanvas onSelectMood={onSelectMood}>
-              {!hasMessages && <ChatInput ref={chatInputRef} />}
-            </ChatCanvas>
-          </ErrorBoundary>
-        </div>
-
-        <div
-          className={[
-            'flex-shrink-0 transition-all duration-350 ease-out',
-            hasMessages
-              ? 'opacity-100 translate-y-0'
-              : 'opacity-0 pointer-events-none translate-y-3 h-0 overflow-hidden',
-          ].join(' ')}
-          style={{ transitionTimingFunction: 'cubic-bezier(0.4,0,0.2,1)' }}
-        >
-          {hasMessages && <ChatInput ref={chatInputRef} />}
-        </div>
+        {chatShell}
       </div>
 
       {showPresence && (
@@ -71,15 +104,14 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
           aria-labelledby="tab-presence"
           aria-hidden={activeTab !== 'presence'}
           className={[
-            'absolute inset-0 flex transition-all duration-250 ease-out overflow-y-auto',
+            'absolute inset-0 flex transition-opacity duration-200 ease-out overflow-y-auto',
             activeTab === 'presence'
-              ? 'opacity-100 scale-100 pointer-events-auto'
-              : 'opacity-0 scale-[0.98] pointer-events-none',
+              ? 'opacity-100 pointer-events-auto'
+              : 'opacity-0 pointer-events-none',
           ].join(' ')}
-          style={{ transitionTimingFunction: 'cubic-bezier(0.4,0,0.2,1)' }}
         >
           <ErrorBoundary fallbackTitle="Presence View Error" fallbackMessage="Unable to load Presence features.">
-            <Suspense fallback={<div className="w-full h-full animate-pulse bg-transparent" />}>
+            <Suspense fallback={<div className="w-full h-full bg-transparent" />}>
               <LazyPresenceShell />
             </Suspense>
           </ErrorBoundary>

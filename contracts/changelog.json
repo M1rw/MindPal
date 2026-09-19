@@ -4,15 +4,19 @@
   "entries": [
     {
       "version": "5.0.0",
-      "released_at": "2026-09-14",
+      "released_at": "2026-09-19",
       "major": true,
-      "title": "What's New in MindPal 5.0",
-      "summary": "MindPal 5.0 introduces real-time voice dictation with live audio reactivity, clinical-grade Pro model reasoning, and an exclusive preview of MindPal Presence spatial vision.",
+      "title": "A calmer chat shell — built for real human conversations",
+      "summary": "Welcome to MindPal 5.0. We redesigned your daily companion from the ground up to feel warm, intuitive, and truly attentive. Whether you're texting your thoughts, speaking your mind, or having a live voice preview (30 minutes per day) with our expressive companion, MindPal is here to listen and reflect with you at your own pace. It is not a crisis line. Presence rooms are not in this release.",
       "highlights": [
-        "Real-Time Voice Dictation — Fluid speech transcription with live waveform visualizer and streaming word opacity",
-        "Pro Clinical Tier — 2× compute budget for in-depth diagnostic inquiry, memory synthesis, and emotional nuance",
-        "MindPal Presence Preview — On-device spatial vision for Solo reflection, Couples mediation, and Group circles",
-        "Refined Clinical Design — Borderless starter chips with vibrant mood colors, compact squircle controls, and elevated layout"
+        "Thoughtful conversation flow — Chat that can stop whenever you need. Pause or redirect a thought in mid-air with a simple tap.",
+        "Speak your mind freely — Composer dictation lets your voice fill the composer effortlessly. Not a live voice call.",
+        "A face full of life — Live voice preview brings your companion alive. Signed-in accounts enjoy 30 minutes per day with a companion whose eyes smile, wink, soften, and share hearts with you.",
+        "Natural back-and-forth — Speak and interrupt naturally. MindPal gently fades its voice the moment you talk, keeping live captions perfectly in tune.",
+        "Instant one-tap connection — Jump straight into conversation without friction or consent walls, complete with smooth, tactile feedback on every button.",
+        "Tuned to your vibe — Personalization on each send adapts MindPal's warmth and tone to fit your mood today.",
+        "Reflections that stay with you — MindPal thoughtfully remembers your favorite topics and reflections across sessions so you can pick up right where you left off.",
+        "Focused and private — Not in this release — Presence rooms stay off so you get a dedicated, intimate 1-on-1 space."
       ]
     }
   ]

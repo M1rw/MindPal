@@ -3,7 +3,8 @@
  */
 
 import { create } from 'zustand';
-import type { ChatMessage } from '../types/index';
+import type { ChatMessage, MemoryReceipt } from '../types/index';
+import { withoutMemoryReceipts } from '../utils/chat/sessionHistory.ts';
 
 interface ChatState {
   messages: ChatMessage[];
@@ -12,11 +13,16 @@ interface ChatState {
   activeModel: string;
   activeMode: string;
   strategyUsed: string | null;
+  composerDraft: string | null;
+  editingUserId: string | null;
   addMessage: (msg: ChatMessage) => void;
   setMessages: (messages: ChatMessage[]) => void;
   updateMessage: (id: string, content: string, strategy?: string) => void;
   removeMessage: (id: string) => void;
   updateLastMessage: (content: string, strategy?: string) => void;
+  setMessageMemoryReceipt: (id: string, receipt: MemoryReceipt | null) => void;
+  setComposerDraft: (draft: string | null) => void;
+  setEditingUserId: (id: string | null) => void;
   setIsGenerating: (generating: boolean) => void;
   setAbortController: (controller: AbortController | null) => void;
   stopGeneration: () => void;
@@ -32,6 +38,8 @@ export const useChatStore = create<ChatState>((set) => ({
   abortController: null,
   activeModel: 'standard',
   activeMode: 'Active Listen',
+  composerDraft: null,
+  editingUserId: null,
   addMessage: (msg) =>
     set((state) => {
       if (state.messages.some((m) => m.id === msg.id)) {
@@ -39,7 +47,7 @@ export const useChatStore = create<ChatState>((set) => ({
       }
       return { messages: [...state.messages, msg] };
     }),
-  setMessages: (messages) => set({ messages, strategyUsed: null }),
+  setMessages: (messages) => set({ messages: withoutMemoryReceipts(messages), strategyUsed: null }),
   updateMessage: (id, content, strategy) =>
     set((state) => ({
       messages: state.messages.map((m) =>
@@ -64,6 +72,19 @@ export const useChatStore = create<ChatState>((set) => ({
         strategyUsed: strategy ?? state.strategyUsed,
       };
     }),
+  setMessageMemoryReceipt: (id, receipt) =>
+    set((state) => ({
+      messages: state.messages.map((message) => {
+        if (message.id !== id) return message;
+        if (receipt == null) {
+          const { memoryReceipt: _ignored, ...rest } = message;
+          return rest;
+        }
+        return { ...message, memoryReceipt: receipt };
+      }),
+    })),
+  setComposerDraft: (composerDraft) => set({ composerDraft }),
+  setEditingUserId: (editingUserId) => set({ editingUserId }),
   setIsGenerating: (isGenerating) => set({ isGenerating }),
   setAbortController: (abortController) => set({ abortController }),
   stopGeneration: () =>
@@ -79,5 +100,5 @@ export const useChatStore = create<ChatState>((set) => ({
     }),
   setActiveModel: (activeModel) => set({ activeModel }),
   setActiveMode: (activeMode) => set({ activeMode }),
-  clearMessages: () => set({ messages: [], strategyUsed: null }),
+  clearMessages: () => set({ messages: [], strategyUsed: null, editingUserId: null }),
 }));

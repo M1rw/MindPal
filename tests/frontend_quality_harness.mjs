@@ -204,18 +204,23 @@ test('frontend Tier-1 interaction quality harness', async () => {
     await page.getByRole('button', { name: 'Clear search' }).click();
   });
   await clickAndVerify(page, 'Close chat history', () => page.getByRole('button', { name: 'Close history' }).click());
+  await clickAndVerify(page, 'Open settings', async () => {
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('dialog', { name: 'Settings' }).waitFor({ state: 'visible' });
+  });
   await clickAndVerify(page, 'Open sign-in', async () => {
-    await page.getByRole('button', { name: 'Sign in to sync' }).click();
-    await page.getByRole('dialog', { name: 'Back up your MindPal' }).waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: 'Account' }).click();
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByRole('dialog', { name: 'Sign in to MindPal' }).waitFor({ state: 'visible' });
   });
   await clickAndVerify(page, 'Open email auth', () => page.getByRole('button', { name: 'Continue with Email' }).click());
   await page.getByRole('heading', { name: 'Continue with email' }).waitFor({ state: 'visible' });
   await clickAndVerify(page, 'Close sign-in', () => page.getByRole('button', { name: 'Close sign-in' }).click());
 
   await clickAndVerify(page, 'Select model', async () => {
-    await page.getByRole('button', { name: /Standard/ }).click();
-    await page.getByRole('menu').waitFor({ state: 'visible' });
-    await page.getByRole('menu').getByText('Standard', { exact: true }).click();
+    await page.getByRole('button', { name: /Reply mode: Standard/ }).click();
+    await page.getByRole('listbox', { name: 'Reply mode' }).waitFor({ state: 'visible' });
+    await page.getByRole('listbox', { name: 'Reply mode' }).getByRole('option', { name: /Standard/ }).click();
   });
 
   const input = page.getByPlaceholder('Ask MindPal');

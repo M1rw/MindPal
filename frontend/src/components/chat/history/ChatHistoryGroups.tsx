@@ -27,27 +27,29 @@ export const ChatHistoryGroups: React.FC<ChatHistoryGroupsProps> = ({
   onEditingTitleChange,
   onEditingIdChange,
 }) => (
-  <div className="py-1">
+  <div className="py-2">
     {groups.map(({ label, items }) => (
-      <div key={label}>
-        <div className="px-4 pt-2.5 pb-1 text-2xs font-semibold uppercase tracking-wider text-content-muted">
+      <div key={label} className="mb-1">
+        <div className="px-5 pt-3 pb-1.5 text-xs font-medium text-content-muted">
           {label}
         </div>
-        {items.map((session) => (
-          <ChatHistorySessionItem
-            key={session.id}
-            session={session}
-            isActive={session.id === activeSessionId}
-            isEditing={editingId === session.id}
-            editingTitle={editingTitle}
-            onLoadSession={onLoadSession}
-            onStartRename={onStartRename}
-            onDelete={onDelete}
-            onSaveRename={onSaveRename}
-            onEditingTitleChange={onEditingTitleChange}
-            onEditingIdChange={onEditingIdChange}
-          />
-        ))}
+        <div className="history-session-list">
+          {items.map((session) => (
+            <ChatHistorySessionItem
+              key={session.id}
+              session={session}
+              isActive={session.id === activeSessionId}
+              isEditing={editingId === session.id}
+              editingTitle={editingTitle}
+              onLoadSession={onLoadSession}
+              onStartRename={onStartRename}
+              onDelete={onDelete}
+              onSaveRename={onSaveRename}
+              onEditingTitleChange={onEditingTitleChange}
+              onEditingIdChange={onEditingIdChange}
+            />
+          ))}
+        </div>
       </div>
     ))}
   </div>

@@ -9,7 +9,7 @@ data controls, security, and account management.
 | # | Tab ID | Icon | Purpose |
 |---|--------|------|---------|
 | 1 | `general` | `settings` | Appearance, language, accent color, contrast, notifications |
-| 2 | `mental-health` | `brain` | PHQ-9 / GAD-7 charts, problems, diagnoses, treatment plan |
+| 2 | `mental-health` | `brain` | Mood/themes/events reflection from saved words; crisis resources; not PHQ-9 |
 | 3 | `usage` | `gauge` | 5-hour + weekly credit windows, progress bars, reset timers |
 | 4 | `memory` | `database` | AI-generated memory summary + editable memory atoms |
 | 5 | `data` | `database-zap` | Export data, clear conversations |

@@ -24,9 +24,20 @@ export const Skeleton: React.FC<SkeletonProps> = ({ className = '', style, ...pr
  */
 export const SkeletonGreeting: React.FC = () => {
   return (
-    <div className="flex flex-col items-center justify-center gap-2" aria-hidden="true">
+    <div className="flex flex-col items-center justify-center gap-2 mb-6" aria-hidden="true">
       <Skeleton className="h-11 sm:h-14 w-60 sm:w-80 rounded-2xl" />
       <Skeleton className="h-7 sm:h-9 w-72 sm:w-96 rounded-xl mt-1 opacity-75" />
+    </div>
+  );
+};
+
+/** Mood-chip sized placeholders that sit in the same row as the real chips. */
+export const SkeletonMoodChips: React.FC = () => {
+  return (
+    <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3" aria-hidden="true">
+      <Skeleton className="h-10 w-[11.5rem] rounded-2xl" />
+      <Skeleton className="h-10 w-[12.25rem] rounded-2xl" />
+      <Skeleton className="h-10 w-[9.5rem] rounded-2xl" />
     </div>
   );
 };
@@ -77,19 +88,21 @@ export const SkeletonMemoryView: React.FC<{ mode?: 'summary' | 'atoms' }> = ({ m
   }
 
   return (
-    <div className="space-y-3 py-2" aria-hidden="true">
+    <div className="space-y-0 py-1" aria-hidden="true">
       {Array.from({ length: 3 }).map((_, idx) => (
         <div
           key={idx}
-          className="p-3.5 rounded-2xl bg-surface-subtle border border-edge-subtle space-y-2"
+          className="flex items-center justify-between gap-3 border-b border-edge-subtle py-2"
           style={{ animationDelay: `${idx * 100}ms` }}
         >
-          <div className="flex items-center gap-2">
-            <Skeleton className="w-16 h-5 rounded-md" />
-            <Skeleton className="w-20 h-4 rounded" />
+          <div className="min-w-0 flex-1 space-y-1">
+            <Skeleton className="h-3 w-14 rounded" />
+            <Skeleton className={`h-3.5 rounded ${idx % 2 === 0 ? 'w-3/4' : 'w-2/3'}`} />
           </div>
-          <Skeleton className="h-3.5 w-3/4 rounded" />
-          <Skeleton className="h-3 w-1/2 rounded opacity-70" />
+          <div className="flex gap-1">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <Skeleton className="h-8 w-8 rounded-full" />
+          </div>
         </div>
       ))}
     </div>

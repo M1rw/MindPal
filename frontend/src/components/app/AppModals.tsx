@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Toast } from '../ui/Toast';
-import { useFlagsStore } from '../../store';
+import { useFlagsStore, useVoiceStore } from '../../store';
 
 const LazyMemoryInspector = React.lazy(() =>
   import('../memory/MemoryInspector').then((module) => ({ default: module.MemoryInspector }))
@@ -36,24 +36,20 @@ export const AppModals: React.FC<AppModalsProps> = ({
   onOpenMemory,
   onCloseMemory,
 }) => {
-  const { flags } = useFlagsStore();
-  const showVoice = Boolean(flags.voice_enabled ?? false);
+  const liveEnabled = useFlagsStore((state) => state.flags.voice_enabled);
+  const voiceActive = useVoiceStore((state) => state.isActive);
+  const showLiveVoice = Boolean(liveEnabled && voiceActive);
 
   return (
     <>
-      {showVoice && (
-        <Suspense fallback={null}>
-          <LazyVoiceOverlay />
-        </Suspense>
-      )}
       <ErrorBoundary variant="modal">
         <Suspense fallback={null}>
-          <LazyMemoryInspector isOpen={memoryOpen} onClose={onCloseMemory} />
+          <LazySettingsModal onOpenMemory={onOpenMemory} />
         </Suspense>
       </ErrorBoundary>
       <ErrorBoundary variant="modal">
         <Suspense fallback={null}>
-          <LazySettingsModal onOpenMemory={onOpenMemory} />
+          <LazyMemoryInspector isOpen={memoryOpen} onClose={onCloseMemory} />
         </Suspense>
       </ErrorBoundary>
       <ErrorBoundary variant="modal">
@@ -76,6 +72,13 @@ export const AppModals: React.FC<AppModalsProps> = ({
           <LazyChatHistoryModal />
         </Suspense>
       </ErrorBoundary>
+      {showLiveVoice ? (
+        <ErrorBoundary variant="modal">
+          <Suspense fallback={null}>
+            <LazyVoiceOverlay />
+          </Suspense>
+        </ErrorBoundary>
+      ) : null}
       <Toast />
     </>
   );

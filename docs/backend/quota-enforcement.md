@@ -1,41 +1,53 @@
 # Quota Enforcement — Backend
 
-Server-side rate limiting for the chat streaming API.
-All enforcement happens in `backend/api/chat_stream_router.py`.
+Server-side credit limits for `POST /api/chat/stream`.
+Enforced in `ChatOrchestrator.preflight_turn` via `backend/domain/quota/quota.py`.
 
 ## Credit System
 
-| Model | Credit Cost |
-|-------|------------|
-| Standard | 1 credit |
-| Pro | 2 credits |
+| Reply mode | Credit cost | Provider model | Prompt |
+|------------|-------------|----------------|--------|
+| Standard | 1 | `gemini-2.5-flash` (gateway default) | Situation-based (listen / cognitive / coach) |
+| Pro | 2 | Same Gemini chat model | Thorough: more complete replies. Not clinical, not 2× compute. |
 
-## Time Windows
+Crisis / safety-override turns do not consume credits. The composer picker must describe this split, not a larger model.
+
+## Signed-in windows
 
 | Window | Limit | Reset |
 |--------|-------|-------|
-| 5-hour | 50 credits | 5 hours after first message in window |
-| 1-week | 500 credits | 7 days after first message in window |
+| 5-hour | 50 credits | 5 hours after the window opens |
+| 1-week | 500 credits | 7 days after the window opens |
+
+Keyed by the verified account id. Refunds on disconnect, cancel, empty output, or provider error.
+
+## Anonymous traffic
+
+Guests are **not** billed against `usr_anon_default` (that key is not a user quota subject). Unauthenticated chat uses a **stricter per-network rate limit** keyed by the TCP peer the server accepted (`request.client.host`, hashed). Client headers (`X-Forwarded-For`, device ids, graph ids) are not consume keys.
+
+| Window | Limit |
+|--------|-------|
+| 5-hour | 10 credits |
+| 1-week | 40 credits |
+
+Same Standard=1 / Pro=2 costs, crisis still free, refunds still apply. The stream `usage` object reports these limits with `scope: "network"`.
+
+**Tradeoff:** guests on one public IP (NAT, campus, CGNAT) share one bucket; a client with many IPs can multiply allowance. This is the conservative production choice versus minting a signed guest session (cookie/token, CSRF, rotation). Deploy behind a reverse proxy must enable trusted proxy headers so `request.client.host` is the connecting client, not the load balancer. Without that, guests share the proxy address — still not a global `usr_anon_default` user bucket.
 
 ## Enforcement Flow
 
 ```
-1. Receive chat request with model selection
-2. Load UsageProfile from Firestore (or defaults for guests)
-3. Check if either window has expired → reset if so
-4. Compute credit cost (1 for standard, 2 for pro)
-5. If 5h credits + cost > 50 OR week credits + cost > 500:
-   → Set quota_exceeded = true in metadata
-   → If pro model, auto-downgrade to standard and retry
-   → If still exceeded, return error
-6. Increment credits
-7. Save updated UsageProfile
-8. Emit usage metadata in stream response
+1. Classify safety. Crisis replies skip quota and skip the provider.
+2. Reserve credits for the selected model (standard=1, pro=2).
+   Signed-in → account windows. Guest → hashed peer rate limit.
+3. If either window would exceed its limit → HTTP 429 quota_exceeded.
+4. Stream the provider reply. Refund on disconnect, cancel, empty output, or provider error.
+5. Emit a usage object on the SSE stream after a successful reserve.
 ```
 
 ## Stream Metadata
 
-Every successful stream includes a `usage` object:
+Successful non-crisis streams include a `usage` object:
 
 ```json
 {
@@ -45,22 +57,8 @@ Every successful stream includes a `usage` object:
   "credits_week": 45,
   "limit_week": 500,
   "reset_week_seconds": 504000,
-  "total_messages": 234
+  "scope": "account"
 }
 ```
 
-The frontend `usage_tracker.js` consumes this via `syncFromBackend()`.
-
-## Data Model
-
-`backend/models/user.py` → `UsageProfile`:
-
-```python
-total_credits_5h: int = 0
-total_credits_week: int = 0
-five_hour_reset_time: float = 0.0
-week_reset_time: float = 0.0
-```
-
-Legacy fields (`pro_messages_count`, `pro_last_reset_time`) are maintained
-for backward compatibility but the new unified system takes precedence.
+Guest streams use the anonymous limits and `"scope": "network"`. The client usage store reads this from the stream. There is no separate fake meter.

@@ -1,73 +1,90 @@
 import React from 'react';
-import { Waves, Wind, Anchor } from 'lucide-react';
-import { SkeletonGreeting } from '../../ui/Skeleton';
+import { Waves, Wind, Anchor, type LucideIcon } from 'lucide-react';
+import { SkeletonGreeting, SkeletonMoodChips } from '../../ui/Skeleton';
+import { cn } from '../../../utils/ui/cn';
 
 interface ChatCanvasEmptyStateProps {
   greeting: string;
   greetingLoading: boolean;
   onSelectMood?: (text: string) => void;
-  children?: React.ReactNode;
 }
+
+const MOODS: Array<{
+  text: string;
+  label: string;
+  Icon: LucideIcon;
+  iconClass: string;
+}> = [
+  {
+    text: 'I feel overwhelmed',
+    label: 'I feel overwhelmed',
+    Icon: Waves,
+    iconClass: 'mood-chip-icon--waves text-brand-secondary',
+  },
+  {
+    text: "I'm feeling anxious",
+    label: "I'm feeling anxious",
+    Icon: Wind,
+    iconClass: 'mood-chip-icon--wind text-brand-accent',
+  },
+  {
+    text: 'I feel stuck',
+    label: 'I feel stuck',
+    Icon: Anchor,
+    iconClass: 'mood-chip-icon--anchor text-feedback-danger',
+  },
+];
 
 export const ChatCanvasEmptyState: React.FC<ChatCanvasEmptyStateProps> = ({
   greeting,
   greetingLoading,
   onSelectMood,
-  children,
 }) => (
-  <div className="relative flex-1 flex flex-col items-center justify-center text-center px-4 animate-fade-in my-auto -translate-y-6 sm:-translate-y-8">
-    <div className="relative w-full max-w-2xl text-center mb-6 z-10">
+  <div
+    id="welcome-screen"
+    className={cn(
+      'chat-empty relative flex w-full flex-col items-center px-4 pb-8 pt-4 text-center',
+      !greetingLoading && 'chat-empty--reveal'
+    )}
+  >
+    <div className="relative w-full max-w-2xl text-center">
       {greetingLoading ? (
-        <SkeletonGreeting />
+        <>
+          <SkeletonGreeting />
+          <SkeletonMoodChips />
+        </>
       ) : (
         <>
-          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-2">
-            <span
-              id="greeting-text"
-              className="bg-clip-text text-transparent bg-brand-gradient animate-fade-in"
-            >
-              {greeting}
-            </span>
-          </h1>
-          <p className="text-2xl sm:text-3xl text-content-secondary font-medium tracking-tight mb-6">
-            What&apos;s on your mind today?
-          </p>
+          <div className="chat-empty__greeting">
+            <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-3">
+              <span
+                id="greeting-text"
+                className="bg-clip-text text-transparent bg-brand-gradient"
+              >
+                {greeting}
+              </span>
+            </h1>
+            <p className="text-xl sm:text-2xl text-content-secondary font-medium tracking-tight mb-6">
+              What&apos;s on your mind today?
+            </p>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3">
+            {MOODS.map(({ text, label, Icon, iconClass }) => (
+              <button
+                key={text}
+                type="button"
+                className="mood-btn mood-chip px-4 py-2.5 rounded-2xl bg-surface-subtle hover:bg-surface-elevated text-sm font-medium text-content-primary flex items-center gap-2 border border-edge-subtle hover:border-edge-default transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:outline-none select-none"
+                aria-label={`Start with: ${label}`}
+                onClick={() => onSelectMood?.(text)}
+              >
+                <Icon className={cn('w-4 h-4', iconClass)} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
         </>
       )}
-
-      <div className="flex flex-wrap justify-center gap-2.5 sm:gap-3 mb-6">
-        <button
-          type="button"
-          onClick={() => onSelectMood?.('I feel overwhelmed')}
-          className="animate-mood-chip px-4 py-2.5 rounded-2xl bg-surface-subtle hover:bg-surface-elevated text-sm font-medium text-content-primary flex items-center gap-2 border border-edge-subtle hover:border-edge-default transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:outline-none select-none"
-          style={{ animationDelay: '0ms' }}
-        >
-          <Waves className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-          <span>I feel overwhelmed</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onSelectMood?.("I'm feeling anxious")}
-          className="animate-mood-chip px-4 py-2.5 rounded-2xl bg-surface-subtle hover:bg-surface-elevated text-sm font-medium text-content-primary flex items-center gap-2 border border-edge-subtle hover:border-edge-default transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:outline-none select-none"
-          style={{ animationDelay: '75ms' }}
-        >
-          <Wind className="w-4 h-4 text-purple-500 dark:text-purple-400" />
-          <span>I&apos;m feeling anxious</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onSelectMood?.('I feel stuck')}
-          className="animate-mood-chip px-4 py-2.5 rounded-2xl bg-surface-subtle hover:bg-surface-elevated text-sm font-medium text-content-primary flex items-center gap-2 border border-edge-subtle hover:border-edge-default transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:outline-none select-none"
-          style={{ animationDelay: '150ms' }}
-        >
-          <Anchor className="w-4 h-4 text-rose-500 dark:text-rose-400" />
-          <span>I feel stuck</span>
-        </button>
-      </div>
     </div>
-
-    <div className="relative w-full max-w-3xl z-10">{children}</div>
   </div>
 );

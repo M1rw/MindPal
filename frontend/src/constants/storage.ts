@@ -12,6 +12,8 @@ export const STORAGE_KEYS = {
   PRESENCE_WAITLIST: 'mindpal_presence_waitlist',
   LAST_SEEN_CHANGELOG: 'mindpal_last_seen_changelog',
   GREETING_CACHE: 'mindpal_greeting_cache_v2',
+  GUEST_DEVICE_ID: 'mindpal_guest_device_id',
+  GUEST_MEMORY: 'mindpal_guest_memory_v1',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

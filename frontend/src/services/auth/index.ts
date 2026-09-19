@@ -15,6 +15,7 @@ import {
   signInWithPhoneNumber,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  onIdTokenChanged,
   getIdToken as firebaseGetIdToken,
   type User,
   type ConfirmationResult,
@@ -65,6 +66,37 @@ export async function getAppCheckToken(): Promise<string | null> {
 }
 
 /** Subscribe to auth state changes */
+/**
+ * Fires whenever the ID token changes, including Firebase's own hourly refresh.
+ *
+ * `onAuthStateChange` only fires on sign-in and sign-out. Anything that caches a
+ * token from it holds a value that expires after an hour, and every authenticated
+ * request 401s from then on - which is what happened here: a long live call
+ * outlived its token and the whole control plane started refusing events.
+ */
+export function onIdTokenChange(
+  callback: (user: AuthUser | null, idToken: string | null) => void,
+): () => void {
+  const auth = getFirebaseAuth();
+  if (!auth) {
+    callback(null, null);
+    return () => {};
+  }
+  return onIdTokenChanged(auth, async (user) => {
+    if (!user) {
+      callback(null, null);
+      return;
+    }
+    let token: string | null = null;
+    try {
+      token = await firebaseGetIdToken(user, false);
+    } catch {
+      token = null;
+    }
+    callback(toAuthUser(user), token);
+  });
+}
+
 export function onAuthStateChange(callback: (user: AuthUser | null) => void): () => void {
   const auth = getFirebaseAuth();
   if (!auth) {

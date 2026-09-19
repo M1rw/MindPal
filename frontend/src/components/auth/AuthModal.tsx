@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 import { useAuthStore, useToastStore, useSessionStore } from '../../store';
 import { STORAGE_KEYS } from '../../constants/storage';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { Modal, ModalBody, ModalHeader } from '../ui/Modal';
 import {
   signInWithGoogle,
   signInWithApple,
@@ -27,11 +26,6 @@ export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, setUser, authModalView, setAuthModalView } = useAuthStore();
   const { setAuth } = useSessionStore();
   const { push: pushToast } = useToastStore();
-  const modalCardRef = useFocusTrap<HTMLDivElement>({
-    isOpen: isAuthModalOpen,
-    onClose: closeAuthModal,
-    autoFocus: true,
-  });
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -64,8 +58,6 @@ export const AuthModal: React.FC = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
   }, [authModalView]);
-
-  if (!isAuthModalOpen) return null;
 
   const handleAuthSuccess = async (user: AuthUser, provider: string) => {
     setUser(user);
@@ -187,62 +179,35 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div
+    <Modal
       id="auth-modal"
-      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-5 animate-fade-in"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="auth-modal-title"
+      panelId="auth-modal-content"
+      open={isAuthModalOpen}
+      onClose={closeAuthModal}
+      labelledBy="auth-modal-title"
+      size="md"
+      layer={80}
     >
-      {/* Backdrop */}
-      <div
-        id="auth-modal-backdrop"
-        className="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-sm"
-        onClick={closeAuthModal}
+      <ModalHeader
+        kicker="Account"
+        title="Sign in to MindPal"
+        titleId="auth-modal-title"
+        description="Use a Firebase account on this device. Chat history stays in this browser; cloud session sync is attempted when you are signed in."
+        onClose={closeAuthModal}
+        closeLabel="Close sign-in"
       />
-
-      {/* Modal Card */}
-      <section
-        ref={modalCardRef}
-        id="auth-modal-content"
-        className="relative w-full sm:max-w-[420px] bg-white dark:bg-[#18181B] border border-black/[0.08] dark:border-white/[0.08] rounded-t-2xl sm:rounded-2xl shadow-xl px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom,1.25rem))] sm:p-6 z-10 animate-fade-in"
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#4140FD] dark:text-[#A39CF9]">
-              MindPal Cloud
-            </p>
-            <h2 id="auth-modal-title" className="text-xl font-semibold text-gray-900 dark:text-gray-100 tracking-tight mt-0.5">
-              Back up your MindPal
-            </h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Sign in to securely sync your memory and conversations across devices.
-            </p>
-          </div>
-          <button
-            onClick={closeAuthModal}
-            className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-[#4140FD] focus-visible:outline-none"
-            type="button"
-            aria-label="Close sign-in"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Feedback Alert */}
+      <ModalBody>
         {errorMessage && (
-          <div className="mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-xs text-red-600 dark:text-red-400">
+          <div className="mb-4 p-3 rounded-xl bg-feedback-dangerSubtle border border-feedback-danger/30 text-sm text-feedback-danger">
             {errorMessage}
           </div>
         )}
         {successMessage && (
-          <div className="mt-4 p-3 rounded-xl bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900/50 text-xs text-green-600 dark:text-green-400">
+          <div className="mb-4 p-3 rounded-xl bg-feedback-successSubtle border border-feedback-success/30 text-sm text-feedback-success">
             {successMessage}
           </div>
         )}
 
-        {/* Invisible ReCAPTCHA Container */}
         <div id="auth-phone-recaptcha" className="hidden" />
 
         {authModalView === 'choice' && (
@@ -293,7 +258,7 @@ export const AuthModal: React.FC = () => {
             onBack={() => setAuthModalView('phone')}
           />
         )}
-      </section>
-    </div>
+      </ModalBody>
+    </Modal>
   );
 };

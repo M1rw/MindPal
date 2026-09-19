@@ -1,37 +1,17 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React from 'react';
 import { useChangelogStore, useToastStore } from '../../store';
 import { STORAGE_KEYS } from '../../constants/storage';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { ApiClient } from '../../services/api/index';
 import { ChangelogHero } from './ChangelogHero';
 import { ChangelogHighlights } from './ChangelogHighlights';
+import { Modal, ModalBody, ModalFooter } from '../ui/Modal';
 
 export const ChangelogModal: React.FC = () => {
   const { isOpen, setIsOpen, changelog } = useChangelogStore();
   const { push: pushToast } = useToastStore();
-  const modalContentRef = useFocusTrap<HTMLDivElement>({
-    isOpen,
-    onClose: () => setIsOpen(false),
-    autoFocus: true,
-  });
-  const [visible, setVisible] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setMounted(true);
-      requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
-    } else {
-      setVisible(false);
-      const t = setTimeout(() => setMounted(false), 320);
-      return () => clearTimeout(t);
-    }
-  }, [isOpen]);
-
-  if (!mounted || !changelog) return null;
-
-  const currentVersion = changelog.current_version || '5.0.0';
-  const entry = changelog.entries?.find((e) => e.version === currentVersion) ?? changelog.entries?.[0];
+  const currentVersion = changelog?.current_version || '5.0.0';
+  const entry = changelog?.entries?.find((e) => e.version === currentVersion) ?? changelog?.entries?.[0];
 
   const handleDismiss = async () => {
     try {
@@ -39,72 +19,55 @@ export const ChangelogModal: React.FC = () => {
       await ApiClient.dismissChangelog(currentVersion);
     } catch { /* offline graceful */ }
     setIsOpen(false);
-    pushToast(`Welcome to MindPal ${currentVersion}! ✨`, 'success');
+    pushToast(`Welcome to MindPal ${currentVersion}.`, 'success');
   };
 
   return (
-    <div
+    <Modal
       id="changelog-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="changelog-title"
-      onClick={handleDismiss}
-      className={[
-        'fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4 sm:p-6',
-        'transition-all duration-300 ease-out',
-        visible ? 'bg-black/60 backdrop-blur-md' : 'bg-transparent backdrop-blur-none',
-      ].join(' ')}
+      open={Boolean(isOpen && changelog)}
+      onClose={handleDismiss}
+      labelledBy="changelog-title"
+      size="lg"
+      layer={90}
+      flush
+      panelClassName="max-h-[min(52rem,96dvh)] max-w-lg"
     >
-      <div
-        ref={modalContentRef}
-        onClick={(e) => e.stopPropagation()}
-        className={[
-          'w-full max-w-[360px] rounded-[28px] overflow-hidden shadow-2xl flex flex-col',
-          'bg-[#111118] text-white',
-          'transition-all duration-320 ease-out',
-          visible
-            ? 'opacity-100 translate-y-0 scale-100'
-            : 'opacity-0 translate-y-6 scale-[0.95]',
-        ].join(' ')}
-        style={{ maxHeight: '92dvh' }}
-      >
-        <ChangelogHero
-          currentVersion={currentVersion}
-          title={entry?.title ?? "What's New in MindPal"}
-          onClose={handleDismiss}
-        />
+      <ChangelogHero
+        currentVersion={currentVersion}
+        title={entry?.title ?? "What's new in MindPal"}
+        major={Boolean(entry?.major)}
+        onClose={handleDismiss}
+      />
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 pt-4 pb-2 space-y-3 custom-scrollbar">
-          {entry?.summary && (
-            <p className="text-[13px] leading-relaxed text-zinc-400 font-normal">
-              {entry.summary}
-            </p>
-          )}
+      <ModalBody className="px-6 pt-6 pb-4 space-y-5 custom-scrollbar">
+        {entry?.summary ? (
+          <p className="text-sm leading-relaxed text-content-secondary">
+            {entry.summary}
+          </p>
+        ) : null}
 
-          {entry?.highlights && entry.highlights.length > 0 && (
-            <ChangelogHighlights highlights={entry.highlights} />
-          )}
-        </div>
+        {entry?.highlights && entry.highlights.length > 0 ? (
+          <ChangelogHighlights highlights={entry.highlights} />
+        ) : null}
+      </ModalBody>
 
-        {/* Footer Buttons */}
-        <div className="px-5 py-4 flex items-center gap-2 flex-shrink-0 border-t border-white/[0.06]">
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="flex-1 h-11 rounded-full bg-white/10 hover:bg-white/15 text-white/80 hover:text-white text-[14px] font-medium transition-colors"
-          >
-            Close
-          </button>
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="flex-1 h-11 rounded-full bg-white hover:bg-zinc-100 text-zinc-900 text-[14px] font-semibold transition-colors shadow-lg"
-          >
-            Explore MindPal
-          </button>
-        </div>
-      </div>
-    </div>
+      <ModalFooter>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="flex-1 h-12 rounded-full bg-surface-subtle hover:bg-surface-elevated text-content-secondary hover:text-content-primary text-sm font-medium border border-edge-subtle transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+        >
+          Close
+        </button>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="flex-1 h-12 rounded-full bg-brand-primary hover:bg-brand-hover text-white text-sm font-semibold transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card"
+        >
+          Continue
+        </button>
+      </ModalFooter>
+    </Modal>
   );
 };

@@ -82,10 +82,11 @@ class TelemetryManager {
       }
     });
 
-    // Cleanup on tab close / unload
-    window.addEventListener('beforeunload', () => {
-      this.beaconEndSession();
-    });
+    // No end-of-session beacon. `navigator.sendBeacon` cannot set an
+    // Authorization header, so the post arrived unauthenticated and the server
+    // filed it under a shared guest key that every other signed-out visitor
+    // also wrote to. The session counters below still reach the server on every
+    // chat turn, over the authenticated stream, attributed to the right account.
   }
 
   private startLoop() {
@@ -104,23 +105,6 @@ class TelemetryManager {
         this.activeSeconds += 1;
       }
     }, 1000);
-  }
-
-  private beaconEndSession() {
-    try {
-      const payload = JSON.stringify({
-        session_id: this.sessionId,
-        event: 'ended',
-        active_duration_seconds: this.activeSeconds,
-        inactivity_count: this.inactivityCount,
-        total_idle_seconds: this.totalIdleSeconds,
-        last_idle_duration_seconds: this.lastIdleDurationSeconds,
-        is_online: this.isOnline,
-      });
-      navigator.sendBeacon?.('/api/sessions/telemetry', payload);
-    } catch {
-      // Ignored on teardown
-    }
   }
 
   public getSnapshot(): SessionTelemetrySnapshot {

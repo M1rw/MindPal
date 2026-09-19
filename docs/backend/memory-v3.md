@@ -129,37 +129,42 @@ stateDiagram-v2
 
 ## Memory in the Chat Flow
 
+Chat turns **read** stored memory before generation and **write** a small structured delta after a successful reply.
+
 ```mermaid
 sequenceDiagram
     participant User
     participant Frontend
     participant Backend
     participant MemoryGraph
-    participant Firestore
+    participant Store
 
     User->>Frontend: Sends message
-    Frontend->>Backend: Message + context
-
-    Backend->>MemoryGraph: Load user's graph
-    MemoryGraph-->>Backend: Active atoms
-
-    Backend->>Backend: Build prompt with memory context
-    Note over Backend: Memory injected as:<br/>"You know: Name is Sarah,<br/>Partner is Alex, etc."
-
-    Backend->>Backend: Generate AI response
-
-    Backend->>Backend: Extract memory delta
-    Note over Backend: Deterministic extraction:<br/>new facts mentioned in<br/>the conversation
-
-    Backend->>MemoryGraph: Merge delta
-    Note over MemoryGraph: Same key? Update.<br/>New key? Create atom.<br/>Tombstoned? Skip.
-
-    MemoryGraph->>Firestore: Save updated graph
-
-    Backend-->>Frontend: Response + memory_graph_delta
-    Frontend->>Frontend: Merge delta into local graph
-    Frontend->>Frontend: Update Memory Inspector UI
+    Frontend->>Backend: POST /api/chat/stream
+    Backend->>MemoryGraph: Load graph + profile display name
+    MemoryGraph->>Store: memory_graphs/{uid}, user_profiles/{uid}
+    Store-->>MemoryGraph: Stored summary and atoms, or empty
+    Backend->>Backend: Inject prompt block only when real facts exist
+    Note over Backend: Empty graph: no invented biography
+    Backend-->>Frontend: Streamed reply, then a memory receipt if atoms saved
+    Backend->>MemoryGraph: Extract atoms from this user message
+    MemoryGraph->>Store: Merge atoms into memory_graphs/{uid}
 ```
+
+Automatic writes use `extract_atoms_from_turn` plus `MemoryGraphService.merge_atoms`. They store high-confidence durable facts (preferred name, named people, goals, communication preferences) from the **current user message only**. They do not dump the transcript, assistant text, or RAG corpus into the graph.
+
+Skipped writes:
+
+- Empty or small-talk turns (`ok`, `thanks`, `hello`)
+- Crisis / safety-override turns (no crisis text stored as biography)
+- Shared guest key `usr_anon_default` (never a write target; no global graph)
+- Failed or empty model output
+
+Guests do not get a server graph. Auth is Bearer-only (no cookie or signed guest token), so a client-supplied device id would be an unauthenticated graph key. Guest atoms stay on-device, keyed by a crypto-random `gst_` id in localStorage. The same extract rules still run; the stream may emit a receipt so the client can store those atoms locally. Signing in merges leftover device atoms into the account graph and stops writing the guest key.
+
+Inspector routes (`/api/memory/*`) replace, merge, and delete atoms for signed-in users only. Unauthenticated PUT/DELETE is rejected and must not write `usr_anon_default`. Chat write is a partial merge; it never rewrites the whole graph or the summary from the turn. Chat logs record `memory_atoms_written` only — not reflective text.
+
+After a successful reply, the stream may emit one `memory` event listing saved atoms (`id`, `type`, short `text`) and `count`. Empty writes omit the event. Crisis and small-talk turns stay silent. The chat receipt can open the inspector or undo (account: `DELETE /api/memory/graph/items/{id}`; guest: the on-device graph). Saved-fact edits persist with `PATCH /api/memory/graph/items/{id}` (account) or the on-device graph (guest).
 
 ## Merge Rules (Deterministic)
 
@@ -203,22 +208,19 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph "Guest User"
-        LS["localStorage<br/>mindpal_memory_graph"]
+        LS["localStorage<br/>mindpal_guest_memory_v1:{gst_id}"]
     end
 
     subgraph "Signed-in User"
-        LS2["localStorage<br/>(offline cache)"]
-        FS["Firestore<br/>memory_graphs/{uid}"]
+        FS["Account graph<br/>memory_graphs/{usr_uid}"]
     end
 
     subgraph "Backend"
-        DB_SVC["db_service.py<br/>load/save/delete"]
-        MG_SVC["memory_graph_service.py<br/>merge/render/extract"]
+        MG_SVC["domain/memory/graph.py<br/>load / save / prompt block"]
     end
 
-    LS2 <-->|"Sync on load"| FS
-    DB_SVC <--> FS
-    MG_SVC --> DB_SVC
+    LS -->|"Merge on sign-in"| FS
+    MG_SVC <--> FS
 
     style FS fill:#fbbc04,color:black
     style LS fill:#4285f4,color:white
@@ -226,80 +228,41 @@ flowchart LR
 
 ## Memory Inspector (Frontend)
 
-The Memory Inspector is accessible from the Settings panel. It displays all active memory atoms grouped by category as interactive cards with chips:
+The Memory Inspector is accessible from Settings (stacked above it) or Review on a save receipt. It lists saved facts in a compact table: type, text, edit, and delete.
 
-```
-┌─────────────────────────────────────────┐
-│  Memory Inspector                       │
-├─────────────────────────────────────────┤
-│                                         │
-│  👤 Profile                             │
-│  ┌──────────┐ ┌───────────────┐         │
-│  │ Sarah  ✕ │ │ 25 years old ✕│         │
-│  └──────────┘ └───────────────┘         │
-│                                         │
-│  👥 People                              │
-│  ┌─────────────────┐ ┌──────────┐       │
-│  │ Alex (partner) ✕│ │ Mom    ✕ │       │
-│  └─────────────────┘ └──────────┘       │
-│                                         │
-│  🚫 Avoid                               │
-│  ┌──────────────────────┐               │
-│  │ apologetic responses ✕│              │
-│  └──────────────────────┘               │
-│                                         │
-│  🎯 Goals                               │
-│  ┌─────────────────────┐                │
-│  │ improve sleep      ✕ │               │
-│  └─────────────────────┘                │
-└─────────────────────────────────────────┘
-```
-
-### Chip Deletion Flow
-1. User clicks ✕ on a chip
-2. Atom marked as `status=deleted` locally
-3. If signed in → `DELETE /api/memory/v3/items/{atom_id}`
-4. Backend stores tombstone
-5. Auto-extraction cannot recreate tombstoned atoms
+### Fact edit / delete
+1. Pencil opens an in-row field. Empty Save stays disabled. Escape restores the previous text.
+2. Save persists the atom text: signed in → `PATCH /api/memory/graph/items/{atom_id}`; signed out → the on-device graph.
+3. Trash removes the fact immediately (no confirm): signed in → `DELETE /api/memory/graph/items/{atom_id}`; signed out → remove from the on-device graph.
 
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/memory/v3` | Load full memory graph |
-| `PUT` | `/api/memory/v3` | Replace entire graph |
-| `PATCH` | `/api/memory/v3` | Merge partial delta |
-| `DELETE` | `/api/memory/v3/items/{id}` | Delete single atom (tombstone) |
-| `POST` | `/api/memory/v3/merge` | Merge external graph |
-| `POST` | `/api/memory/v3/migrate` | Migrate from v2 to v3 |
+| `GET` | `/api/memory/graph` | Load the account graph. Guests get an empty graph. |
+| `PUT` | `/api/memory/graph` | Replace atoms for a signed-in account. |
+| `PATCH` | `/api/memory/graph/items/{atom_id}` | Update one atom’s stored text. Rejects empty text. |
+| `DELETE` | `/api/memory/graph/items/{atom_id}` | Remove one atom. |
+| `GET` | `/api/memory/summary` | Load the stored summary. |
+| `POST` | `/api/memory/summary/refresh` | Replace the stored summary. |
+
+`GET /api/user/wellness-timeline` (signed-in) **reads** this graph plus synced user turns and derives a coarse mood/theme/event reflection. It does not write a separate clinical profile. `DELETE /api/user/data` removes those sources.
 
 ## Prompt Integration
 
-Memory is injected into the system prompt as a structured block:
+`ChatOrchestrator` loads the graph (and a non-placeholder profile name, if one exists) and appends a bounded block only when stored facts exist. Placeholder copy such as “User is building a therapeutic reflective space” is treated as empty.
 
 ```
-You know the following about this user (verified facts — may be outdated):
-⚠️ This memory may be outdated. Verify key facts if the conversation contradicts stored information.
+Known user memory. Use only when relevant. Do not invent additional personal facts.
+Stored details may be outdated if the conversation contradicts them.
 
+Prefers evening walks. Anxious before exams.
 Profile:
-  - Name: Sarah
-  - Age: 25
-
+- Preferred name: Sarah
 People:
-  - Partner: Alex (together 3 years)
-  - Mom: close relationship, supportive
-
-Patterns:
-  - Anxiety spikes before work deadlines
-  - Sleep worsens during stress periods
-
+- Partner is Alex
 Goals:
-  - Improve sleep schedule
-  - Better work-life boundaries
-
-Avoid:
-  - Apologetic tone in responses
-  - Over-validation without substance
+- Improve sleep schedule
 ```
 
-The memory block sits between `PRODUCT_BOUNDARY_PROMPT` and `THOUGHT CHAIN GUIDELINES` in the prompt stack.
+No stored summary or atoms: the block is omitted. Chat logs record `memory_atoms` count and `memory_summary=yes|no` only — not the memory text.

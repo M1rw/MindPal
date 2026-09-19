@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Markdown converter implementation matching frontend/src/utils/markdown.ts logic
+// Markdown converter implementation matching frontend/src/utils/ui/markdown.ts logic
 function convertMarkdown(md) {
   if (!md) return '';
 
@@ -82,7 +82,7 @@ describe('Markdown Security & Sanitization Contract', () => {
   });
 
   it('verifies frontend markdown.ts source configures DOMPurify forbidden tags', () => {
-    const sourcePath = path.resolve('frontend/src/utils/markdown.ts');
+    const sourcePath = path.resolve('frontend/src/utils/ui/markdown.ts');
     const source = fs.readFileSync(sourcePath, 'utf-8');
 
     assert.ok(source.includes('DOMPurify.sanitize'), 'markdown.ts must use DOMPurify.sanitize');

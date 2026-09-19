@@ -6,26 +6,30 @@ interface ChangelogHighlightsProps {
 }
 
 export const ChangelogHighlights: React.FC<ChangelogHighlightsProps> = ({ highlights }) => (
-  <div className="space-y-1 pt-1">
-    <div className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-2">
-      What&apos;s New
-    </div>
-    {highlights.map((h, i) => {
-      const dashIdx = h.indexOf(' — ');
-      const title = dashIdx > 0 ? h.slice(0, dashIdx) : h;
-      const desc = dashIdx > 0 ? h.slice(dashIdx + 3) : null;
+  <div>
+    <p className="text-2xs font-semibold uppercase tracking-widest text-content-muted mb-3">
+      In this release
+    </p>
+    <ul className="divide-y divide-edge-subtle">
+      {highlights.map((highlight) => {
+        const dashIdx = highlight.indexOf(' — ');
+        const title = dashIdx > 0 ? highlight.slice(0, dashIdx) : highlight;
+        const desc = dashIdx > 0 ? highlight.slice(dashIdx + 3) : null;
 
-      return (
-        <div key={i} className="flex items-start gap-3 py-2">
-          <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5 border border-white/15">
-            <Check className="w-3 h-3 text-white stroke-[2.5]" />
-          </div>
-          <div>
-            <div className="text-[13px] font-semibold text-white leading-snug">{title}</div>
-            {desc && <div className="text-[12px] text-zinc-500 leading-relaxed mt-0.5">{desc}</div>}
-          </div>
-        </div>
-      );
-    })}
+        return (
+          <li key={highlight} className="flex items-start gap-3.5 py-3.5 first:pt-1 last:pb-1">
+            <span className="changelog-check mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-brand-primary">
+              <Check className="h-3.5 w-3.5 text-white" strokeWidth={2.5} aria-hidden="true" />
+            </span>
+            <div className="min-w-0 pt-px">
+              <p className="text-sm font-medium text-content-primary leading-snug">{title}</p>
+              {desc ? (
+                <p className="mt-1 text-sm text-content-secondary leading-relaxed">{desc}</p>
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   </div>
 );

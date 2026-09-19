@@ -99,9 +99,8 @@ Injected into every response context:
 
 ## Clinical Extraction
 
-After each conversation, the `clinical_extractor.py` service extracts:
-- **PHQ-9 signals** (depression screening indicators)
-- **GAD-7 signals** (anxiety screening indicators)
-- **Observed patterns** (sleep, appetite, energy, concentration)
+MindPal does **not** extract PHQ-9 or GAD-7 scores from conversation.
 
-These are displayed in the Mental Health tab of the Settings panel as clinical insights, NOT as diagnoses.
+The Mental health tab reflects **saved memory atoms and user turns** (`GET /api/user/wellness-timeline` when signed in). Labels are coarse (heavier / mixed / lighter) and taken from the person’s words. Crisis language is not charted; the existing keyword safety path still offers resource links.
+
+This is not a diagnosis and not 24/7 monitoring.

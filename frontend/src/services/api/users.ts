@@ -1,5 +1,5 @@
 import { fetchJson, fetchBlob, expectOk } from './http.ts';
-import type { UserProfile, UserInsightsResponse } from '../../types/index.ts';
+import type { UserProfile, UserInsightsResponse, WellnessTimeline } from '../../types/index.ts';
 
 export const usersApi = {
   async getUserMe(): Promise<unknown> {
@@ -19,6 +19,14 @@ export const usersApi = {
 
   async getUserInsights(): Promise<UserInsightsResponse> {
     return fetchJson<UserInsightsResponse>('/api/user/insights', undefined, 'User insights error');
+  },
+
+  async getWellnessTimeline(): Promise<WellnessTimeline> {
+    return fetchJson<WellnessTimeline>(
+      '/api/user/wellness-timeline',
+      undefined,
+      'Wellness timeline error',
+    );
   },
 
   async exportUserData(): Promise<Blob> {
