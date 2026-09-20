@@ -29,6 +29,23 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
   useLayoutEffect(() => {
     const el = composerWrapRef.current;
     if (!el) return;
+
+    // Fix 11: Publish --composer-dock-h on :root so .chat-jump-latest and
+    // .toast-region can position themselves above the composer automatically.
+    const publishHeight = () => {
+      const h = el.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--composer-dock-h', `${h}px`);
+    };
+    publishHeight();
+    const ro = new ResizeObserver(publishHeight);
+    ro.observe(el);
+
+    return () => ro.disconnect();
+  }, []);
+
+  useLayoutEffect(() => {
+    const el = composerWrapRef.current;
+    if (!el) return;
     if (el.getAnimations().some((animation) => animation.playState !== 'finished')) {
       return;
     }

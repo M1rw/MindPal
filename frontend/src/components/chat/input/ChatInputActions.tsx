@@ -6,8 +6,10 @@ import { floatingMenuClass } from '../../../utils/ui/overlay';
 
 type ReplyTier = 'standard' | 'pro';
 
+/* Send / stop / live-voice button: 36px visual, 44px touch target enforced via
+   min-w/min-h. This meets Apple HIG (44pt) and Android (48dp ≈ fine here) minimums. */
 const COMPOSER_ACTION_SIZE =
-  'w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] sm:min-w-[40px] sm:min-h-[40px] aspect-square flex-shrink-0 flex items-center justify-center';
+  'w-9 h-9 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-[44px] sm:min-h-[44px] aspect-square flex-shrink-0 flex items-center justify-center';
 const COMPOSER_MUTED_TILE =
   'bg-surface-elevated dark:bg-edge-default text-content-secondary hover:bg-edge-hover hover:text-content-primary hover:scale-105 active:scale-95 transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md';
 const COMPOSER_SEND_TILE =
@@ -158,17 +160,24 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
       const el = buttonRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
+      // Fix 7: use visualViewport.height (shrinks when keyboard opens) instead of
+      // window.innerHeight (which stays constant on iOS/Android), so the menu
+      // always appears above the virtual keyboard rather than behind it.
+      const viewportH = window.visualViewport?.height ?? window.innerHeight;
       setMenuPos({
-        bottom: window.innerHeight - rect.top + 8,
+        bottom: viewportH - rect.top + 8,
         right: Math.max(12, window.innerWidth - rect.right),
       });
     };
     update();
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
+    // Reposition when the virtual keyboard animates in/out on mobile.
+    window.visualViewport?.addEventListener('resize', update);
     return () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
+      window.visualViewport?.removeEventListener('resize', update);
     };
   }, [menuOpen]);
 
@@ -268,7 +277,7 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
         <button
           type="button"
           onClick={onStartDictation}
-          className="chat-compact-btn w-8 h-8 flex items-center justify-center rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface-elevated transition-all duration-200 ease-out hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+          className="chat-compact-btn min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface-elevated transition-all duration-200 ease-out hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
           title="Dictate with your microphone"
           aria-label="Dictate with your microphone"
         >
