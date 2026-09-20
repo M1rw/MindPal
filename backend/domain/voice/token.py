@@ -165,9 +165,9 @@ def wellness_live_instruction(
     if style == "concise":
         style_directive = "Keep spoken turns punchy and concise (1-2 sentences), leaving ample space for the caller to speak."
     elif style == "detailed":
-        style_directive = "You may offer slightly richer depth, thoughtful analogies, and deeper reflections while keeping a fluid spoken rhythm."
+        style_directive = "Offer richer depth only when the caller asks for it; otherwise keep spoken turns to 1-2 sentences with a fluid rhythm."
     else:
-        style_directive = "Speak in natural 1-3 sentence turns with a balanced conversational cadence."
+        style_directive = "Speak in natural 1-2 sentence turns with a balanced conversational cadence."
 
     if warmth == "neutral":
         warmth_directive = "Keep a grounded, calm, and even-keeled demeanor without excessive cheer or sweetness."
@@ -213,7 +213,8 @@ def wellness_live_instruction(
         "Never use stock sympathy lines like that sounds like a complicated situation, I am here to "
         "listen whenever you are ready, or it is understandable to feel that way. Never tell them to "
         "take their time or that you are here whenever they are ready — just ask the next question. "
-        "One to three short sentences, then yield. Do not lecture, list, or use markdown. "
+        "By default, use one or two short sentences, then yield. Only go longer when the caller clearly asks for detail or safety requires clarity. "
+        "Do not lecture, list, or use markdown. "
         "When it is your turn, always say something; never answer with silence. "
         "If they talk over you with a real new thought, stop. Do not repeat or complete the cut sentence. "
         "Follow their new thread. "

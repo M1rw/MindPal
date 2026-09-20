@@ -39,6 +39,12 @@ export const TICK_MS = 250;
 export const USER_PAUSE_MS = 1_200;
 /** After a barge-in, audio still in flight from the cut reply is dropped for this long. */
 export const BARGE_IN_FENCE_MS = 450;
+/** Consecutive 20ms capture frames needed before locally yielding the floor. */
+const LOCAL_BARGE_IN_FRAMES = 2;
+/** Ignore very quiet room tone while MindPal is speaking. */
+const LOCAL_BARGE_IN_RMS = 0.055;
+/** Prevent a local cut and a delayed provider event from causing a second cut. */
+const LOCAL_BARGE_IN_COOLDOWN_MS = 350;
 /** A greeting normally starts ~3s after setup. Past this, ask for it once more. */
 export const OPENER_SILENT_MS = 7_000;
 const QUIET_WAIT_MS = 1_600;
@@ -106,12 +112,16 @@ export class LiveVoiceSession {
   private openerRetried = false;
   private openerFinished = false;
   private modelStreaming = false;
+  private audioResumePending = false;
   private lastUserWordsAt = 0;
   private fenceUntil = 0;
   /** Bumped on every barge-in: Gemini discards pending tool calls when interrupted. */
   private interruptions = 0;
   private lastInterruptedAt = 0;
   private lastInterruptedSaid = '';
+  private localBargeFrames = 0;
+  private lastLocalBargeAt = 0;
+  private replyRequestedAt = 0;
   private pendingNotes: string[] = [];
   private threadNote = '';
   private openerProfile: OpenerProfile = {};
@@ -312,6 +322,8 @@ export class LiveVoiceSession {
       void this.syncSafety(true);
     } else if (effect === 'thinkingOn') {
       this.guard.userTurnEnded(now);
+      this.replyRequestedAt = now;
+      this.trace.add('audio', 'reply_wait_start', { phase: this.phase });
       this.callbacks.onThinking?.(true);
       this.face.setThinking(true);
     } else if (effect === 'thinkingOff') {
@@ -319,10 +331,21 @@ export class LiveVoiceSession {
       this.callbacks.onThinking?.(false);
       this.face.setThinking(false);
     } else if (effect === 'flushPlayback') {
-      this.playback.flush();
+      const playedMs = this.playback.flush();
+      this.trace.add('interrupt', 'playback_flushed', {
+        latencyMs: this.lastInterruptedAt > 0 ? now - this.lastInterruptedAt : null,
+        playedMs,
+      });
       this.face.stopSpeaking();
       this.fenceUntil = now + BARGE_IN_FENCE_MS;
       this.modelStreaming = false;
+      if (this.replyRequestedAt > 0) {
+        this.trace.add('audio', 'reply_wait_cancelled', {
+          waitedMs: now - this.replyRequestedAt,
+          reason: 'barge_in',
+        });
+        this.replyRequestedAt = 0;
+      }
       // Whatever MindPal got out before being cut is part of the conversation.
       this.commitModelTurn();
       // The pause clock starts now, so a cough that interrupts settles back to listening.
@@ -369,6 +392,34 @@ export class LiveVoiceSession {
       now,
     });
     if (this.muted || !this.transport) return;
+    this.resumeAudioIfNeeded('capture_frame');
+    if (this.phase === 'speaking') {
+      if (rms >= LOCAL_BARGE_IN_RMS) {
+        this.localBargeFrames += 1;
+        if (
+          this.localBargeFrames >= LOCAL_BARGE_IN_FRAMES &&
+          now - this.lastLocalBargeAt >= LOCAL_BARGE_IN_COOLDOWN_MS
+        ) {
+          this.lastLocalBargeAt = now;
+          this.localBargeFrames = 0;
+          this.lastInterruptedAt = now;
+          this.lastInterruptedSaid = this.transcript.currentModel;
+          this.trace.add('interrupt', 'decision', {
+            kind: 'barge_in',
+            flush: true,
+            reason: 'local_speech_onset',
+            rms,
+            queuedMs: this.playback.queuedMs(),
+          });
+          this.interruptions += 1;
+          this.dispatch({ type: 'interrupted' });
+        }
+      } else {
+        this.localBargeFrames = 0;
+      }
+    } else {
+      this.localBargeFrames = 0;
+    }
     // Allow caller to interrupt opening greeting:
     // If MindPal's opener is playing and the caller speaks with voice energy, release the greeting hold
     // immediately so caller audio streams to Gemini and triggers barge-in!
@@ -481,6 +532,13 @@ export class LiveVoiceSession {
     this.guard.settle();
     this.face.setThinking(false);
     this.trace.noteModelAudio(pcm.length);
+    if (this.replyRequestedAt > 0) {
+      this.trace.add('audio', 'first_audio', {
+        latencyMs: now - this.replyRequestedAt,
+        queuedMs: this.playback.queuedMs(),
+      });
+      this.replyRequestedAt = 0;
+    }
     this.dispatch({ type: 'modelAudio' });
   }
 
@@ -820,9 +878,8 @@ export class LiveVoiceSession {
     if (!page) return;
     this.unbindPage.push(
       page.onVisible(() => {
-        if (this.context && this.context.state === 'suspended') {
-          void this.context.resume().catch(() => {});
-        }
+        this.trace.add('session', 'page_visible');
+        this.resumeAudioIfNeeded('page_visible');
         void this.playback.ensure();
         this.mic?.resume();
         this.mic?.setEnabled(!this.muted);
@@ -855,6 +912,24 @@ export class LiveVoiceSession {
     } catch {
       return null;
     }
+  }
+
+  private resumeAudioIfNeeded(reason: string): void {
+    const context = this.context;
+    if (!context || context.state !== 'suspended' || this.audioResumePending || this.closed) return;
+    this.audioResumePending = true;
+    this.trace.add('audio', 'resume_requested', { reason });
+    void context.resume()
+      .then(() => this.trace.add('audio', 'resume_complete', { reason }))
+      .catch((error) => {
+        this.trace.add('audio', 'resume_failed', {
+          reason,
+          message: error instanceof Error ? error.message.slice(0, 160) : String(error).slice(0, 160),
+        });
+      })
+      .finally(() => {
+        this.audioResumePending = false;
+      });
   }
 
   private async abandonStart(audioReady: Promise<AudioContext | null>): Promise<void> {
