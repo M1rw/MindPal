@@ -163,15 +163,49 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
     el.addEventListener('wheel', onUserInterrupt, { passive: true });
     el.addEventListener('touchstart', onUserInterrupt, { passive: true });
     el.addEventListener('scrollend', onScrollEnd);
+
+    // Fix 20: scrollend polyfill for Safari / older Chrome (Android) that don't
+    // fire the scrollend event. Fall back to a 150ms debounce on 'scroll'.
+    let scrollEndFallbackTimer = 0;
+    const onScrollFallback = () => {
+      window.clearTimeout(scrollEndFallbackTimer);
+      scrollEndFallbackTimer = window.setTimeout(onScrollEnd, 150);
+    };
+    // Only install the fallback if scrollend is unsupported.
+    const needsScrollEndPolyfill = !('onscrollend' in window);
+    if (needsScrollEndPolyfill) {
+      el.addEventListener('scroll', onScrollFallback, { passive: true });
+    }
+
     return () => {
       el.removeEventListener('wheel', onUserInterrupt);
       el.removeEventListener('touchstart', onUserInterrupt);
       el.removeEventListener('scrollend', onScrollEnd);
+      if (needsScrollEndPolyfill) {
+        el.removeEventListener('scroll', onScrollFallback);
+        window.clearTimeout(scrollEndFallbackTimer);
+      }
       clearJumpLock();
     };
   }, [clearJumpLock, syncJumpVisibility]);
 
-  useEffect(() => () => { window.speechSynthesis?.cancel(); }, []);
+  // Fix 18: speechSynthesis.cancel() must be guarded for page-visibility — on iOS
+  // calling it when the document is hidden (app backgrounded) throws NotAllowed and
+  // corrupts the speech queue. We also cancel speech when the user backgrounds the
+  // app so the audio doesn't keep playing after the screen is locked.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden && speakingId !== null) {
+        window.speechSynthesis?.cancel();
+        setSpeakingId(null);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (!document.hidden) window.speechSynthesis?.cancel();
+    };
+  }, [speakingId]);
 
   const jumpToLatest = useCallback((event?: React.MouseEvent<HTMLButtonElement>) => {
     event?.currentTarget.blur();

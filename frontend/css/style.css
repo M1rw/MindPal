@@ -1,7 +1,13 @@
 /* ═══ Safari / Mobile Viewport Safety & High-End iPhone Adaptation ═══ */
 :root {
+  /* Set by applyViewportHeight() in main.tsx via visualViewport API.
+     --app-height   = visual viewport height (shrinks when keyboard opens).
+     --keyboard-offset = innerHeight − visualHeight (0 when keyboard hidden). */
   --app-height: 100vh;
   --keyboard-offset: 0px;
+  /* Tracks the current composer dock height so other elements (toast, jump btn)
+     can position themselves above it. Set by ResizeObserver in AppPanels.tsx. */
+  --composer-dock-h: 4.5rem;
 }
 
 html {
@@ -21,6 +27,8 @@ body {
 .h-dvh-safe {
   height: 100vh;
   height: 100dvh;
+  /* JS sets --app-height to visualViewport.height so this shrinks correctly
+     when the virtual keyboard opens on iOS Safari and Android Chrome. */
   height: var(--app-height);
 }
 
@@ -225,6 +233,18 @@ button,
   pointer-events: auto;
 }
 
+/* Fix 15: Ensure history rename/delete action buttons meet 44px touch-target
+   minimum on touch screens so they're easy to hit on small phones. */
+@media (pointer: coarse) {
+  .history-row-action {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 /* Responsive Safe Area Top Padding */
 .pt-safe-top {
   padding-top: 12px; /* fallback */
@@ -240,14 +260,10 @@ button,
   }
 }
 
-#header.pt-safe-top {
-  padding-top: max(env(safe-area-inset-top, 16px), 16px) !important;
-}
-
-/* Main content offset — matches header height (which includes safe-area-inset-top via max()) */
-#main-content {
-  padding-top: calc(64px + max(env(safe-area-inset-top, 0px), 16px)) !important;
-}
+/* Fix 23: #header.pt-safe-top was previously applied to give the header its
+   safe-area-inset-top padding. The header now handles this internally via
+   pt-safe-top on its inner row div, so this override is dead code. Removed.
+   #main-content offset rule is also stale — the app uses flexbox, not padding. */
 
 /* Safe area padding for devices with notch/home indicator (iPhone X+).
    Uses !important so it adds on top of Tailwind utility pb-* values. */
@@ -777,6 +793,12 @@ details > summary::-webkit-details-marker { display: none; }
   color: #e5e7eb;
   white-space: pre;
   tab-size: 2;
+  /* Fix 22: on touch devices, allow horizontal pan through code but prevent
+     the horizontal scroll from escaping to the page and triggering
+     back-navigation or pull-to-refresh on iOS/Android. */
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .code-block code {
@@ -810,11 +832,21 @@ details > summary::-webkit-details-marker { display: none; }
   max-height: calc(100vh - 32px);
   max-height: calc(100dvh - 32px);
   background: #fbfcfe;
+  overflow: hidden; /* Prevent the modal panel from itself scrolling out of view */
 }
 
 .settings-panel-scroll {
   min-height: 0;
   background: #fbfcfe;
+}
+
+/* Fix 6: Settings panel scroll area needs safe-area bottom padding on mobile
+   so the last row isn't hidden behind the iOS home indicator. */
+@media (max-width: 639px) {
+  .settings-panel-scroll {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .settings-sidebar {
@@ -1452,16 +1484,20 @@ details > summary::-webkit-details-marker { display: none; }
   }
 }
 
-/* Touch feedback for interactive elements */
-button:active,
-.mood-btn:active,
-.settings-tab-btn:active,
-.settings-row-action:active,
-.model-option:active,
-.mode-option:active {
-  transform: scale(0.97);
-  opacity: 0.8;
-  transition: transform 0.1s ease;
+/* Fix 17: Scope touch-active scale to pointer:coarse devices only (touch
+   screens), and exclude elements that already have their own active state
+   (e.g., Tailwind active:scale-* utilities). Using pointer:coarse avoids
+   conflicts with desktop hover transitions and Tailwind transform classes. */
+@media (pointer: coarse) {
+  .mood-btn:active,
+  .settings-tab-btn:active,
+  .settings-row-action:active,
+  .model-option:active,
+  .mode-option:active {
+    transform: scale(0.97);
+    opacity: 0.8;
+    transition: transform 0.1s ease;
+  }
 }
 
 /* Ensure momentum scrolling on iOS */
@@ -3161,14 +3197,20 @@ button:active,
 
 .chat-composer-dock {
   position: sticky;
-  bottom: 0;
+  /* On mobile, lift the dock by the keyboard offset so it always sits just
+     above the virtual keyboard rather than behind it on iOS/Android. */
+  bottom: var(--keyboard-offset, 0px);
   z-index: 20;
   overflow: visible;
+  /* Smooth transition prevents jitter as keyboard animates open/closed. */
+  transition: bottom 80ms linear;
 }
 
 @media (min-width: 640px) {
   .chat-composer-dock {
     position: relative;
+    bottom: 0;
+    transition: none;
   }
 }
 
@@ -3460,6 +3502,9 @@ html.dark .chat-composer--thinking::after {
 
 #chat-canvas {
   overflow-anchor: none;
+  /* Fix 21: prevent iOS pull-to-refresh and Android back-navigation from
+     triggering when the user scrolls to the top of the message thread. */
+  overscroll-behavior: contain;
 }
 
 .chat-stage:not(.chat-stage--thread) .chat-stage__canvas {
@@ -3469,7 +3514,9 @@ html.dark .chat-composer--thinking::after {
 .chat-jump-latest {
   position: absolute;
   left: 50%;
-  bottom: 0.75rem;
+  /* Fix 11: sit above the composer dock; --composer-dock-h is set by ResizeObserver
+     in AppPanels.tsx so this stays correct even when the composer grows. */
+  bottom: calc(var(--composer-dock-h, 4.5rem) + 0.75rem);
   z-index: 10;
   display: inline-flex;
   align-items: center;
@@ -3484,7 +3531,15 @@ html.dark .chat-composer--thinking::after {
   font-weight: 500;
   line-height: 1.25;
   opacity: 1;
-  transition: opacity 80ms linear;
+  transition: bottom 80ms linear, opacity 80ms linear;
+}
+
+@media (min-width: 640px) {
+  /* Desktop: jump button is within its own scroll container, use simple offset */
+  .chat-jump-latest {
+    bottom: 0.75rem;
+    transition: opacity 80ms linear;
+  }
 }
 
 .chat-jump-latest.is-leaving {
@@ -3981,11 +4036,28 @@ html.dark .chat-composer--thinking::after {
   pointer-events: none;
 }
 
+/* Desktop: hide action bar until the message is hovered. */
 @media (hover: hover) and (pointer: fine) {
   .chat-user-shell:not(:hover):not(:focus-within) .msg-actions:not([data-active="true"]) {
     margin-block-start: 0;
     max-height: 0;
     opacity: 0;
+  }
+}
+
+/* Touch / coarse-pointer (iOS, Android, stylus): always show action bar so
+   users can copy, rate, and regenerate messages with a single tap. */
+@media (pointer: coarse) {
+  .msg-actions {
+    margin-block-start: 0.4rem;
+    max-height: 3.25rem;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Slightly larger tap targets for icon buttons in the action bar. */
+  .msg-action-btn {
+    padding: 0.375rem !important;
   }
 }
 
@@ -4320,6 +4392,10 @@ html.dark .chat-composer--thinking::after {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  /* Fix 21: prevent scroll from escaping modal and triggering browser
+     pull-to-refresh or navigation gestures on iOS/Android. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mp-modal__footer {
@@ -4382,7 +4458,9 @@ html.dark .chat-composer--thinking::after {
   gap: 0.5rem;
   padding-inline: 1rem;
   pointer-events: none;
-  bottom: max(7.25rem, calc(env(safe-area-inset-bottom, 0px) + 6.5rem));
+  /* Fix 12: float above the composer dock using --composer-dock-h so toasts
+     stay visible even when the composer is multi-line or expanded. */
+  bottom: calc(var(--composer-dock-h, 4.5rem) + max(0.75rem, env(safe-area-inset-bottom, 0px)));
 }
 
 @media (min-width: 640px) {
@@ -4617,3 +4695,33 @@ html.dark .chat-composer--thinking::after {
   color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Fix 24 — Focus ring contrast for forced-colors / high-contrast
+   Windows High Contrast Mode strips box-shadow focus rings. Fall
+   back to a 2px solid Highlight outline so focused elements remain
+   clearly visible for keyboard and assistive-tech users.
+   ══════════════════════════════════════════════════════════════ */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Fix 25 — z-index layer map (reference, not functional CSS)
+   Kept here for future maintainers so stacking can be reasoned
+   about without hunting through every component.
+
+   Layer             Value    Element
+   ─────────────────────────────────────────────────────────────
+   Header             20      #header (sticky)
+   Chat jump button   10      .chat-jump-latest (position:absolute)
+   Composer dock      20      .chat-composer-dock (sticky)
+   Floating menus     60      .chat-mode-menu / .settings-select-menu
+   Overlay backdrop   —       .overlay-backdrop (position:absolute)
+   Overlay panel      10      .overlay-panel
+   Toast region      300      .toast-region (position:fixed)
+   Voice overlay     200      (set inline by VoiceOverlay.tsx)
+   ══════════════════════════════════════════════════════════════ */

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Moon, Sun, Flame, User, Plus, History, MoreHorizontal } from 'lucide-react';
+import { Moon, Sun, Flame, User, Plus, History, MoreHorizontal, AlertTriangle } from 'lucide-react';
 import {
   useAuthStore,
   useChatHistoryModalStore,
@@ -40,6 +40,10 @@ export const Header: React.FC<HeaderProps> = ({
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
   const { mounted: moreMounted, visible: moreVisible } = useOverlayPresence(moreOpen, POPOVER_EXIT_MS);
+  // Inline confirm state — replaces window.confirm() which is blocked in iOS
+  // WKWebView/PWA and always returns false, making New Chat silently do nothing.
+  const [confirmingNewChat, setConfirmingNewChat] = useState(false);
+  const confirmRef = useRef<HTMLDivElement>(null);
 
   const [isDark, setIsDark] = useState<boolean>(() => {
     if (typeof document !== 'undefined') {
@@ -96,20 +100,32 @@ export const Header: React.FC<HeaderProps> = ({
     setSettingsOpen(true);
   };
 
+  // Close confirm banner on any outside tap/click.
+  useEffect(() => {
+    if (!confirmingNewChat) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!confirmRef.current?.contains(e.target as Node)) {
+        setConfirmingNewChat(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [confirmingNewChat]);
+
   const handleNewChat = () => {
     if (messages.length === 0) return;
+    // Show an inline confirmation instead of window.confirm (blocked in PWA/WKWebView).
+    setConfirmingNewChat(true);
+  };
 
-    const confirmed = window.confirm(
-      'Start a new conversation? You can reopen this thread from History.'
-    );
-    if (!confirmed) return;
-
-    if (isGenerating) {
-      stopGeneration();
-    }
+  const handleNewChatConfirm = () => {
+    setConfirmingNewChat(false);
+    if (isGenerating) stopGeneration();
     clearMessages();
     setActiveSessionId(null);
   };
+
+  const handleNewChatCancel = () => setConfirmingNewChat(false);
 
   const openHistory = () => {
     setMoreOpen(false);
@@ -132,20 +148,55 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       id="header"
-      className="sticky top-0 z-20 flex flex-none items-center gap-2 px-3 pb-2.5 pt-safe-top sm:px-5 bg-surface-canvas/90 backdrop-blur-md transition-colors duration-200 ease-out"
+      className="sticky top-0 z-20 flex flex-none flex-col gap-0 bg-surface-canvas/90 backdrop-blur-md transition-colors duration-200 ease-out"
     >
-      <div className="flex min-w-0 items-center gap-2.5">
-        <p className="select-none text-xl font-medium tracking-tight text-content-primary">
-          MindPal
-        </p>
-        <EnvTag />
-      </div>
+      {/* Inline New-Chat confirmation banner — appears in place of the header row
+          instead of window.confirm() which is blocked in iOS PWA/WKWebView. */}
+      {confirmingNewChat && (
+        <div
+          ref={confirmRef}
+          role="alertdialog"
+          aria-label="Start new conversation?"
+          className="flex items-center justify-between gap-2 px-3 py-2.5 bg-surface-subtle border-b border-edge-subtle animate-fade-in"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="h-4 w-4 text-content-secondary flex-shrink-0" aria-hidden="true" />
+            <span className="text-sm text-content-secondary truncate">
+              Start new chat? This thread stays in History.
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              type="button"
+              onClick={handleNewChatCancel}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-content-secondary hover:bg-surface-elevated transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleNewChatConfirm}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-content-primary text-content-inverse hover:opacity-90 transition-opacity"
+            >
+              Start new
+            </button>
+          </div>
+        </div>
+      )}
 
-      {showPresenceTab && onTabChange ? (
-        <TabBar activeTab={activeTab} onTabChange={onTabChange} showPresenceTab={showPresenceTab} />
-      ) : null}
+      <div className="flex items-center gap-2 px-3 pb-2.5 pt-safe-top sm:px-5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <p className="select-none text-xl font-medium tracking-tight text-content-primary">
+            MindPal
+          </p>
+          <EnvTag />
+        </div>
 
-      <nav aria-label="MindPal actions" className="ml-auto flex items-center gap-1 text-content-secondary">
+        {showPresenceTab && onTabChange ? (
+          <TabBar activeTab={activeTab} onTabChange={onTabChange} showPresenceTab={showPresenceTab} />
+        ) : null}
+
+        <nav aria-label="MindPal actions" className="ml-auto flex items-center gap-1 text-content-secondary">
         <button
           type="button"
           onClick={handleNewChat}
@@ -197,6 +248,7 @@ export const Header: React.FC<HeaderProps> = ({
           />
         </button>
 
+        {/* 'More' popover — viewport-clamped so it never overflows a 320px screen. */}
         <div ref={moreRef} className="relative sm:hidden">
           <button
             type="button"
@@ -218,7 +270,9 @@ export const Header: React.FC<HeaderProps> = ({
               aria-label="More actions"
               className={popoverPanelClass(
                 moreVisible,
-                'absolute right-0 top-full z-50 mt-1.5 w-52 rounded-xl border border-edge-subtle bg-surface-card p-1.5 shadow-modal'
+                /* Use max-w + right-0 but clamp to viewport so it never
+                   overflows on narrow phones (320px iPhone SE). */
+                'absolute right-0 top-full z-50 mt-1.5 w-52 max-w-[calc(100vw-1.5rem)] rounded-xl border border-edge-subtle bg-surface-card p-1.5 shadow-modal'
               )}
             >
               <button type="button" role="menuitem" onClick={openHistory} className={menuItemClass} aria-label="Open chat history">
@@ -270,7 +324,8 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
         </button>
-      </nav>
+        </nav>
+      </div>{/* close inner header row */}
     </header>
   );
 };

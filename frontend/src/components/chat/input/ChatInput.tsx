@@ -19,7 +19,11 @@ const COMPOSER_IDLE_MAX_PX = 200;
 const COMPOSER_EXPANDED_MAX_PX = 576;
 
 function expandedFieldMaxPx() {
-  return Math.round(Math.min(window.innerHeight * 0.7, COMPOSER_EXPANDED_MAX_PX));
+  // Fix 8: use visualViewport.height so the cap accounts for the open keyboard.
+  // On mobile (< 640px) cap at 50% so the composer never fills the whole screen.
+  const vh = window.visualViewport?.height ?? window.innerHeight;
+  const pct = window.innerWidth < 640 ? 0.5 : 0.7;
+  return Math.round(Math.min(vh * pct, COMPOSER_EXPANDED_MAX_PX));
 }
 
 export interface ChatInputHandle {
@@ -105,15 +109,17 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
   }, [isGenerating, soundEnabled]);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: PointerEvent) => {
+      // Fix 13: use pointerdown (not mousedown) so outside-tap dismisses the
+      // mode selector on iOS/Android which may not fire synthetic mouse events.
       const target = e.target as Node | null;
       if (selectorRef.current?.contains(target)) return;
       if (target instanceof Element && target.closest('.chat-mode-menu')) return;
       setSelectorOpen(false);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -329,6 +335,13 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
                 rows={1}
                 dir="auto"
                 spellCheck={false}
+                // Fix 14: disable autocorrect & autocapitalize so iOS doesn't
+                // mangle technical terms, code snippets, or mid-word completions.
+                // autoCapitalize="sentences" still lets the first word of a
+                // sentence get capitalised naturally.
+                autoCorrect="off"
+                autoCapitalize="sentences"
+                autoComplete="off"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}

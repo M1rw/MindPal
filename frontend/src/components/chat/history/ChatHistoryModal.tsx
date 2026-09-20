@@ -129,7 +129,7 @@ export const ChatHistoryModal: React.FC = () => {
       label="Chat history"
       size="lg"
       flush
-      panelClassName="min-h-[min(24rem,70dvh)] max-h-[min(80dvh,36rem)]"
+      panelClassName="min-h-[min(24rem,70svh)] max-h-[min(80svh,36rem)] overscroll-contain"
     >
       <ModalToolbar>
         <Search className="w-4 h-4 text-content-muted flex-shrink-0" />

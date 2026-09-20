@@ -56,7 +56,10 @@ export const ChatCanvasEmptyState: React.FC<ChatCanvasEmptyStateProps> = ({
       ) : (
         <>
           <div className="chat-empty__greeting">
-            <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-3">
+            {/* Fix 9: text-3xl on mobile → text-4xl sm → text-5xl so short-screen
+                phones (iPhone SE, Galaxy A) can show the greeting + subtitle + mood chips
+                without needing to scroll. */}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight mb-2 sm:mb-3">
               <span
                 id="greeting-text"
                 className="bg-clip-text text-transparent bg-brand-gradient"
@@ -64,7 +67,7 @@ export const ChatCanvasEmptyState: React.FC<ChatCanvasEmptyStateProps> = ({
                 {greeting}
               </span>
             </h1>
-            <p className="text-xl sm:text-2xl text-content-secondary font-medium tracking-tight mb-6">
+            <p className="text-lg sm:text-xl md:text-2xl text-content-secondary font-medium tracking-tight mb-4 sm:mb-6">
               What&apos;s on your mind today?
             </p>
           </div>
