@@ -22,6 +22,11 @@ body {
   overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--surface-canvas);
+}
+
+html {
+  background-color: var(--surface-canvas);
 }
 
 .h-dvh-safe {
@@ -4320,6 +4325,16 @@ html.dark .chat-composer--thinking::after {
   border-radius: 9999px;
   background: var(--border-default);
   opacity: 0.6;
+  touch-action: none;
+}
+
+@media (max-width: 639px) {
+  /* The safe-area fill belongs to the sheet, not the page behind it. */
+  .settings-modal-panel {
+    min-height: min(92dvh, 760px);
+    max-height: min(92dvh, 760px);
+    overscroll-behavior: contain;
+  }
 }
 
 @media (min-width: 640px) {

@@ -148,7 +148,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       id="header"
-      className="sticky top-0 z-20 flex flex-none flex-col gap-0 bg-surface-canvas/90 backdrop-blur-md transition-colors duration-200 ease-out"
+      className="sticky top-0 z-20 flex flex-none flex-col gap-0 bg-surface-canvas backdrop-blur-md transition-colors duration-200 ease-out"
     >
       {/* Inline New-Chat confirmation banner — appears in place of the header row
           instead of window.confirm() which is blocked in iOS PWA/WKWebView. */}
