@@ -26,6 +26,7 @@ export function useDragToDismiss(
   const startTimeRef = useRef(0);
   const currentYRef = useRef(0);
   const draggingRef = useRef(false);
+  const dismissTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -54,11 +55,12 @@ export function useDragToDismiss(
       const h = panel.getBoundingClientRect().height;
       panel.style.transition = 'transform 260ms ease-in';
       panel.style.transform = `translate3d(0, ${h + 60}px, 0)`;
-      setTimeout(() => {
+      dismissTimerRef.current = window.setTimeout(() => {
         if (panelRef.current) {
           panelRef.current.style.transition = '';
           panelRef.current.style.transform = '';
         }
+        dismissTimerRef.current = null;
         onClose();
       }, 270);
     }
@@ -66,6 +68,7 @@ export function useDragToDismiss(
     function onTouchStart(e: TouchEvent) {
       const panel = panelRef.current;
       if (!panel) return;
+      if (e.touches.length !== 1) return;
       const touch = e.touches[0];
       const panelTop = panel.getBoundingClientRect().top;
       if (touch.clientY - panelTop > HANDLE_ZONE_PX) return;
@@ -77,6 +80,7 @@ export function useDragToDismiss(
 
     function onTouchMove(e: TouchEvent) {
       if (!draggingRef.current) return;
+      if (e.touches.length !== 1) return;
       const touch = e.touches[0];
       currentYRef.current = touch.clientY;
       const dy = touch.clientY - startYRef.current;
@@ -106,6 +110,10 @@ export function useDragToDismiss(
     el.addEventListener('touchcancel', onTouchEnd, { passive: true });
 
     return () => {
+      if (dismissTimerRef.current !== null) {
+        window.clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = null;
+      }
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);

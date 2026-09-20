@@ -174,6 +174,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = () => {
       size="panel"
       flush
       inert={memoryOpen}
+      swipeable={!memoryOpen}
+      panelClassName="settings-modal-panel"
     >
       <SettingsSidebar
           navTabs={navTabs}
