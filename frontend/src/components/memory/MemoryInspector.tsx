@@ -38,6 +38,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
   const [atoms, setAtoms] = useState<MemoryAtom[]>([]);
   const [activeTab, setActiveTab] = useState<'summary' | 'atoms'>(inspectTab);
   const [atomQuery, setAtomQuery] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const honestSummary = honestMemorySummary(summary?.summary);
 
   const handleClose = () => {
@@ -77,9 +78,19 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
     if (isOpen) {
       setActiveTab(inspectTab);
       setAtomQuery('');
+      // Bump reloadKey so every open (even when already open) re-fetches data.
+      // This is critical for guest users: memory atoms are saved mid-conversation
+      // and the inspector may already be open from a previous view.
+      setReloadKey((k) => k + 1);
+    }
+  }, [isOpen, inspectTab, highlightAtomIds]);
+
+  useEffect(() => {
+    if (isOpen) {
       void loadData();
     }
-  }, [isOpen, inspectTab, highlightAtomIds, isAuthenticated]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isAuthenticated, reloadKey]);
 
   const highlightSet = useMemo(() => new Set(highlightAtomIds), [highlightAtomIds]);
   const visibleAtoms = useMemo(
@@ -160,6 +171,11 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
             </div>
           ) : activeTab === 'summary' ? (
             <div id="memory-panel-summary" role="tabpanel" aria-labelledby="memory-tab-summary">
+              {!isAuthenticated && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                  <strong>Stored on this device only.</strong> Sign in to sync your memory across all your devices.
+                </div>
+              )}
               {honestSummary ? (
                 <p className="text-sm text-content-secondary whitespace-pre-wrap leading-relaxed">{honestSummary}</p>
               ) : (
@@ -195,6 +211,11 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
                 <div className="text-center py-12 text-content-muted">
                   <p className="text-sm text-content-secondary">Nothing stored yet.</p>
                   <p className="text-sm mt-1">Saved facts appear after a turn.</p>
+                  {!isAuthenticated && (
+                    <p className="text-xs mt-3 text-content-muted">
+                      Memories are stored in this browser only.
+                    </p>
+                  )}
                 </div>
               ) : visibleAtoms.length === 0 ? (
                 <div className="text-center py-12 text-content-muted">

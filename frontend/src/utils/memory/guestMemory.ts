@@ -268,5 +268,25 @@ function defaultRandomBytes(size: number): Uint8Array {
 }
 
 function browserStorage(): MemoryStorage {
-  return localStorage;
+  // Prefer localStorage for cross-session persistence. On iOS Safari in private
+  // mode localStorage throws on setItem, so fall back to sessionStorage (atoms
+  // survive the current tab but not page reloads — better than silent loss).
+  try {
+    const probe = '__mindpal_probe__';
+    localStorage.setItem(probe, '1');
+    localStorage.removeItem(probe);
+    return localStorage;
+  } catch {
+    try {
+      return sessionStorage;
+    } catch {
+      // Both storage APIs unavailable (e.g. insecure context). Return a no-op.
+      const noop: Record<string, string> = {};
+      return {
+        getItem: (key) => noop[key] ?? null,
+        setItem: (key, value) => { noop[key] = value; },
+        removeItem: (key) => { delete noop[key]; },
+      };
+    }
+  }
 }

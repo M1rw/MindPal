@@ -90,12 +90,12 @@ export const ChatHistorySessionItem: React.FC<ChatHistorySessionItemProps> = ({
       )}
       <div
         className={`history-session-item__actions flex flex-shrink-0 items-center gap-0.5 ${
-          isEditing ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
+          isEditing ? 'opacity-100' : 'history-session-item__actions--touch opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
         }`}
       >
         <button
           type="button"
-          className={`history-row-action flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
+          className={`history-row-action flex items-center justify-center rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
             isEditing
               ? 'bg-brand-subtle text-brand-primary'
               : 'text-content-muted hover:bg-surface-elevated hover:text-content-primary'
@@ -109,7 +109,7 @@ export const ChatHistorySessionItem: React.FC<ChatHistorySessionItemProps> = ({
         </button>
         <button
           type="button"
-          className="history-row-action flex h-7 w-7 items-center justify-center rounded-md text-content-muted transition-colors duration-150 hover:bg-feedback-dangerSubtle hover:text-feedback-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+          className="history-row-action flex items-center justify-center rounded-md text-content-muted transition-colors duration-150 hover:bg-feedback-dangerSubtle hover:text-feedback-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
           title="Delete conversation"
           aria-label="Delete conversation"
           onClick={(e) => onDelete(e, session.id)}
