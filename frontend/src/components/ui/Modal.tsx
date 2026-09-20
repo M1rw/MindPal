@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { X } from 'lucide-react';
 import { useFocusTrap } from '../../hooks/ui/useFocusTrap';
 import { useOverlayPresence } from '../../hooks/ui/useOverlayPresence';
+import { useDragToDismiss } from '../../hooks/ui/useDragToDismiss';
 import { overlayBackdropClass, overlayPanelClass, overlayShellClass } from '../../utils/ui/overlay';
 import { cn } from '../../utils/ui/cn';
 
@@ -30,6 +31,8 @@ export interface ModalProps {
   panelClassName?: string;
   closeOnBackdrop?: boolean;
   inert?: boolean;
+  /** Enable swipe-down-to-dismiss gesture on touch devices. Default false. */
+  swipeable?: boolean;
 }
 
 export function Modal({
@@ -47,14 +50,25 @@ export function Modal({
   panelClassName,
   closeOnBackdrop = true,
   inert = false,
+  swipeable = false,
 }: ModalProps) {
-  const panelRef = useFocusTrap<HTMLDivElement>({
+  const focusPanelRef = useFocusTrap<HTMLDivElement>({
     isOpen: open,
     onClose,
     autoFocus: true,
     paused: inert,
   });
+  const swipePanelRef = useRef<HTMLDivElement>(null);
   const { mounted, visible } = useOverlayPresence(open);
+
+  // Merge the two refs into one callback ref so both useFocusTrap and
+  // useDragToDismiss can share the same panel DOM node.
+  const panelRef = (node: HTMLDivElement | null) => {
+    (focusPanelRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    (swipePanelRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+  };
+
+  useDragToDismiss(swipePanelRef, onClose, swipeable && open);
 
   if (!mounted) return null;
 
@@ -81,11 +95,16 @@ export function Modal({
         id={panelId}
         className={overlayPanelClass(visible, cn('mp-modal__panel', panelClassName))}
       >
+        {/* Drag handle — visible only on mobile, hidden on sm+ */}
+        {swipeable && (
+          <div className="modal-drag-handle sm:hidden" aria-hidden="true" />
+        )}
         {children}
       </div>
     </div>
   );
 }
+
 
 export interface ModalHeaderProps {
   kicker?: string;

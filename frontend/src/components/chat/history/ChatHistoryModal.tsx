@@ -60,7 +60,11 @@ export const ChatHistoryModal: React.FC = () => {
 
   useEffect(() => {
     if (isOpen) {
-      searchRef.current?.focus({ preventScroll: true });
+      // Only auto-focus the search field on desktop (pointer: fine) — on iOS/Android
+      // auto-focusing immediately raises the virtual keyboard and collapses the modal.
+      if (window.matchMedia('(pointer: fine)').matches) {
+        searchRef.current?.focus({ preventScroll: true });
+      }
       useChatHistoryStore.getState().loadCloudSessions();
     } else {
       setQuery('');
@@ -129,7 +133,8 @@ export const ChatHistoryModal: React.FC = () => {
       label="Chat history"
       size="lg"
       flush
-      panelClassName="min-h-[min(24rem,70svh)] max-h-[min(80svh,36rem)] overscroll-contain"
+      swipeable
+      panelClassName="min-h-[min(20rem,50svh)] max-h-[min(80svh,36rem)] overscroll-contain"
     >
       <ModalToolbar>
         <Search className="w-4 h-4 text-content-muted flex-shrink-0" />

@@ -245,6 +245,14 @@ button,
   }
 }
 
+/* On desktop keep the compact 28px visual size (h-7 w-7 equivalent). */
+@media (pointer: fine) {
+  .history-row-action {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+}
+
 /* Responsive Safe Area Top Padding */
 .pt-safe-top {
   padding-top: 12px; /* fallback */
@@ -4298,6 +4306,20 @@ html.dark .chat-composer--thinking::after {
   border-radius: 1.25rem 1.25rem 0 0;
   box-shadow: var(--shadow-modal);
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  /* Ensure the panel itself can be composited for smooth drag transforms. */
+  will-change: transform;
+}
+
+/* Drag handle pill — appears only on mobile bottom sheets when swipeable=true.
+   Hidden on sm+ because desktop-centred dialogs don't need a drag affordance. */
+.modal-drag-handle {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 0.25rem;
+  margin: 0.625rem auto 0;
+  border-radius: 9999px;
+  background: var(--border-default);
+  opacity: 0.6;
 }
 
 @media (min-width: 640px) {
