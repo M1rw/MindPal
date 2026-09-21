@@ -12,9 +12,9 @@ type ReplyTier = 'standard' | 'pro';
 const COMPOSER_ACTION_SIZE =
   'w-9 h-9 sm:w-10 sm:h-10 aspect-square flex-shrink-0 flex items-center justify-center';
 const COMPOSER_MUTED_TILE =
-  'bg-surface-elevated dark:bg-edge-default text-content-secondary hover:bg-edge-hover hover:text-content-primary active:brightness-90 transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md group overflow-hidden';
+  'bg-surface-elevated dark:bg-edge-default text-content-secondary hover:bg-edge-hover hover:text-content-primary transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md hover:shadow-lg hover:-translate-y-px active:translate-y-0 active:shadow-sm';
 const COMPOSER_SEND_TILE =
-  'bg-content-primary text-content-inverse hover:opacity-90 active:brightness-90 transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md group overflow-hidden';
+  'bg-content-primary text-content-inverse hover:opacity-90 transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md hover:shadow-lg hover:-translate-y-px active:translate-y-0 active:shadow-sm';
 
 function WaveformIcon({ className }: { className?: string }) {
   return (
@@ -349,17 +349,11 @@ function PrimaryComposerAction({
       title={title}
     >
       {mode === 'stop' ? (
-        <span className="inline-flex transition-transform duration-200 ease-out group-hover:scale-110 group-active:scale-90">
-          <Square className="w-3.5 h-3.5 fill-current" />
-        </span>
+        <Square className="w-3.5 h-3.5 fill-current" />
       ) : mode === 'send' ? (
-        <span className="inline-flex transition-transform duration-200 ease-out group-hover:scale-110 group-active:scale-90">
-          <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
-        </span>
+        <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
       ) : (
-        <span className="inline-flex transition-transform duration-200 ease-out group-hover:scale-110 group-active:scale-90">
-          <WaveformIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-        </span>
+        <WaveformIcon className="w-4 h-4 sm:w-5 sm:h-5" />
       )}
     </button>
   );
