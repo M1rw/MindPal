@@ -9,11 +9,11 @@ type ReplyTier = 'standard' | 'pro';
 /* Send / stop / live-voice button: 36px visual, 44px touch target enforced via
    min-w/min-h. This meets Apple HIG (44pt) and Android (48dp ≈ fine here) minimums. */
 const COMPOSER_ACTION_SIZE =
-  'w-9 h-9 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-[44px] sm:min-h-[44px] aspect-square flex-shrink-0 flex items-center justify-center';
+  'w-9 h-9 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-[44px] sm:min-h-[44px] aspect-square flex-shrink-0 flex items-center justify-center overflow-hidden';
 const COMPOSER_MUTED_TILE =
-  'bg-surface-elevated dark:bg-edge-default text-content-secondary hover:bg-edge-hover hover:text-content-primary hover:scale-105 active:scale-95 transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md';
+  'bg-surface-elevated dark:bg-edge-default text-content-secondary hover:bg-edge-hover hover:text-content-primary active:translate-y-px transition-[background-color,color,box-shadow,transform] duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md';
 const COMPOSER_SEND_TILE =
-  'bg-content-primary text-content-inverse hover:opacity-95 hover:scale-105 active:scale-95 transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md';
+  'bg-content-primary text-content-inverse hover:opacity-95 active:translate-y-px transition-[background-color,color,box-shadow,transform,opacity] duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md';
 
 function WaveformIcon({ className }: { className?: string }) {
   return (

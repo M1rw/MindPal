@@ -291,6 +291,12 @@ export class ControlPlaneClient {
       // A 404 is the server saying this session is not one of its own. No
       // amount of retrying makes it one, so stop asking and say so once.
       if (status === 404) {
+        if (request === 'voice.session.teardown') {
+          // A pagehide keepalive or another tab may already have settled the row.
+          // Teardown is terminal and idempotent from the client's perspective.
+          this.observer?.add('control', 'teardown_already_settled', { request, status });
+          return { ok: true, action: 'torn_down', already_settled: true };
+        }
         if (!this.sessionGone) {
           this.sessionGone = true;
           console.info('[mindpal.voice] control_plane_session_missing', {

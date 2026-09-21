@@ -84,6 +84,8 @@ export interface ControlPlaneAction {
   speak_first?: boolean;
   label?: string;
   refund_s?: number;
+  /** The session was already settled by another teardown path. */
+  already_settled?: boolean;
   /** Server-side confirmation that a transcript was classified recently. */
   safety_verified?: boolean;
   /** Set on escalate-pause: the session will refuse every further event but teardown. */
