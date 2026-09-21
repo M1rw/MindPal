@@ -168,6 +168,7 @@ class VoiceSummarizeRequest(BaseModel):
     chat_session_id: Optional[str] = None
     user_transcript: str = ""
     ai_transcript: str = ""
+    used_s: int = Field(default=0, ge=0)
 
 
 @router.post("/api/voice/summarize", operation_id="voiceSummarizeSession")
@@ -181,10 +182,24 @@ async def summarize_voice_session(
             "unauthenticated",
             "Live voice requires a signed-in account.",
         )
-    return await summarize_service.summarize(
-        user_id_hash=session.user_id_hash,
-        session_id=payload.session_id,
-        chat_session_id=payload.chat_session_id or "",
-        user_transcript=payload.user_transcript,
-        ai_transcript=payload.ai_transcript,
-    )
+    try:
+        return await summarize_service.summarize(
+            user_id_hash=session.user_id_hash,
+            session_id=payload.session_id,
+            chat_session_id=payload.chat_session_id or "",
+            user_transcript=payload.user_transcript,
+            ai_transcript=payload.ai_transcript,
+        )
+    except AppError as exc:
+        # On Vercel, a serverless instance swap between mint and summarize means
+        # the session record lives on a different instance (or expired from memory).
+        # Rather than returning a 404, fall back to a local-only recap built from
+        # the client-supplied transcripts — the user still gets their call summary.
+        if exc.code == "not_found":
+            return await summarize_service.summarize_orphaned(
+                session_id=payload.session_id,
+                user_transcript=payload.user_transcript,
+                ai_transcript=payload.ai_transcript,
+                used_s=payload.used_s,
+            )
+        raise
