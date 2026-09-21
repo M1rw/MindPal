@@ -393,24 +393,30 @@ def _database_exists(client: Any) -> bool:
     the voice quota hold is deliberately fail-closed, the whole product answered
     "Live voice is briefly unavailable" on a machine that simply had no database.
 
-    A permanent error here (no such database, no permission) means this process
-    has no cloud storage at all and should say so up front. A transient one is a
-    real outage, where the breaker and the fail-closed writes are correct.
+    IMPORTANT: On Vercel cold starts, transient PermissionDenied or network errors
+    can make this probe fail even when Firestore IS correctly configured. We treat
+    ALL failures as "inconclusive — present but degraded" so that a cold-start blip
+    doesn't permanently downgrade to InMemoryStore and block voice for the instance
+    lifetime. The circuit breaker handles real sustained failures at call time.
     """
     try:
         client.collection("_startup_probe").document("_probe").get()
+        logger.info("store_probe_ok — Firestore database is reachable")
         return True
-    except Exception as exc:  # transport-specific hierarchy
-        if is_permanent_store_error(exc):
-            logger.warning(
-                "store_probe_failed error=%s — no usable Firestore database for this project (using in-memory store)",
-                type(exc).__name__,
-            )
-            return False
+    except Exception as exc:
+        # Log the full exception type AND message so Vercel logs show exactly
+        # what credential / IAM / database issue is occurring.
         logger.warning(
-            "store_probe_inconclusive error=%s — treating Firestore as present but degraded",
+            "store_probe_inconclusive error=%s detail=%s — "
+            "treating Firestore as present but degraded; "
+            "the circuit breaker will open if writes also fail",
             type(exc).__name__,
+            str(exc)[:300],
         )
+        # Return True (optimistic): let the FirestoreStore try real calls and
+        # let the breaker decide based on actual read/write outcomes.
+        # This prevents a single cold-start probe blip from forcing InMemoryStore
+        # for the whole instance lifetime and blocking voice on Vercel.
         return True
 
 

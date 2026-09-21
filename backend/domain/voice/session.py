@@ -285,11 +285,13 @@ class VoiceSessionService:
 
     @staticmethod
     def _production_requires_durable_store() -> bool:
+        """Return True when running on a shared serverless deployment where each
+        request may land on a fresh instance with its own in-memory store."""
         environment = os.environ.get("ENVIRONMENT", "").strip().lower()
-        return os.environ.get("VERCEL", "").strip() == "1" or environment in {
-            "production",
-            "prod",
-        }
+        return (
+            os.environ.get("VERCEL", "").strip() == "1"
+            or environment in {"production", "prod"}
+        )
 
     def handle_event(self, *, user_id_hash: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         session_id = str(payload.get("session_id") or "").strip()
