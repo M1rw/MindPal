@@ -231,6 +231,36 @@ class VoiceSummarizeService:
             response["memory"] = memory_receipt
         return response
 
+    async def summarize_orphaned(
+        self,
+        *,
+        session_id: str,
+        user_transcript: str = "",
+        ai_transcript: str = "",
+        used_s: int = 0,
+    ) -> Dict[str, Any]:
+        """Return a local-only recap when a serverless instance lost the record."""
+        inbound = _cap(user_transcript)
+        outbound = _cap(ai_transcript)
+        if _words(inbound) + _words(outbound) < MIN_SPEECH_WORDS:
+            return {"skipped": True, "reason": "no_speech"}
+        try:
+            summary = self._clean_summary(await self.generate(self._prompt(inbound, outbound)))
+        except Exception:
+            summary = "A recap of what was said could not be written."
+        if not summary:
+            return {"skipped": True, "reason": "no_speech"}
+        message = {
+            "id": f"voice-{session_id}",
+            "role": "assistant",
+            "kind": "voice_receipt",
+            "content": _format_receipt(summary, used_s),
+            "timestamp": _now_iso(),
+            "voice_used_s": max(0, int(used_s or 0)),
+        }
+        logger.warning("voice_summarize_orphaned session_id=%s", session_id)
+        return {"skipped": False, "reason": "session_record_unavailable", "summary": summary, "message": message}
+
     def _skip(self, record: Dict[str, Any], reason: str) -> Dict[str, Any]:
         record["summary_skipped"] = reason
         self.store.set_document(VOICE_SESSION_COLLECTION, str(record.get("session_id") or ""), record)

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -41,12 +41,13 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
   const autoFocusRef = useRef(autoFocus);
   const restoreFocusRef = useRef(restoreFocus);
   const pausedRef = useRef(paused);
+  const focusFrameRef = useRef<number | null>(null);
   onCloseRef.current = onClose;
   autoFocusRef.current = autoFocus;
   restoreFocusRef.current = restoreFocus;
   pausedRef.current = paused;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return;
 
     previousActiveElementRef.current = document.activeElement as HTMLElement | null;
@@ -55,7 +56,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
     if (!container) return;
 
     if (autoFocusRef.current) {
-      requestAnimationFrame(() => {
+      focusFrameRef.current = requestAnimationFrame(() => {
         const focusables = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
         focusables[0]?.focus({ preventScroll: true });
       });
@@ -106,8 +107,12 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true);
-      if (restoreFocusRef.current && previousActiveElementRef.current) {
-        previousActiveElementRef.current.focus?.({ preventScroll: true });
+      if (focusFrameRef.current !== null) {
+        cancelAnimationFrame(focusFrameRef.current);
+        focusFrameRef.current = null;
+      }
+      if (!pausedRef.current && restoreFocusRef.current && previousActiveElementRef.current?.isConnected) {
+        previousActiveElementRef.current.focus({ preventScroll: true });
       }
     };
   }, [isOpen]);
