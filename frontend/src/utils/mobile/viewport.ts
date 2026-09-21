@@ -29,6 +29,23 @@ export function getViewportMetrics(
   };
 }
 
+/**
+ * Returns true when the currently focused element lives inside a modal dialog
+ * (role="dialog") or any element marked with data-modal-input="true".
+ * In this case the keyboard offset should NOT be applied to the chat composer
+ * so it doesn't jump up when the user types in a history search box, settings
+ * input, etc.
+ */
+function focusIsInsideModal(): boolean {
+  try {
+    const active = document.activeElement;
+    if (!active || active === document.body) return false;
+    return Boolean(active.closest('[role="dialog"]'));
+  } catch {
+    return false;
+  }
+}
+
 export function applyViewportHeight(
   win: Pick<Window, 'innerHeight'> & {
     visualViewport?: { height?: number } | null;
@@ -37,7 +54,16 @@ export function applyViewportHeight(
   const metrics = getViewportMetrics(win);
 
   document.documentElement.style.setProperty('--app-height', `${metrics.effectiveHeight}px`);
-  document.documentElement.style.setProperty('--keyboard-offset', `${metrics.keyboardOffset}px`);
+
+  // Only lift the composer dock when the keyboard was opened by an input
+  // that lives INSIDE the chat composer, not inside a modal dialog.
+  // This prevents the chatbox from jumping when the user types in the
+  // history search box, rename input, or any settings input field.
+  const suppressOffset = focusIsInsideModal();
+  document.documentElement.style.setProperty(
+    '--keyboard-offset',
+    suppressOffset ? '0px' : `${metrics.keyboardOffset}px`,
+  );
 
   return metrics;
 }

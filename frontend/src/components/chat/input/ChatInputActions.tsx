@@ -6,14 +6,15 @@ import { floatingMenuClass } from '../../../utils/ui/overlay';
 
 type ReplyTier = 'standard' | 'pro';
 
-/* Send / stop / live-voice button: 36px visual, 44px touch target enforced via
-   min-w/min-h. This meets Apple HIG (44pt) and Android (48dp ≈ fine here) minimums. */
+/* Send / stop / live-voice button: 36px visual on mobile, 40px on sm+.
+   44px touch-target is enforced by the .chat-compact-btn CSS rule on
+   pointer:coarse devices, so no inline min-w/min-h is needed here. */
 const COMPOSER_ACTION_SIZE =
-  'w-9 h-9 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px] sm:min-w-[44px] sm:min-h-[44px] aspect-square flex-shrink-0 flex items-center justify-center overflow-hidden';
+  'w-9 h-9 sm:w-10 sm:h-10 aspect-square flex-shrink-0 flex items-center justify-center';
 const COMPOSER_MUTED_TILE =
-  'bg-surface-elevated dark:bg-edge-default text-content-secondary hover:bg-edge-hover hover:text-content-primary active:translate-y-px transition-[background-color,color,box-shadow,transform] duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md';
+  'bg-surface-elevated dark:bg-edge-default text-content-secondary hover:bg-edge-hover hover:text-content-primary hover:scale-105 active:scale-95 transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md';
 const COMPOSER_SEND_TILE =
-  'bg-content-primary text-content-inverse hover:opacity-95 active:translate-y-px transition-[background-color,color,box-shadow,transform,opacity] duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md';
+  'bg-content-primary text-content-inverse hover:opacity-95 hover:scale-105 active:scale-95 transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md';
 
 function WaveformIcon({ className }: { className?: string }) {
   return (
@@ -277,7 +278,7 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
         <button
           type="button"
           onClick={onStartDictation}
-          className="chat-compact-btn min-w-[44px] min-h-[44px] w-9 h-9 flex items-center justify-center rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface-elevated transition-all duration-200 ease-out hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
+          className="chat-compact-btn w-8 h-8 flex items-center justify-center rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface-elevated transition-all duration-200 ease-out hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary cursor-pointer"
           title="Dictate with your microphone"
           aria-label="Dictate with your microphone"
         >

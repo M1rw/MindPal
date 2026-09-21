@@ -84,7 +84,9 @@ export function Modal({
       aria-labelledby={labelledBy}
       aria-label={labelledBy ? undefined : label}
       aria-hidden={!open || inert}
-      inert={inert || undefined}
+      // Exit animations keep the shell mounted; inert must follow the visual
+      // lifecycle so a focused child can never remain in a hidden dialog.
+      inert={!open || inert || undefined}
     >
       <div
         className={overlayBackdropClass(visible)}

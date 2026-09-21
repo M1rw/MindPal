@@ -28,7 +28,7 @@ from backend.domain.voice.token import (
     live_model_id,
     live_voice_id,
 )
-from backend.infra.store.store import StoreUnavailable, get_store
+from backend.infra.store.store import StoreUnavailable, get_store, store_is_durable
 
 logger = logging.getLogger("mindpal.voice")
 
@@ -212,6 +212,12 @@ class VoiceSessionService:
                 "payload_invalid",
                 "Live voice needs microphone consent before a session can start.",
             )
+        if self._production_requires_durable_store() and not store_is_durable(self.store):
+            logger.error("voice_mint_denied_non_durable_store")
+            raise AppError(
+                "unavailable",
+                "Live voice is temporarily unavailable because shared session storage is not configured. Please use text or dictation.",
+            )
         evaluation = self.flags.evaluate("voice.realtime", user_id_hash)
         if not evaluation.enabled:
             raise AppError(
@@ -276,6 +282,14 @@ class VoiceSessionService:
             quota_remaining_s=reservation["remaining_s"],
             extra={"status": "minted"},
         )
+
+    @staticmethod
+    def _production_requires_durable_store() -> bool:
+        environment = os.environ.get("ENVIRONMENT", "").strip().lower()
+        return os.environ.get("VERCEL", "").strip() == "1" or environment in {
+            "production",
+            "prod",
+        }
 
     def handle_event(self, *, user_id_hash: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         session_id = str(payload.get("session_id") or "").strip()
