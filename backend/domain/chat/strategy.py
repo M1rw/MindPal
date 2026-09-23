@@ -19,16 +19,20 @@ _DISTRESS = re.compile(
     r"\b(overwhelm\w*|crying|cried|panic\w*|scared|sad|depressed|hopeless|exhausted|hurt|hurts|anxious|anxiety|"
     r"grief|grieving|lonely|alone|broken|can't take|cant take|terrified|heartbroken|miserable|numb|drained)\b"
     r"|حزين|زعلان|خايف|قلق|متوتر|تعبان|مكتئب|وحيد|منهار|ضايق|مخنوق|ابكي|بكيت"
+    # Arabic (normalized: alef forms folded, taa marbuta as haa), across dialects.
+    r"|مضغوط|مقهور|تعبت|اكتئاب|توتر|خوف|ضيقه|حزن|وحدي|لحالي|انهرت|مو قادر|مش قادر|ما اقدر اتحمل|قلبي يوجعني|ما لي خلق|مالي خلق|زهقان|طفشان"
 )
 _DISTORTION = re.compile(
     r"\b(always fail\w*|never get|worthless|hate myself|ruined|pointless|everyone hates|terrible person|no way out|"
     r"stupid of me|i'm a failure|im a failure|i am a failure|nothing ever works|i ruin everything|i'm useless|im useless)\b"
     r"|فاشل|ما اسوى شي|كل شي خربته|الكل يكرهني|ما في فايده"
+    r"|ما احد يحبني|محد يحبني|كلهم يكرهوني|ما في امل|مافي امل|ما فيه امل|دايم اخرب|انا غبي|انا غبيه|ما اسوى|ما عندي قيمه"
 )
 _COACHING = re.compile(
     r"\b(what should i|how (do|can) i|help me (decide|plan|figure|choose)|advice|solution|next step\w*|solve|options|"
     r"stuck on|should i|pros and cons|plan for)\b"
     r"|وش اسوي|ايش اسوي|كيف اقدر|انصحني|ساعدني اقرر|ماذا افعل|خطه"
+    r"|شو اعمل|اعمل ايه|وش الحل|ايش الحل|شو الحل|ايه الحل|كيف اتصرف|وش تنصحني|ابي حل|عايز حل|بدي حل|خيارات"
 )
 
 _BASELINE = 0.3

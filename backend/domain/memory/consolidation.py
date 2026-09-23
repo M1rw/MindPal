@@ -28,6 +28,7 @@ de-duplicated queue.
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -35,7 +36,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from backend.configs.runtime import dynamic_config
 from backend.domain.dynamic.policy import LoadState, current_load
-from backend.domain.memory.graph import MemoryGraphService, rank_atoms
+from backend.domain.memory.graph import MemoryAtom, MemoryGraphService, rank_atoms
 from backend.domain.safety.modes.chat.classify import crisis_evidence
 from backend.models.provider_outputs import MemoryDigestOutput, MemorySummaryOutput, parse_provider_output
 
@@ -51,8 +52,12 @@ DIGEST_SYSTEM = (
     "the same person's future conversations. Use ONLY what the turns say; never invent. "
     "Write in third person, plain language, no diagnosis, no clinical labels, no quotes. "
     "Never include details of self-harm methods or means. "
+    "Also list durable facts about the person worth remembering (their name, people in their life, "
+    "work or studies, goals, ongoing situations, preferences), in the language they used. "
+    "Skip passing moods, anything about self-harm, and anything uncertain. "
     'Return JSON only: {"digest": "<= {words} words: what they shared, how it felt, what helped or did not", '
-    '"themes": ["<= 3 short topics"], "helped": ["<= 2 things that helped, if any"]}'
+    '"themes": ["<= 3 short topics"], "helped": ["<= 2 things that helped, if any"], '
+    '"facts": [{"category": "profile|people|work|goals|situations|preferences", "value": "<= 12 words"}]}'
 )
 
 SUMMARY_SYSTEM = (
@@ -61,8 +66,11 @@ SUMMARY_SYSTEM = (
     "Prefer recent information when things changed; drop what is no longer relevant. "
     "Use ONLY the provided material; never invent. Third person, warm but factual, no diagnosis, "
     "no clinical labels, never self-harm method details. "
+    "Open threads are things worth gently following up next time, each written as one short, warm "
+    "question to the person, in the language they use (for example: How did the Friday exam go?). "
+    "Never make a thread about self-harm or crisis. "
     'Return JSON only: {"summary": "<= {words} words", '
-    '"open_threads": ["<= 3 things worth gently following up, e.g. an upcoming exam"]}'
+    '"open_threads": ["<= 3 follow-up questions"]}'
 )
 
 
@@ -73,6 +81,14 @@ def _memory_limits() -> Dict[str, Any]:
 def _clip(text: str, limit: int) -> str:
     value = " ".join(str(text or "").split())
     return value if len(value) <= limit else value[: max(0, limit - 1)].rstrip() + "…"
+
+
+_CONTACT = re.compile(r"(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+[.][A-Z]{2,}|[+]?[0-9][0-9 ()-]{7,}[0-9]")
+
+
+def _slug(value: str) -> str:
+    text = re.sub(r"[^0-9a-z" + chr(0x0600) + "-" + chr(0x06FF) + r"]+", "-", value.lower()).strip("-")
+    return text[:48] or "fact"
 
 
 def _fact_needle(value: str) -> str:
@@ -239,9 +255,11 @@ class MemoryConsolidationService:
             return
         now = self._clock()
 
+        vector = self._digest_vector(clean)
+
         def mutate(current: Any, write: Any) -> None:
             journal = _journal(current, user_id_hash)
-            journal["digests"] = self._append_digest(journal["digests"], {"text": clean, "source": source}, now)
+            journal["digests"] = self._append_digest(journal["digests"], {"text": clean, "source": source, **vector}, now)
             journal["digests_since_summary"] = int(journal["digests_since_summary"]) + 1
             write(journal)
 
@@ -390,12 +408,14 @@ class MemoryConsolidationService:
         digest_text = _clip(output.digest, 600)
         if crisis_evidence(digest_text):
             digest_text = "They went through a very hard moment and talked it through."
+        self._merge_ai_facts(user_id_hash, output.facts)
+        vector = self._digest_vector(digest_text)
         compacted_upto = float(turns[-1].get("at") or 0)
         now = self._clock()
 
         def mutate(current: Any, write: Any) -> None:
             fresh = _journal(current, user_id_hash)
-            entry = {"text": digest_text, "themes": output.themes, "helped": output.helped, "source": "chat"}
+            entry = {"text": digest_text, "themes": output.themes, "helped": output.helped, "source": "chat", **vector}
             fresh["digests"] = self._append_digest(fresh["digests"], entry, now)
             # Data minimization: the raw turns this digest covers are deleted.
             fresh["turns"] = [t for t in fresh["turns"] if float(t.get("at") or 0) > compacted_upto]
@@ -448,6 +468,44 @@ class MemoryConsolidationService:
 
         self.store.transact(JOURNAL_COLLECTION, user_id_hash, mutate)
         return True
+
+    def _digest_vector(self, text: str) -> Dict[str, Any]:
+        """A vector for search by meaning, when load and configuration allow. Best effort."""
+        try:
+            if not self._load().policy("retrieval")["semantic"]:
+                return {}
+            from backend.infra.llm.embeddings import compact, get_embedder
+
+            embedder = get_embedder()
+            vectors = embedder.embed([text], task="RETRIEVAL_DOCUMENT") if embedder else None
+            return {"vec": compact(vectors[0])} if vectors else {}
+        except Exception as exc:
+            logger.warning("memory_digest_vector_skipped error=%s", type(exc).__name__)
+            return {}
+
+    def _merge_ai_facts(self, user_id_hash: str, facts: List[Dict[str, str]]) -> int:
+        """Facts found by the digest call, merged at lower confidence than explicit ones.
+
+        This is where non-English facts come from: the pattern extractor is
+        English-first, the model is not. Crisis content and contact details are
+        never stored.
+        """
+        atoms: List[MemoryAtom] = []
+        for fact in facts[:5]:
+            value = _clip(str(fact.get("value") or ""), 90)
+            category = str(fact.get("category") or "facts").strip().lower()[:24] or "facts"
+            if not value or crisis_evidence(value) or _CONTACT.search(value):
+                continue
+            atom_id = f"{category}:ai:{_slug(value)}"
+            atoms.append(MemoryAtom(id=atom_id, category=category, value=value, confidence=0.7))
+        if not atoms:
+            return 0
+        try:
+            _graph, saved = self.memory.merge_atoms(user_id_hash, atoms)
+        except Exception as exc:
+            logger.warning("memory_ai_facts_skipped error=%s", type(exc).__name__)
+            return 0
+        return len(saved)
 
     # -- bookkeeping --------------------------------------------------------
 
