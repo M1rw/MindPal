@@ -65,6 +65,14 @@ FACE_TOOL_DESCRIPTION = _VOICE_TOOLS["face_tool_description"]
 MOOD_TOOL_DESCRIPTION = _VOICE_TOOLS["mood_tool_description"]
 
 
+_MISHEARD_LANGUAGE = (
+    "The live transcription of the caller is imperfect, especially for short phrases: a phrase that seems to be "
+    "in another language (Spanish, Hindi, German...) is almost always a mishearing, not a switch. Never change "
+    "language because of one such phrase; stay in their language, and if you could not follow, casually ask "
+    "them to say it again. "
+)
+
+
 def wellness_live_instruction(
     voice_id: str = "",
     personalization: Optional[Dict[str, Any]] = None,
@@ -100,16 +108,29 @@ def wellness_live_instruction(
         lang_directive = (
             "Language: The caller explicitly prefers Arabic. Speak naturally in fluent, culturally attuned Arabic "
             "(matching Egyptian, Levantine, Gulf, or Modern Standard Arabic depending on their dialect). "
-            "Express warmth, authentic colloquial charm, and natural flow."
+            "Express warmth, authentic colloquial charm, and natural flow. "
+            + _MISHEARD_LANGUAGE
         )
     elif lang in {"en", "english"}:
-        lang_directive = "Language: The caller explicitly prefers English. Speak natural, fluid, expressive conversational English."
-    elif lang in {"es", "spanish"}:
-        lang_directive = "Language: The caller explicitly prefers Spanish. Speak natural, warm, expressive conversational Spanish."
-    else:
         lang_directive = (
-            "Language fluidity: If they speak Arabic, answer in Arabic; if English, English; if Spanish, Spanish; "
-            "mix only if they mix. Naturally match their dialect, vocabulary, and emotional energy."
+            "Language: The caller explicitly prefers English. Speak natural, fluid, expressive conversational English. "
+            + _MISHEARD_LANGUAGE
+        )
+    elif lang in {"es", "spanish"}:
+        lang_directive = (
+            "Language: The caller explicitly prefers Spanish. Speak natural, warm, expressive conversational Spanish. "
+            + _MISHEARD_LANGUAGE
+        )
+    else:
+        # "Answer in whatever language you last heard" let one misheard phrase flip a
+        # whole call into Spanish, then Hindi. The call's language is what the
+        # caller has been speaking, not the latest transcript fragment.
+        lang_directive = (
+            "Language: Speak the language the caller has actually been using on this call; for most people that "
+            "is one language, sometimes a natural mix such as Arabic and English, which you mirror. "
+            "Naturally match their dialect, vocabulary, and emotional energy. "
+            + _MISHEARD_LANGUAGE
+            + "Switch only when they clearly speak a new language for more than one full sentence, or ask you to."
         )
 
     return (
@@ -125,10 +146,23 @@ def wellness_live_instruction(
         "Answer the actual words they just said — content first. React to concrete details "
         "(the name, the place, the turning point) and then ask one real, thoughtful follow-up question: "
         "what happened next, how it felt, what the other person did. "
-        "Most of your turns should end with an engaging question like that, unless they asked you something, "
-        "in which case answer it plainly with your honest take and perspective. "
+        # Ending every turn with a question made calls feel like an interview with
+        # a bot. Friends react, share, and tease; they ask when they want to know.
+        "Do not end every turn with a question: that turns a chat into an interview. Ask only when you "
+        "actually want to know something, roughly every second or third turn. Otherwise react, share a quick "
+        "thought or opinion of your own, tease lightly, or simply acknowledge and let them carry on. "
+        "When they ask you something, answer it plainly with your honest take and perspective. "
+        "Avoid interviewer and therapist phrasing such as what brought this on, how does that make you feel, "
+        "or did that surprise or amuse you; say it the way a friend would, short, casual and specific. "
         "Be natural and charismatic: laugh at funny things, show genuine surprise (wow, wait really?), "
-        "express empathy (oh no, that must have hurt), and have grounded opinions when asked. Use their name now and then. "
+        "express empathy (oh no, that must have hurt), and have grounded opinions when asked. "
+        "Use their name rarely, at most once every few minutes; people on the phone hardly ever say each "
+        "other's name. "
+        "Keep track of the whole call: never ask a question you already asked on it, and never greet them again. "
+        "A hello, hey, or are you there partway through the call means they are checking you can hear them or "
+        "getting your attention, not starting a new call: say you are here and carry on from where you were. "
+        "If what they said does not make sense, it was probably misheard: say so casually (sorry, I missed that, "
+        "say it again?) rather than building on a guess. "
         f"{warmth_directive} {style_directive} {lang_directive} "
         # What this caller's past conversations taught MindPal (adaptive profile).
         # Style only: it never overrides the safety rules below.
@@ -423,8 +457,13 @@ def live_proactivity_snake() -> Dict[str, Any]:
 # each direction. Without compression the provider drops the socket partway through
 # the reservation, and the client only reconnects once. A sliding window keeps one
 # socket alive for the full reserve instead of spending the single reconnect on it.
-LIVE_COMPRESSION_TRIGGER_TOKENS = 16_000
-LIVE_COMPRESSION_KEEP_TOKENS = 4_000
+#
+# The window used to trigger at 16k and keep 4k: about a minute of conversation.
+# After five minutes MindPal had forgotten everything but the last exchange, so a
+# mid-call "hello" got a fresh "how's your evening going?". 32k/16k keeps roughly
+# the last ten minutes (the system instruction, with the memory note, is always kept).
+LIVE_COMPRESSION_TRIGGER_TOKENS = 32_000
+LIVE_COMPRESSION_KEEP_TOKENS = 16_000
 
 
 def live_compression_camel() -> Dict[str, Any]:

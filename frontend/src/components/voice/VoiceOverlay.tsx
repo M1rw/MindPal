@@ -619,7 +619,7 @@ export const VoiceOverlay: React.FC = () => {
           <button
             type="button"
             onClick={close}
-            className="h-11 px-5 flex items-center gap-2 rounded-xl bg-feedback-danger/10 text-feedback-danger text-[13px] font-semibold hover:bg-feedback-danger/25 hover:text-feedback-danger hover:shadow-md hover:shadow-feedback-danger/20 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none cursor-pointer"
+            className="h-11 px-5 flex items-center gap-2 rounded-xl bg-feedback-danger/10 text-feedback-danger text-[13px] font-semibold hover:bg-feedback-danger/15 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none cursor-pointer"
             aria-label="End live voice"
           >
             <PhoneOff className="w-4 h-4" />
