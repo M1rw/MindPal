@@ -27,7 +27,7 @@ DEFAULT_CHAT_MODEL = DEFAULT_GEMINI_CHAT_MODEL
 #
 # Both are env-overridable. GEMINI_JSON_MODEL exists specifically so the safety
 # classifier can be moved back to a stronger model without a deploy if
-# scripts/validate_voice_classifier.py shows the cheaper one mislabelling.
+# scripts/eval/validate_voice_classifier.py shows the cheaper one mislabelling.
 JSON_MODEL = DEFAULT_GEMINI_JSON_MODEL
 
 

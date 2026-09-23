@@ -3314,7 +3314,11 @@ details > summary::-webkit-details-marker { display: none; }
   flex: 0 0 auto;
   min-width: 0;
   max-width: 24rem;
+  /* overflow stays hidden for the dictation collapse; the inset below gives the
+     buttons' hover scale and focus ring room so they are never clipped. */
   overflow: hidden;
+  padding: 0.25rem;
+  margin: -0.25rem;
   opacity: 1;
   pointer-events: auto;
   white-space: nowrap;
@@ -3329,15 +3333,16 @@ details > summary::-webkit-details-marker { display: none; }
   justify-content: space-between;
 }
 
+/* Long text: Expand sits at the top of the column and the actions at the
+   bottom, both in normal flow. It used to be absolutely positioned, which left
+   the actions as the column's only child, so Send rose to the top on top of it. */
 .chat-composer__idle-actions--expand {
-  position: relative;
+  align-self: stretch;
+  justify-content: space-between;
 }
 
 .chat-composer__idle-actions--expand .chat-composer__expand {
-  position: absolute;
-  top: 0;
-  right: 0.625rem;
-  transform: none;
+  margin-right: 0.25rem;
 }
 
 .chat-composer--dictating .chat-composer__idle-actions {

@@ -33,7 +33,7 @@ app = "backend.main:app"
 entrypoint = "backend.main:app"
 
 [tool.pytest.ini_options]
-testpaths = ["tests/unit/platform"]
+testpaths = ["tests/backend"]
 pythonpath = ["."]
 addopts = "--strict-markers --strict-config"
 
