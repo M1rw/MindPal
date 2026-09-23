@@ -60,16 +60,11 @@ temp/
 .cache/
 var/
 local_data/
-.vercel
+.vercel/
 
 # Generated frontend / voice assets
 frontend/css/tailwind.generated.css
 frontend/dist/
-frontend/voice/dist/
-frontend/voice/assets/
-frontend/voice/public/assets/
-frontend/voice-v3/
-voice/dist/
-voice/public/assets/
-artifacts/voice-persona-review/
-artifacts/frontend-quality/
+# Local test and audit output (screenshots, audio, reports)
+artifacts/
+

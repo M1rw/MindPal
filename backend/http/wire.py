@@ -27,51 +27,6 @@ from backend.core.storage import StoreUnavailable
 
 logger = logging.getLogger("mindpal.http")
 
-IMPLEMENTED = frozenset(
-    {
-        "healthLive",
-        "healthReady",
-        "releaseChangelogGet",
-        "releaseChangelogDismiss",
-        "chatStream",
-        "sessionsGetCurrent",
-        "sessionsReplaceCurrent",
-        "sessionsDeleteCurrent",
-        "sessionsAppendMessages",
-        "identityMe",
-        "identityGetProfile",
-        "identityPatchProfile",
-        "identityGetInsights",
-        "identityGetWellnessTimeline",
-        "identityExport",
-        "identityDeleteData",
-        "memoryGetGraph",
-        "memoryPutGraph",
-        "memoryDeleteGraphItem",
-        "memoryPatchGraphItem",
-        "memoryGetSummary",
-        "memoryRefreshSummary",
-        "voiceCreateSessionToken",
-        "voiceRecordSessionEvent",
-        "voiceClassifyReaction",
-        "voiceRecall",
-        "voiceSummarizeSession",
-        # Live route used by the Usage settings screen. Omitting it registered a
-        # 501 placeholder over the same path: the real router still won on order,
-        # but the app carried a duplicate operationId and a landmine one route
-        # reshuffle away from taking the endpoint down.
-        "voiceGetUsage",
-        "greetingGet",
-        "flagsSnapshot",
-        "systemRouteCatalog",
-        "chatsList",
-        "chatsSave",
-        "chatsGet",
-        "chatsDelete",
-        "sessionsRecordTelemetry",
-    }
-)
-
 _ROUTERS = (
     health_router,
     release_router,
@@ -105,21 +60,12 @@ async def _store_unavailable_handler(request: Request, exc: StoreUnavailable) ->
     )
 
 
-def _assert_implemented_operations_exist(app: FastAPI) -> None:
-    """Fail loudly when IMPLEMENTED names an operation no router actually serves.
-
-    The registry drifting from the routers is silent by nature: a missing name
-    shadows a live route with a 501 placeholder, and a stale name hides a route
-    that was deleted. Both used to survive to production.
-    """
-    served = {
-        getattr(route, "operation_id", None)
+def _served_operation_ids(app: FastAPI) -> set[str]:
+    return {
+        str(route.operation_id)
         for route in app.routes
         if getattr(route, "operation_id", None)
     }
-    missing = sorted(name for name in IMPLEMENTED if name not in served)
-    if missing:
-        raise RuntimeError(f"IMPLEMENTED lists operations with no route: {missing}")
 
 
 def wire_http(app: FastAPI) -> None:
@@ -127,5 +73,7 @@ def wire_http(app: FastAPI) -> None:
     app.add_exception_handler(StoreUnavailable, _store_unavailable_handler)
     for router in _ROUTERS:
         app.include_router(router)
-    _assert_implemented_operations_exist(app)
-    app.include_router(register_preview_placeholders(set(IMPLEMENTED)))
+    # Contract operations with no real route yet answer 501. What counts as
+    # implemented is read from the routes actually served, so a new endpoint can
+    # never be shadowed by a placeholder because a hand-kept list went stale.
+    app.include_router(register_preview_placeholders(_served_operation_ids(app)))

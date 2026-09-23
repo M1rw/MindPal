@@ -17,6 +17,16 @@ import { applyViewportHeight } from './utils/mobile/viewport';
   const win = window as MindPalWindow;
   win.va = win.va || function () { (win.vaq = win.vaq || []).push(arguments); };
   win.si = win.si || function () { (win.siq = win.siq || []).push(arguments); };
+  // Load the Vercel scripts only on Vercel deployments. This used to be an inline
+  // <script> in index.html, which kept 'unsafe-inline' necessary in the CSP.
+  if (window.location.hostname.endsWith('.vercel.app')) {
+    for (const src of ['/_vercel/insights/script.js', '/_vercel/speed-insights/script.js']) {
+      const script = document.createElement('script');
+      script.defer = true;
+      script.src = src;
+      document.head.appendChild(script);
+    }
+  }
 
   // iOS Safari / Mobile Dynamic Viewport Fix with visualViewport support
   const setAppHeight = () => {

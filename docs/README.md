@@ -1,53 +1,22 @@
-# MindPal documentation
+# MindPal Documentation
 
-Operating manual for the current tree. Historical audits, sprint logs, and research dumps live in [`archive/docs-historical/`](../archive/docs-historical/).
+| Doc | Read it for |
+|---|---|
+| [architecture.md](architecture.md) | System diagram, backend layers, the life of a chat turn |
+| [memory.md](memory.md) | Facts, AI summary, self-learning, privacy controls |
+| [voice.md](voice.md) | Live call lifecycle, quota, safety lease |
+| [safety.md](safety.md) | Crisis handling in chat and voice |
+| [operations.md](operations.md) | Deploy, configuration, storage, scheduled jobs, load levels |
+| [development.md](development.md) | Setup, layout, tests, CI checks, conventions |
 
-MindPal is a production wellness companion: FastAPI, Firebase Auth, Memory Graph, and a React client in `frontend/src/`.
+## Decisions
 
-## Index
+| # | Decision |
+|---|---|
+| [0001](decisions/0001-supabase-document-store.md) | Supabase is the production document store |
+| [0002](decisions/0002-rationed-ai-memory.md) | AI memory is batched and rationed, never per turn |
+| [0003](decisions/0003-load-aware-policy.md) | Non-essential work adapts to load; safety never does |
+| [0004](decisions/0004-account-only-live-voice.md) | Live voice requires an account |
 
-### Architecture
-- [`architecture/backend-platform.md`](architecture/backend-platform.md) — current backend constitution
-- [`architecture/frontend-platform.md`](architecture/frontend-platform.md) — current frontend stack and invariants
-- [`architecture/memory_v4_design.md`](architecture/memory_v4_design.md)
-- [`ARCHITECTURE_MAP.md`](ARCHITECTURE_MAP.md), [`ENTRY_POINTS.md`](ENTRY_POINTS.md), [`STACK.md`](STACK.md), [`DATA_MODEL.md`](DATA_MODEL.md)
-
-### Product
-- [`product/current-state-and-roadmap.md`](product/current-state-and-roadmap.md)
-- [`product/response-modes.md`](product/response-modes.md)
-- [`product/mindpal-safe-mode-architecture.md`](product/mindpal-safe-mode-architecture.md)
-
-### Backend
-- [`backend/safety-system.md`](backend/safety-system.md)
-- [`backend/rag-clinical-frameworks.md`](backend/rag-clinical-frameworks.md)
-- [`backend/memory-v3.md`](backend/memory-v3.md) (v2 is legacy reference)
-- [`backend/chat-sync-and-history.md`](backend/chat-sync-and-history.md)
-- [`backend/tool-framework.md`](backend/tool-framework.md)
-- [`backend/prompt-engineering.md`](backend/prompt-engineering.md)
-- [`backend/quota-enforcement.md`](backend/quota-enforcement.md)
-- [`LLM_PIPELINE.md`](LLM_PIPELINE.md), [`API_REFERENCE.md`](API_REFERENCE.md), [`API_CONTRACT_MATRIX.md`](API_CONTRACT_MATRIX.md)
-
-### Frontend
-- [`FRONTEND_MAP.md`](FRONTEND_MAP.md) — current React surface inventory
-- [`frontend/welcome-screen.md`](frontend/welcome-screen.md)
-- [`frontend/chat-display.md`](frontend/chat-display.md)
-- [`frontend/model-mode-selector.md`](frontend/model-mode-selector.md)
-- [`frontend/settings-ui.md`](frontend/settings-ui.md)
-- [`frontend/pwa-viewport-safearea.md`](frontend/pwa-viewport-safearea.md)
-- [`frontend/voice-and-mobile-ios.md`](frontend/voice-and-mobile-ios.md)
-
-### Ops and tests
-- [`ops/release-and-deploy-flow.md`](ops/release-and-deploy-flow.md)
-- [`testing/regression-checklist.md`](testing/regression-checklist.md)
-- [`production_engineering_standards.md`](production_engineering_standards.md)
-- [`legal_pages.md`](legal_pages.md)
-
-## Rules
-
-1. Keep voice, auth, providers, RAG, memory, and chat sync as separate systems.
-2. Do not use raw chat history as durable memory, or RAG corpus files as user memory.
-3. Safety routing overrides user mode preferences.
-4. Do not show a control that the backend cannot honor.
-5. Settings destructive actions respond only to the explicit confirm control.
-6. Viewport height uses `dvh` plus `--app-height` fallback; respect safe areas.
-7. Copy visible assistant text only — never thought chains.
+The API contract is `contracts/openapi.yaml`. Older design notes and audits are
+preserved in the git tag `archive-2026-09`.

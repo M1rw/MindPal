@@ -81,8 +81,15 @@ def _neutral_platform_pulse():
     """Each test starts at calm load; simulated LLM failures in one test must not
     push another into a degraded policy. Tests that exercise load set
     MINDPAL_PRESSURE_OVERRIDE or drive a private PlatformPulse."""
-    from backend.infra.observability.pulse import platform_pulse
+    from backend.infra.observability.pulse import PULSE_COLLECTION, platform_pulse
+    from backend.infra.store.store import get_store
 
-    platform_pulse().reset()
+    def clear() -> None:
+        platform_pulse().reset()
+        store = get_store()
+        for doc_id, _doc in list(store.iter_documents(PULSE_COLLECTION)):
+            store.delete_document(PULSE_COLLECTION, doc_id)
+
+    clear()
     yield
-    platform_pulse().reset()
+    clear()
