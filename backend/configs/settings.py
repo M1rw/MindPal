@@ -96,20 +96,22 @@ class Settings(BaseSettings):
     def configured_storage_provider(self) -> str:
         """Explicit choice wins; otherwise the durable store that is configured.
 
-        Firestore is preferred when Firebase Admin credentials exist, because that
-        is where existing accounts' data already lives. Memory is only chosen
-        when nothing durable is configured, and the store logs that loudly.
+        Supabase is preferred when configured: it is the production store.
+        Firebase Admin credentials alone do not prove a Firestore database
+        exists (they are also needed for sign-in), so Firestore comes second.
+        Memory is only chosen when nothing durable is configured, and the store
+        logs that loudly.
         """
         explicit = self.storage_provider.strip().lower()
         if explicit in {'inmemory', 'in-memory'}:
             return 'memory'
         if explicit:
             return explicit
-        if self.has_firebase_admin_credentials():
-            return 'firestore'
         url, key = self.supabase_settings()
         if url and key:
             return 'supabase'
+        if self.has_firebase_admin_credentials():
+            return 'firestore'
         return 'memory'
 
     def has_firebase_admin_credentials(self) -> bool:

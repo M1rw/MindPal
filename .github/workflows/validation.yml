@@ -45,11 +45,14 @@ jobs:
       MINDPAL_STORAGE_PROVIDER: memory
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks scans the pull request's commit range, which needs history.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install backend dependencies
-        run: python -m pip install --requirement requirements.lock pytest bandit pip-audit
+        run: python -m pip install --requirement requirements.lock pytest pytest-asyncio bandit pip-audit
       - name: Validate runtime JSON schemas
         run: python scripts/validate_runtime_configs.py
       - name: Evaluate prompt contracts
@@ -59,10 +62,10 @@ jobs:
       - name: Run backend tests
         run: pytest tests -q
       - name: Compile backend
-        run: python -m compileall --quiet backend
+        run: python -m compileall -q backend
       - name: Bandit security scan
         # Medium severity and above fails the build; low findings are reviewed in PRs.
-        run: bandit --quiet --severity-level medium --recursive backend --exclude backend/**/__pycache__
+        run: bandit --quiet --severity-level medium --recursive backend
       - name: Dependency vulnerability scan
         run: pip-audit --requirement requirements.lock
       - name: Secret scan
@@ -80,9 +83,11 @@ jobs:
           cache: npm
       - name: Install frontend dependencies
         run: npm ci
+      - name: Install the browser for end-to-end and audio worklet tests
+        run: npx playwright install --with-deps chromium
       - name: Type-check
         run: npx tsc --noEmit -p tsconfig.json
+      - name: Build CSS and bundle (the end-to-end tests load the built app)
+        run: npm run build:css && npm run build:app
       - name: Frontend and voice contract tests
         run: npm test
-      - name: Bundle
-        run: npm run build:app
