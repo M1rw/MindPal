@@ -1,8 +1,37 @@
 import { useSettingsStore, useUsageStore } from '../../store/index.ts';
 import type { MemoryReceipt, MemoryReceiptItem, UserPersonalization, UsageQuota } from '../../types/index.ts';
-import { fetchWithAuth, parseErrorMessage } from './http.ts';
+import { TimeoutError, fetchWithAuth, newOperationKey, parseErrorMessage } from './http.ts';
 
 export const MAX_CHAT_HISTORY_TURNS = 30;
+/**
+ * Longest silence tolerated between two pieces of a streamed reply. The server
+ * sends usage first and text continuously, so a gap this long means the reply
+ * stalled; waiting forever left the composer stuck "thinking" (audit MP-13).
+ */
+export const STREAM_IDLE_TIMEOUT_MS = 45_000;
+
+type StreamReader = ReadableStreamDefaultReader<Uint8Array>;
+
+/** One read that also ends on Stop or on a stalled stream. */
+async function readChunk(reader: StreamReader, signal: AbortSignal | undefined, idleMs: number) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let onAbort: (() => void) | null = null;
+  const stalled = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new TimeoutError('The reply stopped arriving. Please try again.')), idleMs);
+  });
+  const stopped = new Promise<never>((_, reject) => {
+    if (!signal) return;
+    onAbort = () => reject(new DOMException('The reply was stopped.', 'AbortError'));
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([reader.read(), stalled, stopped]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+    if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+  }
+}
 
 async function getClientContext(): Promise<Record<string, unknown>> {
   const context: Record<string, unknown> = {};
@@ -111,14 +140,19 @@ export const chatApi = {
       personalization?: UserPersonalization;
       signal?: AbortSignal;
       onMemory?: (receipt: MemoryReceipt) => void;
+      /** Reuse only when resending the very same turn; new turns get a fresh key. */
+      idempotencyKey?: string;
     },
   ): Promise<void> {
+    let reader: StreamReader | null = null;
+    let finished = false;
     try {
       const activePersonalization = options?.personalization ?? useSettingsStore.getState().settings.personalization;
       const clientContext = await getClientContext();
       const response = await fetchWithAuth('/api/chat/stream', {
         method: 'POST',
         signal: options?.signal,
+        headers: { 'Idempotency-Key': options?.idempotencyKey || newOperationKey() },
         body: JSON.stringify({
           message,
           history: history.slice(-MAX_CHAT_HISTORY_TURNS).map((turn) => ({
@@ -140,7 +174,7 @@ export const chatApi = {
 
       if (!response.body) throw new Error('Response body is null');
 
-      const reader = response.body.getReader();
+      reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
 
@@ -155,8 +189,11 @@ export const chatApi = {
           return;
         }
 
-        const { done, value } = await reader.read();
-        if (done) break;
+        const { done, value } = await readChunk(reader, options?.signal, STREAM_IDLE_TIMEOUT_MS);
+        if (done) {
+          finished = true;
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -166,6 +203,7 @@ export const chatApi = {
           if (!line.startsWith('data:')) continue;
           const rawData = line.slice(5).replace(/^ /, '');
           if (rawData === '[DONE]') {
+            finished = true;
             onComplete();
             return;
           }
@@ -210,6 +248,10 @@ export const chatApi = {
         return;
       }
       onError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      // Stopped, stalled or failed mid-body: release the connection so the
+      // server stops generating instead of streaming into nobody.
+      if (reader && !finished) reader.cancel().catch(() => {});
     }
   },
 

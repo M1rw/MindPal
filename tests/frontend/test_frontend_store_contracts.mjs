@@ -225,7 +225,10 @@ describe('Chat history store persistence contract', () => {
       updatedAt: '2026-09-14T00:00:00.000Z',
       messages: [],
     };
-    useChatHistoryStore.setState({ sessions: [localSession] });
+    // History is loaded for the account that owns the browser, not for "any token".
+    const { setOwner } = await import('../../frontend/src/services/session/owner.ts');
+    setOwner('usr_cloud_test');
+    useChatHistoryStore.setState({ sessions: [localSession], owner: 'usr_cloud_test' });
     useSessionStore.setState({ isAuthenticated: true, idToken: 'token' });
     globalThis.fetch = async () => {
       throw new Error('offline');
@@ -237,11 +240,14 @@ describe('Chat history store persistence contract', () => {
       await useChatHistoryStore.getState().loadCloudSessions();
     } finally {
       console.warn = originalWarn;
+      setOwner(null);
     }
+    const leftOver = useChatHistoryStore.getState();
 
     assert.equal(useChatHistoryStore.getState().isLoadingCloud, false);
     assert.match(useChatHistoryStore.getState().cloudError, /Could not sync cloud history/);
-    assert.equal(useChatHistoryStore.getState().sessions[0].id, 'local-session');
+    assert.equal(leftOver.sessions[0].id, 'local-session');
+    useChatHistoryStore.setState({ owner: 'guest' });
   });
 });
 

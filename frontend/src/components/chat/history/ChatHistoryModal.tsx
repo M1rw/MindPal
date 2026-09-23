@@ -48,6 +48,8 @@ export const ChatHistoryModal: React.FC = () => {
   const deleteSession = useChatHistoryStore((s) => s.deleteSession);
   const renameSession = useChatHistoryStore((s) => s.renameSession);
   const setActiveSessionId = useChatHistoryStore((s) => s.setActiveSessionId);
+  const guestSessionCount = useChatHistoryStore((s) => s.guestSessionCount);
+  const importGuestSessions = useChatHistoryStore((s) => s.importGuestSessions);
 
   const setMessages = useChatStore((s) => s.setMessages);
   const clearMessages = useChatStore((s) => s.clearMessages);
@@ -217,6 +219,25 @@ export const ChatHistoryModal: React.FC = () => {
             />
           )}
       </ModalBody>
+      {guestSessionCount > 0 ? (
+        // Chats from before signing in stay on the device until the person
+        // chooses to keep them in their account. Merging them automatically
+        // put whoever used this browser as a guest into the next account.
+        <div className="flex items-center justify-between gap-3 border-t border-edge-subtle px-4 py-2.5 text-xs text-content-secondary">
+          <span>
+            {guestSessionCount === 1
+              ? '1 chat from before you signed in is on this device.'
+              : `${guestSessionCount} chats from before you signed in are on this device.`}
+          </span>
+          <button
+            type="button"
+            onClick={() => importGuestSessions()}
+            className="flex-shrink-0 font-semibold text-brand-primary hover:text-brand-hover"
+          >
+            Add to my account
+          </button>
+        </div>
+      ) : null}
       {cloudError && groups.length > 0 ? (
         <div className="flex items-center justify-between gap-3 border-t border-edge-subtle bg-amber-500/5 px-4 py-2.5 text-xs text-content-secondary">
           <span>{cloudError}</span>
