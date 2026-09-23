@@ -45,6 +45,9 @@ jobs:
       MINDPAL_STORAGE_PROVIDER: memory
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks scans the pull request's commit range, which needs history.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
