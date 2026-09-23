@@ -64,7 +64,7 @@ def main() -> int:
     if not key:
         print("  OPENROUTER_API_KEY not found in env, .env.local, or .env.")
         return 2
-    print(f"  key shape: {len(key)} chars, starts {key[:7]}...")
+    print(f"  key found: {len(key)} chars")
 
     try:
         response = httpx.get(

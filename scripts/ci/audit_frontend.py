@@ -71,7 +71,7 @@ def check_index_security() -> None:
         if origin in html:
             fail(f"Production index executes a third-party runtime dependency: {origin}")
 
-    script_tags = re.findall(r"<script\b[^>]*>[\s\S]*?</script>", html, flags=re.IGNORECASE)
+    script_tags = re.findall(r"<script\b[^>]*>[\s\S]*?</script[^>]*>", html, flags=re.IGNORECASE)
     # Data blocks (type="application/json") are never executed and CSP does not apply to them.
     inline = [
         tag
