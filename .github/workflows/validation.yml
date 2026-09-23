@@ -59,7 +59,7 @@ jobs:
       - name: Run backend tests
         run: pytest tests -q
       - name: Compile backend
-        run: python -m compileall --quiet backend
+        run: python -m compileall -q backend
       - name: Bandit security scan
         # Medium severity and above fails the build; low findings are reviewed in PRs.
         run: bandit --quiet --severity-level medium --recursive backend --exclude backend/**/__pycache__
@@ -84,7 +84,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Type-check
         run: npx tsc --noEmit -p tsconfig.json
+      - name: Build CSS and bundle (the end-to-end tests load the built app)
+        run: npm run build:css && npm run build:app
       - name: Frontend and voice contract tests
         run: npm test
-      - name: Bundle
-        run: npm run build:app
