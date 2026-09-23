@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Header
-from pydantic import BaseModel, Field
 
 from backend.core.errors import AppError
 from backend.domain.identity.identity import verify_auth_header
-from backend.domain.voice.reaction import VoiceReactionService
-from backend.domain.voice.recall import VoiceRecallService
-from backend.domain.voice.session import VoiceSessionService
-from backend.domain.voice.summarize import VoiceSummarizeService
+from backend.domain.voice.contracts.requests import (
+    VoiceDiagnosticsRequest,
+    VoiceReactionRequest,
+    VoiceRecallRequest,
+    VoiceSessionEventRequest,
+    VoiceSummarizeRequest,
+    VoiceTokenRequest,
+)
+from backend.tools.voice_diagnostics import persist_voice_diagnostics
+from backend.domain.voice.contracts.responses import VoiceRecallResponse, VoiceReactionResponse, VoiceSessionActionResponse, VoiceSummaryResponse, VoiceTokenResponse
+from backend.domain.voice.services.reaction import VoiceReactionService
+from backend.domain.voice.services.recall import VoiceRecallService
+from backend.domain.voice.services.session import VoiceSessionService
+from backend.domain.voice.services.summarize import VoiceSummarizeService
 
 router = APIRouter()
 session_service = VoiceSessionService()
@@ -21,21 +30,7 @@ reaction_service = VoiceReactionService()
 recall_service = VoiceRecallService(store=session_service.store)
 
 
-class VoiceTokenRequest(BaseModel):
-    consent_attested: bool = False
-    voice_id: Optional[str] = None
-    voice_language: Optional[str] = None
-    personalization: Optional[Dict[str, Any]] = None
-
-
-class VoiceReactionRequest(BaseModel):
-    text: str = Field(default="", max_length=2000)
-    context: str = Field(default="", max_length=2000)
-    # "caller": the listening face's reaction. "mindpal": the face matching its own speech.
-    speaker: Literal["caller", "mindpal"] = "caller"
-
-
-@router.post("/api/voice/reaction", operation_id="voiceClassifyReaction")
+@router.post("/api/voice/reaction", operation_id="voiceClassifyReaction", response_model=VoiceReactionResponse)
 def classify_voice_reaction(
     payload: VoiceReactionRequest,
     authorization: Optional[str] = Header(None),
@@ -62,13 +57,7 @@ def classify_voice_reaction(
     return {"reaction": reaction}
 
 
-class VoiceRecallRequest(BaseModel):
-    session_id: str = Field(min_length=1, max_length=64)
-    tool: Literal["search_memory", "search_past_chats"]
-    query: str = Field(default="", max_length=2000)
-
-
-@router.post("/api/voice/recall", operation_id="voiceRecall")
+@router.post("/api/voice/recall", operation_id="voiceRecall", response_model=VoiceRecallResponse)
 def recall_for_voice(
     payload: VoiceRecallRequest,
     authorization: Optional[str] = Header(None),
@@ -94,43 +83,7 @@ def recall_for_voice(
     ).as_dict()
 
 
-class VoiceSessionEventRequest(BaseModel):
-    # Empty session_id is allowed only for voice.session.teardown so a client that
-    # lost the grant can hang up the account's one active call.
-    session_id: Optional[str] = None
-    event: str
-    to: Optional[str] = None
-    reason: Optional[str] = None
-    text: Optional[str] = None
-    is_final: bool = False
-    # Cumulative buffers for voice.transcript.sync. A disclosure split across ASR
-    # deltas only matches when the whole utterance is classified together.
-    input_text: Optional[str] = None
-    output_text: Optional[str] = None
-    input_ledger: Optional[str] = None
-    output_ledger: Optional[str] = None
-    source: Optional[str] = None
-    t_setup_ms: Optional[int] = None
-    used_s: Optional[int] = Field(default=None, ge=0)
-    played_ms: Optional[int] = Field(default=None, ge=0)
-    resumption_handle: Optional[str] = None
-    # voice.safety.risk_rating: the Live model's own in-band rating of the caller.
-    risk: Optional[float] = Field(default=None, ge=0, le=10)
-    danger_kind: Optional[str] = None
-    band: Optional[str] = None
-    confirmations: Optional[int] = Field(default=None, ge=0)
-
-
-@router.get("/api/voice/usage", operation_id="voiceGetUsage")
-def get_voice_usage(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
-    """Today's live-voice budget. Read-only: it never reserves or mutates."""
-    session = verify_auth_header(authorization)
-    if not session.is_authenticated:
-        raise AppError("unauthenticated", "Live voice usage requires a signed-in account.")
-    return session_service.usage_snapshot(user_id_hash=session.user_id_hash)
-
-
-@router.post("/api/voice/session-token", operation_id="voiceCreateSessionToken")
+@router.post("/api/voice/session-token", operation_id="voiceCreateSessionToken", response_model=VoiceTokenResponse)
 def create_voice_session_token(
     payload: VoiceTokenRequest,
     authorization: Optional[str] = Header(None),
@@ -146,10 +99,11 @@ def create_voice_session_token(
     )
 
 
-@router.post("/api/voice/session-events", operation_id="voiceRecordSessionEvent")
+@router.post("/api/voice/session-events", operation_id="voiceRecordSessionEvent", response_model=VoiceSessionActionResponse)
 def record_voice_session_event(
     payload: VoiceSessionEventRequest,
     authorization: Optional[str] = Header(None),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ) -> Dict[str, Any]:
     session = verify_auth_header(authorization)
     if not session.is_authenticated:
@@ -160,18 +114,25 @@ def record_voice_session_event(
     return session_service.handle_event(
         user_id_hash=session.user_id_hash,
         payload=payload.model_dump(),
+        idempotency_key=(idempotency_key or "").strip()[:128],
     )
 
 
-class VoiceSummarizeRequest(BaseModel):
-    session_id: str
-    chat_session_id: Optional[str] = None
-    user_transcript: str = ""
-    ai_transcript: str = ""
-    used_s: int = Field(default=0, ge=0)
+@router.post("/api/voice/trace", operation_id="voiceSubmitTrace")
+def submit_voice_trace(
+    payload: VoiceDiagnosticsRequest,
+    authorization: Optional[str] = Header(None),
+) -> Dict[str, Any]:
+    session = verify_auth_header(authorization)
+    if not session.is_authenticated:
+        raise AppError("unauthenticated", "Voice trace upload requires a signed-in account.")
+    record = session_service.store.get_document("voice_sessions", payload.session_id)
+    if not record or record.get("user_id_hash") != session.user_id_hash:
+        raise AppError("not_found", "That live voice session is not available.")
+    return persist_voice_diagnostics(payload.session_id, payload.trace, user_id_hash=session.user_id_hash)
 
 
-@router.post("/api/voice/summarize", operation_id="voiceSummarizeSession")
+@router.post("/api/voice/summarize", operation_id="voiceSummarizeSession", response_model=VoiceSummaryResponse)
 async def summarize_voice_session(
     payload: VoiceSummarizeRequest,
     authorization: Optional[str] = Header(None),
@@ -182,24 +143,10 @@ async def summarize_voice_session(
             "unauthenticated",
             "Live voice requires a signed-in account.",
         )
-    try:
-        return await summarize_service.summarize(
-            user_id_hash=session.user_id_hash,
-            session_id=payload.session_id,
-            chat_session_id=payload.chat_session_id or "",
-            user_transcript=payload.user_transcript,
-            ai_transcript=payload.ai_transcript,
-        )
-    except AppError as exc:
-        # On Vercel, a serverless instance swap between mint and summarize means
-        # the session record lives on a different instance (or expired from memory).
-        # Rather than returning a 404, fall back to a local-only recap built from
-        # the client-supplied transcripts — the user still gets their call summary.
-        if exc.code == "not_found":
-            return await summarize_service.summarize_orphaned(
-                session_id=payload.session_id,
-                user_transcript=payload.user_transcript,
-                ai_transcript=payload.ai_transcript,
-                used_s=payload.used_s,
-            )
-        raise
+    return await summarize_service.summarize(
+        user_id_hash=session.user_id_hash,
+        session_id=payload.session_id,
+        chat_session_id=payload.chat_session_id or "",
+        user_transcript=payload.user_transcript,
+        ai_transcript=payload.ai_transcript,
+    )

@@ -9,7 +9,7 @@ import pytest
 from backend.core.errors import AppError
 from backend.domain.flags.engine import FeatureLifecycleEngine
 from backend.domain.flags.models import FeatureDefinition, FeatureStage
-from backend.domain.voice.session import (
+from backend.domain.voice.services.session import (
     DAILY_CAP_SECONDS,
     HOLD_MS,
     MIN_SESSION_SECONDS,
@@ -20,11 +20,11 @@ from backend.domain.voice.session import (
     VOICE_USAGE_COLLECTION,
     VoiceSessionService,
 )
-from backend.domain.voice import gemini_budget as gemini_budget_mod
-from backend.domain.voice.gemini_budget import reset_gemini_call_budget, should_run_classify
-from backend.domain.voice.token import LIVE_SILENCE_DURATION_MS, TOKEN_TTL_SECONDS
-from backend.domain.safety.classify import CRISIS_RESPONSE
-from backend.domain.safety.voice_classify import (
+from backend.domain.voice.providers.gemini import budget as gemini_budget_mod
+from backend.domain.voice.providers.gemini.budget import reset_gemini_call_budget, should_run_classify
+from backend.domain.voice.services.token import LIVE_SILENCE_DURATION_MS, TOKEN_TTL_SECONDS
+from backend.domain.safety.modes.chat.classify import CRISIS_RESPONSE
+from backend.domain.safety.modes.voice.classify import (
     DISTRESS_SUPPORT,
     IMMINENT_ESCALATE,
     NOT_CRISIS,

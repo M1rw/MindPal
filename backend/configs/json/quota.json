@@ -1,0 +1,17 @@
+{
+  "windows": {
+    "five_hours_seconds": 18000,
+    "week_seconds": 604800
+  },
+  "limits": {
+    "user_five_hours": 50,
+    "user_week": 500,
+    "anonymous_five_hours": 10,
+    "anonymous_week": 40
+  },
+  "costs": {
+    "standard": 1,
+    "pro": 2
+  },
+  "anonymous_subjects": ["", "anonymous", "guest", "usr_anon_default", "usr_anonymous", "usr_guest", "usr_anon_pool"]
+}

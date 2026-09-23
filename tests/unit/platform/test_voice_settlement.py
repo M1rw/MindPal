@@ -14,7 +14,7 @@ import pytest
 from backend.core.errors import AppError
 from backend.domain.flags.models import FeatureDefinition, FeatureStage
 from backend.domain.flags.engine import FeatureLifecycleEngine
-from backend.domain.voice.session import (
+from backend.domain.voice.services.session import (
     DAILY_CAP_SECONDS,
     SETUP_FAILURE_REASONS,
     VoiceSessionService,
@@ -59,7 +59,7 @@ def _mint(service: VoiceSessionService) -> str:
 
 def _age_session(service: VoiceSessionService, session_id: str, seconds: int) -> None:
     """Rewind the session clock so it looks like `seconds` of call have elapsed."""
-    from backend.domain.voice.session import VOICE_SESSION_COLLECTION
+    from backend.domain.voice.services.session import VOICE_SESSION_COLLECTION
 
     record = service.store.get_document(VOICE_SESSION_COLLECTION, session_id)
     now = time.time()
@@ -135,7 +135,7 @@ def test_another_account_cannot_tear_down_this_session(service: VoiceSessionServ
 
 def test_concurrent_mints_cannot_double_hold_the_daily_cap(service: VoiceSessionService) -> None:
     """The hold is a transaction, so the second mint sees the first one's write."""
-    from backend.domain.voice.session import VOICE_USAGE_COLLECTION
+    from backend.domain.voice.services.session import VOICE_USAGE_COLLECTION
 
     _mint(service)
     usage = service.store.get_document(VOICE_USAGE_COLLECTION, USER)

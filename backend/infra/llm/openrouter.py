@@ -14,12 +14,26 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 from typing import Any, AsyncGenerator, Dict, Iterable, List, Optional, Sequence
 
 import httpx
 
+from backend.configs.llm import (
+    DEFAULT_GROQ_CHAT_MODEL,
+    DEFAULT_GROQ_JSON_MODEL,
+    DEFAULT_OPENROUTER_CHAT_MODEL,
+    DEFAULT_OPENROUTER_JSON_MODEL,
+    groq_api_key as configured_groq_api_key,
+    groq_base_url as configured_groq_base_url,
+    groq_chat_model as configured_groq_chat_model,
+    groq_json_model as configured_groq_json_model,
+    openrouter_api_key as configured_openrouter_api_key,
+    openrouter_base_url as configured_openrouter_base_url,
+    openrouter_chat_model as configured_openrouter_chat_model,
+    openrouter_json_model as configured_openrouter_json_model,
+)
+from backend.configs.settings import get_settings
 logger = logging.getLogger("mindpal.llm")
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -28,9 +42,6 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 # Free-tier OpenRouter models are rate limited and their data policies vary by
 # upstream provider. Validate any classifier choice with
 # scripts/validate_voice_classifier.py before trusting it on the safety path.
-DEFAULT_OPENROUTER_CHAT_MODEL = "meta-llama/llama-3.3-70b-instruct"
-DEFAULT_OPENROUTER_JSON_MODEL = "meta-llama/llama-3.3-70b-instruct"
-
 # Short structured calls gate the live-voice microphone; long chat streams do not.
 JSON_TIMEOUT_S = 6.0
 STREAM_TIMEOUT_S = 60.0
@@ -52,50 +63,38 @@ class OpenAICompatibleError(Exception):
 
 
 def openrouter_api_key() -> str:
-    return os.environ.get("OPENROUTER_API_KEY", "").strip()
+    return configured_openrouter_api_key()
 
 
 def groq_api_key() -> str:
-    return os.environ.get("GROQ_API_KEY", "").strip()
+    return configured_groq_api_key()
 
 
 def openrouter_base_url() -> str:
-    return os.environ.get("OPENROUTER_BASE_URL", "").strip() or OPENROUTER_BASE_URL
+    return configured_openrouter_base_url()
 
 
 def groq_base_url() -> str:
-    return os.environ.get("GROQ_BASE_URL", "").strip() or GROQ_BASE_URL
+    return configured_groq_base_url()
 
 
 def openrouter_chat_model() -> str:
-    return os.environ.get("OPENROUTER_MODEL", "").strip() or DEFAULT_OPENROUTER_CHAT_MODEL
+    return configured_openrouter_chat_model()
 
 
 def openrouter_json_model() -> str:
-    return (
-        os.environ.get("OPENROUTER_JSON_MODEL", "").strip()
-        or os.environ.get("OPENROUTER_MODEL", "").strip()
-        or DEFAULT_OPENROUTER_JSON_MODEL
-    )
+    return configured_openrouter_json_model()
 
 
 # Groq ids are its own namespace ("qwen/qwen3.8-27b"), not OpenRouter's. Without
 # separate vars a Groq request carries an OpenRouter id and 404s on a model the
 # provider has never heard of.
-DEFAULT_GROQ_CHAT_MODEL = "qwen/qwen3.8-27b"
-DEFAULT_GROQ_JSON_MODEL = "qwen/qwen3.8-27b"
-
-
 def groq_chat_model() -> str:
-    return os.environ.get("GROQ_MODEL", "").strip() or DEFAULT_GROQ_CHAT_MODEL
+    return configured_groq_chat_model()
 
 
 def groq_json_model() -> str:
-    return (
-        os.environ.get("GROQ_JSON_MODEL", "").strip()
-        or os.environ.get("GROQ_MODEL", "").strip()
-        or DEFAULT_GROQ_JSON_MODEL
-    )
+    return configured_groq_json_model()
 
 
 def default_chat_model_for(provider: str) -> str:
@@ -109,8 +108,9 @@ def default_json_model_for(provider: str) -> str:
 def _referer_headers() -> Dict[str, str]:
     """OpenRouter attributes traffic by these. Harmless elsewhere."""
     headers: Dict[str, str] = {}
-    app_url = os.environ.get("OPENROUTER_APP_URL", "").strip()
-    app_title = os.environ.get("OPENROUTER_APP_TITLE", "").strip() or "MindPal"
+    settings = get_settings()
+    app_url = settings.openrouter_app_url.strip()
+    app_title = settings.openrouter_app_title.strip() or "MindPal"
     if app_url:
         headers["HTTP-Referer"] = app_url
     headers["X-Title"] = app_title

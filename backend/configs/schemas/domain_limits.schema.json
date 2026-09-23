@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindPal domain limits configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["grounding", "memory_graph", "wellness", "release", "identity", "chat_history"],
+  "properties": {
+    "grounding": {"type": "object"},
+    "memory_graph": {"type": "object"},
+    "wellness": {"type": "object"},
+    "release": {"type": "object"},
+    "identity": {"type": "object"},
+    "chat_history": {"type": "object"}
+  }
+}

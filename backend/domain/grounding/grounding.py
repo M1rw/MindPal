@@ -10,19 +10,22 @@ from typing import Iterable, List, Sequence
 
 import yaml
 
+from backend.configs.runtime import domain_limits_config
+
 logger = logging.getLogger("mindpal.grounding")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CLINICAL_CORPUS_DIR = REPO_ROOT / "data" / "clinical_frameworks"
 CORE_CORPUS_DIR = REPO_ROOT / "backend" / "rag" / "corpus"
 
-DEFAULT_LIMIT = 2
-MIN_SCORE = 0.2
-MAX_INSTRUCTIONS = 5
-MAX_CONTRAINDICATIONS = 3
-MAX_CONTENT_CHARS = 800
-_PHRASE_HIT = 0.4
-_TERM_HIT = 0.22
+_GROUNDING_LIMITS = domain_limits_config()["grounding"]
+DEFAULT_LIMIT = int(_GROUNDING_LIMITS["default_limit"])
+MIN_SCORE = float(_GROUNDING_LIMITS["min_score"])
+MAX_INSTRUCTIONS = int(_GROUNDING_LIMITS["max_instructions"])
+MAX_CONTRAINDICATIONS = int(_GROUNDING_LIMITS["max_contraindications"])
+MAX_CONTENT_CHARS = int(_GROUNDING_LIMITS["max_content_chars"])
+_PHRASE_HIT = float(_GROUNDING_LIMITS["phrase_hit"])
+_TERM_HIT = float(_GROUNDING_LIMITS["term_hit"])
 
 
 @dataclass(frozen=True, slots=True)

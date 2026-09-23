@@ -1,0 +1,32 @@
+{
+  "chat": {
+    "quota_message": "You've reached the current message limit. Try again after the window resets.",
+    "empty_reply_message": "MindPal didn't receive a reply. Please retry this message.",
+    "provider_message": "MindPal hit a connection issue while generating this response. Please retry this message.",
+    "safety_history_turns": 2,
+    "grounding_header": "Technique guidance from the wellness corpus. Use only if it fits this turn. This is not diagnosis or treatment.",
+    "assistant_roles": ["assistant", "model"],
+    "user_roles": ["user", "human"]
+  },
+  "flags": {
+    "off_values": ["0", "false", "no", "off"],
+    "on_values": ["1", "true", "yes", "on"]
+  },
+  "memory_graph": {
+    "placeholder_summaries": ["user is building a therapeutic reflective space.", "user reflective context."],
+    "placeholder_names": ["mindpal user", "user", "guest"],
+    "inactive_statuses": ["deleted", "tombstone", "tombstoned", "archived", "inactive"],
+    "prompt_preamble": "Known user memory. Use only when relevant. Do not invent additional personal facts. Stored details may be outdated if the conversation contradicts them."
+  },
+  "recall": {
+    "nothing_found": "Nothing relevant found. Do not guess or invent what they said before.",
+    "stop_words": ["the", "a", "an", "and", "or", "to", "of", "in", "on", "is", "it", "i", "you", "my", "me", "that", "this", "was", "for", "with", "what", "about", "do", "did", "we"]
+  },
+  "store": {
+    "breaker_failure_threshold": 3,
+    "breaker_cooldown_seconds": 30.0,
+    "retry_attempts": 3,
+    "retry_base_delay_seconds": 0.05,
+    "cache_max_docs_per_collection": 2000
+  }
+}

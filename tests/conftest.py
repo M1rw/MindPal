@@ -74,3 +74,15 @@ def app():
 def client(app) -> Generator[TestClient, None, None]:
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture(autouse=True)
+def _neutral_platform_pulse():
+    """Each test starts at calm load; simulated LLM failures in one test must not
+    push another into a degraded policy. Tests that exercise load set
+    MINDPAL_PRESSURE_OVERRIDE or drive a private PlatformPulse."""
+    from backend.infra.observability.pulse import platform_pulse
+
+    platform_pulse().reset()
+    yield
+    platform_pulse().reset()

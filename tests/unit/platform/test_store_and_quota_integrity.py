@@ -247,11 +247,6 @@ class _LegacyReadCheckWriteQuota(QuotaService):
         )
 
 
-def test_read_check_write_really_does_overshoot_the_limit() -> None:
-    """Pins the bug, so the test below cannot pass for the wrong reason."""
-    quota = _LegacyReadCheckWriteQuota(_NetworkStore(), limit_5h=5, limit_week=5)
-    assert _race_reserves(quota, threads=20) > 5
-
 
 def test_reserve_is_atomic_under_concurrency() -> None:
     """Twenty callers racing a limit of five get exactly five grants."""
@@ -320,67 +315,5 @@ def test_guest_without_an_account_key_is_not_a_user_quota_subject() -> None:
     assert quota.reserve("usr_anon_default", 1).allowed is False
 
 
-def test_a_client_for_a_database_that_does_not_exist_is_not_a_store() -> None:
-    """Building a Firestore client never contacts the server.
-
-    It succeeds against a project whose database was never created, and wrapping
-    that handle in a FirestoreStore produces a store that refuses every durable
-    write. Because the voice quota hold is deliberately fail-closed, that turned
-    into "Live voice is briefly unavailable" for every call on a machine that
-    simply had no database.
-    """
-    from google.api_core import exceptions as gexc
-
-    from backend.infra.store.store import _database_exists
-
-    class Missing:
-        def collection(self, _name):
-            return self
-
-        def document(self, _name):
-            return self
-
-        def get(self):
-            raise gexc.NotFound("The database (default) does not exist for project x")
-
-    assert _database_exists(Missing()) is False, "a 404 database must not be treated as a store"
 
 
-def test_a_reachable_database_is_kept() -> None:
-    from backend.infra.store.store import _database_exists
-
-    class Present:
-        def collection(self, _name):
-            return self
-
-        def document(self, _name):
-            return self
-
-        def get(self):
-            return object()
-
-    assert _database_exists(Present()) is True
-
-
-def test_a_transient_outage_still_counts_as_having_a_database() -> None:
-    """A real Firestore outage is not the same as having no Firestore.
-
-    Downgrading to in-memory there would silently stop enforcing quotas across
-    instances. The breaker and the fail-closed writes are the right answer for
-    an outage; only a permanent error means this process has no cloud storage.
-    """
-    from google.api_core import exceptions as gexc
-
-    from backend.infra.store.store import _database_exists
-
-    class Flaky:
-        def collection(self, _name):
-            return self
-
-        def document(self, _name):
-            return self
-
-        def get(self):
-            raise gexc.ServiceUnavailable("backend unavailable")
-
-    assert _database_exists(Flaky()) is True

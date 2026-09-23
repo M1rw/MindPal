@@ -9,145 +9,36 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
-from backend.domain.safety.classify import crisis_evidence
+from backend.configs.runtime import domain_limits_config
+from backend.configs.runtime import wellness_rules_config
+from backend.domain.safety.modes.chat.classify import crisis_evidence
 
-WELLNESS_DISCLAIMER = (
-    "This is a reflection of your words, not a diagnosis. "
-    "MindPal is a wellness companion, not a medical service. Take what helps."
-)
-SOURCE_ACCOUNT = "saved_memory_and_synced_chats"
-SOURCE_ACCOUNT_LABEL = "From what you've told MindPal — saved memory and synced chats"
-SOURCE_DEVICE = "this_device"
-SOURCE_DEVICE_LABEL = (
-    "From this device — local chats and guest facts. Sign in to include account memory."
-)
-CRISIS_NOTE = (
-    "Some messages used crisis language. Those are not charted. "
-    "If you need help now, use the resources on this page."
-)
+_WELLNESS_RULES = wellness_rules_config()
+_WELLNESS_LIMITS = domain_limits_config()["wellness"]
+_WELLNESS_METADATA = _WELLNESS_RULES["metadata"]
+WELLNESS_DISCLAIMER = _WELLNESS_METADATA["disclaimer"]
+SOURCE_ACCOUNT = _WELLNESS_METADATA["source_account"]
+SOURCE_ACCOUNT_LABEL = _WELLNESS_METADATA["source_account_label"]
+SOURCE_DEVICE = _WELLNESS_METADATA["source_device"]
+SOURCE_DEVICE_LABEL = _WELLNESS_METADATA["source_device_label"]
+CRISIS_NOTE = _WELLNESS_METADATA["crisis_note"]
+_MAX_SNIPPET = int(_WELLNESS_LIMITS["max_snippet"])
+_MAX_THEMES = int(_WELLNESS_LIMITS["max_themes"])
+_MAX_EVENTS = int(_WELLNESS_LIMITS["max_events"])
+_MAX_TIMELINE_DAYS = int(_WELLNESS_LIMITS["max_timeline_days"])
+_HIGHLIGHT_MIN_VALENCE_DAYS = int(_WELLNESS_LIMITS["highlight_min_valence_days"])
+_HIGHLIGHT_MIN_HITS_SINGLE_DAY = int(_WELLNESS_LIMITS["highlight_min_hits_single_day"])
 
-_MAX_SNIPPET = 80
-_MAX_THEMES = 8
-_MAX_EVENTS = 8
-_MAX_TIMELINE_DAYS = 90
-_HIGHLIGHT_MIN_VALENCE_DAYS = 2
-_HIGHLIGHT_MIN_HITS_SINGLE_DAY = 3
+_HEAVY_WORDS = frozenset(_WELLNESS_RULES["heavy_words"])
+_LIGHTER_WORDS = frozenset(_WELLNESS_RULES["lighter_words"])
+_HEAVY_PHRASES = tuple(_WELLNESS_RULES["heavy_phrases"])
+_LIGHTER_PHRASES = tuple(_WELLNESS_RULES["lighter_phrases"])
 
-_HEAVY_WORDS = frozenset(
-    {
-        "angry",
-        "furious",
-        "enraged",
-        "irritated",
-        "resentful",
-        "sad",
-        "unhappy",
-        "miserable",
-        "heartbroken",
-        "devastated",
-        "anxious",
-        "worried",
-        "panicked",
-        "terrified",
-        "scared",
-        "overwhelmed",
-        "exhausted",
-        "drained",
-        "hopeless",
-        "lonely",
-        "stressed",
-        "depressed",
-        "numb",
-        "غاضب",
-        "حزين",
-        "قلق",
-        "منهك",
-        "وحيد",
-    }
-)
-_LIGHTER_WORDS = frozenset(
-    {
-        "happy",
-        "grateful",
-        "thankful",
-        "relieved",
-        "proud",
-        "hopeful",
-        "excited",
-        "peaceful",
-        "calm",
-        "joyful",
-        "loved",
-        "content",
-        "سعيد",
-        "ممتن",
-        "مرتاح",
-        "هادئ",
-        "فخور",
-    }
-)
-_HEAVY_PHRASES = (
-    "burned out",
-    "burnt out",
-    "fed up",
-    "can't sleep",
-    "cannot sleep",
-    "couldn't sleep",
-    "could not sleep",
-    "feel stuck",
-    "feeling stuck",
-    "i feel overwhelmed",
-    "i'm feeling overwhelmed",
-    "i am feeling overwhelmed",
-    "i'm feeling anxious",
-    "i am feeling anxious",
-    "i feel anxious",
-    "i feel angry",
-    "i'm angry",
-    "i am angry",
-    "i feel sad",
-    "i'm sad",
-    "i am sad",
-    "hate my job",
-    "so tired of",
-)
-_LIGHTER_PHRASES = (
-    "feeling better",
-    "felt better",
-    "a bit better",
-    "so happy",
-    "i'm happy",
-    "i am happy",
-    "i feel happy",
-    "i'm grateful",
-    "i am grateful",
-    "feeling hopeful",
-    "feeling calm",
-    "feeling proud",
-    "good day",
-    "great day",
-)
+_THEME_SPECS = tuple((item[0], item[1], tuple(item[2])) for item in _WELLNESS_RULES["theme_specs"])
 
-_THEME_SPECS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
-    ("sleep", "Sleep", ("sleep", "sleeping", "slept", "asleep", "insomnia", "nightmare", "awake at")),
-    ("work", "Work", ("work", "job", "boss", "coworker", "career", "deadline", "office")),
-    ("relationship", "Relationship", ("partner", "relationship", "boyfriend", "girlfriend", "spouse", "marriage", "breakup", "broke up")),
-    ("family", "Family", ("family", "mom", "dad", "mother", "father", "parent", "sister", "brother", "kids", "children")),
-    ("health", "Health & body", ("health", "sick", "pain", "doctor", "hospital", "appetite", "energy")),
-    ("school", "School", ("school", "exam", "study", "homework", "university", "college", "class")),
-    ("money", "Money", ("money", "rent", "bills", "debt", "paycheck", "i'm broke", "im broke")),
-)
+_EVENT_SPECS = tuple((item[0], item[1], tuple(item[2])) for item in _WELLNESS_RULES["event_specs"])
 
-_EVENT_SPECS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
-    ("new_job", "Started a new job", ("got a new job", "started a new job", "landed a new job", "new job")),
-    ("lost_job", "Lost a job", ("lost my job", "got laid off", "was fired", "got fired")),
-    ("moved", "Moved", ("i moved", "we moved", "moving to", "moved to", "moved into", "moved out")),
-    ("broke_up", "Breakup", ("broke up", "we broke up", "breakup", "break up")),
-    ("graduated", "Graduated", ("i graduated", "graduated from")),
-    ("got_married", "Got married", ("got married", "we got married")),
-)
-
-_NEGATION_WINDOW = 28
+_NEGATION_WINDOW = int(_WELLNESS_RULES["negation_window"])
 
 
 @dataclass

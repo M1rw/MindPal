@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from backend.core.errors import AppError
 from backend.domain.chat.history import normalize_history
 from backend.domain.chat.orchestrator import ChatOrchestrator, client_context_note, detect_cognitive_strategy, personalization_note, provider_model_for_tier
-from backend.http.chat import ClientContext
+from backend.domain.chat.contracts import ClientContext
 from backend.tools import ClientContextTools, ToolContext, load_tool_catalog
 from backend.domain.identity.identity import IdentityService
 from backend.domain.memory.graph import MemoryAtom, MemoryGraph

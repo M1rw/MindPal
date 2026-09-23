@@ -10,12 +10,21 @@ import {
   updateGuestAtom,
 } from '../../utils/memory/guestMemory.ts';
 
-function toSummary(data: Partial<MemorySummaryResponse>): MemorySummaryResponse {
+function toSummary(data: Partial<MemorySummaryResponse> & { updated_at?: unknown }): MemorySummaryResponse {
+  const updated = data.updated_at;
   return {
     summary: honestMemorySummary(data.summary),
-    updated_at: typeof data.updated_at === 'string' ? data.updated_at : '',
+    updated_at:
+      typeof updated === 'string'
+        ? updated
+        : typeof updated === 'number' && updated > 0
+          ? new Date(updated * 1000).toISOString()
+          : '',
     language: typeof data.language === 'string' ? data.language : '',
     atoms_count: typeof data.atoms_count === 'number' ? data.atoms_count : 0,
+    source: data.source === 'ai' || data.source === 'user' || data.source === 'facts' ? data.source : undefined,
+    open_threads: Array.isArray(data.open_threads) ? data.open_threads.filter((t): t is string => typeof t === 'string') : [],
+    status: data.status,
   };
 }
 
@@ -70,6 +79,11 @@ export const memoryApi = {
       'Memory refresh error',
     );
     return toSummary(data);
+  },
+
+  /** Delete MindPal's AI-written summary and the conversation digests behind it. Facts stay. */
+  async forgetMemoryNarrative(): Promise<void> {
+    await fetchJson<unknown>('/api/memory/narrative', { method: 'DELETE' }, 'Memory summary delete error');
   },
 
   async getMemoryGraph(): Promise<{ atoms: MemoryAtom[] }> {

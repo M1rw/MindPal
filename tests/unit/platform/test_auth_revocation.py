@@ -41,6 +41,8 @@ def patched(monkeypatch):
 
     def install(fake: _FakeAuth):
         monkeypatch.setattr(firebase_admin, "_apps", {}, raising=False)
+        # Verification now goes through the shared Firebase Admin app.
+        monkeypatch.setattr("backend.infra.firebase.app.get_firebase_app", lambda: object())
         monkeypatch.setattr("firebase_admin.auth.verify_id_token", fake.verify_id_token)
         monkeypatch.setattr("firebase_admin.auth.RevokedIdTokenError", auth.RevokedIdTokenError)
         return fake

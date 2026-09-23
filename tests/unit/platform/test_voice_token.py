@@ -7,8 +7,8 @@ from datetime import datetime
 import pytest
 
 from backend.core.errors import AppError
-from backend.domain.voice import token as token_mod
-from backend.domain.voice.token import VoiceTokenService, constrained_ws_url, google_mint_error_message
+from backend.domain.voice.services import token as token_mod
+from backend.domain.voice.services.token import VoiceTokenService, constrained_ws_url, google_mint_error_message
 
 
 def test_constrained_ws_url_uses_ephemeral_access_token() -> None:
@@ -246,7 +246,7 @@ def test_rest_mint_surfaces_google_error_class(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
 
     def poster(url: str, headers: dict, payload: dict, timeout: float) -> dict:
-        token_mod._raise_provider_http(
+        __import__("backend.domain.voice.providers.gemini.errors", fromlist=["x"]).raise_provider_http(
             400,
             '{"error":{"status":"INVALID_ARGUMENT","message":"Unknown name \\"liveConnectConstraints\\"."}}',
             endpoint=url,
@@ -404,7 +404,7 @@ def test_mint_retries_without_proactivity_when_provider_rejects(
 
 def test_proactive_audio_is_off_unless_opted_in(monkeypatch) -> None:
     """The model must not get to decide the caller is not worth answering."""
-    from backend.domain.voice.token import voice_proactive_audio_enabled
+    from backend.domain.voice.services.token import voice_proactive_audio_enabled
 
     monkeypatch.delenv("MINDPAL_VOICE_PROACTIVE_AUDIO", raising=False)
     assert voice_proactive_audio_enabled() is False

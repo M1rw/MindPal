@@ -1,0 +1,29 @@
+{
+  "chat": {
+    "max_message_chars": 16000,
+    "max_history_turns": 60,
+    "max_history_turn_chars": 8000,
+    "max_telemetry_keys": 32,
+    "max_personalization_keys": 32,
+    "max_nested_value_chars": 200
+  },
+  "identity": {
+    "max_display_name_chars": 80,
+    "max_settings_keys": 64,
+    "max_settings_key_chars": 64,
+    "max_settings_value_chars": 512
+  },
+  "memory": {
+    "max_raw_atoms_accepted": 200
+  },
+  "sessions": {
+    "max_session_id_chars": 128,
+    "max_title_chars": 200,
+    "max_messages_per_session": 500,
+    "max_message_chars": 16000,
+    "max_timestamp_chars": 40
+  },
+  "release": {
+    "max_version_chars": 40
+  }
+}

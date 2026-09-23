@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import logging
-import os
 import threading
+import time
 from typing import Any, AsyncGenerator, Optional, Sequence
 
+from pydantic import BaseModel, ValidationError
+from backend.configs.llm import DEFAULT_GEMINI_CHAT_MODEL, DEFAULT_GEMINI_JSON_MODEL
+from backend.configs.settings import get_settings
+from backend.infra.observability.metrics import ProviderMetric, elapsed_ms, provider_metrics
 logger = logging.getLogger("mindpal.llm")
 
 _FALLBACK_STUB = "I'm here with you. What's on your mind?"
 
-DEFAULT_CHAT_MODEL = "gemini-2.5-flash"
+DEFAULT_CHAT_MODEL = DEFAULT_GEMINI_CHAT_MODEL
 
 # Classifier-class work (3-way label, temperature 0) does not need Flash. Lite is
 # materially cheaper and faster, and classify latency is time the live-voice mic
@@ -24,7 +28,7 @@ DEFAULT_CHAT_MODEL = "gemini-2.5-flash"
 # Both are env-overridable. GEMINI_JSON_MODEL exists specifically so the safety
 # classifier can be moved back to a stronger model without a deploy if
 # scripts/validate_voice_classifier.py shows the cheaper one mislabelling.
-JSON_MODEL = "gemini-2.5-flash-lite"
+JSON_MODEL = DEFAULT_GEMINI_JSON_MODEL
 
 
 _ANNOUNCED: set[str] = set()
@@ -46,12 +50,12 @@ def _announce(var: str, chosen: str, fallback: str) -> str:
 
 
 def default_chat_model() -> str:
-    chosen = os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_CHAT_MODEL
+    chosen = get_settings().gemini_model.strip() or DEFAULT_CHAT_MODEL
     return _announce("GEMINI_MODEL", chosen, DEFAULT_CHAT_MODEL)
 
 
 def json_model() -> str:
-    chosen = os.environ.get("GEMINI_JSON_MODEL", "").strip() or JSON_MODEL
+    chosen = get_settings().gemini_json_model.strip() or JSON_MODEL
     return _announce("GEMINI_JSON_MODEL", chosen, JSON_MODEL)
 
 
@@ -71,7 +75,7 @@ PROVIDERS = ("gemini", "openrouter", "groq")
 
 
 def _provider(var: str, default: str = "") -> str:
-    value = (os.environ.get(var, "") or "").strip().lower()
+    value = get_settings().provider_override(var)
     if value and value not in PROVIDERS:
         logger.warning("llm_provider_unknown var=%s value=%s falling_back=gemini", var, value)
         return ""
@@ -135,10 +139,7 @@ _CLIENTS: dict[tuple[str, int], Any] = {}
 
 
 def _api_key() -> str:
-    return (
-        os.environ.get("GEMINI_API_KEY", "").strip()
-        or os.environ.get("GOOGLE_API_KEY", "").strip()
-    )
+    return get_settings().resolved_gemini_api_key()
 
 
 def _get_client(api_key: str, *, timeout_ms: int) -> Any:
@@ -321,6 +322,7 @@ class LLMGateway:
                         temperature=temperature,
                         max_tokens=max_tokens,
                         history=history,
+                        fallback=True,
                     ):
                         yielded = True
                         yield token
@@ -343,6 +345,10 @@ class LLMGateway:
             yield _FALLBACK_STUB
             return
 
+        started = time.perf_counter()
+        yielded = False
+        prompt_tokens = 0
+        completion_tokens = 0
         try:
             from google.genai import types
 
@@ -358,9 +364,11 @@ class LLMGateway:
                 contents=self._build_contents(prompt, history),
                 config=config,
             )
-            yielded = False
             async for chunk in stream:
                 text = getattr(chunk, "text", None) or ""
+                usage = getattr(chunk, "usage_metadata", None)
+                prompt_tokens = int(getattr(usage, "prompt_token_count", prompt_tokens) or prompt_tokens)
+                completion_tokens = int(getattr(usage, "candidates_token_count", completion_tokens) or completion_tokens)
                 if text:
                     yielded = True
                     yield text
@@ -369,9 +377,18 @@ class LLMGateway:
                     "unavailable",
                     "MindPal didn't receive a reply. Please retry this message.",
                 )
+            provider_metrics().record(
+                ProviderMetric("gemini", "stream", elapsed_ms(started), True, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+            )
         except LLMGatewayError:
+            provider_metrics().record(
+                ProviderMetric("gemini", "stream", elapsed_ms(started), False)
+            )
             raise
         except Exception as exc:
+            provider_metrics().record(
+                ProviderMetric("gemini", "stream", elapsed_ms(started), False, rate_limited=_is_rate_limited(exc))
+            )
             logger.warning("llm_provider_failed error_type=%s detail=%s", type(exc).__name__, str(exc)[:180])
             raise LLMGatewayError(
                 "unavailable",
@@ -388,23 +405,36 @@ class LLMGateway:
         temperature: float,
         max_tokens: int,
         history: Optional[Sequence[dict[str, str]]],
+        fallback: bool = False,
     ) -> AsyncGenerator[str, None]:
         from backend.infra.llm import openrouter as oai
 
         base_url, key = _openai_compatible_config(provider)
         if not key:
             raise LLMGatewayError("unavailable", f"{provider} is not configured.")
-        async for token in oai.stream_text(
-            prompt=prompt,
-            system_instruction=system_instruction,
-            model=model or oai.default_chat_model_for(provider),
-            temperature=temperature,
-            max_tokens=max_tokens,
-            history=history,
-            base_url=base_url,
-            api_key=key,
-        ):
-            yield token
+        started = time.perf_counter()
+        yielded = False
+        try:
+            async for token in oai.stream_text(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                model=model or oai.default_chat_model_for(provider),
+                temperature=temperature,
+                max_tokens=max_tokens,
+                history=history,
+                base_url=base_url,
+                api_key=key,
+            ):
+                yielded = True
+                yield token
+        except Exception:
+            provider_metrics().record(
+                ProviderMetric(provider, "stream", elapsed_ms(started), False, fallback=fallback, retries=1 if fallback else 0)
+            )
+            raise
+        provider_metrics().record(
+            ProviderMetric(provider, "stream", elapsed_ms(started), yielded, fallback=fallback, retries=1 if fallback else 0)
+        )
 
     def generate_json(
         self,
@@ -418,8 +448,9 @@ class LLMGateway:
     ) -> str:
         """Synchronous JSON completion. Fail closed — never invent a stub classifier label."""
         primary = structured_provider()
+        started = time.perf_counter()
         try:
-            return self._generate_json_via(
+            result = self._generate_json_via(
                 primary,
                 prompt=prompt,
                 system_instruction=system_instruction,
@@ -428,7 +459,12 @@ class LLMGateway:
                 max_tokens=max_tokens,
                 thinking_budget=thinking_budget,
             )
+            provider_metrics().record(ProviderMetric(primary, "structured", elapsed_ms(started), True))
+            return result
         except Exception as exc:
+            provider_metrics().record(
+                ProviderMetric(primary, "structured", elapsed_ms(started), False, rate_limited=_is_rate_limited(exc))
+            )
             spare = fallback_provider()
             if not spare or spare == primary or not _is_rate_limited(exc):
                 raise
@@ -437,15 +473,53 @@ class LLMGateway:
             logger.warning(
                 "llm_json_fallback primary=%s fallback=%s reason=rate_limited", primary, spare
             )
-            return self._generate_json_via(
-                spare,
-                prompt=prompt,
-                system_instruction=system_instruction,
-                model="",
-                temperature=temperature,
-                max_tokens=max_tokens,
-                thinking_budget=thinking_budget,
+            fallback_started = time.perf_counter()
+            try:
+                result = self._generate_json_via(
+                    spare,
+                    prompt=prompt,
+                    system_instruction=system_instruction,
+                    model="",
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    thinking_budget=thinking_budget,
+                )
+            except Exception:
+                provider_metrics().record(ProviderMetric(spare, "structured", elapsed_ms(fallback_started), False, fallback=True, retries=1))
+                raise
+            provider_metrics().record(ProviderMetric(spare, "structured", elapsed_ms(fallback_started), True, fallback=True, retries=1))
+            return result
+
+    def generate_structured(
+        self,
+        *,
+        contract: type[BaseModel],
+        **kwargs: Any,
+    ) -> BaseModel:
+        """Generate JSON and validate it against a strict Pydantic contract."""
+        raw = self.generate_json(**kwargs)
+        try:
+            from backend.models.provider_outputs import parse_provider_output
+
+            return parse_provider_output(contract, raw)
+        except (ValidationError, ValueError) as exc:
+            provider_metrics().record(
+                ProviderMetric(
+                    structured_provider(),
+                    "structured_contract",
+                    0,
+                    False,
+                )
             )
+            logger.warning(
+                "llm_structured_contract_failed contract=%s error_count=%s",
+                contract.__name__,
+                len(exc.errors()) if isinstance(exc, ValidationError) else 1,
+            )
+            raise LLMGatewayError(
+                "invalid_provider_output",
+                "The model returned an invalid structured response.",
+            ) from exc
 
     def _generate_json_via(
         self,
