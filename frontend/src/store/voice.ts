@@ -22,6 +22,11 @@ interface VoiceState {
   /** The utterance being spoken right now. Replaced constantly, never appended. */
   transcript: string;
   aiTranscript: string;
+  /**
+   * Characters of MindPal's current reply heard so far, or null when nothing is
+   * playing. Drives the spoken/unspoken split in the transcript.
+   */
+  aiSpokenChars: number | null;
   /** Finished turns, oldest first. Append-only history behind the live caption. */
   turns: VoiceTurn[];
   /** MindPal has the turn but has not made a sound yet. */
@@ -43,6 +48,7 @@ interface VoiceState {
   setTranscript: (text: string) => void;
   appendAiTranscript: (text: string) => void;
   setAiTranscript: (text: string) => void;
+  setAiSpokenChars: (chars: number | null) => void;
   setCrisisScript: (text: string, pauseBody?: string) => void;
   setExpression: (expression: ActiveExpression | null) => void;
   setCommands: (commands: ActiveExpression[]) => void;
@@ -76,6 +82,7 @@ const idle = {
   floor: 'idle' as const,
   transcript: '',
   aiTranscript: '',
+  aiSpokenChars: null,
   turns: [] as VoiceTurn[],
   thinking: false,
   crisisScript: '',
@@ -96,7 +103,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       quotaRemainingS: 0,
       // A new call starts with an empty scrollback. The previous call's turns
       // belong to the recap written into the chat thread, not to this screen.
-      ...(isActive ? { crisisScript: '', crisisPauseBody: '', turns: [], thinking: false, transcript: '', aiTranscript: '' } : {}),
+      ...(isActive ? { crisisScript: '', crisisPauseBody: '', turns: [], thinking: false, transcript: '', aiTranscript: '', aiSpokenChars: null } : {}),
     }),
   setIsMuted: (isMuted) => set({ isMuted }),
   setIsCapturing: (isCapturing) => set({ isCapturing }),
@@ -125,6 +132,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
     }),
   appendAiTranscript: (text) => set((state) => ({ aiTranscript: state.aiTranscript + text })),
   setAiTranscript: (aiTranscript) => set({ aiTranscript }),
+  setAiSpokenChars: (aiSpokenChars) => set({ aiSpokenChars }),
   setCrisisScript: (crisisScript, crisisPauseBody) =>
     set({
       crisisScript,

@@ -33,6 +33,7 @@ import {
 } from '../face/listenerReaction.ts';
 import { ProsodyTracker, type ProsodySnapshot } from '../face/prosody.ts';
 import { mergeLiveTranscript } from '../session/caption.ts';
+import { SpeechTimeline } from './speechTimeline.ts';
 import type { FloorState } from '../types.ts';
 
 const EMIT_EVERY_MS = 50;
@@ -64,13 +65,6 @@ export type ClassifyReaction = (text: string, context: string, speaker?: 'caller
  * transcriber adds it in every language it writes.
  */
 const SENTENCE_END = /(?:[.!?…؟]+["'”’)\]]*\s+)|(?:[。！？]+)/gu;
-const WIDE_SCRIPT = /[぀-ヿ㐀-鿿가-힯]/u;
-
-/** Rough speaking time of a sentence, for placing its expression on the audio. */
-export function spokenMs(text: string): number {
-  const perChar = WIDE_SCRIPT.test(text) ? 170 : 65;
-  return Math.max(600, [...text].length * perChar);
-}
 
 /** A tone look lasts its sentence, but a few looks read oddly held that long. */
 const SPEECH_LOOK_MAX_MS: Partial<Record<ReactionKind, number>> = { ah: 1_800, laugh: 3_000, excited: 2_500 };
@@ -78,20 +72,33 @@ const SPEECH_LOOK_MIN_MS = 1_200;
 const SPEECH_LOOK_CEILING_MS = 12_000;
 /** A state holds until the call moves on; this only bounds a state nobody ended. */
 const STATE_HOLD_MS = 20_000;
+/**
+ * Sentence tone checks in flight at once. One at a time put every look behind
+ * the previous round trip, so on a long reply they fell further and further
+ * behind the voice until the end.
+ */
+export const SPEECH_CLASSIFY_PARALLEL = 3;
+/** A look that would show for less than this of its sentence is dropped, not shown late. */
+const SPEECH_LOOK_STALE_MS = 250;
 
 export type FaceState = 'thinking' | 'reading';
 
 interface ScheduledLook {
-  command: ActiveExpression;
+  /** Timing is filled in when it is shown, from the timeline as it stands then. */
+  command: Omit<ActiveExpression, 'startedAt' | 'durationMs'>;
+  /** Its sentence, in characters of MindPal's reply. */
+  fromChar: number;
+  toChar: number;
+  /** Longest it may hold, whatever the sentence's length. */
+  capMs: number;
   /** Head motion that goes with it (a laugh's bounce), started with the look. */
-  reaction: ListenerReaction | null;
+  reaction: Omit<ListenerReaction, 'at'> | null;
 }
 
 interface SpokenSentence {
   text: string;
-  /** When its audio starts playing, wall clock. */
-  at: number;
-  ms: number;
+  fromChar: number;
+  toChar: number;
 }
 
 export interface FaceFeedOptions {
@@ -129,8 +136,11 @@ export class FaceFeed {
   private lastMeaningAt = Number.NEGATIVE_INFINITY;
   /** MindPal's words not yet split into sentences. */
   private speech = '';
+  /** Where `speech` begins on the timeline, in characters. */
+  private speechBase = 0;
+  private readonly timeline = new SpeechTimeline();
   private sentences: SpokenSentence[] = [];
-  private speechInFlight = false;
+  private speechInFlight = 0;
   /** Bumped when MindPal is cut off, so late answers for its old sentences are dropped. */
   private speechEpoch = 0;
   /** Expressions waiting for their sentence's audio to play. */
@@ -222,26 +232,37 @@ export class FaceFeed {
 
   /**
    * MindPal's own words as they stream in. Each finished sentence is read for its
-   * tone and the matching look is placed at the moment that sentence is heard:
-   * text arrives with its audio, which plays after `queuedMs` of earlier audio.
+   * tone and the matching look is placed on the audio timeline, from the moment
+   * its first word is heard to the moment its last one is.
    */
-  modelWords(delta: string, now: number, queuedMs: number): void {
+  modelWords(delta: string, _now?: number, _queuedMs?: number): void {
     // MindPal is answering: any listening reaction asked for before now is stale.
     if (delta.trim()) this.speakingTurns += 1;
     if (!this.classify || this.reducedMotion) return;
+    const before = this.speech.length;
     this.speech = mergeLiveTranscript(this.speech, delta);
+    this.timeline.text(this.speech.length - before);
     let last = 0;
     for (const match of this.speech.matchAll(SENTENCE_END)) {
       const end = (match.index ?? 0) + match[0].length;
-      this.queueSentence(this.speech.slice(last, end), now, queuedMs);
+      this.queueSentence(this.speech.slice(last, end), this.speechBase + last, this.speechBase + end);
       last = end;
     }
     this.speech = this.speech.slice(last);
+    this.speechBase += last;
+  }
+
+  /** A chunk of MindPal's audio was queued for playback. */
+  modelAudio(ms: number, now: number, queuedMs: number): void {
+    this.timeline.audio(ms, now, queuedMs);
   }
 
   /** MindPal finished generating: the last sentence may have no trailing space. */
   modelTurnEnded(now: number, queuedMs: number): void {
-    if (this.speech.trim()) this.queueSentence(this.speech, now, queuedMs);
+    if (this.speech.trim()) {
+      this.queueSentence(this.speech, this.speechBase, this.speechBase + this.speech.length);
+    }
+    this.speechBase += this.speech.length;
     this.speech = '';
     if (queuedMs > 0) {
       const active = this.expressions.extendDuringPlayback(now + queuedMs);
@@ -251,19 +272,17 @@ export class FaceFeed {
 
   /** MindPal was cut off: nothing it had queued should still show on the face. */
   stopSpeaking(): void {
-    this.speechEpoch += 1;
-    this.speech = '';
-    this.sentences = [];
-    this.scheduled = [];
-    this.speechTone = null;
+    this.dropSpeech();
     this.release('speech');
   }
 
-  /** MindPal's reply has finished playing: its tone lets go instead of lingering. */
+  /**
+   * MindPal's reply has finished playing: its tone lets go instead of lingering.
+   * Checks still in flight are for sentences already heard, so they are dropped
+   * too; waiting for them is how a look used to appear after the voice stopped.
+   */
   speechEnded(): void {
-    if (this.sentences.length || this.speechInFlight) return;
-    this.scheduled = [];
-    this.speechTone = null;
+    this.dropSpeech();
     this.release('speech');
     const now = this.clock();
     for (const item of this.expressions.active(now)) {
@@ -288,13 +307,20 @@ export class FaceFeed {
   /** Release expressions whose moment has come. Called every mic frame and on the call's clock. */
   tick(now: number): void {
     if (!this.scheduled.length) return;
-    const due = this.scheduled.filter((item) => item.command.startedAt <= now);
-    if (!due.length) return;
-    this.scheduled = this.scheduled.filter((item) => item.command.startedAt > now);
-    for (const item of due) {
-      this.show({ ...item.command, startedAt: now });
+    const waiting: ScheduledLook[] = [];
+    for (const item of this.scheduled) {
+      if (this.timeline.timeAt(item.fromChar) > now) {
+        waiting.push(item);
+        continue;
+      }
+      const endsAt = this.timeline.timeAt(item.toChar);
+      // Heard already (a slow check, or text that trailed its audio): skip it.
+      if (endsAt - now < SPEECH_LOOK_STALE_MS) continue;
+      const durationMs = Math.min(item.capMs, Math.max(SPEECH_LOOK_MIN_MS, endsAt - now));
+      this.show({ ...item.command, startedAt: now, durationMs });
       if (item.reaction) this.callbacks.onReaction?.({ ...item.reaction, at: now });
     }
+    this.scheduled = waiting;
   }
 
   private syncState(): void {
@@ -311,21 +337,34 @@ export class FaceFeed {
     this.callbacks.onCommands?.(list);
   }
 
-  private queueSentence(raw: string, now: number, queuedMs: number): void {
+  private dropSpeech(): void {
+    this.speechEpoch += 1;
+    this.speech = '';
+    this.speechBase = 0;
+    this.timeline.reset();
+    this.sentences = [];
+    this.scheduled = [];
+    this.speechTone = null;
+    this.speechInFlight = 0;
+  }
+
+  private queueSentence(raw: string, fromChar: number, toChar: number): void {
     const text = raw.replace(/\s+/g, ' ').trim();
     if (!text) return;
-    const ms = spokenMs(text);
-    // Its audio is the last `ms` of what is queued, so it starts that much earlier.
-    this.sentences.push({ text, at: now + Math.max(0, queuedMs - ms), ms });
+    this.sentences.push({ text, fromChar, toChar });
     this.pumpSpeech();
   }
 
   private pumpSpeech(): void {
     const classify = this.classify;
-    if (!classify || this.speechInFlight || !this.sentences.length) return;
-    const sentence = this.sentences.shift() as SpokenSentence;
+    while (classify && this.speechInFlight < SPEECH_CLASSIFY_PARALLEL && this.sentences.length) {
+      this.classifySentence(classify, this.sentences.shift() as SpokenSentence);
+    }
+  }
+
+  private classifySentence(classify: ClassifyReaction, sentence: SpokenSentence): void {
     const epoch = this.speechEpoch;
-    this.speechInFlight = true;
+    this.speechInFlight += 1;
     void classify(sentence.text, '', 'mindpal')
       .then((label) => {
         if (epoch !== this.speechEpoch) return;
@@ -337,18 +376,17 @@ export class FaceFeed {
         this.speechTone = kind;
         const look = reactionLook({ kind, at: 0, strength: 1 });
         if (!look) return;
-        const cap = SPEECH_LOOK_MAX_MS[kind] ?? SPEECH_LOOK_CEILING_MS;
-        const startedAt = Math.max(this.clock(), sentence.at);
         this.scheduled.push({
           command: {
             expression: look.expression,
             intensity: fresh ? look.intensity : look.intensity * 0.8,
-            durationMs: Math.min(cap, Math.max(SPEECH_LOOK_MIN_MS, sentence.ms)),
-            startedAt,
             source: 'speech',
           },
+          fromChar: sentence.fromChar,
+          toChar: sentence.toChar,
+          capMs: SPEECH_LOOK_MAX_MS[kind] ?? SPEECH_LOOK_CEILING_MS,
           // Head motion only for a fresh tone: a carried one would bounce every sentence.
-          reaction: fresh ? { kind, at: startedAt, strength: 0.7 } : null,
+          reaction: fresh ? { kind, strength: 0.7 } : null,
         });
         this.tick(this.clock());
       })
@@ -356,7 +394,8 @@ export class FaceFeed {
         /* the face just stays on its speaking motion */
       })
       .finally(() => {
-        this.speechInFlight = false;
+        // A reset already zeroed the count for checks from before it.
+        if (epoch === this.speechEpoch) this.speechInFlight = Math.max(0, this.speechInFlight - 1);
         this.pumpSpeech();
       });
   }
