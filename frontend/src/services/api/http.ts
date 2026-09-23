@@ -1,6 +1,17 @@
 import { useSessionStore } from '../../store/index.ts';
 import { getApiBaseUrl } from '../config.ts';
 
+/**
+ * A key for one logical operation (one chat send, one voice event). Retries of
+ * that same operation reuse it so the server charges and applies it once; a
+ * new operation always gets a new key (audit MP-26).
+ */
+export function newOperationKey(): string {
+  const cryptoApi = globalThis.crypto as Crypto | undefined;
+  if (cryptoApi?.randomUUID) return cryptoApi.randomUUID();
+  return `op_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string | null;
@@ -37,24 +48,41 @@ export interface TimedRequestInit extends RequestInit {
   timeoutMs?: number;
 }
 
-/** Compose a caller-supplied signal with our timeout without dropping either. */
-function withTimeout(options: TimedRequestInit): { signal: AbortSignal; done: () => void } {
+interface RequestLifetime {
+  signal: AbortSignal;
+  /** Headers arrived: stop the header deadline (the body may still be streaming). */
+  stopTimer: () => void;
+  /** The request is completely finished: detach from the caller's signal too. */
+  release: () => void;
+}
+
+/**
+ * Compose a caller-supplied signal with our timeout without dropping either.
+ *
+ * Audit MP-13: this used to be torn down as soon as fetch() resolved, i.e. when
+ * headers arrived. A response that then stalled mid-body could not be stopped:
+ * pressing Stop aborted the caller's signal, but the signal fetch was actually
+ * using no longer listened to it, and the timeout had been cleared. The
+ * caller's abort now stays wired to the request until the body is done.
+ */
+function withTimeout(options: TimedRequestInit): RequestLifetime {
   const ms = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  if (!(ms > 0)) {
-    return { signal: options.signal ?? new AbortController().signal, done: () => {} };
-  }
   const controller = new AbortController();
-  const timer = globalThis.setTimeout(() => controller.abort(new TimeoutError()), ms);
+  const timer = ms > 0 ? globalThis.setTimeout(() => controller.abort(new TimeoutError()), ms) : null;
   const caller = options.signal;
   const onCallerAbort = () => controller.abort(caller?.reason);
   if (caller) {
     if (caller.aborted) controller.abort(caller.reason);
     else caller.addEventListener('abort', onCallerAbort, { once: true });
   }
+  const stopTimer = () => {
+    if (timer !== null) globalThis.clearTimeout(timer);
+  };
   return {
     signal: controller.signal,
-    done: () => {
-      globalThis.clearTimeout(timer);
+    stopTimer,
+    release: () => {
+      stopTimer();
       caller?.removeEventListener('abort', onCallerAbort);
     },
   };
@@ -93,7 +121,48 @@ async function refreshIdToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
+/**
+ * Authenticated fetch. `timeoutMs` bounds the wait for response headers; the
+ * caller's `signal` keeps working for the whole response, body included, so a
+ * streaming reader can still be stopped after the headers arrived.
+ */
 export async function fetchWithAuth(path: string, options: TimedRequestInit = {}): Promise<Response> {
+  const { response } = await openRequest(path, options);
+  return response;
+}
+
+/**
+ * Like fetchWithAuth, but the deadline covers reading the body as well: `read`
+ * runs before the timer is cleared. For JSON, blobs and plain status checks.
+ */
+async function fetchAndRead<T>(path: string, options: TimedRequestInit, read: (response: Response) => Promise<T>): Promise<T> {
+  const { response, lifetime } = await openRequest(path, options, { keepTimer: true });
+  let onAbort: (() => void) | null = null;
+  // Stop reading the moment the deadline or the caller aborts, whether or not
+  // the body stream notices the abort itself.
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(lifetime.signal.reason ?? new DOMException('Aborted', 'AbortError'));
+    if (lifetime.signal.aborted) onAbort();
+    else lifetime.signal.addEventListener('abort', onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([read(response), aborted]);
+  } catch (error) {
+    if (lifetime.signal.aborted && lifetime.signal.reason instanceof TimeoutError) throw lifetime.signal.reason;
+    throw error;
+  } finally {
+    if (onAbort) lifetime.signal.removeEventListener('abort', onAbort);
+    lifetime.release();
+    // An abandoned body must not keep the connection open.
+    if (!response.bodyUsed) response.body?.cancel().catch(() => {});
+  }
+}
+
+async function openRequest(
+  path: string,
+  options: TimedRequestInit,
+  { keepTimer = false }: { keepTimer?: boolean } = {},
+): Promise<{ response: Response; lifetime: RequestLifetime }> {
   const { idToken, appCheckToken } = useSessionStore.getState();
   const headers = new Headers(options.headers ?? {});
 
@@ -115,23 +184,27 @@ export async function fetchWithAuth(path: string, options: TimedRequestInit = {}
     : path;
 
   const url = `${baseUrl}${cleanPath}`;
-  const { signal, done } = withTimeout(options);
+  const lifetime = withTimeout(options);
+  const { signal } = lifetime;
   const { timeoutMs: _timeoutMs, ...rest } = options;
   void _timeoutMs;
   try {
-    const response = await fetch(url, { ...rest, headers, signal });
-    if (response.status !== 401 || !idToken) return response;
-    // One retry with a fresh token. A second 401 is a real authorisation
-    // failure, not an expiry, so it is returned as-is.
-    const fresh = await refreshIdToken();
-    if (!fresh || fresh === idToken) return response;
-    headers.set('Authorization', `Bearer ${fresh}`);
-    return await fetch(url, { ...rest, headers, signal });
+    let response = await fetch(url, { ...rest, headers, signal });
+    if (response.status === 401 && idToken) {
+      // One retry with a fresh token. A second 401 is a real authorisation
+      // failure, not an expiry, so it is returned as-is.
+      const fresh = await refreshIdToken();
+      if (fresh && fresh !== idToken) {
+        headers.set('Authorization', `Bearer ${fresh}`);
+        response = await fetch(url, { ...rest, headers, signal });
+      }
+    }
+    if (!keepTimer) lifetime.stopTimer();
+    return { response, lifetime };
   } catch (error) {
+    lifetime.release();
     if (signal.aborted && signal.reason instanceof TimeoutError) throw signal.reason;
     throw error;
-  } finally {
-    done();
   }
 }
 
@@ -172,24 +245,21 @@ async function errorFromResponse(response: Response, fallbackMessage: string): P
 }
 
 export async function fetchJson<T>(path: string, options: TimedRequestInit = {}, fallbackMessage: string): Promise<T> {
-  const response = await fetchWithAuth(path, options);
-  if (!response.ok) {
-    throw await errorFromResponse(response, fallbackMessage);
-  }
-  return response.json() as Promise<T>;
+  return fetchAndRead(path, options, async (response) => {
+    if (!response.ok) throw await errorFromResponse(response, fallbackMessage);
+    return (await response.json()) as T;
+  });
 }
 
 export async function fetchBlob(path: string, options: TimedRequestInit = {}, fallbackMessage: string): Promise<Blob> {
-  const response = await fetchWithAuth(path, options);
-  if (!response.ok) {
-    throw await errorFromResponse(response, fallbackMessage);
-  }
-  return response.blob();
+  return fetchAndRead(path, options, async (response) => {
+    if (!response.ok) throw await errorFromResponse(response, fallbackMessage);
+    return response.blob();
+  });
 }
 
 export async function expectOk(path: string, options: TimedRequestInit = {}, fallbackMessage: string): Promise<void> {
-  const response = await fetchWithAuth(path, options);
-  if (!response.ok) {
-    throw await errorFromResponse(response, fallbackMessage);
-  }
+  return fetchAndRead(path, options, async (response) => {
+    if (!response.ok) throw await errorFromResponse(response, fallbackMessage);
+  });
 }

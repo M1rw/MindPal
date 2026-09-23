@@ -6,6 +6,7 @@ import {
   useToastStore,
   useChangelogStore,
   useMemoryStore,
+  useChatHistoryStore,
 } from '../../store';
 import { ApiClient } from '../../services/api/index';
 import { signOut } from '../../services/auth/index';
@@ -134,7 +135,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = () => {
     }
     if (
       !window.confirm(
-        'Permanently delete your MindPal profile, saved memory, and synced chats on the server? Chat history on this device is not removed. This cannot be undone.',
+        'Permanently delete your MindPal profile, saved memory, and synced chats on the server? Chat history on this device is kept here only and will not be synced again. This cannot be undone.',
       )
     ) {
       return;
@@ -142,6 +143,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = () => {
     setDeleting(true);
     try {
       await ApiClient.deleteUserData();
+      // The local copies stay, but must not flow back: the next edit of an old
+      // conversation used to re-upload it right after the server deleted it.
+      useChatHistoryStore.getState().detachFromCloud();
       pushToast('Server profile, memory, and synced chats were deleted', 'info');
     } catch (err) {
       const message = err instanceof Error && err.message ? err.message : 'Delete failed. Please try again.';

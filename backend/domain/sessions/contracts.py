@@ -15,6 +15,14 @@ MAX_MESSAGE_CHARS = int(_LIMITS["max_message_chars"])
 MAX_TIMESTAMP_CHARS = int(_LIMITS["max_timestamp_chars"])
 _SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 _ALLOWED_MESSAGE_ROLES = frozenset({"user", "assistant", "model", "system"})
+# Message fields the web client relies on after a reload or on another device
+# (audit MP-12). Everything else is still dropped: this is a persisted contract,
+# not a place to store arbitrary client data.
+_MESSAGE_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+_ALLOWED_MESSAGE_KINDS = frozenset({"voice_receipt"})
+_ALLOWED_MODELS = frozenset({"standard", "pro"})
+_MAX_STRATEGY_CHARS = 64
+_MAX_VOICE_SECONDS = 86_400
 
 
 def validated_session_id(value: str) -> str:
@@ -39,9 +47,26 @@ def clipped_messages(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if not content.strip():
             continue
         entry: Dict[str, Any] = {"role": role, "content": content}
+        message_id = item.get("id")
+        # Stable ids are what edit, regenerate and dedupe key on; without them a
+        # reloaded chat got new identities and the wrong message could be edited.
+        if isinstance(message_id, str) and _MESSAGE_ID_RE.match(message_id):
+            entry["id"] = message_id
         timestamp = item.get("timestamp") or item.get("createdAt") or item.get("created_at")
         if isinstance(timestamp, str) and timestamp.strip():
             entry["timestamp"] = timestamp.strip()[:MAX_TIMESTAMP_CHARS]
+        kind = item.get("kind")
+        if kind in _ALLOWED_MESSAGE_KINDS:
+            entry["kind"] = kind
+            seconds = item.get("voice_used_s")
+            if isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and 0 <= seconds <= _MAX_VOICE_SECONDS:
+                entry["voice_used_s"] = int(seconds)
+        strategy = item.get("strategy_used")
+        if isinstance(strategy, str) and strategy.strip():
+            entry["strategy_used"] = strategy.strip()[:_MAX_STRATEGY_CHARS]
+        model = item.get("model")
+        if model in _ALLOWED_MODELS:
+            entry["model"] = model
         messages.append(entry)
     return messages
 
@@ -64,6 +89,8 @@ class ChatSessionPayload(BaseModel):
     title: str = Field(default="", max_length=MAX_TITLE_CHARS)
     createdAt: str = Field(max_length=MAX_TIMESTAMP_CHARS)
     updatedAt: Optional[str] = Field(default=None, max_length=MAX_TIMESTAMP_CHARS)
+    # The person renamed it: automatic titling must not overwrite that elsewhere.
+    titleLocked: bool = False
     messages: List[Dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("messages")
