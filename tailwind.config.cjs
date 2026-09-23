@@ -1,3 +1,23 @@
+/**
+ * Theme colours are CSS variables, and Tailwind cannot apply an opacity modifier
+ * to a variable on its own: `bg-brand-primary/10`, `ring-brand-primary/40` and
+ * about thirty others generated no CSS at all, silently (the voice transcript's
+ * own-message bubble had no background because of it). As functions, these
+ * colours answer an explicit modifier with color-mix and are unchanged otherwise.
+ */
+const withAlpha = (value) => ({ opacityValue }) =>
+  opacityValue === undefined || String(opacityValue).startsWith('var(')
+    ? value
+    : `color-mix(in srgb, ${value} calc(${opacityValue} * 100%), transparent)`;
+
+const alphaVars = (group) =>
+  Object.fromEntries(
+    Object.entries(group).map(([name, value]) => [
+      name,
+      typeof value === 'string' && value.startsWith('var(') ? withAlpha(value) : value,
+    ]),
+  );
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -22,7 +42,7 @@ module.exports = {
         '5xl': ['3rem', { lineHeight: '1.1', letterSpacing: '-0.035em' }],         // 48px
       },
       colors: {
-        brand: {
+        brand: alphaVars({
           primary: 'var(--brand-primary, #4140FD)',
           hover: 'var(--brand-primary-hover, #3534DF)',
           active: 'var(--brand-primary-active, #2B2AC2)',
@@ -35,8 +55,8 @@ module.exports = {
           periwinkle300: '#A39CF9', // Legacy alias
           mist100: '#EFF3FB',       // Legacy alias
           ink900: '#0C0C0E',        // Legacy alias
-        },
-        surface: {
+        }),
+        surface: alphaVars({
           canvas: 'var(--surface-canvas, #FFFFFF)',
           card: 'var(--surface-card, #FFFFFF)',
           elevated: 'var(--surface-elevated, #FFFFFF)',
@@ -44,23 +64,23 @@ module.exports = {
           subtle: 'var(--surface-subtle, #F0F4F9)',
           glass: 'var(--surface-glass, rgba(255, 255, 255, 0.85))',
           glassBorder: 'var(--surface-glass-border, rgba(0, 0, 0, 0.08))',
-        },
-        edge: {
+        }),
+        edge: alphaVars({
           subtle: 'var(--border-subtle, rgba(0, 0, 0, 0.06))',
           default: 'var(--border-default, rgba(0, 0, 0, 0.10))',
           hover: 'var(--border-hover, rgba(0, 0, 0, 0.16))',
           highlight: 'var(--border-highlight, rgba(255, 255, 255, 0.9))',
           focus: 'var(--border-focus, #4140FD)',
-        },
-        content: {
+        }),
+        content: alphaVars({
           primary: 'var(--text-primary, #1A1A2E)',
           secondary: 'var(--text-secondary, #5A5E72)',
           tertiary: 'var(--text-tertiary, #888C9E)',
           muted: 'var(--text-muted, #9CA3AF)',
           inverse: 'var(--text-inverse, #F4F4F5)',
           brand: 'var(--text-brand, #4140FD)',
-        },
-        feedback: {
+        }),
+        feedback: alphaVars({
           success: 'var(--feedback-success, #10B981)',
           successSubtle: 'var(--feedback-success-subtle, rgba(16, 185, 129, 0.08))',
           warning: 'var(--feedback-warning, #F59E0B)',
@@ -69,7 +89,7 @@ module.exports = {
           dangerSubtle: 'var(--feedback-danger-subtle, rgba(239, 68, 68, 0.08))',
           info: 'var(--feedback-info, #3B82F6)',
           infoSubtle: 'var(--feedback-info-subtle, rgba(59, 130, 246, 0.08))',
-        },
+        }),
         gemini: {
           bg: '#ffffff',
           surface: '#EFF3FB',       // Mist 100

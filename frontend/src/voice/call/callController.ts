@@ -7,6 +7,7 @@
  * (`callMachine`), and hands the pieces that need memory to small modules:
  * the transcript, the reply guard, the safety bridge and the face feed.
  */
+import { SpeechTimeline } from './speechTimeline.ts';
 import { describeMicFailure } from '../audio/micErrors.ts';
 import { isProviderSafetyBlock } from '../control/geminiLive.ts';
 import { downloadTrace, VoiceTrace, type VoiceTraceReport } from '../diagnostics/trace.ts';
@@ -36,6 +37,14 @@ import { CallTranscript } from './transcript.ts';
 
 /** How often the controller checks its clocks (pause, reply guard, heartbeat). */
 export const TICK_MS = 250;
+/**
+ * The speech clock: releases scheduled face looks and advances the spoken part
+ * of the caption. Separate from TICK_MS because mic frames, which used to drive
+ * both, stop when the caller mutes, and 250ms is a visible stutter on a caption.
+ */
+export const SPEECH_TICK_MS = 80;
+/** Gemini Live speaks 16-bit mono PCM at 24kHz. */
+const MODEL_AUDIO_RATE = 24_000;
 /** No new caller words for this long closes their turn on screen and for safety. */
 export const USER_PAUSE_MS = 1_200;
 /** After a barge-in, audio still in flight from the cut reply is dropped for this long. */
@@ -92,6 +101,13 @@ export class LiveVoiceSession {
   private mic: MicPort | null = null;
   private context: AudioContext | null = null;
   private ticker: unknown = null;
+  private speechTicker: unknown = null;
+  /** MindPal's live caption on its audio, so the UI can show what has been heard. */
+  private readonly captionTimeline = new SpeechTimeline();
+  private captionChars = 0;
+  /** The turn was committed to history but may still be playing. */
+  private captionCommitted = false;
+  private lastSpoken = -1;
   private unbindPage: Array<() => void> = [];
 
   private epoch = 0;
@@ -211,6 +227,7 @@ export class LiveVoiceSession {
     this.bindPage();
     this.armTimers(grant);
     this.ticker = this.deps.clock.setInterval(() => this.tick(), TICK_MS);
+    this.speechTicker = this.deps.clock.setInterval(() => this.speechTick(), SPEECH_TICK_MS);
 
     const context = await audioReady;
     if (!context) {
@@ -246,6 +263,8 @@ export class LiveVoiceSession {
     };
     if (this.ticker !== null) this.deps.clock.clearInterval(this.ticker);
     this.ticker = null;
+    if (this.speechTicker !== null) this.deps.clock.clearInterval(this.speechTicker);
+    this.speechTicker = null;
     this.timers.clearAll();
     this.unbindPage.forEach((unbind) => unbind());
     this.unbindPage = [];
@@ -338,6 +357,7 @@ export class LiveVoiceSession {
         playedMs,
       });
       this.face.stopSpeaking();
+      this.clearSpokenProgress();
       this.fenceUntil = now + BARGE_IN_FENCE_MS;
       this.modelStreaming = false;
       if (this.replyRequestedAt > 0) {
@@ -529,6 +549,11 @@ export class LiveVoiceSession {
       this.releaseFence();
     }
     if (!this.playback.enqueue(pcm)) return;
+    const audioMs = (pcm.length / MODEL_AUDIO_RATE) * 1000;
+    const queuedMs = this.playback.queuedMs();
+    this.face.modelAudio(audioMs, now, queuedMs);
+    if (this.captionCommitted) this.resetCaptionTimeline();
+    this.captionTimeline.audio(audioMs, now, queuedMs);
     this.modelStreaming = true;
     this.openerHeard = true;
     this.transcript.noteModelAudio();
@@ -576,7 +601,9 @@ export class LiveVoiceSession {
     const { caption, hasWords } = this.transcript.modelDelta(raw);
     this.modelStreaming = true;
     this.guard.generationDelta(this.now(), hasWords);
-    this.face.modelWords(raw, this.now(), this.playback.queuedMs());
+    const now = this.now();
+    this.face.modelWords(raw, now, this.playback.queuedMs());
+    this.trackCaption(caption);
     this.trace.add('caption', 'model', { text: caption, delta: raw });
     if (caption) this.callbacks.onOutputCaption(caption);
   }
@@ -669,6 +696,10 @@ export class LiveVoiceSession {
     const said = this.transcript.takeModelTurn();
     if (said) this.callbacks.onTurn?.('model', said);
     this.callbacks.onOutputCaption('');
+    // Generation ends seconds before playback does. The committed turn keeps
+    // its timeline so the UI can go on showing which of its words are heard.
+    if (said) this.captionCommitted = true;
+    else this.clearSpokenProgress();
   }
 
   private endModelStream(): void {
@@ -685,6 +716,7 @@ export class LiveVoiceSession {
       this.transport?.openingFinished();
     }
     const wasSpeaking = this.phase === 'speaking';
+    this.clearSpokenProgress();
     this.dispatch({ type: 'playbackIdle' });
     if (wasSpeaking && this.phase === 'listening') this.face.speechEnded();
     // Words said over MindPal that did not interrupt it still form a turn.
@@ -704,6 +736,42 @@ export class LiveVoiceSession {
   }
 
   // ---------------------------------------------------------------- clock
+
+  private speechTick(): void {
+    if (this.closed) return;
+    const now = this.now();
+    this.face.tick(now);
+    if (!this.captionTimeline.length) return;
+    const spoken = this.captionTimeline.spokenChars(now);
+    if (spoken === this.lastSpoken) return;
+    this.lastSpoken = spoken;
+    this.callbacks.onOutputProgress?.(spoken);
+  }
+
+  private trackCaption(caption: string): void {
+    // First words of the next reply: the previous one's timeline is done.
+    if (this.captionCommitted) this.resetCaptionTimeline();
+    const added = caption.length - this.captionChars;
+    if (added <= 0) return;
+    this.captionTimeline.text(added);
+    this.captionChars = caption.length;
+  }
+
+  private resetCaptionTimeline(): void {
+    this.captionTimeline.reset();
+    this.captionChars = 0;
+    this.captionCommitted = false;
+    this.lastSpoken = -1;
+  }
+
+  private clearSpokenProgress(): void {
+    const had = this.captionTimeline.length > 0;
+    this.captionTimeline.reset();
+    this.captionChars = 0;
+    this.captionCommitted = false;
+    this.lastSpoken = -1;
+    if (had) this.callbacks.onOutputProgress?.(null);
+  }
 
   private tick(): void {
     if (this.closed) return;
