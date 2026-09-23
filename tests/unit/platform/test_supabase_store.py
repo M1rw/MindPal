@@ -192,6 +192,8 @@ def test_reads_are_served_from_cache_during_an_outage_but_writes_fail_closed() -
         ({"MINDPAL_STORAGE_PROVIDER": "firestore"}, "firestore"),
         ({"MINDPAL_STORAGE_PROVIDER": "supabase", "SUPABASE_URL": "https://x.supabase.co", "SUPABASE_SERVICE_ROLE_KEY": "k"}, "supabase"),
         ({"FIREBASE_CREDENTIALS_JSON": "{}"}, "firestore"),
+        # Both configured: Supabase is the production store.
+        ({"FIREBASE_CREDENTIALS_JSON": "{}", "SUPABASE_URL": "https://x.supabase.co", "SUPABASE_SERVICE_ROLE_KEY": "k"}, "supabase"),
         ({"SUPABASE_URL": "https://x.supabase.co", "SUPABASE_SERVICE_ROLE_KEY": "k"}, "supabase"),
         ({}, "memory"),
     ],
