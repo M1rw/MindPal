@@ -1,5 +1,5 @@
 /**
- * useDragToDismiss — bottom-sheet swipe-to-close hook.
+ * useDragToDismiss â€” bottom-sheet swipe-to-close hook.
  *
  * Attach panelRef to the modal panel element and call onClose when the user
  * swipes down past the dismiss threshold.

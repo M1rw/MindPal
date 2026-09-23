@@ -207,6 +207,8 @@ export interface UserProfile {
   email: string | null;
   photo_url: string | null;
   created_at: string;
+  /** Flat scalar map; see services/sync/settingsSync.ts for the keys. */
+  settings?: Record<string, string | number | boolean | null>;
 }
 
 export interface UserInsightsResponse {

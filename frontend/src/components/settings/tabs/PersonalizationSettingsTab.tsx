@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ApiClient, type AdaptiveProfileSummary } from '../../../services/api';
-import { useSessionStore } from '../../../store';
 import {
   SettingsHeader,
   SettingsRow,
@@ -10,6 +9,7 @@ import {
   settingsPrimaryButtonClass,
 } from '../SettingsPrimitives';
 import type { SettingsTabContentProps, UserPersonalization } from './types';
+import { useIsSignedIn } from '../../../hooks/session/useAccountStatus.ts';
 
 const TONE_OPTIONS: ReadonlyArray<{
   value: UserPersonalization['baseStyle'];
@@ -60,7 +60,7 @@ const LEARNED_LABELS: Record<string, Record<string, string>> = {
 
 /** What MindPal has learned from this account's conversations, with a reset. */
 function LearnedPreferences() {
-  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
+  const isAuthenticated = useIsSignedIn();
   const [profile, setProfile] = useState<AdaptiveProfileSummary | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [confirming, setConfirming] = useState(false);

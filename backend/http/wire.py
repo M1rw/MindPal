@@ -19,6 +19,7 @@ from backend.http.placeholders import register_preview_placeholders
 from backend.http.release import router as release_router
 from backend.http.sessions import router as sessions_router
 from backend.http.system import router as system_router
+from backend.http.usage import router as usage_router
 from backend.http.voice import router as voice_router
 from backend.http.voice_ops import router as voice_ops_router
 from backend.http.ops import router as ops_router
@@ -31,6 +32,7 @@ _ROUTERS = (
     health_router,
     release_router,
     chat_router,
+    usage_router,
     sessions_router,
     identity_router,
     memory_router,

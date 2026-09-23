@@ -12,6 +12,12 @@ A durable provider is never swapped for memory behind the operator's back. If
 it is unreachable at boot, the instance keeps the durable provider in a
 degraded state; its circuit breaker recovers when the backend does, and
 anything that enforces a limit fails closed meanwhile.
+
+If storage is misconfigured (say ``supabase`` without ``SUPABASE_URL``), the
+process still starts with an ``UnavailableStore``: every data call raises
+``StoreUnavailable`` (routes answer 503), ``/api/health`` names the missing
+setting, and the page shell, sign-in and crisis resources keep working. A
+crash at import would take all of that down with a bare 500.
 """
 
 from __future__ import annotations
@@ -19,7 +25,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Any
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from backend.configs.runtime import ensure_runtime_ready
 from backend.configs.settings import get_settings
@@ -53,6 +59,7 @@ __all__ = [
     "BREAKER_COOLDOWN_SECONDS",
     "CACHE_MAX_DOCS_PER_COLLECTION",
     "is_permanent_store_error",
+    "UnavailableStore",
     "build_store",
     "get_store",
     "store_is_durable",
@@ -86,7 +93,52 @@ def build_store(provider: str | None = None) -> DocumentStore:
     raise RuntimeError(f"Unsupported MINDPAL_STORAGE_PROVIDER={chosen!r}")
 
 
-_GLOBAL_STORE: DocumentStore = build_store()
+class UnavailableStore:
+    """Fails every call closed with the configuration error that caused it."""
+
+    provider_name = "unconfigured"
+    durable = False
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+
+    def _fail(self) -> Any:
+        raise StoreUnavailable(f"storage is not configured: {self.reason}")
+
+    def get_document(self, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
+        return self._fail()
+
+    def set_document(self, collection: str, doc_id: str, data: Dict[str, Any]) -> None:
+        self._fail()
+
+    def delete_document(self, collection: str, doc_id: str) -> bool:
+        return self._fail()
+
+    def list_documents(self, collection: str, prefix: str = "") -> List[Dict[str, Any]]:
+        return self._fail()
+
+    def iter_documents(self, collection: str, prefix: str = "") -> Iterator[Tuple[str, Dict[str, Any]]]:
+        return self._fail()
+
+    def query_documents(self, collection: str, field: str, value: Any) -> List[Tuple[str, Dict[str, Any]]]:
+        return self._fail()
+
+    def transact(self, collection: str, doc_id: str, mutate: Mutator[Any]) -> Any:
+        return self._fail()
+
+    def schema_health(self) -> dict[str, Any]:
+        return {"provider": "unconfigured", "status": "misconfigured", "reason": self.reason}
+
+
+def _build_global_store() -> DocumentStore:
+    try:
+        return build_store()
+    except RuntimeError as exc:
+        logger.critical("storage_misconfigured reason=%s — data routes will answer 503", exc)
+        return UnavailableStore(str(exc))
+
+
+_GLOBAL_STORE: DocumentStore = _build_global_store()
 
 
 def get_store() -> DocumentStore:

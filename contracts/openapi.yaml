@@ -679,6 +679,23 @@ paths:
         "200": { description: Summary }
         "401": { description: Sign in required }
 
+  /api/usage:
+    get:
+      operationId: usageGetSnapshot
+      tags: [usage]
+      summary: Current chat credit windows without spending a credit; per network when signed out
+      x-mindpal:
+        owner: chat
+        status: live
+        audience: public
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: "{chat: {credits_5h, limit_5h, reset_5h_seconds, credits_week, limit_week, reset_week_seconds, scope}}" }
+        "503": { description: Storage unavailable }
+
   /api/voice/usage:
     get:
       operationId: voiceGetUsage

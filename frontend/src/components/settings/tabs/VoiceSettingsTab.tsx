@@ -1,7 +1,8 @@
 import React from 'react';
-import { useFlagsStore, useSessionStore, useVoiceStore } from '../../../store';
+import { useFlagsStore, useVoiceStore } from '../../../store';
 import { SettingsHeader, SettingsRow, SettingsSelect, settingsPrimaryButtonClass } from '../SettingsPrimitives';
 import type { SettingsTabContentProps } from './types';
+import { useIsSignedIn } from '../../../hooks/session/useAccountStatus.ts';
 
 const VOICE_OPTIONS: ReadonlyArray<{
   value: string;
@@ -32,7 +33,7 @@ export const VoiceSettingsTab: React.FC<Partial<SettingsTabContentProps>> = ({
   updateSettings,
 }) => {
   const liveEnabled = useFlagsStore((state) => state.flags.voice_enabled);
-  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
+  const isAuthenticated = useIsSignedIn();
   const setVoiceActive = useVoiceStore((state) => state.setIsActive);
 
   const selectedVoice = settings?.voiceModel || 'Sulafat';
