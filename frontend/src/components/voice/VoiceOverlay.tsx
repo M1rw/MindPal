@@ -35,6 +35,7 @@ import { LOCAL_CRISIS_SCRIPT, STAY_HANDOFF_SCRIPT } from '../../voice/safety/cri
 import type { LiveUiStatus } from '../../voice/types.ts';
 import { presenceBus } from '../../voice/presenceBus.ts';
 import { LivePresence } from './LivePresence.tsx';
+import { useAccountStatus } from '../../hooks/session/useAccountStatus.ts';
 
 const STATUS_LABEL: Record<LiveUiStatus, string> = {
   consent: 'Consent needed',
@@ -66,9 +67,12 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
+const SIGN_IN_REQUIRED = 'Sign in to start a live voice call. Dictation still works without an account.';
+
 export const VoiceOverlay: React.FC = () => {
   const liveEnabled = useFlagsStore((state) => state.flags.voice_enabled);
-  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
+  const account = useAccountStatus();
+  const isAuthenticated = account === 'signed-in';
   // Field-level selectors. A bare `useVoiceStore()` re-rendered this whole tree
   // on every store write; the high-rate signals now bypass the store entirely
   // (see presenceBus), and what is left is subscribed to individually so a
@@ -236,9 +240,17 @@ export const VoiceOverlay: React.FC = () => {
     }
   }, [liveEnabled, isActive, isAuthenticated, uiStatus]);
 
+  // Signing in from the gate should pick the call up, not leave the old
+  // "sign in" error on screen with a retry button.
+  useEffect(() => {
+    if (isAuthenticated && isActive && uiStatus === 'unavailable' && statusDetail === SIGN_IN_REQUIRED) {
+      setUiStatus('consent');
+    }
+  }, [isAuthenticated, isActive, uiStatus, statusDetail]);
+
   const startCall = async (opts?: { recovered?: boolean }) => {
     if (!isAuthenticated) {
-      setUiStatus('unavailable', 'Sign in to start a live voice call. Dictation still works without an account.');
+      setUiStatus('unavailable', SIGN_IN_REQUIRED);
       return;
     }
     if (startingRef.current || sessionRef.current) return;
@@ -444,7 +456,18 @@ export const VoiceOverlay: React.FC = () => {
 
         {uiStatus === 'consent' ? (
           <div className="space-y-4 max-w-md">
-            {!isAuthenticated ? (
+            {account === 'loading' ? (
+              <p className="text-sm text-content-secondary" role="status">
+                Checking your account…
+              </p>
+            ) : null}
+            {account === 'unavailable' ? (
+              <p className="text-sm text-content-secondary leading-relaxed" role="status">
+                Sign-in is temporarily unavailable, so live voice can't start right now. Text chat
+                and dictation still work. This is not a crisis line.
+              </p>
+            ) : null}
+            {account === 'guest' ? (
               <>
                 <p className="text-sm text-content-secondary leading-relaxed">
                   Sign in to start a live voice call. Guests can still dictate into the composer.
@@ -482,7 +505,7 @@ export const VoiceOverlay: React.FC = () => {
             <p className="text-sm text-content-secondary leading-relaxed">
               {statusDetail || 'Live voice is unavailable. Use composer dictation or text chat.'}
             </p>
-            {!isAuthenticated ? (
+            {account === 'guest' ? (
               <button
                 type="button"
                 onClick={() => openAuthModal()}

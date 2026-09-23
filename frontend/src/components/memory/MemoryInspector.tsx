@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useMemoryStore, useSessionStore, useSettingsStore, useToastStore } from '../../store';
+import { useMemoryStore, useSettingsStore, useToastStore } from '../../store';
 import { ApiClient } from '../../services/api/index';
 import type { MemoryAtom } from '../../types';
 import { Pencil, Search, Trash2 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { MemoryInspectorTabs } from './MemoryInspectorTabs';
 import { honestMemorySummary } from '../../utils/memory/memory';
 import { Modal, ModalBody } from '../ui/Modal';
 import { cn } from '../../utils/ui/cn';
+import { useIsSignedIn } from '../../hooks/session/useAccountStatus.ts';
 
 function typeLabel(type: string): string {
   const cleaned = type.replace(/[_/]+/g, ' ').trim();
@@ -32,7 +33,7 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
 }) => {
   const { summary, setSummary, isLoading, error, setIsLoading, setError, inspectTab, highlightAtomIds } =
     useMemoryStore();
-  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
+  const isAuthenticated = useIsSignedIn();
   const { push: pushToast } = useToastStore();
   const highlightRef = useRef<HTMLDivElement | null>(null);
   const [atoms, setAtoms] = useState<MemoryAtom[]>([]);

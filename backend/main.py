@@ -12,7 +12,8 @@ from typing import Any
 
 from backend.configs.app import csv_env, is_production
 from backend.configs.auth import firebase_public_bootstrap
-from backend.configs.runtime import ensure_runtime_ready
+from backend.configs.runtime import validate_runtime_configs
+from backend.configs.settings import get_settings
 from backend.infra.store.store import storage_health
 from backend.infra.observability.metrics import (
     VoiceMetric,
@@ -92,7 +93,14 @@ def configured_cors_origins() -> list[str]:
 
 
 def create_app(*, serve_frontend: bool = True) -> FastAPI:
-    ensure_runtime_ready()
+    validate_runtime_configs()  # a broken bundled config is a bad build: fail loudly
+    try:
+        get_settings().validate_runtime()
+    except ValueError as exc:
+        # Storage settings. The store module has already fallen back to
+        # UnavailableStore, so start and let /api/health name what is missing
+        # instead of answering every page, sign-in included, with a bare 500.
+        logger.critical("storage_config_invalid reason=%s", exc)
     # Metrics are aggregated per instance-minute by the platform pulse
     # (backend/infra/observability/pulse.py); one document per LLM call or voice
     # request is no longer written.

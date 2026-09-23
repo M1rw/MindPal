@@ -3,6 +3,7 @@
 | Doc | Read it for |
 |---|---|
 | [architecture.md](architecture.md) | System diagram, backend layers, the life of a chat turn |
+| [wiring.md](wiring.md) | How every screen reaches the backend, sign-in state, failure behaviour |
 | [memory.md](memory.md) | Facts, AI summary, self-learning, privacy controls |
 | [voice.md](voice.md) | Live call lifecycle, quota, safety lease |
 | [safety.md](safety.md) | Crisis handling in chat and voice |
