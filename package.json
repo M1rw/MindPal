@@ -4,18 +4,18 @@
   "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "brand": "python scripts/apply_brand.py",
-    "brand:check": "python scripts/apply_brand.py --check",
-    "prebuild": "python scripts/apply_brand.py && node scripts/verify_lockfile_registry.mjs",
+    "brand": "python scripts/build/apply_brand.py",
+    "brand:check": "python scripts/build/apply_brand.py --check",
+    "prebuild": "python scripts/build/apply_brand.py && node scripts/build/verify_lockfile_registry.mjs",
     "build": "npm run build:css && npm run build:app",
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
     "build:app": "esbuild frontend/src/main.tsx --bundle --format=esm --platform=browser --target=es2022 --minify --loader:.tsx=tsx --loader:.ts=ts --outfile=frontend/dist/app.bundle.js",
     "build:vercel": "npm run build",
-    "test": "node --test tests/test_*.mjs",
+    "test": "node --test tests/frontend/test_*.mjs",
     "test:frontend:quality": "node --test tests/frontend_quality_harness.mjs",
     "test:frontend:visual": "node --test tests/frontend_visual_audit.mjs",
     "test:mobile:browserstack": "node tests/browserstack_mobile_audit.mjs",
-    "verify:build": "python scripts/verify_frontend_build.py"
+    "verify:build": "python scripts/build/verify_frontend_build.py"
   },
   "dependencies": {
     "@types/react": "^19.3.0",

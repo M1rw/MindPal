@@ -363,7 +363,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
             {showExpand ? (
               <button
                 type="button"
-                className="chat-composer__expand chat-compact-btn w-8 h-8 flex items-center justify-center rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface-elevated transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                className="chat-composer__expand chat-compact-btn w-8 h-8 flex items-center justify-center rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface-elevated transition-[transform,background-color,color] duration-200 ease-out hover:scale-110 active:scale-95 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
                 onClick={() => {
                   setExpanded((current) => !current);
                   window.requestAnimationFrame(() => textareaRef.current?.focus());

@@ -11,27 +11,22 @@ from backend.core.errors import AppError
 from backend.configs.runtime import api_limits_config
 from backend.domain.identity.identity import UserSession, account_guard, verify_auth_header
 from backend.domain.memory.consolidation import MemoryConsolidationService
+from backend.domain.memory.editing import MemoryEditor, summary_payload
 from backend.domain.memory.extract import can_persist_user_memory
-from backend.domain.memory.graph import (
-    MAX_ATOMS,
-    MAX_SUMMARY_CHARS,
-    MemoryGraph,
-    MemoryGraphService,
-    atom_from_mapping,
-    clip_atom_value,
-    honest_summary,
-    rank_atoms,
-    summary_from_atoms,
-)
+from backend.domain.memory.graph import MAX_SUMMARY_CHARS, MemoryGraph, MemoryGraphService
 
 router = APIRouter()
 memory_service = MemoryGraphService()
 consolidation = MemoryConsolidationService(memory_service.store, memory=memory_service)
 
-# A PUT replaces the whole graph, so it needs the same ceiling the merge path
-# applies. Without it a client could park an unbounded blob in the document that
-# every chat turn then loads.
-MAX_ATOMS_PER_PUT = MAX_ATOMS
+
+def _editor() -> MemoryEditor:
+    # Built per request from the module's current services, so replacing
+    # `memory_service` (tests, a different store) is honoured.
+    if consolidation.memory is not memory_service:
+        return MemoryEditor(memory_service, MemoryConsolidationService(memory_service.store, memory=memory_service))
+    return MemoryEditor(memory_service, consolidation)
+
 MAX_RAW_ATOMS_ACCEPTED = int(api_limits_config()["memory"]["max_raw_atoms_accepted"])
 
 
@@ -105,57 +100,7 @@ def get_memory_graph(authorization: Optional[str] = Header(None)) -> Dict[str, A
 def put_memory_graph(
     payload: MemoryGraphPutPayload, session: UserSession = Depends(_persistable_session)
 ) -> Dict[str, Any]:
-    existing = memory_service.get_memory_graph(session.user_id_hash)
-    if payload.atoms is None:
-        atoms = existing.atoms
-    else:
-        # Clip values and cap the count exactly as merge_atoms does. The two
-        # write paths landing in the same document disagreed before this.
-        seen: set[str] = set()
-        atoms = []
-        for raw in payload.atoms:
-            atom = atom_from_mapping(raw)
-            if atom is None or atom.id in seen:
-                continue
-            atom.value = clip_atom_value(atom.value)
-            if not atom.value:
-                continue
-            seen.add(atom.id)
-            atoms.append(atom)
-            if len(atoms) >= MAX_ATOMS_PER_PUT:
-                break
-        # The client does not send reinforcement history; keep what the server knows
-        # about each surviving fact instead of resetting it on every edit.
-        known = {atom.id: atom for atom in existing.atoms}
-        for atom in atoms:
-            previous = known.get(atom.id)
-            if previous is not None:
-                atom.mentions = previous.mentions
-                atom.first_seen = previous.first_seen
-                atom.last_seen = previous.last_seen
-    if payload.summary is not None:
-        summary, summary_auto = honest_summary(payload.summary), False
-    elif existing.summary_auto or not existing.summary:
-        # A generated summary must follow the facts: a fact deleted in the
-        # inspector used to live on in the summary the model kept reading.
-        summary, summary_auto = (summary_from_atoms(rank_atoms(atoms)) if atoms else ""), True
-    else:
-        summary, summary_auto = existing.summary, False
-    graph = MemoryGraph(
-        user_id_hash=session.user_id_hash,
-        summary=summary,
-        atoms=atoms,
-        summary_auto=summary_auto,
-        narrative=existing.narrative,
-        narrative_at=existing.narrative_at,
-        open_threads=list(existing.open_threads),
-    )
-    memory_service.save_memory_graph(graph)
-    kept = {atom.id for atom in atoms}
-    removed = [atom.value for atom in existing.atoms if atom.id not in kept]
-    if removed:
-        consolidation.forget_facts(session.user_id_hash, removed)
-        graph = memory_service.get_memory_graph(session.user_id_hash)
+    graph = _editor().replace(session.user_id_hash, payload.atoms, payload.summary)
     return _graph_payload(graph, include_user_key=True)
 
 
@@ -178,35 +123,7 @@ def patch_memory_item(
 def delete_memory_item(
     atom_id: str, session: UserSession = Depends(_persistable_session)
 ) -> Dict[str, Any]:
-    graph = memory_service.get_memory_graph(session.user_id_hash)
-    removed = [a.value for a in graph.atoms if a.id == atom_id]
-    graph.atoms = [a for a in graph.atoms if a.id != atom_id]
-    if graph.summary_auto or not graph.summary:
-        # A deleted fact must not survive in the generated summary.
-        graph.summary = summary_from_atoms(rank_atoms(graph.atoms)) if graph.atoms else ""
-        graph.summary_auto = True
-    memory_service.save_memory_graph(graph)
-    if removed:
-        consolidation.forget_facts(session.user_id_hash, removed)
-        graph = memory_service.get_memory_graph(session.user_id_hash)
-    return _graph_payload(graph, include_user_key=True)
-
-
-def _summary_payload(user_id_hash: str, graph: MemoryGraph) -> Dict[str, Any]:
-    """The best summary we have, labelled with where it came from."""
-    if graph.narrative:
-        summary, source = graph.narrative, "ai"
-    elif graph.summary and not graph.summary_auto:
-        summary, source = graph.summary, "user"
-    else:
-        summary, source = graph.summary, "facts"
-    return {
-        "user_id_hash": user_id_hash,
-        "summary": summary,
-        "source": source,
-        "updated_at": graph.narrative_at if source == "ai" else None,
-        "open_threads": list(graph.open_threads) if source == "ai" else [],
-    }
+    return _graph_payload(_editor().delete_atom(session.user_id_hash, atom_id), include_user_key=True)
 
 
 @router.get("/api/memory/summary", operation_id="memoryGetSummary")
@@ -214,10 +131,7 @@ def get_memory_summary(authorization: Optional[str] = Header(None)) -> Dict[str,
     session = verify_auth_header(authorization)
     if not session.has_account_storage or not can_persist_user_memory(session.user_id_hash):
         return {"summary": ""}
-    graph = memory_service.get_memory_graph(session.user_id_hash)
-    if not graph.narrative and not graph.summary and graph.atoms:
-        graph = memory_service.rebuild_summary(session.user_id_hash)
-    return _summary_payload(session.user_id_hash, graph)
+    return _editor().summary_view(session.user_id_hash)
 
 
 @router.post("/api/memory/summary/refresh", operation_id="memoryRefreshSummary")
@@ -234,14 +148,8 @@ def refresh_memory_summary(
     supplied = payload.summary if payload else None
     if supplied is not None:
         graph = memory_service.update_summary(session.user_id_hash, supplied)
-        return {**_summary_payload(session.user_id_hash, graph), "status": "saved"}
-    consolidation.request_summary(session.user_id_hash)
-    report = consolidation.run(session.user_id_hash, force=True)
-    graph = memory_service.get_memory_graph(session.user_id_hash)
-    if not graph.narrative and not graph.summary and graph.atoms:
-        graph = memory_service.rebuild_summary(session.user_id_hash)
-    status = "updated" if report.summarized else ("queued" if report.skipped in {"load_critical", "daily_budget"} else "unchanged")
-    return {**_summary_payload(session.user_id_hash, graph), "status": status, "reason": report.skipped or None}
+        return {**summary_payload(session.user_id_hash, graph), "status": "saved"}
+    return _editor().refresh_summary(session.user_id_hash)
 
 
 @router.get("/api/memory/journal", operation_id="memoryGetJournal")
