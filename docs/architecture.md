@@ -67,15 +67,21 @@ sequenceDiagram
     alt crisis language
         O-->>C: crisis resources (no model call, no learning)
     else normal turn
-        O->>O: adaptive profile, strategy selection,<br/>memory prompt, grounding
-        O->>L: stream(system prompt, history)
+        O->>O: adaptive profile, trajectory, strategy,<br/>memory prompt, grounding, generation plan
+        O->>L: stream(system prompt, history, thinking budget, max tokens)
         L-->>O: tokens
-        O-->>C: SSE tokens (through the output guard)
+        O-->>C: SSE tokens (output guard, stock-sentence filter)
         O->>O: learn style, extract facts, journal the turn
         H->>B: after the stream ends
         B->>B: memory consolidation if due and load allows
     end
 ```
+
+The generation plan (`domain/chat/routing.py`) gives hard turns (distress,
+thought spirals, conversations getting heavier, long stories) a larger thinking
+budget when the platform has room, and sizes the reply to the person's length
+preference. Trajectory (`domain/chat/trajectory.py`) reads the recent user
+turns for escalation and recurring topics, with no AI call.
 
 Quota is reserved before the model call and refunded if the turn fails. Guests
 are rate-limited per network; accounts have credit windows (5 hours and weekly).

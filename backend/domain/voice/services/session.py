@@ -29,6 +29,7 @@ from backend.domain.adaptation.profile import (
     personalization_overrides,
     preference_note,
 )
+from backend.domain.memory.graph import MemoryGraphService
 from backend.domain.voice.policy import resolve_voice_policy
 from backend.domain.voice.providers.gemini.budget import get_gemini_call_budget, should_run_classify
 from backend.domain.voice.providers.gemini.live import GeminiLiveVoiceProvider
@@ -44,6 +45,8 @@ from backend.domain.voice.runtime.transcript import (
 from backend.domain.voice.runtime.usage import RECLAIM_REASONS, VoiceUsageLifecycle
 from backend.domain.voice.services.token import (
     LEARNED_NOTE_KEY,
+    MEMORY_NOTE_KEY,
+    SERVER_ONLY_KEYS,
     TOKEN_TTL_SECONDS,
     VoiceTokenService,
     live_model_id,
@@ -287,13 +290,30 @@ class VoiceSessionService:
             extra={"status": "minted"},
         )
 
+    def _memory_note(self, user_id_hash: str) -> str:
+        """The caller's AI summary and most salient facts, as one line for the Live prompt.
+
+        Before this, a live call started knowing nothing about the person; it
+        could only look things up with the recall tools mid-call.
+        """
+        try:
+            text = MemoryGraphService(self.store).prompt_for_user(user_id_hash).text
+        except Exception as exc:
+            logger.warning("voice_memory_note_skipped error=%s", type(exc).__name__)
+            return ""
+        lines = [line.strip("- ").strip() for line in text.splitlines()[2:] if line.strip()]
+        return " ".join(lines)[:1400]
+
     def _adapted_personalization(self, user_id_hash: str, personalization: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Client settings plus what this caller's past conversations taught MindPal.
 
         The learned note is free text, so it is only ever set here from the
         server-side profile; a client-supplied value under that key is dropped.
         """
-        merged = {key: value for key, value in (personalization or {}).items() if key != LEARNED_NOTE_KEY}
+        merged = {key: value for key, value in (personalization or {}).items() if key not in SERVER_ONLY_KEYS}
+        memory_note = self._memory_note(user_id_hash)
+        if memory_note:
+            merged[MEMORY_NOTE_KEY] = memory_note
         try:
             service = AdaptiveProfileService(self.store)
             if not service.enabled():

@@ -1,4 +1,4 @@
-﻿# backend/domain/greeting/engine.py — Smart Contextual Greeting Engine
+# backend/domain/greeting/engine.py — Smart Contextual Greeting Engine
 
 from __future__ import annotations
 
@@ -104,6 +104,32 @@ def _compute_specificity_score(
     return score
 
 
+# A follow-up is only worth asking after a real gap, and never twice.
+_FOLLOW_UP_MIN_GAP_S = 12 * 3600
+
+
+def _pick_follow_up(
+    open_threads: List[str],
+    presence: Dict[str, Any],
+    gap_seconds: Optional[float],
+    system_load_ok: bool,
+) -> str:
+    """One open thread from the AI summary, already phrased as a question."""
+    if not system_load_ok or gap_seconds is None or gap_seconds < _FOLLOW_UP_MIN_GAP_S:
+        return ""
+    from backend.domain.safety.modes.chat.classify import crisis_evidence
+
+    asked = str(presence.get("last_follow_up") or "")
+    for thread in open_threads:
+        question = " ".join(str(thread or "").split())
+        if not question or len(question) > 140 or question == asked:
+            continue
+        if not question.endswith(("?", "؟")) or crisis_evidence(question):
+            continue
+        return question
+    return ""
+
+
 class GreetingEngine:
     """
     Tier-1 Smart Greeting Engine.
@@ -130,8 +156,10 @@ class GreetingEngine:
         memory_atoms: Optional[List[Dict[str, Any]]] = None,
         telemetry: Optional[Dict[str, Any]] = None,
         system_load_ok: bool = True,
+        open_threads: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         memory_atoms = memory_atoms or []
+        open_threads = open_threads or []
 
         # Resolve user local time from tz_offset
         utc_now = datetime.now(timezone.utc)
@@ -165,11 +193,18 @@ class GreetingEngine:
             except Exception:
                 pass
 
+        follow_up = _pick_follow_up(open_threads, presence, gap_seconds, system_load_ok)
+
         # Update presence record
         self.store.set_document(
             "user_presence",
             user_id_hash,
-            {**presence, "user_id_hash": user_id_hash, "last_visit_iso": utc_now.isoformat()},
+            {
+                **presence,
+                "user_id_hash": user_id_hash,
+                "last_visit_iso": utc_now.isoformat(),
+                **({"last_follow_up": follow_up} if follow_up else {}),
+            },
         )
 
         # Extract atom topics
@@ -186,14 +221,9 @@ class GreetingEngine:
         )
 
         # Generate greeting
-        if score >= 5 and memory_summary and not is_new_user:
-            tone = "contextual"
-            first_sentence = memory_summary.split(".")[0].strip()
-            name_part = f", {display_name.strip().split()[0]}" if display_name else ""
-            greeting = (
-                f"Good to have you back{name_part}. "
-                f"Last time, {first_sentence.lower()}."
-            )
+        if follow_up and score > -999:
+            tone = "follow_up"
+            greeting = f"{_heuristic_greeting(display_name, hour, gap_seconds, is_new_user)} {follow_up}"
         elif score >= 2 and not is_new_user:
             tone = "warm"
             greeting = _heuristic_greeting(display_name, hour, gap_seconds, is_new_user)

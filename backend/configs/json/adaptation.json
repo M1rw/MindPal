@@ -15,29 +15,221 @@
   },
   "preferences": {
     "length": {
-      "concise": ["too long", "shorter", "keep it short", "keep it brief", "be brief", "tl;dr", "tldr", "less text", "shorter answers", "short answers", "اختصر", "طويل مرة", "باختصار"],
-      "detailed": ["more detail", "more details", "explain more", "go deeper", "elaborate", "tell me more", "longer answer", "تفاصيل اكثر", "اشرح اكثر", "وضح اكثر"]
+      "concise": [
+        "too long",
+        "shorter",
+        "keep it short",
+        "keep it brief",
+        "be brief",
+        "tl;dr",
+        "tldr",
+        "less text",
+        "shorter answers",
+        "short answers",
+        "اختصر",
+        "طويل مرة",
+        "باختصار",
+        "طولت",
+        "كلام كثير",
+        "خليك مختصر",
+        "اختصر شوي",
+        "قصرها",
+        "باختصار لو سمحت",
+        "مختصر"
+      ],
+      "detailed": [
+        "more detail",
+        "more details",
+        "explain more",
+        "go deeper",
+        "elaborate",
+        "tell me more",
+        "longer answer",
+        "تفاصيل اكثر",
+        "اشرح اكثر",
+        "وضح اكثر",
+        "فصل اكثر",
+        "ابي تفاصيل",
+        "عايز تفاصيل",
+        "بدي تفاصيل",
+        "وضح لي",
+        "اشرح لي بالتفصيل"
+      ]
     },
     "approach": {
-      "listen": ["just listen", "stop giving advice", "don't give me advice", "dont give me advice", "i don't need advice", "i dont need advice", "i just want to vent", "just want to vent", "don't try to fix", "dont try to fix", "no advice", "بس اسمعني", "ما ابي نصايح", "ما ابغى نصيحة"],
-      "advice": ["what should i do", "give me advice", "tell me what to do", "practical steps", "give me steps", "what do you suggest", "any advice", "انصحني", "وش اسوي", "ماذا افعل", "ايش اسوي"]
+      "listen": [
+        "just listen",
+        "stop giving advice",
+        "don't give me advice",
+        "dont give me advice",
+        "i don't need advice",
+        "i dont need advice",
+        "i just want to vent",
+        "just want to vent",
+        "don't try to fix",
+        "dont try to fix",
+        "no advice",
+        "بس اسمعني",
+        "ما ابي نصايح",
+        "ما ابغى نصيحة",
+        "ابيك تسمعني",
+        "بدي حدا يسمعني",
+        "عايز حد يسمعني",
+        "لا تنصحني",
+        "ما ابي حلول",
+        "بس ابي افضفض",
+        "ابي افضفض",
+        "بدي فضفض",
+        "عايز افضفض"
+      ],
+      "advice": [
+        "what should i do",
+        "give me advice",
+        "tell me what to do",
+        "practical steps",
+        "give me steps",
+        "what do you suggest",
+        "any advice",
+        "انصحني",
+        "وش اسوي",
+        "ماذا افعل",
+        "ايش اسوي",
+        "وش الحل",
+        "ايش الحل",
+        "شو الحل",
+        "ايه الحل",
+        "اعطني حلول",
+        "ساعدني الاقي حل",
+        "شو اعمل",
+        "اعمل ايه",
+        "وش تنصحني"
+      ]
     },
     "tone": {
-      "direct": ["be direct", "be honest with me", "don't sugarcoat", "dont sugarcoat", "be blunt", "straight answer", "no sugarcoating", "كن صريح", "بصراحة"],
-      "gentle": ["be gentle", "be kind", "go easy", "softer", "please be nice", "بلطف", "بهدوء"]
+      "direct": [
+        "be direct",
+        "be honest with me",
+        "don't sugarcoat",
+        "dont sugarcoat",
+        "be blunt",
+        "straight answer",
+        "no sugarcoating",
+        "كن صريح",
+        "بصراحة",
+        "قولها بصراحة",
+        "كن واضح",
+        "بدون مجاملة",
+        "لا تجاملني",
+        "صارحني"
+      ],
+      "gentle": [
+        "be gentle",
+        "be kind",
+        "go easy",
+        "softer",
+        "please be nice",
+        "بلطف",
+        "بهدوء",
+        "بشويش",
+        "بالراحة علي",
+        "تكلم بلطف"
+      ]
     },
     "lists": {
-      "off": ["no lists", "no bullet points", "stop using bullet", "stop with the lists", "without lists", "just talk normally"],
-      "on": ["use bullet points", "make a list", "list them", "in a list", "bullet points please"]
+      "off": [
+        "no lists",
+        "no bullet points",
+        "stop using bullet",
+        "stop with the lists",
+        "without lists",
+        "just talk normally"
+      ],
+      "on": [
+        "use bullet points",
+        "make a list",
+        "list them",
+        "in a list",
+        "bullet points please"
+      ]
     },
     "emoji": {
-      "off": ["no emoji", "no emojis", "stop using emoji", "stop with the emoji"],
-      "on": ["use emojis", "use emoji", "add emojis"]
+      "off": [
+        "no emoji",
+        "no emojis",
+        "stop using emoji",
+        "stop with the emoji",
+        "بدون ايموجي",
+        "لا تحط ايموجي",
+        "بلا ايموجي"
+      ],
+      "on": [
+        "use emojis",
+        "use emoji",
+        "add emojis"
+      ]
     }
   },
   "feedback": {
-    "positive": ["thank you", "thanks", "that helps", "that helped", "this helps", "makes sense", "good point", "you're right", "youre right", "exactly", "i feel better", "feel a bit better", "that's helpful", "thats helpful", "love that", "great idea", "شكرا", "مشكور", "صح كلامك", "فعلا", "ساعدني", "ارتحت"],
-    "negative": ["not helpful", "doesn't help", "doesnt help", "you don't understand", "you dont understand", "you're not listening", "youre not listening", "that's not what i", "thats not what i", "useless", "so generic", "too generic", "sounds robotic", "you sound like a bot", "that's not it", "thats not it", "ما فهمتني", "مو مفيد", "ما ساعدني"]
+    "positive": [
+      "thank you",
+      "thanks",
+      "that helps",
+      "that helped",
+      "this helps",
+      "makes sense",
+      "good point",
+      "you're right",
+      "youre right",
+      "exactly",
+      "i feel better",
+      "feel a bit better",
+      "that's helpful",
+      "thats helpful",
+      "love that",
+      "great idea",
+      "شكرا",
+      "مشكور",
+      "صح كلامك",
+      "ارتحت",
+      "يعطيك العافيه",
+      "كلامك صح",
+      "والله ريحتني",
+      "فادني",
+      "مرسي",
+      "تسلم",
+      "جزاك الله خير",
+      "حلو كلامك",
+      "ساعدتني"
+    ],
+    "negative": [
+      "not helpful",
+      "doesn't help",
+      "doesnt help",
+      "you don't understand",
+      "you dont understand",
+      "you're not listening",
+      "youre not listening",
+      "that's not what i",
+      "thats not what i",
+      "useless",
+      "so generic",
+      "too generic",
+      "sounds robotic",
+      "you sound like a bot",
+      "that's not it",
+      "thats not it",
+      "ما فهمتني",
+      "مو مفيد",
+      "ما ساعدني",
+      "ما فهمت علي",
+      "مو هذا قصدي",
+      "مش ده قصدي",
+      "كلامك ما يفيد",
+      "ما فادني",
+      "كلام عام",
+      "زي الروبوت",
+      "ما حسيت فيني"
+    ]
   },
   "notes": {
     "length.concise": "They prefer short, focused replies. Keep it brief.",

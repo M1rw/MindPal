@@ -30,6 +30,7 @@ variable. The ones operators must set:
 | `MINDPAL_VOICE_SUPPORT_DIAGNOSTICS_SECRET` | Support-only diagnostics and platform pulse |
 | `MINDPAL_ALLOWED_HOSTS`, `MINDPAL_CORS_ORIGINS` | Host and origin allowlists |
 | `MINDPAL_ADAPTIVE_LEARNING` | `0` turns per-person learning off |
+| `MINDPAL_SEMANTIC_SEARCH` | `0` turns embedding search off (keywords only) |
 | `MINDPAL_PRESSURE_OVERRIDE` | Pin the load level during an incident |
 
 ## Storage
@@ -81,6 +82,9 @@ signal relative to the capacity in `configs/json/dynamic.json`.
 | strained | scheduler only | 3x slower | 80% | 60% |
 | critical | overdue jobs only | off | 60% | 40% |
 
+Thinking budget for hard turns: 2048 (calm), 1024 (busy), off (strained,
+critical). Search by meaning: on at calm and busy only.
+
 Never load-dependent: crisis detection and resources, the voice safety
 classifier and lease, and signed-in users' quotas.
 
@@ -92,9 +96,11 @@ Current state: `GET /api/internal/platform-pulse` with header
 | Script | Use |
 |---|---|
 | `scripts/ops/migrate_store.py` | Copy data between storage providers |
+| `scripts/ops/build_grounding_embeddings.py` | Build library vectors for search by meaning (rerun after editing the library) |
 | `scripts/ops/push_env_to_vercel.py` | Push `.env.vercel` values to Vercel |
 | `scripts/ops/firebase_smoke.py` | Verify Firebase Admin credentials |
 | `scripts/ops/verify_gemini_config.py` | Verify the live-voice Gemini config against the API |
 | `scripts/ops/check_openrouter_key.py` | Report what an OpenRouter key can do |
+| `scripts/eval/run_conversation_evals.py` | Bilingual conversation evals; `--judge` scores real replies |
 | `scripts/eval/validate_voice_classifier.py` | Score the voice crisis classifier on labelled phrases |
 | `scripts/eval/rank_openrouter_free.py` | Rank free models for the classifier |

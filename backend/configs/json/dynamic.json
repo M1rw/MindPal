@@ -14,35 +14,139 @@
     "llm_latency_ms_soft": 9000
   },
   "levels": [
-    {"name": "calm", "below": 0.45},
-    {"name": "busy", "below": 0.75},
-    {"name": "strained", "below": 0.95},
-    {"name": "critical", "below": 1000}
+    {
+      "name": "calm",
+      "below": 0.45
+    },
+    {
+      "name": "busy",
+      "below": 0.75
+    },
+    {
+      "name": "strained",
+      "below": 0.95
+    },
+    {
+      "name": "critical",
+      "below": 1000
+    }
   ],
   "policies": {
     "calm": {
-      "memory": {"digest_min_turns": 6, "summary_min_new_digests": 2, "summary_min_new_facts": 3, "user_cooldown_hours": 4, "daily_ai_calls_per_user": 6, "opportunistic": true, "cron_batch": 60, "max_defer_hours": 24},
-      "voice_reaction": {"enabled": true, "interval_scale": 1.0},
-      "chat": {"history_scale": 1.0},
-      "quota": {"anonymous_scale": 1.0}
+      "memory": {
+        "digest_min_turns": 6,
+        "summary_min_new_digests": 2,
+        "summary_min_new_facts": 3,
+        "user_cooldown_hours": 4,
+        "daily_ai_calls_per_user": 6,
+        "opportunistic": true,
+        "cron_batch": 60,
+        "max_defer_hours": 24
+      },
+      "voice_reaction": {
+        "enabled": true,
+        "interval_scale": 1.0
+      },
+      "chat": {
+        "history_scale": 1.0
+      },
+      "quota": {
+        "anonymous_scale": 1.0
+      },
+      "generation": {
+        "deep_thinking_budget": 2048,
+        "standard_thinking_budget": -1
+      },
+      "retrieval": {
+        "semantic": true
+      }
     },
     "busy": {
-      "memory": {"digest_min_turns": 10, "summary_min_new_digests": 3, "summary_min_new_facts": 5, "user_cooldown_hours": 8, "daily_ai_calls_per_user": 4, "opportunistic": true, "cron_batch": 30, "max_defer_hours": 24},
-      "voice_reaction": {"enabled": true, "interval_scale": 1.6},
-      "chat": {"history_scale": 1.0},
-      "quota": {"anonymous_scale": 1.0}
+      "memory": {
+        "digest_min_turns": 10,
+        "summary_min_new_digests": 3,
+        "summary_min_new_facts": 5,
+        "user_cooldown_hours": 8,
+        "daily_ai_calls_per_user": 4,
+        "opportunistic": true,
+        "cron_batch": 30,
+        "max_defer_hours": 24
+      },
+      "voice_reaction": {
+        "enabled": true,
+        "interval_scale": 1.6
+      },
+      "chat": {
+        "history_scale": 1.0
+      },
+      "quota": {
+        "anonymous_scale": 1.0
+      },
+      "generation": {
+        "deep_thinking_budget": 1024,
+        "standard_thinking_budget": -1
+      },
+      "retrieval": {
+        "semantic": true
+      }
     },
     "strained": {
-      "memory": {"digest_min_turns": 16, "summary_min_new_digests": 4, "summary_min_new_facts": 8, "user_cooldown_hours": 16, "daily_ai_calls_per_user": 2, "opportunistic": false, "cron_batch": 10, "max_defer_hours": 36},
-      "voice_reaction": {"enabled": true, "interval_scale": 3.0},
-      "chat": {"history_scale": 0.8},
-      "quota": {"anonymous_scale": 0.6}
+      "memory": {
+        "digest_min_turns": 16,
+        "summary_min_new_digests": 4,
+        "summary_min_new_facts": 8,
+        "user_cooldown_hours": 16,
+        "daily_ai_calls_per_user": 2,
+        "opportunistic": false,
+        "cron_batch": 10,
+        "max_defer_hours": 36
+      },
+      "voice_reaction": {
+        "enabled": true,
+        "interval_scale": 3.0
+      },
+      "chat": {
+        "history_scale": 0.8
+      },
+      "quota": {
+        "anonymous_scale": 0.6
+      },
+      "generation": {
+        "deep_thinking_budget": 0,
+        "standard_thinking_budget": 0
+      },
+      "retrieval": {
+        "semantic": false
+      }
     },
     "critical": {
-      "memory": {"digest_min_turns": 24, "summary_min_new_digests": 6, "summary_min_new_facts": 12, "user_cooldown_hours": 24, "daily_ai_calls_per_user": 1, "opportunistic": false, "cron_batch": 0, "max_defer_hours": 48},
-      "voice_reaction": {"enabled": false, "interval_scale": 6.0},
-      "chat": {"history_scale": 0.6},
-      "quota": {"anonymous_scale": 0.4}
+      "memory": {
+        "digest_min_turns": 24,
+        "summary_min_new_digests": 6,
+        "summary_min_new_facts": 12,
+        "user_cooldown_hours": 24,
+        "daily_ai_calls_per_user": 1,
+        "opportunistic": false,
+        "cron_batch": 0,
+        "max_defer_hours": 48
+      },
+      "voice_reaction": {
+        "enabled": false,
+        "interval_scale": 6.0
+      },
+      "chat": {
+        "history_scale": 0.6
+      },
+      "quota": {
+        "anonymous_scale": 0.4
+      },
+      "generation": {
+        "deep_thinking_budget": 0,
+        "standard_thinking_budget": 0
+      },
+      "retrieval": {
+        "semantic": false
+      }
     }
   },
   "memory": {
@@ -55,5 +159,13 @@
     "summary_max_chars": 700,
     "digest_input_chars": 6000,
     "idle_compact_minutes": 30
+  },
+  "generation": {
+    "max_tokens": {
+      "concise": 450,
+      "balanced": 1000,
+      "detailed": 1600
+    },
+    "deep_min_chars": 500
   }
 }

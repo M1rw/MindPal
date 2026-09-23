@@ -60,6 +60,17 @@ audio worklets). Build the app first, and install the browser once with
 pulse between tests, so load-dependent behavior starts at `calm`. Pin a level in
 a test with `monkeypatch.setenv("MINDPAL_PRESSURE_OVERRIDE", "critical")`.
 
+## Evaluating quality
+
+`data/evals/conversations.json` holds English and Arabic cases (venting,
+advice, distortions, crisis and benign idioms, memory callbacks, preferences,
+trajectory). `python scripts/eval/run_conversation_evals.py` checks them
+through the real pipeline with no network; CI runs the same cases. Add
+`--judge` for real replies scored by a judge model (needs `GEMINI_API_KEY`;
+also the manual "Judged Conversation Evals" workflow), and `--baseline` to fail
+on a regression. Production signals (replies, thumbs, positive and negative
+reactions, stock sentences dropped) are in the platform pulse's `quality`.
+
 ## Checks (CI runs all of these)
 
 | Check | Command |
