@@ -1,16 +1,17 @@
 ﻿import React from 'react';
-import { useAuthStore, useChangelogStore, useSessionStore, useToastStore } from '../../store';
+import { useAuthStore, useChangelogStore, useToastStore } from '../../store';
 import { STORAGE_KEYS } from '../../constants/storage';
 import { ApiClient } from '../../services/api/index';
 import { ChangelogHero } from './ChangelogHero';
 import { ChangelogHighlights } from './ChangelogHighlights';
 import { Modal, ModalBody, ModalFooter } from '../ui/Modal';
+import { useIsSignedIn } from '../../hooks/session/useAccountStatus.ts';
 
 export const ChangelogModal: React.FC = () => {
   const { isOpen, setIsOpen, changelog } = useChangelogStore();
   const { push: pushToast } = useToastStore();
   const accountId = useAuthStore((state) => state.user?.uid ?? null);
-  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
+  const isAuthenticated = useIsSignedIn();
 
   const currentVersion = changelog?.current_version || '5.0.0';
   const entry = changelog?.entries?.find((e) => e.version === currentVersion) ?? changelog?.entries?.[0];

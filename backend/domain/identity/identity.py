@@ -42,7 +42,7 @@ class IdentityService:
             "user_id_hash": user_id_hash,
             "display_name": "MindPal User",
             "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "settings": {"language": "en", "theme": "system"},
+            "settings": {},  # nothing saved yet: the device keeps its own choices
         }
 
     def export_data(self, user_id_hash: str) -> Dict[str, Any]:

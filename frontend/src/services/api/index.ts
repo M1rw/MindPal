@@ -1,4 +1,4 @@
-import { chatApi } from './chat.ts';
+import { chatApi, syncUsage } from './chat.ts';
 import { chatsApi } from './chats.ts';
 import { usersApi } from './users.ts';
 import { memoryApi } from './memory.ts';
@@ -31,30 +31,15 @@ export interface AdaptiveProfileSummary {
 export { fetchJson, fetchBlob, expectOk };
 
 export const ApiClient = {
-  // Health
-  async getHealth(): Promise<HealthStatus> {
-    return fetchJson<HealthStatus>('/api/health', undefined, 'Health check failed');
-  },
-
-  async getHealthReady(): Promise<{ status: string }> {
-    return fetchJson<{ status: string }>('/api/health/ready', undefined, 'Health ready failed');
-  },
-
   // Chat
   streamChat: chatApi.streamChat,
-  getCurrentChat: chatApi.getCurrentChat,
-  replaceCurrentChat: chatApi.replaceCurrentChat,
-  deleteCurrentChat: chatApi.deleteCurrentChat,
-  appendChatMessage: chatApi.appendChatMessage,
 
   // Multi-Session Chat Cloud Persistence
   listChatSessions: chatsApi.listChatSessions,
   saveChatSession: chatsApi.saveChatSession,
-  getChatSession: chatsApi.getChatSession,
   deleteChatSession: chatsApi.deleteChatSession,
 
   // Identity / User Profile
-  getUserMe: usersApi.getUserMe,
   getUserProfile: usersApi.getUserProfile,
   patchUserProfile: usersApi.patchUserProfile,
   getUserInsights: usersApi.getUserInsights,
@@ -73,8 +58,6 @@ export const ApiClient = {
   mergeGuestGraphIntoAccount: memoryApi.mergeGuestGraphIntoAccount,
 
   // Voice
-  mintVoiceSession: voiceApi.mintVoiceSession,
-  recordVoiceSessionEvent: voiceApi.recordVoiceSessionEvent,
   summarizeVoiceSession: voiceApi.summarizeVoiceSession,
 
   // Feature Flags
@@ -97,6 +80,12 @@ export const ApiClient = {
   },
 
   // Changelog / Release
+  /** Current chat credits without spending one; refreshes the usage store. */
+  async refreshUsage(): Promise<void> {
+    const body = await fetchJson<{ chat?: unknown }>('/api/usage', undefined, 'Usage unavailable');
+    syncUsage(body?.chat);
+  },
+
   async getChangelog(): Promise<ChangelogResponse> {
     return fetchJson<ChangelogResponse>('/api/release/changelog', undefined, 'Changelog error');
   },

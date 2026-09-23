@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { SettingsBlock, SettingsHeader } from '../SettingsPrimitives';
-import { useAuthStore, useUsageStore } from '../../../store';
+import { useUsageStore } from '../../../store';
+import { ApiClient } from '../../../services/api/index';
+import { useAccountStatus, useIsSignedIn } from '../../../hooks/session/useAccountStatus.ts';
 import { voiceApi, type VoiceUsageSnapshot } from '../../../services/api/voice.ts';
 
 function formatReset(seconds?: number): string {
@@ -32,7 +34,7 @@ function formatMinutes(seconds: number): string {
  * speech, not message credits, and conflating them is what caused the confusion.
  */
 function VoiceUsageBlock() {
-  const isAuthenticated = useAuthStore((state) => Boolean(state.user));
+  const isAuthenticated = useIsSignedIn();
   const [usage, setUsage] = useState<VoiceUsageSnapshot | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -126,7 +128,23 @@ function UsageWindow({
 
 export const UsageSettingsTab: React.FC = () => {
   const quota = useUsageStore((state) => state.quota);
-  const signedIn = Boolean(useAuthStore((state) => state.user));
+  const account = useAccountStatus();
+  const signedIn = account === 'signed-in';
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  // Fetch on open and whenever the account changes, so the numbers are right
+  // before the first message and straight after signing in or out.
+  useEffect(() => {
+    if (account === 'loading') return;
+    let cancelled = false;
+    setLoadFailed(false);
+    ApiClient.refreshUsage().catch(() => {
+      if (!cancelled) setLoadFailed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [account]);
   const networkScoped = quota?.scope === 'network' || !signedIn;
   const used5h = quota?.credits_5h ?? quota?.used;
   const limit5h = quota?.limit_5h ?? quota?.limit;
@@ -187,11 +205,12 @@ export const UsageSettingsTab: React.FC = () => {
           ) : null}
         </div>
       ) : (
-        <SettingsBlock title="No chat usage yet" last>
+        <SettingsBlock title={loadFailed ? 'Usage is unavailable right now' : 'Loading usage…'} last>
           <VoiceUsageBlock />
           <p>
-            Chat credits appear here after you send a message. There is no plan badge or local
-            fake meter. Chat limits come from the chat stream, not a separate usage API.
+            {loadFailed
+              ? 'Your credit balance could not be loaded. Chat still enforces your limits on the server; try again in a moment.'
+              : 'Fetching your current credit windows.'}
           </p>
         </SettingsBlock>
       )}

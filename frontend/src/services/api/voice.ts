@@ -1,7 +1,5 @@
 import { ApiError, fetchJson } from './http.ts';
-import { useSettingsStore } from '../../store/settings.ts';
-import type { UserPersonalization, VoiceSummaryRequest, VoiceSummaryResponse, VoiceTokenResponse } from '../../types/index.ts';
-import type { ControlPlaneAction } from '../../voice/types.ts';
+import type { VoiceSummaryRequest, VoiceSummaryResponse } from '../../types/index.ts';
 import type { VoiceTraceReport } from '../../voice/diagnostics/trace.ts';
 
 export type VoiceErrorKind = 'quota' | 'auth' | 'conflict' | 'unavailable' | 'invalid' | 'unknown';
@@ -51,42 +49,6 @@ export const voiceApi = {
       '/api/voice/usage',
       { method: 'GET' },
       'Live voice usage is unavailable right now.',
-    );
-  },
-
-  async mintVoiceSession(opts?: {
-    voiceId?: string;
-    voiceLanguage?: string;
-    personalization?: UserPersonalization;
-  }): Promise<VoiceTokenResponse> {
-    const settings = useSettingsStore.getState().settings;
-    const voice_id = opts?.voiceId ?? settings.voiceModel;
-    const voice_language = opts?.voiceLanguage ?? settings.voiceLanguage;
-    const personalization = opts?.personalization ?? settings.personalization;
-
-    return fetchJson<VoiceTokenResponse>(
-      '/api/voice/session-token',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          consent_attested: true,
-          voice_id,
-          voice_language,
-          personalization,
-        }),
-      },
-      'Live voice is not available right now.',
-    );
-  },
-
-  async recordVoiceSessionEvent(payload: Record<string, unknown>): Promise<ControlPlaneAction> {
-    return fetchJson<ControlPlaneAction>(
-      '/api/voice/session-events',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      },
-      'Voice session event failed',
     );
   },
 

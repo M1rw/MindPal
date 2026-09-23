@@ -1,6 +1,6 @@
 import { useSettingsStore, useUsageStore } from '../../store/index.ts';
 import type { MemoryReceipt, MemoryReceiptItem, UserPersonalization, UsageQuota } from '../../types/index.ts';
-import { fetchJson, fetchWithAuth, expectOk, parseErrorMessage } from './http.ts';
+import { fetchWithAuth, parseErrorMessage } from './http.ts';
 
 export const MAX_CHAT_HISTORY_TURNS = 30;
 
@@ -44,23 +44,39 @@ async function getClientContext(): Promise<Record<string, unknown>> {
   return context;
 }
 
-function syncUsage(raw: Record<string, unknown>): void {
-  const credits5h = Number(raw.credits_5h ?? 0);
-  const limit5h = Number(raw.limit_5h ?? 50);
-  const reset5h = Number(raw.reset_5h_seconds ?? 0);
-  const quota: UsageQuota = {
+/**
+ * Server credit windows -> the usage store. Missing or non-numeric fields make
+ * the snapshot unusable rather than being filled with guessed limits, so the
+ * Usage screen never shows a number the server did not send.
+ */
+export function parseUsage(raw: unknown): UsageQuota | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const body = raw as Record<string, unknown>;
+  const num = (key: string): number | null => {
+    const value = Number(body[key]);
+    return Number.isFinite(value) ? value : null;
+  };
+  const credits5h = num('credits_5h');
+  const limit5h = num('limit_5h');
+  if (credits5h === null || limit5h === null) return null;
+  const reset5h = Math.max(0, num('reset_5h_seconds') ?? 0);
+  return {
     used: credits5h,
     limit: limit5h,
-    resets_at: new Date(Date.now() + Math.max(0, reset5h) * 1000).toISOString(),
+    resets_at: new Date(Date.now() + reset5h * 1000).toISOString(),
     credits_5h: credits5h,
     limit_5h: limit5h,
     reset_5h_seconds: reset5h,
-    credits_week: Number(raw.credits_week ?? 0),
-    limit_week: Number(raw.limit_week ?? 500),
-    reset_week_seconds: Number(raw.reset_week_seconds ?? 0),
-    scope: raw.scope === 'network' ? 'network' : 'account',
+    credits_week: num('credits_week') ?? undefined,
+    limit_week: num('limit_week') ?? undefined,
+    reset_week_seconds: num('reset_week_seconds') ?? undefined,
+    scope: body.scope === 'network' ? 'network' : 'account',
   };
-  useUsageStore.getState().setQuota(quota);
+}
+
+export function syncUsage(raw: unknown): void {
+  const quota = parseUsage(raw);
+  if (quota) useUsageStore.getState().setQuota(quota);
 }
 
 export function parseMemoryReceipt(raw: unknown): MemoryReceipt | null {
@@ -157,7 +173,7 @@ export const chatApi = {
             const data = JSON.parse(rawData) as Record<string, unknown> | string;
             if (typeof data === 'object' && data !== null) {
               if (data.usage && typeof data.usage === 'object') {
-                syncUsage(data.usage as Record<string, unknown>);
+                syncUsage(data.usage);
               }
               if (data.memory) {
                 const receipt = parseMemoryReceipt(data.memory);
@@ -197,25 +213,4 @@ export const chatApi = {
     }
   },
 
-  async getCurrentChat(): Promise<unknown> {
-    return fetchJson<unknown>('/api/chats/current', undefined, 'Get chat error');
-  },
-
-  async replaceCurrentChat(chatData: unknown): Promise<unknown> {
-    return fetchJson<unknown>('/api/chats/current', {
-      method: 'PUT',
-      body: JSON.stringify(chatData),
-    }, 'Replace chat error');
-  },
-
-  async deleteCurrentChat(): Promise<void> {
-    await expectOk('/api/chats/current', { method: 'DELETE' }, 'Delete chat error');
-  },
-
-  async appendChatMessage(role: string, content: string): Promise<unknown> {
-    return fetchJson<unknown>('/api/chats/current/messages', {
-      method: 'POST',
-      body: JSON.stringify({ role, content }),
-    }, 'Append message error');
-  },
 };
