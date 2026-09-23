@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAuthStore, useSessionStore, useChatHistoryStore, useStreakStore } from '../../store/index';
+import { useAuthStore, useSessionStore, useChatHistoryStore, useStreakStore, useUsageStore } from '../../store/index';
 import {
   onAuthStateChange,
   onIdTokenChange,
@@ -7,6 +7,7 @@ import {
   getAppCheckToken,
 } from '../../services/auth/index';
 import { ApiClient } from '../../services/api/index';
+import { pullAccountSettings, resetSettingsSync, subscribeSettingsSync } from '../../services/sync/settingsSync.ts';
 
 export function useAuthBootstrap() {
   const { setUser, setIsLoading } = useAuthStore();
@@ -14,14 +15,21 @@ export function useAuthBootstrap() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (user) => {
+      // A guest's per-network credits are not the account's, and vice versa.
+      useUsageStore.getState().clearQuota();
       if (user) {
-        const idToken = await getIdToken();
+        // One forced retry: a null token here left a signed-in user looking
+        // like a guest to every request until the hourly refresh.
+        const idToken = (await getIdToken()) ?? (await getIdToken({ forceRefresh: true }));
         const appCheckToken = await getAppCheckToken();
         setAuth(user.uid, idToken, appCheckToken);
         setUser(user);
         setIsLoading(false);
         void ApiClient.mergeGuestGraphIntoAccount().catch(() => {
           // Device facts stay local until the next signed-in memory load.
+        });
+        void pullAccountSettings().catch(() => {
+          // Device settings stay in effect; the next change pushes them.
         });
         useChatHistoryStore.getState().loadCloudSessions();
         void useStreakStore.getState().refreshFromAccount();
@@ -30,6 +38,7 @@ export function useAuthBootstrap() {
 
       setUser(null);
       setAuth(null, null, null);
+      resetSettingsSync();
       setIsLoading(false);
       useStreakStore.getState().restoreDeviceStreak();
     });
@@ -44,9 +53,12 @@ export function useAuthBootstrap() {
       setAuth(user.uid, idToken, appCheckToken);
     });
 
+    const unsubscribeSettings = subscribeSettingsSync();
+
     return () => {
       unsubscribe();
       unsubscribeToken();
+      unsubscribeSettings();
     };
   }, [setAuth, setIsLoading, setUser]);
 }

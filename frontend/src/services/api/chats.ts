@@ -13,10 +13,6 @@ export const chatsApi = {
     }, 'Save chat error');
   },
 
-  async getChatSession(id: string): Promise<ChatSession> {
-    return fetchJson<ChatSession>(`/api/chats/${encodeURIComponent(id)}`, undefined, 'Get chat session error');
-  },
-
   async deleteChatSession(id: string): Promise<void> {
     await expectOk(`/api/chats/${encodeURIComponent(id)}`, { method: 'DELETE' }, 'Delete chat session error');
   },

@@ -12,7 +12,7 @@ router = APIRouter(tags=["health"])
 
 @router.get("/api/health", operation_id="healthLive")
 def health_live() -> dict[str, str]:
-    return {"status": "rebuilding", "version": current_version()}
+    return {"status": "ok", "version": current_version()}
 
 
 @router.get("/api/health/ready", operation_id="healthReady")

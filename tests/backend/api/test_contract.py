@@ -23,7 +23,7 @@ def test_live_health_and_changelog():
     client = TestClient(create_app(serve_frontend=False))
     health = client.get("/api/health")
     assert health.status_code == 200
-    assert health.json()["status"] == "rebuilding"
+    assert health.json()["status"] == "ok"
     changelog = client.get("/api/release/changelog")
     assert changelog.status_code == 200
     assert changelog.json()["current_version"] == "5.0.0"

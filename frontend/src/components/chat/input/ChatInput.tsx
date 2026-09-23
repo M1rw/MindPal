@@ -10,6 +10,7 @@ import { ChatInputActions } from './ChatInputActions';
 import { ChatInputDictationMode } from './ChatInputDictationMode';
 import { ComposerNotice } from './ComposerNotice';
 import { stopHaptic, triggerHaptic } from '../../../utils/ui/haptics';
+import { useIsSignedIn } from '../../../hooks/session/useAccountStatus.ts';
 
 /** Keep in sync with `composerThinkOut` duration in style.css. */
 const COMPOSER_THINK_EXIT_MS = 450;
@@ -63,7 +64,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
 
   const { recordActivity } = useStreakStore();
   const { push: pushToast } = useToastStore();
-  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
+  const isAuthenticated = useIsSignedIn();
   const soundEnabled = useSettingsStore((state) => state.settings.soundEnabled);
   const liveVoiceEnabled = useFlagsStore((state) => state.flags.voice_enabled);
   const setVoiceActive = useVoiceStore((state) => state.setIsActive);

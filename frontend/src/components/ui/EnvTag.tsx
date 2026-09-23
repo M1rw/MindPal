@@ -1,9 +1,9 @@
 import React from 'react';
 import { Cloud, Laptop } from 'lucide-react';
-import { useSessionStore } from '../../store';
+import { useIsSignedIn } from '../../hooks/session/useAccountStatus.ts';
 
 export const EnvTag: React.FC = () => {
-  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
+  const isAuthenticated = useIsSignedIn();
 
   if (isAuthenticated) {
     return (

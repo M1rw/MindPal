@@ -2,15 +2,11 @@ import { fetchJson, fetchBlob, expectOk } from './http.ts';
 import type { UserProfile, UserInsightsResponse, WellnessTimeline } from '../../types/index.ts';
 
 export const usersApi = {
-  async getUserMe(): Promise<unknown> {
-    return fetchJson<unknown>('/api/user/me', undefined, 'User me error');
-  },
-
   async getUserProfile(): Promise<UserProfile> {
     return fetchJson<UserProfile>('/api/user/profile', undefined, 'Profile error');
   },
 
-  async patchUserProfile(data: Partial<UserProfile>): Promise<UserProfile> {
+  async patchUserProfile(data: Partial<Pick<UserProfile, 'display_name' | 'settings'>>): Promise<UserProfile> {
     return fetchJson<UserProfile>('/api/user/profile', {
       method: 'PATCH',
       body: JSON.stringify(data),

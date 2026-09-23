@@ -525,7 +525,7 @@ describe('Frontend component contracts', () => {
 
     assert.match(envTag, /aria-label="This device"/);
     assert.match(envTag, /aria-label="Account"/);
-    assert.match(envTag, /useSessionStore/);
+    assert.match(envTag, /useIsSignedIn/);
     assert.doesNotMatch(envTag, /<span>Local<\/span>/);
     assert.doesNotMatch(envTag, /bg-surface-subtle/);
     assert.doesNotMatch(envTag, /Cloud Synced/);
