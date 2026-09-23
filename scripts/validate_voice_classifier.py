@@ -126,7 +126,7 @@ def classify_once_openai(
 ) -> Tuple[str, str, float]:
     """OpenRouter / Groq path, through the same client the backend uses."""
     from backend.infra.llm import openrouter as oai
-    from backend.domain.safety.voice_classify import _parse_payload
+    from backend.domain.safety.modes.voice.classify import _parse_payload
 
     base_url = oai.groq_base_url() if provider == "groq" else oai.openrouter_base_url()
     api_key = oai.groq_api_key() if provider == "groq" else oai.openrouter_api_key()
@@ -195,7 +195,7 @@ def classify_once(
         if not text:
             return "", "empty", elapsed
         # Reuse production parsing so this measures what the app would actually see.
-        from backend.domain.safety.voice_classify import _parse_payload
+        from backend.domain.safety.modes.voice.classify import _parse_payload
 
         label, _danger = _parse_payload(text)
         return (label or ""), ("" if label else f"unparsed:{text[:40]}"), elapsed
@@ -216,7 +216,7 @@ def evaluate(
     repeat: int,
     provider: str = "gemini",
 ) -> Dict[str, Any]:
-    from backend.domain.safety.voice_classify import VOICE_CRISIS_SYSTEM
+    from backend.domain.safety.modes.voice.classify import VOICE_CRISIS_SYSTEM
 
     matrix: Counter = Counter()
     false_pauses: List[Dict[str, Any]] = []

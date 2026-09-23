@@ -83,9 +83,9 @@ export function Modal({
       aria-modal={!inert}
       aria-labelledby={labelledBy}
       aria-label={labelledBy ? undefined : label}
-      aria-hidden={!open || inert}
-      // Exit animations keep the shell mounted; inert must follow the visual
-      // lifecycle so a focused child can never remain in a hidden dialog.
+      // Exit animations keep the shell mounted; inert removes closed dialogs
+      // from interaction and accessibility without hiding a focused child.
+      aria-hidden={inert || undefined}
       inert={!open || inert || undefined}
     >
       <div

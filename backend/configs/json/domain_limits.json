@@ -1,0 +1,38 @@
+{
+  "grounding": {
+    "default_limit": 2,
+    "min_score": 0.2,
+    "max_instructions": 5,
+    "max_contraindications": 3,
+    "max_content_chars": 800,
+    "phrase_hit": 0.4,
+    "term_hit": 0.22
+  },
+  "memory_graph": {
+    "max_atoms": 16,
+    "max_summary_chars": 800,
+    "max_prompt_chars": 1900,
+    "max_receipt_text": 80,
+    "max_atom_value_chars": 240,
+    "rebuild_atoms": 8
+  },
+  "wellness": {
+    "max_snippet": 80,
+    "max_themes": 8,
+    "max_events": 8,
+    "max_timeline_days": 90,
+    "highlight_min_valence_days": 2,
+    "highlight_min_hits_single_day": 3
+  },
+  "release": {
+    "max_dismissed_versions": 50
+  },
+  "identity": {
+    "export_included": ["profile", "memory", "cloud_chat_sessions", "voice", "adaptive_profile", "memory_digests"],
+    "export_not_included": ["Chat history stored only in this browser", "Guest memory facts stored only on this device", "Sign-in tokens"],
+    "account_side_collections": ["user_presence", "changelog_dismissals", "voice_minute_reservations", "voice_active_sessions", "user_quotas", "adaptive_profiles", "memory_journal", "memory_jobs"]
+  },
+  "chat_history": {
+    "max_history_for_llm": 30
+  }
+}

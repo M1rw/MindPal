@@ -40,6 +40,39 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
   const [atomQuery, setAtomQuery] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const honestSummary = honestMemorySummary(summary?.summary);
+  const [summaryBusy, setSummaryBusy] = useState(false);
+  const [confirmForget, setConfirmForget] = useState(false);
+
+  const refreshSummary = async () => {
+    setSummaryBusy(true);
+    try {
+      const next = await ApiClient.refreshMemorySummary();
+      setSummary(next);
+      if (next.status === 'queued') {
+        pushToast('MindPal will update your summary a little later.', 'info');
+      } else if (next.status === 'unchanged') {
+        pushToast('Nothing new to add to your summary yet.', 'info');
+      }
+    } catch {
+      pushToast('Could not refresh your summary. Please try again.', 'error');
+    } finally {
+      setSummaryBusy(false);
+    }
+  };
+
+  const forgetSummary = async () => {
+    setConfirmForget(false);
+    setSummaryBusy(true);
+    try {
+      await ApiClient.forgetMemoryNarrative();
+      setSummary(await ApiClient.getMemorySummary());
+      pushToast('MindPal forgot its summary of your conversations.', 'success');
+    } catch {
+      pushToast('Could not delete the summary. Please try again.', 'error');
+    } finally {
+      setSummaryBusy(false);
+    }
+  };
 
   const handleClose = () => {
     const shouldReturn = useMemoryStore.getState().returnToSettings;
@@ -177,7 +210,23 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
                 </div>
               )}
               {honestSummary ? (
-                <p className="text-sm text-content-secondary whitespace-pre-wrap leading-relaxed">{honestSummary}</p>
+                <div className="space-y-3">
+                  {summary?.source === 'ai' && (
+                    <p className="text-xs text-content-muted">
+                      Written by MindPal from your conversations
+                      {summary.updated_at ? ` · updated ${new Date(summary.updated_at).toLocaleDateString()}` : ''}
+                    </p>
+                  )}
+                  <p className="text-sm text-content-secondary whitespace-pre-wrap leading-relaxed">{honestSummary}</p>
+                  {summary?.source === 'ai' && (summary.open_threads?.length ?? 0) > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-content-secondary">MindPal may gently follow up on</p>
+                      <ul className="mt-1 list-disc pl-5 text-sm text-content-secondary">
+                        {summary.open_threads?.map((thread) => <li key={thread}>{thread}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="text-center py-12 text-content-muted">
                   <p className="text-sm text-content-secondary">
@@ -188,6 +237,43 @@ export const MemoryInspector: React.FC<{ isOpen: boolean; onClose: () => void }>
                       ? 'Saved facts are on the other tab.'
                       : 'Saved facts appear after a turn.'}
                   </p>
+                </div>
+              )}
+              {isAuthenticated && (
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void refreshSummary()}
+                    disabled={summaryBusy}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-elevated text-content-primary hover:bg-surface-subtle disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                  >
+                    {summaryBusy ? 'Working…' : 'Refresh summary'}
+                  </button>
+                  {summary?.source === 'ai' &&
+                    (confirmForget ? (
+                      <span className="flex items-center gap-2 text-xs text-content-secondary">
+                        Delete MindPal's summary and conversation digests? Saved facts stay.
+                        <button type="button" onClick={() => setConfirmForget(false)} className="px-2 py-1 rounded-lg hover:bg-surface-subtle">
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void forgetSummary()}
+                          className="px-2 py-1 rounded-lg font-medium text-feedback-danger hover:bg-feedback-dangerSubtle"
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmForget(true)}
+                        disabled={summaryBusy}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-feedback-danger hover:bg-feedback-dangerSubtle disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                      >
+                        Forget summary
+                      </button>
+                    ))}
                 </div>
               )}
             </div>

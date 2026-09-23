@@ -511,8 +511,9 @@ describe('Frontend component contracts', () => {
     assert.match(header, /aria-label="More actions"/);
     assert.match(header, /hidden sm:inline-flex/);
     assert.match(header, /sm:hidden/);
-    assert.match(header, /window\.confirm/);
-    assert.match(header, /Start a new conversation/);
+    // New chat is confirmed in-page (a blocking window.confirm is gone for good).
+    assert.doesNotMatch(header, /window\.confirm\(\s*['"`]/);
+    assert.match(header, /Start new conversation\?/);
     assert.match(header, /setActiveSessionId\(null\)/);
     assert.match(header, /<p className="select-none/);
     assert.doesNotMatch(header, /onClick=\{handleNewChat\}[\s\S]*MindPal/);

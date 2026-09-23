@@ -4,7 +4,7 @@ import pytest
 
 from backend.core.errors import AppError
 from backend.domain.memory.graph import MemoryGraphService
-from backend.domain.voice.recall import (
+from backend.domain.voice.services.recall import (
     MAX_PER_CALL,
     MIN_INTERVAL_S,
     NOTHING_FOUND,

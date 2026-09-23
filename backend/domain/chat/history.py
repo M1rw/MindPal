@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Mapping, Sequence
 
-MAX_HISTORY_FOR_LLM = 30
+from backend.configs.runtime import behavior_config, domain_limits_config
 
-_ASSISTANT_ROLES = frozenset({"assistant", "model"})
-_USER_ROLES = frozenset({"user", "human"})
+MAX_HISTORY_FOR_LLM = int(domain_limits_config()["chat_history"]["max_history_for_llm"])
+
+_CHAT_BEHAVIOR = behavior_config()["chat"]
+_ASSISTANT_ROLES = frozenset(_CHAT_BEHAVIOR["assistant_roles"])
+_USER_ROLES = frozenset(_CHAT_BEHAVIOR["user_roles"])
 
 
 def _role(item: Any) -> str:

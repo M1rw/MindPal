@@ -1,4 +1,8 @@
 export type { FloorState, LiveUiStatus, VoiceLiveGrant } from './types.ts';
+export { useVoiceStore } from './store.ts';
+export { voiceApi, classifyVoiceError } from './api.ts';
+export { VoiceTrace, analyseTrace, redactTraceReport, downloadTrace } from './diagnostics/index.ts';
+export { presenceBus } from './presenceBus.ts';
 export { isUserTurnFinal, parseLiveMessage, playableAudioChunks } from './control/geminiLive.ts';
 export { isBackchannel } from './face/backchannel.ts';
 export {

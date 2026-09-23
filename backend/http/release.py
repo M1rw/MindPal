@@ -9,11 +9,12 @@ from pydantic import BaseModel, Field
 
 from backend.domain.identity.identity import UserSession, account_guard, verify_auth_header
 from backend.domain.release.changelog import ReleaseService
+from backend.configs.runtime import api_limits_config
 
 router = APIRouter()
 release_service = ReleaseService()
 
-MAX_VERSION_CHARS = 40
+MAX_VERSION_CHARS = int(api_limits_config()["release"]["max_version_chars"])
 
 
 class DismissPayload(BaseModel):

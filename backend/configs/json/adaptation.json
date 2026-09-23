@@ -1,0 +1,56 @@
+{
+  "learning": {
+    "decay_per_turn": 0.93,
+    "explicit_weight": 3.0,
+    "implicit_weight": 0.35,
+    "min_confident_weight": 1.5,
+    "min_confident_margin": 1.0,
+    "strategy_prior_decay": 0.98,
+    "strategy_feedback_weight": 1.0,
+    "explicit_rating_weight": 2.0,
+    "short_message_chars": 60,
+    "long_message_chars": 420,
+    "max_note_chars": 480,
+    "strategy_bias_scale": 0.6
+  },
+  "preferences": {
+    "length": {
+      "concise": ["too long", "shorter", "keep it short", "keep it brief", "be brief", "tl;dr", "tldr", "less text", "shorter answers", "short answers", "اختصر", "طويل مرة", "باختصار"],
+      "detailed": ["more detail", "more details", "explain more", "go deeper", "elaborate", "tell me more", "longer answer", "تفاصيل اكثر", "اشرح اكثر", "وضح اكثر"]
+    },
+    "approach": {
+      "listen": ["just listen", "stop giving advice", "don't give me advice", "dont give me advice", "i don't need advice", "i dont need advice", "i just want to vent", "just want to vent", "don't try to fix", "dont try to fix", "no advice", "بس اسمعني", "ما ابي نصايح", "ما ابغى نصيحة"],
+      "advice": ["what should i do", "give me advice", "tell me what to do", "practical steps", "give me steps", "what do you suggest", "any advice", "انصحني", "وش اسوي", "ماذا افعل", "ايش اسوي"]
+    },
+    "tone": {
+      "direct": ["be direct", "be honest with me", "don't sugarcoat", "dont sugarcoat", "be blunt", "straight answer", "no sugarcoating", "كن صريح", "بصراحة"],
+      "gentle": ["be gentle", "be kind", "go easy", "softer", "please be nice", "بلطف", "بهدوء"]
+    },
+    "lists": {
+      "off": ["no lists", "no bullet points", "stop using bullet", "stop with the lists", "without lists", "just talk normally"],
+      "on": ["use bullet points", "make a list", "list them", "in a list", "bullet points please"]
+    },
+    "emoji": {
+      "off": ["no emoji", "no emojis", "stop using emoji", "stop with the emoji"],
+      "on": ["use emojis", "use emoji", "add emojis"]
+    }
+  },
+  "feedback": {
+    "positive": ["thank you", "thanks", "that helps", "that helped", "this helps", "makes sense", "good point", "you're right", "youre right", "exactly", "i feel better", "feel a bit better", "that's helpful", "thats helpful", "love that", "great idea", "شكرا", "مشكور", "صح كلامك", "فعلا", "ساعدني", "ارتحت"],
+    "negative": ["not helpful", "doesn't help", "doesnt help", "you don't understand", "you dont understand", "you're not listening", "youre not listening", "that's not what i", "thats not what i", "useless", "so generic", "too generic", "sounds robotic", "you sound like a bot", "that's not it", "thats not it", "ما فهمتني", "مو مفيد", "ما ساعدني"]
+  },
+  "notes": {
+    "length.concise": "They prefer short, focused replies. Keep it brief.",
+    "length.detailed": "They appreciate depth. Give fuller, well-organized replies.",
+    "approach.listen": "They usually want to be heard first. Reflect and ask before offering any advice.",
+    "approach.advice": "They often want practical next steps. Offer concrete options once you understand the situation.",
+    "tone.direct": "They prefer a direct, plain-spoken tone without sugarcoating.",
+    "tone.gentle": "They respond best to a gentle, soft tone.",
+    "lists.off": "Avoid bullet lists; write in natural prose.",
+    "lists.on": "They like structure; use short lists when organizing options.",
+    "emoji.off": "Do not use emojis.",
+    "emoji.on": "Light emoji use is welcome.",
+    "language.ar": "They usually write in Arabic; reply in Arabic unless they switch.",
+    "language.en": "They usually write in English; reply in English unless they switch."
+  }
+}

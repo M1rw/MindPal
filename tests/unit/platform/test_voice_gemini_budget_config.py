@@ -20,8 +20,8 @@ from typing import Any, Dict, List
 import pytest
 
 from backend.core.errors import AppError
-from backend.domain.voice import token as token_mod
-from backend.domain.voice.token import (
+from backend.domain.voice.services import token as token_mod
+from backend.domain.voice.services.token import (
     live_setup_message,
     rejects_context_window_compression,
     rest_mint_payload,
@@ -290,7 +290,7 @@ def test_report_risk_tool_is_declared_in_both_setup_shapes() -> None:
 
 
 def test_risk_tool_prompt_refuses_to_pause_on_the_documented_not_crisis_cases() -> None:
-    from backend.domain.voice.token import RISK_TOOL_DESCRIPTION
+    from backend.domain.voice.services.token import RISK_TOOL_DESCRIPTION
 
     text = RISK_TOOL_DESCRIPTION.lower()
     # The same carve-outs VOICE_CRISIS_SYSTEM makes, so both routes agree.
@@ -301,14 +301,14 @@ def test_risk_tool_prompt_refuses_to_pause_on_the_documented_not_crisis_cases() 
 
 
 def test_classifier_mode_defaults_to_full(monkeypatch: pytest.MonkeyPatch) -> None:
-    from backend.domain.voice.gemini_budget import classifier_mode
+    from backend.domain.voice.providers.gemini.budget import classifier_mode
 
     monkeypatch.delenv("MINDPAL_VOICE_CLASSIFIER", raising=False)
     assert classifier_mode() == "full", "the independent check stays on unless turned off"
 
 
 def test_classifier_mode_parses_the_documented_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    from backend.domain.voice.gemini_budget import classifier_mode
+    from backend.domain.voice.providers.gemini.budget import classifier_mode
 
     for value, expected in (
         ("off", "off"),
@@ -323,7 +323,7 @@ def test_classifier_mode_parses_the_documented_values(monkeypatch: pytest.Monkey
 
 
 def test_verify_mode_skips_quiet_turns_but_runs_when_risk_is_elevated() -> None:
-    from backend.domain.voice.gemini_budget import should_run_classify
+    from backend.domain.voice.providers.gemini.budget import should_run_classify
 
     common = dict(
         input_text="I have been having a rough week",
@@ -354,7 +354,7 @@ def test_verify_mode_skips_quiet_turns_but_runs_when_risk_is_elevated() -> None:
 
 
 def test_off_mode_still_honours_an_explicit_force() -> None:
-    from backend.domain.voice.gemini_budget import should_run_classify
+    from backend.domain.voice.providers.gemini.budget import should_run_classify
 
     decision = should_run_classify(
         input_text="anything",
@@ -376,7 +376,7 @@ def test_model_manifest_names_every_path_that_serves_a_call(monkeypatch: pytest.
     """A voice diagnostic that does not say which classifier produced a verdict
     cannot be reasoned about. The Live model is in the grant already; the chat
     and classifier models are server-side env the browser cannot see."""
-    from backend.domain.voice.session import VoiceSessionService
+    from backend.domain.voice.services.session import VoiceSessionService
 
     monkeypatch.delenv("MINDPAL_CHAT_PROVIDER", raising=False)
     monkeypatch.delenv("MINDPAL_JSON_PROVIDER", raising=False)
@@ -400,7 +400,7 @@ def test_model_manifest_names_every_path_that_serves_a_call(monkeypatch: pytest.
 
 
 def test_model_manifest_follows_the_provider_switch(monkeypatch: pytest.MonkeyPatch) -> None:
-    from backend.domain.voice.session import VoiceSessionService
+    from backend.domain.voice.services.session import VoiceSessionService
 
     monkeypatch.setenv("MINDPAL_JSON_PROVIDER", "groq")
     monkeypatch.setenv("GROQ_JSON_MODEL", "openai/gpt-oss-safeguard-20b")
@@ -416,7 +416,7 @@ def test_model_manifest_follows_the_provider_switch(monkeypatch: pytest.MonkeyPa
 
 def test_model_manifest_carries_no_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     """The manifest ships to the browser and into a downloadable report."""
-    from backend.domain.voice.session import VoiceSessionService
+    from backend.domain.voice.services.session import VoiceSessionService
 
     monkeypatch.setenv("GEMINI_API_KEY", "secret-gemini-value")
     monkeypatch.setenv("GROQ_API_KEY", "secret-groq-value")

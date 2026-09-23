@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import os
 from typing import Dict, Any, List, Optional, Set
 
+from backend.configs.settings import get_settings
+from backend.configs.runtime import behavior_config
 from backend.domain.flags.models import (
     FeatureDefinition,
     FeatureStage,
@@ -15,8 +16,9 @@ from backend.domain.flags.models import (
 
 # Explicit kill switch only. Missing env, "1", "true", and "yes" all leave live
 # duplex on. Production fail-closed is MINDPAL_VOICE_LIVE=0 (or false/no/off).
-_VOICE_LIVE_OFF = frozenset({"0", "false", "no", "off"})
-_ON_VALUES = frozenset({"1", "true", "yes", "on"})
+_FLAG_BEHAVIOR = behavior_config()["flags"]
+_VOICE_LIVE_OFF = frozenset(_FLAG_BEHAVIOR["off_values"])
+_ON_VALUES = frozenset(_FLAG_BEHAVIOR["on_values"])
 
 
 class FeatureLifecycleEngine:
@@ -33,7 +35,7 @@ class FeatureLifecycleEngine:
 
     @classmethod
     def _voice_live_enabled(cls) -> bool:
-        raw = os.environ.get("MINDPAL_VOICE_LIVE", "").strip().lower()
+        raw = get_settings().voice_live.strip().lower()
         return raw not in _VOICE_LIVE_OFF
 
     @classmethod
@@ -41,7 +43,7 @@ class FeatureLifecycleEngine:
         """Live duplex preview is on unless MINDPAL_VOICE_LIVE is an explicit off value."""
         allowlist: Set[str] = {
             item.strip()
-            for item in os.environ.get("MINDPAL_VOICE_LIVE_ALLOWLIST", "").split(",")
+            for item in get_settings().voice_live_allowlist.split(",")
             if item.strip()
         }
         if cls._voice_live_enabled():
@@ -73,10 +75,10 @@ class FeatureLifecycleEngine:
         """
         allowlist: Set[str] = {
             item.strip()
-            for item in os.environ.get("MINDPAL_PRESENCE_ALLOWLIST", "").split(",")
+            for item in get_settings().presence_allowlist.split(",")
             if item.strip()
         }
-        enabled = os.environ.get("MINDPAL_PRESENCE", "").strip().lower() in _ON_VALUES
+        enabled = get_settings().presence.strip().lower() in _ON_VALUES
         return FeatureDefinition(
             key="voice.presence",
             stage=FeatureStage.CANARY if enabled else FeatureStage.DARK_LAUNCH,

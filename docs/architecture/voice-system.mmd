@@ -1,0 +1,124 @@
+%% MindPal live voice: backend/frontend collaboration map
+flowchart LR
+    subgraph Browser[Browser]
+        UI[voice/ui\nVoiceOverlay + Transcript]
+        Store[voice/store\nZustand discrete state]
+        Bus[voice/presenceBus\nenergy + prosody + affect + distress]
+        Runtime[voice/runtime\nLiveVoiceSession + callMachine]
+        Safety[voice/safety\ncrisis UX + local enforcement]
+        API[voice/api\nvoiceApi + error classifier]
+        Trace[voice/diagnostics\nVoiceTrace + redaction]
+        Audio[Audio ports\nmicrophone + playback + worklets]
+        Transport[Gemini Live WebSocket]
+    end
+
+    subgraph HTTP[FastAPI HTTP boundary]
+        Commands[voice.py\ncommands + owner trace]
+        Reviews[voice_ops.py\nusage + analytics + owner audit]
+        Internal[voice_ops.py\nretention + support diagnostics]
+        RequestID[request_context\nrequest correlation]
+        Contract[OpenAPI + Pydantic\ncontract authority]
+    end
+
+    subgraph Domain[Voice domain]
+        Session[VoiceSessionService\npolicy + lifecycle + settlement]
+        Usage[VoiceUsageLifecycle\nreserve + reclaim + refund]
+        SafetyDomain[Safety classifier\nlease + escalation]
+        Analytics[VoiceAnalyticsService\nowner summaries + audits]
+        Privacy[VoicePrivacyService\nexport + delete + purge]
+        Telemetry[VoiceTelemetryService\nredacted session events]
+        Idempotency[VoiceEventIdempotency\nduplicate event claims]
+    end
+
+    subgraph Providers[Provider layer]
+        Port[LiveVoiceProvider\ncapabilities + health + mint]
+        Router[LiveVoiceProviderRouter\npriority fallback]
+        Circuit[LiveVoiceCircuit\nopen + cooldown]
+        Gemini[GeminiLiveVoiceProvider\nexisting Gemini adapter]
+    end
+
+    subgraph Storage[Durable storage]
+        Sessions[(voice_sessions)]
+        Reservations[(voice_minute_reservations)]
+        Active[(voice_active_sessions)]
+        Events[(voice_telemetry)]
+        Claims[(voice_event_idempotency)]
+        Diagnostics[(voice_support_diagnostics)]
+        Chat[(chat history + summaries)]
+    end
+
+    subgraph Ops[Operations]
+        Metrics[VoiceMetrics\nbounded local counters]
+        Exporter[StoreMetricsExporter\ndurable metrics]
+        Cron[Vercel cron\n03:00 UTC]
+        Support[Support tool\nX-Voice-Support-Secret]
+    end
+
+    UI --> Store
+    UI --> Runtime
+    UI --> Safety
+    Runtime --> Audio
+    Runtime --> Transport
+    Runtime --> Bus
+    Runtime --> API
+    Runtime --> Trace
+    Safety --> API
+    Trace --> API
+    API --> Commands
+    API --> Reviews
+    Commands --> Contract
+    Reviews --> Contract
+    Internal --> Contract
+    Commands --> RequestID
+    Reviews --> RequestID
+    Internal --> RequestID
+
+    Commands --> Session
+    Reviews --> Session
+    Reviews --> Analytics
+    Internal --> Privacy
+    Internal --> Diagnostics
+    Session --> Usage
+    Session --> SafetyDomain
+    Session --> Telemetry
+    Session --> Idempotency
+    Session --> Port
+    Port --> Router
+    Router --> Circuit
+    Router --> Gemini
+
+    Session --> Sessions
+    Usage --> Reservations
+    Usage --> Active
+    Idempotency --> Claims
+    Telemetry --> Events
+    Analytics --> Events
+    Analytics --> Sessions
+    Privacy --> Sessions
+    Privacy --> Events
+    Privacy --> Claims
+    Privacy --> Active
+    Privacy --> Reservations
+    Privacy --> Chat
+    Trace -->|redacted owner upload| Commands
+    Commands -->|request_id| Diagnostics
+    Support --> Internal
+    Cron --> Internal
+    Telemetry --> Metrics
+    Session --> Metrics
+    Metrics --> Exporter
+    Exporter --> Storage
+
+    classDef frontend fill:#e6f4ff,stroke:#1677b8,color:#102a43;
+    classDef http fill:#fff4d6,stroke:#b7791f,color:#4a2c00;
+    classDef domain fill:#e9f7ef,stroke:#2f855a,color:#173b27;
+    classDef provider fill:#f4e8ff,stroke:#805ad5,color:#2d1b4e;
+    classDef storage fill:#fbe9e7,stroke:#c05640,color:#4a2018;
+    classDef ops fill:#edf2f7,stroke:#4a5568,color:#1a202c;
+
+    class UI,Store,Bus,Runtime,Safety,API,Trace,Audio,Transport frontend;
+    class Commands,Reviews,Internal,RequestID,Contract http;
+    class Session,Usage,SafetyDomain,Analytics,Privacy,Telemetry,Idempotency domain;
+    class Port,Router,Circuit,Gemini provider;
+    class Sessions,Reservations,Active,Events,Claims,Diagnostics,Chat storage;
+    class Metrics,Exporter,Cron,Support ops;

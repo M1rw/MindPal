@@ -18,10 +18,11 @@ export const ChangelogModal: React.FC = () => {
   const handleDismiss = async () => {
     setIsOpen(false);
     try {
-      if (!isAuthenticated || !accountId) {
+      if (isAuthenticated && accountId) {
+        await ApiClient.dismissChangelog(currentVersion);
+      } else {
         localStorage.setItem(STORAGE_KEYS.LAST_SEEN_CHANGELOG, currentVersion);
       }
-      await ApiClient.dismissChangelog(currentVersion);
     } catch (error) {
       console.warn('Failed to persist changelog dismissal:', error);
     }

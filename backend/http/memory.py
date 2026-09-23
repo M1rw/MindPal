@@ -8,7 +8,9 @@ from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field, field_validator
 
 from backend.core.errors import AppError
+from backend.configs.runtime import api_limits_config
 from backend.domain.identity.identity import UserSession, account_guard, verify_auth_header
+from backend.domain.memory.consolidation import MemoryConsolidationService
 from backend.domain.memory.extract import can_persist_user_memory
 from backend.domain.memory.graph import (
     MAX_ATOMS,
@@ -18,17 +20,19 @@ from backend.domain.memory.graph import (
     atom_from_mapping,
     clip_atom_value,
     honest_summary,
+    rank_atoms,
     summary_from_atoms,
 )
 
 router = APIRouter()
 memory_service = MemoryGraphService()
+consolidation = MemoryConsolidationService(memory_service.store, memory=memory_service)
 
 # A PUT replaces the whole graph, so it needs the same ceiling the merge path
 # applies. Without it a client could park an unbounded blob in the document that
 # every chat turn then loads.
 MAX_ATOMS_PER_PUT = MAX_ATOMS
-MAX_RAW_ATOMS_ACCEPTED = 200
+MAX_RAW_ATOMS_ACCEPTED = int(api_limits_config()["memory"]["max_raw_atoms_accepted"])
 
 
 def _persistable_session(
@@ -120,15 +124,38 @@ def put_memory_graph(
             atoms.append(atom)
             if len(atoms) >= MAX_ATOMS_PER_PUT:
                 break
-    summary = existing.summary if payload.summary is None else honest_summary(payload.summary)
-    if not summary and atoms:
-        summary = summary_from_atoms(atoms)
+        # The client does not send reinforcement history; keep what the server knows
+        # about each surviving fact instead of resetting it on every edit.
+        known = {atom.id: atom for atom in existing.atoms}
+        for atom in atoms:
+            previous = known.get(atom.id)
+            if previous is not None:
+                atom.mentions = previous.mentions
+                atom.first_seen = previous.first_seen
+                atom.last_seen = previous.last_seen
+    if payload.summary is not None:
+        summary, summary_auto = honest_summary(payload.summary), False
+    elif existing.summary_auto or not existing.summary:
+        # A generated summary must follow the facts: a fact deleted in the
+        # inspector used to live on in the summary the model kept reading.
+        summary, summary_auto = (summary_from_atoms(rank_atoms(atoms)) if atoms else ""), True
+    else:
+        summary, summary_auto = existing.summary, False
     graph = MemoryGraph(
         user_id_hash=session.user_id_hash,
         summary=summary,
         atoms=atoms,
+        summary_auto=summary_auto,
+        narrative=existing.narrative,
+        narrative_at=existing.narrative_at,
+        open_threads=list(existing.open_threads),
     )
     memory_service.save_memory_graph(graph)
+    kept = {atom.id for atom in atoms}
+    removed = [atom.value for atom in existing.atoms if atom.id not in kept]
+    if removed:
+        consolidation.forget_facts(session.user_id_hash, removed)
+        graph = memory_service.get_memory_graph(session.user_id_hash)
     return _graph_payload(graph, include_user_key=True)
 
 
@@ -152,9 +179,34 @@ def delete_memory_item(
     atom_id: str, session: UserSession = Depends(_persistable_session)
 ) -> Dict[str, Any]:
     graph = memory_service.get_memory_graph(session.user_id_hash)
+    removed = [a.value for a in graph.atoms if a.id == atom_id]
     graph.atoms = [a for a in graph.atoms if a.id != atom_id]
+    if graph.summary_auto or not graph.summary:
+        # A deleted fact must not survive in the generated summary.
+        graph.summary = summary_from_atoms(rank_atoms(graph.atoms)) if graph.atoms else ""
+        graph.summary_auto = True
     memory_service.save_memory_graph(graph)
+    if removed:
+        consolidation.forget_facts(session.user_id_hash, removed)
+        graph = memory_service.get_memory_graph(session.user_id_hash)
     return _graph_payload(graph, include_user_key=True)
+
+
+def _summary_payload(user_id_hash: str, graph: MemoryGraph) -> Dict[str, Any]:
+    """The best summary we have, labelled with where it came from."""
+    if graph.narrative:
+        summary, source = graph.narrative, "ai"
+    elif graph.summary and not graph.summary_auto:
+        summary, source = graph.summary, "user"
+    else:
+        summary, source = graph.summary, "facts"
+    return {
+        "user_id_hash": user_id_hash,
+        "summary": summary,
+        "source": source,
+        "updated_at": graph.narrative_at if source == "ai" else None,
+        "open_threads": list(graph.open_threads) if source == "ai" else [],
+    }
 
 
 @router.get("/api/memory/summary", operation_id="memoryGetSummary")
@@ -163,11 +215,9 @@ def get_memory_summary(authorization: Optional[str] = Header(None)) -> Dict[str,
     if not session.has_account_storage or not can_persist_user_memory(session.user_id_hash):
         return {"summary": ""}
     graph = memory_service.get_memory_graph(session.user_id_hash)
-    summary = graph.summary
-    if not summary and graph.atoms:
+    if not graph.narrative and not graph.summary and graph.atoms:
         graph = memory_service.rebuild_summary(session.user_id_hash)
-        summary = graph.summary
-    return {"user_id_hash": session.user_id_hash, "summary": summary}
+    return _summary_payload(session.user_id_hash, graph)
 
 
 @router.post("/api/memory/summary/refresh", operation_id="memoryRefreshSummary")
@@ -175,15 +225,33 @@ def refresh_memory_summary(
     payload: Optional[SummaryUpdatePayload] = None,
     session: UserSession = Depends(_persistable_session),
 ) -> Dict[str, Any]:
-    """Recompute the stored summary from saved atoms, or store a supplied one.
+    """Store a summary the person wrote, or ask MindPal to rewrite its AI summary now.
 
-    With no body this rebuilds the summary from what is actually saved. It does
-    not call a model: the endpoint never did, and claiming otherwise in the name
-    was the whole of the confusion.
+    With no body: the AI summary is rebuilt from conversation digests and saved
+    facts if the person's daily budget and the platform load allow; otherwise
+    the request is queued for the scheduler. `status` says which happened.
     """
     supplied = payload.summary if payload else None
     if supplied is not None:
         graph = memory_service.update_summary(session.user_id_hash, supplied)
-    else:
+        return {**_summary_payload(session.user_id_hash, graph), "status": "saved"}
+    consolidation.request_summary(session.user_id_hash)
+    report = consolidation.run(session.user_id_hash, force=True)
+    graph = memory_service.get_memory_graph(session.user_id_hash)
+    if not graph.narrative and not graph.summary and graph.atoms:
         graph = memory_service.rebuild_summary(session.user_id_hash)
-    return {"user_id_hash": session.user_id_hash, "summary": graph.summary}
+    status = "updated" if report.summarized else ("queued" if report.skipped in {"load_critical", "daily_budget"} else "unchanged")
+    return {**_summary_payload(session.user_id_hash, graph), "status": status, "reason": report.skipped or None}
+
+
+@router.get("/api/memory/journal", operation_id="memoryGetJournal")
+def get_memory_journal(session: UserSession = Depends(_persistable_session)) -> Dict[str, Any]:
+    """The AI summary, the conversation digests behind it, and what is queued. Transparency."""
+    return consolidation.describe(session.user_id_hash)
+
+
+@router.delete("/api/memory/narrative", operation_id="memoryForgetNarrative")
+def forget_memory_narrative(session: UserSession = Depends(_persistable_session)) -> Dict[str, Any]:
+    """Delete the AI summary, its digests, and any journaled turns. Saved facts stay."""
+    consolidation.forget(session.user_id_hash)
+    return {"forgotten": True}

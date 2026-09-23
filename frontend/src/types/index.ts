@@ -65,6 +65,11 @@ export interface MemorySummaryResponse {
   updated_at: string;
   language: string;
   atoms_count: number;
+  /** "ai": written by MindPal from past conversations; "user": written by the person; "facts": restates saved facts. */
+  source?: 'ai' | 'user' | 'facts';
+  open_threads?: string[];
+  /** Refresh outcome: updated now, queued for later (budget or load), or unchanged. */
+  status?: 'updated' | 'queued' | 'unchanged' | 'saved';
 }
 
 export interface MemorySummaryUpdate {

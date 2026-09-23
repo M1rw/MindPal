@@ -13,6 +13,96 @@ x-mindpal-catalog:
     - /api/brain/*
 
 paths:
+  /api/internal/memory-consolidation:
+    get:
+      operationId: opsMemoryConsolidation
+      tags: [internal]
+      summary: Scheduled, load-aware memory consolidation (digests and AI summaries)
+      x-mindpal:
+        owner: memory
+        status: preview
+        audience: system
+        ai-access: hidden
+        client: scheduler
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Consolidation report }
+        "401": { description: Scheduler credential required }
+
+  /api/internal/platform-pulse:
+    get:
+      operationId: opsPlatformPulse
+      tags: [internal]
+      summary: Current load level, its drivers, and the aggregated platform pulse
+      x-mindpal:
+        owner: platform
+        status: preview
+        audience: system
+        ai-access: hidden
+        client: support
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Load state }
+        "401": { description: Support credential required }
+
+  /api/internal/voice-retention:
+    get:
+      operationId: voiceRetentionSweep
+      tags: [internal]
+      summary: Scheduled voice retention sweep
+      x-mindpal:
+        owner: voice
+        status: live
+        audience: system
+        ai-access: hidden
+        client: scheduler
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Retention counts }
+        "401": { description: Scheduler credential required }
+
+  /api/internal/voice-diagnostics:
+    post:
+      operationId: voiceSubmitDiagnostics
+      tags: [internal]
+      summary: Internal redacted voice diagnostics ingestion
+      x-mindpal:
+        owner: voice
+        status: live
+        audience: system
+        ai-access: hidden
+        client: support
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Stored diagnostics }
+        "401": { description: Internal support authorization required }
+
+  /api/internal/voice-diagnostics/{session_id}:
+    get:
+      operationId: voiceReviewDiagnostics
+      tags: [internal]
+      summary: Internal redacted voice diagnostics review
+      x-mindpal:
+        owner: voice
+        status: live
+        audience: system
+        ai-access: hidden
+        client: support
+        sunset: null
+        side-effects: false
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "200": { description: Redacted diagnostic records }
+        "401": { description: Internal support authorization required }
+
   /api/health:
     get:
       operationId: healthLive
@@ -327,6 +417,73 @@ paths:
         "200": { description: Insights }
         "401": { description: Sign in required }
 
+  /api/user/adaptation:
+    get:
+      operationId: identityGetAdaptation
+      tags: [identity]
+      summary: What MindPal has learned about how to talk with this person
+      description: >
+        Confident style preferences (length, approach, tone, lists, emoji,
+        language) and per-strategy feedback scores learned from the account's
+        own conversations. Style only; safety behavior is never learned.
+      x-mindpal:
+        owner: identity
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Adaptive profile summary }
+        "401": { description: Sign in required }
+    delete:
+      operationId: identityResetAdaptation
+      tags: [identity]
+      summary: Forget everything MindPal has learned about this person's preferences
+      x-mindpal:
+        owner: identity
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Adaptive profile reset }
+        "401": { description: Sign in required }
+
+  /api/chat/feedback:
+    post:
+      operationId: chatReplyFeedback
+      tags: [chat]
+      summary: Thumbs up or down on a reply
+      description: >
+        Rewards or penalizes the conversational strategy that produced the reply
+        (the reply's strategy_used, or the account's most recent one).
+      x-mindpal:
+        owner: chat
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating: { type: string, enum: [up, down] }
+                strategy: { type: string, maxLength: 40 }
+      responses:
+        "200": { description: Feedback recorded }
+        "401": { description: Sign in required }
+        "422": { description: Invalid rating }
+
   /api/user/wellness-timeline:
     get:
       operationId: identityGetWellnessTimeline
@@ -467,15 +624,49 @@ paths:
       responses:
         "200": { description: Summary }
 
+  /api/memory/journal:
+    get:
+      operationId: memoryGetJournal
+      tags: [memory]
+      summary: The AI summary, the conversation digests behind it, and queued work
+      x-mindpal:
+        owner: memory
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: Memory journal view }
+        "401": { description: Sign in required }
+
+  /api/memory/narrative:
+    delete:
+      operationId: memoryForgetNarrative
+      tags: [memory]
+      summary: Delete the AI summary, its digests, and journaled turns (saved facts stay)
+      x-mindpal:
+        owner: memory
+        status: preview
+        audience: user
+        ai-access: schema
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Forgotten }
+        "401": { description: Sign in required }
+
   /api/memory/summary/refresh:
     post:
       operationId: memoryRefreshSummary
       tags: [memory]
       summary: >-
-        Recompute the stored memory summary from saved atoms. The body is
-        optional; with no body the summary is rebuilt from what is saved, and
-        with {"summary": "..."} that text is stored instead. Deterministic, not
-        a model call.
+        With {"summary": "..."} store a summary the person wrote. With no body,
+        rebuild the AI summary from conversation digests and saved facts now if
+        the person's daily AI budget and platform load allow, otherwise queue it
+        (response `status`: updated, queued, or unchanged).
       x-mindpal:
         owner: memory
         status: preview
@@ -503,6 +694,50 @@ paths:
         side-effects: false
       responses:
         "200": { description: Used, remaining and cap seconds for the current UTC day }
+        "401": { description: Sign in required }
+
+  /api/voice/analytics:
+    get:
+      operationId: voiceGetSessionAnalytics
+      tags: [voice]
+      summary: Owner-scoped structured analytics for an active or finished live call
+      x-mindpal:
+        owner: voice
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      parameters:
+        - name: session_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "200": { description: Session analytics }
+        "401": { description: Sign in required }
+
+  /api/voice/audit:
+    get:
+      operationId: voiceGetSessionAudit
+      tags: [voice]
+      summary: Owner-scoped safety and telemetry audit for a live call
+      x-mindpal:
+        owner: voice
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      parameters:
+        - name: session_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "200": { description: Session audit }
         "401": { description: Sign in required }
 
   /api/voice/session-token:
@@ -540,6 +775,24 @@ paths:
         side-effects: true
       responses:
         "200": { description: Policy action }
+        "401": { description: Sign in required }
+        "404": { description: Unknown session }
+
+  /api/voice/trace:
+    post:
+      operationId: voiceSubmitTrace
+      tags: [voice]
+      summary: Upload a redacted client trace for the caller's own voice session
+      x-mindpal:
+        owner: voice
+        status: live
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Trace correlation receipt }
         "401": { description: Sign in required }
         "404": { description: Unknown session }
 

@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from backend.core.contract import error_catalog
 from backend.core.errors import AppError
+from backend.core.request_context import request_id as current_request_id
 
 
 def error_payload(code: str, message: str, *, request_id: str | None = None, details: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -48,7 +49,7 @@ logger = logging.getLogger("mindpal.http")
 
 
 async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
-    request_id = _request.headers.get("x-request-id")
+    request_id = current_request_id() or _request.headers.get("x-request-id")
     if exc.internal_message != exc.message:
         # The caller gets the safe sentence; the operator gets the upstream one.
         logger.warning(

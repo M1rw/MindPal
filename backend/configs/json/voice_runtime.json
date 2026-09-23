@@ -1,0 +1,91 @@
+{
+  "budget": {
+    "classify_min_interval_seconds": 10.0,
+    "classify_final_min_interval_seconds": 2.5,
+    "min_new_input_chars": 12,
+    "max_concurrent_gemini": 2,
+    "telemetry_window_seconds": 60.0,
+    "verify_heartbeat_seconds": 45.0,
+    "rate_limit_base_seconds": 2.0,
+    "rate_limit_max_seconds": 60.0,
+    "rate_limit_jitter_seconds": 0.35
+  },
+  "policy": {
+    "guest_max_session_seconds": 300,
+    "guest_daily_cap_seconds": 300,
+    "guest_reserve_seconds": 300,
+    "guest_min_session_seconds": 60,
+    "guest_allow_reconnect": false,
+    "guest_allow_persistent_memory": false,
+    "guest_fallback_mode": "dictation",
+    "account_max_session_seconds": 1800,
+    "account_daily_cap_seconds": 1800,
+    "account_reserve_seconds": 1800,
+    "account_min_session_seconds": 60,
+    "account_allow_reconnect": true,
+    "account_allow_persistent_memory": true,
+    "account_fallback_mode": "text"
+  },
+  "session": {
+    "reserve_seconds": 1800,
+    "daily_cap_seconds": 1800,
+    "min_session_seconds": 60,
+    "provider_rotate_seconds": 0,
+    "ledger_chars": 24000,
+    "hold_ms": 2500,
+    "transcript_buffer_chars": 1200,
+    "safety_stale_seconds": 35,
+    "safety_heartbeat_ms": 12000,
+    "abandoned_unwarmed_seconds": 120,
+    "setup_failure_max_seconds": 45,
+    "retention_seconds": 2592000
+  },
+  "summary": {
+    "min_speech_words": 8,
+    "max_summary_words": 35,
+    "ledger_chars": 24000
+  },
+  "reaction": {
+    "max_text_chars": 240,
+    "max_context_chars": 300,
+    "min_interval_seconds": 0.6,
+    "min_interval_speaking_seconds": 0.15,
+    "max_per_minute": 60
+  },
+  "recall": {
+    "memory_result_chars": 1200,
+    "chats_result_chars": 1500,
+    "max_chat_sessions": 30,
+    "max_snippets": 3,
+    "snippet_chars": 400,
+    "max_query_chars": 200,
+    "min_interval_seconds": 2.0,
+    "max_per_call": 20
+  },
+  "token": {
+    "auth_tokens_url": "https://generativelanguage.googleapis.com/v1alpha/auth_tokens",
+    "auth_tokens_url_beta": "https://generativelanguage.googleapis.com/v1beta/auth_tokens",
+    "default_live_api_version": "v1alpha",
+    "default_live_model": "gemini-3.8-live",
+    "default_voice_id": "Sulafat",
+    "token_ttl_seconds": 1800,
+    "new_session_ttl_seconds": 60,
+    "setup_timeout_ms": 12000,
+    "live_prefix_padding_ms": 40,
+    "live_silence_duration_ms": 1500,
+    "live_end_sensitivity": "END_SENSITIVITY_LOW",
+    "live_start_sensitivity": "START_SENSITIVITY_HIGH",
+    "live_temperature": 0.85,
+    "live_safety_categories": ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"],
+    "live_safety_thresholds": {
+      "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
+      "HARM_CATEGORY_HATE_SPEECH": "BLOCK_NONE",
+      "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
+      "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE"
+    },
+    "allowed_voice_ids": ["Sulafat", "Aoede", "Charon", "Kore", "Puck", "Fenrir"],
+    "face_expressions": ["wink", "blink_slow", "widen", "squint", "roll_eyes", "sleepy", "perk_up", "soften", "look_away", "look_back", "side_eye", "smile_eyes", "concerned", "curious", "surprised", "amused", "tired", "neutral", "heart"],
+    "mood_states": ["awake", "sleepy", "engaged", "withdrawn", "calm", "firm", "warm", "concerned"],
+    "risk_kinds": ["self_harm", "physical", "unspecified"]
+  }
+}

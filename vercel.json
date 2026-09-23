@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "crons": [
+    { "path": "/api/internal/voice-retention", "schedule": "0 3 * * *" },
+    { "path": "/api/internal/memory-consolidation", "schedule": "30 3 * * *" }
+  ],
   "framework": "fastapi",
   "installCommand": "python -m pip install --disable-pip-version-check --no-input -r requirements.txt",
   "buildCommand": "python scripts/apply_brand.py && npm ci && npm run build:vercel && python scripts/verify_frontend_build.py",
@@ -22,7 +26,9 @@
     "OPENROUTER_JSON_MODEL": "google/gemma-4-31b-it:free",
     "LLM_PROVIDER_ORDER": "cloudflare,gemini,openrouter,groq",
     "FIREBASE_PROJECT_ID": "mindpal-official-0",
+    "MINDPAL_STORAGE_PROVIDER": "firestore",
     "FIRESTORE_DATABASE_ID": "default",
+    "SUPABASE_URL": "https://ifezhzuwbdurxkpooblh.supabase.co",
     "FIREBASE_APP_NAME": "mindpal",
     "FIREBASE_AUTH_DOMAIN": "mindpal-official-0.firebaseapp.com",
     "FIREBASE_STORAGE_BUCKET": "mindpal-official-0.firebasestorage.app",

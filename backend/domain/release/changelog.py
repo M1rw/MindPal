@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
+from backend.configs.runtime import domain_limits_config
 from backend.infra.store.store import get_store
 
 # A dismissal list is a handful of versions, not a growing log.
-MAX_DISMISSED_VERSIONS = 50
+MAX_DISMISSED_VERSIONS = int(domain_limits_config()["release"]["max_dismissed_versions"])
 
 CHANGELOG_PATH = Path(__file__).resolve().parents[3] / "contracts" / "changelog.json"
 
