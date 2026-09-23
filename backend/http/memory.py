@@ -113,7 +113,8 @@ def patch_memory_item(
     value = " ".join((payload.value or "").split())
     if not value:
         raise AppError("payload_invalid", "Memory text cannot be empty.")
-    graph = memory_service.update_atom(session.user_id_hash, atom_id, value)
+    # Through the editor, so the corrected fact's old wording is forgotten too.
+    graph = _editor().edit_atom(session.user_id_hash, atom_id, value)
     if graph is None:
         raise AppError("not_found", "That memory item is not saved.")
     return _graph_payload(graph, include_user_key=True)

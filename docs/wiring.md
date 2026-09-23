@@ -204,3 +204,5 @@ here on purpose so nobody deletes them for looking unused.
 | `tests/backend/storage/test_misconfigured_storage.py` | A storage misconfiguration crashing the whole app again |
 | `tests/frontend/test_account_and_usage.mjs` | Split "signed in?" answers, invented usage limits, invalid synced settings |
 | `tests/backend/api/test_tenant_isolation.py` | Account routes answering unauthenticated callers |
+| `tests/backend/storage/test_data_inventory.py` | A per-account collection that export or deletion misses (the list lives in `backend/domain/identity/inventory.py`) |
+| `tests/backend/storage/test_deletion_fence.py` | Work that was running during "delete my data" writing it back afterwards (`backend/domain/identity/fence.py`) |

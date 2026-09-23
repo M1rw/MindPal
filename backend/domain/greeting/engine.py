@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 
 from backend.infra.store.store import get_store
+
+# Greetings are per day; two days covers time zones and a late cache hit.
+GREETING_RETENTION_S = 2 * 24 * 3600
 
 
 def _get_time_period(hour: int) -> str:
@@ -172,7 +176,7 @@ class GreetingEngine:
         cache_key = f"{user_id_hash}:{date_str}:{period}"
         cached = self.store.get_document("greeting_cache", cache_key)
         if cached:
-            return {**cached, "cached": True}
+            return {**{k: v for k, v in cached.items() if k != "expires_at"}, "cached": True}
 
         # Read presence record for last visit
         presence = self.store.get_document("user_presence", user_id_hash) or {}
@@ -237,5 +241,9 @@ class GreetingEngine:
             "period": period,
             "cached": False,
         }
-        self.store.set_document("greeting_cache", cache_key, result)
+        # Personalised text, keyed by date: useless after the day, so it expires
+        # (the daily retention job purges it) instead of accumulating forever.
+        self.store.set_document(
+            "greeting_cache", cache_key, {**result, "expires_at": time.time() + GREETING_RETENTION_S}
+        )
         return result

@@ -64,18 +64,19 @@ def delete_current_session(session: UserSession = Depends(account_guard("sync ch
 def append_message(
     payload: AppendMessagePayload, session: UserSession = Depends(account_guard("sync chats with your account"))
 ) -> Dict[str, Any]:
-    doc = identity_service.store.get_document("chat_sessions", session.user_id_hash) or {
-        "user_id_hash": session.user_id_hash,
-        "messages": [],
-    }
-    messages = doc.get("messages")
-    if not isinstance(messages, list):
-        messages = []
-    messages.append({"role": payload.role, "content": payload.content})
-    doc["messages"] = messages[-MAX_MESSAGES_PER_SESSION:]
-    doc["user_id_hash"] = session.user_id_hash
-    identity_service.store.set_document("chat_sessions", session.user_id_hash, doc)
-    return doc
+    # Appended inside a transaction: two appends at once each kept only their
+    # own message when this was read-then-write (audit MP-10).
+    def append(current: Any, write: Any) -> Dict[str, Any]:
+        doc = dict(current or {"user_id_hash": session.user_id_hash, "messages": []})
+        messages = doc.get("messages")
+        messages = list(messages) if isinstance(messages, list) else []
+        messages.append({"role": payload.role, "content": payload.content})
+        doc["messages"] = messages[-MAX_MESSAGES_PER_SESSION:]
+        doc["user_id_hash"] = session.user_id_hash
+        write(doc)
+        return doc
+
+    return identity_service.store.transact("chat_sessions", session.user_id_hash, append)
 
 
 # --- Multi-session cloud REST endpoints ---------------------------------------

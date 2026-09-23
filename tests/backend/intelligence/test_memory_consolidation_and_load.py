@@ -213,7 +213,9 @@ def test_forget_removes_summary_digests_and_queue() -> None:
     assert store.get_document(JOBS_COLLECTION, USER) is None
 
 
-def test_editing_facts_keeps_the_ai_summary() -> None:
+def test_saving_unchanged_facts_keeps_the_ai_summary_but_a_correction_drops_it() -> None:
+    """A correction invalidates the AI summary (audit MP-14): it may restate the
+    old wording. Saving the same facts back must not throw the summary away."""
     from fastapi.testclient import TestClient
 
     from backend.http import memory as memory_http
@@ -227,15 +229,18 @@ def test_editing_facts_keeps_the_ai_summary() -> None:
     service.save_memory_graph(graph)
 
     client = TestClient(create_app(serve_frontend=False))
-    response = client.put(
-        "/api/memory/graph",
-        headers={"Authorization": "Bearer dev_keepnarrative"},
-        json={"atoms": [{"id": "facts:tea", "category": "facts", "value": "Likes green tea"}]},
-    )
-    assert response.status_code == 200
+    headers = {"Authorization": "Bearer dev_keepnarrative"}
+    unchanged = client.put("/api/memory/graph", headers=headers,
+                           json={"atoms": [{"id": "facts:tea", "category": "facts", "value": "Likes tea"}]})
+    assert unchanged.status_code == 200
     assert service.get_memory_graph(user).narrative == "Enjoys tea and quiet evenings."
-    summary = client.get("/api/memory/summary", headers={"Authorization": "Bearer dev_keepnarrative"}).json()
-    assert summary["source"] == "ai"
+    assert client.get("/api/memory/summary", headers=headers).json()["source"] == "ai"
+
+    corrected = client.put("/api/memory/graph", headers=headers,
+                           json={"atoms": [{"id": "facts:tea", "category": "facts", "value": "Likes green tea"}]})
+    assert corrected.status_code == 200
+    assert service.get_memory_graph(user).narrative == ""
+    assert client.get("/api/memory/summary", headers=headers).json()["source"] != "ai"
 
 
 # -- platform pulse ------------------------------------------------------------
