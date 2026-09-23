@@ -7,7 +7,7 @@ import math
 import time
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, TypeVar
 
 from backend.configs.runtime import domain_limits_config
 from backend.configs.runtime import behavior_config
@@ -198,6 +198,16 @@ def format_memory_prompt(
     return MemoryPrompt(text="\n".join(body_lines), atom_count=len(atoms), has_summary=bool(summary or narrative))
 
 
+_T = TypeVar("_T")
+
+
+class _NoWrite:
+    """Returned by a graph change that decided not to change anything."""
+
+
+NO_WRITE = _NoWrite()
+
+
 class MemoryGraphService:
     """Loads and saves the durable user memory graph used on chat turns."""
 
@@ -205,7 +215,29 @@ class MemoryGraphService:
         self.store = store or get_store()
 
     def get_memory_graph(self, user_id_hash: str) -> MemoryGraph:
-        doc = self.store.get_document("memory_graphs", user_id_hash)
+        return self._graph_from_doc(user_id_hash, self.store.get_document("memory_graphs", user_id_hash))
+
+    def mutate_graph(self, user_id_hash: str, change: Callable[[MemoryGraph], _T]) -> tuple[MemoryGraph, _T]:
+        """Apply `change` to the stored graph atomically.
+
+        Every write used to be read graph -> modify -> write whole document, so
+        two writers (a chat turn and a voice recap, two tabs, extraction and an
+        edit) each wrote their own copy and the second erased the first's facts
+        (audit MP-10). The change now runs inside the store transaction and is
+        re-run against the newer graph if another write landed first, so it
+        must only touch the graph it is given. Returning NO_WRITE skips the write.
+        """
+
+        def run(current: Optional[Dict[str, Any]], write: Callable[[Dict[str, Any]], None]) -> tuple[MemoryGraph, _T]:
+            graph = self._graph_from_doc(user_id_hash, current)
+            result = change(graph)
+            if result is not NO_WRITE:
+                write(self._graph_doc(graph))
+            return graph, result
+
+        return self.store.transact("memory_graphs", user_id_hash, run)
+
+    def _graph_from_doc(self, user_id_hash: str, doc: Any) -> MemoryGraph:
         if not isinstance(doc, dict):
             return MemoryGraph(user_id_hash=user_id_hash)
         payload = doc.get("graph") if isinstance(doc.get("graph"), dict) and not doc.get("atoms") else doc
@@ -230,7 +262,12 @@ class MemoryGraphService:
         )
 
     def save_memory_graph(self, graph: MemoryGraph) -> None:
-        doc = {
+        """Replace the whole graph. Prefer mutate_graph: this overwrites concurrent changes."""
+        self.store.set_document("memory_graphs", graph.user_id_hash, self._graph_doc(graph))
+
+    @staticmethod
+    def _graph_doc(graph: MemoryGraph) -> Dict[str, Any]:
+        return {
             "user_id_hash": graph.user_id_hash,
             "summary": honest_summary(graph.summary),
             "summary_auto": bool(graph.summary_auto),
@@ -250,14 +287,13 @@ class MemoryGraphService:
                 for a in graph.atoms
             ],
         }
-        self.store.set_document("memory_graphs", graph.user_id_hash, doc)
 
     def update_summary(self, user_id_hash: str, new_summary: str) -> MemoryGraph:
-        graph = self.get_memory_graph(user_id_hash)
-        graph.summary = honest_summary(new_summary)
-        graph.summary_auto = False
-        self.save_memory_graph(graph)
-        return graph
+        def change(graph: MemoryGraph) -> None:
+            graph.summary = honest_summary(new_summary)
+            graph.summary_auto = False
+
+        return self.mutate_graph(user_id_hash, change)[0]
 
     def rebuild_summary(self, user_id_hash: str) -> MemoryGraph:
         """Recompute the summary from the atoms that are actually stored.
@@ -267,11 +303,11 @@ class MemoryGraphService:
         summary describing memory the account no longer holds is a lie the chat
         prompt would keep repeating.
         """
-        graph = self.get_memory_graph(user_id_hash)
-        graph.summary = summary_from_atoms(rank_atoms(graph.atoms))
-        graph.summary_auto = True
-        self.save_memory_graph(graph)
-        return graph
+        def change(graph: MemoryGraph) -> None:
+            graph.summary = summary_from_atoms(rank_atoms(graph.atoms))
+            graph.summary_auto = True
+
+        return self.mutate_graph(user_id_hash, change)[0]
 
     def update_atom(self, user_id_hash: str, atom_id: str, value: str) -> Optional[MemoryGraph]:
         """Replace the stored text for one atom. Empty text is rejected by the caller."""
@@ -281,23 +317,25 @@ class MemoryGraphService:
         key = str(atom_id or "").strip()
         if not key:
             return None
-        graph = self.get_memory_graph(user_id_hash)
-        next_atoms: List[MemoryAtom] = []
-        found = False
-        for atom in graph.atoms:
-            if atom.id != key:
-                next_atoms.append(atom)
-                continue
-            next_atoms.append(dataclasses.replace(atom, value=text, last_seen=time.time()))
-            found = True
-        if not found:
-            return None
-        graph.atoms = next_atoms
-        if graph.summary_auto or not graph.summary:
-            graph.summary = summary_from_atoms(rank_atoms(graph.atoms))
-            graph.summary_auto = True
-        self.save_memory_graph(graph)
-        return graph
+        def change(graph: MemoryGraph) -> Any:
+            next_atoms: List[MemoryAtom] = []
+            found = False
+            for atom in graph.atoms:
+                if atom.id != key:
+                    next_atoms.append(atom)
+                    continue
+                next_atoms.append(dataclasses.replace(atom, value=text, last_seen=time.time()))
+                found = True
+            if not found:
+                return NO_WRITE
+            graph.atoms = next_atoms
+            if graph.summary_auto or not graph.summary:
+                graph.summary = summary_from_atoms(rank_atoms(graph.atoms))
+                graph.summary_auto = True
+            return True
+
+        graph, found = self.mutate_graph(user_id_hash, change)
+        return None if found is NO_WRITE else graph
 
     def merge_atoms(self, user_id_hash: str, incoming: Sequence[MemoryAtom]) -> tuple[MemoryGraph, List[MemoryAtom]]:
         """Merge a small structured delta with reinforcement and salience eviction.
@@ -308,62 +346,64 @@ class MemoryGraphService:
         fact is evicted; previously the list was truncated from the end, so once
         it filled up every new fact about the person was silently discarded.
         """
-        graph = self.get_memory_graph(user_id_hash)
         if not incoming:
-            return graph, []
-        now = time.time()
-        merged = list(graph.atoms)
-        by_id = {atom.id: index for index, atom in enumerate(merged)}
-        by_value = {_normalize_atom_value(atom.value): index for index, atom in enumerate(merged)}
-        saved: List[MemoryAtom] = []
-        for atom in incoming:
-            if not atom.value.strip():
-                continue
-            normalized = _normalize_atom_value(atom.value)
-            index = by_id.get(atom.id)
-            if index is None:
-                index = by_value.get(normalized)
-            if index is not None:
-                existing = merged[index]
-                same_value = _normalize_atom_value(existing.value) == normalized
-                if not same_value and atom.confidence < existing.confidence:
+            return self.get_memory_graph(user_id_hash), []
+
+        def change(graph: MemoryGraph) -> List[MemoryAtom]:
+            now = time.time()
+            merged = list(graph.atoms)
+            by_id = {atom.id: index for index, atom in enumerate(merged)}
+            by_value = {_normalize_atom_value(atom.value): index for index, atom in enumerate(merged)}
+            saved: List[MemoryAtom] = []
+            for atom in incoming:
+                if not atom.value.strip():
                     continue
-                updated = MemoryAtom(
-                    id=existing.id,
-                    category=atom.category or existing.category,
-                    value=existing.value if same_value else atom.value.strip(),
-                    confidence=min(1.0, max(existing.confidence, atom.confidence) + (0.05 if same_value else 0.0)),
-                    mentions=existing.mentions + 1,
-                    first_seen=existing.first_seen or now,
+                normalized = _normalize_atom_value(atom.value)
+                index = by_id.get(atom.id)
+                if index is None:
+                    index = by_value.get(normalized)
+                if index is not None:
+                    existing = merged[index]
+                    same_value = _normalize_atom_value(existing.value) == normalized
+                    if not same_value and atom.confidence < existing.confidence:
+                        continue
+                    updated = MemoryAtom(
+                        id=existing.id,
+                        category=atom.category or existing.category,
+                        value=existing.value if same_value else atom.value.strip(),
+                        confidence=min(1.0, max(existing.confidence, atom.confidence) + (0.05 if same_value else 0.0)),
+                        mentions=existing.mentions + 1,
+                        first_seen=existing.first_seen or now,
+                        last_seen=now,
+                    )
+                    by_value.pop(_normalize_atom_value(existing.value), None)
+                    merged[index] = updated
+                    by_value[_normalize_atom_value(updated.value)] = index
+                    if not same_value:
+                        saved.append(updated)
+                    continue
+                created = MemoryAtom(
+                    id=atom.id,
+                    category=atom.category or "facts",
+                    value=atom.value.strip(),
+                    confidence=atom.confidence,
+                    mentions=1,
+                    first_seen=now,
                     last_seen=now,
                 )
-                by_value.pop(_normalize_atom_value(existing.value), None)
-                merged[index] = updated
-                by_value[_normalize_atom_value(updated.value)] = index
-                if not same_value:
-                    saved.append(updated)
-                continue
-            created = MemoryAtom(
-                id=atom.id,
-                category=atom.category or "facts",
-                value=atom.value.strip(),
-                confidence=atom.confidence,
-                mentions=1,
-                first_seen=now,
-                last_seen=now,
-            )
-            merged.append(created)
-            by_id[atom.id] = len(merged) - 1
-            by_value[normalized] = len(merged) - 1
-            saved.append(created)
-        graph.atoms = rank_atoms(merged, now=now)[:_MAX_ATOMS]
-        kept_ids = {atom.id for atom in graph.atoms}
-        saved = [atom for atom in saved if atom.id in kept_ids]
-        if graph.atoms and (graph.summary_auto or not graph.summary or graph.summary in _PLACEHOLDER_SUMMARIES):
-            graph.summary = summary_from_atoms(graph.atoms)
-            graph.summary_auto = True
-        self.save_memory_graph(graph)
-        return graph, saved
+                merged.append(created)
+                by_id[atom.id] = len(merged) - 1
+                by_value[normalized] = len(merged) - 1
+                saved.append(created)
+            graph.atoms = rank_atoms(merged, now=now)[:_MAX_ATOMS]
+            kept_ids = {atom.id for atom in graph.atoms}
+            saved = [atom for atom in saved if atom.id in kept_ids]
+            if graph.atoms and (graph.summary_auto or not graph.summary or graph.summary in _PLACEHOLDER_SUMMARIES):
+                graph.summary = summary_from_atoms(graph.atoms)
+                graph.summary_auto = True
+            return saved
+
+        return self.mutate_graph(user_id_hash, change)
 
     def prompt_for_user(self, user_id_hash: str) -> MemoryPrompt:
         graph = self.get_memory_graph(user_id_hash)

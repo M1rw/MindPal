@@ -29,36 +29,54 @@ class MemoryEditor:
         self.consolidation = consolidation
 
     def replace(self, user_id_hash: str, raw_atoms: Optional[List[Dict[str, Any]]], summary: Optional[str]) -> MemoryGraph:
-        """Whole-graph replace from the memory inspector (PUT)."""
-        existing = self.memory.get_memory_graph(user_id_hash)
-        atoms = existing.atoms if raw_atoms is None else self._clean_atoms(raw_atoms, existing)
-        if summary is not None:
-            text, auto = honest_summary(summary), False
-        elif existing.summary_auto or not existing.summary:
-            text, auto = (summary_from_atoms(rank_atoms(atoms)) if atoms else ""), True
-        else:
-            text, auto = existing.summary, False
-        graph = MemoryGraph(
-            user_id_hash=user_id_hash,
-            summary=text,
-            atoms=atoms,
-            summary_auto=auto,
-            narrative=existing.narrative,
-            narrative_at=existing.narrative_at,
-            open_threads=list(existing.open_threads),
-        )
-        self.memory.save_memory_graph(graph)
-        kept = {atom.id for atom in atoms}
-        return self._forget_removed(user_id_hash, [a.value for a in existing.atoms if a.id not in kept], graph)
+        """Whole-graph replace from the memory inspector (PUT).
+
+        A fact whose text changed under the same id is a correction, and the old
+        text is forgotten exactly like a deleted fact (audit MP-14): only removed
+        ids used to count, so "Lives in Paris" corrected to "Lives in Cairo"
+        stayed in the AI summary and digests. A summary the person writes
+        replaces the AI one, which used to keep showing over it.
+        """
+        outdated: List[str] = []
+
+        def change(existing: MemoryGraph) -> None:
+            atoms = existing.atoms if raw_atoms is None else self._clean_atoms(raw_atoms, existing)
+            new_values = {atom.id: atom.value for atom in atoms}
+            outdated[:] = [a.value for a in existing.atoms if new_values.get(a.id) != a.value]
+            if summary is not None:
+                existing.summary, existing.summary_auto = honest_summary(summary), False
+                existing.narrative, existing.narrative_at, existing.open_threads = "", 0.0, []
+            elif existing.summary_auto or not existing.summary:
+                existing.summary = summary_from_atoms(rank_atoms(atoms)) if atoms else ""
+                existing.summary_auto = True
+            existing.atoms = atoms
+
+        graph, _ = self.memory.mutate_graph(user_id_hash, change)
+        return self._forget_removed(user_id_hash, outdated, graph)
+
+    def edit_atom(self, user_id_hash: str, atom_id: str, value: str) -> Optional[MemoryGraph]:
+        """Correct one fact (PATCH). The old wording is forgotten everywhere derived."""
+        before = {atom.id: atom.value for atom in self.memory.get_memory_graph(user_id_hash).atoms}
+        graph = self.memory.update_atom(user_id_hash, atom_id, value)
+        if graph is None:
+            return None
+        old = before.get(str(atom_id or "").strip())
+        updated = next((a.value for a in graph.atoms if a.id == str(atom_id or "").strip()), None)
+        if old and updated is not None and old != updated:
+            return self._forget_removed(user_id_hash, [old], graph)
+        return graph
 
     def delete_atom(self, user_id_hash: str, atom_id: str) -> MemoryGraph:
-        graph = self.memory.get_memory_graph(user_id_hash)
-        removed = [a.value for a in graph.atoms if a.id == atom_id]
-        graph.atoms = [a for a in graph.atoms if a.id != atom_id]
-        if graph.summary_auto or not graph.summary:
-            graph.summary = summary_from_atoms(rank_atoms(graph.atoms)) if graph.atoms else ""
-            graph.summary_auto = True
-        self.memory.save_memory_graph(graph)
+        removed: List[str] = []
+
+        def change(graph: MemoryGraph) -> None:
+            removed[:] = [a.value for a in graph.atoms if a.id == atom_id]
+            graph.atoms = [a for a in graph.atoms if a.id != atom_id]
+            if graph.summary_auto or not graph.summary:
+                graph.summary = summary_from_atoms(rank_atoms(graph.atoms)) if graph.atoms else ""
+                graph.summary_auto = True
+
+        graph, _ = self.memory.mutate_graph(user_id_hash, change)
         return self._forget_removed(user_id_hash, removed, graph)
 
     def summary_view(self, user_id_hash: str) -> Dict[str, Any]:

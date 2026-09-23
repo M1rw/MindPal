@@ -97,12 +97,17 @@ def test_firestore_store_read_write_list_query() -> None:
 def test_firestore_serves_cached_reads_but_refuses_writes_while_down() -> None:
     db = _FakeFirestore()
     store = FirestoreStore(db)
+    store.set_document("greeting_cache", "usr_a:day", {"greeting": "Hi"})
     store.set_document("user_profiles", "usr_a", {"name": "A"})
     db.down = True
 
-    assert store.get_document("user_profiles", "usr_a") == {"name": "A"}
+    # Display-only data may stand in during an outage...
+    assert store.get_document("greeting_cache", "usr_a:day") == {"greeting": "Hi"}
+    # ...authoritative and personal data may not (audit MP-08).
     with pytest.raises(StoreUnavailable):
-        store.get_document("user_profiles", "never_cached")
+        store.get_document("user_profiles", "usr_a")
+    with pytest.raises(StoreUnavailable):
+        store.get_document("greeting_cache", "never_cached")
     with pytest.raises(StoreUnavailable):
         store.set_document("user_profiles", "usr_a", {"name": "B"})
     assert store.durable is False

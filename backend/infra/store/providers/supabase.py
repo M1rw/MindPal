@@ -5,12 +5,12 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import httpx
 
-from backend.infra.store.providers.memory import InMemoryStore
 from backend.infra.store.shared import (
     BREAKER_COOLDOWN_SECONDS,
     BREAKER_FAILURE_THRESHOLD,
     CACHE_MAX_DOCS_PER_COLLECTION,
     CloudBreaker,
+    DegradedReadCache,
     Mutator,
     StoreUnavailable,
     with_retry,
@@ -57,7 +57,7 @@ class SupabaseStore:
             },
         )
         # Read-through cache: serves reads only while the breaker is open.
-        self._cache = InMemoryStore(max_docs_per_collection=CACHE_MAX_DOCS_PER_COLLECTION)
+        self._cache = DegradedReadCache(max_docs_per_collection=CACHE_MAX_DOCS_PER_COLLECTION)
         self._breaker = CloudBreaker(threshold=BREAKER_FAILURE_THRESHOLD, cooldown=BREAKER_COOLDOWN_SECONDS)
 
     # -- health -------------------------------------------------------------
@@ -179,16 +179,16 @@ class SupabaseStore:
         try:
             row = self._get_row(collection, doc_id)
         except StoreUnavailable:
-            cached = self._cache.get_document(collection, doc_id)
+            cached = self._cache.recall(collection, doc_id)
             if cached is not None:
                 logger.warning("supabase_get_served_from_cache collection=%s", collection)
                 return cached
             raise
         if not row or not isinstance(row.get("data"), dict):
-            self._cache.delete_document(collection, doc_id)
+            self._cache.forget(collection, doc_id)
             return None
         data = dict(row["data"])
-        self._cache.set_document(collection, doc_id, data)
+        self._cache.remember(collection, doc_id, data)
         return data
 
     def set_document(self, collection: str, doc_id: str, data: Dict[str, Any]) -> None:
@@ -196,7 +196,7 @@ class SupabaseStore:
         for _ in range(TRANSACTION_ATTEMPTS):
             row = self._get_row(collection, doc_id)
             if self._update(collection, doc_id, int(row.get("revision", 0)) if row else 0, payload):
-                self._cache.set_document(collection, doc_id, payload)
+                self._cache.remember(collection, doc_id, payload)
                 return
         raise StoreUnavailable(f"Supabase write conflicted for {collection}")
 
@@ -207,7 +207,7 @@ class SupabaseStore:
             params={"collection": f"eq.{collection}", "doc_id": f"eq.{doc_id}"},
             headers={"Prefer": "return=minimal"},
         )
-        self._cache.delete_document(collection, doc_id)
+        self._cache.forget(collection, doc_id)
         return True
 
     def iter_documents(self, collection: str, prefix: str = "") -> Iterator[Tuple[str, Dict[str, Any]]]:
@@ -244,7 +244,7 @@ class SupabaseStore:
             if next_data is None:
                 return result
             if self._update(collection, doc_id, expected_revision, next_data):
-                self._cache.set_document(collection, doc_id, next_data)
+                self._cache.remember(collection, doc_id, next_data)
                 return result
         raise StoreUnavailable(f"Supabase transaction conflicted for {collection}")
 

@@ -88,24 +88,29 @@ def patch_profile(
     payload: ProfilePatchPayload,
     session: UserSession = Depends(account_guard("save profile changes to your account")),
 ) -> Dict[str, Any]:
-    profile = identity_service.get_profile(session.user_id_hash)
-    if payload.display_name is not None:
-        profile["display_name"] = payload.display_name
-    if payload.settings is not None:
-        # A profile stored before `settings` existed has no such key; `update`
-        # on the missing key raised KeyError and returned a 500.
-        settings = profile.get("settings")
-        if not isinstance(settings, dict):
-            settings = {}
-        settings.update(payload.settings)
-        if len(settings) > MAX_SETTINGS_KEYS:
-            raise AppError(
-                "payload_invalid",
-                f"Profile settings are limited to {MAX_SETTINGS_KEYS} entries.",
-            )
-        profile["settings"] = settings
-    identity_service.store.set_document("user_profiles", session.user_id_hash, profile)
-    return profile
+    # Merged inside a transaction: two devices saving different settings at
+    # once each overwrote the other's keys when this was read-then-write
+    # (audit MP-10).
+    def merge(current: Any, write: Any) -> Dict[str, Any]:
+        profile = dict(current) if isinstance(current, dict) else identity_service.get_profile(session.user_id_hash)
+        if payload.display_name is not None:
+            profile["display_name"] = payload.display_name
+        if payload.settings is not None:
+            # A profile stored before `settings` existed has no such key; `update`
+            # on the missing key raised KeyError and returned a 500.
+            settings = profile.get("settings")
+            settings = dict(settings) if isinstance(settings, dict) else {}
+            settings.update(payload.settings)
+            if len(settings) > MAX_SETTINGS_KEYS:
+                raise AppError(
+                    "payload_invalid",
+                    f"Profile settings are limited to {MAX_SETTINGS_KEYS} entries.",
+                )
+            profile["settings"] = settings
+        write(profile)
+        return profile
+
+    return identity_service.store.transact("user_profiles", session.user_id_hash, merge)
 
 
 @router.get("/api/user/insights", operation_id="identityGetInsights")
