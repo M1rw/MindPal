@@ -8,11 +8,9 @@ from fastapi import APIRouter, Header
 
 from backend.configs.settings import get_settings
 from backend.core.errors import AppError
-from backend.domain.dynamic.policy import current_load
+from backend.domain.operations import platform_status, run_scheduled_consolidation
 from backend.http.memory import consolidation
 from backend.http.voice_ops import _secret_matches
-from backend.infra.observability.pulse import platform_pulse, purge_old_pulse
-from backend.infra.store.store import get_store
 
 router = APIRouter()
 
@@ -31,9 +29,7 @@ def run_memory_consolidation(
 ) -> dict[str, Any]:
     """Process queued memory consolidation within the current load policy."""
     _require_scheduler(x_cron_secret, authorization)
-    result = consolidation.run_due()
-    result["pulse_purged"] = purge_old_pulse(get_store())
-    return result
+    return run_scheduled_consolidation(consolidation)
 
 
 @router.get("/api/internal/platform-pulse", operation_id="opsPlatformPulse")
@@ -41,5 +37,4 @@ def get_platform_pulse(x_support_secret: Optional[str] = Header(None, alias="X-V
     """Current load level, its drivers, and the aggregated pulse. Support only."""
     if not _secret_matches(x_support_secret or "", get_settings().voice_support_diagnostics_secret.strip()):
         raise AppError("unauthenticated", "Platform pulse requires internal support authorization.")
-    platform_pulse().flush()
-    return current_load().as_dict()
+    return platform_status()

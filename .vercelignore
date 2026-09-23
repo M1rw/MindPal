@@ -1,23 +1,18 @@
+# Dotfiles (secrets, editor and tool state) except the npm registry config
 .*
 !.npmrc
+
+# Not needed to build or run the deployment
 docs
-/archive
-docker-compose.yml
-Dockerfile
-README_LEGACY.md
-.git
-.gitignore
-bot
+tests
+supabase
 node_modules
 __pycache__
 *.pyc
 *.pyo
 *.egg-info
-.pytest_cache
 .venv
 venv
 env
-.env
-.env.local
 *.md
 !README.md

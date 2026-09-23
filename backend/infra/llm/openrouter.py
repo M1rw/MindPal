@@ -41,7 +41,7 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 # Free-tier OpenRouter models are rate limited and their data policies vary by
 # upstream provider. Validate any classifier choice with
-# scripts/validate_voice_classifier.py before trusting it on the safety path.
+# scripts/eval/validate_voice_classifier.py before trusting it on the safety path.
 # Short structured calls gate the live-voice microphone; long chat streams do not.
 JSON_TIMEOUT_S = 6.0
 STREAM_TIMEOUT_S = 60.0

@@ -7,9 +7,6 @@ from fastapi import APIRouter, Request
 from backend.core.contract import iter_operations
 from backend.core.errors import AppError
 
-router = APIRouter()
-
-
 def _raise_unavailable(operation_id: str, path: str) -> None:
     raise AppError(
         "unavailable",
@@ -19,7 +16,12 @@ def _raise_unavailable(operation_id: str, path: str) -> None:
 
 
 def register_preview_placeholders(implemented: set[str]) -> APIRouter:
-    """Register every OpenAPI operation that is not in `implemented` operationIds."""
+    """A fresh router with a 501 route for every contract operation not in `implemented`.
+
+    A new router per call: a module-level one kept every previous app's routes,
+    so each create_app() registered another copy of every placeholder.
+    """
+    router = APIRouter()
     for op in iter_operations():
         operation_id = op["operation_id"]
         if operation_id in implemented:

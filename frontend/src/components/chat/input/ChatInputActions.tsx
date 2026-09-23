@@ -11,10 +11,12 @@ type ReplyTier = 'standard' | 'pro';
    pointer:coarse devices, so no inline min-w/min-h is needed here. */
 const COMPOSER_ACTION_SIZE =
   'w-9 h-9 sm:w-10 sm:h-10 aspect-square flex-shrink-0 flex items-center justify-center';
-const COMPOSER_MUTED_TILE =
-  'bg-surface-elevated dark:bg-edge-default text-content-secondary hover:bg-edge-hover hover:text-content-primary transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md hover:shadow-lg hover:-translate-y-px active:translate-y-0 active:shadow-sm';
-const COMPOSER_SEND_TILE =
-  'bg-content-primary text-content-inverse hover:opacity-90 transition-all duration-200 ease-out cursor-pointer shadow-sm hover:shadow-md hover:shadow-lg hover:-translate-y-px active:translate-y-0 active:shadow-sm';
+/* Same hover as the other composer buttons: a small, smooth scale. No lift or
+   growing shadow, which the composer pill clipped and which looked like overflow. */
+const COMPOSER_ACTION_MOTION =
+  'transition-[transform,background-color,color,opacity] duration-200 ease-out hover:scale-105 active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100';
+const COMPOSER_MUTED_TILE = `bg-surface-elevated dark:bg-edge-default text-content-secondary hover:bg-edge-hover hover:text-content-primary cursor-pointer ${COMPOSER_ACTION_MOTION}`;
+const COMPOSER_SEND_TILE = `bg-content-primary text-content-inverse hover:opacity-90 cursor-pointer ${COMPOSER_ACTION_MOTION}`;
 
 function WaveformIcon({ className }: { className?: string }) {
   return (
@@ -336,7 +338,7 @@ function PrimaryComposerAction({
         else if (mode === 'send') onSend();
         else onStartLiveVoice?.();
       }}
-      className={`${COMPOSER_ACTION_SIZE} rounded-full transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none ${
+      className={`${COMPOSER_ACTION_SIZE} rounded-full focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:outline-none ${
         mode === 'send'
           ? COMPOSER_SEND_TILE
           : `${COMPOSER_MUTED_TILE}${
