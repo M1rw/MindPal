@@ -75,7 +75,7 @@
     "live_silence_duration_ms": 1500,
     "live_end_sensitivity": "END_SENSITIVITY_LOW",
     "live_start_sensitivity": "START_SENSITIVITY_HIGH",
-    "live_temperature": 0.85,
+    "live_temperature": 0.7,
     "live_safety_categories": ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"],
     "live_safety_thresholds": {
       "HARM_CATEGORY_HARASSMENT": "BLOCK_NONE",
