@@ -6,8 +6,8 @@ import inspect
 
 import pytest
 
-from backend.domain.safety import voice_classify as voice_classify_mod
-from backend.domain.safety.voice_classify import (
+from backend.domain.safety.modes.voice import classify as voice_classify_mod
+from backend.domain.safety.modes.voice.classify import (
     CRISIS_SELF_HARM,
     DISTRESS_SUPPORT,
     IMMINENT_ESCALATE,

@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from backend.core.errors import AppError
-from backend.domain.voice.session import VOICE_SESSION_COLLECTION, VoiceSessionService
-from backend.domain.voice.summarize import CHAT_COLLECTION, VoiceSummarizeService
+from backend.domain.voice.services.session import VOICE_SESSION_COLLECTION, VoiceSessionService
+from backend.domain.voice.services.summarize import CHAT_COLLECTION, VoiceSummarizeService
 from backend.infra.store.store import InMemoryStore
 from tests.unit.platform.test_voice_session import _FakeCrisis, _FakeToken, _enabled_engine
 

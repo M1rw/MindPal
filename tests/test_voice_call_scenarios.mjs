@@ -454,7 +454,25 @@ describe('the face listens', () => {
     await call.voice(1_500);
     resolve('smile');
     await call.advance(50);
-    assert.deepEqual(call.ui.reactions, ['nod'], 'no nod at its own voice, no late smile');
+    // Mic energy this loud while MindPal speaks is a barge-in (the duplex
+    // contract): playback is flushed and the caller holds the floor, so the end
+    // of their phrase earns a nod. What must never happen is the late smile: the
+    // classification was asked before MindPal spoke, so it is stale.
+    assert.equal(call.playback.flushes, 1, 'loud caller speech over MindPal is a barge-in');
+    assert.deepEqual(call.ui.reactions, ['nod', 'nod'], 'no late smile from a stale classification');
+  });
+
+  it('never applies a reaction classified before MindPal spoke, even after it finishes', async () => {
+    let resolve;
+    const call = makeCall({ classify: () => new Promise((r) => (resolve = r)) });
+    await call.ready();
+    call.transport.userText(' I got the job');
+    await call.voice(1_500);
+    call.transport.say('Oh wow, congratulations!', 800); // speaks and finishes, no barge-in
+    await call.advance(1_000);
+    resolve('smile');
+    await call.advance(50);
+    assert.deepEqual(call.ui.reactions, ['nod']);
   });
 
   it('keeps nodding when the classifier is unreachable', async () => {

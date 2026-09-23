@@ -14,7 +14,7 @@ import pytest
 
 from backend.domain.flags.engine import FeatureLifecycleEngine
 from backend.domain.flags.models import FeatureDefinition, FeatureStage
-from backend.domain.voice.session import (
+from backend.domain.voice.services.session import (
     SAFETY_STALE_S,
     VOICE_SESSION_COLLECTION,
     VoiceSessionService,
@@ -112,7 +112,7 @@ def test_debounced_syncs_cannot_keep_an_unclassified_call_verified(
     Each sync used to re-stamp the lease. The call must instead report itself
     unverified so the client retries rather than talking on unchecked.
     """
-    from backend.domain.voice import session as session_mod
+    from backend.domain.voice.services import session as session_mod
 
     class _AlwaysSkip:
         run = False
@@ -149,7 +149,7 @@ def test_renew_is_refused_while_the_lease_was_never_earned(
 ) -> None:
     """A client that never got a verdict does not get a fresh credential."""
     from backend.core.errors import AppError
-    from backend.domain.voice import session as session_mod
+    from backend.domain.voice.services import session as session_mod
 
     class _AlwaysSkip:
         run = False

@@ -116,7 +116,7 @@ There is no crisis pause. A risky call stays open:
   the call ends rather than run unclassified.
 
 Instructed by the server (`backend/domain/voice/session.py`):
-- A Gemini JSON classifier (`backend/domain/safety/voice_classify.py`) labels the
+- A Gemini JSON classifier (`backend/domain/safety/modes/voice/classify.py`) labels the
   transcript `not_crisis`, `distress_support` or `imminent_escalate` by meaning, in
   any language. There is no live-voice keyword list. Swearing, venting, jokes, dark
   humor, and asking for 911/988 are `not_crisis`. MindPal mentioning help numbers is

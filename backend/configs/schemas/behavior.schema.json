@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindPal behavior configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["chat", "flags", "memory_graph", "recall", "store"],
+  "properties": {
+    "chat": {"type": "object"},
+    "flags": {"type": "object"},
+    "memory_graph": {"type": "object"},
+    "recall": {"type": "object"},
+    "store": {"type": "object"}
+  }
+}

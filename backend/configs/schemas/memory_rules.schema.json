@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindPal memory rules configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["limits", "anonymous_user_ids", "bland_turn_pattern", "crisis_fragment_pattern", "email_pattern", "name_stop_words", "preferred_name_patterns", "goal_patterns", "person_patterns", "preference_patterns", "weak_capture_words", "feeling_pattern", "problem_patterns", "event_patterns", "occupation_patterns", "studies_patterns", "location_patterns"],
+  "properties": {
+    "limits": {"type": "object"},
+    "anonymous_user_ids": {"type": "array", "items": {"type": "string"}},
+    "bland_turn_pattern": {"type": "string"},
+    "crisis_fragment_pattern": {"type": "string"},
+    "email_pattern": {"type": "string"},
+    "name_stop_words": {"type": "array", "items": {"type": "string"}},
+    "preferred_name_patterns": {"type": "array", "items": {"type": "string"}},
+    "goal_patterns": {"type": "array", "items": {"type": "string"}},
+    "person_patterns": {"type": "array", "items": {"type": "string"}},
+    "preference_patterns": {"type": "array", "items": {"type": "string"}},
+    "weak_capture_words": {"type": "array", "items": {"type": "string"}},
+    "feeling_pattern": {"type": "string"},
+    "problem_patterns": {"type": "array", "items": {"type": "string"}},
+    "event_patterns": {"type": "array", "items": {"type": "string"}},
+    "occupation_patterns": {"type": "array", "items": {"type": "string"}},
+    "studies_patterns": {"type": "array", "items": {"type": "string"}},
+    "location_patterns": {"type": "array", "items": {"type": "string"}}
+  }
+}

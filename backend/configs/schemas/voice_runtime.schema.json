@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindPal voice runtime configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["budget", "policy", "session", "summary", "reaction", "recall", "token"],
+  "properties": {
+    "budget": {"type": "object", "additionalProperties": true},
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["guest_max_session_seconds", "guest_daily_cap_seconds", "guest_reserve_seconds", "guest_min_session_seconds", "guest_allow_reconnect", "guest_allow_persistent_memory", "guest_fallback_mode", "account_max_session_seconds", "account_daily_cap_seconds", "account_reserve_seconds", "account_min_session_seconds", "account_allow_reconnect", "account_allow_persistent_memory", "account_fallback_mode"],
+      "properties": {
+        "guest_max_session_seconds": {"type": "integer", "minimum": 60}, "guest_daily_cap_seconds": {"type": "integer", "minimum": 60}, "guest_reserve_seconds": {"type": "integer", "minimum": 60}, "guest_min_session_seconds": {"type": "integer", "minimum": 1},
+        "guest_allow_reconnect": {"type": "boolean"}, "guest_allow_persistent_memory": {"type": "boolean"}, "guest_fallback_mode": {"type": "string", "minLength": 1},
+        "account_max_session_seconds": {"type": "integer", "minimum": 60}, "account_daily_cap_seconds": {"type": "integer", "minimum": 60}, "account_reserve_seconds": {"type": "integer", "minimum": 60}, "account_min_session_seconds": {"type": "integer", "minimum": 1},
+        "account_allow_reconnect": {"type": "boolean"}, "account_allow_persistent_memory": {"type": "boolean"}, "account_fallback_mode": {"type": "string", "minLength": 1}
+      }
+    },
+    "session": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reserve_seconds", "daily_cap_seconds", "min_session_seconds", "provider_rotate_seconds", "ledger_chars", "hold_ms", "transcript_buffer_chars", "safety_stale_seconds", "safety_heartbeat_ms", "abandoned_unwarmed_seconds", "setup_failure_max_seconds", "retention_seconds"],
+      "properties": {
+        "reserve_seconds": {"type": "integer", "minimum": 60}, "daily_cap_seconds": {"type": "integer", "minimum": 60}, "min_session_seconds": {"type": "integer", "minimum": 1}, "provider_rotate_seconds": {"type": "integer", "minimum": 0}, "ledger_chars": {"type": "integer", "minimum": 100}, "hold_ms": {"type": "integer", "minimum": 0}, "transcript_buffer_chars": {"type": "integer", "minimum": 100}, "safety_stale_seconds": {"type": "integer", "minimum": 1}, "safety_heartbeat_ms": {"type": "integer", "minimum": 1000}, "abandoned_unwarmed_seconds": {"type": "integer", "minimum": 1}, "setup_failure_max_seconds": {"type": "integer", "minimum": 1}, "retention_seconds": {"type": "integer", "minimum": 86400}
+      }
+    },
+    "summary": {"type": "object"},
+    "reaction": {"type": "object"},
+    "recall": {"type": "object"},
+    "token": {"type": "object"}
+  }
+}

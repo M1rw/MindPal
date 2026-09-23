@@ -18,6 +18,16 @@ import type {
 } from '../../types/index.ts';
 import { fetchJson, fetchBlob, expectOk } from './http.ts';
 
+/** What MindPal has learned about how to talk with this person (style only). */
+export interface AdaptiveProfileSummary {
+  enabled: boolean;
+  turns_observed: number;
+  preferences: Record<string, string>;
+  strategies: Record<string, { score: number; evidence: number }>;
+  note: string;
+  updated_at: number;
+}
+
 export { fetchJson, fetchBlob, expectOk };
 
 export const ApiClient = {
@@ -55,6 +65,7 @@ export const ApiClient = {
   // Memory
   getMemorySummary: memoryApi.getMemorySummary,
   refreshMemorySummary: memoryApi.refreshMemorySummary,
+  forgetMemoryNarrative: memoryApi.forgetMemoryNarrative,
   getMemoryGraph: memoryApi.getMemoryGraph,
   putMemoryGraph: memoryApi.putMemoryGraph,
   patchMemoryGraphItem: memoryApi.patchMemoryGraphItem,
@@ -88,6 +99,22 @@ export const ApiClient = {
   // Changelog / Release
   async getChangelog(): Promise<ChangelogResponse> {
     return fetchJson<ChangelogResponse>('/api/release/changelog', undefined, 'Changelog error');
+  },
+
+  /** Thumbs up/down on a reply; the server learns which approaches help this person. */
+  async rateReply(rating: 'up' | 'down', strategy?: string): Promise<void> {
+    await expectOk('/api/chat/feedback', {
+      method: 'POST',
+      body: JSON.stringify(strategy ? { rating, strategy } : { rating }),
+    }, 'Reply feedback error');
+  },
+
+  async getAdaptation(): Promise<AdaptiveProfileSummary> {
+    return fetchJson<AdaptiveProfileSummary>('/api/user/adaptation', { method: 'GET' }, 'Adaptive profile unavailable');
+  },
+
+  async resetAdaptation(): Promise<void> {
+    await expectOk('/api/user/adaptation', { method: 'DELETE' }, 'Adaptive profile reset error');
   },
 
   async dismissChangelog(version: string): Promise<void> {

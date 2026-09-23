@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.domain.safety.classify import (
+from backend.domain.safety.modes.chat.classify import (
     CRISIS_RESPONSE,
     SafetyService,
     crisis_evidence,

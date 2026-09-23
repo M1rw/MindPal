@@ -119,6 +119,8 @@ export class FaceFeed {
   private readonly classify: ClassifyReaction | null;
   private readonly clock: () => number;
   private listening = false;
+  /** Counts MindPal speaking turns; a listening reaction from before one is stale. */
+  private speakingTurns = 0;
   /** Caller words not yet classified. Its own buffer: the transcript commits turns on its own clock. */
   private unread = '';
   /** The last classified phrase, as context for the next. */
@@ -224,6 +226,8 @@ export class FaceFeed {
    * text arrives with its audio, which plays after `queuedMs` of earlier audio.
    */
   modelWords(delta: string, now: number, queuedMs: number): void {
+    // MindPal is answering: any listening reaction asked for before now is stale.
+    if (delta.trim()) this.speakingTurns += 1;
     if (!this.classify || this.reducedMotion) return;
     this.speech = mergeLiveTranscript(this.speech, delta);
     let last = 0;
@@ -427,10 +431,12 @@ export class FaceFeed {
     this.lastPhrase = phrase.slice(-300);
     this.meaningInFlight = true;
     this.lastMeaningAt = now;
+    const askedDuringTurn = this.speakingTurns;
     void this.classify(phrase, context)
       .then((label) => {
-        // Too late if MindPal has started answering: a reaction now would be to itself.
-        if (!this.listening) return;
+        // Too late if MindPal has answered since the question was asked, even if
+        // it has already finished: the reaction would now be to its own words.
+        if (!this.listening || this.speakingTurns !== askedDuringTurn) return;
         const reaction = this.reactor.meaning(label, this.clock(), distressed);
         if (reaction) this.react(reaction);
       })

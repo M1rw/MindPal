@@ -10,6 +10,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from backend.core.errors import AppError
+from backend.domain.adaptation.profile import AdaptiveProfileService
+from backend.configs.runtime import api_limits_config
 from backend.domain.identity.identity import (
     IdentityService,
     UserSession,
@@ -22,10 +24,11 @@ identity_service = IdentityService()
 
 # A profile is a small settings bag, not client-controlled storage. Without a
 # ceiling, PATCH /api/user/profile is an unmetered write-anything endpoint.
-MAX_DISPLAY_NAME_CHARS = 80
-MAX_SETTINGS_KEYS = 64
-MAX_SETTINGS_KEY_CHARS = 64
-MAX_SETTINGS_VALUE_CHARS = 512
+_IDENTITY_LIMITS = api_limits_config()["identity"]
+MAX_DISPLAY_NAME_CHARS = int(_IDENTITY_LIMITS["max_display_name_chars"])
+MAX_SETTINGS_KEYS = int(_IDENTITY_LIMITS["max_settings_keys"])
+MAX_SETTINGS_KEY_CHARS = int(_IDENTITY_LIMITS["max_settings_key_chars"])
+MAX_SETTINGS_VALUE_CHARS = int(_IDENTITY_LIMITS["max_settings_value_chars"])
 
 
 class ProfilePatchPayload(BaseModel):
@@ -141,3 +144,34 @@ def delete_user_data(
         "deleted": result.get("deleted", []),
         "message": "Server profile, memory, and synced chats were deleted. Chat history on this device was not removed.",
     }
+
+
+class ReplyFeedbackPayload(BaseModel):
+    rating: str = Field(pattern="^(up|down)$")
+    strategy: Optional[str] = Field(default=None, max_length=40)
+
+
+@router.get("/api/user/adaptation", operation_id="identityGetAdaptation")
+def get_adaptation(
+    session: UserSession = Depends(account_guard("see what MindPal has learned about your preferences")),
+) -> Dict[str, Any]:
+    """What MindPal has learned about how to talk with this person. Style only."""
+    return AdaptiveProfileService(identity_service.store).describe(session.user_id_hash)
+
+
+@router.delete("/api/user/adaptation", operation_id="identityResetAdaptation")
+def reset_adaptation(
+    session: UserSession = Depends(account_guard("reset what MindPal has learned")),
+) -> Dict[str, Any]:
+    return {"reset": AdaptiveProfileService(identity_service.store).reset(session.user_id_hash)}
+
+
+@router.post("/api/chat/feedback", operation_id="chatReplyFeedback")
+def rate_reply(
+    payload: ReplyFeedbackPayload,
+    session: UserSession = Depends(account_guard("teach MindPal what helps you")),
+) -> Dict[str, Any]:
+    """Thumbs up/down on a reply. Rewards or penalizes the approach that produced it."""
+    return AdaptiveProfileService(identity_service.store).rate(
+        session.user_id_hash, payload.rating, payload.strategy or ""
+    )

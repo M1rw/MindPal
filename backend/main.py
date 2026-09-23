@@ -4,10 +4,21 @@ from __future__ import annotations
 
 import json
 import logging
-import os
+import re
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
+from backend.configs.app import csv_env, is_production
+from backend.configs.auth import firebase_public_bootstrap
+from backend.configs.runtime import ensure_runtime_ready
+from backend.infra.store.store import storage_health
+from backend.infra.observability.metrics import (
+    VoiceMetric,
+    set_request_id,
+    voice_metrics,
+)
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -28,6 +39,7 @@ FRONTEND = ROOT / "frontend"
 # token it has phished.
 CORS_ORIGINS_ENV = "MINDPAL_CORS_ORIGINS"
 ALLOWED_HOSTS_ENV = "MINDPAL_ALLOWED_HOSTS"
+_REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 
 # Matches what index.html actually loads. `unsafe-inline` on style-src reflects
 # the inline styles already in the document.
@@ -66,37 +78,10 @@ CONTENT_SECURITY_POLICY = "; ".join(
 )
 
 
-def _load_env_files() -> None:
-    """Load .env and .env.local without external dependencies for local runs."""
-    for filename in (".env", ".env.local"):
-        p = ROOT / filename
-        if not p.exists():
-            continue
-        try:
-            for raw_line in p.read_text(encoding="utf-8").splitlines():
-                line = raw_line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                k = k.strip()
-                v = v.strip().strip('"').strip("'")
-                if k and k not in os.environ:
-                    os.environ[k] = v
-        except Exception:
-            pass
-
-
-_load_env_files()
-
-
-def _csv_env(name: str) -> list[str]:
-    return [item.strip() for item in os.environ.get(name, "").split(",") if item.strip()]
-
-
 def configured_cors_origins() -> list[str]:
     """Explicit origins only. A wildcard is dropped with a warning, never honoured."""
     origins = []
-    for origin in _csv_env(CORS_ORIGINS_ENV):
+    for origin in csv_env(CORS_ORIGINS_ENV):
         if origin == "*":
             logger.error(
                 "cors_wildcard_refused env=%s — list exact origins instead", CORS_ORIGINS_ENV
@@ -106,25 +91,17 @@ def configured_cors_origins() -> list[str]:
     return origins
 
 
-def _is_production() -> bool:
-    return (os.environ.get("ENVIRONMENT") or "production").strip().lower() not in {
-        "development",
-        "dev",
-        "test",
-        "testing",
-        "local",
-    }
-
-
 def create_app(*, serve_frontend: bool = True) -> FastAPI:
+    ensure_runtime_ready()
+    # Metrics are aggregated per instance-minute by the platform pulse
+    # (backend/infra/observability/pulse.py); one document per LLM call or voice
+    # request is no longer written.
     app = FastAPI(title="MindPal", version="5.0.0", docs_url=None, redoc_url=None)
 
-    allowed_hosts = _csv_env(ALLOWED_HOSTS_ENV)
+    allowed_hosts = csv_env(ALLOWED_HOSTS_ENV)
     if allowed_hosts:
-        # Blocks Host-header forgery, which otherwise poisons absolute URLs and
-        # any cache in front of the app.
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
-    elif _is_production():
+    elif is_production():
         logger.warning(
             "trusted_hosts_unset env=%s — set it to this deployment's hostnames", ALLOWED_HOSTS_ENV
         )
@@ -140,6 +117,56 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
             max_age=600,
         )
 
+    @app.on_event("startup")
+    def report_storage_health() -> None:
+        # Report, never crash: on serverless a cold-start blip would otherwise
+        # take the whole deployment down. /api/health/ready returns 503 while
+        # degraded, and limit enforcement fails closed until the store recovers.
+        health = storage_health()
+        if health.get("status") != "ok":
+            logger.error("storage_degraded_at_startup health=%s", health)
+        else:
+            logger.info("storage_ready provider=%s", health.get("provider"))
+
+    @app.middleware("http")
+    async def add_request_id(request: Request, call_next):
+        candidate = request.headers.get("x-request-id", "").strip()
+        request_id = candidate if _REQUEST_ID_PATTERN.fullmatch(candidate) else f"req_{uuid.uuid4().hex[:16]}"
+        set_request_id(request_id)
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            if request.url.path.startswith("/api/voice/"):
+                voice_metrics().record(
+                    VoiceMetric(
+                        operation=_voice_operation(request.url.path),
+                        duration_ms=max(0, int((time.perf_counter() - started) * 1000)),
+                        outcome="exception",
+                        status_code=500,
+                    )
+                )
+            raise
+        response.headers["X-Request-Id"] = request_id
+        if request.url.path.startswith("/api/voice/"):
+            voice_metrics().record(
+                VoiceMetric(
+                    operation=_voice_operation(request.url.path),
+                    duration_ms=max(0, int((time.perf_counter() - started) * 1000)),
+                    outcome=_voice_outcome(response.status_code),
+                    status_code=response.status_code,
+                )
+            )
+        logger.info(
+            "http_request request_id=%s method=%s path=%s status=%s duration_ms=%s",
+            request_id,
+            request.method,
+            request.url.path,
+            response.status_code,
+            max(0, int((time.perf_counter() - started) * 1000)),
+        )
+        return response
+
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):
         response = await call_next(request)
@@ -150,57 +177,47 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
         response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
         response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
         response.headers["Permissions-Policy"] = "geolocation=(self), camera=(), payment=(), usb=()"
-        if _is_production():
+        if is_production():
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
     wire_http(app)
-
     if serve_frontend and FRONTEND.exists():
         _mount_frontend(app)
     return app
 
 
+def _voice_operation(path: str) -> str:
+    suffix = path.removeprefix("/api/voice/").strip("/")
+    return {
+        "session-token": "mint",
+        "session-events": "event",
+        "usage": "usage",
+        "analytics": "analytics",
+        "audit": "audit",
+        "summarize": "summarize",
+        "reaction": "reaction",
+        "recall": "recall",
+    }.get(suffix, "unknown")
+
+
+def _voice_outcome(status_code: int) -> str:
+    if status_code < 400:
+        return "success"
+    if status_code == 401:
+        return "unauthenticated"
+    if status_code == 409:
+        return "conflict"
+    if status_code == 429:
+        return "quota_exceeded"
+    if status_code >= 500:
+        return "unavailable"
+    return "failure"
+
+
 def _build_public_bootstrap_payload() -> dict[str, Any]:
     """Generates the non-secret client runtime bootstrap configuration."""
-    api_key = os.environ.get("FIREBASE_WEB_API_KEY", "").strip() or os.environ.get("FIREBASE_API_KEY", "").strip()
-    project_id = (
-        os.environ.get("FIREBASE_WEB_PROJECT_ID", "").strip()
-        or os.environ.get("FIREBASE_PROJECT_ID", "").strip()
-        or os.environ.get("GOOGLE_CLOUD_PROJECT", "").strip()
-    )
-    app_id = os.environ.get("FIREBASE_WEB_APP_ID", "").strip() or os.environ.get("FIREBASE_APP_ID", "").strip()
-    auth_domain = os.environ.get("FIREBASE_AUTH_DOMAIN", "").strip() or (f"{project_id}.firebaseapp.com" if project_id else "")
-    storage_bucket = os.environ.get("FIREBASE_STORAGE_BUCKET", "").strip() or (f"{project_id}.appspot.com" if project_id else "")
-    messaging_sender_id = os.environ.get("FIREBASE_MESSAGING_SENDER_ID", "").strip()
-    measurement_id = os.environ.get("FIREBASE_MEASUREMENT_ID", "").strip()
-    google_client_id = os.environ.get("FIREBASE_WEB_GOOGLE_CLIENT_ID", "").strip()
-    app_check_site_key = os.environ.get("FIREBASE_APPCHECK_SITE_KEY", "").strip()
-    enable_firebase_env = os.environ.get("ENABLE_FIREBASE", "true").strip().lower()
-    firebase_allowed = enable_firebase_env not in ("false", "0", "no")
-    firebase_ready = bool(firebase_allowed and api_key and project_id and app_id)
-    firebase_config = (
-        {
-            "apiKey": api_key,
-            "authDomain": auth_domain,
-            "projectId": project_id,
-            "storageBucket": storage_bucket,
-            "messagingSenderId": messaging_sender_id,
-            "appId": app_id,
-            "measurementId": measurement_id,
-            "googleClientId": google_client_id,
-        }
-        if firebase_ready
-        else None
-    )
-
-    return {
-        "API_BASE_URL": os.environ.get("PUBLIC_API_BASE_URL", "/api").strip() or "/api",
-        "ENVIRONMENT": os.environ.get("ENVIRONMENT", "production"),
-        "FIREBASE_APPCHECK_SITE_KEY": app_check_site_key,
-        "FIREBASE_CONFIG": firebase_config,
-        "FIREBASE_ENABLED": firebase_ready,
-    }
+    return firebase_public_bootstrap()
 
 
 def _script_safe_json(payload: dict[str, Any]) -> str:

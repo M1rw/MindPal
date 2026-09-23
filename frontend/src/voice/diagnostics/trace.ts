@@ -207,6 +207,42 @@ export interface TraceFindings {
   notes: string[];
 }
 
+const TRACE_SENSITIVE_KEYS = new Set([
+  'text',
+  'transcript',
+  'inputTranscript',
+  'outputTranscript',
+  'input_text',
+  'output_text',
+  'message',
+  'reason',
+  'detail',
+  'notes',
+]);
+
+function redactValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !TRACE_SENSITIVE_KEYS.has(key))
+      .map(([key, item]) => [key, redactValue(item)]),
+  );
+}
+
+export function redactTraceReport(report: VoiceTraceReport): VoiceTraceReport {
+  return {
+    ...report,
+    context: redactValue(report.context) as Record<string, unknown> | undefined,
+    events: report.events.map((event) => ({
+      ...event,
+      data: redactValue(event.data) as Record<string, unknown> | undefined,
+    })),
+    // `notes` can quote the caller; keep the field (the type needs it) but empty.
+    findings: { ...(redactValue(report.findings) as TraceFindings), notes: [] },
+  };
+}
+
 function now(): number {
   try {
     return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();

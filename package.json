@@ -11,7 +11,7 @@
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
     "build:app": "esbuild frontend/src/main.tsx --bundle --format=esm --platform=browser --target=es2022 --minify --loader:.tsx=tsx --loader:.ts=ts --outfile=frontend/dist/app.bundle.js",
     "build:vercel": "npm run build",
-    "test": "node --test tests/*.mjs",
+    "test": "node --test tests/test_*.mjs",
     "test:frontend:quality": "node --test tests/frontend_quality_harness.mjs",
     "test:frontend:visual": "node --test tests/frontend_visual_audit.mjs",
     "test:mobile:browserstack": "node tests/browserstack_mobile_audit.mjs",

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindPal API limits configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["chat", "identity", "memory", "sessions", "release"],
+  "properties": {
+    "chat": {"type": "object"},
+    "identity": {"type": "object"},
+    "memory": {"type": "object"},
+    "sessions": {"type": "object"},
+    "release": {"type": "object"}
+  }
+}
