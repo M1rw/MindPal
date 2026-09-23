@@ -7,6 +7,10 @@ from backend.domain.voice.privacy import VoicePrivacyService
 from backend.infra.store.store import get_store
 
 
+# Per sweep; all sweeps together stay inside the function's 60s limit.
+SWEEP_TIME_BUDGET_S = 5.0
+
+
 def run_voice_retention(*, store: Any | None = None) -> dict[str, int]:
     """Run from a deployment scheduler; safe to retry and safe on serverless.
 
@@ -22,7 +26,10 @@ def run_voice_retention(*, store: Any | None = None) -> dict[str, int]:
 def _purge_expired(store: Any, collection: str) -> int:
     now = time.time()
     removed = 0
+    deadline = time.monotonic() + SWEEP_TIME_BUDGET_S
     for doc_id, record in list(store.iter_documents(collection)):
+        if time.monotonic() >= deadline:
+            break
         expires_at = record.get("expires_at")
         if isinstance(expires_at, (int, float)) and float(expires_at) <= now and store.delete_document(collection, doc_id):
             removed += 1
@@ -32,7 +39,10 @@ def _purge_expired(store: Any, collection: str) -> int:
 def purge_expired_greetings(store: Any, *, now: float | None = None) -> int:
     current = float(now if now is not None else time.time())
     removed = 0
+    deadline = time.monotonic() + SWEEP_TIME_BUDGET_S
     for doc_id, record in list(store.iter_documents("greeting_cache")):
+        if time.monotonic() >= deadline:
+            break  # the rest goes on the next daily run
         # Rows from before expiry was recorded count as expired: they are at
         # least a day old by the time this runs.
         expires_at = record.get("expires_at")

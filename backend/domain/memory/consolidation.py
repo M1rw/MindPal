@@ -55,6 +55,15 @@ GenerateJson = Callable[..., str]
 # journal and reserves its model calls in the same transaction.
 RUN_LEASE_SECONDS = 600
 MAX_AI_CALLS_PER_RUN = 2
+# The scheduler's run stops starting new jobs after this long, well inside the
+# function's 60s limit (vercel.json), so a slow model day ends the batch
+# cleanly instead of being killed mid-write (audit MP-24). What is left waits
+# for the next run.
+CRON_TIME_BUDGET_S = 45.0
+# A job that keeps failing backs off (15 min, 30, 60 ... up to 12 h) instead of
+# being retried first every run and starving the queue behind it.
+RETRY_BASE_S = 15 * 60
+RETRY_MAX_S = 12 * 3600
 
 DIGEST_SYSTEM = (
     "You compact a wellness companion's conversation turns into a private memory digest for "
@@ -411,7 +420,13 @@ class MemoryConsolidationService:
             key=lambda job: float(job.get("requested_at") or now),
         )
         reports: List[Dict[str, Any]] = []
+        deadline = time.monotonic() + CRON_TIME_BUDGET_S
         for job in jobs:
+            if time.monotonic() >= deadline:
+                logger.info("memory_consolidation_batch_time_budget_reached processed=%s", len(reports))
+                break
+            if float(job.get("not_before") or 0) > now:
+                continue  # backing off after failures
             overdue = now - float(job.get("requested_at") or now) >= max_defer_s
             if len(reports) >= batch and not overdue:
                 continue
@@ -421,9 +436,13 @@ class MemoryConsolidationService:
             if not user:
                 continue
             try:
-                reports.append(self.run(user, allow_deferred=overdue).as_dict())
+                report = self.run(user, allow_deferred=overdue)
+                reports.append(report.as_dict())
+                if not report.ai_calls and not report.skipped:
+                    self._back_off(user, job, now)  # work was due but every model call failed
             except Exception as exc:
                 logger.warning("memory_consolidation_failed error=%s", type(exc).__name__)
+                self._back_off(user, job, now)
         return {"level": load.level, "queued": len(jobs), "processed": len(reports), "reports": reports}
 
     # -- AI steps -----------------------------------------------------------
@@ -570,6 +589,22 @@ class MemoryConsolidationService:
     def _append_digest(self, digests: List[Dict[str, Any]], entry: Dict[str, Any], now: float) -> List[Dict[str, Any]]:
         digests = list(digests) + [{"id": uuid.uuid4().hex[:10], "at": now, **entry}]
         return digests[-int(_memory_limits()["max_digests"]) :]
+
+    def _back_off(self, user_id_hash: str, job: Dict[str, Any], now: float) -> None:
+        """Push a failing job back so the rest of the queue gets its turn."""
+        generation = job.get("generation")
+
+        def mutate(current: Any, write: Any) -> None:
+            if not current or current.get("generation") != generation:
+                return  # finished or re-queued meanwhile: leave it alone
+            attempts = int(current.get("attempts") or 0) + 1
+            delay = min(RETRY_MAX_S, RETRY_BASE_S * (2 ** (attempts - 1)))
+            write({**current, "attempts": attempts, "not_before": now + delay})
+
+        try:
+            self.store.transact(JOBS_COLLECTION, user_id_hash, mutate)
+        except Exception as exc:
+            logger.warning("memory_consolidation_backoff_failed error=%s", type(exc).__name__)
 
     def _fenced(self, user_id_hash: str) -> bool:
         """The account's data was deleted while this run waited on the model (audit MP-06)."""

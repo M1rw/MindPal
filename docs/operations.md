@@ -45,14 +45,17 @@ flowchart LR
 
 - The provider is chosen by `MINDPAL_STORAGE_PROVIDER`; production uses
   Supabase. If unset: Supabase when configured, then Firestore when Firebase
-  Admin credentials exist, then memory (logged as an error in production).
+  Admin credentials exist, then memory. Production refuses memory: it starts
+  with data routes returning 503 until durable storage is configured.
 - The Firebase project `mindpal-official-0` has no Firestore database, so
   selecting Firestore needs one created first (see
   [decision 0001](decisions/0001-supabase-document-store.md)).
 - A durable provider is never silently swapped for memory. After failures a
   half-open circuit breaker stops calls and then recovers on its own. While
-  degraded, reads can come from a bounded cache; writes fail closed, so limits
-  are never enforced from per-instance state.
+  degraded, only display-only data (greetings, changelog dismissals, platform
+  pulse) may be served from a cache up to 5 minutes old. Everything else,
+  including sessions, profiles, memory and chats, fails closed, as do all
+  writes, so limits are never enforced from per-instance state.
 - Per-user export, delete and retention use field queries with real document
   IDs and paging.
 - Supabase needs migrations `0004` and `0005` in `supabase/migrations/`.
@@ -68,6 +71,32 @@ flowchart LR
 
 Both require `CRON_SECRET`. Vercel Hobby only allows daily jobs; on Pro, run
 memory consolidation every 15 minutes (`*/15 * * * *`).
+
+Both jobs run inside the API function, which has a 60 s limit (`vercel.json`).
+Each stops starting new work before the limit and picks up where it left off
+on the next run:
+
+- Consolidation stops starting jobs after 45 s. A job whose model calls keep
+  failing backs off (15 min, doubling, up to 12 h), so it doesn't block the
+  rest of the queue.
+- Retention gives each sweep a few seconds.
+
+On a daily schedule, a backlog bigger than one run clears over several days.
+Move to an hourly schedule if the queue grows (this needs a Vercel plan that
+allows it).
+
+## Abuse limits
+
+| Limit | Where |
+|---|---|
+| Request bodies over 4.5 MB get 413 before parsing | `configs/json/api_limits.json` `request.max_body_bytes` |
+| 500 saved chats per account; updates always allowed | `sessions.max_sessions_per_account` |
+| 5 support traces per call, 2000 events each | `voice.*` |
+| Face reactions (paid model calls) only during a live call | `VoiceSessionService.require_live_call` |
+| Chat credits, voice minutes | `quota.json`, `voice_runtime.json`; kept through data deletion |
+
+The browser sends an App Check token, but the backend doesn't verify it yet.
+It's not part of the current defences: rate limits and account checks are.
 
 ## Load levels
 
