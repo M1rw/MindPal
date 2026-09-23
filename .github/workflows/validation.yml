@@ -62,7 +62,7 @@ jobs:
         run: python -m compileall -q backend
       - name: Bandit security scan
         # Medium severity and above fails the build; low findings are reviewed in PRs.
-        run: bandit --quiet --severity-level medium --recursive backend --exclude backend/**/__pycache__
+        run: bandit --quiet --severity-level medium --recursive backend
       - name: Dependency vulnerability scan
         run: pip-audit --requirement requirements.lock
       - name: Secret scan
