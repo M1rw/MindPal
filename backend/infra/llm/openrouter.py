@@ -16,6 +16,7 @@ import json
 import logging
 import threading
 from typing import Any, AsyncGenerator, Dict, Iterable, List, Optional, Sequence
+from urllib.parse import urlparse
 
 import httpx
 
@@ -201,7 +202,8 @@ def _remember_no_reasoning(base_url: str) -> None:
 def _reasoning_off_payload(base_url: str) -> Dict[str, Any]:
     if base_url in _NO_REASONING_BASES:
         return {}
-    if "groq.com" in base_url:
+    host = (urlparse(base_url).hostname or "").lower()
+    if host == "groq.com" or host.endswith(".groq.com"):
         # Groq's spelling. Supported on its reasoning-capable models; probed
         # rather than assumed for the rest.
         return {"reasoning_effort": "none"}

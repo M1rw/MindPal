@@ -19,6 +19,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Dict, List
 
+from urllib.parse import urlparse
+
 import pytest
 
 from backend.infra.llm import gateway as gateway_mod
@@ -150,7 +152,7 @@ def test_groq_uses_its_own_base_url_and_key(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setenv("MINDPAL_JSON_PROVIDER", "groq")
     monkeypatch.setattr(oai, "complete_json", lambda **kw: seen.update(kw) or '{"label":"x"}')
     LLMGateway().generate_json(prompt="User: hi")
-    assert "groq.com" in seen["base_url"]
+    assert urlparse(seen["base_url"]).hostname == "api.groq.com"
     assert seen["api_key"] == "test-groq-key"
 
 
@@ -179,7 +181,7 @@ def test_rate_limited_primary_falls_back_once(monkeypatch: pytest.MonkeyPatch) -
     out = LLMGateway().generate_json(prompt="User: hi")
     assert out == '{"label": "not_crisis"}'
     assert len(calls) == 2, "primary then fallback"
-    assert "groq.com" in calls[1]
+    assert urlparse(calls[1]).hostname == "api.groq.com"
 
 
 def test_a_real_error_does_not_trigger_the_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
