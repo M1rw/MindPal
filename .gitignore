@@ -68,3 +68,6 @@ frontend/dist/
 # Local test and audit output (screenshots, audio, reports)
 artifacts/
 
+
+# Claude Code local state (launch configs, locks, session settings)
+.claude/
