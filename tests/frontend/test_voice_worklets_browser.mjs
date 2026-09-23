@@ -313,7 +313,7 @@ test('barge-in tapers instead of cutting, and empties the cut turn', async () =>
   const { playback } = await readWorkletSources();
 
   const result = await page.evaluate(async (source) => {
-    const ctx = new OfflineAudioContext(1, 48000, 48000);
+    const ctx = new OfflineAudioContext(1, 96000, 48000);
     const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
     await ctx.audioWorklet.addModule(url);
     URL.revokeObjectURL(url);
@@ -325,7 +325,7 @@ test('barge-in tapers instead of cutting, and empties the cut turn', async () =>
     });
     node.connect(ctx.destination);
 
-    for (let c = 0; c < 50; c += 1) {
+    for (let c = 0; c < 100; c += 1) {
       const chunk = new Float32Array(480);
       for (let i = 0; i < 480; i += 1) {
         chunk[i] = Math.sin((2 * Math.PI * 300 * (c * 480 + i)) / 24000) * 0.6;
@@ -333,7 +333,12 @@ test('barge-in tapers instead of cutting, and empties the cut turn', async () =>
       node.port.postMessage({ type: 'pcm', generation: 0, samples: chunk.buffer }, [chunk.buffer]);
     }
     node.port.postMessage({ type: 'start' });
-    node.port.postMessage({ type: 'fade', ms: 180, generation: 1 });
+    // Two seconds of speech, faded a quarter second in. The render is 2s long so
+    // the whole taper fits even when CI delivers the port message late.
+    ctx.suspend(0.25).then(() => {
+      node.port.postMessage({ type: 'fade', ms: 180, generation: 1 });
+      ctx.resume();
+    });
 
     const data = (await ctx.startRendering()).getChannelData(0);
     const win = 240; // 5 ms
