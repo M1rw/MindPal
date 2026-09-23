@@ -11,12 +11,12 @@ works unchanged on either.
 
 | Value | Store | Use |
 |---|---|---|
-| `firestore` | Cloud Firestore via the shared Firebase Admin app | Production default. Existing accounts' data lives here. |
-| `supabase` | Postgres `mindpal_documents` via PostgREST | Alternative durable store. Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. |
+| `supabase` | Postgres `mindpal_documents` via PostgREST | Production store. Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. |
+| `firestore` | Cloud Firestore via the shared Firebase Admin app | Supported alternative. The `mindpal-official-0` project has no Firestore database today, so create one before selecting it. |
 | `memory` | Per-process dict | Tests and local work only. |
 
-When unset, the backend picks `firestore` if Firebase Admin credentials exist,
-otherwise `supabase` if configured, otherwise `memory` (logged as an error when
+When unset, the backend picks `supabase` if configured, otherwise `firestore`
+if Firebase Admin credentials exist, otherwise `memory` (logged as an error when
 `ENVIRONMENT=production`). An unknown value fails startup.
 
 ## Failure behaviour (both durable providers)
