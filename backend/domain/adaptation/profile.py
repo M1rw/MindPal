@@ -117,6 +117,17 @@ def read_signals(message: str) -> TurnSignals:
     return signals
 
 
+def _note_feedback_signal(feedback: int) -> None:
+    if not feedback:
+        return
+    try:
+        from backend.infra.observability.pulse import platform_pulse
+
+        platform_pulse().record_quality("positive_reaction" if feedback > 0 else "negative_reaction")
+    except Exception:
+        logger.debug("feedback_signal_record_skipped", exc_info=True)
+
+
 def empty_profile(user_id_hash: str = "") -> Dict[str, Any]:
     return {
         "version": PROFILE_VERSION,
@@ -180,6 +191,7 @@ def learn_from_message(profile: Dict[str, Any], message: str, *, now: Optional[f
         stats["beta"] = round(1.0 + (stats["beta"] - 1.0) * prior_decay, 4)
 
     signals = read_signals(message)
+    _note_feedback_signal(signals.feedback)
     for dimension, option in signals.explicit:
         bucket = updated["preferences"].setdefault(dimension, {})
         bucket[option] = round(bucket.get(option, 0.0) + float(learning["explicit_weight"]), 4)
@@ -340,6 +352,12 @@ class AdaptiveProfileService:
     def rate(self, user_id_hash: str, rating: str, strategy: str = "") -> Dict[str, Any]:
         """Explicit thumbs up/down on a reply; rewards the strategy that produced it."""
         weight = float(_lexicon().learning["explicit_rating_weight"])
+        try:
+            from backend.infra.observability.pulse import platform_pulse
+
+            platform_pulse().record_quality("thumbs_up" if rating == "up" else "thumbs_down")
+        except Exception:
+            logger.debug("rating_signal_record_skipped", exc_info=True)
         amount = weight if rating == "up" else -weight
         result: Dict[str, Any] = {}
 

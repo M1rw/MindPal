@@ -138,6 +138,21 @@ class MemoryDigestOutput(ProviderOutput):
     def _items(cls, value: Any) -> list[str]:
         return _clean_items(value, limit=5, chars=60)
 
+    facts: list[dict[str, str]] = Field(default_factory=list)
+
+    @field_validator("facts", mode="before")
+    @classmethod
+    def _facts(cls, value: Any) -> list[dict[str, str]]:
+        if not isinstance(value, list):
+            return []
+        out: list[dict[str, str]] = []
+        for item in value[:8]:
+            if isinstance(item, dict) and str(item.get("value") or "").strip():
+                out.append({"category": str(item.get("category") or "facts")[:24], "value": " ".join(str(item["value"]).split())[:120]})
+            elif isinstance(item, str) and item.strip():
+                out.append({"category": "facts", "value": " ".join(item.split())[:120]})
+        return out
+
 
 class MemorySummaryOutput(ProviderOutput):
     """The running narrative summary of a person."""

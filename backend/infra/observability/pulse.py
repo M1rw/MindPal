@@ -54,6 +54,7 @@ class _Bucket:
     llm_rate_limited: int = 0
     llm_latency_ms: int = 0
     tokens: int = 0
+    quality: Dict[str, int] = field(default_factory=dict)
 
     def to_document(self, bucket: str, cap: int) -> Dict[str, Any]:
         return {
@@ -66,6 +67,7 @@ class _Bucket:
             "llm_rate_limited": self.llm_rate_limited,
             "llm_latency_ms": self.llm_latency_ms,
             "tokens": self.tokens,
+            "quality": dict(self.quality),
             "expires_at": time.time() + int(_config()["retention_hours"]) * 3600,
         }
 
@@ -82,6 +84,7 @@ class PulseSnapshot:
     instances: int
     window_minutes: int
     source: str  # "store" or "local"
+    quality: Dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, Any]:
         return {key: getattr(self, key) for key in self.__dataclass_fields__}
@@ -121,6 +124,16 @@ class PlatformPulse:
             bucket.requests += 1
             if len(bucket.users) < int(_config()["max_users_per_bucket"]):
                 bucket.users.add(_person_token(identity))
+        self._maybe_flush(now)
+
+    def record_quality(self, signal: str, count: int = 1) -> None:
+        """Reply-quality signals: thumbs, reactions, stock sentences dropped, replies."""
+        if count <= 0:
+            return
+        now = self._clock()
+        with self._lock:
+            bucket = self._bucket(now)
+            bucket.quality[signal[:32]] = bucket.quality.get(signal[:32], 0) + int(count)
         self._maybe_flush(now)
 
     def record_llm(self, *, success: bool, latency_ms: int, rate_limited: bool = False, tokens: int = 0) -> None:
@@ -210,7 +223,10 @@ def _summarize(documents: Any, window: int, source: str) -> PulseSnapshot:
     users: Set[str] = set()
     instances: Set[str] = set()
     requests = calls = failures = limited = latency = tokens = 0
+    quality: Dict[str, int] = {}
     for doc in documents:
+        for signal, count in (doc.get("quality") or {}).items():
+            quality[str(signal)] = quality.get(str(signal), 0) + int(count or 0)
         users.update(str(user) for user in doc.get("users") or [])
         instances.add(str(doc.get("instance") or ""))
         requests += int(doc.get("requests") or 0)
@@ -230,6 +246,7 @@ def _summarize(documents: Any, window: int, source: str) -> PulseSnapshot:
         instances=len(instances - {""}),
         window_minutes=window,
         source=source,
+        quality=quality,
     )
 
 

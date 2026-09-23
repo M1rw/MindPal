@@ -22,8 +22,8 @@ flowchart TD
 
 | Layer | Written by | Cost |
 |---|---|---|
-| Facts | Regex extraction each turn (`domain/memory/extract.py`) | none |
-| Digests | Compaction of ~6+ turns, or after 30 idle minutes | 1 AI call per batch |
+| Facts | Pattern extraction each turn (`domain/memory/extract.py`), plus facts the digest call finds in any language | none extra |
+| Digests | Compaction of ~6+ turns, or after 30 idle minutes; stored with a vector for search by meaning | 1 AI call per batch |
 | Summary | Merge of previous summary, top facts and recent digests | 1 AI call when due |
 | Adaptive profile | Signals the person gives (`domain/adaptation/profile.py`) | none |
 
@@ -44,10 +44,23 @@ rationed by:
 - **platform load**: thresholds rise and inline work stops as MindPal gets busy
   (see [operations.md](operations.md#load-levels))
 
-A person's first consolidation also writes their first summary. Work runs
+A person's first consolidation also writes their first summary. Open threads
+are written as follow-up questions in the person's language; after a gap of
+12+ hours the greeting asks one ("How did the Friday exam go?"). A question is
+never asked twice, never touches crisis topics, and is skipped under load. Work runs
 inline after a reply when load allows, otherwise from the scheduler
 (`/api/internal/memory-consolidation`). There is never an AI call on the reply
 path itself.
+
+## Search by meaning
+
+The wellness guidance library and conversation digests carry embeddings
+(`infra/llm/embeddings.py`, 256 dimensions). Retrieval ranks by keywords plus
+meaning, so "I froze in the meeting" reaches the anxiety techniques, and voice
+recall finds an earlier conversation from a paraphrase. Library vectors are
+built once with `scripts/ops/build_grounding_embeddings.py` and ignored when
+their technique text changes. Semantic search is off at `strained` and
+`critical` load and whenever no key is configured; keywords alone still work.
 
 ## Self-learning
 

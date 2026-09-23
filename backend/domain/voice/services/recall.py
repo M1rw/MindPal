@@ -130,12 +130,41 @@ class VoiceRecallService:
         # With at most 16 atoms, the most relevant come first and the rest still help.
         chosen = relevant or ranked
         lines: List[str] = []
-        if graph.summary.strip():
+        if graph.narrative.strip():
+            lines.append(f"Summary of past conversations: {graph.narrative.strip()}")
+        elif graph.summary.strip() and not graph.summary_auto:
             lines.append(f"Summary: {graph.summary.strip()}")
         lines.extend(f"- {atom.value}" for atom in chosen)
         if not lines:
             return RecallResult(NOTHING_FOUND, False)
         return RecallResult(_clip("\n".join(lines), MEMORY_RESULT_CHARS), True)
+
+    def _digest_hits(self, user_id_hash: str, query: str, wanted: Set[str]) -> List[tuple[float, str]]:
+        """Earlier conversations, compacted into digests, ranked by meaning when possible."""
+        journal = self.store.get_document("memory_journal", user_id_hash) or {}
+        digests = [d for d in journal.get("digests") or [] if isinstance(d, dict) and d.get("text")]
+        if not digests:
+            return []
+        query_vector = None
+        if any(isinstance(d.get("vec"), list) for d in digests):
+            from backend.infra.llm.embeddings import get_embedder
+
+            embedder = get_embedder()
+            vectors = embedder.embed([query], task="RETRIEVAL_QUERY") if embedder else None
+            query_vector = vectors[0] if vectors else None
+        hits: List[tuple[float, str]] = []
+        for digest in digests:
+            text = str(digest["text"])
+            relevance = score(wanted, text)
+            if query_vector is not None and isinstance(digest.get("vec"), list):
+                from backend.infra.llm.embeddings import cosine
+
+                relevance = max(relevance, max(0.0, cosine(query_vector, digest["vec"]) - 0.5) * 2)
+            if relevance <= 0:
+                continue
+            day = time.strftime("%Y-%m-%d", time.gmtime(float(digest.get("at") or 0)))
+            hits.append((relevance, f"[{day} · earlier conversation] {_clip(text, SNIPPET_CHARS)}"))
+        return hits
 
     def _search_chats(self, user_id_hash: str, query: str) -> RecallResult:
         wanted = tokens(query)
@@ -156,6 +185,7 @@ class VoiceRecallService:
                     continue
                 who = "They said" if message.get("role") == "user" else "MindPal said"
                 hits.append((relevance * recency, f'[{day} · "{_clip(title, 60)}"] {who}: {_clip(content, SNIPPET_CHARS)}'))
+        hits.extend(self._digest_hits(user_id_hash, query, wanted))
         if not hits:
             return RecallResult(NOTHING_FOUND, False)
         hits.sort(key=lambda hit: hit[0], reverse=True)

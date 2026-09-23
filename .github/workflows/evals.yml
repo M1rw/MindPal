@@ -1,0 +1,40 @@
+name: Judged Conversation Evals
+
+# Real model replies scored by a judge model. Costs API calls, so it only runs
+# on demand (for example before merging a prompt or model change).
+on:
+  workflow_dispatch:
+    inputs:
+      baseline:
+        description: "Path to a previous judged report to compare against (optional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  judge:
+    runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: test
+      MINDPAL_STORAGE_PROVIDER: memory
+      MINDPAL_PRESSURE_OVERRIDE: calm
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --requirement requirements-dev.lock
+      - name: Judged evals
+        run: |
+          if [ -n "${{ inputs.baseline }}" ]; then
+            python scripts/eval/run_conversation_evals.py --judge --baseline "${{ inputs.baseline }}"
+          else
+            python scripts/eval/run_conversation_evals.py --judge
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: judged-evals
+          path: artifacts/evals/

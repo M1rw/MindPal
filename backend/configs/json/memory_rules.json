@@ -8,20 +8,260 @@
     "max_fact_words": 16,
     "min_fact_chars": 3
   },
-  "anonymous_user_ids": ["", "anonymous", "guest", "usr_anon_default", "usr_anonymous", "usr_guest"],
+  "anonymous_user_ids": [
+    "",
+    "anonymous",
+    "guest",
+    "usr_anon_default",
+    "usr_anonymous",
+    "usr_guest"
+  ],
   "bland_turn_pattern": "(?i)^(ok(?:ay)?|k|yes|no|yeah|yep|yup|nah|hi|hey|hello|thanks|thank you|sure|cool|fine|hmm+|lol|idk)[.!?]*$",
   "crisis_fragment_pattern": "(?i)\\b(suicid|kill myself|killing myself|end my life|ending my life|self-harm|hurt myself|hurting myself|overdose|cutting myself)\\b|انتحار|انهاء حياتي|ايذاء نفسي",
   "email_pattern": "(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}",
-  "name_stop_words": ["user", "guest", "mindpal", "maybe", "later", "here", "there", "someone", "anyone", "ok", "okay", "fine", "just", "the", "a", "an", "not", "so", "very", "really", "also", "still", "always", "currently", "new", "tired", "sad", "happy", "exhausted", "stressed", "anxious", "overwhelmed", "depressed", "good", "bad", "sick", "home", "back", "done", "ready", "sorry", "afraid", "scared", "confused", "lost", "trying", "working", "going", "looking", "having", "getting", "doing", "feeling", "student", "engineer", "eating", "sleeping", "wondering", "asking", "thinking", "sure", "pretty", "super"],
-  "preferred_name_patterns": ["(?i)\\b(?:my name is|my name['’]s|call me|i am called|i['’]m called|my preferred name is)\\s+([A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF'’\\-]{1,39}(?:\\s+[A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF'’\\-]{1,39}){0,2})", "(?i)\\b(?:i am|i['’]m)\\s+([A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF'’\\-]{1,25})\\b", "(?:اسمي|ناديني|اسمي هو|انا)\\s+([\\u0600-\\u06FFA-Za-z][^.,!?\\n،؟]{1,40})"],
-  "goal_patterns": ["(?i)\\bmy goal is\\s+(?:to\\s+)?(.{6,80})", "(?i)\\bi want to (?:work on|focus on|improve|build|manage|learn)\\s+(.{3,80})", "(?i)\\bi['’]m (?:trying to improve|working on|trying to)\\s+(.{3,80})", "(?i)\\bi hope to\\s+(.{5,80})", "(?i)(?:هدفي|هدفي هو)\\s+(.{6,80})"],
-  "person_patterns": [["partner", "(?i)\\bmy (?:partner|spouse)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["girlfriend", "(?i)\\bmy girlfriend(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["boyfriend", "(?i)\\bmy boyfriend(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["wife", "(?i)\\bmy wife(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["husband", "(?i)\\bmy husband(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["friend", "(?i)\\b(?:my (?:best )?friend|a friend)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["sister", "(?i)\\bmy sister(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["brother", "(?i)\\bmy brother(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["mother", "(?i)\\bmy (?:mom|mother)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["father", "(?i)\\bmy (?:dad|father)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["roommate", "(?i)\\bmy roommate(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["coworker", "(?i)\\bmy (?:coworker|colleague)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"], ["pet", "(?i)\\bmy (?:dog|cat|pet)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"]],
-  "preference_patterns": ["(?i)\\bi prefer\\s+(.{8,80})", "(?i)\\bplease be\\s+(.{3,60})"],
-  "weak_capture_words": ["it", "this", "that", "them", "stuff", "things", "something", "anything"],
+  "name_stop_words": [
+    "user",
+    "guest",
+    "mindpal",
+    "maybe",
+    "later",
+    "here",
+    "there",
+    "someone",
+    "anyone",
+    "ok",
+    "okay",
+    "fine",
+    "just",
+    "the",
+    "a",
+    "an",
+    "not",
+    "so",
+    "very",
+    "really",
+    "also",
+    "still",
+    "always",
+    "currently",
+    "new",
+    "tired",
+    "sad",
+    "happy",
+    "exhausted",
+    "stressed",
+    "anxious",
+    "overwhelmed",
+    "depressed",
+    "good",
+    "bad",
+    "sick",
+    "home",
+    "back",
+    "done",
+    "ready",
+    "sorry",
+    "afraid",
+    "scared",
+    "confused",
+    "lost",
+    "trying",
+    "working",
+    "going",
+    "looking",
+    "having",
+    "getting",
+    "doing",
+    "feeling",
+    "student",
+    "engineer",
+    "eating",
+    "sleeping",
+    "wondering",
+    "asking",
+    "thinking",
+    "sure",
+    "pretty",
+    "super"
+  ],
+  "preferred_name_patterns": [
+    "(?i)\\b(?:my name is|my name['’]s|call me|i am called|i['’]m called|my preferred name is)\\s+([A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF'’\\-]{1,39}(?:\\s+[A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF'’\\-]{1,39}){0,2})",
+    "(?i)\\b(?:i am|i['’]m)\\s+([A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF'’\\-]{1,25})\\b",
+    "(?:اسمي|ناديني|اسمي هو|انا)\\s+([\\u0600-\\u06FFA-Za-z][^.,!?\\n،؟]{1,40})"
+  ],
+  "goal_patterns": [
+    "(?i)\\bmy goal is\\s+(?:to\\s+)?(.{6,80})",
+    "(?i)\\bi want to (?:work on|focus on|improve|build|manage|learn)\\s+(.{3,80})",
+    "(?i)\\bi['’]m (?:trying to improve|working on|trying to)\\s+(.{3,80})",
+    "(?i)\\bi hope to\\s+(.{5,80})",
+    "(?i)(?:هدفي|هدفي هو)\\s+(.{6,80})"
+  ],
+  "person_patterns": [
+    [
+      "partner",
+      "(?i)\\bmy (?:partner|spouse)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "girlfriend",
+      "(?i)\\bmy girlfriend(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "boyfriend",
+      "(?i)\\bmy boyfriend(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "wife",
+      "(?i)\\bmy wife(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "husband",
+      "(?i)\\bmy husband(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "friend",
+      "(?i)\\b(?:my (?:best )?friend|a friend)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "sister",
+      "(?i)\\bmy sister(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "brother",
+      "(?i)\\bmy brother(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "mother",
+      "(?i)\\bmy (?:mom|mother)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "father",
+      "(?i)\\bmy (?:dad|father)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "roommate",
+      "(?i)\\bmy roommate(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "coworker",
+      "(?i)\\bmy (?:coworker|colleague)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "pet",
+      "(?i)\\bmy (?:dog|cat|pet)(?:\\s+(?:is\\s+)?(?:called|named|is)|\\s+called|\\s+named)?\\s+([A-Za-z\\u0600-\\u06FF][^.,!\\n]{1,40})"
+    ],
+    [
+      "mother",
+      "(?:امي|أمي|ماما|والدتي)\\s+(?:اسمه|اسمها|اسمو|اسمهم)\\s+([\\u0621-\\u064A]{2,20})"
+    ],
+    [
+      "father",
+      "(?:ابوي|أبوي|ابي|أبي|بابا|والدي)\\s+(?:اسمه|اسمها|اسمو|اسمهم)\\s+([\\u0621-\\u064A]{2,20})"
+    ],
+    [
+      "sister",
+      "(?:اختي|أختي)\\s+(?:اسمه|اسمها|اسمو|اسمهم)\\s+([\\u0621-\\u064A]{2,20})"
+    ],
+    [
+      "brother",
+      "(?:اخوي|أخوي|اخي|أخي)\\s+(?:اسمه|اسمها|اسمو|اسمهم)\\s+([\\u0621-\\u064A]{2,20})"
+    ],
+    [
+      "friend",
+      "(?:صديقي|صديقتي|صاحبي|صاحبتي|رفيقي|رفيقتي)\\s+(?:اسمه|اسمها|اسمو|اسمهم)\\s+([\\u0621-\\u064A]{2,20})"
+    ],
+    [
+      "husband",
+      "(?:زوجي|جوزي)\\s+(?:اسمه|اسمها|اسمو|اسمهم)\\s+([\\u0621-\\u064A]{2,20})"
+    ],
+    [
+      "wife",
+      "(?:زوجتي|مرتي)\\s+(?:اسمه|اسمها|اسمو|اسمهم)\\s+([\\u0621-\\u064A]{2,20})"
+    ]
+  ],
+  "preference_patterns": [
+    "(?i)\\bi prefer\\s+(.{8,80})",
+    "(?i)\\bplease be\\s+(.{3,60})"
+  ],
+  "weak_capture_words": [
+    "it",
+    "this",
+    "that",
+    "them",
+    "stuff",
+    "things",
+    "something",
+    "anything"
+  ],
   "feeling_pattern": "(?i)\\bi(?:['’]m| am| have been|['’]ve been)?(?:\\s+\\w+){0,2}\\s+(?:feeling|felt|feel)\\s+(angry|sad|anxious|overwhelmed|happy|grateful|lonely|stressed|hopeful|exhausted|calm|down|numb|frustrated|scared|worried|peaceful|unmotivated|burnt out|relieved)",
-  "problem_patterns": [["sleep", "(?i)\\b(?:i (?:can['’]?t|cannot|couldn['’]?t|didn['’]?t|haven['’]?t been able to|haven['’]?t) sleep|trouble sleeping|having insomnia|suffer from insomnia|hard to (?:fall|stay) asleep|not sleeping (?:well|enough)?|can barely sleep)", "Trouble sleeping"], ["work_stress", "(?i)\\b(?:work (?:is|has been) (?:so )?(?:stressful|overwhelming|tough|exhausting)|stressed (?:about|at|by|from|with) work|pressure at work|work stress)", "Work has been stressful"], ["school_stress", "(?i)\\b(?:school|college|university|exams?|studying) (?:is|has been) (?:so )?(?:stressful|overwhelming)|stressed (?:about|by|from|with) (?:school|college|exams?|studying)", "School or studies have been stressful"], ["anxiety", "(?i)\\b(?:having|have|struggling with|dealing with) (?:a lot of |severe |bad )?anxiety|(?:having|had) (?:a )?panic attack|feeling (?:really |so |very )?(?:anxious|panicky|on edge)", "Dealing with anxiety"], ["burnout", "(?i)\\b(?:feeling |feel )?(?:burnt out|burnout|completely exhausted|drained|overworked)", "Experiencing burnout or exhaustion"], ["loneliness", "(?i)\\b(?:feeling |feel |am )?(?:so |really |very )?(?:lonely|isolated|alone)\\b", "Feeling lonely or isolated"], ["low_mood", "(?i)\\b(?:feeling |feel )?(?:down|depressed|hopeless|unmotivated|in a rut)", "Experiencing low mood or depression"]],
-  "event_patterns": [["new_job", "(?i)\\bi (?:just |recently )?(?:got|started|landed) (?:a )?new job", "Started a new job"], ["moved", "(?i)\\bi (?:just |recently )?moved (?:to|into|out)", "Moved"], ["broke_up", "(?i)\\b(?:we|i) (?:just |recently )?broke up", "Broke up"], ["lost_job", "(?i)\\bi (?:just |recently )?(?:lost my job|got laid off|was fired)", "Lost a job"]],
-  "occupation_patterns": ["(?i)\\bi (?:work as|am|['’]m) an?\\s+([A-Za-z][A-Za-z\\s\\-]{2,35}?)(?:\\s+(?:at|for|and|in)\\b|[.,!\\n]|$)", "(?i)\\bi work (?:at|for)\\s+([A-Za-z0-9][A-Za-z0-9\\s\\-]{1,35}?)(?:\\s+(?:and|as|in)\\b|[.,!\\n]|$)"],
-  "studies_patterns": ["(?i)\\bi(?:['’]m| am) studying\\s+([A-Za-z][A-Za-z\\s\\-]{2,35}?)(?:\\s+(?:at|in|and)\\b|[.,!\\n]|$)", "(?i)\\bi(?:['’]m| am) a student (?:at|in|studying)\\s+([A-Za-z][A-Za-z\\s\\-]{2,35}?)(?:\\s+(?:at|in|and)\\b|[.,!\\n]|$)"],
-  "location_patterns": ["(?i)\\bi (?:live|reside|am based|['’]m based) in\\s+([A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF\\s'’\\-]{1,35}?)(?:\\s+(?:and|with)\\b|[.,!\\n]|$)", "(?i)\\bi(?:['’]m| am) from\\s+([A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF\\s'’\\-]{1,35}?)(?:\\s+(?:and|with)\\b|[.,!\\n]|$)"]
+  "problem_patterns": [
+    [
+      "sleep",
+      "(?i)\\b(?:i (?:can['’]?t|cannot|couldn['’]?t|didn['’]?t|haven['’]?t been able to|haven['’]?t) sleep|trouble sleeping|having insomnia|suffer from insomnia|hard to (?:fall|stay) asleep|not sleeping (?:well|enough)?|can barely sleep)",
+      "Trouble sleeping"
+    ],
+    [
+      "work_stress",
+      "(?i)\\b(?:work (?:is|has been) (?:so )?(?:stressful|overwhelming|tough|exhausting)|stressed (?:about|at|by|from|with) work|pressure at work|work stress)",
+      "Work has been stressful"
+    ],
+    [
+      "school_stress",
+      "(?i)\\b(?:school|college|university|exams?|studying) (?:is|has been) (?:so )?(?:stressful|overwhelming)|stressed (?:about|by|from|with) (?:school|college|exams?|studying)",
+      "School or studies have been stressful"
+    ],
+    [
+      "anxiety",
+      "(?i)\\b(?:having|have|struggling with|dealing with) (?:a lot of |severe |bad )?anxiety|(?:having|had) (?:a )?panic attack|feeling (?:really |so |very )?(?:anxious|panicky|on edge)",
+      "Dealing with anxiety"
+    ],
+    [
+      "burnout",
+      "(?i)\\b(?:feeling |feel )?(?:burnt out|burnout|completely exhausted|drained|overworked)",
+      "Experiencing burnout or exhaustion"
+    ],
+    [
+      "loneliness",
+      "(?i)\\b(?:feeling |feel |am )?(?:so |really |very )?(?:lonely|isolated|alone)\\b",
+      "Feeling lonely or isolated"
+    ],
+    [
+      "low_mood",
+      "(?i)\\b(?:feeling |feel )?(?:down|depressed|hopeless|unmotivated|in a rut)",
+      "Experiencing low mood or depression"
+    ]
+  ],
+  "event_patterns": [
+    [
+      "new_job",
+      "(?i)\\bi (?:just |recently )?(?:got|started|landed) (?:a )?new job",
+      "Started a new job"
+    ],
+    [
+      "moved",
+      "(?i)\\bi (?:just |recently )?moved (?:to|into|out)",
+      "Moved"
+    ],
+    [
+      "broke_up",
+      "(?i)\\b(?:we|i) (?:just |recently )?broke up",
+      "Broke up"
+    ],
+    [
+      "lost_job",
+      "(?i)\\bi (?:just |recently )?(?:lost my job|got laid off|was fired)",
+      "Lost a job"
+    ]
+  ],
+  "occupation_patterns": [
+    "(?i)\\bi (?:work as|am|['’]m) an?\\s+([A-Za-z][A-Za-z\\s\\-]{2,35}?)(?:\\s+(?:at|for|and|in)\\b|[.,!\\n]|$)",
+    "(?i)\\bi work (?:at|for)\\s+([A-Za-z0-9][A-Za-z0-9\\s\\-]{1,35}?)(?:\\s+(?:and|as|in)\\b|[.,!\\n]|$)"
+  ],
+  "studies_patterns": [
+    "(?i)\\bi(?:['’]m| am) studying\\s+([A-Za-z][A-Za-z\\s\\-]{2,35}?)(?:\\s+(?:at|in|and)\\b|[.,!\\n]|$)",
+    "(?i)\\bi(?:['’]m| am) a student (?:at|in|studying)\\s+([A-Za-z][A-Za-z\\s\\-]{2,35}?)(?:\\s+(?:at|in|and)\\b|[.,!\\n]|$)"
+  ],
+  "location_patterns": [
+    "(?i)\\bi (?:live|reside|am based|['’]m based) in\\s+([A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF\\s'’\\-]{1,35}?)(?:\\s+(?:and|with)\\b|[.,!\\n]|$)",
+    "(?i)\\bi(?:['’]m| am) from\\s+([A-Za-z\\u0600-\\u06FF][A-Za-z\\u0600-\\u06FF\\s'’\\-]{1,35}?)(?:\\s+(?:and|with)\\b|[.,!\\n]|$)"
+  ]
 }

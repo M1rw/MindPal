@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Query
 from backend.core.errors import AppError
+from backend.domain.dynamic.policy import current_load
 from backend.domain.greeting.engine import GreetingEngine
 from backend.domain.identity.identity import IdentityService, UserSession, account_guard
 from backend.domain.memory.graph import MemoryGraphService
@@ -175,4 +176,6 @@ def get_greeting(
         tz_offset_minutes=tz_offset,
         memory_summary=graph.summary,
         memory_atoms=[{"category": a.category, "value": a.value} for a in graph.atoms],
+        open_threads=graph.open_threads,
+        system_load_ok=current_load().level in {"calm", "busy"},
     )
