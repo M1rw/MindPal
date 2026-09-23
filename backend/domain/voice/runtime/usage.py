@@ -15,6 +15,24 @@ RECLAIM_REASONS = frozenset(
 )
 
 
+# How many settled session ids a day's usage document remembers. A day holds at
+# most daily_cap / min_session calls, far fewer than this.
+_SETTLED_IDS_KEPT = 200
+
+
+def utc_day(epoch: float | None = None) -> str:
+    return time.strftime("%Y-%m-%d", time.gmtime(epoch if epoch is not None else time.time()))
+
+
+def charged_day(record: Dict[str, Any]) -> str:
+    """The usage day a session's hold was charged to (older rows: their mint day)."""
+    day = record.get("charged_day")
+    if isinstance(day, str) and day:
+        return day
+    created = record.get("created_at")
+    return utc_day(float(created)) if isinstance(created, (int, float)) else utc_day()
+
+
 class VoiceUsageLifecycle:
     """Own daily voice holds, active-session reclaim, timing, and refunds."""
 
@@ -74,19 +92,19 @@ class VoiceUsageLifecycle:
     def reserve_seconds_for(self, user_id_hash: str) -> Dict[str, int]:
         self.reclaim_active_for_mint(user_id_hash)
 
-        def hold(current: Any, write: Any) -> tuple[int, int]:
+        def hold(current: Any, write: Any) -> tuple[int, int, str]:
             usage = self.normalize_usage(current, user_id_hash)
             used = int(usage.get("used_s") or 0)
             available = max(0, self.daily_cap_seconds - used)
             if available < self.min_session_seconds:
-                return 0, available
+                return 0, available, usage["day"]
             held = min(self.reserve_seconds, available)
             usage["used_s"] = used + held
             write(usage)
-            return held, available
+            return held, available, usage["day"]
 
         try:
-            reserved, remaining = self.store.transact(self.usage_collection, user_id_hash, hold)
+            reserved, remaining, day = self.store.transact(self.usage_collection, user_id_hash, hold)
         except StoreUnavailable as exc:
             voice_metrics().record(VoiceMetric(operation="mint", duration_ms=0, outcome="unavailable", status_code=503))
             logger.error("voice_reserve_denied_store_unavailable user_present=1")
@@ -100,7 +118,7 @@ class VoiceUsageLifecycle:
                 "quota_exceeded",
                 "Today's live voice minutes are used up. Chat credits do not cover a live call. Try dictation or text.",
             )
-        return {"reserved_s": reserved, "remaining_s": remaining}
+        return {"reserved_s": reserved, "remaining_s": remaining, "day": day}
 
     def reclaim_active_for_mint(self, user_id_hash: str) -> None:
         active = self.store.get_document(self.active_collection, user_id_hash)
@@ -131,9 +149,20 @@ class VoiceUsageLifecycle:
         return "reclaimed"
 
     def clear_active(self, user_id_hash: str, session_id: str) -> None:
-        active = self.store.get_document(self.active_collection, user_id_hash)
-        if active and active.get("session_id") == session_id:
-            self.store.delete_document(self.active_collection, user_id_hash)
+        """Clear the pointer only if it still names this session.
+
+        Read-then-delete could remove a newer call's pointer that was written in
+        between (a reclaim racing a fresh mint), leaving that call unreclaimable.
+        """
+
+        def release(current: Any, write: Any) -> None:
+            if isinstance(current, dict) and current.get("session_id") == session_id:
+                write({"user_id_hash": user_id_hash, "session_id": "", "cleared_at": time.time()})
+
+        try:
+            self.store.transact(self.active_collection, user_id_hash, release)
+        except StoreUnavailable:
+            logger.warning("voice_active_clear_failed_store_unavailable")
 
     @staticmethod
     def elapsed_s(record: Dict[str, Any]) -> int:
@@ -154,25 +183,51 @@ class VoiceUsageLifecycle:
                 latest = float(value)
         return max(0, int(latest - float(started)))
 
-    def refund(self, user_id_hash: str, seconds: int, *, reason: str) -> None:
-        if seconds <= 0:
-            return
+    def refund(
+        self,
+        user_id_hash: str,
+        seconds: int,
+        *,
+        reason: str,
+        settlement_id: str = "",
+        charged_day: str = "",
+    ) -> bool | None:
+        """Give seconds back to the day they were charged to, at most once per settlement.
 
-        def give_back(current: Any, write: Any) -> None:
+        Returns True when applied, False when there was nothing to apply (already
+        refunded, or the charge belonged to a day that has since rolled over:
+        subtracting it from today's counter would hand out time the caller never
+        paid for), and None when storage was unavailable.
+        """
+        if seconds <= 0:
+            return False
+
+        def give_back(current: Any, write: Any) -> bool:
             usage = self.normalize_usage(current, user_id_hash)
+            if charged_day and usage["day"] != charged_day:
+                return False
+            settled = list(usage.get("settled") or [])
+            if settlement_id:
+                if settlement_id in settled:
+                    return False
+                settled = (settled + [settlement_id])[-_SETTLED_IDS_KEPT:]
+                usage["settled"] = settled
             usage["used_s"] = max(0, int(usage.get("used_s") or 0) - seconds)
             write(usage)
+            return True
 
         try:
-            self.store.transact(self.usage_collection, user_id_hash, give_back)
+            applied = self.store.transact(self.usage_collection, user_id_hash, give_back)
         except StoreUnavailable:
             logger.error("voice_refund_failed_store_unavailable seconds=%s reason=%s", seconds, reason[:40])
-            return
-        logger.info("voice_seconds_refunded user_present=1 seconds=%s reason=%s", seconds, reason)
+            return None
+        if applied:
+            logger.info("voice_seconds_refunded user_present=1 seconds=%s reason=%s", seconds, reason)
+        return applied
 
     @staticmethod
     def normalize_usage(usage: Any, user_id_hash: str) -> Dict[str, Any]:
-        day = time.strftime("%Y-%m-%d", time.gmtime())
+        day = utc_day()
         if not isinstance(usage, dict) or usage.get("day") != day:
             return {"user_id_hash": user_id_hash, "day": day, "used_s": 0}
         return dict(usage)
