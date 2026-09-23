@@ -50,7 +50,8 @@ def test_rate_limited_per_caller_without_erroring():
     calls: list = []
     svc = service(clock=clock, calls=calls)
     assert svc.classify(user_id_hash="a", text="one") == "smile"
-    assert svc.classify(user_id_hash="a", text="two") == "none", "too soon"
+    # Explicitly throttled, not a "no expression" verdict, so the client can retry.
+    assert svc.classify(user_id_hash="a", text="two") == "throttled", "too soon"
     assert svc.classify(user_id_hash="b", text="other caller") == "smile"
     clock.t += MIN_INTERVAL_S
     assert svc.classify(user_id_hash="a", text="three") == "smile"

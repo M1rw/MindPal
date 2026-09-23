@@ -91,6 +91,10 @@ class QuotaDecision:
     limit_week: int
     reset_week_seconds: int
     scope: str = "account"
+    # Which windows this charge landed in (their reset timestamps). A refund
+    # goes back to these windows only; see QuotaService._refund.
+    window_5h: float = 0.0
+    window_week: float = 0.0
 
     def as_usage(self) -> Dict[str, Any]:
         return {
@@ -102,6 +106,12 @@ class QuotaDecision:
             "reset_week_seconds": self.reset_week_seconds,
             "scope": self.scope,
         }
+
+
+def _windows(reservation: Optional[QuotaDecision]) -> Dict[str, float]:
+    if reservation is None or not reservation.allowed:
+        return {}
+    return {"window_5h": reservation.window_5h, "window_week": reservation.window_week}
 
 
 class QuotaService:
@@ -188,6 +198,8 @@ class QuotaService:
             limit_week=limit_week,
             reset_week_seconds=max(0, int(float(doc.get("week_reset_time") or now) - now)),
             scope=scope,
+            window_5h=float(doc.get("five_hour_reset_time") or 0.0),
+            window_week=float(doc.get("week_reset_time") or 0.0),
         )
 
     def _empty_denied(self, cost: int, *, anonymous: bool) -> QuotaDecision:
@@ -303,16 +315,35 @@ class QuotaService:
             scope=scope,
         )
 
-    def _refund(self, collection: str, subject: str, cost: int, *, idempotency_key: str = "") -> None:
-        """Give credits back atomically. A failure here over-charges by `cost`
-        rather than under-charging, so it is logged and swallowed: it must never
-        turn an already-failed turn into a second error for the caller."""
+    def _refund(
+        self,
+        collection: str,
+        subject: str,
+        cost: int,
+        *,
+        idempotency_key: str = "",
+        window_5h: float = 0.0,
+        window_week: float = 0.0,
+    ) -> None:
+        """Give credits back atomically, to the windows they were charged in.
+
+        A turn that fails after its 5-hour window rolled over was charged to the
+        old window, which no longer exists. Subtracting it from the new window's
+        counter erased a later, successful turn's charge. When the charging
+        windows are known, each counter is only touched if it is still that
+        window. (0.0 means unknown: a caller from before windows were recorded.)
+
+        A failure here over-charges by `cost` rather than under-charging, so it
+        is logged and swallowed: it must never turn an already-failed turn into
+        a second error for the caller."""
         now = self._now()
 
         def _mutate(current: Optional[Dict[str, Any]], write: Any) -> None:
             doc = self._normalize(current, subject, now)
-            doc["total_credits_5h"] = max(0, int(doc.get("total_credits_5h") or 0) - cost)
-            doc["total_credits_week"] = max(0, int(doc.get("total_credits_week") or 0) - cost)
+            if not window_5h or float(doc.get("five_hour_reset_time") or 0.0) == window_5h:
+                doc["total_credits_5h"] = max(0, int(doc.get("total_credits_5h") or 0) - cost)
+            if not window_week or float(doc.get("week_reset_time") or 0.0) == window_week:
+                doc["total_credits_week"] = max(0, int(doc.get("total_credits_week") or 0) - cost)
             if idempotency_key and isinstance(doc.get("idempotency_markers"), dict):
                 doc["idempotency_markers"].pop(idempotency_key, None)
             write(doc)
@@ -362,10 +393,14 @@ class QuotaService:
             idempotency_key=idempotency_key, request_digest=request_digest,
         )
 
-    def refund_quota(self, user_id_hash: str, cost: int = 1, *, idempotency_key: str = "") -> None:
+    def refund_quota(
+        self, user_id_hash: str, cost: int = 1, *, idempotency_key: str = "", reservation: Optional[QuotaDecision] = None
+    ) -> None:
         if not is_user_quota_subject(user_id_hash):
             return
-        self._refund(USER_QUOTA_COLLECTION, user_id_hash, cost, idempotency_key=idempotency_key)
+        self._refund(
+            USER_QUOTA_COLLECTION, user_id_hash, cost, idempotency_key=idempotency_key, **_windows(reservation)
+        )
 
     def reserve_anonymous(self, peer: str, cost: int = 1, *, idempotency_key: str = "", request_digest: str = "") -> QuotaDecision:
         return self._reserve(
@@ -373,8 +408,12 @@ class QuotaService:
             idempotency_key=idempotency_key, request_digest=request_digest,
         )
 
-    def refund_anonymous(self, peer: str, cost: int = 1, *, idempotency_key: str = "") -> None:
-        self._refund(ANON_RATE_COLLECTION, anonymous_quota_key(peer), cost, idempotency_key=idempotency_key)
+    def refund_anonymous(
+        self, peer: str, cost: int = 1, *, idempotency_key: str = "", reservation: Optional[QuotaDecision] = None
+    ) -> None:
+        self._refund(
+            ANON_RATE_COLLECTION, anonymous_quota_key(peer), cost, idempotency_key=idempotency_key, **_windows(reservation)
+        )
 
     def get_idempotency_result(self, idempotency_key: str) -> Optional[Dict[str, Any]]:
         if not idempotency_key:

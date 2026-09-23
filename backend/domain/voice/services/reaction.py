@@ -72,8 +72,12 @@ class VoiceReactionService:
         if not load_policy["enabled"]:
             return "none"
         gap = (MIN_INTERVAL_SPEAKING_S if speaker == "mindpal" else MIN_INTERVAL_S) * float(load_policy["interval_scale"])
-        if not phrase or not self._admit(f"{user_id_hash}:{speaker}", gap):
+        if not phrase:
             return "none"
+        if not self._admit(f"{user_id_hash}:{speaker}", gap):
+            # Distinct from "none" (a verdict): the client may ask again later
+            # instead of treating the sentence as having no expression.
+            return "throttled"
         earlier = " ".join((context or "").split())[-MAX_CONTEXT_CHARS:]
         own = speaker == "mindpal"
         if own:

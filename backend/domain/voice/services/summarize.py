@@ -13,6 +13,7 @@ from backend.configs.voice import VOICE_SUMMARY_SYSTEM
 from backend.core.errors import AppError
 from backend.domain.memory.extract import can_persist_user_memory, extract_atoms_from_transcript
 from backend.domain.memory.graph import MemoryGraphService, format_memory_receipt
+from backend.domain.voice.runtime.records import save_session_record
 from backend.domain.voice.services.session import (
     VOICE_SESSION_COLLECTION,
     VoiceSessionService,
@@ -180,6 +181,12 @@ class VoiceSummarizeService:
         if not summary:
             return self._skip(record, "no_speech")
 
+        # The model call can take seconds; the account's data may have been
+        # deleted meanwhile. Nothing below may write for a session that is gone.
+        if self.store.get_document(VOICE_SESSION_COLLECTION, session_id) is None:
+            logger.info("voice_summarize_dropped_session_deleted session_id=%s", session_id)
+            return {"skipped": True, "reason": "session_deleted"}
+
         # Extract durable memory atoms from user speech during call
         memory_receipt: Dict[str, Any] | None = None
         if inbound and not _is_crisis(record):
@@ -212,7 +219,6 @@ class VoiceSummarizeService:
             "timestamp": _now_iso(),
             "voice_used_s": used_s,
         }
-        self._append_chat(user_id_hash, str(chat_session_id or "").strip(), message)
         record["summary_text"] = summary
         record["summary_message"] = message
         record["summarized_at"] = time.time()
@@ -220,7 +226,14 @@ class VoiceSummarizeService:
             record.pop(field, None)
         if memory_receipt:
             record["memory_receipt"] = memory_receipt
-        self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+        # Saved before anything else is written, and never recreated: if the
+        # account's data was deleted while the model was writing this recap,
+        # the session is gone and so must be the receipt and memory digest.
+        # Writing them anyway brought deleted data back after a success response.
+        if save_session_record(self.store, session_id, record) is None:
+            logger.info("voice_summarize_dropped_session_deleted session_id=%s", session_id)
+            return {"skipped": True, "reason": "session_deleted"}
+        self._append_chat(user_id_hash, str(chat_session_id or "").strip(), message)
         logger.info("voice_summarize_written session_id=%s chat_present=%s", session_id, bool(chat_session_id))
         recap_failed = summary.endswith("A recap of what was said could not be written.")
         if can_persist_user_memory(user_id_hash) and not recap_failed:
@@ -240,7 +253,7 @@ class VoiceSummarizeService:
 
     def _skip(self, record: Dict[str, Any], reason: str) -> Dict[str, Any]:
         record["summary_skipped"] = reason
-        self.store.set_document(VOICE_SESSION_COLLECTION, str(record.get("session_id") or ""), record)
+        save_session_record(self.store, str(record.get("session_id") or ""), record)
         return {"skipped": True, "reason": reason}
 
     def _prompt(self, inbound: str, outbound: str) -> str:

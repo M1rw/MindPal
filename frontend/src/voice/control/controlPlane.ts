@@ -1,5 +1,5 @@
 import { ApiError, fetchJson } from '../../services/api/http.ts';
-import { useSessionStore } from '../../store/index.ts';
+import { useSessionStore, useSettingsStore } from '../../store/index.ts';
 import { getApiBaseUrl } from '../../services/config.ts';
 import type { ControlPlaneAction, FloorState, VoiceLiveGrant } from '../types.ts';
 
@@ -13,12 +13,31 @@ export const CONTROL_EVENT_TIMEOUT_MS = 7_000;
 /** Minting/renewing is a one-shot handshake, not a per-frame gate. */
 export const CONTROL_MINT_TIMEOUT_MS = 15_000;
 
+/**
+ * What the caller chose in Settings, read when the call starts (and again on a
+ * reconnect). The mint request used to carry only the consent flag, so the
+ * voice and spoken-language pickers changed nothing about the actual call.
+ */
+export function liveCallPreferences(): Record<string, unknown> {
+  const { voiceModel, voiceLanguage, personalization } = useSettingsStore.getState().settings;
+  const language = (voiceLanguage || '').trim().toLowerCase();
+  return {
+    voice_id: voiceModel || undefined,
+    // "auto" is the absence of a preference: the model follows the caller.
+    voice_language: language && language !== 'auto' ? language : undefined,
+    personalization: {
+      baseStyle: personalization.baseStyle,
+      warmth: personalization.warmth,
+    },
+  };
+}
+
 export async function mintLiveGrant(): Promise<VoiceLiveGrant> {
   return fetchJson<VoiceLiveGrant>(
     '/api/voice/session-token',
     {
       method: 'POST',
-      body: JSON.stringify({ consent_attested: true }),
+      body: JSON.stringify({ consent_attested: true, ...liveCallPreferences() }),
       timeoutMs: CONTROL_MINT_TIMEOUT_MS,
     },
     'Live voice is not available right now.',
