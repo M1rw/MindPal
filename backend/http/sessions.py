@@ -11,6 +11,7 @@ from backend.domain.greeting.engine import GreetingEngine
 from backend.domain.identity.identity import IdentityService, UserSession, account_guard
 from backend.domain.memory.graph import MemoryGraphService
 from backend.domain.sessions.contracts import (
+    enforce_session_cap,
     AppendMessagePayload,
     ChatSessionPayload,
     CurrentSessionPayload,
@@ -101,6 +102,7 @@ def save_chat_session(
     session: UserSession = Depends(account_guard("save chats to your account")),
 ) -> Dict[str, Any]:
     session_id = validated_session_id(payload.id)
+    enforce_session_cap(identity_service.store, session.user_id_hash, session_id)
     doc_data = {
         "id": session_id,
         "title": payload.title,

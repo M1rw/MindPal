@@ -11,6 +11,11 @@
       "schedule": "30 3 * * *"
     }
   ],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60
+    }
+  },
   "framework": "fastapi",
   "installCommand": "python -m pip install --disable-pip-version-check --no-input -r requirements.txt",
   "buildCommand": "python scripts/build/apply_brand.py && npm ci && npm run build:vercel && python scripts/build/verify_frontend_build.py",

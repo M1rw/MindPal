@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import functools
 import hashlib
 import logging
 import time
@@ -496,14 +498,17 @@ class ChatOrchestrator:
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """Executes a streaming chat turn yielding tokens, strategy, and structured errors."""
         turn_started = time.time()
-        self.record_session_telemetry(user_id_hash, session_id, telemetry)
+        # Store and model-free work below is blocking I/O; it runs in a worker
+        # thread so a slow store stalls this turn, not every stream on the
+        # event loop (audit MP-09).
+        await asyncio.to_thread(self.record_session_telemetry, user_id_hash, session_id, telemetry)
         completed = False
         reservation = preflight.reservation if preflight else None
         cost = preflight.cost if preflight else cost_for_model(model)
         active_preflight = preflight
 
         try:
-            safety = preflight.safety if preflight else self._classify_turn(message, history)
+            safety = preflight.safety if preflight else await asyncio.to_thread(self._classify_turn, message, history)
             logger.info(
                 "chat_turn_start request_id=%s model=%s safety=%s crisis=%s",
                 request_id or "-",
@@ -528,7 +533,8 @@ class ChatOrchestrator:
                 return
 
             if consume_quota and reservation is None:
-                local = self.preflight_turn(
+                local = await asyncio.to_thread(
+                    self.preflight_turn,
                     user_id_hash=user_id_hash,
                     message=message,
                     history=history,
@@ -555,8 +561,9 @@ class ChatOrchestrator:
             if history_scale < 1.0 and len(turns) > 8:
                 turns = turns[-max(8, int(len(turns) * history_scale)) :]
             learn = is_user_quota_subject(user_id_hash) and not anonymous
-            adaptation = self._prepare_adaptation(user_id_hash, message, persist=learn)
-            context = self._assemble_system_instruction(
+            adaptation = await asyncio.to_thread(self._prepare_adaptation, user_id_hash, message, persist=learn)
+            context = await asyncio.to_thread(
+                self._assemble_system_instruction,
                 user_id_hash=user_id_hash,
                 message=message,
                 model=model,
@@ -633,23 +640,19 @@ class ChatOrchestrator:
 
             completed = True
             _record_reply_quality(stock_filter.dropped)
-            # The reply took seconds; if the account's data was deleted meanwhile,
-            # nothing learned from this turn may be written back (audit MP-06).
-            fenced = not anonymous and deleted_since(self.store, user_id_hash, turn_started)
-            if fenced:
-                logger.info("chat_turn_writes_fenced request_id=%s reason=account_data_deleted", request_id or "-")
-                learn = False
-            if learn:
-                self.adaptation.commit_turn(user_id_hash, message, strategy)
-            receipt = None if fenced else self._write_turn_memory(user_id_hash, message, request_id=request_id)
-            if learn:
-                # Collected for later AI consolidation; no model call happens here.
-                self.consolidation.record_turn(
-                    user_id_hash,
-                    message,
-                    "".join(reply_parts),
-                    new_facts=int(receipt["count"]) if receipt else 0,
+            receipt = await asyncio.to_thread(
+                functools.partial(
+                    self._persist_turn,
+                    user_id_hash=user_id_hash,
+                    message=message,
+                    reply="".join(reply_parts),
+                    strategy=strategy,
+                    learn=learn,
+                    anonymous=anonymous,
+                    turn_started=turn_started,
+                    request_id=request_id,
                 )
+            )
             logger.info(
                 "chat_turn_complete request_id=%s strategy=%s tokens=%s memory_atoms_written=%s",
                 request_id or "-",
@@ -666,6 +669,38 @@ class ChatOrchestrator:
             if reservation and not completed:
                 logger.info("chat_turn_refund request_id=%s", request_id or "-")
                 self._refund_reservation(active_preflight, user_id_hash=user_id_hash, peer=peer, cost=cost)
+
+    def _persist_turn(
+        self,
+        *,
+        user_id_hash: str,
+        message: str,
+        reply: str,
+        strategy: str,
+        learn: bool,
+        anonymous: bool,
+        turn_started: float,
+        request_id: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        """Everything a finished turn writes. Blocking I/O: called in a worker thread."""
+        # The reply took seconds; if the account's data was deleted meanwhile,
+        # nothing learned from this turn may be written back (audit MP-06).
+        fenced = not anonymous and deleted_since(self.store, user_id_hash, turn_started)
+        if fenced:
+            logger.info("chat_turn_writes_fenced request_id=%s reason=account_data_deleted", request_id or "-")
+            return None
+        if learn:
+            self.adaptation.commit_turn(user_id_hash, message, strategy)
+        receipt = self._write_turn_memory(user_id_hash, message, request_id=request_id)
+        if learn:
+            # Collected for later AI consolidation; no model call happens here.
+            self.consolidation.record_turn(
+                user_id_hash,
+                message,
+                reply,
+                new_facts=int(receipt["count"]) if receipt else 0,
+            )
+        return receipt
 
     def _prepare_adaptation(self, user_id_hash: str, message: str, *, persist: bool) -> Optional[TurnAdaptation]:
         """What this person's history says works for them. Never blocks a reply."""
