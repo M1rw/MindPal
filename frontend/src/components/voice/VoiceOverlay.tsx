@@ -13,9 +13,9 @@ import { useFocusTrap } from '../../hooks/ui/useFocusTrap';
 import { liveVoiceCaption } from '../../voice/session/caption.ts';
 import { VoiceTranscript } from './VoiceTranscript.tsx';
 import { LiveVoiceSession, type LiveCallReceipt } from '../../voice/call/callController.ts';
-import { type VoiceTraceReport } from '../../voice/diagnostics/trace.ts';
+import { redactTraceReport, type VoiceTraceReport } from '../../voice/diagnostics/trace.ts';
 import { ApiError } from '../../services/api/http.ts';
-import { voiceApi } from '../../services/api/voice.ts';
+import { classifyVoiceError, voiceApi } from '../../services/api/voice.ts';
 import { teardownActiveSession } from '../../voice/control/controlPlane.ts';
 import { threadContinuation } from '../../utils/chat/sessionHistory.ts';
 import { captureMemoryReceipt } from '../../utils/memory/guestMemory.ts';
@@ -271,6 +271,9 @@ export const VoiceOverlay: React.FC = () => {
       onTrace: (report) => {
         lastTraceRef.current = report;
         console.info('[mindpal.voice] trace', report.findings.summary, report.findings.notes);
+        if (report.sessionId && useSessionStore.getState().isAuthenticated) {
+          void voiceApi.submitDiagnostics(report.sessionId, redactTraceReport(report)).catch(() => null);
+        }
       },
       onEnded: (receipt) => {
         void persistLiveRecap(receipt);
@@ -315,9 +318,9 @@ export const VoiceOverlay: React.FC = () => {
         await startCall({ recovered: true });
         return;
       }
-      const message = error instanceof Error ? error.message : 'Live voice could not start.';
-      setUiStatus('error', message);
-      pushToast(message, 'error');
+      const classified = classifyVoiceError(error);
+      setUiStatus(classified.kind === 'quota' || classified.kind === 'unavailable' ? 'unavailable' : 'error', classified.message);
+      pushToast(classified.message, classified.kind === 'quota' ? 'warning' : 'error');
     } finally {
       startingRef.current = false;
     }

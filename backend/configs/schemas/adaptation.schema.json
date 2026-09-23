@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["learning", "preferences", "feedback", "notes"],
+  "additionalProperties": false,
+  "properties": {
+    "learning": {
+      "type": "object",
+      "required": [
+        "decay_per_turn", "explicit_weight", "implicit_weight", "min_confident_weight",
+        "min_confident_margin", "strategy_prior_decay", "strategy_feedback_weight",
+        "explicit_rating_weight", "short_message_chars", "long_message_chars",
+        "max_note_chars", "strategy_bias_scale"
+      ],
+      "properties": {
+        "decay_per_turn": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "strategy_prior_decay": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "explicit_weight": {"type": "number", "minimum": 0},
+        "implicit_weight": {"type": "number", "minimum": 0},
+        "min_confident_weight": {"type": "number", "minimum": 0},
+        "min_confident_margin": {"type": "number", "minimum": 0},
+        "strategy_feedback_weight": {"type": "number", "minimum": 0},
+        "explicit_rating_weight": {"type": "number", "minimum": 0},
+        "short_message_chars": {"type": "integer", "minimum": 1},
+        "long_message_chars": {"type": "integer", "minimum": 1},
+        "max_note_chars": {"type": "integer", "minimum": 80, "maximum": 2000},
+        "strategy_bias_scale": {"type": "number", "minimum": 0, "maximum": 2}
+      }
+    },
+    "preferences": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 2,
+        "additionalProperties": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 2}}
+      }
+    },
+    "feedback": {
+      "type": "object",
+      "required": ["positive", "negative"],
+      "additionalProperties": false,
+      "properties": {
+        "positive": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 2}},
+        "negative": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 2}}
+      }
+    },
+    "notes": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "minLength": 5, "maxLength": 200}
+    }
+  }
+}

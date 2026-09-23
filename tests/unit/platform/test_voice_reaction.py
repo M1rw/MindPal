@@ -1,6 +1,6 @@
 """The face's listening reaction: one label per phrase, any language, never fatal."""
 
-from backend.domain.voice.reaction import MIN_INTERVAL_S, REACTIONS, VoiceReactionService
+from backend.domain.voice.services.reaction import MIN_INTERVAL_S, REACTIONS, VoiceReactionService
 
 
 class Clock:

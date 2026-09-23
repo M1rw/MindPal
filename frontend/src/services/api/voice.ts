@@ -1,7 +1,34 @@
-import { fetchJson } from './http.ts';
+import { ApiError, fetchJson } from './http.ts';
 import { useSettingsStore } from '../../store/settings.ts';
 import type { UserPersonalization, VoiceSummaryRequest, VoiceSummaryResponse, VoiceTokenResponse } from '../../types/index.ts';
 import type { ControlPlaneAction } from '../../voice/types.ts';
+import type { VoiceTraceReport } from '../../voice/diagnostics/trace.ts';
+
+export type VoiceErrorKind = 'quota' | 'auth' | 'conflict' | 'unavailable' | 'invalid' | 'unknown';
+
+export function classifyVoiceError(error: unknown): { kind: VoiceErrorKind; message: string } {
+  const apiError = error instanceof ApiError ? error : null;
+  const code = apiError?.code || '';
+  if (code === 'quota_exceeded' || apiError?.status === 429) {
+    return { kind: 'quota', message: 'Your live voice time is used up for now. You can continue in text or try again later.' };
+  }
+  if (code === 'unauthenticated' || apiError?.status === 401) {
+    return { kind: 'auth', message: 'Sign in to start a live voice call. Dictation still works without an account.' };
+  }
+  if (code === 'conflict' || apiError?.status === 409) {
+    return { kind: 'conflict', message: 'Another live voice call is already active. Close it before starting a new one.' };
+  }
+  if (code === 'unavailable' || (apiError?.status ?? 0) >= 500) {
+    return { kind: 'unavailable', message: 'Live voice is temporarily unavailable. You can use dictation instead.' };
+  }
+  if (code === 'payload_invalid' || (apiError?.status ?? 0) === 422) {
+    return { kind: 'invalid', message: apiError?.message || 'Live voice could not start with these settings.' };
+  }
+  return {
+    kind: 'unknown',
+    message: error instanceof Error && error.message ? error.message : 'Live voice could not start. You can use dictation instead.',
+  };
+}
 
 export interface VoiceUsageSnapshot {
   used_s: number;
@@ -10,6 +37,11 @@ export interface VoiceUsageSnapshot {
   reserve_s: number;
   in_call: boolean;
   day: string;
+  session_mode?: 'guest' | 'account';
+  quota_label?: 'guest' | 'account';
+  max_session_seconds?: number;
+  daily_cap_seconds?: number;
+  quota_message?: string;
 }
 
 export const voiceApi = {
@@ -98,6 +130,17 @@ export const voiceApi = {
         body: JSON.stringify(payload),
       },
       'Live voice recap failed',
+    );
+  },
+
+  async submitDiagnostics(sessionId: string, trace: VoiceTraceReport): Promise<{ ok: boolean; request_id: string }> {
+    return fetchJson<{ ok: boolean; request_id: string }>(
+      '/api/voice/trace',
+      {
+        method: 'POST',
+        body: JSON.stringify({ session_id: sessionId, trace }),
+      },
+      'Voice diagnostics unavailable',
     );
   },
 };

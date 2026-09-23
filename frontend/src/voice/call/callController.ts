@@ -15,6 +15,7 @@ import { STAY_SUPPORT_NOTE } from '../safety/crisisEnforcer.ts';
 import { openerNote, type OpenerProfile } from '../session/opener.ts';
 import type { FloorState, LiveUiStatus, VoiceLiveGrant } from '../types.ts';
 import { ApiError } from '../../services/api/http.ts';
+import { classifyVoiceError } from '../../services/api/voice.ts';
 import type { LiveCallReceipt, LiveSessionCallbacks } from './callTypes.ts';
 import { isLive, transition, type CallEffect, type CallEvent, type CallPhase } from './callMachine.ts';
 import {
@@ -179,7 +180,7 @@ export class LiveVoiceSession {
     try {
       grant = await this.mintWithRecovery();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Live voice is not available right now.';
+      const message = classifyVoiceError(error).message;
       this.setStatus('unavailable', message);
       this.callbacks.onFallback(message);
       await this.abandonStart(audioReady);
@@ -387,7 +388,9 @@ export class LiveVoiceSession {
     this.face.micFrame(pcm, rms, {
       floor: this.floor,
       transcript: this.transcript.currentUser,
-      modelSpeaking: this.phase === 'speaking',
+      // Its own audio still playing is MindPal speaking, whatever the phase
+      // machine says (an echo can move the phase before playback drains).
+      modelSpeaking: this.phase === 'speaking' || this.playback.isPlaying(),
       playbackEnergy: this.playback.lastEnvelope(),
       now,
     });

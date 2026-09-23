@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["pulse", "capacity", "levels", "policies", "memory"],
+  "additionalProperties": false,
+  "$defs": {
+    "positive": {"type": "number", "exclusiveMinimum": 0},
+    "policy": {
+      "type": "object",
+      "required": ["memory", "voice_reaction", "chat", "quota"],
+      "additionalProperties": false,
+      "properties": {
+        "memory": {
+          "type": "object",
+          "required": ["digest_min_turns", "summary_min_new_digests", "summary_min_new_facts", "user_cooldown_hours", "daily_ai_calls_per_user", "opportunistic", "cron_batch", "max_defer_hours"],
+          "additionalProperties": false,
+          "properties": {
+            "digest_min_turns": {"type": "integer", "minimum": 2},
+            "summary_min_new_digests": {"type": "integer", "minimum": 1},
+            "summary_min_new_facts": {"type": "integer", "minimum": 1},
+            "user_cooldown_hours": {"type": "number", "minimum": 0},
+            "daily_ai_calls_per_user": {"type": "integer", "minimum": 0},
+            "opportunistic": {"type": "boolean"},
+            "cron_batch": {"type": "integer", "minimum": 0},
+            "max_defer_hours": {"type": "number", "minimum": 1}
+          }
+        },
+        "voice_reaction": {
+          "type": "object",
+          "required": ["enabled", "interval_scale"],
+          "additionalProperties": false,
+          "properties": {"enabled": {"type": "boolean"}, "interval_scale": {"type": "number", "minimum": 1}}
+        },
+        "chat": {
+          "type": "object",
+          "required": ["history_scale"],
+          "additionalProperties": false,
+          "properties": {"history_scale": {"type": "number", "minimum": 0.3, "maximum": 1}}
+        },
+        "quota": {
+          "type": "object",
+          "required": ["anonymous_scale"],
+          "additionalProperties": false,
+          "properties": {"anonymous_scale": {"type": "number", "minimum": 0.1, "maximum": 1}}
+        }
+      }
+    }
+  },
+  "properties": {
+    "pulse": {
+      "type": "object",
+      "required": ["window_minutes", "flush_interval_seconds", "snapshot_cache_seconds", "max_users_per_bucket", "retention_hours"],
+      "additionalProperties": false,
+      "properties": {
+        "window_minutes": {"type": "integer", "minimum": 1, "maximum": 60},
+        "flush_interval_seconds": {"type": "integer", "minimum": 5},
+        "snapshot_cache_seconds": {"type": "integer", "minimum": 1},
+        "max_users_per_bucket": {"type": "integer", "minimum": 10},
+        "retention_hours": {"type": "integer", "minimum": 1}
+      }
+    },
+    "capacity": {
+      "type": "object",
+      "required": ["active_users_soft", "llm_calls_per_minute_soft", "llm_error_ratio_hard", "llm_rate_limited_ratio_hard", "llm_latency_ms_soft"],
+      "additionalProperties": false,
+      "properties": {
+        "active_users_soft": {"$ref": "#/$defs/positive"},
+        "llm_calls_per_minute_soft": {"$ref": "#/$defs/positive"},
+        "llm_error_ratio_hard": {"$ref": "#/$defs/positive"},
+        "llm_rate_limited_ratio_hard": {"$ref": "#/$defs/positive"},
+        "llm_latency_ms_soft": {"$ref": "#/$defs/positive"}
+      }
+    },
+    "levels": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["name", "below"],
+        "additionalProperties": false,
+        "properties": {"name": {"enum": ["calm", "busy", "strained", "critical"]}, "below": {"type": "number", "exclusiveMinimum": 0}}
+      }
+    },
+    "policies": {
+      "type": "object",
+      "required": ["calm", "busy", "strained", "critical"],
+      "additionalProperties": false,
+      "properties": {
+        "calm": {"$ref": "#/$defs/policy"},
+        "busy": {"$ref": "#/$defs/policy"},
+        "strained": {"$ref": "#/$defs/policy"},
+        "critical": {"$ref": "#/$defs/policy"}
+      }
+    },
+    "memory": {
+      "type": "object",
+      "required": ["journal_max_turns", "journal_turn_chars", "reply_chars", "max_digests", "digest_max_words", "summary_max_words", "summary_max_chars", "digest_input_chars", "idle_compact_minutes"],
+      "additionalProperties": false,
+      "properties": {
+        "journal_max_turns": {"type": "integer", "minimum": 4},
+        "journal_turn_chars": {"type": "integer", "minimum": 50},
+        "reply_chars": {"type": "integer", "minimum": 0},
+        "max_digests": {"type": "integer", "minimum": 1},
+        "digest_max_words": {"type": "integer", "minimum": 10},
+        "summary_max_words": {"type": "integer", "minimum": 20},
+        "summary_max_chars": {"type": "integer", "minimum": 100},
+        "digest_input_chars": {"type": "integer", "minimum": 500},
+        "idle_compact_minutes": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

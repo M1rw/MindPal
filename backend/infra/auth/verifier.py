@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass
 from typing import Optional
 
 from backend.core.errors import AppError
+from backend.configs.settings import get_settings
 
 logger = logging.getLogger("mindpal.auth")
 
@@ -29,7 +29,7 @@ _INVALID_CREDENTIAL_MESSAGE = (
 
 
 def runtime_environment() -> str:
-    return (os.environ.get("ENVIRONMENT") or "production").strip().lower() or "production"
+    return get_settings().environment.strip().lower() or "production"
 
 
 def allows_dev_auth_bypass() -> bool:
@@ -40,8 +40,7 @@ def allows_dev_auth_bypass() -> bool:
 def check_revoked_tokens() -> bool:
     """Default ON. A signed-out, disabled or compromised account must stop working
     at the next request, not whenever the ID token happens to expire."""
-    raw = os.environ.get("FIREBASE_CHECK_REVOKED_TOKENS", "").strip().lower()
-    return raw not in {"false", "0", "no", "off"}
+    return get_settings().firebase_check_revoked_tokens
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,11 +136,23 @@ class AuthVerifier:
         locally verified token is accepted, because the alternative is an
         outage at the identity provider becoming an outage here.
         """
-        import firebase_admin
         from firebase_admin import auth
 
-        app_name = os.environ.get("FIREBASE_APP_NAME", "mindpal").strip() or "mindpal"
-        app = firebase_admin.get_app(app_name) if app_name in firebase_admin._apps else None
+        from backend.infra.firebase.app import firebase_init_error, get_firebase_app
+
+        app = get_firebase_app()
+        if app is None and firebase_init_error() is None:
+            # Firebase is disabled: no bearer token can be valid here.
+            raise AppError("unauthenticated", _INVALID_CREDENTIAL_MESSAGE)
+        if app is None:
+            # Configured but failed to start. Never verify against an implicit
+            # default app: it does not exist, and the resulting ValueError used
+            # to reject every signed-in user as if their credential were forged.
+            raise AppError(
+                "unavailable",
+                "Sign-in is temporarily unavailable. Please try again shortly.",
+                internal_message="Firebase Admin app is not initialized",
+            )
 
         try:
             decoded = auth.verify_id_token(token, app=app, check_revoked=False)
@@ -160,6 +171,9 @@ class AuthVerifier:
             logger.warning("auth_token_revoked reason=%s", type(exc).__name__)
             raise AppError("unauthenticated", _INVALID_CREDENTIAL_MESSAGE) from exc
         except Exception as exc:
+            # Signature and expiry already passed locally. An unreachable
+            # revocation lookup must not sign every user out (tokens expire
+            # within an hour regardless), so the token is accepted and logged.
             logger.error(
                 "auth_revocation_check_unavailable error=%s — accepting a locally verified token",
                 type(exc).__name__,

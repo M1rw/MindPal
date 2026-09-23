@@ -2,20 +2,31 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
-import re
 from contextlib import aclosing
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence
 
+from backend.configs.prompts import CHAT_SYSTEM_BASE
+from backend.configs.runtime import behavior_config
 from backend.core.errors import AppError
+from backend.domain.adaptation.profile import (
+    AdaptiveProfileService,
+    TurnAdaptation,
+    merge_learned_personalization,
+    personalization_overrides,
+)
 from backend.domain.chat.history import normalize_history
+from backend.domain.chat.strategy import DIRECTIVES, score_strategies
+from backend.domain.dynamic.policy import policy
 from backend.domain.grounding.grounding import GroundingService
 from backend.domain.memory.extract import can_persist_user_memory, extract_atoms_from_turn
+from backend.domain.memory.consolidation import MemoryConsolidationService
 from backend.domain.memory.graph import MemoryGraphService, format_memory_receipt
 from backend.domain.quota.quota import QuotaDecision, QuotaService, cost_for_model, is_user_quota_subject
-from backend.domain.safety.classify import SafetyCheckResult, SafetyService
-from backend.domain.safety.output_guard import OutputGuardService
+from backend.domain.safety.modes.chat.classify import SafetyCheckResult, SafetyService
+from backend.domain.safety.shared.output_guard import OutputGuardService
 from backend.infra.llm.gateway import LLMGateway, LLMGatewayError, get_llm_gateway
 from backend.infra.store.store import InMemoryStore, StoreUnavailable, get_store
 from backend.tools import ClientContextTools
@@ -23,19 +34,15 @@ from backend.tools.context import build_tool_context
 
 logger = logging.getLogger("mindpal.chat")
 
-_QUOTA_MESSAGE = "You've reached the current message limit. Try again after the window resets."
-_EMPTY_REPLY_MESSAGE = "MindPal didn't receive a reply. Please retry this message."
-_PROVIDER_MESSAGE = (
-    "MindPal hit a connection issue while generating this response. Please retry this message."
-)
+_CHAT_BEHAVIOR = behavior_config()["chat"]
+_QUOTA_MESSAGE = _CHAT_BEHAVIOR["quota_message"]
+_EMPTY_REPLY_MESSAGE = _CHAT_BEHAVIOR["empty_reply_message"]
+_PROVIDER_MESSAGE = _CHAT_BEHAVIOR["provider_message"]
 # How far back a crisis disclosure planted in client-sent history still counts.
 # Deep enough that shuffling one turn does not evade the check; shallow enough
 # that a call which already de-escalated is not re-frozen by old text.
-_SAFETY_HISTORY_TURNS = 2
-_GROUNDING_HEADER = (
-    "Technique guidance from the wellness corpus. Use only if it fits this turn. "
-    "This is not diagnosis or treatment."
-)
+_SAFETY_HISTORY_TURNS = int(_CHAT_BEHAVIOR["safety_history_turns"])
+_GROUNDING_HEADER = _CHAT_BEHAVIOR["grounding_header"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +64,7 @@ class ChatPreflight:
     error: Optional[AppError] = None
     quota_mode: str = "account"
     quota_peer: str = ""
+    idempotency_key: str = ""
 
 
 def _recent_user_turns(history: Optional[Sequence[Any]], *, limit: int) -> List[str]:
@@ -149,14 +157,13 @@ def detect_cognitive_strategy(
     model: str = "standard",
     telemetry: Optional[Dict[str, Any]] = None,
     personalization: Optional[Dict[str, Any]] = None,
+    learned_bias: Optional[Dict[str, float]] = None,
 ) -> tuple[str, str]:
     """
     Tier-1 Dynamic Situation Classifier.
     Understands user situation, emotional state, engagement telemetry, and
     user personalization settings to select optimal cognitive strategy and directive.
     """
-    msg_lower = message.lower()
-
     inactivity_count = (telemetry or {}).get("inactivity_count", 0)
     last_idle_secs = (telemetry or {}).get("last_idle_duration_seconds", 0)
     pacing_note = ""
@@ -177,42 +184,8 @@ def detect_cognitive_strategy(
         )
         return strategy, directive
 
-    distress_patterns = r"\b(overwhelm|crying|panic|scared|sad|depressed|hopeless|exhausted|hurt|hurts|anxious|anxiety|grief|lonely|alone|broken|can't take|terrified)\b"
-    if re.search(distress_patterns, msg_lower):
-        strategy = "Active Listen"
-        directive = (
-            "Strategy: Active Empathetic Reflection. The user is in an emotional or overwhelmed state. "
-            "Prioritize deep validation, emotional attunement, non-judgmental containment, and somatic grounding. "
-            f"DO NOT jump to unsolicited advice or problem-solving yet.{extras}"
-        )
-        return strategy, directive
-
-    distortion_patterns = r"\b(always fail|never get|worthless|hate myself|ruined|pointless|everyone hates|terrible person|no way out|stupid of me|hopeless)\b"
-    if re.search(distortion_patterns, msg_lower):
-        strategy = "Cognitive Tools"
-        directive = (
-            "Strategy: Cognitive Tools. The user is caught in cognitive distortion or catastrophic thought loops. "
-            "Gently guide them with cognitive defusion, evidence-testing questions, and self-compassion reframing. "
-            f"Help them observe the thought without identifying fully with it.{extras}"
-        )
-        return strategy, directive
-
-    coaching_patterns = r"\b(what should i|how (do|can) i|help me (decide|plan|figure|choose)|advice|solution|next step|solve|options|stuck on)\b"
-    if re.search(coaching_patterns, msg_lower):
-        strategy = "Guided Coach"
-        directive = (
-            "Strategy: Guided Solution Coaching. The user is seeking clarity or action. "
-            "Help them deconstruct the challenge into manageable, atomic micro-steps using structured Socratic coaching. "
-            f"Foster their own agency rather than prescribing rigid answers.{extras}"
-        )
-        return strategy, directive
-
-    strategy = "Active Listen"
-    directive = (
-        "Strategy: Mindful Presence. Meet the user where they are with warmth, reflective mirroring, "
-        f"and thoughtful, curious inquiry.{extras}"
-    )
-    return strategy, directive
+    decision = score_strategies(message, learned_bias=learned_bias)
+    return decision.strategy, f"{DIRECTIVES[decision.directive_key]}{extras}"
 
 
 class ChatOrchestrator:
@@ -240,6 +213,8 @@ class ChatOrchestrator:
         self.llm_gateway = llm_gateway or get_llm_gateway()
         self.output_guard = output_guard or OutputGuardService()
         self.quota_service = quota_service or QuotaService(self.store)
+        self.adaptation = AdaptiveProfileService(self.store)
+        self.consolidation = MemoryConsolidationService(self.store, memory=self.memory_service)
 
     def record_session_telemetry(self, user_id_hash: str, session_id: Optional[str], telemetry: Optional[Dict[str, Any]]) -> None:
         """Persist engagement telemetry to observe session health and friction.
@@ -295,10 +270,11 @@ class ChatOrchestrator:
     def _refund_reservation(self, preflight: Optional[ChatPreflight], *, user_id_hash: str, peer: str, cost: int) -> None:
         mode = preflight.quota_mode if preflight else self._quota_mode(user_id_hash=user_id_hash, anonymous=bool(peer))
         refund_peer = preflight.quota_peer if preflight else peer
+        idempotency_key = preflight.idempotency_key if preflight else ""
         if mode == "network":
-            self.quota_service.refund_anonymous(refund_peer, cost)
+            self.quota_service.refund_anonymous(refund_peer, cost, idempotency_key=idempotency_key)
             return
-        self.quota_service.refund_quota(user_id_hash, cost)
+        self.quota_service.refund_quota(user_id_hash, cost, idempotency_key=idempotency_key)
 
     def preflight_turn(
         self,
@@ -309,6 +285,7 @@ class ChatOrchestrator:
         model: str = "standard",
         anonymous: bool = False,
         peer: str = "",
+        idempotency_key: str = "",
     ) -> ChatPreflight:
         """Safety first. Quota is reserved only when the turn will call the provider."""
         quota_mode = self._quota_mode(user_id_hash=user_id_hash, anonymous=anonymous)
@@ -321,12 +298,18 @@ class ChatOrchestrator:
                 cost=0,
                 quota_mode=quota_mode,
                 quota_peer=quota_peer,
+                idempotency_key=idempotency_key,
             )
         cost = cost_for_model(model)
+        request_digest = hashlib.sha256(f"{model}:{message}".encode("utf-8")).hexdigest() if idempotency_key else ""
         if quota_mode == "network":
-            decision = self.quota_service.reserve_anonymous(quota_peer, cost)
+            decision = self.quota_service.reserve_anonymous(
+                quota_peer, cost, idempotency_key=idempotency_key, request_digest=request_digest
+            )
         else:
-            decision = self.quota_service.reserve(user_id_hash, cost)
+            decision = self.quota_service.reserve(
+                user_id_hash, cost, idempotency_key=idempotency_key, request_digest=request_digest
+            )
         if not decision.allowed:
             return ChatPreflight(
                 safety=safety,
@@ -335,6 +318,7 @@ class ChatOrchestrator:
                 error=AppError("quota_exceeded", _QUOTA_MESSAGE, details=decision.as_usage()),
                 quota_mode=quota_mode,
                 quota_peer=quota_peer,
+                idempotency_key=idempotency_key,
             )
         return ChatPreflight(
             safety=safety,
@@ -342,6 +326,7 @@ class ChatOrchestrator:
             cost=cost,
             quota_mode=quota_mode,
             quota_peer=quota_peer,
+            idempotency_key=idempotency_key,
         )
 
     def _assemble_system_instruction(
@@ -353,25 +338,21 @@ class ChatOrchestrator:
         telemetry: Optional[Dict[str, Any]],
         personalization: Optional[Dict[str, Any]],
         client_context: Optional[Dict[str, Any]],
+        adaptation: Optional[TurnAdaptation] = None,
     ) -> tuple[str, str, List[str], int, bool]:
+        learned_profile = adaptation.profile if adaptation else {}
         strategy, strategy_directive = detect_cognitive_strategy(
             message,
             model=model,
             telemetry=telemetry,
-            personalization=personalization,
+            personalization=merge_learned_personalization(personalization, personalization_overrides(learned_profile)),
+            learned_bias=adaptation.bias if adaptation else None,
         )
         memory = self.memory_service.prompt_for_user(user_id_hash)
         grounding_chunks = self.grounding_service.retrieve_context(message)
-        system_instruction = (
-            "You are MindPal, a perceptive, emotionally attuned, and intellectually grounded AI companion for wellness, reflection, and life conversations.\n"
-            "Conversational Intelligence Principles:\n"
-            "- Perceptive Active Attunement: Directly address the concrete specifics, emotions, and subtle subtext of what the user says. React authentically first before offering thoughts.\n"
-            "- Ban Robotic Clichés: Never use robotic therapist tropes (e.g. 'I hear that you...', 'It is completely valid to feel...', 'As an AI companion...'). Speak with genuine human-like presence, warmth, and intelligence.\n"
-            "- Multi-lingual Fluency: Seamlessly match the user's language and tone. In Arabic, write native, authentic, culturally resonant text (fitting Egyptian, Levantine, Gulf, or Modern Standard Arabic according to context) without awkward literal translation; in English, write fluid, expressive prose.\n"
-            "- Grounded Memory Integration: Weave past user context naturally like an attentive friend who remembers, never reciting memory graphs or atoms mechanically.\n"
-            "- Boundaries: You are a companion for emotional clarity and reflection, not a doctor or crisis line. Do not diagnose or prescribe.\n"
-            f"{strategy_directive}\n"
-        )
+        system_instruction = CHAT_SYSTEM_BASE + f"{strategy_directive}\n"
+        if adaptation and adaptation.note:
+            system_instruction += f"{adaptation.note}\n"
         context_note = client_context_note(client_context)
         if context_note:
             system_instruction += f"{context_note}\n"
@@ -515,6 +496,13 @@ class ChatOrchestrator:
                 yield {"usage": reservation.as_usage(), "request_id": request_id}
 
             turns = normalize_history(history, message)
+            # Under heavy load, send a shorter window of history (fewer tokens per
+            # turn); memory and the AI summary still carry the longer context.
+            history_scale = float(policy("chat")["history_scale"])
+            if history_scale < 1.0 and len(turns) > 8:
+                turns = turns[-max(8, int(len(turns) * history_scale)) :]
+            learn = is_user_quota_subject(user_id_hash) and not anonymous
+            adaptation = self._prepare_adaptation(user_id_hash, message, persist=learn)
             strategy, system_instruction, grounding_ids, memory_atoms, has_memory_summary = self._assemble_system_instruction(
                 user_id_hash=user_id_hash,
                 message=message,
@@ -522,6 +510,7 @@ class ChatOrchestrator:
                 telemetry=telemetry,
                 personalization=personalization,
                 client_context=client_context,
+                adaptation=adaptation,
             )
             logger.info(
                 "chat_turn_generate request_id=%s strategy=%s history_turns=%s grounding=%s memory_atoms=%s memory_summary=%s",
@@ -543,12 +532,17 @@ class ChatOrchestrator:
                 ),
             )
             token_count = 0
+            reply_parts: List[str] = []
+            reply_chars = 0
             try:
                 async with aclosing(self.output_guard.guard_stream(raw_stream)) as guarded:
                     async for token in guarded:
                         if not token:
                             continue
                         token_count += 1
+                        if reply_chars < 1200:
+                            reply_parts.append(token)
+                            reply_chars += len(token)
                         yield {
                             "text": token,
                             "strategy_used": strategy,
@@ -570,7 +564,17 @@ class ChatOrchestrator:
                 return
 
             completed = True
+            if learn:
+                self.adaptation.commit_turn(user_id_hash, message, strategy)
             receipt = self._write_turn_memory(user_id_hash, message, request_id=request_id)
+            if learn:
+                # Collected for later AI consolidation; no model call happens here.
+                self.consolidation.record_turn(
+                    user_id_hash,
+                    message,
+                    "".join(reply_parts),
+                    new_facts=int(receipt["count"]) if receipt else 0,
+                )
             logger.info(
                 "chat_turn_complete request_id=%s strategy=%s tokens=%s memory_atoms_written=%s",
                 request_id or "-",
@@ -587,6 +591,14 @@ class ChatOrchestrator:
             if reservation and not completed:
                 logger.info("chat_turn_refund request_id=%s", request_id or "-")
                 self._refund_reservation(active_preflight, user_id_hash=user_id_hash, peer=peer, cost=cost)
+
+    def _prepare_adaptation(self, user_id_hash: str, message: str, *, persist: bool) -> Optional[TurnAdaptation]:
+        """What this person's history says works for them. Never blocks a reply."""
+        try:
+            return self.adaptation.prepare_turn(user_id_hash, message, persist=persist)
+        except Exception as exc:
+            logger.warning("adaptive_profile_prepare_skipped error=%s", type(exc).__name__)
+            return None
 
     def _write_turn_memory(
         self,

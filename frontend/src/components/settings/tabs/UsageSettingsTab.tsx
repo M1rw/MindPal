@@ -65,6 +65,9 @@ function VoiceUsageBlock() {
           {formatMinutes(usage.used_s)} of {formatMinutes(usage.cap_s)}
         </p>
       </div>
+      <p className="text-xs text-content-muted leading-relaxed">
+        {usage.quota_message || `Live voice is included for signed-in accounts, up to ${formatMinutes(usage.cap_s)} per day.`}
+      </p>
       <div className="h-1.5 rounded-full bg-surface-sunken overflow-hidden">
         <div
           className={`h-full rounded-full ${exhausted ? 'bg-feedback-danger' : 'bg-brand-primary'}`}

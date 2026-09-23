@@ -3,37 +3,40 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+from backend.configs.runtime import quota_config
+from backend.core.errors import AppError
 from backend.infra.store.store import StoreUnavailable, get_store
 
 logger = logging.getLogger("mindpal.quota")
 
-WINDOW_5H_SECONDS = 5 * 3600
-WINDOW_WEEK_SECONDS = 7 * 24 * 3600
-LIMIT_5H = 50
-LIMIT_WEEK = 500
-ANON_LIMIT_5H = 10
-ANON_LIMIT_WEEK = 40
-COST_STANDARD = 1
-COST_PRO = 2
+_QUOTA_CONFIG = quota_config()
+WINDOW_5H_SECONDS = int(_QUOTA_CONFIG["windows"]["five_hours_seconds"])
+WINDOW_WEEK_SECONDS = int(_QUOTA_CONFIG["windows"]["week_seconds"])
+LIMIT_5H = int(_QUOTA_CONFIG["limits"]["user_five_hours"])
+LIMIT_WEEK = int(_QUOTA_CONFIG["limits"]["user_week"])
+ANON_LIMIT_5H = int(_QUOTA_CONFIG["limits"]["anonymous_five_hours"])
+ANON_LIMIT_WEEK = int(_QUOTA_CONFIG["limits"]["anonymous_week"])
+COST_STANDARD = int(_QUOTA_CONFIG["costs"]["standard"])
+COST_PRO = int(_QUOTA_CONFIG["costs"]["pro"])
 
 USER_QUOTA_COLLECTION = "user_quotas"
 ANON_RATE_COLLECTION = "anon_rate_limits"
-SHARED_ANON_SUBJECTS = frozenset(
-    {
-        "",
-        "anonymous",
-        "guest",
-        "usr_anon_default",
-        "usr_anonymous",
-        "usr_guest",
-        "usr_anon_pool",
-    }
-)
+SHARED_ANON_SUBJECTS = frozenset(_QUOTA_CONFIG["anonymous_subjects"])
+
+
+def _anonymous_load_scale() -> float:
+    try:
+        from backend.domain.dynamic.policy import policy
+
+        return float(policy("quota")["anonymous_scale"])
+    except Exception:
+        return 1.0
 
 
 def cost_for_model(model: str | None) -> int:
@@ -124,7 +127,10 @@ class QuotaService:
 
     def _limits(self, *, anonymous: bool) -> tuple[int, int]:
         if anonymous:
-            return self.anon_limit_5h, self.anon_limit_week
+            # Guests shed first under load so signed-in people keep capacity.
+            # Signed-in limits never move with load.
+            scale = _anonymous_load_scale()
+            return max(1, int(self.anon_limit_5h * scale)), max(1, int(self.anon_limit_week * scale))
         return self.limit_5h, self.limit_week
 
     def _fresh_doc(self, subject: str, now: float) -> Dict[str, Any]:
@@ -140,7 +146,7 @@ class QuotaService:
         return self._normalize(self.store.get_document(collection, subject), subject, now)
 
     def _normalize(self, doc: Optional[Dict[str, Any]], subject: str, now: float) -> Dict[str, Any]:
-        """Apply window rollovers and the legacy `used` migration to a raw document."""
+        """Normalize stored quota data and apply window rollovers."""
         if not doc:
             return self._fresh_doc(subject, now)
         doc = dict(doc)
@@ -197,7 +203,16 @@ class QuotaService:
             scope="network" if anonymous else "account",
         )
 
-    def _reserve(self, collection: str, subject: str, cost: int, *, anonymous: bool) -> QuotaDecision:
+    def _reserve(
+        self,
+        collection: str,
+        subject: str,
+        cost: int,
+        *,
+        anonymous: bool,
+        idempotency_key: str = "",
+        request_digest: str = "",
+    ) -> QuotaDecision:
         """Reserve `cost` credits atomically.
 
         Read-check-write is not enough here: two concurrent turns both read the
@@ -212,17 +227,61 @@ class QuotaService:
         now = self._now()
         limit_5h, limit_week = self._limits(anonymous=anonymous)
         scope = "network" if anonymous else "account"
+        idempotency_key = str(idempotency_key or "").strip()[:128]
+        request_fingerprint = hashlib.sha256(
+            json.dumps(
+                {"subject": subject, "cost": cost, "scope": scope, "request": request_digest}, sort_keys=True
+            ).encode()
+        ).hexdigest()
 
         def _mutate(
             current: Optional[Dict[str, Any]], write: Any
         ) -> tuple[Dict[str, Any], bool]:
             doc = self._normalize(current, subject, now)
+            markers = doc.get("idempotency_markers")
+            if not isinstance(markers, dict):
+                markers = {}
+            if idempotency_key:
+                previous = markers.get(idempotency_key)
+                if isinstance(previous, dict):
+                    if previous.get("fingerprint") != request_fingerprint:
+                        raise AppError(
+                            "conflict",
+                            "Idempotency-Key was reused for a different quota request.",
+                        )
+                    if previous.get("allowed"):
+                        # A replay of a charged turn must never be served for free.
+                        # The stream cannot be replayed, so the retry is refused;
+                        # a failed turn is refunded and its marker removed, which
+                        # is what lets a genuine retry through.
+                        raise AppError(
+                            "conflict",
+                            "This message was already sent. Send it again as a new message if you need another reply.",
+                        )
+                    # A previously denied attempt is re-evaluated: the window may have reset.
             used_5h = int(doc.get("total_credits_5h") or 0)
             used_week = int(doc.get("total_credits_week") or 0)
             if used_5h + cost > limit_5h or used_week + cost > limit_week:
+                if idempotency_key:
+                    markers[idempotency_key] = {
+                        "fingerprint": request_fingerprint,
+                        "allowed": False,
+                        "created_at": now,
+                    }
+                    markers = dict(sorted(markers.items(), key=lambda item: float(item[1].get("created_at") or 0))[-64:])
+                    doc["idempotency_markers"] = markers
+                    write(doc)
                 return doc, False
             doc["total_credits_5h"] = used_5h + cost
             doc["total_credits_week"] = used_week + cost
+            if idempotency_key:
+                markers[idempotency_key] = {
+                    "fingerprint": request_fingerprint,
+                    "allowed": True,
+                    "created_at": now,
+                }
+                markers = dict(sorted(markers.items(), key=lambda item: float(item[1].get("created_at") or 0))[-64:])
+                doc["idempotency_markers"] = markers
             write(doc)
             return doc, True
 
@@ -244,7 +303,7 @@ class QuotaService:
             scope=scope,
         )
 
-    def _refund(self, collection: str, subject: str, cost: int) -> None:
+    def _refund(self, collection: str, subject: str, cost: int, *, idempotency_key: str = "") -> None:
         """Give credits back atomically. A failure here over-charges by `cost`
         rather than under-charging, so it is logged and swallowed: it must never
         turn an already-failed turn into a second error for the caller."""
@@ -254,6 +313,8 @@ class QuotaService:
             doc = self._normalize(current, subject, now)
             doc["total_credits_5h"] = max(0, int(doc.get("total_credits_5h") or 0) - cost)
             doc["total_credits_week"] = max(0, int(doc.get("total_credits_week") or 0) - cost)
+            if idempotency_key and isinstance(doc.get("idempotency_markers"), dict):
+                doc["idempotency_markers"].pop(idempotency_key, None)
             write(doc)
 
         try:
@@ -293,21 +354,27 @@ class QuotaService:
     def check_and_consume_quota(self, user_id_hash: str, cost: int = 1) -> bool:
         return self.reserve(user_id_hash, cost).allowed
 
-    def reserve(self, user_id_hash: str, cost: int = 1) -> QuotaDecision:
+    def reserve(self, user_id_hash: str, cost: int = 1, *, idempotency_key: str = "", request_digest: str = "") -> QuotaDecision:
         if not is_user_quota_subject(user_id_hash):
             return self._empty_denied(cost, anonymous=False)
-        return self._reserve(USER_QUOTA_COLLECTION, user_id_hash, cost, anonymous=False)
+        return self._reserve(
+            USER_QUOTA_COLLECTION, user_id_hash, cost, anonymous=False,
+            idempotency_key=idempotency_key, request_digest=request_digest,
+        )
 
-    def refund_quota(self, user_id_hash: str, cost: int = 1) -> None:
+    def refund_quota(self, user_id_hash: str, cost: int = 1, *, idempotency_key: str = "") -> None:
         if not is_user_quota_subject(user_id_hash):
             return
-        self._refund(USER_QUOTA_COLLECTION, user_id_hash, cost)
+        self._refund(USER_QUOTA_COLLECTION, user_id_hash, cost, idempotency_key=idempotency_key)
 
-    def reserve_anonymous(self, peer: str, cost: int = 1) -> QuotaDecision:
-        return self._reserve(ANON_RATE_COLLECTION, anonymous_quota_key(peer), cost, anonymous=True)
+    def reserve_anonymous(self, peer: str, cost: int = 1, *, idempotency_key: str = "", request_digest: str = "") -> QuotaDecision:
+        return self._reserve(
+            ANON_RATE_COLLECTION, anonymous_quota_key(peer), cost, anonymous=True,
+            idempotency_key=idempotency_key, request_digest=request_digest,
+        )
 
-    def refund_anonymous(self, peer: str, cost: int = 1) -> None:
-        self._refund(ANON_RATE_COLLECTION, anonymous_quota_key(peer), cost)
+    def refund_anonymous(self, peer: str, cost: int = 1, *, idempotency_key: str = "") -> None:
+        self._refund(ANON_RATE_COLLECTION, anonymous_quota_key(peer), cost, idempotency_key=idempotency_key)
 
     def get_idempotency_result(self, idempotency_key: str) -> Optional[Dict[str, Any]]:
         if not idempotency_key:

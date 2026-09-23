@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindPal wellness rules configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metadata", "heavy_words", "lighter_words", "heavy_phrases", "lighter_phrases", "theme_specs", "event_specs", "negation_window"],
+  "properties": {
+    "metadata": {"type": "object"},
+    "heavy_words": {"type": "array", "items": {"type": "string"}},
+    "lighter_words": {"type": "array", "items": {"type": "string"}},
+    "heavy_phrases": {"type": "array", "items": {"type": "string"}},
+    "lighter_phrases": {"type": "array", "items": {"type": "string"}},
+    "theme_specs": {"type": "array", "items": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "string"}, {"type": "array", "items": {"type": "string"}}], "minItems": 3, "maxItems": 3}},
+    "event_specs": {"type": "array", "items": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "string"}, {"type": "array", "items": {"type": "string"}}], "minItems": 3, "maxItems": 3}},
+    "negation_window": {"type": "integer"}
+  }
+}

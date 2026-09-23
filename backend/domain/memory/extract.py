@@ -5,207 +5,33 @@ from __future__ import annotations
 import re
 from typing import List
 
+from backend.configs.memory import memory_rule_values
 from backend.domain.memory.graph import MemoryAtom
 
-_MAX_ATOMS_PER_TURN = 8
-_MAX_VALUE_CHARS = 80
-_ANON_USER_IDS = frozenset(
-    {
-        "",
-        "anonymous",
-        "guest",
-        "usr_anon_default",
-        "usr_anonymous",
-        "usr_guest",
-    }
-)
-_BLAND_TURN = re.compile(
-    r"^(ok(?:ay)?|k|yes|no|yeah|yep|yup|nah|hi|hey|hello|thanks|thank you|sure|cool|fine|hmm+|lol|idk)[.!?]*$",
-    re.IGNORECASE,
-)
-_CRISIS_FRAGMENT = re.compile(
-    r"(?i)\b(suicid|kill myself|killing myself|end my life|ending my life|self-harm|"
-    r"hurt myself|hurting myself|overdose|cutting myself)\b|"
-    r"انتحار|انهاء حياتي|ايذاء نفسي"
-)
-_EMAIL = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
-_NAME_STOP = frozenset(
-    {
-        "user",
-        "guest",
-        "mindpal",
-        "maybe",
-        "later",
-        "here",
-        "there",
-        "someone",
-        "anyone",
-        "ok",
-        "okay",
-        "fine",
-        "just",
-        "the",
-        "a",
-        "an",
-        "not",
-        "so",
-        "very",
-        "really",
-        "also",
-        "still",
-        "always",
-        "currently",
-        "new",
-        "tired",
-        "sad",
-        "happy",
-        "exhausted",
-        "stressed",
-        "anxious",
-        "overwhelmed",
-        "depressed",
-        "good",
-        "bad",
-        "sick",
-        "home",
-        "back",
-        "done",
-        "ready",
-        "sorry",
-        "afraid",
-        "scared",
-        "confused",
-        "lost",
-        "trying",
-        "working",
-        "going",
-        "looking",
-        "having",
-        "getting",
-        "doing",
-        "feeling",
-        "student",
-        "engineer",
-        "eating",
-        "sleeping",
-        "wondering",
-        "asking",
-        "thinking",
-        "sure",
-        "pretty",
-        "super",
-    }
-)
-_PREFERRED_NAME = (
-    re.compile(
-        r"(?i)\b(?:my name is|my name['’]s|call me|i am called|i['’]m called|my preferred name is)\s+"
-        r"([A-Za-z\u0600-\u06FF][A-Za-z\u0600-\u06FF'’\-]{1,39}(?:\s+[A-Za-z\u0600-\u06FF][A-Za-z\u0600-\u06FF'’\-]{1,39}){0,2})"
-    ),
-    re.compile(
-        r"(?i)\b(?:i am|i['’]m)\s+([A-Za-z\u0600-\u06FF][A-Za-z\u0600-\u06FF'’\-]{1,25})\b"
-    ),
-    re.compile(r"(?:اسمي|ناديني|اسمي هو|انا)\s+([\u0600-\u06FFA-Za-z][^.,!?\n،؟]{1,40})"),
-)
-_GOAL = (
-    re.compile(r"(?i)\bmy goal is\s+(?:to\s+)?(.{6,80})"),
-    re.compile(r"(?i)\bi want to (?:work on|focus on|improve|build|manage|learn)\s+(.{3,80})"),
-    re.compile(r"(?i)\bi['’]m (?:trying to improve|working on|trying to)\s+(.{3,80})"),
-    re.compile(r"(?i)\bi hope to\s+(.{5,80})"),
-    re.compile(r"(?i)(?:هدفي|هدفي هو)\s+(.{6,80})"),
-)
-_PERSON = (
-    ("partner", re.compile(r"(?i)\bmy (?:partner|spouse)(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("girlfriend", re.compile(r"(?i)\bmy girlfriend(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("boyfriend", re.compile(r"(?i)\bmy boyfriend(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("wife", re.compile(r"(?i)\bmy wife(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("husband", re.compile(r"(?i)\bmy husband(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("friend", re.compile(r"(?i)\b(?:my (?:best )?friend|a friend)(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("sister", re.compile(r"(?i)\bmy sister(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("brother", re.compile(r"(?i)\bmy brother(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("mother", re.compile(r"(?i)\bmy (?:mom|mother)(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("father", re.compile(r"(?i)\bmy (?:dad|father)(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("roommate", re.compile(r"(?i)\bmy roommate(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("coworker", re.compile(r"(?i)\bmy (?:coworker|colleague)(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-    ("pet", re.compile(r"(?i)\bmy (?:dog|cat|pet)(?:\s+(?:is\s+)?(?:called|named|is)|\s+called|\s+named)?\s+([A-Za-z\u0600-\u06FF][^.,!\n]{1,40})")),
-)
-_PREFERENCE = (
-    re.compile(r"(?i)\bi prefer\s+(.{8,80})"),
-    re.compile(r"(?i)\bplease be\s+(.{3,60})"),
-)
-_WEAK_CAPTURE = frozenset({"it", "this", "that", "them", "stuff", "things", "something", "anything"})
-_FEELING = re.compile(
-    r"(?i)\bi(?:['’]m| am| have been|['’]ve been)?(?:\s+\w+){0,2}\s+(?:feeling|felt|feel)\s+"
-    r"(angry|sad|anxious|overwhelmed|happy|grateful|lonely|stressed|hopeful|exhausted|calm|"
-    r"down|numb|frustrated|scared|worried|peaceful|unmotivated|burnt out|relieved)"
-)
-_PROBLEMS = (
-    (
-        "sleep",
-        re.compile(
-            r"(?i)\b(?:i (?:can['’]?t|cannot|couldn['’]?t|didn['’]?t|haven['’]?t been able to|haven['’]?t) sleep|"
-            r"trouble sleeping|having insomnia|suffer from insomnia|hard to (?:fall|stay) asleep|"
-            r"not sleeping (?:well|enough)?|can barely sleep)"
-        ),
-        "Trouble sleeping",
-    ),
-    (
-        "work_stress",
-        re.compile(
-            r"(?i)\b(?:work (?:is|has been) (?:so )?(?:stressful|overwhelming|tough|exhausting)|"
-            r"stressed (?:about|at|by|from|with) work|pressure at work|work stress)"
-        ),
-        "Work has been stressful",
-    ),
-    (
-        "school_stress",
-        re.compile(
-            r"(?i)\b(?:school|college|university|exams?|studying) (?:is|has been) (?:so )?(?:stressful|overwhelming)|"
-            r"stressed (?:about|by|from|with) (?:school|college|exams?|studying)"
-        ),
-        "School or studies have been stressful",
-    ),
-    (
-        "anxiety",
-        re.compile(
-            r"(?i)\b(?:having|have|struggling with|dealing with) (?:a lot of |severe |bad )?anxiety|"
-            r"(?:having|had) (?:a )?panic attack|feeling (?:really |so |very )?(?:anxious|panicky|on edge)"
-        ),
-        "Dealing with anxiety",
-    ),
-    (
-        "burnout",
-        re.compile(r"(?i)\b(?:feeling |feel )?(?:burnt out|burnout|completely exhausted|drained|overworked)"),
-        "Experiencing burnout or exhaustion",
-    ),
-    (
-        "loneliness",
-        re.compile(r"(?i)\b(?:feeling |feel |am )?(?:so |really |very )?(?:lonely|isolated|alone)\b"),
-        "Feeling lonely or isolated",
-    ),
-    (
-        "low_mood",
-        re.compile(r"(?i)\b(?:feeling |feel )?(?:down|depressed|hopeless|unmotivated|in a rut)"),
-        "Experiencing low mood or depression",
-    ),
-)
-_EVENTS = (
-    ("new_job", re.compile(r"(?i)\bi (?:just |recently )?(?:got|started|landed) (?:a )?new job"), "Started a new job"),
-    ("moved", re.compile(r"(?i)\bi (?:just |recently )?moved (?:to|into|out)"), "Moved"),
-    ("broke_up", re.compile(r"(?i)\b(?:we|i) (?:just |recently )?broke up"), "Broke up"),
-    ("lost_job", re.compile(r"(?i)\bi (?:just |recently )?(?:lost my job|got laid off|was fired)"), "Lost a job"),
-)
-_OCCUPATION = (
-    re.compile(r"(?i)\bi (?:work as|am|['’]m) an?\s+([A-Za-z][A-Za-z\s\-]{2,35}?)(?:\s+(?:at|for|and|in)\b|[.,!\n]|$)"),
-    re.compile(r"(?i)\bi work (?:at|for)\s+([A-Za-z0-9][A-Za-z0-9\s\-]{1,35}?)(?:\s+(?:and|as|in)\b|[.,!\n]|$)"),
-)
-_STUDIES = (
-    re.compile(r"(?i)\bi(?:['’]m| am) studying\s+([A-Za-z][A-Za-z\s\-]{2,35}?)(?:\s+(?:at|in|and)\b|[.,!\n]|$)"),
-    re.compile(r"(?i)\bi(?:['’]m| am) a student (?:at|in|studying)\s+([A-Za-z][A-Za-z\s\-]{2,35}?)(?:\s+(?:at|in|and)\b|[.,!\n]|$)"),
-)
-_LOCATION = (
-    re.compile(r"(?i)\bi (?:live|reside|am based|['’]m based) in\s+([A-Za-z\u0600-\u06FF][A-Za-z\u0600-\u06FF\s'’\-]{1,35}?)(?:\s+(?:and|with)\b|[.,!\n]|$)"),
-    re.compile(r"(?i)\bi(?:['’]m| am) from\s+([A-Za-z\u0600-\u06FF][A-Za-z\u0600-\u06FF\s'’\-]{1,35}?)(?:\s+(?:and|with)\b|[.,!\n]|$)"),
-)
+_MEMORY_RULES = memory_rule_values()
+_MAX_ATOMS_PER_TURN = _MEMORY_RULES["max_atoms_per_turn"]
+_MAX_VALUE_CHARS = _MEMORY_RULES["max_value_chars"]
+_MAX_TRANSCRIPT_ATOMS = _MEMORY_RULES["max_transcript_atoms"]
+_MAX_NAME_WORDS = _MEMORY_RULES["max_name_words"]
+_MAX_NAME_CHARS = _MEMORY_RULES["max_name_chars"]
+_MAX_FACT_WORDS = _MEMORY_RULES["max_fact_words"]
+_MIN_FACT_CHARS = _MEMORY_RULES["min_fact_chars"]
+_ANON_USER_IDS = _MEMORY_RULES["anonymous_user_ids"]
+_BLAND_TURN = _MEMORY_RULES["bland_turn"]
+_CRISIS_FRAGMENT = _MEMORY_RULES["crisis_fragment"]
+_EMAIL = _MEMORY_RULES["email"]
+_NAME_STOP = _MEMORY_RULES["name_stop"]
+_PREFERRED_NAME = _MEMORY_RULES["preferred_name"]
+_GOAL = _MEMORY_RULES["goal"]
+_PERSON = _MEMORY_RULES["person"]
+_PREFERENCE = _MEMORY_RULES["preference"]
+_WEAK_CAPTURE = _MEMORY_RULES["weak_capture"]
+_FEELING = _MEMORY_RULES["feeling"]
+_PROBLEMS = _MEMORY_RULES["problems"]
+_EVENTS = _MEMORY_RULES["events"]
+_OCCUPATION = _MEMORY_RULES["occupation"]
+_STUDIES = _MEMORY_RULES["studies"]
+_LOCATION = _MEMORY_RULES["location"]
 
 
 def can_persist_user_memory(user_id_hash: str) -> bool:
@@ -253,7 +79,7 @@ def extract_atoms_from_turn(message: str) -> List[MemoryAtom]:
         if not match:
             continue
         person = _clean_name(match.group(1))
-        if not person:
+        if not person or not _looks_like_a_name(person, match.group(0)):
             continue
         atom_id = f"people:{relationship}"
         if atom_id in seen_ids:
@@ -437,7 +263,7 @@ def extract_atoms_from_transcript(text: str) -> List[MemoryAtom]:
             all_atoms.append(atom)
 
     for sentence in sentences:
-        if len(all_atoms) >= 16:
+        if len(all_atoms) >= _MAX_TRANSCRIPT_ATOMS:
             break
         for atom in extract_atoms_from_turn(sentence):
             val_norm = atom.value.strip().lower()
@@ -445,7 +271,7 @@ def extract_atoms_from_transcript(text: str) -> List[MemoryAtom]:
                 seen_ids.add(atom.id)
                 seen_values.add(val_norm)
                 all_atoms.append(atom)
-                if len(all_atoms) >= 16:
+                if len(all_atoms) >= _MAX_TRANSCRIPT_ATOMS:
                     break
 
     return all_atoms
@@ -480,6 +306,23 @@ def _first_feeling(text: str) -> str:
     return match.group(1).lower()
 
 
+_NAMING_CUE = re.compile(r"(?i)\b(?:called|named|name is|name's)\b")
+
+
+def _looks_like_a_name(person: str, matched: str) -> bool:
+    """"my mom keeps asking about grades" is not a name; "my mom Layla" is.
+
+    Without an explicit cue (called / named), a Latin-script name must be
+    capitalized. Arabic script has no case, so it keeps the pattern's judgment.
+    """
+    if _NAMING_CUE.search(matched):
+        return True
+    first = person.split()[0]
+    if not first[:1].isascii() or not first[:1].isalpha():
+        return True
+    return first[:1].isupper()
+
+
 def _clean_name(value: str) -> str:
     cleaned = re.sub(r"\s+", " ", (value or "")).strip(" .,!?:;،؟'\"“”")
     cleaned = re.split(
@@ -488,7 +331,7 @@ def _clean_name(value: str) -> str:
         maxsplit=1,
         flags=re.IGNORECASE,
     )[0].strip()
-    words = [w for w in cleaned.split() if w][:3]
+    words = [w for w in cleaned.split() if w][:_MAX_NAME_WORDS]
     cleaned = " ".join(words)
     if not cleaned or cleaned.lower() in _NAME_STOP or _CRISIS_FRAGMENT.search(cleaned):
         return ""
@@ -496,7 +339,7 @@ def _clean_name(value: str) -> str:
         return ""
     if len(words) == 1 and (words[0].lower() in _NAME_STOP or (words[0].lower().endswith("ing") and len(words[0]) > 4)):
         return ""
-    return cleaned[:40]
+    return cleaned[:_MAX_NAME_CHARS]
 
 
 def _clean_fact(value: str) -> str:
@@ -505,7 +348,7 @@ def _clean_fact(value: str) -> str:
     if len(cleaned) > _MAX_VALUE_CHARS:
         cleaned = cleaned[:_MAX_VALUE_CHARS].rsplit(" ", 1)[0].strip()
     words = cleaned.split()
-    if len(cleaned) < 3 or len(words) > 16:
+    if len(cleaned) < _MIN_FACT_CHARS or len(words) > _MAX_FACT_WORDS:
         return ""
     if len(words) == 1 and words[0].lower() in _WEAK_CAPTURE:
         return ""

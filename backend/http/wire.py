@@ -20,7 +20,10 @@ from backend.http.release import router as release_router
 from backend.http.sessions import router as sessions_router
 from backend.http.system import router as system_router
 from backend.http.voice import router as voice_router
-from backend.infra.store.store import StoreUnavailable
+from backend.http.voice_ops import router as voice_ops_router
+from backend.http.ops import router as ops_router
+from backend.core.request_context import request_id as current_request_id
+from backend.core.storage import StoreUnavailable
 
 logger = logging.getLogger("mindpal.http")
 
@@ -77,6 +80,8 @@ _ROUTERS = (
     identity_router,
     memory_router,
     voice_router,
+    voice_ops_router,
+    ops_router,
     flags_router,
     system_router,
 )
@@ -95,7 +100,7 @@ async def _store_unavailable_handler(request: Request, exc: StoreUnavailable) ->
         content=error_payload(
             "unavailable",
             "MindPal could not reach storage for that change. Please try again in a moment.",
-            request_id=request.headers.get("x-request-id"),
+            request_id=current_request_id() or request.headers.get("x-request-id"),
         ),
     )
 

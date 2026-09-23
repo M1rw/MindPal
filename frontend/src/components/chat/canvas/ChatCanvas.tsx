@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useChatStore, useAuthStore, useMemoryStore, useSessionStore, useChatHistoryStore } from '../../../store';
 import { renderMarkdown } from '../../../utils/ui/markdown';
 import { captureMemoryReceipt } from '../../../utils/memory/guestMemory';
 import { useGreeting } from '../../../hooks/chat/useGreeting';
 import { useOverlayPresence } from '../../../hooks/ui/useOverlayPresence';
-import { getFirestoreDb } from '../../../services/firebase/firestoreDb';
+import { ApiClient } from '../../../services/api';
 import { cn } from '../../../utils/ui/cn';
 import { LiveAnnouncer } from './LiveAnnouncer';
 import { ChatCanvasEmptyState } from './ChatCanvasEmptyState';
@@ -23,24 +22,16 @@ const NEAR_BOTTOM_PX = 96;
 const JUMP_EXIT_MS = 80;
 const JUMP_LOCK_MS = 1500;
 
-async function saveFeedback(
-  userId: string | null,
-  messageId: string,
-  content: string,
-  kind: FeedbackKind
-) {
+/**
+ * Teach MindPal what helps. Signed-in only, and no message text leaves the
+ * device: the server rewards or penalizes the strategy that produced the reply.
+ */
+async function sendReplyFeedback(kind: FeedbackKind, strategy: string | undefined) {
+  if (!useSessionStore.getState().isAuthenticated) return;
   try {
-    const db = getFirestoreDb();
-    if (!db) return;
-    await addDoc(collection(db, 'message_feedback'), {
-      userId: userId ?? 'anonymous',
-      messageId,
-      content: content.slice(0, 500),
-      kind,
-      createdAt: serverTimestamp(),
-    });
+    await ApiClient.rateReply(kind === 'thumbs_up' ? 'up' : 'down', strategy);
   } catch {
-    // silently ignore — feedback is best-effort
+    // Feedback is best-effort; the local thumb state stays either way.
   }
 }
 
@@ -249,13 +240,16 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
     setSpeakingId(id);
   }, [speakingId]);
 
-  const handleThumb = useCallback(async (msgId: string, content: string, kind: FeedbackKind) => {
+  const handleThumb = useCallback(async (msgId: string, _content: string, kind: FeedbackKind) => {
+    const alreadySet = thumbsState[msgId] === kind;
     setThumbsState((prev) => ({
       ...prev,
       [msgId]: prev[msgId] === kind ? null : kind,
     }));
-    await saveFeedback(user?.uid ?? null, msgId, content, kind);
-  }, [user?.uid]);
+    if (alreadySet) return; // un-toggling is local only
+    const strategy = messages.find((m) => m.id === msgId)?.strategy_used;
+    await sendReplyFeedback(kind, strategy);
+  }, [messages, thumbsState]);
 
   const handleRegenerate = useCallback(async (targetMsgId?: string) => {
     if (isGenerating) return;

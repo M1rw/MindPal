@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MindPal quota configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["windows", "limits", "costs", "anonymous_subjects"],
+  "properties": {
+    "windows": {"type": "object", "required": ["five_hours_seconds", "week_seconds"], "properties": {"five_hours_seconds": {"type": "integer"}, "week_seconds": {"type": "integer"}}, "additionalProperties": true},
+    "limits": {"type": "object", "required": ["user_five_hours", "user_week", "anonymous_five_hours", "anonymous_week"], "properties": {"user_five_hours": {"type": "integer"}, "user_week": {"type": "integer"}, "anonymous_five_hours": {"type": "integer"}, "anonymous_week": {"type": "integer"}}, "additionalProperties": true},
+    "costs": {"type": "object", "required": ["standard", "pro"], "properties": {"standard": {"type": "integer"}, "pro": {"type": "integer"}}, "additionalProperties": true},
+    "anonymous_subjects": {"type": "array", "items": {"type": "string"}}
+  }
+}

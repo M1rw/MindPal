@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.domain.chat.orchestrator import ChatOrchestrator
-from backend.http.chat import MAX_HISTORY_TURNS, MAX_MESSAGE_CHARS
+from backend.domain.chat.contracts import MAX_HISTORY_TURNS, MAX_MESSAGE_CHARS
 from backend.main import create_app
 
 

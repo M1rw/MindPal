@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "disclaimer": "This is a reflection of your words, not a diagnosis. MindPal is a wellness companion, not a medical service. Take what helps.",
+    "source_account": "saved_memory_and_synced_chats",
+    "source_account_label": "From what you've told MindPal — saved memory and synced chats",
+    "source_device": "this_device",
+    "source_device_label": "From this device — local chats and guest facts. Sign in to include account memory.",
+    "crisis_note": "Some messages used crisis language. Those are not charted. If you need help now, use the resources on this page."
+  },
+  "heavy_words": ["angry", "furious", "enraged", "irritated", "resentful", "sad", "unhappy", "miserable", "heartbroken", "devastated", "anxious", "worried", "panicked", "terrified", "scared", "overwhelmed", "exhausted", "drained", "hopeless", "lonely", "stressed", "depressed", "numb", "غاضب", "حزين", "قلق", "منهك", "وحيد"],
+  "lighter_words": ["happy", "grateful", "thankful", "relieved", "proud", "hopeful", "excited", "peaceful", "calm", "joyful", "loved", "content", "سعيد", "ممتن", "مرتاح", "هادئ", "فخور"],
+  "heavy_phrases": ["burned out", "burnt out", "fed up", "can't sleep", "cannot sleep", "couldn't sleep", "could not sleep", "feel stuck", "feeling stuck", "i feel overwhelmed", "i'm feeling overwhelmed", "i am feeling overwhelmed", "i'm feeling anxious", "i am feeling anxious", "i feel anxious", "i feel angry", "i'm angry", "i am angry", "i feel sad", "i'm sad", "i am sad", "hate my job", "so tired of"],
+  "lighter_phrases": ["feeling better", "felt better", "a bit better", "so happy", "i'm happy", "i am happy", "i feel happy", "i'm grateful", "i am grateful", "feeling hopeful", "feeling calm", "feeling proud", "good day", "great day"],
+  "theme_specs": [["sleep", "Sleep", ["sleep", "sleeping", "slept", "asleep", "insomnia", "nightmare", "awake at"]], ["work", "Work", ["work", "job", "boss", "coworker", "career", "deadline", "office"]], ["relationship", "Relationship", ["partner", "relationship", "boyfriend", "girlfriend", "spouse", "marriage", "breakup", "broke up"]], ["family", "Family", ["family", "mom", "dad", "mother", "father", "parent", "sister", "brother", "kids", "children"]], ["health", "Health & body", ["health", "sick", "pain", "doctor", "hospital", "appetite", "energy"]], ["school", "School", ["school", "exam", "study", "homework", "university", "college", "class"]], ["money", "Money", ["money", "rent", "bills", "debt", "paycheck", "i'm broke", "im broke"]]],
+  "event_specs": [["new_job", "Started a new job", ["got a new job", "started a new job", "landed a new job", "new job"]], ["lost_job", "Lost a job", ["lost my job", "got laid off", "was fired", "got fired"]], ["moved", "Moved", ["i moved", "we moved", "moving to", "moved to", "moved into", "moved out"]], ["broke_up", "Breakup", ["broke up", "we broke up", "breakup", "break up"]], ["graduated", "Graduated", ["i graduated", "graduated from"]], ["got_married", "Got married", ["got married", "we got married"]]],
+  "negation_window": 28
+}

@@ -8,22 +8,18 @@ from typing import Any, Callable, Dict, List, Optional, Set
 from fastapi import Header
 
 from backend.core.errors import AppError
+from backend.configs.runtime import domain_limits_config
+from backend.domain.adaptation.profile import AdaptiveProfileService
+from backend.domain.memory.consolidation import MemoryConsolidationService
 from backend.domain.memory.graph import MemoryGraphService
+from backend.domain.voice.privacy import VoicePrivacyService
 from backend.infra.auth.verifier import AuthVerifier, UserSession
 from backend.infra.store.store import get_store
 
-_EXPORT_INCLUDED = ["profile", "memory", "cloud_chat_sessions"]
-_EXPORT_NOT_INCLUDED = [
-    "Chat history stored only in this browser",
-    "Guest memory facts stored only on this device",
-    "Sign-in tokens",
-]
-_ACCOUNT_SIDE_COLLECTIONS = (
-    "user_presence",
-    "changelog_dismissals",
-    "voice_minute_reservations",
-    "voice_active_sessions",
-)
+_IDENTITY_CONFIG = domain_limits_config()["identity"]
+_EXPORT_INCLUDED = list(_IDENTITY_CONFIG["export_included"])
+_EXPORT_NOT_INCLUDED = list(_IDENTITY_CONFIG["export_not_included"])
+_ACCOUNT_SIDE_COLLECTIONS = tuple(_IDENTITY_CONFIG["account_side_collections"])
 
 
 class IdentityService:
@@ -53,6 +49,7 @@ class IdentityService:
         """Return stored account data only. Does not create a profile as a side effect."""
         profile = self.store.get_document("user_profiles", user_id_hash) or {}
         graph = MemoryGraphService(self.store).get_memory_graph(user_id_hash)
+        voice = VoicePrivacyService(self.store).export_account(user_id_hash)
         return {
             "exported_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "included": list(_EXPORT_INCLUDED),
@@ -71,6 +68,9 @@ class IdentityService:
                 ],
             },
             "cloud_chat_sessions": _cloud_chat_sessions(self.store, user_id_hash),
+            "voice": voice,
+            "adaptive_profile": AdaptiveProfileService(self.store).describe(user_id_hash),
+            "memory_digests": MemoryConsolidationService(self.store).describe(user_id_hash),
         }
 
     def delete_account(self, user_id_hash: str) -> Dict[str, Any]:
@@ -84,21 +84,22 @@ class IdentityService:
         sessions_removed = False
         if self.store.delete_document("chat_sessions", user_id_hash):
             sessions_removed = True
-        for doc in self.store.list_documents("chat_sessions", prefix=f"{user_id_hash}:"):
-            session_id = doc.get("id")
-            if isinstance(session_id, str) and session_id:
-                if self.store.delete_document("chat_sessions", f"{user_id_hash}:{session_id}"):
-                    sessions_removed = True
+        for doc_id, _doc in list(self.store.iter_documents("chat_sessions", prefix=f"{user_id_hash}:")):
+            if self.store.delete_document("chat_sessions", doc_id):
+                sessions_removed = True
         if sessions_removed:
             deleted.append("cloud_chat_sessions")
 
         for collection in _ACCOUNT_SIDE_COLLECTIONS:
             self.store.delete_document(collection, user_id_hash)
 
-        for doc in self.store.list_documents("session_telemetry", prefix=f"{user_id_hash}:"):
-            session_id = doc.get("session_id")
-            if isinstance(session_id, str) and session_id:
-                self.store.delete_document("session_telemetry", f"{user_id_hash}:{session_id}")
+        for doc_id, _doc in list(self.store.iter_documents("session_telemetry", prefix=f"{user_id_hash}:")):
+            self.store.delete_document("session_telemetry", doc_id)
+
+        voice_deleted = VoicePrivacyService(self.store).delete_account(user_id_hash)
+        for collection, count in voice_deleted.items():
+            if count and collection not in deleted:
+                deleted.append(collection)
 
         return {"deleted": deleted}
 
@@ -152,7 +153,20 @@ class IdentityService:
 def verify_auth_header(auth_header: Optional[str]) -> UserSession:
     """Resolve the caller. Raises ``unauthenticated`` for a credential that does
     not verify; returns a keyless guest only when no credential was sent."""
-    return AuthVerifier().verify_authorization_header(auth_header)
+    session = AuthVerifier().verify_authorization_header(auth_header)
+    if session.has_account_storage:
+        _note_activity(session.user_id_hash)
+    return session
+
+
+def _note_activity(identity: str) -> None:
+    """Count this person as active for the platform pulse (hashed, best effort)."""
+    try:
+        from backend.infra.observability.pulse import platform_pulse
+
+        platform_pulse().record_activity(identity)
+    except Exception:
+        pass
 
 
 def require_account(auth_header: Optional[str], *, action: str) -> UserSession:
