@@ -90,6 +90,10 @@ class IdentityService:
         if sessions_removed:
             deleted.append("cloud_chat_sessions")
 
+        # Usage counters (user_quotas, voice_minute_reservations) are not in
+        # this list on purpose: they hold counts and reset times, no content,
+        # and expire with their windows. Deleting them reset the chat and voice
+        # limits, so "delete my data" doubled as a free quota refill.
         for collection in _ACCOUNT_SIDE_COLLECTIONS:
             self.store.delete_document(collection, user_id_hash)
 

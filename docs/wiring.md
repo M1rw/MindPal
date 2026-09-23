@@ -114,7 +114,7 @@ flowchart LR
 | Streak and insights | `store/streak.ts` | `getUserInsights` | `GET /api/user/insights` | `identity` | `session_telemetry` |
 | Wellness timeline | `hooks/session/useWellnessTimeline.ts` | `getWellnessTimeline` | `GET /api/user/wellness-timeline` | `identity` | `session_telemetry` |
 | Export / delete data | `components/settings/SettingsModal.tsx` | `exportUserData`, `deleteUserData` | `GET /api/user/export`, `DELETE /api/user/data` | `identity` (graph, voice, profile, chats) | all of the user's rows |
-| Feature flags | `hooks/session/useAppBootstrap.ts` | `getFeatureFlags` | `GET /api/features` → `http/flags.py` | `flags` | config + Supabase control plane |
+| Feature flags | `hooks/session/useAppBootstrap.ts` | `getFeatureFlags` | `GET /api/features` → `http/flags.py` | `flags` (in-process registry + `MINDPAL_*` environment switches) | none. The Supabase feature-policy and admin tables (migrations 0001–0003) are not read at runtime |
 | Changelog | `components/changelog/ChangelogModal.tsx` | `getChangelog`, `dismissChangelog` | `GET/POST /api/release/changelog` → `http/release.py` | `release.changelog` | `changelog_dismissals` |
 | Live voice | `components/voice/VoiceOverlay.tsx`, `voice/call/*` | `voice/control/controlPlane.ts`, `voiceApi.*` | see below | `voice.services.*` | `voice_*` collections |
 

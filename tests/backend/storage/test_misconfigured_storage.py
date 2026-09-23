@@ -51,3 +51,22 @@ def test_app_starts_and_reports_missing_storage_setting() -> None:
     assert storage["status"] == "misconfigured" and "SUPABASE_URL" in storage["reason"]
     assert out["store"] == "UnavailableStore"
     assert "SUPABASE_URL" in out["store_call"]
+
+
+def test_production_never_runs_on_memory_storage() -> None:
+    """Audit MP-16: production could start on per-process memory and report ready."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("SUPABASE_", "MINDPAL_STORAGE"))}
+    env.update({
+        "ENVIRONMENT": "production",
+        "MINDPAL_STORAGE_PROVIDER": "memory",
+        "ENABLE_FIREBASE": "false",
+        "PYTHONPATH": str(ROOT),
+    })
+    proc = subprocess.run([sys.executable, "-c", PROBE], cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
+    line = next((l for l in proc.stdout.splitlines() if l.startswith("RESULT")), None)
+    assert line, proc.stderr[-2000:]
+    out = json.loads(line[len("RESULT"):])
+    assert out["live"] == 200
+    assert out["ready"] == 503
+    assert out["store"] == "UnavailableStore"
+    assert "durable storage" in out["ready_body"]["detail"]["storage"]["reason"]

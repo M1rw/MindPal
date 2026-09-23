@@ -140,7 +140,20 @@ class Settings(BaseSettings):
                 raise ValueError('MINDPAL_STORAGE_PROVIDER=supabase requires SUPABASE_SERVICE_ROLE_KEY')
         if provider == 'firestore' and not self.enable_firebase:
             raise ValueError('MINDPAL_STORAGE_PROVIDER=firestore requires ENABLE_FIREBASE to be on')
+        if provider == 'memory' and self.is_production_environment():
+            # Per-process memory in production loses every write on restart and
+            # makes each instance enforce its own chat and voice limits, while
+            # readiness still said "ok". The app starts on UnavailableStore
+            # instead: shell and sign-in work, data routes answer 503.
+            raise ValueError(
+                'Production needs durable storage: set MINDPAL_STORAGE_PROVIDER=supabase '
+                '(with SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY) or firestore. '
+                'Memory storage is for development and tests only.'
+            )
         return provider
+
+    def is_production_environment(self) -> bool:
+        return (self.environment or 'production').strip().lower() not in {'development', 'dev', 'test', 'testing', 'local'}
 
     def scheduler_secrets(self) -> set[str]:
         return {value.strip() for value in (self.voice_retention_cron_secret, self.cron_secret) if value.strip()}

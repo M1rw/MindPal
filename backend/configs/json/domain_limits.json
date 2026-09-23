@@ -46,9 +46,7 @@
     "account_side_collections": [
       "user_presence",
       "changelog_dismissals",
-      "voice_minute_reservations",
       "voice_active_sessions",
-      "user_quotas",
       "adaptive_profiles",
       "memory_journal",
       "memory_jobs"

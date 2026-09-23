@@ -19,6 +19,13 @@ on:
       - 'requirements.lock'
       - 'requirements-dev.lock'
       - '.github/workflows/validation.yml'
+      - 'api/**'
+      - 'vercel.json'
+      - '.vercelignore'
+      - '.env.example'
+      - 'tailwind.config.cjs'
+      - 'data/**'
+      - 'requirements.txt'
   pull_request:
     paths:
       - 'backend/**'
@@ -37,6 +44,13 @@ on:
       - 'requirements.lock'
       - 'requirements-dev.lock'
       - '.github/workflows/validation.yml'
+      - 'api/**'
+      - 'vercel.json'
+      - '.vercelignore'
+      - '.env.example'
+      - 'tailwind.config.cjs'
+      - 'data/**'
+      - 'requirements.txt'
 
 permissions:
   contents: read
