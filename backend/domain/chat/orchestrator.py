@@ -18,15 +18,17 @@ from backend.domain.adaptation.profile import (
     personalization_overrides,
 )
 from backend.domain.chat.history import normalize_history
+from backend.domain.chat.routing import GenerationPlan, plan_generation
 from backend.domain.chat.strategy import DIRECTIVES, score_strategies
-from backend.domain.dynamic.policy import policy
+from backend.domain.chat.trajectory import analyze as analyze_trajectory
+from backend.domain.dynamic.policy import current_load, policy
 from backend.domain.grounding.grounding import GroundingService
 from backend.domain.memory.extract import can_persist_user_memory, extract_atoms_from_turn
 from backend.domain.memory.consolidation import MemoryConsolidationService
 from backend.domain.memory.graph import MemoryGraphService, format_memory_receipt
 from backend.domain.quota.quota import QuotaDecision, QuotaService, cost_for_model, is_user_quota_subject
 from backend.domain.safety.modes.chat.classify import SafetyCheckResult, SafetyService
-from backend.domain.safety.shared.output_guard import OutputGuardService
+from backend.domain.safety.shared.output_guard import OutputGuardService, StockSentenceFilter
 from backend.infra.llm.gateway import LLMGateway, LLMGatewayError, get_llm_gateway
 from backend.infra.store.store import InMemoryStore, StoreUnavailable, get_store
 from backend.tools import ClientContextTools
@@ -54,6 +56,17 @@ class ChatTurnResult:
     session_id: Optional[str] = None
     request_id: Optional[str] = None
     strategy_used: Optional[str] = None
+
+
+@dataclass(frozen=True, slots=True)
+class TurnContext:
+    strategy: str
+    system_instruction: str
+    grounding_ids: List[str]
+    memory_atoms: int
+    has_memory_summary: bool
+    plan: GenerationPlan
+    trajectory: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +199,16 @@ def detect_cognitive_strategy(
 
     decision = score_strategies(message, learned_bias=learned_bias)
     return decision.strategy, f"{DIRECTIVES[decision.directive_key]}{extras}"
+
+
+def _record_reply_quality(stock_dropped: int) -> None:
+    try:
+        from backend.infra.observability.pulse import platform_pulse
+
+        platform_pulse().record_quality("replies")
+        platform_pulse().record_quality("stock_sentences_dropped", stock_dropped)
+    except Exception:
+        logger.debug("reply_quality_record_skipped", exc_info=True)
 
 
 class ChatOrchestrator:
@@ -339,20 +362,39 @@ class ChatOrchestrator:
         personalization: Optional[Dict[str, Any]],
         client_context: Optional[Dict[str, Any]],
         adaptation: Optional[TurnAdaptation] = None,
-    ) -> tuple[str, str, List[str], int, bool]:
+        history: Optional[Sequence[Any]] = None,
+    ) -> "TurnContext":
         learned_profile = adaptation.profile if adaptation else {}
+        trajectory = analyze_trajectory(history, message)
+        bias: Dict[str, float] = dict(adaptation.bias) if adaptation else {}
+        for name, value in trajectory.strategy_bias().items():
+            bias[name] = bias.get(name, 0.0) + value
+        effective_personalization = merge_learned_personalization(personalization, personalization_overrides(learned_profile))
         strategy, strategy_directive = detect_cognitive_strategy(
             message,
             model=model,
             telemetry=telemetry,
-            personalization=merge_learned_personalization(personalization, personalization_overrides(learned_profile)),
-            learned_bias=adaptation.bias if adaptation else None,
+            personalization=effective_personalization,
+            learned_bias=bias or None,
+        )
+        plan = plan_generation(
+            message=message,
+            strategy=strategy,
+            reflecting_distress=strategy_directive.startswith(DIRECTIVES["reflect"][:40]),
+            trajectory=trajectory,
+            personalization=effective_personalization,
+            load=current_load(),
         )
         memory = self.memory_service.prompt_for_user(user_id_hash)
-        grounding_chunks = self.grounding_service.retrieve_context(message)
+        grounding_chunks = self.grounding_service.retrieve_context(
+            message, semantic=bool(current_load().policy("retrieval")["semantic"])
+        )
         system_instruction = CHAT_SYSTEM_BASE + f"{strategy_directive}\n"
         if adaptation and adaptation.note:
             system_instruction += f"{adaptation.note}\n"
+        trajectory_note = trajectory.note()
+        if trajectory_note:
+            system_instruction += f"{trajectory_note}\n"
         context_note = client_context_note(client_context)
         if context_note:
             system_instruction += f"{context_note}\n"
@@ -362,7 +404,15 @@ class ChatOrchestrator:
             system_instruction += "\n" + _GROUNDING_HEADER + "\n" + "\n".join(
                 f"- {c.topic}: {c.content}" for c in grounding_chunks
             )
-        return strategy, system_instruction, [c.id for c in grounding_chunks], memory.atom_count, memory.has_summary
+        return TurnContext(
+            strategy=strategy,
+            system_instruction=system_instruction,
+            grounding_ids=[c.id for c in grounding_chunks],
+            memory_atoms=memory.atom_count,
+            has_memory_summary=memory.has_summary,
+            plan=plan,
+            trajectory=trajectory.direction,
+        )
 
     def _sse_error(self, code: str, message: str, *, request_id: Optional[str], strategy: str) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
@@ -503,7 +553,7 @@ class ChatOrchestrator:
                 turns = turns[-max(8, int(len(turns) * history_scale)) :]
             learn = is_user_quota_subject(user_id_hash) and not anonymous
             adaptation = self._prepare_adaptation(user_id_hash, message, persist=learn)
-            strategy, system_instruction, grounding_ids, memory_atoms, has_memory_summary = self._assemble_system_instruction(
+            context = self._assemble_system_instruction(
                 user_id_hash=user_id_hash,
                 message=message,
                 model=model,
@@ -511,7 +561,10 @@ class ChatOrchestrator:
                 personalization=personalization,
                 client_context=client_context,
                 adaptation=adaptation,
+                history=history,
             )
+            strategy, system_instruction, grounding_ids = context.strategy, context.system_instruction, context.grounding_ids
+            memory_atoms, has_memory_summary = context.memory_atoms, context.has_memory_summary
             logger.info(
                 "chat_turn_generate request_id=%s strategy=%s history_turns=%s grounding=%s memory_atoms=%s memory_summary=%s",
                 request_id or "-",
@@ -530,12 +583,24 @@ class ChatOrchestrator:
                     model,
                     getattr(self.llm_gateway, "default_model", "gemini-2.5-flash") or "gemini-2.5-flash",
                 ),
+                max_tokens=context.plan.max_tokens,
+                thinking_budget=context.plan.thinking_budget,
+            )
+            logger.info(
+                "chat_turn_plan request_id=%s depth=%s reason=%s thinking=%s max_tokens=%s trajectory=%s",
+                request_id or "-",
+                context.plan.depth,
+                context.plan.reason,
+                context.plan.thinking_budget,
+                context.plan.max_tokens,
+                context.trajectory,
             )
             token_count = 0
             reply_parts: List[str] = []
             reply_chars = 0
             try:
-                async with aclosing(self.output_guard.guard_stream(raw_stream)) as guarded:
+                stock_filter = StockSentenceFilter()
+                async with aclosing(stock_filter.filter(self.output_guard.guard_stream(raw_stream))) as guarded:
                     async for token in guarded:
                         if not token:
                             continue
@@ -564,6 +629,7 @@ class ChatOrchestrator:
                 return
 
             completed = True
+            _record_reply_quality(stock_filter.dropped)
             if learn:
                 self.adaptation.commit_turn(user_id_hash, message, strategy)
             receipt = self._write_turn_memory(user_id_hash, message, request_id=request_id)

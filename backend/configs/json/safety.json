@@ -8,6 +8,31 @@
       "i do(?:n't| not) have (?:personal )?(?:feelings|emotions)",
       "i do(?:n't| not) have the ability to feel",
       "i cannot (?:experience|feel) emotions"
+    ],
+    "stock_sentences": [
+      "it'?s (completely |totally |perfectly )?(valid|understandable|okay|ok|normal) (to|that you) (feel|be feeling)",
+      "i hear you",
+      "that (sounds|must be) (really |so |incredibly )?(tough|hard|difficult|challenging|overwhelming)",
+      "i'?m (always )?here (for you|to listen)",
+      "remember,? you'?re not alone",
+      "take (all )?the time you need",
+      "i (completely |totally )?understand how you feel",
+      "your feelings are valid",
+      "it'?s (important|okay) to (acknowledge|remember) (your|that)"
+    ],
+    "stock_sentence_max_chars": 110,
+    "stock_sentence_leads": [
+      "it's",
+      "its",
+      "it",
+      "i",
+      "i'm",
+      "im",
+      "that",
+      "remember",
+      "remember,",
+      "take",
+      "your"
     ]
   },
   "safety_normalization": {
@@ -19,10 +44,48 @@
     "arabic_end_pattern": "(?![\\u0621-\\u064A])"
   },
   "crisis_patterns": [
-    "\\bkill(?:ing|ed)?\\s*{SELF}\\b", "\\b(?:off|offing)\\s*{SELF}\\b", "\\bhurt(?:ing)?\\s*{SELF}\\b", "\\bharm(?:ing)?\\s*{SELF}\\b", "\\bcut(?:ting)?\\s*{SELF}\\b", "\\bhang(?:ing)?\\s*{SELF}\\b", "\\bstab(?:bing)?\\s*{SELF}\\b", "\\bself\\s*harm(?:ing|ed)?\\b", "\\bsl(?:it|itting)\\s*my\\s*wrists?\\b", "\\bcut(?:ting)?\\s*my\\s*wrists?\\b", "\\boverdos(?:e|ed|ing)\\b", "\\bsuicid(?:e|al)\\b", "\\bend(?:ing)?\\s*my\\s*life\\b", "\\bend(?:ing)?\\s*it\\s*all\\b", "\\btak(?:e|ing)\\s*my\\s*own\\s*life\\b", "\\b(?:want(?:ed|ing)?\\s*to|wanna|wana)\\s*die\\b", "\\bwish\\s*(?:i|id)\\s*(?:was|were|wasnt|am)\\s*dead\\b", "\\bwish\\s*i\\s*(?:could|would)\\s*die\\b", "\\b(?:better\\s*off|rather\\s*be|want\\s*to\\s*be)\\s*dead\\b", "\\b{NEG}\\s*want\\s*to\\s*(?:live|be\\s*alive|wake\\s*up\\s*(?:again|tomorrow))\\b", "\\b{NEG}\\s*want\\s*to\\s*be\\s*here\\s*any\\s*more\\b", "\\bno\\s*(?:reason|point)\\s*(?:to|in|of)?\\s*liv(?:e|ing)\\b", "\\bno\\s*point\\s*being\\s*(?:here|alive)\\b", "انتحار", "انتحر", "قتل\\s*(?:نفسي|حالي){AR_END}", "شنق\\s*(?:نفسي|حالي){AR_END}", "ايذاء\\s*(?:نفسي|النفس){AR_END}", "(?:اذي|اوذي|اجرح|جرح)\\s*(?:نفسي|حالي){AR_END}", "جرعه\\s*زايده", "(?:انهي|انهاء|اخلص\\s*من)\\s*حياتي{AR_END}", "(?:ابي|بدي|عايز|عاوز|اريد|نفسي|ودي|بغيت|حاب)\\s*(?:ان\\s*)?اموت{AR_END}", "(?:ما\\s*بدي|مابدي|مش\\s*عايز|مش\\s*عاوز|لا\\s*اريد|ما\\s*ابي|ما\\s*اريد)\\s*(?:ان\\s*)?اعيش{AR_END}"
+    "\\bkill(?:ing|ed)?\\s*{SELF}\\b",
+    "\\b(?:off|offing)\\s*{SELF}\\b",
+    "\\bhurt(?:ing)?\\s*{SELF}\\b",
+    "\\bharm(?:ing)?\\s*{SELF}\\b",
+    "\\bcut(?:ting)?\\s*{SELF}\\b",
+    "\\bhang(?:ing)?\\s*{SELF}\\b",
+    "\\bstab(?:bing)?\\s*{SELF}\\b",
+    "\\bself\\s*harm(?:ing|ed)?\\b",
+    "\\bsl(?:it|itting)\\s*my\\s*wrists?\\b",
+    "\\bcut(?:ting)?\\s*my\\s*wrists?\\b",
+    "\\boverdos(?:e|ed|ing)\\b",
+    "\\bsuicid(?:e|al)\\b",
+    "\\bend(?:ing)?\\s*my\\s*life\\b",
+    "\\bend(?:ing)?\\s*it\\s*all\\b",
+    "\\btak(?:e|ing)\\s*my\\s*own\\s*life\\b",
+    "\\b(?:want(?:ed|ing)?\\s*to|wanna|wana)\\s*die\\b",
+    "\\bwish\\s*(?:i|id)\\s*(?:was|were|wasnt|am)\\s*dead\\b",
+    "\\bwish\\s*i\\s*(?:could|would)\\s*die\\b",
+    "\\b(?:better\\s*off|rather\\s*be|want\\s*to\\s*be)\\s*dead\\b",
+    "\\b{NEG}\\s*want\\s*to\\s*(?:live|be\\s*alive|wake\\s*up\\s*(?:again|tomorrow))\\b",
+    "\\b{NEG}\\s*want\\s*to\\s*be\\s*here\\s*any\\s*more\\b",
+    "\\bno\\s*(?:reason|point)\\s*(?:to|in|of)?\\s*liv(?:e|ing)\\b",
+    "\\bno\\s*point\\s*being\\s*(?:here|alive)\\b",
+    "انتحار",
+    "انتحر",
+    "قتل\\s*(?:نفسي|حالي){AR_END}",
+    "شنق\\s*(?:نفسي|حالي){AR_END}",
+    "ايذاء\\s*(?:نفسي|النفس){AR_END}",
+    "(?:اذي|اوذي|اجرح|جرح)\\s*(?:نفسي|حالي){AR_END}",
+    "جرعه\\s*زايده",
+    "(?:انهي|انهاء|اخلص\\s*من)\\s*حياتي{AR_END}",
+    "(?:ابي|بدي|عايز|عاوز|اريد|نفسي|ودي|بغيت|حاب)\\s*(?:ان\\s*)?اموت{AR_END}",
+    "(?:ما\\s*بدي|مابدي|مش\\s*عايز|مش\\s*عاوز|لا\\s*اريد|ما\\s*ابي|ما\\s*اريد)\\s*(?:ان\\s*)?اعيش{AR_END}"
   ],
   "benign_patterns": [
-    "\\bkill(?:ing)?\\s*{SELF}\\s*laughing\\b", "\\b(?:want(?:ed)?\\s*to|wanna)\\s*die\\s*(?:laughing|of\\s*(?:laughter|embarrassment|shame))\\b", "\\boverdos(?:e|ed|ing)\\s*(?:on|of)\\s*(?:caffeine|coffee|sugar|chocolate|candy|carbs|cake|vitamins?)\\b", "\\bsuicide\\s*(?:and\\s*crisis\\s*)?(?:lifeline|hotline|help\\s*line|helpline|prevention|squad)\\b", "\\bnational\\s*suicide\\b", "\\bsuicide\\s*prevention\\b", "خط\\s*(?:الدعم|المساعده|الطوارئ)"
+    "\\bkill(?:ing)?\\s*{SELF}\\s*laughing\\b",
+    "\\b(?:want(?:ed)?\\s*to|wanna)\\s*die\\s*(?:laughing|of\\s*(?:laughter|embarrassment|shame))\\b",
+    "\\boverdos(?:e|ed|ing)\\s*(?:on|of)\\s*(?:caffeine|coffee|sugar|chocolate|candy|carbs|cake|vitamins?)\\b",
+    "\\bsuicide\\s*(?:and\\s*crisis\\s*)?(?:lifeline|hotline|help\\s*line|helpline|prevention|squad)\\b",
+    "\\bnational\\s*suicide\\b",
+    "\\bsuicide\\s*prevention\\b",
+    "خط\\s*(?:الدعم|المساعده|الطوارئ)"
   ],
   "crisis_response": "If you are feeling overwhelmed or having thoughts of self-harm, please know that help is available.\n\nYou can connect with compassionate, trained professionals immediately:\n\n• **National Suicide and Crisis Lifeline (US):** Call or text 988\n• **Crisis Text Line:** Text HOME to 741741\n• **International Emergency Services:** Please contact your local emergency response service or nearest crisis line.\n\nI am here to listen and support you, but please reach out to these crisis resources right now for immediate help."
 }

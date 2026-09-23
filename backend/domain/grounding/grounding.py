@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Dict, Iterable, List, Sequence
 
 import yaml
 
 from backend.configs.runtime import domain_limits_config
+from backend.infra.llm.embeddings import cosine, get_embedder
 
 logger = logging.getLogger("mindpal.grounding")
 
@@ -19,6 +22,9 @@ CLINICAL_CORPUS_DIR = REPO_ROOT / "data" / "clinical_frameworks"
 CORE_CORPUS_DIR = REPO_ROOT / "backend" / "rag" / "corpus"
 
 _GROUNDING_LIMITS = domain_limits_config()["grounding"]
+SEMANTIC_FLOOR = float(_GROUNDING_LIMITS.get("semantic_floor", 0.55))
+SEMANTIC_WEIGHT = float(_GROUNDING_LIMITS.get("semantic_weight", 1.5))
+EMBEDDINGS_FILE = CLINICAL_CORPUS_DIR / "embeddings.json"
 DEFAULT_LIMIT = int(_GROUNDING_LIMITS["default_limit"])
 MIN_SCORE = float(_GROUNDING_LIMITS["min_score"])
 MAX_INSTRUCTIONS = int(_GROUNDING_LIMITS["max_instructions"])
@@ -165,6 +171,15 @@ def _score_unit(query_lower: str, unit: CorpusUnit) -> float:
     return score
 
 
+def unit_fingerprint(unit: CorpusUnit) -> str:
+    text = "|".join((unit.technique, unit.category, " ".join(unit.trigger_terms), unit.render()))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def unit_embedding_text(unit: CorpusUnit) -> str:
+    return f"{unit.technique}. {unit.category}. When: {', '.join(unit.trigger_terms)}. {unit.render()}"
+
+
 class GroundingService:
     """Lexical retrieval over the curated clinical / wellness corpus."""
 
@@ -177,14 +192,55 @@ class GroundingService:
             return self._override_units
         return load_corpus_units()
 
-    def retrieve_context(self, message: str, limit: int = DEFAULT_LIMIT) -> List[GroundingChunk]:
+    @cached_property
+    def unit_vectors(self) -> Dict[str, List[float]]:
+        """Precomputed library vectors (scripts/ops/build_grounding_embeddings.py).
+
+        A vector whose unit text changed since it was built is ignored, so an
+        edited technique can never be matched on its old meaning.
+        """
+        try:
+            payload = json.loads(EMBEDDINGS_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        stored = payload.get("units") if isinstance(payload, dict) else None
+        if not isinstance(stored, dict):
+            return {}
+        current = {unit.id: unit_fingerprint(unit) for unit in self.units}
+        return {
+            unit_id: list(entry["vector"])
+            for unit_id, entry in stored.items()
+            if isinstance(entry, dict) and current.get(unit_id) == entry.get("hash") and isinstance(entry.get("vector"), list)
+        }
+
+    def _semantic_scores(self, message: str, semantic: bool) -> Dict[str, float]:
+        if not semantic or not self.unit_vectors:
+            return {}
+        embedder = get_embedder()
+        vectors = embedder.embed([message], task="RETRIEVAL_QUERY") if embedder else None
+        if not vectors:
+            return {}
+        query = vectors[0]
+        return {
+            unit_id: max(0.0, cosine(query, vector) - SEMANTIC_FLOOR) * SEMANTIC_WEIGHT
+            for unit_id, vector in self.unit_vectors.items()
+        }
+
+    def retrieve_context(self, message: str, limit: int = DEFAULT_LIMIT, *, semantic: bool = False) -> List[GroundingChunk]:
+        """Hybrid ranking: keyword hits plus, when allowed, similarity of meaning.
+
+        "I froze in the meeting" reaches the anxiety techniques even though it
+        shares no keyword with them. Without vectors or an embedder, ranking is
+        keywords only, exactly as before.
+        """
         if not message or not message.strip() or limit <= 0:
             return []
 
         query_lower = " ".join(message.split()).lower()
+        semantic_scores = self._semantic_scores(message, semantic)
         ranked: list[tuple[float, CorpusUnit]] = []
         for unit in self.units:
-            score = _score_unit(query_lower, unit)
+            score = _score_unit(query_lower, unit) + semantic_scores.get(unit.id, 0.0)
             if score < MIN_SCORE:
                 continue
             ranked.append((score, unit))
@@ -194,5 +250,5 @@ class GroundingService:
             GroundingChunk(id=unit.id, topic=unit.technique, content=unit.render())
             for _, unit in ranked[:limit]
         ]
-        logger.info("grounding_retrieve hits=%s", len(chunks))
+        logger.info("grounding_retrieve hits=%s semantic=%s", len(chunks), bool(semantic_scores))
         return chunks

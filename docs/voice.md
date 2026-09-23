@@ -14,7 +14,7 @@ sequenceDiagram
     participant G as Gemini Live
 
     C->>API: POST session-token (consent)
-    API->>S: mint: account, flag, durable store,<br/>reserve seconds, learned style note
+    API->>S: mint: account, flag, durable store,<br/>reserve seconds, memory + learned style note
     S-->>C: ephemeral token + session id
     C->>G: connect with token (audio both ways)
     loop during the call
@@ -27,6 +27,10 @@ sequenceDiagram
     C->>API: POST summarize
     S-->>C: recap message in chat history (also becomes a memory digest)
 ```
+
+A call starts knowing the person: their AI summary, open threads and most
+salient facts are sealed into the Live instruction at mint (server-set only; a
+client-supplied value is dropped). Recall tools still work mid-call.
 
 ## Quota
 

@@ -31,6 +31,8 @@ from backend.domain.voice.providers.gemini import (
 
 _TOKEN_CONFIG = voice_runtime_config()["token"]
 LEARNED_NOTE_KEY = "_mindpal_learned_note"
+MEMORY_NOTE_KEY = "_mindpal_memory_note"
+SERVER_ONLY_KEYS = frozenset({LEARNED_NOTE_KEY, MEMORY_NOTE_KEY})
 
 JsonPoster = Callable[[str, Dict[str, str], Dict[str, Any], float], Dict[str, Any]]
 TokenCreator = Callable[[str, Dict[str, Any]], str]
@@ -75,6 +77,7 @@ def wellness_live_instruction(
     pers = personalization or {}
     # Server-set only (the session service strips it from client input).
     learned_note = learned_note or str(pers.get(LEARNED_NOTE_KEY) or "")[:600]
+    memory_note = str(pers.get(MEMORY_NOTE_KEY) or "")[:1400].strip()
     style = str(pers.get("baseStyle") or pers.get("base_style") or "balanced").lower()
     warmth = str(pers.get("warmth") or "warm").lower()
     lang = (voice_language or "").strip().lower()
@@ -130,6 +133,8 @@ def wellness_live_instruction(
         # What this caller's past conversations taught MindPal (adaptive profile).
         # Style only: it never overrides the safety rules below.
         f"{(learned_note.strip() + ' ') if learned_note.strip() else ''}"
+        # What MindPal remembers about this caller (server-set; facts and the AI summary).
+        f"{('What you remember about this caller, from past conversations (may be outdated; use it naturally, never recite it, never invent more): ' + memory_note + ' ') if memory_note else ''}"
         "Never use stock sympathy lines like that sounds like a complicated situation, I am here to "
         "listen whenever you are ready, or it is understandable to feel that way. Never tell them to "
         "take their time or that you are here whenever they are ready — just ask the next question. "
