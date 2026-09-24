@@ -25,7 +25,7 @@ export const App: React.FC = () => {
 
   return (
     <ErrorBoundary variant="app">
-      <div className="h-dvh-safe flex flex-col bg-surface-canvas text-content-primary font-sans overflow-hidden transition-colors duration-200 ease-out selection:bg-brand-primary selection:text-white relative">
+      <div className="app-shell h-dvh-safe flex flex-col bg-surface-canvas text-content-primary font-sans overflow-hidden transition-colors duration-200 ease-out selection:bg-brand-primary selection:text-white">
         <a
           href="#chat-main"
           className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-[9999] px-4 py-2.5 bg-brand-primary text-white font-medium text-sm rounded-xl shadow-xl outline-none ring-2 ring-white focus:outline-none"

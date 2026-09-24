@@ -48,12 +48,14 @@ function focusIsInsideModal(): boolean {
 
 export function applyViewportHeight(
   win: Pick<Window, 'innerHeight'> & {
-    visualViewport?: { height?: number } | null;
+    visualViewport?: { height?: number; offsetTop?: number } | null;
   } = window,
 ): ViewportMetrics {
   const metrics = getViewportMetrics(win);
 
   document.documentElement.style.setProperty('--app-height', `${metrics.effectiveHeight}px`);
+  const offsetTop = Number(win.visualViewport?.offsetTop);
+  document.documentElement.style.setProperty('--vv-top', `${Number.isFinite(offsetTop) ? Math.max(0, offsetTop) : 0}px`);
 
   // Only lift the composer dock when the keyboard was opened by an input
   // that lives INSIDE the chat composer, not inside a modal dialog.

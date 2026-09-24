@@ -105,8 +105,8 @@ jobs:
           cache: npm
       - name: Install frontend dependencies
         run: npm ci
-      - name: Install the browser for end-to-end and audio worklet tests
-        run: npx playwright install --with-deps chromium
+      - name: Install browsers for end-to-end, device (iPhone WebKit / Android Chromium) and audio worklet tests
+        run: npx playwright install --with-deps chromium webkit
       - name: Generated brand files match brand.json
         # `npm run build` regenerates index.html's head from brand.json; a stale
         # commit there is silently rewritten on the next local build.
