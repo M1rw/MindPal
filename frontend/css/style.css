@@ -62,6 +62,8 @@ html {
   left: 0;
   right: 0;
   top: var(--vv-top, 0px);
+  /* See .chat-stage: never scrollable, not even by focus. */
+  overflow: clip;
 }
 
 /* ═══ Prevent iOS Safari Auto-Zoom on Form Focus (Strict 16px Rule) ═══ */
@@ -3520,6 +3522,11 @@ details > summary::-webkit-details-marker { display: none; }
   flex: 1 1 0%;
   min-height: 0;
   overflow: hidden;
+  /* clip, not just hidden: a hidden box can still be scrolled by the browser.
+     When the keyboard shrinks the view, WebKit scrolls the focused composer's
+     overflow:hidden ancestors "into view", which pushed the whole composer to
+     the top of the screen. A clipped box cannot scroll at all. */
+  overflow: clip;
   grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
