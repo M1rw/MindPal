@@ -18,6 +18,7 @@
 import { useSessionStore, useSettingsStore } from '../../store/index.ts';
 import { usersApi } from '../api/users.ts';
 import type { UserUISettings } from '../../types/index.ts';
+import { claim, isGuestOwner, stillOwns } from '../session/owner.ts';
 
 type Flat = Record<string, string | number | boolean | null>;
 
@@ -80,10 +81,20 @@ function changedKeys(before: Flat, after: Flat): Flat {
 
 let applyingRemote = false;
 let lastSynced: Flat = {};
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** Pull the account's settings into the store; push any the account lacks. */
+/**
+ * Pull the account's settings into the store; push any the account lacks.
+ *
+ * Bound to the account that asked (audit MP-19): if the owner changes while the
+ * profile is loading, the answer is dropped instead of applying A's voice to B
+ * and then PATCHing it into B's profile with B's token.
+ */
 export async function pullAccountSettings(): Promise<void> {
+  const owner = claim();
+  if (isGuestOwner(owner)) return;
   const profile = await usersApi.getUserProfile();
+  if (!stillOwns(owner)) return;
   const remote = fromProfileSettings(profile?.settings);
   if (remote) {
     applyingRemote = true;
@@ -96,28 +107,34 @@ export async function pullAccountSettings(): Promise<void> {
   const local = toProfileSettings(useSettingsStore.getState().settings);
   const stored = (profile?.settings ?? {}) as Flat;
   const missing = changedKeys(stored, local);
-  lastSynced = { ...local };
+  // Only what the server already holds counts as synced. The missing keys are
+  // marked synced after their PATCH succeeds, so a failed push is retried.
+  lastSynced = Object.fromEntries(Object.entries(local).filter(([key]) => !(key in missing)));
   if (Object.keys(missing).length) {
     await usersApi.patchUserProfile({ settings: missing });
+    if (stillOwns(owner)) lastSynced = { ...lastSynced, ...missing };
   }
 }
 
 /** Push changes while signed in. Returns an unsubscribe function. */
 export function subscribeSettingsSync(): () => void {
-  let timer: ReturnType<typeof setTimeout> | null = null;
   const unsubscribe = useSettingsStore.subscribe((state, previous) => {
     if (applyingRemote || state.settings === previous.settings) return;
     if (!useSessionStore.getState().isAuthenticated) return;
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = null;
+    const owner = claim();
+    if (isGuestOwner(owner)) return;
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => {
+      pushTimer = null;
+      // Scheduled by one account, due after another signed in: not ours to send.
+      if (!stillOwns(owner)) return;
       const next = toProfileSettings(useSettingsStore.getState().settings);
       const diff = changedKeys(lastSynced, next);
       if (!Object.keys(diff).length) return;
       usersApi
         .patchUserProfile({ settings: diff })
         .then(() => {
-          lastSynced = { ...lastSynced, ...diff };
+          if (stillOwns(owner)) lastSynced = { ...lastSynced, ...diff };
         })
         .catch(() => {
           // Kept on the device; the next change or sign-in retries the diff.
@@ -125,12 +142,15 @@ export function subscribeSettingsSync(): () => void {
     }, PUSH_DELAY_MS);
   });
   return () => {
-    if (timer) clearTimeout(timer);
+    if (pushTimer) clearTimeout(pushTimer);
+    pushTimer = null;
     unsubscribe();
   };
 }
 
-/** Forget what was synced, so the next account starts from its own profile. */
+/** The account changed: forget what was synced and cancel a pending push. */
 export function resetSettingsSync(): void {
   lastSynced = {};
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = null;
 }

@@ -10,6 +10,8 @@ export interface ChatSession {
   id: string;
   title: string;
   titleLocked?: boolean;
+  /** Kept on this device only: never synced (set after account data deletion). */
+  cloudDetached?: boolean;
   createdAt: string; // ISO string
   updatedAt: string;
   messages: ChatMessage[];

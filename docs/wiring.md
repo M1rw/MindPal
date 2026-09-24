@@ -98,6 +98,24 @@ flowchart LR
   Boot -->|on any change| Clear[clear usage snapshot]
 ```
 
+### Whose data the browser holds
+
+`frontend/src/services/session/owner.ts` records who owns the browser (an account
+ID, or `guest`) and bumps an epoch on every switch. Every piece of work that
+awaits something captures a `claim()` first and checks `stillOwns()` before
+applying or sending anything:
+
+- Local chat history is stored per owner. Guests keep `mindpal_chat_sessions`;
+  accounts use `mindpal_chat_sessions:acct:<uid>`. Switching owner swaps the
+  list and clears the open conversation, the memory panel and the usage
+  snapshot.
+- Cloud saves, deletes and loads, and settings pulls and pushes, are dropped if
+  the owner changed while they were in flight.
+- Guest chats join an account only through "Add to my account" in the history
+  panel.
+- After "delete my data", local copies are marked `cloudDetached` and never
+  sync again.
+
 ## Feature map
 
 | Feature | UI (frontend/src) | Client call | Route → module | Domain | Stored in |
