@@ -102,7 +102,7 @@ def _build_html_brand_block(b: dict) -> str:
         I + '<meta name="application-name" content="' + name + '">',
         I + '<meta name="apple-mobile-web-app-title" content="' + name + '">',
         I + '<meta name="apple-mobile-web-app-capable" content="yes">',
-        I + '<meta name="apple-mobile-web-app-status-bar-style" content="default">',
+        I + '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
         I + '<meta name="mobile-web-app-capable" content="yes">',
         I + '<meta name="format-detection" content="telephone=no">',
         "",

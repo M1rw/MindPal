@@ -8,6 +8,7 @@ import { ChatInputHandle } from './components/chat/input/ChatInput';
 import { useFlagsStore, useMemoryStore } from './store/index';
 import { useAppBootstrap } from './hooks/session/useAppBootstrap';
 import { useChatSessionPersistence } from './hooks/chat/useChatSessionPersistence';
+import { useGlobalShortcuts } from './hooks/ui/useGlobalShortcuts';
 
 export const App: React.FC = () => {
   const memoryOpen = useMemoryStore((state) => state.isOpen);
@@ -20,6 +21,7 @@ export const App: React.FC = () => {
   const showPresenceTab = Boolean(flags.presence_enabled ?? false);
   const resolvedActiveTab = showPresenceTab ? activeTab : 'chat';
   useChatSessionPersistence();
+  useGlobalShortcuts();
 
   return (
     <ErrorBoundary variant="app">

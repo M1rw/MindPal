@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Edit2, MessageSquare, Trash2 } from 'lucide-react';
+import { Edit2, MessageSquare, Pin, PinOff, Trash2 } from 'lucide-react';
 import type { ChatSession } from '../../../types';
+import { HighlightedText } from '../../ui/HighlightedText';
 
 interface ChatHistorySessionItemProps {
   session: ChatSession;
@@ -13,6 +14,16 @@ interface ChatHistorySessionItemProps {
   onSaveRename: (id: string) => void;
   onEditingTitleChange: (value: string) => void;
   onEditingIdChange: (value: string | null) => void;
+  /** The keyboard selection in the palette (distinct from the open chat). */
+  isHighlighted?: boolean;
+  /** The line that matched the search, shown under the title. */
+  snippet?: string;
+  /** Words to mark in the title and snippet. */
+  query?: string;
+  onHighlight?: () => void;
+  /** Index among the palette's selectable rows, for keyboard scrolling. */
+  paletteIndex?: number;
+  onTogglePin?: (event: React.MouseEvent, id: string) => void;
 }
 
 export const ChatHistorySessionItem: React.FC<ChatHistorySessionItemProps> = ({
@@ -26,6 +37,12 @@ export const ChatHistorySessionItem: React.FC<ChatHistorySessionItemProps> = ({
   onSaveRename,
   onEditingTitleChange,
   onEditingIdChange,
+  isHighlighted = false,
+  snippet,
+  query = '',
+  onHighlight,
+  paletteIndex,
+  onTogglePin,
 }) => {
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -41,7 +58,9 @@ export const ChatHistorySessionItem: React.FC<ChatHistorySessionItemProps> = ({
     <div
       className={`history-session-item group mx-2 flex min-h-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left ${
         isActive ? 'is-active' : ''
-      }`}
+      } ${isHighlighted ? 'is-highlighted' : ''}`}
+      data-palette-index={paletteIndex}
+      onMouseMove={onHighlight}
     >
       {isEditing ? null : (
         <button
@@ -51,7 +70,11 @@ export const ChatHistorySessionItem: React.FC<ChatHistorySessionItemProps> = ({
           aria-label={`Open conversation ${session.title}`}
         />
       )}
-      <MessageSquare className="history-session-item__icon h-4 w-4 flex-shrink-0 text-content-muted" aria-hidden="true" />
+      {session.pinned ? (
+        <Pin className="history-session-item__icon h-4 w-4 flex-shrink-0 text-brand-primary" aria-label="Pinned" />
+      ) : (
+        <MessageSquare className="history-session-item__icon h-4 w-4 flex-shrink-0 text-content-muted" aria-hidden="true" />
+      )}
       {isEditing ? (
         <input
           ref={titleRef}
@@ -80,12 +103,19 @@ export const ChatHistorySessionItem: React.FC<ChatHistorySessionItemProps> = ({
           className="history-rename min-w-0 flex-1 text-content-primary"
         />
       ) : (
-        <span
-          className={`history-session-item__title min-w-0 flex-1 truncate text-left text-sm leading-5 ${
-            isActive ? 'font-medium text-content-primary' : 'text-content-primary'
-          }`}
-        >
-          {session.title}
+        <span className="history-session-item__title flex min-w-0 flex-1 flex-col text-left">
+          <span
+            className={`truncate text-sm leading-5 ${
+              isActive ? 'font-medium text-content-primary' : 'text-content-primary'
+            }`}
+          >
+            <HighlightedText text={session.title} query={query} />
+          </span>
+          {snippet ? (
+            <span className="truncate text-xs leading-4 text-content-muted">
+              <HighlightedText text={snippet} query={query} />
+            </span>
+          ) : null}
         </span>
       )}
       <div
@@ -93,6 +123,18 @@ export const ChatHistorySessionItem: React.FC<ChatHistorySessionItemProps> = ({
           isEditing ? 'opacity-100' : 'history-session-item__actions--touch opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
         }`}
       >
+        {onTogglePin && !isEditing ? (
+          <button
+            type="button"
+            className="history-row-action flex items-center justify-center rounded-md text-content-muted transition-colors duration-150 hover:bg-surface-elevated hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+            title={session.pinned ? 'Unpin conversation' : 'Pin conversation'}
+            aria-label={session.pinned ? 'Unpin conversation' : 'Pin conversation'}
+            aria-pressed={Boolean(session.pinned)}
+            onClick={(e) => onTogglePin(e, session.id)}
+          >
+            {session.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+          </button>
+        ) : null}
         <button
           type="button"
           className={`history-row-action flex items-center justify-center rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
