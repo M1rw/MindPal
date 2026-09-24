@@ -220,6 +220,87 @@ def _mean(values: List[float]) -> Optional[float]:
     return round(statistics.mean(values), 2) if values else None
 
 
+# Free tiers allow a handful of judge calls a minute; waiting out a 429 is
+# cheaper than a report where most rows say "error".
+_JUDGE_BACKOFF_SECONDS = (20, 40, 60, 90)
+
+
+def judge_one(gateway: Any, case: Dict[str, Any], reply: str, *, provider: str = "gemini") -> Dict[str, Any]:
+    """Score one reply with the judge model; rate limits are waited out, other errors reported."""
+    from backend.models.provider_outputs import extract_json_object
+
+    memory = json.dumps(case.get("memory") or {}, ensure_ascii=False)
+    earlier = "\n".join(
+        f"{'Person' if t['role'] == 'user' else 'Companion'}: {t['content']}" for t in case_history(case)
+    )
+    error = ""
+    with _structured_provider(provider):
+        for wait in (*_JUDGE_BACKOFF_SECONDS, None):
+            try:
+                raw = gateway.generate_json(
+                    prompt=f"Memory: {memory}\n{earlier}\nPerson: {case['message']}\nCompanion: {reply}",
+                    system_instruction=JUDGE_SYSTEM,
+                    temperature=0.0,
+                    max_tokens=400,
+                )
+                return extract_json_object(raw)
+            except Exception as exc:  # a failed judgment is reported, not guessed
+                error = type(exc).__name__
+                if wait is None:
+                    break
+                time.sleep(wait)
+    return {"error": error}
+
+
+def summarize(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Means over judged rows and shape stats over rows that got a reply."""
+    rows_ok = [r for r in rows if r.get("reply")]
+    judged = [r for r in rows if isinstance(r["scores"].get(CRITERIA[0]), (int, float))]
+    means = {
+        c: _mean([float(r["scores"][c]) for r in judged if isinstance(r["scores"].get(c), (int, float))])
+        for c in CRITERIA
+        if any(isinstance(r["scores"].get(c), (int, float)) for r in judged)
+    }
+    by_category: Dict[str, List[float]] = {}
+    flag_counts: Dict[str, int] = {}
+    for row in rows_ok:
+        by_category.setdefault(str(row["category"]), []).append(row["shape"]["score"])
+        for flag in row["shape"]["flags"]:
+            flag_counts[flag] = flag_counts.get(flag, 0) + 1
+    return {
+        "judged": len(judged),
+        "means": means,
+        "overall": _mean([v for v in means.values() if v is not None]),
+        "shape": {
+            "mean": _mean([r["shape"]["score"] for r in rows_ok]),
+            "median_words": statistics.median(r["shape"]["words"] for r in rows_ok) if rows_ok else None,
+            "median_latency_s": statistics.median(r["latency_s"] for r in rows_ok if r.get("latency_s") is not None)
+            if any(r.get("latency_s") is not None for r in rows_ok)
+            else None,
+            "by_category": {k: _mean(v) for k, v in sorted(by_category.items())},
+            "flags": dict(sorted(flag_counts.items(), key=lambda kv: -kv[1])),
+        },
+    }
+
+
+def rejudge(report: Dict[str, Any], *, provider: str = "gemini", pace_seconds: float = 7.0) -> Dict[str, Any]:
+    """Judge again every row of a saved report whose judgment failed, keeping its replies."""
+    from backend.infra.llm.gateway import get_llm_gateway
+
+    gateway = get_llm_gateway()
+    cases = {case["id"]: case for case in load_cases()}
+    for row in report["rows"]:
+        if not row.get("reply") or isinstance(row["scores"].get(CRITERIA[0]), (int, float)):
+            continue
+        case = cases.get(row["id"]) or {"id": row["id"], "message": row["message"]}
+        row["scores"] = judge_one(gateway, case, row["reply"], provider=provider)
+        time.sleep(pace_seconds)
+    report.update(summarize(report["rows"]))
+    report["judge_provider"] = provider
+    return report
+
+
+
 def run_judged(
     cases: Optional[List[Dict[str, Any]]] = None,
     *,
@@ -241,12 +322,16 @@ def run_judged(
     detailed = str(persona.get("baseStyle") or "").lower() == "detailed"
     gateway = get_llm_gateway()
 
+    latency: Dict[str, float] = {}
+
     async def reply_for(case: Dict[str, Any]) -> tuple[str, bool, str]:
         """(reply, crisis, error). Rate limits are waited out, not scored as failures."""
         error = ""
         for attempt in range(5):
+            started = time.perf_counter()
             try:
                 chunks, _ = await _run_case(case, gateway, persona)
+                latency[case["id"]] = round(time.perf_counter() - started, 2)
             except Exception as exc:
                 chunks = [{"error": {"code": type(exc).__name__}}]
             failed = next((c["error"] for c in chunks if c.get("error")), None)
@@ -258,25 +343,7 @@ def run_judged(
         return "", False, error
 
     def judge_reply(case: Dict[str, Any], reply: str) -> Dict[str, Any]:
-        memory = json.dumps(case.get("memory") or {}, ensure_ascii=False)
-        earlier = "\n".join(
-            f"{'Person' if t['role'] == 'user' else 'Companion'}: {t['content']}" for t in case_history(case)
-        )
-        error = ""
-        with _structured_provider(judge_provider):
-            for attempt in range(3):
-                try:
-                    raw = gateway.generate_json(
-                        prompt=f"Memory: {memory}\n{earlier}\nPerson: {case['message']}\nCompanion: {reply}",
-                        system_instruction=JUDGE_SYSTEM,
-                        temperature=0.0,
-                        max_tokens=400,
-                    )
-                    return extract_json_object(raw)
-                except Exception as exc:  # a failed judgment is reported, not guessed
-                    error = type(exc).__name__
-                    time.sleep(pause_seconds * (attempt + 2))
-        return {"error": error}
+        return judge_one(gateway, case, reply, provider=judge_provider)
 
     async def run_all() -> List[Dict[str, Any]]:
         # One event loop for the whole run: provider clients are bound to the loop
@@ -294,6 +361,7 @@ def run_judged(
                     "message": case["message"],
                     "reply": reply,
                     "crisis": crisis,
+                    "latency_s": latency.get(case["id"]),
                     "shape": {"score": shape.score, "flags": shape.flags, **shape.stats},
                     "scores": scores,
                 }
@@ -335,6 +403,9 @@ def run_judged(
         "shape": {
             "mean": _mean([r["shape"]["score"] for r in rows_ok]),
             "median_words": statistics.median(r["shape"]["words"] for r in rows_ok) if rows_ok else None,
+            "median_latency_s": statistics.median(r["latency_s"] for r in rows_ok if r.get("latency_s") is not None)
+            if any(r.get("latency_s") is not None for r in rows_ok)
+            else None,
             "by_category": {k: _mean(v) for k, v in sorted(by_category.items())},
             "flags": dict(sorted(flag_counts.items(), key=lambda kv: -kv[1])),
         },
