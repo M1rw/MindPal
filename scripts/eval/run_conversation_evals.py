@@ -32,6 +32,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--judge", action="store_true", help="generate real replies and score them (costs API calls)")
     parser.add_argument("--baseline", type=Path, help="previous judged report to compare against")
     parser.add_argument("--tolerance", type=float, default=0.3)
+    parser.add_argument("--rejudge", type=Path, help="judge again the failed rows of a saved report, keeping its replies")
+    parser.add_argument("--pace", type=float, default=7.0, help="seconds between judge calls when re-judging")
     parser.add_argument("--only", default="", help="comma-separated case id prefixes")
     parser.add_argument("--no-judge-model", action="store_true", help="shape scores only; skip the judge calls")
     parser.add_argument("--judge-provider", default="gemini", choices=("gemini", "openrouter", "groq"))
@@ -66,6 +68,18 @@ def main(argv: list[str] | None = None) -> int:
         persona["emojiSupport"] = False
     if args.no_lists:
         persona["useHeadersLists"] = False
+    if args.rejudge:
+        from backend.tools.evals import rejudge
+
+        report = rejudge(json.loads(args.rejudge.read_text(encoding="utf-8")), provider=args.judge_provider, pace_seconds=args.pace)
+        args.rejudge.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"Re-judged -> {args.rejudge} ({report['judged']}/{report['cases']} judged)")
+        for criterion, mean in report["means"].items():
+            print(f"  {criterion:24s} {mean}")
+        print(f"  {'overall':24s} {report['overall']}")
+        print(f"  {'shape (0-100)':24s} {report['shape']['mean']}   median words {report['shape']['median_words']}")
+        print(f"  flags: {report['shape']['flags']}")
+        return 0
     report = run_judged(cases, personalization=persona, judge=not args.no_judge_model, judge_provider=args.judge_provider)
     out_dir = ROOT / "artifacts" / "evals"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -76,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {criterion:24s} {mean}")
     print(f"  {'overall':24s} {report['overall']}")
     shape = report["shape"]
-    print(f"  {'shape (0-100)':24s} {shape['mean']}   median words {shape['median_words']}")
+    print(f"  {'shape (0-100)':24s} {shape['mean']}   median words {shape['median_words']}   median latency {shape.get('median_latency_s')}s")
     for category, score in shape["by_category"].items():
         print(f"    {category:22s} {score}")
     print(f"  flags: {shape['flags']}")
