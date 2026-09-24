@@ -86,6 +86,8 @@ class Settings(BaseSettings):
     voice_support_diagnostics_secret: str = Field(default='', validation_alias='MINDPAL_VOICE_SUPPORT_DIAGNOSTICS_SECRET')
     voice_safety_settings: str = Field(default='1', validation_alias='MINDPAL_VOICE_SAFETY_SETTINGS')
     voice_proactive_audio: str = Field(default='', validation_alias='MINDPAL_VOICE_PROACTIVE_AUDIO')
+    # Live voice persona: v2 (characterful, default) or v1 (previous prompt, for rollback).
+    voice_persona: str = Field(default='v2', validation_alias='MINDPAL_VOICE_PERSONA')
     gemini_live_model: str = Field(default='gemini-3.8-live', validation_alias='GEMINI_LIVE_MODEL')
     gemini_live_voice: str = Field(default='Sulafat', validation_alias='GEMINI_LIVE_VOICE')
 
