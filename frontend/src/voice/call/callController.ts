@@ -35,6 +35,7 @@ import { REPLY_NUDGE_NOTE, ReplyGuard } from './replyGuard.ts';
 import { SafetyBridge, type SafetyOutcome } from './safetyBridge.ts';
 import { CallTranscript } from './transcript.ts';
 import { holdScreenAwake } from '../../utils/mobile/wakeLock.ts';
+import { IdleWatch, idleNote } from './idle.ts';
 
 /** How often the controller checks its clocks (pause, reply guard, heartbeat). */
 export const TICK_MS = 250;
@@ -141,6 +142,9 @@ export class LiveVoiceSession {
   private lastLocalBargeAt = 0;
   private replyRequestedAt = 0;
   private pendingNotes: string[] = [];
+  private readonly idle = new IdleWatch();
+  /** Set when the idle goodbye was asked for; the call ends once it has been said. */
+  private idleEndingAt = 0;
   private threadNote = '';
   private openerProfile: OpenerProfile = {};
 
@@ -168,8 +172,16 @@ export class LiveVoiceSession {
   }
 
   setMuted(muted: boolean): void {
+    const was = this.muted;
     this.muted = muted;
     this.mic?.setEnabled(!muted);
+    if (muted === was) return;
+    this.trace.add('mic', muted ? 'muted' : 'unmuted', {});
+    // Muting mid-sentence used to leave the turn open forever: Gemini waits for
+    // silence it never receives. Ending the stream makes it answer what was said.
+    if (muted) this.transport?.sendAudioStreamEnd?.();
+    this.idle.noteMuted(muted, this.now());
+    this.callbacks.onMuted?.(muted);
   }
 
   setReducedMotion(reduced: boolean): void {
@@ -592,6 +604,7 @@ export class LiveVoiceSession {
     }
     const now = this.now();
     this.lastUserWordsAt = now;
+    this.noteCallerActivity(now);
     this.trace.add('caption', 'user', { text: caption, delta: raw });
     this.callbacks.onInputCaption(caption);
     this.face.userWords(raw, now);
@@ -795,6 +808,7 @@ export class LiveVoiceSession {
     this.face.tick(now);
     if (!this.openerHeard && this.setupAt && now - this.setupAt >= OPENER_SILENT_MS) this.retryOpener('silent_opener');
     if (this.safety?.heartbeatDue(now)) void this.syncSafety(false);
+    this.pollIdle(now);
     if (this.warmed && !this.closed && !this.failing && !this.replacing && !this.reconnectAttempted && this.transport?.isStalled?.(now)) {
       this.trace.add('socket', 'asr_stall_reconnect', { quietMs: this.transport.uplink?.()?.quietMs ?? 0 });
       void this.reconnect('asr_stall_timeout');
@@ -826,6 +840,53 @@ export class LiveVoiceSession {
     if (outcome.urgent) this.transport?.sendApplicationNote(outcome.note);
     else this.pendingNotes.push(outcome.note);
     this.flushNotes();
+  }
+
+  /** "I'm here" in the call overlay, or anything else that proves they're present. */
+  stillHere(): void {
+    this.noteCallerActivity(this.now());
+  }
+
+  private noteCallerActivity(now: number): void {
+    const wasIdle = this.idle.current !== 'active';
+    this.idle.activity(now);
+    if (this.idleEndingAt) {
+      // They came back during the goodbye: keep the call.
+      this.idleEndingAt = 0;
+      this.timers.clear('idleEnd');
+    }
+    if (wasIdle) this.callbacks.onIdle?.('active', null);
+  }
+
+  private pollIdle(now: number): void {
+    if (!this.warmed || this.closed || this.failing) return;
+    const busy =
+      this.phase !== 'listening' ||
+      this.modelStreaming ||
+      this.playback.isPlaying() ||
+      this.replacing ||
+      // Never time out someone MindPal is staying with through a crisis.
+      this.isStayingForSupport;
+    if (this.idleEndingAt) {
+      // The goodbye has been said once the model has spoken and gone quiet again.
+      if (!busy && now - this.idleEndingAt >= 2_500) void this.hangup('idle');
+      return;
+    }
+    const step = this.idle.poll(now, busy);
+    if (step) {
+      this.trace.add('session', `idle_${step}`, { muted: this.idle.isMuted });
+      console.info('[mindpal.voice] idle', { step, muted: this.idle.isMuted });
+      this.transport?.sendClientContent(idleNote(step, this.idle.isMuted));
+      if (step === 'end') {
+        this.idleEndingAt = now;
+        // If the goodbye never arrives, don't hold a silent line open.
+        this.timers.set('idleEnd', 12_000, () => void this.hangup('idle'));
+      }
+    }
+    if (step || this.idle.current === 'warn') {
+      const left = this.idle.remainingMs(now);
+      this.callbacks.onIdle?.(this.idle.current, left === null ? null : Math.ceil(left / 1000));
+    }
   }
 
   private flushNotes(): void {

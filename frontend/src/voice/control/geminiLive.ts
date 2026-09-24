@@ -186,6 +186,7 @@ export class GeminiLiveAdapter {
   private heldCaptureFrames = 0;
   private notReadyCaptureFrames = 0;
   private lastTrafficAt = 0;
+  private lastPcmSentAt = 0;
   private grant: VoiceLiveGrant;
   private handlers: GeminiLiveHandlers;
 
@@ -254,11 +255,22 @@ export class GeminiLiveAdapter {
     };
   }
 
-  /** True when capture has sent sustained audio but provider has been completely silent > 20s. */
+  /**
+   * True when capture is actively sending audio but the provider has been
+   * completely silent for 20s. A muted or quiet caller sends nothing, and a
+   * quiet provider is then expected, not a stall: counting it reconnected every
+   * ~20s during a long mute (renew POST + a forced "continuation" turn each time).
+   */
   isStalled(now = Date.now()): boolean {
     if (!this.ready || this.closed || this.captureHeld) return false;
     if (this.sentCaptureFrames < 100) return false;
+    if (now - this.lastPcmSentAt > 3_000) return false;
     return now - this.lastTrafficAt >= 20_000;
+  }
+
+  sendAudioStreamEnd(): void {
+    if (!this.ready || !this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+    this.socket.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
   }
 
   sendPcm16(pcm: Int16Array): void {
@@ -286,6 +298,7 @@ export class GeminiLiveAdapter {
       binary += String.fromCharCode(bytes[i]);
     }
     this.sentCaptureFrames += 1;
+    this.lastPcmSentAt = Date.now();
     this.socket.send(
       JSON.stringify({
         realtimeInput: {

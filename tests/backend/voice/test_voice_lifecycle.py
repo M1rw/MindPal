@@ -181,3 +181,31 @@ def test_voice_privacy_worker_purges_expired_data_and_exports_no_raw_transcript(
     assert "input_transcript" not in export["sessions"][0]
     assert removed["voice_sessions"] == 1
     assert removed["voice_active_sessions"] == 1
+
+
+def test_a_renewed_socket_is_the_same_call_voice_language_and_style() -> None:
+    """Renew used to mint with only a resumption handle, so the voice changed mid-call."""
+    store = InMemoryStore()
+    seen: list[dict] = []
+
+    class Recording(FakeLiveProvider):
+        def mint(self, **kwargs: object) -> dict[str, object]:
+            seen.append(dict(kwargs))
+            return super().mint(**kwargs)
+
+    voice = VoiceSessionService(store=store, provider=Recording())
+    grant = voice.mint(
+        user_id_hash="usr_same",
+        is_authenticated=True,
+        consent_attested=True,
+        voice_id="Puck",
+        voice_language="ar",
+        personalization={"baseStyle": "concise", "warmth": "direct"},
+    )
+    voice.handle_event(user_id_hash="usr_same", payload={"session_id": grant["session_id"], "event": "voice.session.warm"})
+    voice.handle_event(user_id_hash="usr_same", payload={"session_id": grant["session_id"], "event": "voice.session.renew"})
+    first, renewed = seen[0], seen[1]
+    assert renewed["voice_id"] == first["voice_id"] == "Puck"
+    assert renewed["voice_language"] == "ar"
+    assert renewed["personalization"] == first["personalization"]
+    assert renewed["personalization"]["baseStyle"] == "concise"
