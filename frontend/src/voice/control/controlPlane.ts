@@ -2,6 +2,7 @@ import { ApiError, fetchJson } from '../../services/api/http.ts';
 import { useSessionStore, useSettingsStore } from '../../store/index.ts';
 import { getApiBaseUrl } from '../../services/config.ts';
 import type { ControlPlaneAction, FloorState, VoiceLiveGrant } from '../types.ts';
+import { newOperationKey } from '../../services/api/http.ts';
 
 /**
  * Control-plane events gate upstream microphone PCM while in flight, so they get
@@ -279,6 +280,11 @@ export class ControlPlaneClient {
           '/api/voice/session-events',
           {
             method: 'POST',
+            // Only teardown is keyed: it is the one event whose retry after a lost
+            // response matters (settlement), and each keyed event costs the server
+            // two extra writes - on every transcript sync and heartbeat that would
+            // roughly triple a call's storage traffic for nothing.
+            ...(request === 'voice.session.teardown' ? { headers: { 'Idempotency-Key': newOperationKey() } } : {}),
             body: JSON.stringify({ session_id: this.sessionId, ...body }),
             timeoutMs: CONTROL_EVENT_TIMEOUT_MS,
           },

@@ -1,5 +1,12 @@
 import { useEffect } from 'react';
-import { useAuthStore, useSessionStore, useChatHistoryStore, useStreakStore, useUsageStore } from '../../store/index';
+import {
+  useAuthStore,
+  useSessionStore,
+  useChatHistoryStore,
+  useMemoryStore,
+  useStreakStore,
+  useUsageStore,
+} from '../../store/index';
 import {
   onAuthStateChange,
   onIdTokenChange,
@@ -8,6 +15,22 @@ import {
 } from '../../services/auth/index';
 import { ApiClient } from '../../services/api/index';
 import { pullAccountSettings, resetSettingsSync, subscribeSettingsSync } from '../../services/sync/settingsSync.ts';
+import { claim, setOwner, stillOwns } from '../../services/session/owner.ts';
+
+/**
+ * Everything account-specific that is on screen belongs to the previous owner
+ * the moment the account changes, so it goes before anything new is fetched.
+ */
+function handOver(uid: string | null): void {
+  const previous = claim();
+  const next = setOwner(uid);
+  if (next === previous) return;
+  // A guest's per-network credits are not the account's, and vice versa.
+  useUsageStore.getState().clearQuota();
+  useMemoryStore.setState({ summary: null, isOpen: false, error: null });
+  useChatHistoryStore.getState().switchOwner(next.owner);
+  resetSettingsSync();
+}
 
 export function useAuthBootstrap() {
   const { setUser, setIsLoading } = useAuthStore();
@@ -15,13 +38,16 @@ export function useAuthBootstrap() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (user) => {
-      // A guest's per-network credits are not the account's, and vice versa.
-      useUsageStore.getState().clearQuota();
+      handOver(user ? user.uid : null);
+      const owner = claim();
       if (user) {
         // One forced retry: a null token here left a signed-in user looking
         // like a guest to every request until the hourly refresh.
         const idToken = (await getIdToken()) ?? (await getIdToken({ forceRefresh: true }));
         const appCheckToken = await getAppCheckToken();
+        // Signed out (or switched) while those were awaited: this callback is
+        // stale and must not put its tokens back.
+        if (!stillOwns(owner)) return;
         setAuth(user.uid, idToken, appCheckToken);
         setUser(user);
         setIsLoading(false);
@@ -38,7 +64,6 @@ export function useAuthBootstrap() {
 
       setUser(null);
       setAuth(null, null, null);
-      resetSettingsSync();
       setIsLoading(false);
       useStreakStore.getState().restoreDeviceStreak();
     });
@@ -49,6 +74,8 @@ export function useAuthBootstrap() {
     // how a long live call ended up with the control plane refusing every event.
     const unsubscribeToken = onIdTokenChange((user, idToken) => {
       if (!user || !idToken) return;
+      // Only for the account that owns the browser now.
+      if (claim().owner !== user.uid) return;
       const { appCheckToken } = useSessionStore.getState();
       setAuth(user.uid, idToken, appCheckToken);
     });
