@@ -46,6 +46,12 @@ export interface TransportPort {
   connect(): void;
   close(code?: number, reason?: string): Promise<void>;
   sendPcm16(pcm: Int16Array): void;
+  /**
+   * The caller stopped sending audio (mute). Gemini closes a turn only after it
+   * has received ~1.5 s of silence; when audio simply stops, the last words are
+   * never answered. This tells it the stream ended so it replies now.
+   */
+  sendAudioStreamEnd?(): void;
   /** Context for the model. To Gemini this is caller input: it cuts a reply in progress. */
   sendApplicationNote(text: string): void;
   /** A labeled note that forces a model turn. */

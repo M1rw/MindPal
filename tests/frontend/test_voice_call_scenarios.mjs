@@ -246,6 +246,86 @@ describe('mute', () => {
   });
 });
 
+describe('mute ends the turn', () => {
+  it('tells Gemini the audio stream ended, so it answers what was said before the mute', async () => {
+    const call = makeCall();
+    await call.ready();
+    await call.userSays('I think I finally figured out');
+    call.session.setMuted(true);
+    assert.equal(call.transport.streamEnds, 1, 'audioStreamEnd sent on mute');
+    assert.deepEqual(call.ui.muted, [true]);
+    call.session.setMuted(true);
+    assert.equal(call.transport.streamEnds, 1, 'not repeated while already muted');
+    call.session.setMuted(false);
+    assert.deepEqual(call.ui.muted, [true, false]);
+  });
+
+  it('a long mute does not trigger stall reconnects (the transport only stalls while sending)', async () => {
+    const call = makeCall();
+    await call.ready();
+    call.session.setMuted(true);
+    await call.advance(90_000);
+    assert.equal(call.transports.length, 1, 'no reconnect churn during a long mute');
+    assert.equal(call.control.renewals, 0);
+  });
+});
+
+describe('are you still there?', () => {
+  it('checks in after 15s of quiet, warns at 40s, says goodbye and ends at 60s', async () => {
+    const call = makeCall();
+    await call.ready();
+    const before = call.transport.clientContent.length;
+    await call.advance(14_000);
+    assert.equal(call.transport.clientContent.length, before, 'nothing before 15s');
+    await call.advance(1_500);
+    assert.match(call.transport.clientContent.at(-1), /Check in once/);
+    assert.deepEqual(call.ui.idle.at(-1)[0], 'check_in');
+
+    await call.advance(25_500);
+    assert.match(call.transport.clientContent.at(-1), /let them go in a bit/);
+    const [stage, left] = call.ui.idle.at(-1);
+    assert.equal(stage, 'warn');
+    assert.ok(left > 0 && left <= 20, `countdown shown (${left}s)`);
+
+    await call.advance(20_500);
+    assert.match(call.transport.clientContent.at(-1), /warm goodbye/);
+    await call.advance(3_000);
+    assert.equal(call.phase, 'ended', 'hung up after the goodbye');
+  });
+
+  it('speaking again, or tapping "I am here", resets the countdown', async () => {
+    const call = makeCall();
+    await call.ready();
+    await call.advance(15_500);
+    assert.equal(call.ui.idle.at(-1)[0], 'check_in');
+    call.session.stillHere();
+    assert.equal(call.ui.idle.at(-1)[0], 'active');
+    const sent = call.transport.clientContent.length;
+    await call.advance(14_000);
+    assert.equal(call.transport.clientContent.length, sent, 'the clock started over');
+  });
+
+  it('gives muted callers longer (they may be listening)', async () => {
+    const call = makeCall();
+    await call.ready();
+    call.session.setMuted(true);
+    const before = call.transport.clientContent.length;
+    await call.advance(45_000);
+    assert.equal(call.transport.clientContent.length, before, 'no check-in at 45s while muted');
+    await call.advance(16_000);
+    assert.match(call.transport.clientContent.at(-1), /mic is muted, so they may just be listening/);
+  });
+
+  it('never times out while the model is talking', async () => {
+    const call = makeCall();
+    await call.ready();
+    call.transport.say('Here is a long story about the sea and a boat and a storm.', 30_000);
+    const before = call.transport.clientContent.length;
+    await call.advance(29_000);
+    assert.equal(call.transport.clientContent.length, before);
+  });
+});
+
 describe('reconnect', () => {
   it('replaces a dropped socket once, carrying the conversation, without greeting again', async () => {
     const call = makeCall();

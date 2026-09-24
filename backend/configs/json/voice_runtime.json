@@ -83,7 +83,7 @@
       "HARM_CATEGORY_SEXUALLY_EXPLICIT": "BLOCK_NONE",
       "HARM_CATEGORY_DANGEROUS_CONTENT": "BLOCK_NONE"
     },
-    "allowed_voice_ids": ["Sulafat", "Aoede", "Charon", "Kore", "Puck", "Fenrir"],
+    "allowed_voice_ids": ["Sulafat", "Aoede", "Charon", "Kore", "Puck", "Fenrir", "Achird", "Umbriel", "Vindemiatrix", "Sadachbia", "Laomedeia", "Zephyr"],
     "face_expressions": ["wink", "blink_slow", "widen", "squint", "roll_eyes", "sleepy", "perk_up", "soften", "look_away", "look_back", "side_eye", "smile_eyes", "concerned", "curious", "surprised", "amused", "tired", "neutral", "heart"],
     "mood_states": ["awake", "sleepy", "engaged", "withdrawn", "calm", "firm", "warm", "concerned"],
     "risk_kinds": ["self_harm", "physical", "unspecified"]

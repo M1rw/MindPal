@@ -268,3 +268,23 @@ describe('a greeting that came back empty is asked for again', () => {
     assert.equal(adapter.retryOpener(), false);
   });
 });
+
+describe('mute and stalls (transport)', () => {
+  it('tells Gemini the audio stream ended', async () => {
+    const { adapter, socket } = await openCall({});
+    adapter.sendAudioStreamEnd();
+    assert.ok(socket.sent.some((m) => m.realtimeInput?.audioStreamEnd === true));
+  });
+
+  it('only calls it a stall while audio is actually going up', async () => {
+    const { adapter } = await openCall({});
+    adapter.releaseGreetingHold(); // as if the greeting had played
+    const frame = new Int16Array(320);
+    for (let i = 0; i < 120; i += 1) adapter.sendPcm16(frame);
+    const sentAt = Date.now();
+    adapter.lastTrafficAt = sentAt - 25_000; // provider silent for 25s
+    assert.equal(adapter.isStalled(sentAt + 500), true, 'sending, and nothing back: a stall');
+    // A muted or quiet caller sends nothing; a quiet provider is then expected.
+    assert.equal(adapter.isStalled(sentAt + 10_000), false, 'not sending: not a stall');
+  });
+});

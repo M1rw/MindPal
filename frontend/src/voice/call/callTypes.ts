@@ -39,6 +39,12 @@ export interface LiveSessionCallbacks {
   onThinking?: (thinking: boolean) => void;
   onCrisis?: (script: string, pauseBody?: string) => void;
   onMuted?: (muted: boolean) => void;
+  /**
+   * The caller has gone quiet: 'warn' carries the seconds left before the call
+   * ends for inactivity (for a countdown with an "I'm here" button); 'active'
+   * clears it.
+   */
+  onIdle?: (stage: 'active' | 'check_in' | 'warn' | 'end', secondsLeft: number | null) => void;
   onFallback: (message: string) => void;
   onEnded?: (receipt: LiveCallReceipt) => void | Promise<void>;
   onExpression?: (command: ActiveExpression | null) => void;
