@@ -127,6 +127,9 @@ export const CONTROL_UNREACHABLE_STRIKES = 3;
 /** How long to stay quiet before letting one probe through. */
 export const CONTROL_UNREACHABLE_COOLDOWN_MS = 15_000;
 
+/** Backoff before retrying a renew that got a 503. */
+export const RENEW_RETRY_DELAYS_MS = [500, 1500];
+
 export class ControlPlaneClient {
   private sessionId: string;
   private observer: ControlPlaneObserver | null;
@@ -225,7 +228,24 @@ export class ControlPlaneClient {
     });
   }
 
+  /**
+   * A fresh credential for the same call. A 503 here (a storage blip) used to
+   * end the call at its next reconnect, so it is retried twice with a short
+   * backoff. Safety refusals and 4xx are not retried.
+   */
   async renew(resumptionHandle?: string): Promise<VoiceLiveGrant> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.renewOnce(resumptionHandle);
+      } catch (error) {
+        const status = (error as { status?: number })?.status;
+        if (status !== 503 || attempt >= RENEW_RETRY_DELAYS_MS.length) throw error;
+        await new Promise((resolve) => setTimeout(resolve, RENEW_RETRY_DELAYS_MS[attempt]));
+      }
+    }
+  }
+
+  private async renewOnce(resumptionHandle?: string): Promise<VoiceLiveGrant> {
     const data = await fetchJson<VoiceLiveGrant & ControlPlaneAction>(
       '/api/voice/session-events',
       {

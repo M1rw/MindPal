@@ -222,12 +222,19 @@ class VoiceSessionService:
         reservation = self._reserve_seconds(user_id_hash)
         session_id = f"vs_{uuid.uuid4().hex[:16]}"
         started = time.time()
+        # Resolved once and kept on the record: a renewed socket must be the same
+        # call (same voice, language, style and memory), not a generic default.
+        call_profile = {
+            "voice_id": voice_id,
+            "voice_language": voice_language,
+            "personalization": self._adapted_personalization(user_id_hash, personalization),
+        }
         try:
             grant = self.provider.mint(
                 ttl_s=reservation["reserved_s"],
-                voice_id=voice_id,
-                voice_language=voice_language,
-                personalization=self._adapted_personalization(user_id_hash, personalization),
+                voice_id=call_profile["voice_id"],
+                voice_language=call_profile["voice_language"],
+                personalization=call_profile["personalization"],
             )
         except Exception:
             voice_metrics().record(
@@ -266,6 +273,7 @@ class VoiceSessionService:
             "gemini_classify_calls": 0,
             "gemini_classify_skips": 0,
             "working_memory": {},
+            "call_profile": call_profile,
         }
         try:
             self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
@@ -479,13 +487,16 @@ class VoiceSessionService:
                 )
             remaining_s = max(_VOICE_RUNTIME.session.min_session_seconds, reserved - elapsed)
             handle = str(payload.get("resumption_handle") or "").strip() or None
-            try:
-                grant = self.provider.mint(
-                    ttl_s=min(TOKEN_TTL_SECONDS, remaining_s),
-                    resumption_handle=handle,
-                )
-            except Exception:
-                raise
+            profile = record.get("call_profile") if isinstance(record.get("call_profile"), dict) else {}
+            grant = self.provider.mint(
+                ttl_s=min(TOKEN_TTL_SECONDS, remaining_s),
+                resumption_handle=handle,
+                # The same call, renewed: without these the new socket used the
+                # default voice and style, and the voice changed mid-conversation.
+                voice_id=profile.get("voice_id"),
+                voice_language=profile.get("voice_language"),
+                personalization=profile.get("personalization"),
+            )
             record["renewed_at"] = time.time()
             save_session_record(self.store, session_id, record)
             self._record_telemetry(
