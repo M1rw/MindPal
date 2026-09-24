@@ -1,12 +1,14 @@
 {
-  "version": "mindpal-prompts-v1",
+  "version": "mindpal-prompts-v2",
   "fixtures": [
     {
       "key": "chat_system_base",
       "required_fragments": [
         "You are MindPal",
-        "Grounded Memory Integration",
-        "Do not diagnose or prescribe"
+        "Do not diagnose or prescribe",
+        "Size the reply to the message",
+        "Ask at most one question",
+        "Match their language, dialect and register"
       ],
       "channel": "chat",
       "output_format": "free_text"
