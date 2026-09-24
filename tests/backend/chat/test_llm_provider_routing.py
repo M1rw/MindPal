@@ -53,10 +53,14 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-or-key")
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    for var in ("CEREBRAS_API_KEY", "SAMBANOVA_API_KEY", "MISTRAL_API_KEY"):
+        monkeypatch.setenv(var, "")
     gateway_mod.reset_llm_clients()
+    gateway_mod._reset_cooldowns()
     oai.reset_openai_clients()
     yield
     gateway_mod.reset_llm_clients()
+    gateway_mod._reset_cooldowns()
     oai.reset_openai_clients()
 
 
@@ -338,3 +342,80 @@ def test_groq_json_model_can_differ_from_groq_chat_model(
     assert oai.groq_json_model() == "openai/gpt-oss-safeguard-20b"
     monkeypatch.delenv("GROQ_JSON_MODEL")
     assert oai.groq_json_model() == "openai/gpt-oss-120b", "falls back to the chat model"
+
+
+# --- The fallback ladder ---------------------------------------------------------
+
+
+def test_ladder_entries_keep_model_ids_with_case_and_colons(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "MINDPAL_LLM_FALLBACK",
+        "groq:openai/gpt-oss-120b, openrouter:google/gemma-4-31b-it:free,Gemini,sambanova:Meta-Llama-3.3-70B-Instruct,nope",
+    )
+    assert gateway_mod.fallback_ladder() == [
+        ("groq", "openai/gpt-oss-120b"),
+        ("openrouter", "google/gemma-4-31b-it:free"),
+        ("gemini", None),
+        ("sambanova", "Meta-Llama-3.3-70B-Instruct"),
+    ]
+    # Providers without a key are skipped rather than failing a request.
+    assert ("sambanova", "Meta-Llama-3.3-70B-Instruct") not in gateway_mod._ladder(("groq", None))
+
+
+def test_chat_walks_the_ladder_to_gemini_and_uses_gemini(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A gemini spare used to be sent to OpenRouter's endpoint."""
+    tried: List[str] = []
+
+    async def fake_stream(**kwargs: Any):
+        tried.append(f"{urlparse(kwargs['base_url']).hostname}:{kwargs['model']}")
+        status = 429 if "groq" in kwargs["base_url"] and kwargs["model"] == "qwen/qwen3.8-27b" else 503
+        raise OpenAICompatibleError("busy", status)
+        yield  # pragma: no cover
+
+    async def fake_gemini(self: Any, **kwargs: Any):
+        tried.append(f"gemini:{kwargs['model']}")
+        yield "from gemini"
+
+    monkeypatch.setenv("MINDPAL_CHAT_PROVIDER", "groq")
+    monkeypatch.setenv("MINDPAL_LLM_FALLBACK", "groq:openai/gpt-oss-120b,gemini")
+    monkeypatch.setattr(oai, "stream_text", fake_stream)
+    monkeypatch.setattr(LLMGateway, "_stream_gemini", fake_gemini)
+
+    assert "".join(_drain(LLMGateway().generate_stream(prompt="hi"))) == "from gemini"
+    assert tried == ["api.groq.com:qwen/qwen3.8-27b", "api.groq.com:openai/gpt-oss-120b", "gemini:gemini-2.5-flash"]
+
+
+def test_a_rate_limited_rung_cools_down_so_the_next_request_skips_the_wait(monkeypatch: pytest.MonkeyPatch) -> None:
+    tried: List[str] = []
+
+    async def fake_stream(**kwargs: Any):
+        tried.append(kwargs["model"])
+        if kwargs["model"] == "qwen/qwen3.8-27b":
+            raise OpenAICompatibleError("rate limited", 429)
+        yield "ok"
+
+    monkeypatch.setenv("MINDPAL_CHAT_PROVIDER", "groq")
+    monkeypatch.setenv("MINDPAL_LLM_FALLBACK", "groq:openai/gpt-oss-120b")
+    monkeypatch.setattr(oai, "stream_text", fake_stream)
+
+    _drain(LLMGateway().generate_stream(prompt="one"))
+    _drain(LLMGateway().generate_stream(prompt="two"))
+    assert tried == ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-120b"]
+
+
+def test_json_tries_at_most_two_rungs_to_protect_the_live_voice_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: List[str] = []
+
+    def fake_complete(**kwargs: Any) -> str:
+        calls.append(kwargs["model"])
+        raise OpenAICompatibleError("busy", 503)
+
+    monkeypatch.setenv("MINDPAL_JSON_PROVIDER", "groq")
+    monkeypatch.setenv("OPENROUTER_JSON_MODEL", "google/gemma-4-31b-it:free")
+    monkeypatch.setenv("MINDPAL_LLM_FALLBACK", "groq:openai/gpt-oss-20b,openrouter,gemini")
+    monkeypatch.setattr(oai, "complete_json", fake_complete)
+    with pytest.raises(OpenAICompatibleError):
+        LLMGateway().generate_json(prompt="User: hi")
+    # Chat models named in the ladder are not classifier models: the Groq rung
+    # collapses into the primary, and the spare is OpenRouter's JSON model.
+    assert calls == ["qwen/qwen3.8-27b", "google/gemma-4-31b-it:free"]

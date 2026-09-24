@@ -24,7 +24,7 @@
     "DEBUG": "false",
     "MINDPAL_CHAT_PROVIDER": "groq",
     "MINDPAL_JSON_PROVIDER": "groq",
-    "MINDPAL_LLM_FALLBACK": "openrouter",
+    "MINDPAL_LLM_FALLBACK": "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,openrouter,gemini",
     "MINDPAL_VOICE_CLASSIFIER": "verify",
     "GROQ_MODEL": "qwen/qwen3.8-27b",
     "GROQ_JSON_MODEL": "qwen/qwen3.8-27b",

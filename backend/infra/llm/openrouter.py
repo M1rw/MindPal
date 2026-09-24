@@ -99,11 +99,17 @@ def groq_json_model() -> str:
 
 
 def default_chat_model_for(provider: str) -> str:
-    return groq_chat_model() if provider == "groq" else openrouter_chat_model()
+    from backend.configs.llm import compatible_provider
+
+    entry = compatible_provider(provider)
+    return entry.chat_model() if entry else openrouter_chat_model()
 
 
 def default_json_model_for(provider: str) -> str:
-    return groq_json_model() if provider == "groq" else openrouter_json_model()
+    from backend.configs.llm import compatible_provider
+
+    entry = compatible_provider(provider)
+    return entry.json_model() if entry else openrouter_json_model()
 
 
 def _referer_headers() -> Dict[str, str]:
