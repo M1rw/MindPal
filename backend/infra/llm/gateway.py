@@ -298,7 +298,9 @@ class LLMGateway:
         # it, so the model was effectively hardcoded.
         self.default_model = default_model or default_chat_model()
 
-    def _build_contents(self, prompt: str, history: Sequence[dict[str, str]] | None) -> list[Any]:
+    def _build_contents(
+        self, prompt: str, history: Sequence[dict[str, str]] | None, images: Sequence[Any] | None = None
+    ) -> list[Any]:
         from google.genai import types
 
         contents: list[Any] = []
@@ -308,7 +310,9 @@ class LLMGateway:
             if not text:
                 continue
             contents.append(types.Content(role=role, parts=[types.Part(text=text)]))
-        contents.append(types.Content(role="user", parts=[types.Part(text=prompt)]))
+        # Images for this turn ride with the latest message, before its words.
+        parts = [types.Part.from_bytes(data=image.data, mime_type=image.mime_type) for image in images or ()]
+        contents.append(types.Content(role="user", parts=[*parts, types.Part(text=prompt)]))
         return contents
 
     async def generate(
@@ -321,6 +325,7 @@ class LLMGateway:
         max_tokens: int = 1024,
         history: Optional[Sequence[dict[str, str]]] = None,
         thinking_budget: Optional[int] = None,
+        images: Optional[Sequence[Any]] = None,
     ) -> str:
         parts: list[str] = []
         async for token in self.generate_stream(
@@ -331,6 +336,7 @@ class LLMGateway:
             max_tokens=max_tokens,
             history=history,
             thinking_budget=thinking_budget,
+            images=images,
         ):
             parts.append(token)
         text = "".join(parts).strip()
@@ -351,10 +357,17 @@ class LLMGateway:
         max_tokens: int = 1024,
         history: Optional[Sequence[dict[str, str]]] = None,
         thinking_budget: Optional[int] = None,
+        images: Optional[Sequence[Any]] = None,
     ) -> AsyncGenerator[str, None]:
-        primary = chat_provider()
-        primary_model = (model or self.default_model) if primary == "gemini" else _model_for_provider(primary, model, self.default_model)
-        ladder = _ladder((primary, primary_model))
+        """`images` (VisionImage) switch the turn to the vision-capable models, in their order."""
+        if images:
+            from backend.infra.llm.vision import vision_ladder
+
+            ladder = vision_ladder()
+        else:
+            primary = chat_provider()
+            primary_model = (model or self.default_model) if primary == "gemini" else _model_for_provider(primary, model, self.default_model)
+            ladder = _ladder((primary, primary_model))
         if not ladder:
             logger.info("llm_fallback_no_credentials provider=%s", primary)
             yield _FALLBACK_STUB
@@ -382,6 +395,7 @@ class LLMGateway:
                         max_tokens=max_tokens,
                         history=history,
                         thinking_budget=thinking_budget,
+                        images=images,
                     )
                 else:
                     stream = self._stream_openai_compatible(
@@ -393,6 +407,7 @@ class LLMGateway:
                         max_tokens=max_tokens,
                         history=history,
                         fallback=bool(index),
+                        images=images,
                     )
                 async for token in stream:
                     yielded = True
@@ -417,7 +432,7 @@ class LLMGateway:
                 if _is_rate_limited(exc):
                     _cool(entry)
                 last_error = exc
-                if not _is_transient(exc):
+                if not images and not _is_transient(exc):
                     break
         if isinstance(last_error, LLMGatewayError):
             raise last_error
@@ -436,6 +451,7 @@ class LLMGateway:
         max_tokens: int,
         history: Optional[Sequence[dict[str, str]]],
         thinking_budget: Optional[int],
+        images: Optional[Sequence[Any]] = None,
     ) -> AsyncGenerator[str, None]:
         """One Gemini stream. Provider errors propagate as-is so the ladder can read them."""
         started = time.perf_counter()
@@ -454,7 +470,7 @@ class LLMGateway:
             )
             stream = await client.aio.models.generate_content_stream(
                 model=model,
-                contents=self._build_contents(prompt, history),
+                contents=self._build_contents(prompt, history, images),
                 config=config,
             )
             async for chunk in stream:
@@ -485,6 +501,7 @@ class LLMGateway:
         max_tokens: int,
         history: Optional[Sequence[dict[str, str]]],
         fallback: bool = False,
+        images: Optional[Sequence[Any]] = None,
     ) -> AsyncGenerator[str, None]:
         from backend.infra.llm import openrouter as oai
 
@@ -503,6 +520,7 @@ class LLMGateway:
                 history=history,
                 base_url=base_url,
                 api_key=key,
+                images=images,
             ):
                 yielded = True
                 yield token

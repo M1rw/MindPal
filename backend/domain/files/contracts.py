@@ -15,6 +15,8 @@ MAX_DIGEST_TEXT = int(LIMITS["max_digest_text_chars"])
 MAX_DIGEST_REQUEST_BYTES = int(LIMITS["max_digest_request_bytes"])
 MAX_IMAGES_PER_CALL = int(LIMITS["max_images_per_vision_call"])
 MAX_ATTACHMENTS = int(LIMITS["max_attachments_per_message"])
+# A picture sent along with its turn (downscaled in the browser): ~1 MB of base64.
+MAX_TURN_IMAGE_B64 = 1_400_000
 DIGEST_VERSION = 1
 
 IMAGE_TYPES = ("image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif")
@@ -138,11 +140,18 @@ class LibraryPatchRequest(BaseModel):
 
 
 class AttachmentRef(BaseModel):
-    """What a chat message carries: an account's library file, or a guest's digest inline."""
+    """What a chat message carries for one file.
+
+    An account's library file by id, or the digest itself (guests, whose files
+    stay on their device). On the turn a picture is first sent, `image` also
+    carries it (downscaled, base64) so the reply can look at it directly.
+    """
 
     file_id: Optional[str] = None
     digest: Optional[Digest] = None
     name: str = Field(default="", max_length=200)
+    image: str = Field(default="", max_length=MAX_TURN_IMAGE_B64)
+    mime: str = Field(default="image/jpeg", max_length=40)
 
     @field_validator("file_id")
     @classmethod
