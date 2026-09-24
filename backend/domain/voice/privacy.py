@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
 from backend.configs.runtime import voice_runtime_settings
 
+logger = logging.getLogger("mindpal.voice.privacy")
 RAW_RETENTION_S = voice_runtime_settings().session.retention_seconds
 # Safety events are written by voice telemetry with the same configured
 # retention as raw session data. The export used to label them "90 day"
 # from a constant nothing wrote with, while they actually expired in 30.
 SAFETY_RETENTION_S = RAW_RETENTION_S
+# Per collection, per daily run. The retention route runs several of these
+# inside one 60s function, so each gets a slice of it.
+PURGE_TIME_BUDGET_S = 8.0
 SUMMARY_RETENTION_S = 365 * 24 * 60 * 60
 IDEMPOTENCY_RETENTION_S = 24 * 60 * 60
 
@@ -81,7 +86,13 @@ class VoicePrivacyService:
 
     def _purge_collection(self, collection: str, now: float) -> int:
         removed = 0
+        deadline = time.monotonic() + PURGE_TIME_BUDGET_S
         for document_id, record in list(self.store.iter_documents(collection)):
+            # Deletes are one request each; stop inside the function's time limit
+            # and finish on the next daily run (audit MP-24).
+            if time.monotonic() >= deadline:
+                logger.info("voice_retention_time_budget_reached collection=%s removed=%s", collection, removed)
+                break
             expires_at = record.get("expires_at")
             if isinstance(expires_at, (int, float)) and float(expires_at) <= now:
                 if self.store.delete_document(collection, document_id):

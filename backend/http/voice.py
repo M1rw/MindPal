@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from starlette.concurrency import run_in_threadpool
 from fastapi import APIRouter, Header
 
 from backend.core.errors import AppError
@@ -48,6 +49,7 @@ def classify_voice_reaction(
             "forbidden",
             "Live voice is not enabled for this account. Composer dictation is still available.",
         )
+    session_service.require_live_call(session.user_id_hash)
     reaction = reaction_service.classify(
         user_id_hash=session.user_id_hash,
         text=payload.text,
@@ -137,7 +139,7 @@ async def summarize_voice_session(
     payload: VoiceSummarizeRequest,
     authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
-    session = verify_auth_header(authorization)
+    session = await run_in_threadpool(verify_auth_header, authorization)
     if not session.is_authenticated:
         raise AppError(
             "unauthenticated",

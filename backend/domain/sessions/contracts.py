@@ -17,6 +17,27 @@ _SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 _ALLOWED_MESSAGE_ROLES = frozenset({"user", "assistant", "model", "system"})
 
 
+MAX_SESSIONS_PER_ACCOUNT = int(_LIMITS["max_sessions_per_account"])
+
+
+def enforce_session_cap(store: Any, user_id_hash: str, session_id: str) -> None:
+    """A new saved chat is refused once an account holds the cap (audit MP-17).
+
+    Updates to an existing chat always go through; only creating the next one
+    is refused, before anything is written. Counting stops at the cap.
+    """
+    if store.get_document("chat_sessions", f"{user_id_hash}:{session_id}") is not None:
+        return
+    count = 0
+    for _doc_id, _doc in store.iter_documents("chat_sessions", prefix=f"{user_id_hash}:"):
+        count += 1
+        if count >= MAX_SESSIONS_PER_ACCOUNT:
+            raise AppError(
+                "quota_exceeded",
+                f"Your account can keep up to {MAX_SESSIONS_PER_ACCOUNT} saved chats. Delete some to save new ones.",
+            )
+
+
 def validated_session_id(value: str) -> str:
     session_id = str(value or "").strip()
     if not _SESSION_ID_RE.match(session_id):

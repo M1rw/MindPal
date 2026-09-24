@@ -112,6 +112,10 @@ SETUP_FAILURE_REASONS = frozenset({"setup_timeout", "mint_failed", "setup_failed
 SETUP_FAILURE_MAX_S = _VOICE_RUNTIME.session.setup_failure_max_seconds
 
 
+# How long a confirmed live call is trusted before being looked up again.
+LIVE_CALL_CACHE_S = 15.0
+
+
 def resolved_provider_rotate_s() -> int:
     raw = get_settings().voice_provider_rotate_s.strip()
     source = raw if raw else str(_VOICE_RUNTIME.session.provider_rotate_seconds)
@@ -145,6 +149,7 @@ class VoiceSessionService:
             VOICE_EVENT_IDEMPOTENCY_COLLECTION,
         )
         self.telemetry = VoiceTelemetryService(store=self.store)
+        self._live_calls: Dict[str, float] = {}
         self.usage_lifecycle = VoiceUsageLifecycle(
             store=self.store,
             session_collection=VOICE_SESSION_COLLECTION,
@@ -1212,6 +1217,27 @@ class VoiceSessionService:
         if (time.time() - float(last)) > SAFETY_STALE_S:
             return False
         return self._ever_verified(record) or not self._has_user_speech(record)
+
+    def require_live_call(self, user_id_hash: str) -> None:
+        """Paid auxiliary calls (face reactions) only while the account is on a call.
+
+        The reaction endpoint needed only an account and the feature flag, so a
+        client could keep paying for model calls with no call and no voice
+        budget (audit MP-17). A confirmed live call is remembered for a few
+        seconds so a burst of sentences costs one lookup.
+        """
+        now = time.monotonic()
+        cached = self._live_calls.get(user_id_hash)
+        if cached is not None and now - cached < LIVE_CALL_CACHE_S:
+            return
+        active = self.store.get_document(VOICE_ACTIVE_COLLECTION, user_id_hash) or {}
+        session_id = str(active.get("session_id") or "")
+        record = self.store.get_document(VOICE_SESSION_COLLECTION, session_id) if session_id else None
+        if not record or record.get("user_id_hash") != user_id_hash or record.get("status") == "torn_down":
+            raise AppError("forbidden", "Face reactions are only available during a live call.")
+        if len(self._live_calls) > 5_000:
+            self._live_calls.clear()
+        self._live_calls[user_id_hash] = now
 
     @staticmethod
     def _is_frozen(record: Dict[str, Any]) -> bool:

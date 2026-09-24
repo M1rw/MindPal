@@ -116,4 +116,7 @@ class VoiceReactionService:
                 return False
             stamps.append(now)
             self._recent[user_id_hash] = stamps
+            # One key per account and speaker, kept forever, grew without bound.
+            if len(self._recent) > 10_000:
+                self._recent = {k: v for k, v in self._recent.items() if v and now - v[-1] < 60.0}
             return True
