@@ -11,6 +11,8 @@ from backend.core.errors import AppError
 from backend.configs.runtime import domain_limits_config
 from backend.domain.adaptation.profile import AdaptiveProfileService
 from backend.domain.memory.consolidation import MemoryConsolidationService
+from backend.domain.identity.fence import mark_deleted
+from backend.domain.identity.inventory import INVENTORY
 from backend.domain.memory.graph import MemoryGraphService
 from backend.domain.voice.privacy import VoicePrivacyService
 from backend.infra.auth.verifier import AuthVerifier, UserSession
@@ -20,6 +22,18 @@ _IDENTITY_CONFIG = domain_limits_config()["identity"]
 _EXPORT_INCLUDED = list(_IDENTITY_CONFIG["export_included"])
 _EXPORT_NOT_INCLUDED = list(_IDENTITY_CONFIG["export_not_included"])
 _ACCOUNT_SIDE_COLLECTIONS = tuple(_IDENTITY_CONFIG["account_side_collections"])
+# Collections whose document ids start with "<user id hash>:" (see inventory.py).
+_PREFIX_OWNED_COLLECTIONS = tuple(c.name for c in INVENTORY if c.owner_key == "prefix" and c.name != "chat_sessions")
+
+
+def _pending_turns(store: Any, user_id_hash: str) -> List[Dict[str, Any]]:
+    journal = store.get_document("memory_journal", user_id_hash) or {}
+    turns = journal.get("turns") if isinstance(journal, dict) else None
+    return [
+        {"user": t.get("user"), "reply": t.get("reply"), "at": t.get("at")}
+        for t in (turns if isinstance(turns, list) else [])
+        if isinstance(t, dict)
+    ]
 
 
 class IdentityService:
@@ -71,10 +85,20 @@ class IdentityService:
             "voice": voice,
             "adaptive_profile": AdaptiveProfileService(self.store).describe(user_id_hash),
             "memory_digests": MemoryConsolidationService(self.store).describe(user_id_hash),
+            # Raw turns still waiting to be compacted into a digest (audit MP-15:
+            # the export counted them but did not include them).
+            "memory_pending_turns": _pending_turns(self.store, user_id_hash),
+            "session_telemetry": [
+                doc for _id, doc in self.store.iter_documents("session_telemetry", prefix=f"{user_id_hash}:")
+            ],
+            "greetings": [doc for _id, doc in self.store.iter_documents("greeting_cache", prefix=f"{user_id_hash}:")],
         }
 
     def delete_account(self, user_id_hash: str) -> Dict[str, Any]:
         """Permanently delete server profile, memory graph, and synced chats for this account."""
+        # First, so work already running (a reply, a consolidation, a recap)
+        # sees it before writing its results back (audit MP-06).
+        mark_deleted(self.store, user_id_hash)
         deleted: List[str] = []
         if self.store.delete_document("user_profiles", user_id_hash):
             deleted.append("profile")
@@ -97,8 +121,9 @@ class IdentityService:
         for collection in _ACCOUNT_SIDE_COLLECTIONS:
             self.store.delete_document(collection, user_id_hash)
 
-        for doc_id, _doc in list(self.store.iter_documents("session_telemetry", prefix=f"{user_id_hash}:")):
-            self.store.delete_document("session_telemetry", doc_id)
+        for collection in _PREFIX_OWNED_COLLECTIONS:
+            for doc_id, _doc in list(self.store.iter_documents(collection, prefix=f"{user_id_hash}:")):
+                self.store.delete_document(collection, doc_id)
 
         voice_deleted = VoicePrivacyService(self.store).delete_account(user_id_hash)
         for collection, count in voice_deleted.items():

@@ -43,6 +43,11 @@ class VoicePrivacyService:
             },
             "sessions": sessions,
             "safety_events": telemetry,
+            # Redacted traces the person chose to send to support.
+            "support_diagnostics": [
+                {"session_id": record.get("session_id"), "created_at": record.get("created_at"), "report": record.get("report")}
+                for _doc_id, record in self._owned("voice_support_diagnostics", user_id_hash)
+            ],
         }
 
     def delete_account(self, user_id_hash: str) -> dict[str, int]:

@@ -19,12 +19,12 @@ import logging
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from backend.configs.settings import get_settings
-from backend.infra.store.providers.memory import InMemoryStore
 from backend.infra.store.shared import (
     BREAKER_COOLDOWN_SECONDS,
     BREAKER_FAILURE_THRESHOLD,
     CACHE_MAX_DOCS_PER_COLLECTION,
     CloudBreaker,
+    DegradedReadCache,
     Mutator,
     StoreUnavailable,
     is_permanent_store_error,
@@ -57,7 +57,7 @@ class FirestoreStore:
 
     def __init__(self, db: Any = None) -> None:
         self._db = db
-        self._cache = InMemoryStore(max_docs_per_collection=CACHE_MAX_DOCS_PER_COLLECTION)
+        self._cache = DegradedReadCache(max_docs_per_collection=CACHE_MAX_DOCS_PER_COLLECTION)
         self._breaker = CloudBreaker(threshold=BREAKER_FAILURE_THRESHOLD, cooldown=BREAKER_COOLDOWN_SECONDS)
 
     # -- plumbing -----------------------------------------------------------
@@ -97,27 +97,27 @@ class FirestoreStore:
         try:
             snapshot = self._call("get", lambda: self._collection(collection).document(doc_id).get())
         except StoreUnavailable:
-            cached = self._cache.get_document(collection, doc_id)
+            cached = self._cache.recall(collection, doc_id)
             if cached is not None:
                 logger.warning("firestore_get_served_from_cache collection=%s", collection)
                 return cached
             raise
         if not snapshot.exists:
             # Absent in the cloud is absent: a cached copy must not resurrect it.
-            self._cache.delete_document(collection, doc_id)
+            self._cache.forget(collection, doc_id)
             return None
         data = snapshot.to_dict() or {}
-        self._cache.set_document(collection, doc_id, data)
+        self._cache.remember(collection, doc_id, data)
         return dict(data)
 
     def set_document(self, collection: str, doc_id: str, data: Dict[str, Any]) -> None:
         payload = dict(data)
         self._call("set", lambda: self._collection(collection).document(doc_id).set(payload))
-        self._cache.set_document(collection, doc_id, payload)
+        self._cache.remember(collection, doc_id, payload)
 
     def delete_document(self, collection: str, doc_id: str) -> bool:
         self._call("delete", lambda: self._collection(collection).document(doc_id).delete())
-        self._cache.delete_document(collection, doc_id)
+        self._cache.forget(collection, doc_id)
         return True
 
     def iter_documents(self, collection: str, prefix: str = "") -> Iterator[Tuple[str, Dict[str, Any]]]:
@@ -171,7 +171,7 @@ class FirestoreStore:
 
             result = body(client.transaction())
             if "data" in written:
-                self._cache.set_document(collection, doc_id, written["data"])
+                self._cache.remember(collection, doc_id, written["data"])
             return result
 
         if not self._breaker.closed:

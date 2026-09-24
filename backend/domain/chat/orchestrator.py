@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import time
 from contextlib import aclosing
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence
@@ -23,6 +24,7 @@ from backend.domain.chat.strategy import DIRECTIVES, score_strategies
 from backend.domain.chat.trajectory import analyze as analyze_trajectory
 from backend.domain.dynamic.policy import current_load, policy
 from backend.domain.grounding.grounding import GroundingService
+from backend.domain.identity.fence import deleted_since
 from backend.domain.memory.extract import can_persist_user_memory, extract_atoms_from_turn
 from backend.domain.memory.consolidation import MemoryConsolidationService
 from backend.domain.memory.graph import MemoryGraphService, format_memory_receipt
@@ -493,6 +495,7 @@ class ChatOrchestrator:
         peer: str = "",
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """Executes a streaming chat turn yielding tokens, strategy, and structured errors."""
+        turn_started = time.time()
         self.record_session_telemetry(user_id_hash, session_id, telemetry)
         completed = False
         reservation = preflight.reservation if preflight else None
@@ -630,9 +633,15 @@ class ChatOrchestrator:
 
             completed = True
             _record_reply_quality(stock_filter.dropped)
+            # The reply took seconds; if the account's data was deleted meanwhile,
+            # nothing learned from this turn may be written back (audit MP-06).
+            fenced = not anonymous and deleted_since(self.store, user_id_hash, turn_started)
+            if fenced:
+                logger.info("chat_turn_writes_fenced request_id=%s reason=account_data_deleted", request_id or "-")
+                learn = False
             if learn:
                 self.adaptation.commit_turn(user_id_hash, message, strategy)
-            receipt = self._write_turn_memory(user_id_hash, message, request_id=request_id)
+            receipt = None if fenced else self._write_turn_memory(user_id_hash, message, request_id=request_id)
             if learn:
                 # Collected for later AI consolidation; no model call happens here.
                 self.consolidation.record_turn(
