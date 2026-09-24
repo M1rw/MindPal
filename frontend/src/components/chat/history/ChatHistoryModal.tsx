@@ -44,7 +44,6 @@ import {
   useChatStore,
   useFlagsStore,
   useMemoryStore,
-  usePaletteStore,
   useSettingsStore,
   useStreakStore,
   useVoiceStore,
@@ -55,7 +54,13 @@ import { HighlightedText } from '../../ui/HighlightedText';
 import type { ChatSession } from '../../../types';
 import { ChatHistoryGroups } from './ChatHistoryGroups';
 import { confirmAction } from '../../../store/confirm.ts';
-import { MAX_PINNED_ACTIONS } from '../../../store/palette.ts';
+import {
+  MAX_PINNED_ACTIONS,
+  moveAction,
+  resetQuickActions,
+  togglePinnedAction,
+  useQuickActions,
+} from '../../../store/palette.ts';
 import { startNewChat } from '../../../utils/chat/appActions';
 import { isDarkTheme, toggleTheme } from '../../../utils/ui/theme';
 import { matchesAll, searchChats, searchTerms } from '../../../utils/ui/search';
@@ -124,10 +129,7 @@ export const ChatHistoryModal: React.FC = () => {
   const guestSessionCount = useChatHistoryStore((s) => s.guestSessionCount);
   const importGuestSessions = useChatHistoryStore((s) => s.importGuestSessions);
   const liveVoiceEnabled = useFlagsStore((s) => Boolean(s.flags.voice_enabled));
-  const quickActionIds = usePaletteStore((s) => s.quickActions);
-  const togglePinnedAction = usePaletteStore((s) => s.togglePinnedAction);
-  const moveAction = usePaletteStore((s) => s.moveAction);
-  const resetQuickActions = usePaletteStore((s) => s.resetQuickActions);
+  const quickActionIds = useQuickActions();
 
   const setMessages = useChatStore((s) => s.setMessages);
 

@@ -1,9 +1,16 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { confirmAction, useConfirmStore } from '../../frontend/src/store/confirm.ts';
+import { confirmAction, resetConfirmPreferences, setConfirmSkipped, useConfirmStore } from '../../frontend/src/store/confirm.ts';
+import { loadPersistedSettings, useSettingsStore } from '../../frontend/src/store/settings.ts';
 import { searchChats, snippetAround, searchTerms } from '../../frontend/src/utils/ui/search.ts';
-import { DEFAULT_QUICK_ACTIONS, MAX_PINNED_ACTIONS, usePaletteStore } from '../../frontend/src/store/palette.ts';
+import {
+  DEFAULT_QUICK_ACTIONS,
+  MAX_PINNED_ACTIONS,
+  moveAction,
+  resetQuickActions,
+  togglePinnedAction,
+} from '../../frontend/src/store/palette.ts';
 
 function memoryStorage() {
   const data = new Map();
@@ -22,6 +29,7 @@ function memoryStorage() {
 beforeEach(() => {
   Object.defineProperty(globalThis, 'localStorage', { value: memoryStorage(), configurable: true, writable: true });
   useConfirmStore.setState({ queue: [] });
+  useSettingsStore.getState().resetSettings();
 });
 
 describe('confirm dialog store', () => {
@@ -87,23 +95,52 @@ describe('palette search', () => {
 });
 
 describe('quick actions', () => {
-  beforeEach(() => usePaletteStore.getState().resetQuickActions());
-  const ids = () => usePaletteStore.getState().quickActions;
+  const ids = () => useSettingsStore.getState().settings.quickActions;
 
-  it('pins, unpins and reorders, and keeps the choice on this device', () => {
+  it('pins, unpins and reorders, saved as a synced setting', () => {
     assert.deepEqual(ids(), [...DEFAULT_QUICK_ACTIONS]);
-    usePaletteStore.getState().togglePinnedAction('theme');
-    usePaletteStore.getState().togglePinnedAction('memory');
+    togglePinnedAction('theme');
+    togglePinnedAction('memory');
     assert.deepEqual(ids(), ['new-chat', 'live-voice', 'settings', 'theme']);
-    usePaletteStore.getState().moveAction('theme', -1);
+    moveAction('theme', -1);
     assert.deepEqual(ids(), ['new-chat', 'live-voice', 'theme', 'settings']);
-    usePaletteStore.getState().moveAction('new-chat', -1);
+    moveAction('new-chat', -1);
     assert.equal(ids()[0], 'new-chat', 'the first cannot move further up');
-    assert.deepEqual(JSON.parse(localStorage.getItem('mindpal_palette_quick_actions_v1')), ids());
+    assert.deepEqual(JSON.parse(localStorage.getItem('mindpal_settings_v1')).quickActions, ids());
+    resetQuickActions();
+    assert.deepEqual(ids(), [...DEFAULT_QUICK_ACTIONS]);
   });
 
   it('caps how many can be pinned', () => {
-    for (let i = 0; i < 20; i += 1) usePaletteStore.getState().togglePinnedAction(`extra-${i}`);
+    for (let i = 0; i < 20; i += 1) togglePinnedAction(`extra-${i}`);
     assert.equal(ids().length, MAX_PINNED_ACTIONS);
+  });
+
+  it('carries over the old device-only choices once', () => {
+    // Settings as the previous version saved them: no quickActions/skipConfirm.
+    localStorage.setItem('mindpal_settings_v1', JSON.stringify({ theme: 'light', soundEnabled: false }));
+    localStorage.setItem('mindpal_palette_quick_actions_v1', JSON.stringify(['theme', 'memory']));
+    localStorage.setItem('mindpal_confirm_skip:new-chat', '1');
+    const loaded = loadPersistedSettings();
+    assert.deepEqual(loaded.quickActions, ['theme', 'memory']);
+    assert.equal(loaded.skipConfirm['new-chat'], true);
+    assert.equal(localStorage.getItem('mindpal_palette_quick_actions_v1'), null, 'old key removed');
+    assert.deepEqual(JSON.parse(localStorage.getItem('mindpal_settings_v1')).quickActions, ['theme', 'memory']);
+  });
+});
+
+describe('"Don\'t ask again" is a setting that can be undone', () => {
+  it('skips once remembered, and asks again after it is turned back on', async () => {
+    const asked = confirmAction({ title: 'Start a new chat?', dontAskAgainKey: 'new-chat' });
+    useConfirmStore.getState().settle(useConfirmStore.getState().queue[0].id, true, true);
+    await asked;
+    assert.equal(useSettingsStore.getState().settings.skipConfirm['new-chat'], true);
+    setConfirmSkipped('new-chat', false);
+    void confirmAction({ title: 'Start a new chat?', dontAskAgainKey: 'new-chat' });
+    assert.equal(useConfirmStore.getState().queue.length, 1, 'asked again');
+    useConfirmStore.setState({ queue: [] });
+    setConfirmSkipped('new-chat', true);
+    resetConfirmPreferences();
+    assert.equal(useSettingsStore.getState().settings.skipConfirm['new-chat'], false);
   });
 });
