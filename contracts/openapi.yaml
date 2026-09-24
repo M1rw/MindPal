@@ -850,6 +850,182 @@ paths:
         "429": { description: Hourly dictation allowance used }
         "503": { description: No transcription provider available }
 
+  /api/files/digest/image:
+    post:
+      operationId: filesDigestImage
+      tags: [files]
+      summary: "Read an image (raw downscaled body) into a digest: kind, text in its own language, description"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: "The digest" }
+        "422": { description: "Empty, too large or unsupported image" }
+        "429": { description: "Daily file or vision-page allowance used" }
+        "503": { description: "No vision model available" }
+
+  /api/files/digest/pages:
+    post:
+      operationId: filesDigestPages
+      tags: [files]
+      summary: "Read a batch of PDF pages: text layers kept, rendered pages read by a vision model"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: "Page readings" }
+        "422": { description: "Invalid pages or too many" }
+        "429": { description: "Daily allowance used" }
+        "503": { description: "No vision model available" }
+
+  /api/files/digest/assemble:
+    post:
+      operationId: filesDigestAssemble
+      tags: [files]
+      summary: "Combine page readings into one PDF digest"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: "The digest" }
+        "422": { description: "Invalid pages" }
+
+  /api/files/allowance:
+    get:
+      operationId: filesAllowance
+      tags: [files]
+      summary: "Today's file allowance and the caller's file limits"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: "Usage and limits" }
+
+  /api/library:
+    get:
+      operationId: libraryList
+      tags: [files]
+      summary: "The caller's library files (optionally filtered by a search over names and contents), with usage"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: "Files and usage" }
+        "401": { description: "Sign in required" }
+
+  /api/library/upload:
+    post:
+      operationId: libraryStartUpload
+      tags: [files]
+      summary: "Start a library upload: signed upload links for the original, thumbnail and page previews"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: "Upload links, or the existing file with the same content" }
+        "401": { description: "Sign in required" }
+        "422": { description: "Unsupported, too large, or too many pages" }
+        "429": { description: "Library full" }
+
+  /api/library/{file_id}/complete:
+    post:
+      operationId: libraryCompleteUpload
+      tags: [files]
+      summary: "Finish an upload with its digest; sizes are checked in storage"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: "The library file" }
+        "401": { description: "Sign in required" }
+        "404": { description: "Unknown upload" }
+        "422": { description: "Not uploaded or too large" }
+
+  /api/library/{file_id}:
+    get:
+      operationId: libraryGet
+      tags: [files]
+      summary: "One library file with its digest and signed links"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: "The file" }
+        "401": { description: "Sign in required" }
+        "404": { description: "Not in the library" }
+    patch:
+      operationId: libraryRename
+      tags: [files]
+      summary: "Rename a library file"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: "The file" }
+        "401": { description: "Sign in required" }
+        "404": { description: "Not in the library" }
+    delete:
+      operationId: libraryDelete
+      tags: [files]
+      summary: "Delete a library file and its stored bytes"
+      x-mindpal:
+        owner: files
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: "Deleted" }
+        "401": { description: "Sign in required" }
+        "404": { description: "Not in the library" }
+
   /api/voice/recall:
     post:
       operationId: voiceRecall

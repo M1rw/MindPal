@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     chat_provider: str = Field(default='', validation_alias='MINDPAL_CHAT_PROVIDER')
     json_provider: str = Field(default='', validation_alias='MINDPAL_JSON_PROVIDER')
     llm_fallback: str = Field(default='', validation_alias='MINDPAL_LLM_FALLBACK')
+    # Vision models for reading images and PDF pages, tried in order ("provider:model", comma separated).
+    vision_fallback: str = Field(default='', validation_alias='MINDPAL_VISION_FALLBACK')
+    # Files and the library (v5.0.5). 0/off hides them.
+    files: str = Field(default='', validation_alias='MINDPAL_FILES')
 
     voice_live: str = Field(default='', validation_alias='MINDPAL_VOICE_LIVE')
     voice_live_allowlist: str = Field(default='', validation_alias='MINDPAL_VOICE_LIVE_ALLOWLIST')

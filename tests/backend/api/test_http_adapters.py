@@ -301,7 +301,7 @@ def test_identity_export_and_delete_account_data(app_client):
     assert export_res.status_code == 200
     assert "attachment; filename=" in export_res.headers.get("content-disposition", "")
     payload = export_res.json()
-    assert payload["included"] == ["profile", "memory", "cloud_chat_sessions", "voice", "adaptive_profile", "memory_digests"]
+    assert payload["included"] == ["profile", "memory", "cloud_chat_sessions", "voice", "adaptive_profile", "memory_digests", "library_files"]
     assert "Chat history stored only in this browser" in payload["not_included"]
     assert payload["profile"]["display_name"] == "Export User"
     assert payload["memory"]["summary"] == "Prefers morning walks"

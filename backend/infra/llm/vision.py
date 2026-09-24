@@ -1,0 +1,156 @@
+"""Reading images: page images in, a strict JSON reading out.
+
+A fallback list of vision-capable models, tried in order
+(MINDPAL_VISION_FALLBACK, "provider:model" separated by commas):
+Gemini flash-lite is cheap and reads Arabic and handwriting well; Qwen 3.8 on
+Groq also takes images and answers fast; Gemma on OpenRouter is a free spare.
+Unlike the chat fallback, any failure moves on: a model that rejects an image
+(a 400) is exactly the case the next rung is for.
+"""
+
+from __future__ import annotations
+
+import base64
+import logging
+import time
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+import httpx
+
+from backend.configs.llm import compatible_provider
+from backend.configs.settings import get_settings
+from backend.models.provider_outputs import extract_json_object
+
+logger = logging.getLogger("mindpal.vision")
+
+DEFAULT_VISION_LADDER = (
+    "gemini:gemini-2.5-flash-lite,groq:qwen/qwen3.8-27b,"
+    "openrouter:google/gemma-4-31b-it:free,gemini:gemini-2.5-flash"
+)
+TIMEOUT_S = 45.0
+_COOLDOWN_S = 30.0
+_COOLING: Dict[Tuple[str, str], float] = {}
+
+
+class VisionUnavailable(RuntimeError):
+    """No vision model could read the images."""
+
+
+@dataclass(frozen=True)
+class VisionImage:
+    data: bytes
+    mime_type: str
+
+
+@dataclass(frozen=True)
+class VisionReading:
+    data: Dict[str, Any]
+    provider: str
+    model: str
+    ms: int
+
+
+def vision_ladder() -> List[Tuple[str, str]]:
+    raw = (get_settings().vision_fallback or "").strip() or DEFAULT_VISION_LADDER
+    out: List[Tuple[str, str]] = []
+    for item in raw.split(","):
+        provider, _, model = item.strip().partition(":")
+        provider, model = provider.strip().lower(), model.strip()
+        if provider and model and (provider, model) not in out and _has_key(provider):
+            out.append((provider, model))
+    return out
+
+
+def vision_available() -> bool:
+    return bool(vision_ladder())
+
+
+def _has_key(provider: str) -> bool:
+    if provider == "gemini":
+        return bool(get_settings().resolved_gemini_api_key())
+    entry = compatible_provider(provider)
+    return bool(entry and entry.api_key())
+
+
+def _ordered(entries: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    now = time.monotonic()
+    ready = [e for e in entries if _COOLING.get(e, 0.0) <= now]
+    return ready + [e for e in entries if e not in ready]
+
+
+def _via_gemini(model: str, images: Sequence[VisionImage], instruction: str, max_tokens: int) -> str:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=get_settings().resolved_gemini_api_key())
+    parts: List[Any] = [types.Part.from_bytes(data=image.data, mime_type=image.mime_type) for image in images]
+    parts.append(instruction)
+    result = client.models.generate_content(
+        model=model,
+        contents=parts,
+        config=types.GenerateContentConfig(
+            temperature=0.1,
+            max_output_tokens=max_tokens,
+            response_mime_type="application/json",
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+            http_options=types.HttpOptions(timeout=int(TIMEOUT_S * 1000)),
+        ),
+    )
+    return result.text or ""
+
+
+def _via_compatible(provider: str, model: str, images: Sequence[VisionImage], instruction: str, max_tokens: int) -> str:
+    entry = compatible_provider(provider)
+    if entry is None:
+        raise VisionUnavailable(f"unknown provider {provider}")
+    content: List[Dict[str, Any]] = [{"type": "text", "text": instruction}]
+    for image in images:
+        encoded = base64.b64encode(image.data).decode("ascii")
+        content.append({"type": "image_url", "image_url": {"url": f"data:{image.mime_type};base64,{encoded}"}})
+    response = httpx.post(
+        entry.base_url().rstrip("/") + "/chat/completions",
+        headers={"Authorization": f"Bearer {entry.api_key()}"},
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": content}],
+            "temperature": 0.1,
+            "max_tokens": max_tokens,
+            "response_format": {"type": "json_object"},
+        },
+        timeout=TIMEOUT_S,
+    )
+    if response.status_code != 200:
+        raise VisionUnavailable(f"{provider} {response.status_code}: {response.text[:160]}")
+    choices = response.json().get("choices") or [{}]
+    return str((choices[0].get("message") or {}).get("content") or "")
+
+
+def read_images(
+    images: Sequence[VisionImage],
+    instruction: str,
+    *,
+    max_tokens: int = 4096,
+    ladder: Optional[List[Tuple[str, str]]] = None,
+) -> VisionReading:
+    """First rung that returns parseable JSON wins. Raises VisionUnavailable."""
+    if not images:
+        raise ValueError("no images")
+    entries = _ordered(ladder if ladder is not None else vision_ladder())
+    errors: List[str] = []
+    for provider, model in entries:
+        started = time.monotonic()
+        try:
+            if provider == "gemini":
+                raw = _via_gemini(model, images, instruction, max_tokens)
+            else:
+                raw = _via_compatible(provider, model, images, instruction, max_tokens)
+            data = extract_json_object(raw)
+            return VisionReading(data=data, provider=provider, model=model, ms=int((time.monotonic() - started) * 1000))
+        except Exception as exc:  # any failure: next rung
+            text = f"{type(exc).__name__} {exc}".lower()
+            if "429" in text or "resource_exhausted" in text or "rate" in text:
+                _COOLING[(provider, model)] = time.monotonic() + _COOLDOWN_S
+            errors.append(f"{provider}:{model}: {type(exc).__name__}")
+            logger.warning("vision_rung_failed provider=%s model=%s detail=%s", provider, model, str(exc)[:200])
+    raise VisionUnavailable("; ".join(errors) or "no vision provider configured")
