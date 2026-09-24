@@ -241,12 +241,15 @@ def judge_one(gateway: Any, case: Dict[str, Any], reply: str, *, provider: str =
                     prompt=f"Memory: {memory}\n{earlier}\nPerson: {case['message']}\nCompanion: {reply}",
                     system_instruction=JUDGE_SYSTEM,
                     temperature=0.0,
-                    max_tokens=400,
+                    max_tokens=2000,
                 )
                 return extract_json_object(raw)
             except Exception as exc:  # a failed judgment is reported, not guessed
                 error = type(exc).__name__
-                if wait is None:
+                # Only a rate limit is worth waiting out; anything else fails the same way again.
+                from backend.infra.llm.gateway import _is_rate_limited
+
+                if wait is None or not _is_rate_limited(exc):
                     break
                 time.sleep(wait)
     return {"error": error}
@@ -289,11 +292,11 @@ def rejudge(report: Dict[str, Any], *, provider: str = "gemini", pace_seconds: f
 
     gateway = get_llm_gateway()
     cases = {case["id"]: case for case in load_cases()}
-    for row in report["rows"]:
-        if not row.get("reply") or isinstance(row["scores"].get(CRITERIA[0]), (int, float)):
-            continue
+    todo = [r for r in report["rows"] if r.get("reply") and not isinstance(r["scores"].get(CRITERIA[0]), (int, float))]
+    for done, row in enumerate(todo, 1):
         case = cases.get(row["id"]) or {"id": row["id"], "message": row["message"]}
         row["scores"] = judge_one(gateway, case, row["reply"], provider=provider)
+        print(f"  judged {done}/{len(todo)} {row['id']}", flush=True)
         time.sleep(pace_seconds)
     report.update(summarize(report["rows"]))
     report["judge_provider"] = provider
