@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -138,7 +139,10 @@ class VoiceSummarizeService:
         user_transcript: str = "",
         ai_transcript: str = "",
     ) -> Dict[str, Any]:
-        record = self.owned_record(user_id_hash=user_id_hash, session_id=session_id)
+        # Store reads and writes are blocking I/O: they run in a worker thread so
+        # a slow store stalls this recap, not every request on the event loop
+        # (audit MP-09). Only the model call itself stays on the loop.
+        record = await asyncio.to_thread(self.owned_record, user_id_hash=user_id_hash, session_id=session_id)
         if record.get("summary_message"):
             result: Dict[str, Any] = {
                 "skipped": False,
@@ -151,13 +155,13 @@ class VoiceSummarizeService:
             return result
 
         if _is_crisis(record):
-            return self._skip(record, "crisis_handoff")
+            return await asyncio.to_thread(self._skip, record, "crisis_handoff")
 
         inbound, outbound = _pick_transcripts(record, user_transcript, ai_transcript)
         record["input_ledger"] = inbound
         record["output_ledger"] = outbound
         if _words(inbound) + _words(outbound) < MIN_SPEECH_WORDS:
-            return self._skip(record, "no_speech")
+            return await asyncio.to_thread(self._skip, record, "no_speech")
 
         used_s = int(record.get("used_s") or 0)
         if used_s <= 0:
@@ -179,8 +183,30 @@ class VoiceSummarizeService:
             )
 
         if not summary:
-            return self._skip(record, "no_speech")
+            return await asyncio.to_thread(self._skip, record, "no_speech")
+        return await asyncio.to_thread(
+            self._write_recap,
+            record=record,
+            summary=summary,
+            used_s=used_s,
+            inbound=inbound,
+            user_id_hash=user_id_hash,
+            session_id=session_id,
+            chat_session_id=chat_session_id,
+        )
 
+    def _write_recap(
+        self,
+        *,
+        record: Dict[str, Any],
+        summary: str,
+        used_s: int,
+        inbound: str,
+        user_id_hash: str,
+        session_id: str,
+        chat_session_id: str,
+    ) -> Dict[str, Any]:
+        """Everything written once the recap text exists. Blocking: runs in a worker thread."""
         # The model call can take seconds; the account's data may have been
         # deleted meanwhile. Nothing below may write for a session that is gone.
         if self.store.get_document(VOICE_SESSION_COLLECTION, session_id) is None:

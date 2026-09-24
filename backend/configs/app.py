@@ -2,15 +2,6 @@ from __future__ import annotations
 
 from .settings import get_settings
 
-APP_ENV_KEYS = {
-    "ENVIRONMENT": "ENVIRONMENT",
-    "DEBUG": "DEBUG",
-    "ALLOWED_HOSTS": "MINDPAL_ALLOWED_HOSTS",
-    "CORS_ORIGINS": "MINDPAL_CORS_ORIGINS",
-    "PUBLIC_API_BASE_URL": "PUBLIC_API_BASE_URL",
-}
-
-
 def app_environment(default: str = "production") -> str:
     return (get_settings().environment or default).strip().lower() or default
 
