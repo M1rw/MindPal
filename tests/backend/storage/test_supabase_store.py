@@ -171,15 +171,20 @@ def test_reads_are_served_from_cache_during_an_outage_but_writes_fail_closed() -
     client = _PostgREST()
     store = _store(client)
     store.set_document("profiles", "usr_one", {"name": "One"})
+    store.set_document("greeting_cache", "usr_one:day", {"greeting": "Hi"})
     assert store.get_document("profiles", "usr_one") == {"name": "One"}
 
     def down(method: str, path: str, **kwargs: Any) -> _Response:
         raise RuntimeError("network unavailable")
 
     client.request = down  # type: ignore[method-assign]
-    assert store.get_document("profiles", "usr_one") == {"name": "One"}
+    assert store.get_document("greeting_cache", "usr_one:day") == {"greeting": "Hi"}
+    # A profile, session or memory copy may be stale after another instance
+    # changed or deleted it: it fails closed (audit MP-08).
     with pytest.raises(StoreUnavailable):
-        store.get_document("profiles", "never_cached")
+        store.get_document("profiles", "usr_one")
+    with pytest.raises(StoreUnavailable):
+        store.get_document("greeting_cache", "never_cached")
     with pytest.raises(StoreUnavailable):
         store.set_document("profiles", "usr_one", {"name": "Two"})
     assert store.durable is False

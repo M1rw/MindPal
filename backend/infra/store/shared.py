@@ -18,6 +18,60 @@ RETRY_BASE_DELAY_SECONDS = float(_STORE_BEHAVIOR["retry_base_delay_seconds"])
 CACHE_MAX_DOCS_PER_COLLECTION = int(_STORE_BEHAVIOR["cache_max_docs_per_collection"])
 
 
+# Collections whose cached copy may stand in for a read while storage is down.
+# Everything else - sessions, profiles, memory, chats, quotas, voice state - is
+# authoritative or privacy-sensitive: another instance may have deleted or
+# closed it, and a stale copy would bring deleted content back or keep a closed
+# call open (audit MP-08). Those reads fail closed.
+DEGRADED_READ_COLLECTIONS = frozenset({"greeting_cache", "changelog_dismissals", "platform_pulse"})
+# A stand-in older than this is not served either; nothing invalidates it
+# across instances.
+DEGRADED_READ_MAX_AGE_S = 300.0
+
+
+class DegradedReadCache:
+    """Last-seen copies of display-only documents, for reads during an outage."""
+
+    def __init__(
+        self,
+        *,
+        collections: frozenset[str] = DEGRADED_READ_COLLECTIONS,
+        max_age_s: float = DEGRADED_READ_MAX_AGE_S,
+        max_docs_per_collection: int = 0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._collections = collections
+        self._max_age_s = max_age_s
+        self._max_docs = max_docs_per_collection
+        self._clock = clock
+        self._entries: Dict[str, Dict[str, Tuple[float, Dict[str, Any]]]] = {}
+        self._lock = threading.Lock()
+
+    def remember(self, collection: str, doc_id: str, data: Dict[str, Any]) -> None:
+        if collection not in self._collections:
+            return
+        with self._lock:
+            docs = self._entries.setdefault(collection, {})
+            docs.pop(doc_id, None)
+            docs[doc_id] = (self._clock(), dict(data))
+            if self._max_docs and len(docs) > self._max_docs:
+                del docs[next(iter(docs))]
+
+    def forget(self, collection: str, doc_id: str) -> None:
+        with self._lock:
+            self._entries.get(collection, {}).pop(doc_id, None)
+
+    def recall(self, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            entry = self._entries.get(collection, {}).get(doc_id)
+        if entry is None:
+            return None
+        stored_at, data = entry
+        if self._clock() - stored_at > self._max_age_s:
+            return None
+        return dict(data)
+
+
 class StoreUnavailable(RuntimeError):
     """Durable storage could not serve an operation."""
 

@@ -317,3 +317,17 @@ def test_guest_without_an_account_key_is_not_a_user_quota_subject() -> None:
 
 
 
+
+
+def test_a_degraded_read_is_never_older_than_the_limit() -> None:
+    """Audit MP-08: cached copies had no age limit and no cross-instance invalidation."""
+    from backend.infra.store.shared import DegradedReadCache
+
+    now = [1000.0]
+    cache = DegradedReadCache(max_age_s=300.0, clock=lambda: now[0])
+    cache.remember("greeting_cache", "k", {"greeting": "Hi"})
+    cache.remember("voice_sessions", "vs_1", {"status": "warm"})
+    assert cache.recall("greeting_cache", "k") == {"greeting": "Hi"}
+    assert cache.recall("voice_sessions", "vs_1") is None, "session state is never served stale"
+    now[0] += 301
+    assert cache.recall("greeting_cache", "k") is None

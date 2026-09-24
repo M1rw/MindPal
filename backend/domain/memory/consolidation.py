@@ -36,7 +36,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 from backend.configs.runtime import dynamic_config
 from backend.domain.dynamic.policy import LoadState, current_load
-from backend.domain.memory.graph import MemoryAtom, MemoryGraphService, rank_atoms
+from backend.domain.identity.fence import deleted_since
+from backend.domain.memory.graph import NO_WRITE, MemoryAtom, MemoryGraphService, rank_atoms
 from backend.domain.safety.modes.chat.classify import crisis_evidence
 from backend.models.provider_outputs import MemoryDigestOutput, MemorySummaryOutput, parse_provider_output
 
@@ -46,6 +47,14 @@ JOURNAL_COLLECTION = "memory_journal"
 JOBS_COLLECTION = "memory_jobs"
 
 GenerateJson = Callable[..., str]
+
+# One consolidation run per person at a time (audit MP-11). Two runs started
+# together (inline after a reply plus the scheduler, or two quick replies) both
+# passed the budget check, both paid for a model call, and the first to finish
+# deleted a job the other had just re-queued. A run now takes a lease on the
+# journal and reserves its model calls in the same transaction.
+RUN_LEASE_SECONDS = 600
+MAX_AI_CALLS_PER_RUN = 2
 
 DIGEST_SYSTEM = (
     "You compact a wellness companion's conversation turns into a private memory digest for "
@@ -97,6 +106,26 @@ def _fact_needle(value: str) -> str:
     return text if len(text) >= 3 else ""
 
 
+def _fact_needles(value: str) -> List[str]:
+    """Everything that identifies a fact in AI-written text.
+
+    The whole value, plus its proper nouns: a free-text fact ("Lives in Paris")
+    is paraphrased in digests ("life in Paris"), so the full sentence alone
+    missed it and a corrected fact kept surfacing (audit MP-14). Only
+    capitalised words after the first are used, so everyday words ("work",
+    "sleep") never wipe unrelated digests.
+    """
+    needles = [n for n in [_fact_needle(value)] if n]
+    if ":" in str(value or ""):
+        return needles  # "Label: value" already names exactly what to look for
+    words = str(value or "").split()
+    for word in words[1:]:
+        token = word.strip(".,;!?\"'()")
+        if len(token) >= 3 and token[:1].isupper():
+            needles.append(token.lower())
+    return list(dict.fromkeys(needles))
+
+
 def _today(now: float) -> str:
     return time.strftime("%Y-%m-%d", time.gmtime(now))
 
@@ -113,6 +142,8 @@ def empty_journal(user_id_hash: str) -> Dict[str, Any]:
         "last_summary_at": 0.0,
         "ai_calls": {"day": "", "count": 0},
         "summary_requested": False,
+        # {"token", "until"} while a run owns this person's consolidation.
+        "lease": None,
     }
 
 
@@ -278,6 +309,8 @@ class MemoryConsolidationService:
                 "user_id_hash": user_id_hash,
                 "reason": reason[:40],
                 "requested_at": float(existing.get("requested_at") or self._clock()),
+                # New on every request: a run only removes the job it started with.
+                "generation": uuid.uuid4().hex,
             },
         )
 
@@ -302,20 +335,43 @@ class MemoryConsolidationService:
         report = ConsolidationReport(user_id_hash=user_id_hash, level=load.level)
         memory_policy = load.policy("memory")
         now = self._clock()
+        generation = (self.store.get_document(JOBS_COLLECTION, user_id_hash) or {}).get("generation")
         journal = _journal(self.store.get_document(JOURNAL_COLLECTION, user_id_hash), user_id_hash)
         requested = bool(journal.get("summary_requested"))
         work = due_work(journal, memory_policy, now=now, force=force or requested)
         if not work.any:
             report.skipped = work.reasons[0] if work.reasons else "not_due"
-            self._finish_job(user_id_hash, keep=report.skipped == "cooldown")
+            self._finish_job(user_id_hash, keep=report.skipped == "cooldown", generation=generation)
             return report
         if load.level == "critical" and not allow_deferred and not requested:
             report.skipped = "load_critical"
             return report
-        budget = ai_budget_left(journal, memory_policy, now=now)
+        lease = self._acquire(user_id_hash, memory_policy, now=now)
+        if lease is None:
+            report.skipped = "in_progress"
+            return report
+        token, budget = lease
         if budget <= 0:
+            self._release(user_id_hash, token, reserved=0, used=0)
             report.skipped = "daily_budget"
             return report
+        try:
+            self._started_at = time.time()
+            return self._run_leased(user_id_hash, report, work, journal, memory_policy, budget, generation, load)
+        finally:
+            self._release(user_id_hash, token, reserved=budget, used=report.ai_calls)
+
+    def _run_leased(
+        self,
+        user_id_hash: str,
+        report: "ConsolidationReport",
+        work: DueWork,
+        journal: Dict[str, Any],
+        memory_policy: Dict[str, Any],
+        budget: int,
+        generation: Any,
+        load: LoadState,
+    ) -> "ConsolidationReport":
 
         if work.compact and budget > 0:
             if self._compact(user_id_hash, journal):
@@ -332,13 +388,11 @@ class MemoryConsolidationService:
             if self._summarize(user_id_hash, journal):
                 report.summarized = True
                 report.ai_calls += 1
-        if report.ai_calls:
-            self._charge(user_id_hash, report.ai_calls, summarized=report.summarized)
         remaining = due_work(
             _journal(self.store.get_document(JOURNAL_COLLECTION, user_id_hash), user_id_hash), memory_policy, now=self._clock()
         )
         # Keep the job while work remains (including a failed AI call, retried by the scheduler).
-        self._finish_job(user_id_hash, keep=remaining.any)
+        self._finish_job(user_id_hash, keep=remaining.any, generation=generation)
         logger.info(
             "memory_consolidation user_present=1 level=%s compacted=%s summarized=%s ai_calls=%s reasons=%s",
             load.level, report.compacted, report.summarized, report.ai_calls, ",".join(work.reasons),
@@ -405,6 +459,8 @@ class MemoryConsolidationService:
         except Exception as exc:
             logger.warning("memory_digest_failed error=%s", type(exc).__name__)
             return False
+        if self._fenced(user_id_hash):
+            return False
         digest_text = _clip(output.digest, 600)
         if crisis_evidence(digest_text):
             digest_text = "They went through a very hard moment and talked it through."
@@ -447,6 +503,8 @@ class MemoryConsolidationService:
             output = parse_provider_output(MemorySummaryOutput, raw)
         except Exception as exc:
             logger.warning("memory_summary_failed error=%s", type(exc).__name__)
+            return False
+        if self._fenced(user_id_hash):
             return False
         narrative = _clip(output.summary, int(limits["summary_max_chars"]))
         if crisis_evidence(narrative):
@@ -513,22 +571,70 @@ class MemoryConsolidationService:
         digests = list(digests) + [{"id": uuid.uuid4().hex[:10], "at": now, **entry}]
         return digests[-int(_memory_limits()["max_digests"]) :]
 
-    def _charge(self, user_id_hash: str, calls: int, *, summarized: bool) -> None:
+    def _fenced(self, user_id_hash: str) -> bool:
+        """The account's data was deleted while this run waited on the model (audit MP-06)."""
+        started = getattr(self, "_started_at", None)
+        if started is None or not deleted_since(self.store, user_id_hash, started):
+            return False
+        logger.info("memory_consolidation_fenced reason=account_data_deleted")
+        return True
+
+    def _acquire(self, user_id_hash: str, memory_policy: Dict[str, Any], *, now: float) -> Optional[tuple[str, int]]:
+        """Take this person's run lease and reserve its model calls, or None if another run holds it."""
+        token = uuid.uuid4().hex
+
+        def mutate(current: Any, write: Any) -> Optional[int]:
+            journal = _journal(current, user_id_hash)
+            lease = journal.get("lease")
+            if isinstance(lease, dict) and float(lease.get("until") or 0) > now:
+                return None
+            budget = min(ai_budget_left(journal, memory_policy, now=now), MAX_AI_CALLS_PER_RUN)
+            if budget > 0:
+                day = _today(now)
+                used = int(journal["ai_calls"].get("count") or 0) if journal["ai_calls"].get("day") == day else 0
+                journal["ai_calls"] = {"day": day, "count": used + budget}
+            journal["lease"] = {"token": token, "until": now + RUN_LEASE_SECONDS}
+            write(journal)
+            return budget
+
+        budget = self.store.transact(JOURNAL_COLLECTION, user_id_hash, mutate)
+        return None if budget is None else (token, int(budget))
+
+    def _release(self, user_id_hash: str, token: str, *, reserved: int, used: int) -> None:
+        """Give back reserved calls that were not made, and drop the lease if still ours."""
         now = self._clock()
 
         def mutate(current: Any, write: Any) -> None:
+            if current is None:
+                return  # deleted meanwhile: nothing to release, and nothing to recreate
             journal = _journal(current, user_id_hash)
-            day = _today(now)
-            used = int(journal["ai_calls"].get("count") or 0) if journal["ai_calls"].get("day") == day else 0
-            journal["ai_calls"] = {"day": day, "count": used + calls}
-            journal["last_ai_at"] = now
+            lease = journal.get("lease")
+            if isinstance(lease, dict) and lease.get("token") == token:
+                journal["lease"] = None
+            unused = max(0, reserved - used)
+            if unused and journal["ai_calls"].get("day") == _today(now):
+                journal["ai_calls"] = {
+                    "day": journal["ai_calls"]["day"],
+                    "count": max(0, int(journal["ai_calls"].get("count") or 0) - unused),
+                }
+            if used:
+                journal["last_ai_at"] = now
             write(journal)
 
-        self.store.transact(JOURNAL_COLLECTION, user_id_hash, mutate)
+        try:
+            self.store.transact(JOURNAL_COLLECTION, user_id_hash, mutate)
+        except Exception as exc:  # the lease expires on its own; unused calls stay charged
+            logger.warning("memory_consolidation_release_failed error=%s", type(exc).__name__)
 
-    def _finish_job(self, user_id_hash: str, *, keep: bool) -> None:
-        if not keep:
-            self.store.delete_document(JOBS_COLLECTION, user_id_hash)
+    def _finish_job(self, user_id_hash: str, *, keep: bool, generation: Any = None) -> None:
+        if keep:
+            return
+        # A request that arrived while this run worked has a new generation and
+        # its own work to do: it stays queued.
+        current = self.store.get_document(JOBS_COLLECTION, user_id_hash)
+        if current and generation is not None and current.get("generation") != generation:
+            return
+        self.store.delete_document(JOBS_COLLECTION, user_id_hash)
 
     # -- person-facing ------------------------------------------------------
 
@@ -554,11 +660,15 @@ class MemoryConsolidationService:
         mention a deleted fact are removed, and a fresh summary is queued from
         what remains.
         """
-        needles = [n for n in (_fact_needle(value) for value in values) if n]
-        graph = self.memory.get_memory_graph(user_id_hash)
-        if graph.narrative:
+        needles = [needle for value in values for needle in _fact_needles(value)]
+
+        def drop_narrative(graph: Any) -> Any:
+            if not graph.narrative:
+                return NO_WRITE
             graph.narrative, graph.narrative_at, graph.open_threads = "", 0.0, []
-            self.memory.save_memory_graph(graph)
+            return None
+
+        self.memory.mutate_graph(user_id_hash, drop_narrative)
 
         def mutate(current: Any, write: Any) -> None:
             journal = _journal(current, user_id_hash)
@@ -579,8 +689,9 @@ class MemoryConsolidationService:
 
     def forget(self, user_id_hash: str) -> None:
         """Delete the AI summary, digests, and journal (facts are managed separately)."""
-        graph = self.memory.get_memory_graph(user_id_hash)
-        graph.narrative, graph.narrative_at, graph.open_threads = "", 0.0, []
-        self.memory.save_memory_graph(graph)
+        def drop_narrative(graph: Any) -> None:
+            graph.narrative, graph.narrative_at, graph.open_threads = "", 0.0, []
+
+        self.memory.mutate_graph(user_id_hash, drop_narrative)
         self.store.delete_document(JOURNAL_COLLECTION, user_id_hash)
         self.store.delete_document(JOBS_COLLECTION, user_id_hash)
