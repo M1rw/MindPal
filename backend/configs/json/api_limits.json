@@ -21,9 +21,17 @@
     "max_title_chars": 200,
     "max_messages_per_session": 500,
     "max_message_chars": 16000,
-    "max_timestamp_chars": 40
+    "max_timestamp_chars": 40,
+    "max_sessions_per_account": 500
   },
   "release": {
     "max_version_chars": 40
+  },
+  "request": {
+    "max_body_bytes": 4500000
+  },
+  "voice": {
+    "max_traces_per_session": 5,
+    "max_trace_events": 2000
   }
 }

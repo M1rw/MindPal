@@ -12,7 +12,7 @@ from typing import Any
 
 from backend.configs.app import csv_env, is_production
 from backend.configs.auth import firebase_public_bootstrap
-from backend.configs.runtime import validate_runtime_configs
+from backend.configs.runtime import api_limits_config, validate_runtime_configs
 from backend.configs.settings import get_settings
 from backend.infra.store.store import storage_health
 from backend.infra.observability.metrics import (
@@ -23,7 +23,7 @@ from backend.infra.observability.metrics import (
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from backend.http.wire import wire_http
@@ -38,6 +38,7 @@ FRONTEND = ROOT / "frontend"
 # deployments; "*" is refused because these endpoints are cookie-free but
 # Authorization-bearing, and a wildcard invites any page to drive them with a
 # token it has phished.
+MAX_REQUEST_BYTES = int(api_limits_config()["request"]["max_body_bytes"])
 CORS_ORIGINS_ENV = "MINDPAL_CORS_ORIGINS"
 ALLOWED_HOSTS_ENV = "MINDPAL_ALLOWED_HOSTS"
 _REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
@@ -191,6 +192,18 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
             max(0, int((time.perf_counter() - started) * 1000)),
         )
         return response
+
+    @app.middleware("http")
+    async def refuse_oversized_bodies(request: Request, call_next):
+        # Checked before the body is read or parsed (audit MP-17). The limit
+        # matches the hosting platform's own request cap.
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > MAX_REQUEST_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={"code": "payload_too_large", "detail": "That request is too large."},
+            )
+        return await call_next(request)
 
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):

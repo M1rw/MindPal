@@ -3,12 +3,59 @@
   "title": "MindPal API limits configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["chat", "identity", "memory", "sessions", "release"],
+  "required": [
+    "chat",
+    "identity",
+    "memory",
+    "sessions",
+    "release",
+    "request",
+    "voice"
+  ],
   "properties": {
-    "chat": {"type": "object"},
-    "identity": {"type": "object"},
-    "memory": {"type": "object"},
-    "sessions": {"type": "object"},
-    "release": {"type": "object"}
+    "chat": {
+      "type": "object"
+    },
+    "identity": {
+      "type": "object"
+    },
+    "memory": {
+      "type": "object"
+    },
+    "sessions": {
+      "type": "object"
+    },
+    "release": {
+      "type": "object"
+    },
+    "request": {
+      "type": "object",
+      "required": [
+        "max_body_bytes"
+      ],
+      "properties": {
+        "max_body_bytes": {
+          "type": "integer",
+          "minimum": 65536
+        }
+      }
+    },
+    "voice": {
+      "type": "object",
+      "required": [
+        "max_traces_per_session",
+        "max_trace_events"
+      ],
+      "properties": {
+        "max_traces_per_session": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_trace_events": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
   }
 }

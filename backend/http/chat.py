@@ -10,6 +10,7 @@ from contextlib import aclosing
 from typing import Optional
 
 from fastapi import APIRouter, Header, Request
+from starlette.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 from backend.domain.chat.contracts import ChatStreamPayload
@@ -33,18 +34,22 @@ async def chat_stream(
     authorization: Optional[str] = Header(None),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ) -> StreamingResponse:
-    session = verify_auth_header(authorization)
+    # Token verification, the safety check and the quota reservation all do
+    # blocking network I/O (Firebase, the store). Run on the event loop they
+    # stalled every other stream on this worker while they waited (audit MP-09).
+    session = await run_in_threadpool(verify_auth_header, authorization)
     anonymous = not session.has_account_storage
     peer = peer_network_id(request) if anonymous else ""
     if anonymous and peer:
         from backend.domain.identity.identity import _note_activity
 
-        _note_activity(f"peer:{peer}")
+        await run_in_threadpool(_note_activity, f"peer:{peer}")
     request_id = current_request_id() or f"req_{uuid.uuid4().hex[:12]}"
     model = payload.model or "standard"
     history = [{"role": turn.role, "content": turn.body()} for turn in payload.history]
     client_context = payload.client_context.model_dump(exclude_none=True) if payload.client_context else None
-    preflight = orchestrator.preflight_turn(
+    preflight = await run_in_threadpool(
+        orchestrator.preflight_turn,
         user_id_hash=session.user_id_hash,
         message=payload.message,
         history=history,
