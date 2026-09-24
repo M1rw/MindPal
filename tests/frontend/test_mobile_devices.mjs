@@ -173,6 +173,8 @@ async function withKeyboard(page, { keyboard, pan = 0 }) {
           ),
           composerTop: Math.round(composer.top),
           scrollY: window.scrollY,
+          stageScroll: document.querySelector('.chat-stage')?.scrollTop,
+          shellScroll: document.querySelector('.app-shell')?.scrollTop,
         },
       };
     },
