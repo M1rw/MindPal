@@ -109,6 +109,7 @@ def save_chat_session(
         "createdAt": payload.createdAt,
         "updatedAt": payload.updatedAt or payload.createdAt,
         "titleLocked": payload.titleLocked,
+        "pinned": payload.pinned,
         "messages": payload.messages,
         "user_id_hash": session.user_id_hash,
     }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { confirmAction, useConfirmStore } from '../../frontend/src/store/confirm.ts';
 import { searchChats, snippetAround, searchTerms } from '../../frontend/src/utils/ui/search.ts';
+import { DEFAULT_QUICK_ACTIONS, MAX_PINNED_ACTIONS, usePaletteStore } from '../../frontend/src/store/palette.ts';
 
 function memoryStorage() {
   const data = new Map();
@@ -82,5 +83,27 @@ describe('palette search', () => {
     assert.ok(snippet.startsWith('…') && snippet.endsWith('…'));
     assert.ok(snippet.toLowerCase().includes('noor'));
     assert.ok(snippet.length < 100);
+  });
+});
+
+describe('quick actions', () => {
+  beforeEach(() => usePaletteStore.getState().resetQuickActions());
+  const ids = () => usePaletteStore.getState().quickActions;
+
+  it('pins, unpins and reorders, and keeps the choice on this device', () => {
+    assert.deepEqual(ids(), [...DEFAULT_QUICK_ACTIONS]);
+    usePaletteStore.getState().togglePinnedAction('theme');
+    usePaletteStore.getState().togglePinnedAction('memory');
+    assert.deepEqual(ids(), ['new-chat', 'live-voice', 'settings', 'theme']);
+    usePaletteStore.getState().moveAction('theme', -1);
+    assert.deepEqual(ids(), ['new-chat', 'live-voice', 'theme', 'settings']);
+    usePaletteStore.getState().moveAction('new-chat', -1);
+    assert.equal(ids()[0], 'new-chat', 'the first cannot move further up');
+    assert.deepEqual(JSON.parse(localStorage.getItem('mindpal_palette_quick_actions_v1')), ids());
+  });
+
+  it('caps how many can be pinned', () => {
+    for (let i = 0; i < 20; i += 1) usePaletteStore.getState().togglePinnedAction(`extra-${i}`);
+    assert.equal(ids().length, MAX_PINNED_ACTIONS);
   });
 });

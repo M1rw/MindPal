@@ -4,13 +4,22 @@
  * One box for everything: actions (new chat, live voice, memory, settings,
  * theme) and conversations, searched by title and by what was said, with the
  * matching line shown. Fully keyboard driven: arrows move, Enter opens, Esc
- * closes. Rename and delete stay on each conversation row; deleting asks first.
+ * closes.
+ *
+ * Only the person's chosen quick actions show up front ("More actions" opens
+ * the rest in place); "Customize" lets them pin, unpin and reorder, remembered
+ * on this device. Chats can be pinned to a group at the top, synced with the
+ * account. Rename, pin and delete stay on each conversation row; deleting asks.
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
   AudioLines,
   Brain,
+  ChevronDown,
+  ChevronUp,
   CornerDownLeft,
   Database,
   Flame,
@@ -18,9 +27,12 @@ import {
   Loader2,
   MessageSquare,
   Moon,
+  Pin,
+  RotateCcw,
   Search,
   Settings,
   Sliders,
+  SlidersHorizontal,
   SquarePen,
   Sun,
   Trash2,
@@ -32,6 +44,7 @@ import {
   useChatStore,
   useFlagsStore,
   useMemoryStore,
+  usePaletteStore,
   useSettingsStore,
   useStreakStore,
   useVoiceStore,
@@ -42,6 +55,7 @@ import { HighlightedText } from '../../ui/HighlightedText';
 import type { ChatSession } from '../../../types';
 import { ChatHistoryGroups } from './ChatHistoryGroups';
 import { confirmAction } from '../../../store/confirm.ts';
+import { MAX_PINNED_ACTIONS } from '../../../store/palette.ts';
 import { startNewChat } from '../../../utils/chat/appActions';
 import { isDarkTheme, toggleTheme } from '../../../utils/ui/theme';
 import { matchesAll, searchChats, searchTerms } from '../../../utils/ui/search';
@@ -87,8 +101,11 @@ interface PaletteAction {
   run: () => void;
 }
 
-/** A selectable row: an action or a conversation, in on-screen order. */
-type PaletteItem = { kind: 'action'; action: PaletteAction } | { kind: 'chat'; session: ChatSession };
+/** A selectable row, in on-screen order. */
+type PaletteItem =
+  | { kind: 'action'; action: PaletteAction }
+  | { kind: 'more' }
+  | { kind: 'chat'; session: ChatSession };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -102,10 +119,15 @@ export const ChatHistoryModal: React.FC = () => {
   const cloudError = useChatHistoryStore((s) => s.cloudError);
   const deleteSession = useChatHistoryStore((s) => s.deleteSession);
   const renameSession = useChatHistoryStore((s) => s.renameSession);
+  const togglePinned = useChatHistoryStore((s) => s.togglePinned);
   const setActiveSessionId = useChatHistoryStore((s) => s.setActiveSessionId);
   const guestSessionCount = useChatHistoryStore((s) => s.guestSessionCount);
   const importGuestSessions = useChatHistoryStore((s) => s.importGuestSessions);
   const liveVoiceEnabled = useFlagsStore((s) => Boolean(s.flags.voice_enabled));
+  const quickActionIds = usePaletteStore((s) => s.quickActions);
+  const togglePinnedAction = usePaletteStore((s) => s.togglePinnedAction);
+  const moveAction = usePaletteStore((s) => s.moveAction);
+  const resetQuickActions = usePaletteStore((s) => s.resetQuickActions);
 
   const setMessages = useChatStore((s) => s.setMessages);
 
@@ -113,6 +135,8 @@ export const ChatHistoryModal: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [highlight, setHighlight] = useState(0);
+  const [showMore, setShowMore] = useState(false);
+  const [customizing, setCustomizing] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const closePalette = useCallback(() => setIsOpen(false), [setIsOpen]);
@@ -129,6 +153,8 @@ export const ChatHistoryModal: React.FC = () => {
       setQuery('');
       setEditingId(null);
       setHighlight(0);
+      setShowMore(false);
+      setCustomizing(false);
     }
   }, [isOpen]);
 
@@ -224,20 +250,37 @@ export const ChatHistoryModal: React.FC = () => {
   }, [liveVoiceEnabled, guestSessionCount, importGuestSessions, isOpen]);
 
   const terms = useMemo(() => searchTerms(query), [query]);
-  const visibleActions = useMemo(
-    () => (terms.length ? actions.filter((a) => matchesAll(`${a.label} ${a.keywords}`, terms)) : actions),
-    [actions, terms],
+  const searching = terms.length > 0;
+  const byId = useMemo(() => new Map(actions.map((a) => [a.id, a])), [actions]);
+  // Pinned actions in the person's order (ones unavailable here, like voice
+  // when it is off, are skipped), then everything else.
+  const pinnedActions = useMemo(
+    () => quickActionIds.map((id) => byId.get(id)).filter((a): a is PaletteAction => Boolean(a)),
+    [quickActionIds, byId],
   );
+  const otherActions = useMemo(
+    () => actions.filter((a) => !quickActionIds.includes(a.id)),
+    [actions, quickActionIds],
+  );
+
+  const shownActions = useMemo(() => {
+    if (searching) return actions.filter((a) => matchesAll(`${a.label} ${a.keywords}`, terms));
+    if (customizing || showMore) return [...pinnedActions, ...otherActions];
+    return pinnedActions;
+  }, [searching, actions, terms, customizing, showMore, pinnedActions, otherActions]);
+  const offerMore = !searching && !customizing && otherActions.length > 0;
+
   const matches = useMemo(() => searchChats(sessions, query), [sessions, query]);
-  const groups = useMemo(
-    () =>
-      terms.length
-        ? matches.length
-          ? [{ label: 'Chats', items: matches.map((m) => m.session) }]
-          : []
-        : groupSessions(sessions),
-    [terms, matches, sessions],
-  );
+  const groups = useMemo(() => {
+    if (searching) {
+      if (!matches.length) return [];
+      const ordered = [...matches.filter((m) => m.session.pinned), ...matches.filter((m) => !m.session.pinned)];
+      return [{ label: 'Chats', items: ordered.map((m) => m.session) }];
+    }
+    const pinned = sessions.filter((s) => s.pinned);
+    const rest = groupSessions(sessions.filter((s) => !s.pinned));
+    return pinned.length ? [{ label: 'Pinned', items: pinned }, ...rest] : rest;
+  }, [searching, matches, sessions]);
   const snippets = useMemo(() => {
     const map: Record<string, string> = {};
     for (const m of matches) if (m.snippet) map[m.session.id] = m.snippet;
@@ -246,10 +289,11 @@ export const ChatHistoryModal: React.FC = () => {
 
   const items = useMemo<PaletteItem[]>(
     () => [
-      ...visibleActions.map((action) => ({ kind: 'action' as const, action })),
-      ...groups.flatMap((g) => g.items.map((session) => ({ kind: 'chat' as const, session }))),
+      ...shownActions.map((action) => ({ kind: 'action' as const, action })),
+      ...(offerMore ? [{ kind: 'more' as const }] : []),
+      ...(customizing ? [] : groups.flatMap((g) => g.items.map((session) => ({ kind: 'chat' as const, session })))),
     ],
-    [visibleActions, groups],
+    [shownActions, offerMore, customizing, groups],
   );
   const chatIndex = useMemo(() => {
     const map: Record<string, number> = {};
@@ -258,9 +302,10 @@ export const ChatHistoryModal: React.FC = () => {
     });
     return map;
   }, [items]);
+  const moreIndex = items.findIndex((item) => item.kind === 'more');
 
   // A new search starts at the top.
-  useEffect(() => setHighlight(0), [query]);
+  useEffect(() => setHighlight(0), [query, customizing]);
   const current = Math.min(highlight, Math.max(0, items.length - 1));
 
   useEffect(() => {
@@ -280,16 +325,21 @@ export const ChatHistoryModal: React.FC = () => {
 
   const runAction = useCallback(
     (action: PaletteAction) => {
+      if (customizing) {
+        togglePinnedAction(action.id);
+        return;
+      }
       setIsOpen(false);
       action.run();
     },
-    [setIsOpen],
+    [customizing, togglePinnedAction, setIsOpen],
   );
 
   const activate = useCallback(
     (item: PaletteItem | undefined) => {
       if (!item) return;
       if (item.kind === 'action') runAction(item.action);
+      else if (item.kind === 'more') setShowMore((open) => !open);
       else handleLoadSession(item.session);
     },
     [runAction, handleLoadSession],
@@ -311,6 +361,14 @@ export const ChatHistoryModal: React.FC = () => {
       if (ok) deleteSession(id);
     },
     [deleteSession, sessions],
+  );
+
+  const handleTogglePin = useCallback(
+    (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      togglePinned(id);
+    },
+    [togglePinned],
   );
 
   const handleStartRename = useCallback((e: React.MouseEvent, session: ChatSession) => {
@@ -352,7 +410,83 @@ export const ChatHistoryModal: React.FC = () => {
 
   const highlighted = items[current];
   const highlightedChatId = highlighted?.kind === 'chat' ? highlighted.session.id : null;
-  const noResults = terms.length > 0 && items.length === 0;
+  const noResults = searching && items.length === 0;
+  const pinnedCount = pinnedActions.length;
+
+  const renderAction = (action: PaletteAction, index: number) => {
+    const Icon = action.icon;
+    const active = current === index;
+    const pinned = quickActionIds.includes(action.id);
+    const pinnedPosition = quickActionIds.indexOf(action.id);
+    return (
+      <div
+        key={action.id}
+        id={`palette-item-${index}`}
+        role="option"
+        aria-selected={active}
+        data-palette-index={index}
+        onMouseMove={() => setHighlight(index)}
+        className={cn('palette-row palette-row--action mx-2', active && 'is-highlighted', customizing && 'is-customizing')}
+      >
+        <button
+          type="button"
+          className="palette-row__main"
+          onClick={() => runAction(action)}
+          aria-label={customizing ? `${pinned ? 'Unpin' : 'Pin'} ${action.label}` : action.label}
+        >
+          <span className="palette-row__icon" aria-hidden="true">
+            <Icon className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-left text-sm text-content-primary">
+            <HighlightedText text={action.label} query={query} />
+          </span>
+          {!customizing && action.shortcut ? <kbd className="palette-kbd">{action.shortcut}</kbd> : null}
+          {!customizing ? (
+            <CornerDownLeft className="palette-row__enter h-3.5 w-3.5 flex-none" aria-hidden="true" />
+          ) : null}
+        </button>
+        {customizing ? (
+          <div className="flex flex-none items-center gap-0.5">
+            {pinned ? (
+              <>
+                <button
+                  type="button"
+                  className="palette-tool"
+                  onClick={() => moveAction(action.id, -1)}
+                  disabled={pinnedPosition <= 0}
+                  aria-label={`Move ${action.label} up`}
+                  title="Move up"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="palette-tool"
+                  onClick={() => moveAction(action.id, 1)}
+                  disabled={pinnedPosition >= pinnedCount - 1}
+                  aria-label={`Move ${action.label} down`}
+                  title="Move down"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+              </>
+            ) : null}
+            <button
+              type="button"
+              className={cn('palette-tool', pinned && 'is-on')}
+              onClick={() => togglePinnedAction(action.id)}
+              disabled={!pinned && quickActionIds.length >= MAX_PINNED_ACTIONS}
+              aria-pressed={pinned}
+              aria-label={pinned ? `Remove ${action.label} from quick actions` : `Add ${action.label} to quick actions`}
+              title={pinned ? 'Remove from quick actions' : 'Add to quick actions'}
+            >
+              <Pin className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   return (
     <Modal
@@ -397,7 +531,7 @@ export const ChatHistoryModal: React.FC = () => {
             Clear
           </button>
         )}
-        <kbd className="palette-kbd hidden sm:inline-flex">Esc</kbd>
+        <kbd className="palette-kbd">Esc</kbd>
         <span className="sm:hidden">
           <ModalClose onClick={closePalette} label="Close search" />
         </span>
@@ -405,39 +539,62 @@ export const ChatHistoryModal: React.FC = () => {
 
       <ModalBody className="custom-scrollbar">
         <div ref={bodyRef} id="command-palette-list" role="listbox" aria-label="Results">
-          {visibleActions.length > 0 ? (
+          {shownActions.length > 0 || offerMore || customizing ? (
             <div className="pt-2">
-              <div className="palette-section">{terms.length ? 'Actions' : 'Quick actions'}</div>
-              {visibleActions.map((action, index) => {
-                const Icon = action.icon;
-                const active = current === index;
-                return (
-                  <button
-                    key={action.id}
-                    id={`palette-item-${index}`}
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    data-palette-index={index}
-                    onMouseMove={() => setHighlight(index)}
-                    onClick={() => runAction(action)}
-                    className={cn('palette-row mx-2', active && 'is-highlighted')}
-                  >
-                    <Icon className="h-4 w-4 flex-none text-content-secondary" aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate text-left text-sm text-content-primary">
-                      <HighlightedText text={action.label} query={query} />
-                    </span>
-                    {action.shortcut ? <kbd className="palette-kbd">{action.shortcut}</kbd> : null}
-                    <CornerDownLeft className="palette-row__enter h-3.5 w-3.5 flex-none" aria-hidden="true" />
-                  </button>
-                );
-              })}
+              <div className="palette-section flex items-center justify-between gap-2 pr-3">
+                <span>{searching ? 'Actions' : customizing ? 'Choose your quick actions' : 'Quick actions'}</span>
+                {!searching ? (
+                  <span className="flex items-center gap-1 normal-case tracking-normal">
+                    {customizing ? (
+                      <button type="button" className="palette-link" onClick={resetQuickActions}>
+                        <RotateCcw className="h-3 w-3" aria-hidden="true" /> Reset
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className={cn('palette-link', customizing && 'is-primary')}
+                      onClick={() => setCustomizing((on) => !on)}
+                      aria-pressed={customizing}
+                    >
+                      {customizing ? (
+                        'Done'
+                      ) : (
+                        <>
+                          <SlidersHorizontal className="h-3 w-3" aria-hidden="true" /> Customize
+                        </>
+                      )}
+                    </button>
+                  </span>
+                ) : null}
+              </div>
+              {customizing ? (
+                <p className="px-5 pb-2 text-xs text-content-muted">
+                  Pin up to {MAX_PINNED_ACTIONS} to show here; the rest stay one search away.
+                </p>
+              ) : null}
+              {shownActions.map((action, index) => renderAction(action, index))}
+              {offerMore ? (
+                <button
+                  type="button"
+                  id={`palette-item-${moreIndex}`}
+                  role="option"
+                  aria-selected={current === moreIndex}
+                  aria-expanded={showMore}
+                  data-palette-index={moreIndex}
+                  onMouseMove={() => setHighlight(moreIndex)}
+                  onClick={() => setShowMore((open) => !open)}
+                  className={cn('palette-more mx-2', current === moreIndex && 'is-highlighted')}
+                >
+                  {showMore ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  {showMore ? 'Show fewer' : `More actions (${otherActions.length})`}
+                </button>
+              ) : null}
             </div>
           ) : null}
 
-          {isLoadingCloud && groups.length === 0 && !terms.length ? (
+          {customizing ? null : isLoadingCloud && groups.length === 0 && !searching ? (
             <SkeletonHistoryList count={4} />
-          ) : cloudError && groups.length === 0 && !terms.length ? (
+          ) : cloudError && groups.length === 0 && !searching ? (
             <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
               <MessageSquare className="w-8 h-8 text-rose-500/70 mb-3" />
               <p className="text-sm font-medium text-content-primary">Cloud history unavailable</p>
@@ -456,7 +613,7 @@ export const ChatHistoryModal: React.FC = () => {
               <p className="text-sm font-medium text-content-secondary">Nothing matches “{query.trim()}”</p>
               <p className="text-xs text-content-muted mt-1">Try other words. Chats are searched by title and by what was said.</p>
             </div>
-          ) : groups.length === 0 && !terms.length ? (
+          ) : groups.length === 0 && !searching ? (
             <p className="px-5 py-8 text-center text-xs text-content-muted">
               Your conversations will appear here.
             </p>
@@ -477,12 +634,13 @@ export const ChatHistoryModal: React.FC = () => {
               query={query}
               onHighlight={(id) => setHighlight(chatIndex[id] ?? current)}
               paletteIndex={chatIndex}
+              onTogglePin={handleTogglePin}
             />
           )}
         </div>
       </ModalBody>
 
-      {cloudError && groups.length > 0 ? (
+      {cloudError && groups.length > 0 && !customizing ? (
         <div className="flex items-center justify-between gap-3 border-t border-edge-subtle bg-amber-500/5 px-4 py-2.5 text-xs text-content-secondary">
           <span>{cloudError}</span>
           <button
@@ -497,7 +655,7 @@ export const ChatHistoryModal: React.FC = () => {
 
       <div className="palette-footer hidden sm:flex" aria-hidden="true">
         <span><kbd className="palette-kbd">↑</kbd><kbd className="palette-kbd">↓</kbd> Navigate</span>
-        <span><kbd className="palette-kbd">↵</kbd> Open</span>
+        <span><kbd className="palette-kbd">↵</kbd> {customizing ? 'Pin / unpin' : 'Open'}</span>
         <span><kbd className="palette-kbd">Esc</kbd> Close</span>
         <span className="ml-auto text-brand-primary">{shortcutLabel('K')}</span>
       </div>
