@@ -30,6 +30,20 @@ from backend.infra.store.store import InMemoryStore
         ("لازم اخلص كل شي قبل الاسبوع الجاي", "unpack_should", '"لازم"'),
         ("اخيرا تخرجت!", "savor", '"اخيرا"'),
         ("مدري، حاسس اني ضايع", "sharpen", '"مدري"'),
+        # Someone else's good news with mixed feelings is the tension, not a celebration.
+        ("I'm happy for my sister getting engaged, but part of me feels left behind.", "name_tension", ""),
+        # Someone else's news, no conflict: nothing to force.
+        ("my brother got promoted and im proud of him", "", ""),
+        # Breaking down gets presence, not a technique, even on the first message.
+        ("أنا منهار ومضغوط، أبوي ما يفهمني ومو قادر أتحمل", "stay", ""),
+        # "in front of everyone" is literal, not an absolute.
+        ("Today was awful. My boss yelled at me in front of everyone and I just froze.", "values", "my boss"),
+        # A factual question stays a factual question, even if a friend is mentioned.
+        ("وش رقم خط المساعدة؟ صديقي يسأل", "answer", ""),
+        ("What's a quick breathing exercise I can do at my desk?", "answer", ""),
+        ("I got the job!", "savor", ""),
+        # Fog, not a thinking error.
+        ("idk, everything just feels kind of off lately", "sharpen", '"idk"'),
     ],
 )
 def test_the_move_fits_the_message_and_quotes_their_words(message: str, move: str, hook: str) -> None:
@@ -37,6 +51,11 @@ def test_the_move_fits_the_message_and_quotes_their_words(message: str, move: st
     assert plan.move == move
     if hook:
         assert plan.hook == hook and hook in plan.note
+    if move:
+        # Every note says it is one part of a normal reply (v1 notes shrank replies to one sentence).
+        assert "one part of the reply, not all of it" in plan.note
+        # v2 eval: technique wording made replies formal (Gulf Arabic answered in MSA).
+        assert "their register and dialect" in plan.note
 
 
 def test_context_moves_use_recurring_topics_memory_and_venting_loops() -> None:

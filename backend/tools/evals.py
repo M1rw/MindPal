@@ -241,7 +241,7 @@ def judge_one(gateway: Any, case: Dict[str, Any], reply: str, *, provider: str =
                     prompt=f"Memory: {memory}\n{earlier}\nPerson: {case['message']}\nCompanion: {reply}",
                     system_instruction=JUDGE_SYSTEM,
                     temperature=0.0,
-                    max_tokens=2000,
+                    max_tokens=1200,
                 )
                 return extract_json_object(raw)
             except Exception as exc:  # a failed judgment is reported, not guessed
@@ -286,7 +286,13 @@ def summarize(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def rejudge(report: Dict[str, Any], *, provider: str = "gemini", pace_seconds: float = 7.0) -> Dict[str, Any]:
+def rejudge(
+    report: Dict[str, Any],
+    *,
+    provider: str = "gemini",
+    pace_seconds: float = 7.0,
+    on_progress: Any = None,
+) -> Dict[str, Any]:
     """Judge again every row of a saved report whose judgment failed, keeping its replies."""
     from backend.infra.llm.gateway import get_llm_gateway
 
@@ -297,6 +303,8 @@ def rejudge(report: Dict[str, Any], *, provider: str = "gemini", pace_seconds: f
         case = cases.get(row["id"]) or {"id": row["id"], "message": row["message"]}
         row["scores"] = judge_one(gateway, case, row["reply"], provider=provider)
         print(f"  judged {done}/{len(todo)} {row['id']}", flush=True)
+        if on_progress:
+            on_progress(report)  # saved after every row: an interrupted run keeps its work
         time.sleep(pace_seconds)
     report.update(summarize(report["rows"]))
     report["judge_provider"] = provider
