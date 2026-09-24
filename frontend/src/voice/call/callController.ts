@@ -34,6 +34,7 @@ import { NamedTimers, renewDelayMs, rollingContinuation, rotateDelayMs, usableSu
 import { REPLY_NUDGE_NOTE, ReplyGuard } from './replyGuard.ts';
 import { SafetyBridge, type SafetyOutcome } from './safetyBridge.ts';
 import { CallTranscript } from './transcript.ts';
+import { holdScreenAwake } from '../../utils/mobile/wakeLock.ts';
 
 /** How often the controller checks its clocks (pause, reply guard, heartbeat). */
 export const TICK_MS = 250;
@@ -947,6 +948,8 @@ export class LiveVoiceSession {
   private bindPage(): void {
     const page = this.deps.page;
     if (!page) return;
+    // A call is hands-free: without this the phone locks mid-sentence.
+    this.unbindPage.push(holdScreenAwake());
     this.unbindPage.push(
       page.onVisible(() => {
         this.trace.add('session', 'page_visible');

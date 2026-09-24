@@ -36,6 +36,10 @@ function applyTheme(theme: Theme): void {
   const changed = root.classList.contains('dark') !== dark || !root.classList.contains(dark ? 'dark' : 'light');
   root.classList.toggle('dark', dark);
   root.classList.toggle('light', !dark);
+  // The phone's status bar / address bar follows the app, not the OS scheme.
+  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
+    meta.content = dark ? '#0C0C0E' : '#FFFFFF';
+  });
   try {
     localStorage.setItem(STORAGE_KEYS.THEME, dark ? 'dark' : 'light');
   } catch {

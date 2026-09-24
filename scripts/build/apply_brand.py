@@ -183,14 +183,18 @@ def _build_manifest(b: dict) -> dict:
     assets = b["assets"]
     pwa = b["pwa"]
     return {
+        # A stable id keeps the installed app the same app if start_url changes.
+        "id": pwa["start_url"],
         "name": ident["name"],
         "short_name": ident["short_name"],
         "description": ident["description"],
         "start_url": pwa["start_url"],
         "scope": pwa["scope"],
         "display": pwa["display"],
-        "background_color": colors["background_light"],
-        "theme_color": colors["primary"],
+        # The app opens dark by default: a light splash flashed white before
+        # the first paint, and a brand-blue title bar clashed with the canvas.
+        "background_color": colors["background_dark"],
+        "theme_color": colors["theme_dark"],
         "orientation": pwa["orientation"],
         "icons": [
             {"src": assets.get("icon_128", assets["icon_192"]), "sizes": "128x128", "type": "image/png", "purpose": "any"},

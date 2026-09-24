@@ -1,12 +1,13 @@
 {
+  "id": "/",
   "name": "MindPal",
   "short_name": "MindPal",
   "description": "MindPal is a private AI companion for reflection, emotional clarity, voice journaling, memory, and practical support.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#4140FD",
+  "background_color": "#0C0C0E",
+  "theme_color": "#0C0C0E",
   "orientation": "portrait-primary",
   "icons": [
     {
