@@ -1,12 +1,54 @@
+/**
+ * Search: MindPal's command palette (Ctrl/Cmd + K), modelled on ChatGPT's.
+ *
+ * One box for everything: actions (new chat, live voice, memory, settings,
+ * theme) and conversations, searched by title and by what was said, with the
+ * matching line shown. Fully keyboard driven: arrows move, Enter opens, Esc
+ * closes. Rename and delete stay on each conversation row; deleting asks first.
+ */
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, MessageSquare, Loader2 } from 'lucide-react';
-import { useChatHistoryStore, useChatHistoryModalStore, useChatStore } from '../../../store';
+import {
+  AudioLines,
+  Brain,
+  CornerDownLeft,
+  Database,
+  Flame,
+  Gauge,
+  Loader2,
+  MessageSquare,
+  Moon,
+  Search,
+  Settings,
+  Sliders,
+  SquarePen,
+  Sun,
+  Trash2,
+  Upload,
+} from 'lucide-react';
+import {
+  useChatHistoryStore,
+  useChatHistoryModalStore,
+  useChatStore,
+  useFlagsStore,
+  useMemoryStore,
+  useSettingsStore,
+  useStreakStore,
+  useVoiceStore,
+} from '../../../store';
 import { Modal, ModalBody, ModalClose, ModalToolbar } from '../../ui/Modal';
 import { SkeletonHistoryList } from '../../ui/Skeleton';
+import { HighlightedText } from '../../ui/HighlightedText';
 import type { ChatSession } from '../../../types';
 import { ChatHistoryGroups } from './ChatHistoryGroups';
+import { confirmAction } from '../../../store/confirm.ts';
+import { startNewChat } from '../../../utils/chat/appActions';
+import { isDarkTheme, toggleTheme } from '../../../utils/ui/theme';
+import { matchesAll, searchChats, searchTerms } from '../../../utils/ui/search';
+import { shortcutLabel } from '../../../utils/ui/shortcuts';
+import { cn } from '../../../utils/ui/cn';
 
-function groupSessions(sessions: ChatSession[]): { label: string; items: ChatSession[] }[] {
+export function groupSessions(sessions: ChatSession[]): { label: string; items: ChatSession[] }[] {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const yesterday = today - 86_400_000;
@@ -35,6 +77,19 @@ function groupSessions(sessions: ChatSession[]): { label: string; items: ChatSes
     .map(([label, items]) => ({ label, items }));
 }
 
+interface PaletteAction {
+  id: string;
+  label: string;
+  /** Extra words the action is found by. */
+  keywords: string;
+  icon: React.ComponentType<{ className?: string }>;
+  shortcut?: string;
+  run: () => void;
+}
+
+/** A selectable row: an action or a conversation, in on-screen order. */
+type PaletteItem = { kind: 'action'; action: PaletteAction } | { kind: 'chat'; session: ChatSession };
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const ChatHistoryModal: React.FC = () => {
@@ -50,15 +105,17 @@ export const ChatHistoryModal: React.FC = () => {
   const setActiveSessionId = useChatHistoryStore((s) => s.setActiveSessionId);
   const guestSessionCount = useChatHistoryStore((s) => s.guestSessionCount);
   const importGuestSessions = useChatHistoryStore((s) => s.importGuestSessions);
+  const liveVoiceEnabled = useFlagsStore((s) => Boolean(s.flags.voice_enabled));
 
   const setMessages = useChatStore((s) => s.setMessages);
-  const clearMessages = useChatStore((s) => s.clearMessages);
 
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [highlight, setHighlight] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
-  const closeHistory = useCallback(() => setIsOpen(false), [setIsOpen]);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const closePalette = useCallback(() => setIsOpen(false), [setIsOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -71,8 +128,146 @@ export const ChatHistoryModal: React.FC = () => {
     } else {
       setQuery('');
       setEditingId(null);
+      setHighlight(0);
     }
   }, [isOpen]);
+
+  // Every action closes the palette first, so what it opens is on top.
+  const actions = useMemo<PaletteAction[]>(() => {
+    const openSettings = (tab: string) => () => {
+      const settings = useSettingsStore.getState();
+      settings.setActiveTab(tab);
+      settings.setIsOpen(true);
+    };
+    const dark = isDarkTheme();
+    const list: PaletteAction[] = [
+      {
+        id: 'new-chat',
+        label: 'New chat',
+        keywords: 'start fresh conversation clear',
+        icon: SquarePen,
+        shortcut: shortcutLabel('O', { shift: true }),
+        run: () => void startNewChat(),
+      },
+    ];
+    if (liveVoiceEnabled) {
+      list.push({
+        id: 'live-voice',
+        label: 'Start live voice',
+        keywords: 'call talk speak microphone',
+        icon: AudioLines,
+        run: () => useVoiceStore.getState().setIsActive(true),
+      });
+    }
+    list.push(
+      {
+        id: 'memory',
+        label: 'Open memory',
+        keywords: 'remember facts summary what mindpal knows',
+        icon: Brain,
+        run: () => useMemoryStore.getState().setIsOpen(true),
+      },
+      {
+        id: 'settings',
+        label: 'Settings',
+        keywords: 'preferences options general',
+        icon: Settings,
+        run: openSettings('general'),
+      },
+      {
+        id: 'personalization',
+        label: 'Personalization',
+        keywords: 'reply style warmth concise detailed',
+        icon: Sliders,
+        run: openSettings('personalization'),
+      },
+      {
+        id: 'usage',
+        label: 'Usage',
+        keywords: 'credits limits quota voice minutes',
+        icon: Gauge,
+        run: openSettings('usage'),
+      },
+      {
+        id: 'data',
+        label: 'Data controls',
+        keywords: 'export download delete privacy',
+        icon: Database,
+        run: openSettings('data'),
+      },
+      {
+        id: 'theme',
+        label: dark ? 'Switch to light mode' : 'Switch to dark mode',
+        keywords: 'theme appearance dark light',
+        icon: dark ? Sun : Moon,
+        run: () => void toggleTheme(),
+      },
+      {
+        id: 'streak',
+        label: 'Days you showed up',
+        keywords: 'streak progress',
+        icon: Flame,
+        run: () => useStreakStore.getState().setIsOpen(true),
+      },
+    );
+    if (guestSessionCount > 0) {
+      list.push({
+        id: 'import-guest',
+        label: `Add ${guestSessionCount} chat${guestSessionCount === 1 ? '' : 's'} from this device to my account`,
+        keywords: 'import guest before signed in',
+        icon: Upload,
+        run: () => void importGuestSessions(),
+      });
+    }
+    return list;
+    // Rebuilt when the palette opens, so the theme label is current.
+  }, [liveVoiceEnabled, guestSessionCount, importGuestSessions, isOpen]);
+
+  const terms = useMemo(() => searchTerms(query), [query]);
+  const visibleActions = useMemo(
+    () => (terms.length ? actions.filter((a) => matchesAll(`${a.label} ${a.keywords}`, terms)) : actions),
+    [actions, terms],
+  );
+  const matches = useMemo(() => searchChats(sessions, query), [sessions, query]);
+  const groups = useMemo(
+    () =>
+      terms.length
+        ? matches.length
+          ? [{ label: 'Chats', items: matches.map((m) => m.session) }]
+          : []
+        : groupSessions(sessions),
+    [terms, matches, sessions],
+  );
+  const snippets = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of matches) if (m.snippet) map[m.session.id] = m.snippet;
+    return map;
+  }, [matches]);
+
+  const items = useMemo<PaletteItem[]>(
+    () => [
+      ...visibleActions.map((action) => ({ kind: 'action' as const, action })),
+      ...groups.flatMap((g) => g.items.map((session) => ({ kind: 'chat' as const, session }))),
+    ],
+    [visibleActions, groups],
+  );
+  const chatIndex = useMemo(() => {
+    const map: Record<string, number> = {};
+    items.forEach((item, index) => {
+      if (item.kind === 'chat') map[item.session.id] = index;
+    });
+    return map;
+  }, [items]);
+
+  // A new search starts at the top.
+  useEffect(() => setHighlight(0), [query]);
+  const current = Math.min(highlight, Math.max(0, items.length - 1));
+
+  useEffect(() => {
+    bodyRef.current
+      ?.querySelector(`[data-palette-index="${current}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [current]);
 
   const handleLoadSession = useCallback(
     (session: ChatSession) => {
@@ -80,26 +275,50 @@ export const ChatHistoryModal: React.FC = () => {
       setActiveSessionId(session.id);
       setIsOpen(false);
     },
-    [setMessages, setActiveSessionId, setIsOpen]
+    [setMessages, setActiveSessionId, setIsOpen],
+  );
+
+  const runAction = useCallback(
+    (action: PaletteAction) => {
+      setIsOpen(false);
+      action.run();
+    },
+    [setIsOpen],
+  );
+
+  const activate = useCallback(
+    (item: PaletteItem | undefined) => {
+      if (!item) return;
+      if (item.kind === 'action') runAction(item.action);
+      else handleLoadSession(item.session);
+    },
+    [runAction, handleLoadSession],
   );
 
   const handleDelete = useCallback(
-    (e: React.MouseEvent, id: string) => {
+    async (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
-      deleteSession(id);
+      const title = sessions.find((s) => s.id === id)?.title || 'this chat';
+      const ok = await confirmAction({
+        title: 'Delete this chat?',
+        message: `“${title}” will be removed from your history${
+          useChatHistoryStore.getState().owner === 'guest' ? ' on this device' : ' and your account'
+        }. This can’t be undone.`,
+        confirmLabel: 'Delete',
+        tone: 'danger',
+        icon: Trash2,
+      });
+      if (ok) deleteSession(id);
     },
-    [deleteSession]
+    [deleteSession, sessions],
   );
 
-  const handleStartRename = useCallback(
-    (e: React.MouseEvent, session: ChatSession) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setEditingId(session.id);
-      setEditingTitle(session.title);
-    },
-    []
-  );
+  const handleStartRename = useCallback((e: React.MouseEvent, session: ChatSession) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingId(session.id);
+    setEditingTitle(session.title);
+  }, []);
 
   const handleSaveRename = useCallback(
     (id: string) => {
@@ -108,46 +327,59 @@ export const ChatHistoryModal: React.FC = () => {
       }
       setEditingId(null);
     },
-    [editingTitle, renameSession]
+    [editingTitle, renameSession],
   );
 
-  const handleNewChat = useCallback(() => {
-    clearMessages();
-    setActiveSessionId(null);
-    setIsOpen(false);
-  }, [clearMessages, setActiveSessionId, setIsOpen]);
+  const onSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!items.length) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlight((current + 1) % items.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlight((current - 1 + items.length) % items.length);
+    } else if (event.key === 'Home' && event.ctrlKey) {
+      event.preventDefault();
+      setHighlight(0);
+    } else if (event.key === 'End' && event.ctrlKey) {
+      event.preventDefault();
+      setHighlight(items.length - 1);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      activate(items[current]);
+    }
+  };
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return sessions;
-    return sessions.filter((s) => {
-      if (s.title.toLowerCase().includes(q)) return true;
-      return s.messages.some((m) => m.content.toLowerCase().includes(q));
-    });
-  }, [sessions, query]);
-
-  const groups = useMemo(() => groupSessions(filtered), [filtered]);
+  const highlighted = items[current];
+  const highlightedChatId = highlighted?.kind === 'chat' ? highlighted.session.id : null;
+  const noResults = terms.length > 0 && items.length === 0;
 
   return (
     <Modal
       open={isOpen}
-      onClose={closeHistory}
-      label="Chat history"
+      onClose={closePalette}
+      label="Search chats and actions"
       size="lg"
       flush
       swipeable
-      panelClassName="min-h-[min(20rem,50svh)] max-h-[min(80svh,36rem)] overscroll-contain"
+      panelClassName="command-palette min-h-[min(20rem,50svh)] max-h-[min(80svh,38rem)] overscroll-contain"
     >
-      <ModalToolbar>
+      <ModalToolbar className="gap-3 px-4 py-3">
         <Search className="w-4 h-4 text-content-muted flex-shrink-0" />
         <input
           ref={searchRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search…"
+          onKeyDown={onSearchKeyDown}
+          placeholder="Search chats and actions…"
           className="flex-1 bg-transparent outline-none text-sm text-content-primary placeholder-content-muted"
-          aria-label="Search conversations"
+          aria-label="Search chats and actions"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="command-palette-list"
+          aria-activedescendant={items.length ? `palette-item-${current}` : undefined}
+          aria-autocomplete="list"
         />
         {isLoadingCloud && (
           <div className="flex items-center gap-1.5 text-xs text-brand-primary animate-pulse">
@@ -165,15 +397,48 @@ export const ChatHistoryModal: React.FC = () => {
             Clear
           </button>
         )}
-        {query && <span aria-hidden="true" className="h-5 w-px bg-edge-subtle" />}
-        <ModalClose onClick={closeHistory} label="Close history" />
+        <kbd className="palette-kbd hidden sm:inline-flex">Esc</kbd>
+        <span className="sm:hidden">
+          <ModalClose onClick={closePalette} label="Close search" />
+        </span>
       </ModalToolbar>
 
       <ModalBody className="custom-scrollbar">
-          {isLoadingCloud && groups.length === 0 ? (
+        <div ref={bodyRef} id="command-palette-list" role="listbox" aria-label="Results">
+          {visibleActions.length > 0 ? (
+            <div className="pt-2">
+              <div className="palette-section">{terms.length ? 'Actions' : 'Quick actions'}</div>
+              {visibleActions.map((action, index) => {
+                const Icon = action.icon;
+                const active = current === index;
+                return (
+                  <button
+                    key={action.id}
+                    id={`palette-item-${index}`}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    data-palette-index={index}
+                    onMouseMove={() => setHighlight(index)}
+                    onClick={() => runAction(action)}
+                    className={cn('palette-row mx-2', active && 'is-highlighted')}
+                  >
+                    <Icon className="h-4 w-4 flex-none text-content-secondary" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate text-left text-sm text-content-primary">
+                      <HighlightedText text={action.label} query={query} />
+                    </span>
+                    {action.shortcut ? <kbd className="palette-kbd">{action.shortcut}</kbd> : null}
+                    <CornerDownLeft className="palette-row__enter h-3.5 w-3.5 flex-none" aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {isLoadingCloud && groups.length === 0 && !terms.length ? (
             <SkeletonHistoryList count={4} />
-          ) : cloudError && groups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
+          ) : cloudError && groups.length === 0 && !terms.length ? (
+            <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
               <MessageSquare className="w-8 h-8 text-rose-500/70 mb-3" />
               <p className="text-sm font-medium text-content-primary">Cloud history unavailable</p>
               <p className="text-xs text-content-muted mt-1 mb-4">Your local conversations are safe. Retry the sync when you are ready.</p>
@@ -185,25 +450,16 @@ export const ChatHistoryModal: React.FC = () => {
                 Retry sync
               </button>
             </div>
-          ) : groups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
-              <MessageSquare className="w-8 h-8 text-content-muted mb-3" />
-              <p className="text-sm font-medium text-content-secondary">
-                {query ? 'No conversations match your search' : 'No conversations yet'}
-              </p>
-              <p className="text-xs text-content-muted mt-1 mb-4">
-                {query ? 'Try different keywords' : 'Your saved conversations and reflections will appear here'}
-              </p>
-              {!query && (
-                <button
-                  type="button"
-                  onClick={handleNewChat}
-                  className="px-4 py-2 rounded-xl text-xs font-medium bg-brand-primary text-white hover:bg-brand-hover transition-transform active:scale-95 shadow-sm"
-                >
-                  Start your first conversation
-                </button>
-              )}
+          ) : noResults ? (
+            <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+              <Search className="w-7 h-7 text-content-muted mb-3" />
+              <p className="text-sm font-medium text-content-secondary">Nothing matches “{query.trim()}”</p>
+              <p className="text-xs text-content-muted mt-1">Try other words. Chats are searched by title and by what was said.</p>
             </div>
+          ) : groups.length === 0 && !terms.length ? (
+            <p className="px-5 py-8 text-center text-xs text-content-muted">
+              Your conversations will appear here.
+            </p>
           ) : (
             <ChatHistoryGroups
               groups={groups}
@@ -212,32 +468,20 @@ export const ChatHistoryModal: React.FC = () => {
               editingTitle={editingTitle}
               onLoadSession={handleLoadSession}
               onStartRename={handleStartRename}
-              onDelete={handleDelete}
+              onDelete={(e, id) => void handleDelete(e, id)}
               onSaveRename={handleSaveRename}
               onEditingTitleChange={setEditingTitle}
               onEditingIdChange={setEditingId}
+              highlightedId={highlightedChatId}
+              snippets={snippets}
+              query={query}
+              onHighlight={(id) => setHighlight(chatIndex[id] ?? current)}
+              paletteIndex={chatIndex}
             />
           )}
-      </ModalBody>
-      {guestSessionCount > 0 ? (
-        // Chats from before signing in stay on the device until the person
-        // chooses to keep them in their account. Merging them automatically
-        // put whoever used this browser as a guest into the next account.
-        <div className="flex items-center justify-between gap-3 border-t border-edge-subtle px-4 py-2.5 text-xs text-content-secondary">
-          <span>
-            {guestSessionCount === 1
-              ? '1 chat from before you signed in is on this device.'
-              : `${guestSessionCount} chats from before you signed in are on this device.`}
-          </span>
-          <button
-            type="button"
-            onClick={() => importGuestSessions()}
-            className="flex-shrink-0 font-semibold text-brand-primary hover:text-brand-hover"
-          >
-            Add to my account
-          </button>
         </div>
-      ) : null}
+      </ModalBody>
+
       {cloudError && groups.length > 0 ? (
         <div className="flex items-center justify-between gap-3 border-t border-edge-subtle bg-amber-500/5 px-4 py-2.5 text-xs text-content-secondary">
           <span>{cloudError}</span>
@@ -250,6 +494,13 @@ export const ChatHistoryModal: React.FC = () => {
           </button>
         </div>
       ) : null}
+
+      <div className="palette-footer hidden sm:flex" aria-hidden="true">
+        <span><kbd className="palette-kbd">↑</kbd><kbd className="palette-kbd">↓</kbd> Navigate</span>
+        <span><kbd className="palette-kbd">↵</kbd> Open</span>
+        <span><kbd className="palette-kbd">Esc</kbd> Close</span>
+        <span className="ml-auto text-brand-primary">{shortcutLabel('K')}</span>
+      </div>
     </Modal>
   );
 };

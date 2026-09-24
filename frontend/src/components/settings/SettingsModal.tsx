@@ -9,6 +9,7 @@ import {
   useChatHistoryStore,
 } from '../../store';
 import { ApiClient } from '../../services/api/index';
+import { confirmAction } from '../../store/confirm.ts';
 import { signOut } from '../../services/auth/index';
 import type { ChangelogResponse } from '../../types';
 import { SettingsSidebar } from './SettingsSidebar';
@@ -35,6 +36,7 @@ import {
   Database,
   ShieldCheck,
   User,
+  Trash2,
 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { SettingsMobileNav } from './SettingsMobileNav';
@@ -133,13 +135,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = () => {
       pushToast('Sign in to delete account data stored on the server.', 'error');
       return;
     }
-    if (
-      !window.confirm(
-        'Permanently delete your MindPal profile, saved memory, and synced chats on the server? Chat history on this device is kept here only and will not be synced again. This cannot be undone.',
-      )
-    ) {
-      return;
-    }
+    // The app's own dialog: window.confirm is blocked (always false) in iOS
+    // PWAs and in-app browsers, which made this button silently do nothing.
+    const confirmed = await confirmAction({
+      title: 'Delete your MindPal data?',
+      message:
+        'Your profile, saved memory and synced chats are permanently deleted from the server. Chats on this device stay here only and will not sync again. This can’t be undone.',
+      confirmLabel: 'Delete my data',
+      tone: 'danger',
+      icon: Trash2,
+    });
+    if (!confirmed) return;
     setDeleting(true);
     try {
       await ApiClient.deleteUserData();
