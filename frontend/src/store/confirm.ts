@@ -9,9 +9,14 @@
  *
  * `dontAskAgainKey` adds a "Don't ask again" checkbox; once ticked and
  * confirmed, later requests with the same key resolve true without showing.
+ * The choice is a setting (settings.skipConfirm): it follows the account and
+ * can be turned back on in Settings > General.
  */
 
 import { create } from 'zustand';
+import { CONFIRM_KEYS, useSettingsStore } from './settings.ts';
+
+export type ConfirmKey = (typeof CONFIRM_KEYS)[number];
 import type { ComponentType, SVGProps } from 'react';
 
 export type ConfirmTone = 'default' | 'danger';
@@ -25,8 +30,8 @@ export interface ConfirmOptions {
   tone?: ConfirmTone;
   /** A lucide icon (or any SVG component) shown beside the title. */
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
-  /** Offer "Don't ask again", remembered on this device under this key. */
-  dontAskAgainKey?: string;
+  /** Offer "Don't ask again", remembered as a setting under this key. */
+  dontAskAgainKey?: ConfirmKey;
 }
 
 interface ConfirmRequest extends ConfirmOptions {
@@ -40,24 +45,15 @@ interface ConfirmState {
   settle: (id: number, confirmed: boolean, remember?: boolean) => void;
 }
 
-const SKIP_PREFIX = 'mindpal_confirm_skip:';
 let nextId = 1;
 
-function skipped(key: string | undefined): boolean {
-  if (!key) return false;
-  try {
-    return localStorage.getItem(SKIP_PREFIX + key) === '1';
-  } catch {
-    return false;
-  }
+function skipped(key: ConfirmKey | undefined): boolean {
+  return Boolean(key && useSettingsStore.getState().settings.skipConfirm[key]);
 }
 
-function rememberSkip(key: string): void {
-  try {
-    localStorage.setItem(SKIP_PREFIX + key, '1');
-  } catch {
-    // Private mode or storage blocked: just ask again next time.
-  }
+/** Turn a "Don't ask again" on or off (Settings shows it as "Ask before ..."). */
+export function setConfirmSkipped(key: ConfirmKey, skip: boolean): void {
+  useSettingsStore.getState().updateSettings({ skipConfirm: { [key]: skip } });
 }
 
 export const useConfirmStore = create<ConfirmState>((set, get) => ({
@@ -66,7 +62,7 @@ export const useConfirmStore = create<ConfirmState>((set, get) => ({
   settle: (id, confirmed, remember = false) => {
     const request = get().queue.find((item) => item.id === id);
     if (!request) return;
-    if (confirmed && remember && request.dontAskAgainKey) rememberSkip(request.dontAskAgainKey);
+    if (confirmed && remember && request.dontAskAgainKey) setConfirmSkipped(request.dontAskAgainKey, true);
     set((state) => ({ queue: state.queue.filter((item) => item.id !== id) }));
     request.resolve(confirmed);
   },
@@ -82,12 +78,6 @@ export function confirmAction(options: ConfirmOptions): Promise<boolean> {
 
 /** Forget every "Don't ask again" (e.g. from a settings reset). */
 export function resetConfirmPreferences(): void {
-  try {
-    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(SKIP_PREFIX)) localStorage.removeItem(key);
-    }
-  } catch {
-    // ignore
-  }
+  const skipConfirm = Object.fromEntries(CONFIRM_KEYS.map((key) => [key, false]));
+  useSettingsStore.getState().updateSettings({ skipConfirm });
 }

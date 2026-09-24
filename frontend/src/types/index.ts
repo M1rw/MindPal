@@ -116,6 +116,10 @@ export interface UserUISettings {
   personalization: UserPersonalization;
   voiceModel: string;
   voiceLanguage: string;
+  /** Search palette quick actions, in the person's order (ids from ChatHistoryModal). */
+  quickActions: string[];
+  /** Confirmations the person chose "Don't ask again" for, by key (e.g. 'new-chat'). */
+  skipConfirm: Record<string, boolean>;
 }
 
 export interface VoiceTokenResponse {
