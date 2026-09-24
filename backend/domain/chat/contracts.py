@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.configs.runtime import api_limits_config
+from backend.domain.files.contracts import MAX_ATTACHMENTS, AttachmentRef
 
 _LIMITS = api_limits_config()["chat"]
 MAX_MESSAGE_CHARS = int(_LIMITS["max_message_chars"])
@@ -67,21 +68,26 @@ class ClientContext(BaseModel):
 
 
 class ChatStreamPayload(BaseModel):
-    message: str = Field(max_length=MAX_MESSAGE_CHARS)
+    message: str = Field(default="", max_length=MAX_MESSAGE_CHARS)
     history: List[ChatHistoryTurn] = Field(default_factory=list, max_length=MAX_HISTORY_TURNS)
     session_id: Optional[str] = Field(default=None, max_length=128)
     model: Optional[str] = "standard"
     telemetry: Optional[Dict[str, Any]] = None
     personalization: Optional[Dict[str, Any]] = None
     client_context: Optional[ClientContext] = None
+    attachments: List[AttachmentRef] = Field(default_factory=list, max_length=MAX_ATTACHMENTS)
 
     @field_validator("message")
     @classmethod
     def strip_message(cls, value: str) -> str:
-        text = (value or "").strip()
-        if not text:
+        return (value or "").strip()
+
+    @model_validator(mode="after")
+    def message_or_files(self) -> "ChatStreamPayload":
+        # A file on its own is a message too ("here, look at this").
+        if not self.message and not self.attachments:
             raise ValueError("message must not be empty")
-        return text
+        return self
 
     @field_validator("model")
     @classmethod
