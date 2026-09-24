@@ -45,6 +45,9 @@ const USER_REQUESTS: Array<{ pattern: RegExp; expression: FaceExpression }> = [
   // Arabic included: callers switch language mid-sentence.
   { pattern: /(draw (?:a )?heart|heart eyes?|do a heart|make a heart|shape (?:your )?eyes? into a heart|heart)|(قلب|قلوب)/i, expression: 'heart' },
   { pattern: /\b(wink|غمزة|اغمز|غمزي)\b/i, expression: 'wink' },
+  { pattern: /\b(laugh|laughing eyes)\b|(اضحك|اضحكي)/i, expression: 'laugh' },
+  { pattern: /\b(blush|blushing)\b|(خجلان|تستحي)/i, expression: 'blush' },
+  { pattern: /\b(sparkle|sparkly|star eyes|starry eyes|excited eyes)\b/i, expression: 'excited' },
   { pattern: /\b(roll (?:your |ur |the )?eyes|eye[- ]?roll)\b/i, expression: 'roll_eyes' },
   { pattern: /\b(look away|look aside)\b/i, expression: 'look_away' },
   { pattern: /\b(look back|look at me)\b/i, expression: 'look_back' },
