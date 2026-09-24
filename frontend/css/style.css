@@ -2,9 +2,11 @@
 :root {
   /* Set by applyViewportHeight() in main.tsx via visualViewport API.
      --app-height   = visual viewport height (shrinks when keyboard opens).
-     --keyboard-offset = innerHeight − visualHeight (0 when keyboard hidden). */
+     --keyboard-offset = innerHeight − visualHeight (0 when keyboard hidden).
+     --vv-top       = visualViewport.offsetTop (iOS pans when a field is focused). */
   --app-height: 100vh;
   --keyboard-offset: 0px;
+  --vv-top: 0px;
   /* Tracks the current composer dock height so other elements (toast, jump btn)
      can position themselves above it. Set by ResizeObserver in AppPanels.tsx. */
   --composer-dock-h: 4.5rem;
@@ -16,6 +18,20 @@ html {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   overscroll-behavior-y: none;
+}
+
+/* Long-pressing a control opens iOS's "Save image / Copy link" callout and
+   starts a text selection on its label; native apps do neither. Message text
+   stays selectable (it is not a control). */
+button,
+[role="button"],
+[role="menuitem"],
+[role="option"],
+nav img,
+button svg {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 body {
@@ -35,6 +51,19 @@ html {
   /* JS sets --app-height to visualViewport.height so this shrinks correctly
      when the virtual keyboard opens on iOS Safari and Android Chrome. */
   height: var(--app-height);
+}
+
+/* The app shell is pinned to the visual viewport: its height is the visible
+   height (above the keyboard) and its top follows the visual viewport when
+   iOS pans the page to show a focused field. Nothing inside needs to add the
+   keyboard height again. */
+.app-shell {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  /* See .chat-stage: never scrollable, not even by focus. */
+  overflow: clip;
 }
 
 /* ═══ Prevent iOS Safari Auto-Zoom on Form Focus (Strict 16px Rule) ═══ */
@@ -376,6 +405,15 @@ button,
 /* Key hints mean nothing on a touch screen. */
 @media (max-width: 639px) {
   .palette-kbd {
+    display: none;
+  }
+}
+
+/* Keyboard hints mean nothing to a thumb. */
+@media (hover: none) and (pointer: coarse) {
+  .palette-kbd,
+  .palette-row__enter,
+  .palette-footer {
     display: none;
   }
 }
@@ -3484,6 +3522,11 @@ details > summary::-webkit-details-marker { display: none; }
   flex: 1 1 0%;
   min-height: 0;
   overflow: hidden;
+  /* clip, not just hidden: a hidden box can still be scrolled by the browser.
+     When the keyboard shrinks the view, WebKit scrolls the focused composer's
+     overflow:hidden ancestors "into view", which pushed the whole composer to
+     the top of the screen. A clipped box cannot scroll at all. */
+  overflow: clip;
   grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
@@ -3492,22 +3535,14 @@ details > summary::-webkit-details-marker { display: none; }
 }
 
 .chat-composer-dock {
-  position: sticky;
-  /* On mobile, lift the dock by the keyboard offset so it always sits just
-     above the virtual keyboard rather than behind it on iOS/Android. */
-  bottom: var(--keyboard-offset, 0px);
+  /* The shell already ends at the top of the keyboard (.app-shell) and the
+     dock is the stage's bottom grid row, so it needs no positioning trick.
+     It used to be sticky with bottom: keyboard height, which put it a whole
+     keyboard too high on iOS; WebKit also resolves sticky against its own
+     idea of the visible rect, which moved it again. Plain flow is exact. */
+  position: relative;
   z-index: 20;
   overflow: visible;
-  /* Smooth transition prevents jitter as keyboard animates open/closed. */
-  transition: bottom 80ms linear;
-}
-
-@media (min-width: 640px) {
-  .chat-composer-dock {
-    position: relative;
-    bottom: 0;
-    transition: none;
-  }
 }
 
 /* One capped radius always: 31px is slightly ≥ half of idle ~60px, so one-line
@@ -5043,7 +5078,7 @@ html.dark .chat-composer--thinking::after {
    ─────────────────────────────────────────────────────────────
    Header             20      #header (sticky)
    Chat jump button   10      .chat-jump-latest (position:absolute)
-   Composer dock      20      .chat-composer-dock (sticky)
+   Composer dock      20      .chat-composer-dock (in flow)
    Floating menus     60      .chat-mode-menu / .settings-select-menu
    Overlay backdrop   —       .overlay-backdrop (position:absolute)
    Overlay panel      10      .overlay-panel
