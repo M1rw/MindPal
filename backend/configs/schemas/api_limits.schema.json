@@ -10,7 +10,8 @@
     "sessions",
     "release",
     "request",
-    "voice"
+    "voice",
+    "dictation"
   ],
   "properties": {
     "chat": {
@@ -52,6 +53,29 @@
           "minimum": 1
         },
         "max_trace_events": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "dictation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_audio_bytes",
+        "per_hour_account",
+        "per_hour_guest"
+      ],
+      "properties": {
+        "max_audio_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "per_hour_account": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "per_hour_guest": {
           "type": "integer",
           "minimum": 1
         }
