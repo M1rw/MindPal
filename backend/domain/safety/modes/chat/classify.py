@@ -21,6 +21,15 @@ from backend.configs.runtime import safety_config
 
 _SAFETY_CONFIG = safety_config()
 CRISIS_RESPONSE = _SAFETY_CONFIG["crisis_response"]
+CRISIS_RESPONSE_AR = _SAFETY_CONFIG["crisis_response_ar"]
+_ARABIC_LETTER = re.compile(r"[؀-ۿ]")
+_LATIN_LETTER = re.compile(r"[A-Za-z]")
+
+
+def crisis_response_for(text: str) -> str:
+    """Someone in crisis is answered in their own language (Arabic was getting English)."""
+    arabic = len(_ARABIC_LETTER.findall(text or ""))
+    return CRISIS_RESPONSE_AR if arabic > len(_LATIN_LETTER.findall(text or "")) else CRISIS_RESPONSE
 
 _ARABIC_DIACRITICS = re.compile(_SAFETY_CONFIG["safety_normalization"]["arabic_diacritics_pattern"])
 _ARABIC_FOLD = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ى": "ي", "ئ": "ي", "ؤ": "و", "ة": "ه"})
@@ -111,7 +120,7 @@ class SafetyService:
                 is_crisis=True,
                 risk_level="imminent",
                 trigger_reason=evidence,
-                crisis_response=CRISIS_RESPONSE,
+                crisis_response=crisis_response_for(text),
             )
 
         return SafetyCheckResult(is_crisis=False, risk_level="none")
