@@ -57,8 +57,9 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
 
     if (autoFocusRef.current) {
       focusFrameRef.current = requestAnimationFrame(() => {
-        const focusables = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-        focusables[0]?.focus({ preventScroll: true });
+        // An element marked data-autofocus wins; otherwise the first focusable.
+        const preferred = container.querySelector<HTMLElement>('[data-autofocus]');
+        (preferred ?? container.querySelector<HTMLElement>(FOCUSABLE_SELECTOR))?.focus({ preventScroll: true });
       });
     }
 

@@ -2,6 +2,22 @@ import { useCallback, useRef, useState } from 'react';
 import type { ToastKind } from '../../types/index';
 import { joinText } from '../../utils/ui/joinText';
 import { useDictationAudioAnalysis } from './useDictationAudioAnalysis';
+import { useFlagsStore } from '../../store/flags.ts';
+import { useSettingsStore } from '../../store/settings.ts';
+import { dictationApi } from '../../services/api/dictation.ts';
+import { MAX_RECORDING_MS, browserDictationLang, recordingMimeType } from '../../utils/chat/dictation.ts';
+
+/**
+ * Composer dictation, two engines:
+ *
+ *  - server (preferred): record the voice note, send it to /api/transcribe.
+ *    Whisper detects the language itself, so Arabic, English, and both in one
+ *    sentence all come back in the script they were spoken in. No live words
+ *    while speaking (like ChatGPT's dictation); the text lands on stop.
+ *  - browser (fallback, when no server provider is configured or the browser
+ *    cannot record): SpeechRecognition with live words, in ONE language, taken
+ *    from the voice-language setting or the browser, never a hard-coded en-US.
+ */
 
 type SpeechRecognitionResultLike = {
   isFinal?: boolean;
@@ -33,15 +49,25 @@ interface UseChatInputDictationOptions {
   onSend: (text: string) => void;
 }
 
-export const useChatInputDictation = ({
-  input,
-  setInput,
-  pushToast,
-  onSend,
-}: UseChatInputDictationOptions) => {
+function canRecord(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.MediaRecorder !== 'undefined' &&
+    Boolean(navigator.mediaDevices?.getUserMedia) &&
+    recordingMimeType((type) => MediaRecorder.isTypeSupported(type)) !== ''
+  );
+}
+
+export const useChatInputDictation = ({ input, setInput, pushToast, onSend }: UseChatInputDictationOptions) => {
   const [isDictating, setIsDictating] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const discardRef = useRef(false);
   const isDictatingRef = useRef(false);
   const savedPreDictationTextRef = useRef('');
   const recognitionAnchorRef = useRef('');
@@ -51,7 +77,100 @@ export const useChatInputDictation = ({
     isDictatingRef,
   });
 
-  const startDictation = useCallback(() => {
+  const releaseMic = useCallback(() => {
+    if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+    stopTimerRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    stopAudioAnalysis();
+  }, [stopAudioAnalysis]);
+
+  // ── Server engine ────────────────────────────────────────────────────────
+
+  /** Stop recording; resolves with the composer text after transcription (or the text as it was). */
+  const finishRecording = useCallback(async (): Promise<string> => {
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    isDictatingRef.current = false;
+    setIsDictating(false);
+    if (!recorder) {
+      releaseMic();
+      return latestComposerRef.current;
+    }
+    const stopped = new Promise<void>((resolve) => {
+      recorder.addEventListener('stop', () => resolve(), { once: true });
+    });
+    if (recorder.state !== 'inactive') recorder.stop();
+    await stopped;
+    releaseMic();
+    const audio = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+    chunksRef.current = [];
+    if (discardRef.current || audio.size === 0) return latestComposerRef.current;
+
+    setIsTranscribing(true);
+    try {
+      const { text } = await dictationApi.transcribe(audio);
+      const next = text ? joinText(latestComposerRef.current, text) : latestComposerRef.current;
+      latestComposerRef.current = next;
+      setInput(next);
+      if (!text) pushToast("Didn't catch any words. Try again a little closer to the mic.", 'warning');
+      return next;
+    } catch (error) {
+      const message = error instanceof Error && error.message ? error.message : '';
+      pushToast(message || "Couldn't transcribe that. Please try again.", 'error');
+      return latestComposerRef.current;
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [pushToast, releaseMic, setInput]);
+
+  const startRecording = useCallback(() => {
+    savedPreDictationTextRef.current = input;
+    discardRef.current = false;
+    chunksRef.current = [];
+    isDictatingRef.current = true;
+    setIsDictating(true);
+    // Both calls start inside the tap (iOS needs the gesture for the mic and the meter).
+    const streamPromise = navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+    void startAudioAnalysis(streamPromise);
+    streamPromise
+      .then((stream) => {
+        if (!isDictatingRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        const mimeType = recordingMimeType((type) => MediaRecorder.isTypeSupported(type));
+        const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 32_000 });
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) chunksRef.current.push(event.data);
+        };
+        recorderRef.current = recorder;
+        recorder.start(1000);
+        stopTimerRef.current = setTimeout(() => {
+          pushToast('Voice notes are up to 3 minutes. Transcribing what you said.', 'info');
+          void finishRecording();
+        }, MAX_RECORDING_MS);
+      })
+      .catch((error: unknown) => {
+        isDictatingRef.current = false;
+        setIsDictating(false);
+        releaseMic();
+        const denied = error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
+        pushToast(
+          denied
+            ? 'Microphone access is off. Allow it in your browser settings to dictate.'
+            : "Couldn't start the microphone.",
+          'error',
+        );
+      });
+  }, [finishRecording, input, pushToast, releaseMic, startAudioAnalysis]);
+
+  // ── Browser engine (fallback) ────────────────────────────────────────────
+
+  const startBrowserRecognition = useCallback(() => {
     const speechWindow = window as typeof window & {
       SpeechRecognition?: new () => SpeechRecognitionLike;
       webkitSpeechRecognition?: new () => SpeechRecognitionLike;
@@ -59,12 +178,12 @@ export const useChatInputDictation = ({
     };
 
     let SpeechRecognition: SpeechRecognitionCtorLike | undefined =
+      (speechWindow.__MOCK_SPEECH_RECOGNITION__ as SpeechRecognitionCtorLike | undefined) ||
       (speechWindow.SpeechRecognition as SpeechRecognitionCtorLike | undefined) ||
-      (speechWindow.webkitSpeechRecognition as SpeechRecognitionCtorLike | undefined) ||
-      (speechWindow.__MOCK_SPEECH_RECOGNITION__ as SpeechRecognitionCtorLike | undefined);
+      (speechWindow.webkitSpeechRecognition as SpeechRecognitionCtorLike | undefined);
 
     if (!SpeechRecognition) {
-      if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mockSpeech') === 'true') {
+      if (new URLSearchParams(window.location.search).get('mockSpeech') === 'true') {
         SpeechRecognition = class implements SpeechRecognitionLike {
           continuous = true;
           interimResults = true;
@@ -76,19 +195,15 @@ export const useChatInputDictation = ({
 
           start() {
             setTimeout(() => {
-              if (this.onstart) this.onstart();
+              this.onstart?.();
               setTimeout(() => {
-                if (this.onresult) {
-                  this.onresult({
-                    results: [[{ transcript: 'hello how are you', isFinal: true }]],
-                  });
-                }
+                this.onresult?.({ results: [[{ transcript: 'hello how are you', isFinal: true }]] });
               }, 120);
             }, 60);
           }
 
           stop() {
-            if (this.onend) this.onend();
+            this.onend?.();
           }
         };
       } else {
@@ -101,7 +216,10 @@ export const useChatInputDictation = ({
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = 'en-US';
+      recognition.lang = browserDictationLang(
+        useSettingsStore.getState().settings.voiceLanguage,
+        typeof navigator !== 'undefined' ? navigator.language : undefined,
+      );
 
       savedPreDictationTextRef.current = input;
       recognitionAnchorRef.current = input;
@@ -110,7 +228,7 @@ export const useChatInputDictation = ({
 
       recognition.onstart = () => {
         setIsDictating(true);
-        startAudioAnalysis();
+        void startAudioAnalysis();
       };
 
       recognition.onresult = (event: SpeechRecognitionEventLike) => {
@@ -169,34 +287,51 @@ export const useChatInputDictation = ({
     }
   }, [input, pushToast, setInput, startAudioAnalysis, stopAudioAnalysis]);
 
+  // ── Public API (unchanged shape, plus isTranscribing) ────────────────────
+
+  const usingServer = () =>
+    Boolean(useFlagsStore.getState().flags.dictation_server) &&
+    canRecord() &&
+    !(window as typeof window & { __MOCK_SPEECH_RECOGNITION__?: unknown }).__MOCK_SPEECH_RECOGNITION__;
+
+  const startDictation = useCallback(() => {
+    if (isTranscribing) return;
+    if (usingServer()) startRecording();
+    else startBrowserRecognition();
+  }, [isTranscribing, startBrowserRecognition, startRecording]);
+
   const cancelDictation = useCallback(() => {
     isDictatingRef.current = false;
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
+    if (recorderRef.current) {
+      discardRef.current = true;
+      void finishRecording();
     }
-    stopAudioAnalysis();
+    recognitionRef.current?.stop();
+    releaseMic();
     setInput(savedPreDictationTextRef.current);
     setIsDictating(false);
-  }, [setInput, stopAudioAnalysis]);
+  }, [finishRecording, releaseMic, setInput]);
 
-  const confirmDictation = useCallback(() => {
+  const confirmDictation = useCallback(async (): Promise<string> => {
+    if (recorderRef.current || isTranscribing) return finishRecording();
     isDictatingRef.current = false;
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
+    recognitionRef.current?.stop();
     stopAudioAnalysis();
     setIsDictating(false);
-  }, [stopAudioAnalysis]);
+    return latestComposerRef.current;
+  }, [finishRecording, isTranscribing, stopAudioAnalysis]);
 
-  const confirmAndSendDictation = useCallback(() => {
-    confirmDictation();
+  const confirmAndSendDictation = useCallback(async () => {
+    const text = await confirmDictation();
+    // Let the composer render the final text before it is sent.
     setTimeout(() => {
-      onSend(input);
+      if (text.trim()) onSend(text);
     }, 50);
-  }, [confirmDictation, input, onSend]);
+  }, [confirmDictation, onSend]);
 
   return {
     isDictating,
+    isTranscribing,
     audioVolume,
     startDictation,
     cancelDictation,
