@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -69,6 +70,27 @@ describe('Persona color and gestures', () => {
     assert.equal(kore.id, 'kore');
     assert.equal(unknown.id, 'default');
     assert.notDeepEqual(sulafat.stops[0], kore.stops[0]);
+  });
+
+  it('every selectable voice has its own orb colours, clearly apart from the others', () => {
+    const runtime = JSON.parse(readFileSync(new URL('../../backend/configs/json/voice_runtime.json', import.meta.url), 'utf8'));
+    const voices = runtime.token.allowed_voice_ids;
+    assert.ok(voices.length >= 12);
+    const palettes = voices.map((voice) => personaPalette(voice));
+    for (const [i, palette] of palettes.entries()) {
+      assert.notEqual(palette.id, 'default', `${voices[i]} has its own palette`);
+    }
+    // Mean distance across the three stops, in RGB; ~60 is easy to tell apart on the orb.
+    const distance = (a, b) =>
+      a.stops.reduce((sum, stop, k) => {
+        const o = b.stops[k];
+        return sum + Math.hypot(stop.r - o.r, stop.g - o.g, stop.b - o.b);
+      }, 0) / 3;
+    for (let i = 0; i < palettes.length; i += 1) {
+      for (let j = i + 1; j < palettes.length; j += 1) {
+        assert.ok(distance(palettes[i], palettes[j]) > 60, `${voices[i]} vs ${voices[j]} look too alike`);
+      }
+    }
   });
 
   it('reacts while the model is silent without a hand pose', () => {

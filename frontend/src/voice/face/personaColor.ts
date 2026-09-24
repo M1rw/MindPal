@@ -12,7 +12,10 @@ const DEFAULT: PersonaPalette = {
   ],
 };
 
+// One colour family per voice, matched to its personality, so the orb tells
+// the voices apart at a glance. Stops: edge, middle, highlight.
 const BY_VOICE: Record<string, PersonaPalette> = {
+  // Warm and grounded: amber, rose, violet (the house look).
   sulafat: {
     id: 'sulafat',
     stops: [
@@ -21,14 +24,7 @@ const BY_VOICE: Record<string, PersonaPalette> = {
       { r: 251, g: 146, b: 60 },
     ],
   },
-  kore: {
-    id: 'kore',
-    stops: [
-      { r: 66, g: 133, b: 244 },
-      { r: 154, g: 109, b: 255 },
-      { r: 65, g: 64, b: 253 },
-    ],
-  },
+  // Thoughtful: sky and indigo.
   aoede: {
     id: 'aoede',
     stops: [
@@ -37,28 +33,94 @@ const BY_VOICE: Record<string, PersonaPalette> = {
       { r: 125, g: 211, b: 252 },
     ],
   },
-  puck: {
-    id: 'puck',
-    stops: [
-      { r: 251, g: 146, b: 60 },
-      { r: 244, g: 114, b: 182 },
-      { r: 250, g: 204, b: 21 },
-    ],
-  },
+  // Deep and calm: midnight navy into deep teal.
   charon: {
     id: 'charon',
     stops: [
-      { r: 79, g: 70, b: 229 },
-      { r: 14, g: 165, b: 233 },
-      { r: 100, g: 116, b: 139 },
+      { r: 30, g: 58, b: 138 },
+      { r: 13, g: 148, b: 136 },
+      { r: 49, g: 46, b: 129 },
     ],
   },
+  // Clear and direct: cobalt and electric violet.
+  kore: {
+    id: 'kore',
+    stops: [
+      { r: 37, g: 99, b: 235 },
+      { r: 124, g: 58, b: 237 },
+      { r: 96, g: 165, b: 250 },
+    ],
+  },
+  // Playful: lime, sunshine and mint.
+  puck: {
+    id: 'puck',
+    stops: [
+      { r: 132, g: 204, b: 22 },
+      { r: 250, g: 204, b: 21 },
+      { r: 52, g: 211, b: 153 },
+    ],
+  },
+  // Energetic: crimson, flame and hot magenta.
   fenrir: {
     id: 'fenrir',
     stops: [
-      { r: 244, g: 63, b: 94 },
-      { r: 251, g: 146, b: 60 },
+      { r: 220, g: 38, b: 38 },
+      { r: 249, g: 115, b: 22 },
+      { r: 219, g: 39, b: 119 },
+    ],
+  },
+  // Friendly: teal, mint and sky.
+  achird: {
+    id: 'achird',
+    stops: [
+      { r: 13, g: 148, b: 136 },
+      { r: 110, g: 231, b: 183 },
+      { r: 56, g: 189, b: 248 },
+    ],
+  },
+  // Easy-going: dusk slate, periwinkle and sage.
+  umbriel: {
+    id: 'umbriel',
+    stops: [
+      { r: 71, g: 85, b: 105 },
+      { r: 129, g: 140, b: 248 },
+      { r: 134, g: 239, b: 172 },
+    ],
+  },
+  // Gentle: lavender, blush and lilac.
+  vindemiatrix: {
+    id: 'vindemiatrix',
+    stops: [
+      { r: 167, g: 139, b: 250 },
+      { r: 249, g: 168, b: 212 },
+      { r: 221, g: 214, b: 254 },
+    ],
+  },
+  // Lively: hot pink, violet and cyan.
+  sadachbia: {
+    id: 'sadachbia',
+    stops: [
+      { r: 236, g: 72, b: 153 },
       { r: 168, g: 85, b: 247 },
+      { r: 34, g: 211, b: 238 },
+    ],
+  },
+  // Upbeat: sunshine, tangerine and coral.
+  laomedeia: {
+    id: 'laomedeia',
+    stops: [
+      { r: 250, g: 204, b: 21 },
+      { r: 251, g: 146, b: 60 },
+      { r: 251, g: 113, b: 133 },
+    ],
+  },
+  // Bright and clear: aqua, ice and azure.
+  zephyr: {
+    id: 'zephyr',
+    stops: [
+      { r: 6, g: 182, b: 212 },
+      { r: 165, g: 243, b: 252 },
+      { r: 59, g: 130, b: 246 },
     ],
   },
   orus: {
@@ -75,14 +137,6 @@ const BY_VOICE: Record<string, PersonaPalette> = {
       { r: 196, g: 181, b: 253 },
       { r: 167, g: 139, b: 250 },
       { r: 232, g: 121, b: 249 },
-    ],
-  },
-  vindemiatrix: {
-    id: 'vindemiatrix',
-    stops: [
-      { r: 45, g: 212, b: 191 },
-      { r: 125, g: 211, b: 252 },
-      { r: 167, g: 139, b: 250 },
     ],
   },
 };
