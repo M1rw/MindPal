@@ -3845,6 +3845,31 @@ html.dark .chat-composer--thinking::after {
 
 .chat-stage:not(.chat-stage--thread) .chat-stage__canvas {
   justify-content: flex-end;
+  justify-content: safe flex-end;
+}
+
+/* The empty state sits at the bottom of the log (Tailwind justify-end). When
+   it is taller than the space (a long greeting on a small phone), plain
+   flex-end pushes the overflow off the TOP, where it cannot be scrolled to. */
+#chat-canvas.justify-end {
+  justify-content: safe flex-end;
+}
+
+/* Home: the greeting, the mood chips and the composer are one group, centred
+   as a unit. Centring the composer alone (equal 1fr rows around it) pushed a
+   long, personal greeting ("Good afternoon, Maven. How did ...") up toward
+   the header, and even a one-line greeting sat high. The small bottom padding
+   puts the group at the optical centre, a touch above the true middle. The
+   greeting row may still shrink (and scroll) when space is short, e.g. with
+   the keyboard open on a phone. */
+.chat-stage:not(.chat-stage--thread) {
+  grid-template-rows: minmax(0, auto) auto 0px;
+  align-content: center;
+  /* When the group is taller than the screen (a long greeting on an iPhone SE),
+     plain centring overflows it upward under the header; "safe" falls back to
+     the top instead, and the greeting row scrolls. */
+  align-content: safe center;
+  padding-bottom: min(2.5vh, 1.25rem);
 }
 
 .chat-jump-latest {
