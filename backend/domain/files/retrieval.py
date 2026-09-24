@@ -98,10 +98,17 @@ def select_pages(digest: Digest, question: str, budget_chars: int) -> List[PageD
     return sorted(chosen, key=lambda p: p.n)
 
 
-def render_file_context(digests: Sequence[Digest], question: str, budget_chars: int = 24000) -> str:
-    """The files block for the system prompt: each file, then its chosen pages."""
+def render_file_context(
+    digests: Sequence[Digest], question: str, budget_chars: int = 24000, *, earlier: Set[int] | None = None
+) -> str:
+    """The files block for the system prompt: each file, then its chosen pages.
+
+    Files from earlier turns are labelled as such, so "this" in a new message
+    means the newest file.
+    """
     if not digests:
         return ""
+    earlier = earlier or set()
     share = max(2000, budget_chars // len(digests))
     blocks: List[str] = []
     for index, digest in enumerate(digests, start=1):
@@ -109,7 +116,8 @@ def render_file_context(digests: Sequence[Digest], question: str, budget_chars: 
         chosen = select_pages(digest, question, share)
         label = digest.name or digest.title or f"file {index}"
         size = f"{digest.total_pages} pages" if paged else f"image ({digest.content})"
-        header = f'<file index="{index}" name="{label}" kind="{digest.kind}" size="{size}">'
+        when = ' shared="earlier in this chat"' if (index - 1) in earlier else ""
+        header = f'<file index="{index}" name="{label}" kind="{digest.kind}" size="{size}"{when}>'
         body = "\n\n".join(page_block(p, paged=paged) for p in chosen) or "(nothing readable)"
         omitted = digest.total_pages - len(chosen) if paged else 0
         tail = f"\n(Other pages not shown here: {omitted}. They exist; ask to look if needed.)" if omitted > 0 else ""

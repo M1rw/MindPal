@@ -102,9 +102,11 @@ def test_turn_files_resolve_library_ids_only_for_their_owner():
     started = library.start_upload("usr_owner", LibraryUploadRequest(name="lease.pdf", mime="application/pdf", size=10, hash=HASH, pages=2))
     blobs.put(started["uploads"]["original"], b"x" * 10)
     library.complete("usr_owner", started["file_id"], _lease())
-    ref = [AttachmentRef(file_id=started["file_id"], name="My lease.pdf")]
+    # A deleted file first must not shift the others onto the wrong names.
+    ref = [AttachmentRef(file_id="f_deleted0000", name="gone.pdf"), AttachmentRef(file_id=started["file_id"], name="My lease.pdf")]
     mine = resolve_turn_files(ref, user_id_hash="usr_owner", signed_in=True, library=library)
     assert [d.name for d in mine.digests] == ["My lease.pdf"]
+    assert "Deposit: 1200" in mine.digests[0].pages[1].text
     theirs = resolve_turn_files(ref, user_id_hash="usr_other", signed_in=True, library=library)
     assert theirs.digests == []
 
@@ -156,3 +158,15 @@ def test_guest_can_chat_about_an_inline_digest_over_http(monkeypatch):
     assert any("refundable" in (e.get("text") or "") for e in events)
     assert llm.calls[0]["prompt"] == EMPTY_MESSAGE
     assert "lease.pdf" in llm.calls[0]["system_instruction"]
+
+
+def test_files_from_earlier_turns_stay_in_view_but_marked():
+    earlier = AttachmentRef(digest=_lease(), name="lease.pdf", earlier=True, image=base64.b64encode(b"old").decode(), mime="image/png")
+    new = AttachmentRef(digest=Digest(kind="image", content="visual", pages=[PageDigest(n=1, description="a key")]), name="key.jpg")
+    files = resolve_turn_files([earlier, new], user_id_hash="", signed_in=False)
+    assert files.images == [], "an earlier picture is not re-sent to the model"
+    block = files.prompt_block("and this one?")
+    assert 'name="lease.pdf" kind="pdf" size="2 pages" shared="earlier in this chat">' in block
+    assert 'name="key.jpg" kind="image" size="image (visual)">' in block
+    with pytest.raises(ValueError):
+        ChatStreamPayload(message="", attachments=[earlier])  # only old files is not a new message

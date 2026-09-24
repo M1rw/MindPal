@@ -45,6 +45,7 @@
     "max_page_text_chars": 6000,
     "max_digest_text_chars": 200000,
     "max_attachments_per_message": 4,
+    "max_files_in_context": 8,
     "digest_cache_days": 7,
     "guest": {
       "files_per_day": 5,
