@@ -271,6 +271,30 @@ for (const profile of PROFILES) {
       }
     });
 
+    test('home keeps greeting, chips and composer centred as one group, even for a long greeting', async () => {
+      const { context, page } = await openApp(profile);
+      try {
+        for (const text of ['Good afternoon, Maven.', 'Good afternoon, Maven. How did the Chichi TikTok trend turn out for you?']) {
+          await page.evaluate((t) => {
+            document.querySelector('h1').textContent = t;
+          }, text);
+          await page.waitForTimeout(200);
+          const g = await page.evaluate(() => {
+            const top = document.querySelector('h1').getBoundingClientRect().top;
+            // The group ends with the caption under the composer (the dock).
+            const bottom = document.querySelector('.chat-composer-dock').getBoundingClientRect().bottom;
+            const areaTop = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0;
+            return { above: top - areaTop, below: window.innerHeight - bottom };
+          });
+          assert.ok(g.above > 16, `greeting hidden under or crowding the header (${Math.round(g.above)}px) for "${text}"`);
+          // Balanced: at most a small optical lift, never the old "pinned to the top".
+          assert.ok(g.above >= g.below * 0.6 - 8, `group pushed up: ${Math.round(g.above)}px above vs ${Math.round(g.below)}px below for "${text}"`);
+        }
+      } finally {
+        await context.close();
+      }
+    });
+
     test('an installed app (home-screen / standalone) is detected', async () => {
       const browser = await browserFor(profile.engine);
       const context = await browser.newContext({ ...profile.device });
