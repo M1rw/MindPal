@@ -175,6 +175,11 @@ async function withKeyboard(page, { keyboard, pan = 0 }) {
           scrollY: window.scrollY,
           stageScroll: document.querySelector('.chat-stage')?.scrollTop,
           shellScroll: document.querySelector('.app-shell')?.scrollTop,
+          shellTop: Math.round(document.querySelector('.app-shell')?.getBoundingClientRect().top ?? NaN),
+          stageTop: Math.round(document.querySelector('.chat-stage')?.getBoundingClientRect().top ?? NaN),
+          dockBox: (() => { const r = document.querySelector('.chat-composer-dock')?.getBoundingClientRect(); return r && [Math.round(r.top), Math.round(r.height)]; })(),
+          dockPos: document.querySelector('.chat-composer-dock') && getComputedStyle(document.querySelector('.chat-composer-dock')).position,
+          docH: document.documentElement.scrollHeight,
         },
       };
     },
