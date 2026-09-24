@@ -75,24 +75,24 @@ def score_strategies(message: str, *, learned_bias: Optional[Mapping[str, float]
     return StrategyDecision(best, directive_key, confidence, scores)
 
 
+# One or two sentences each: the base prompt owns reply shape and length, these
+# only say what this turn needs. v1 asked for "deep validation ... somatic
+# grounding" on every sad message, which read as permission to write an essay.
 DIRECTIVES = {
     "reflect": (
-        "Strategy: Active Empathetic Reflection. The user is in an emotional or overwhelmed state. "
-        "Prioritize deep validation, emotional attunement, non-judgmental containment, and somatic grounding. "
-        "DO NOT jump to unsolicited advice or problem-solving yet."
+        "Strategy: Active Empathetic Reflection. They are hurting right now. Stay with the feeling before any advice: "
+        "name what you notice in their own words, briefly and specifically. Offer a grounding idea only if they seem flooded, "
+        "and no advice unless they ask for it."
     ),
     "cognitive": (
-        "Strategy: Cognitive Tools. The user is caught in cognitive distortion or catastrophic thought loops. "
-        "Gently guide them with cognitive defusion, evidence-testing questions, and self-compassion reframing. "
-        "Help them observe the thought without identifying fully with it."
+        "Strategy: Cognitive Tools. They are caught in a harsh or all-or-nothing thought. Help them look at it from a step back: "
+        "one evidence question or a kinder, truer way to see it. Do not argue or lecture."
     ),
     "coach": (
-        "Strategy: Guided Solution Coaching. The user is seeking clarity or action. "
-        "Help them deconstruct the challenge into manageable, atomic micro-steps using structured Socratic coaching. "
-        "Foster their own agency rather than prescribing rigid answers."
+        "Strategy: Guided Solution Coaching. They want clarity or a next step. Name the real choice, offer a concrete idea or two, "
+        "and leave the decision with them."
     ),
     "presence": (
-        "Strategy: Mindful Presence. Meet the user where they are with warmth, reflective mirroring, "
-        "and thoughtful, curious inquiry."
+        "Strategy: Mindful Presence. Talk like a friend who is paying attention: react to what they said and add one thought or question."
     ),
 }
