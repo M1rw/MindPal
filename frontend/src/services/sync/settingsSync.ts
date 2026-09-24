@@ -11,6 +11,9 @@
  *    profile endpoint only accepts scalars;
  *  - guests keep the device-only behaviour.
  *
+ * List and map settings are flattened to scalars: quick actions travel as one
+ * comma-separated string, each confirmation as `confirm.skip.<key>`.
+ *
  * Only known keys with allowed values are ever applied from the server, so a
  * stale or hand-edited profile cannot put the UI into an invalid state.
  */
@@ -19,6 +22,7 @@ import { useSessionStore, useSettingsStore } from '../../store/index.ts';
 import { usersApi } from '../api/users.ts';
 import type { UserUISettings } from '../../types/index.ts';
 import { claim, isGuestOwner, stillOwns } from '../session/owner.ts';
+import { CONFIRM_KEYS, isQuickActionList } from '../../store/settings.ts';
 
 type Flat = Record<string, string | number | boolean | null>;
 
@@ -35,7 +39,13 @@ const FIELDS: Record<string, (v: unknown) => boolean> = {
   'personalization.warmth': ONE_OF('warm', 'neutral', 'direct'),
   'personalization.useHeadersLists': IS_BOOL,
   'personalization.emojiSupport': IS_BOOL,
+  quickActions: (v: unknown) => typeof v === 'string' && isQuickActionList(splitList(v)),
+  ...Object.fromEntries(CONFIRM_KEYS.map((key) => [`confirm.skip.${key}`, IS_BOOL])),
 };
+
+function splitList(value: string): string[] {
+  return value ? value.split(',') : [];
+}
 
 const PUSH_DELAY_MS = 800;
 
@@ -49,6 +59,8 @@ export function toProfileSettings(settings: UserUISettings): Flat {
     'personalization.warmth': settings.personalization.warmth,
     'personalization.useHeadersLists': settings.personalization.useHeadersLists,
     'personalization.emojiSupport': settings.personalization.emojiSupport,
+    quickActions: settings.quickActions.join(','),
+    ...Object.fromEntries(CONFIRM_KEYS.map((key) => [`confirm.skip.${key}`, Boolean(settings.skipConfirm[key])])),
   };
 }
 
@@ -58,16 +70,22 @@ export function fromProfileSettings(flat: unknown): Partial<UserUISettings> | nu
   const source = flat as Record<string, unknown>;
   const top: Record<string, unknown> = {};
   const personalization: Record<string, unknown> = {};
+  const skipConfirm: Record<string, boolean> = {};
   for (const [key, valid] of Object.entries(FIELDS)) {
     if (!(key in source) || !valid(source[key])) continue;
     if (key.startsWith('personalization.')) personalization[key.slice('personalization.'.length)] = source[key];
+    else if (key.startsWith('confirm.skip.')) skipConfirm[key.slice('confirm.skip.'.length)] = source[key] as boolean;
+    else if (key === 'quickActions') top.quickActions = splitList(source[key] as string);
     else top[key] = source[key];
   }
-  if (!Object.keys(top).length && !Object.keys(personalization).length) return null;
+  if (!Object.keys(top).length && !Object.keys(personalization).length && !Object.keys(skipConfirm).length) {
+    return null;
+  }
   const partial = top as Partial<UserUISettings>;
   if (Object.keys(personalization).length) {
     partial.personalization = personalization as unknown as UserUISettings['personalization'];
   }
+  if (Object.keys(skipConfirm).length) partial.skipConfirm = skipConfirm;
   return partial;
 }
 

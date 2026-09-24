@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { STORAGE_KEYS } from './constants/storage';
 import { App } from './App';
 import { applyViewportHeight } from './utils/mobile/viewport';
+import { bindThemeToSettings } from './utils/ui/theme';
 
 // ── Production Bootstrap: Viewport, PWA & Analytics ──────────────────────────
 (() => {
@@ -61,6 +62,10 @@ import { applyViewportHeight } from './utils/mobile/viewport';
     document.documentElement.classList.remove('light');
   }
 })();
+
+// The pre-paint block above uses the mirror key; from here the setting (which
+// syncs with the account) decides, including "System".
+bindThemeToSettings();
 
 // ── Mount React 19 Root ───────────────────────────────────────────────────────
 const container = document.getElementById('root');

@@ -14,7 +14,6 @@ export { useToastStore } from './toast.ts';
 export { useStreakStore } from './streak.ts';
 export { useChatHistoryStore } from './history.ts';
 export { useFlagsStore } from './flags.ts';
-export { usePaletteStore } from './palette.ts';
 export { useUsageStore } from './usage.ts';
 export { useChangelogStore } from './changelog.ts';
 export { useChatHistoryModalStore } from './modals.ts';
