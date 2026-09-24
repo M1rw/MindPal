@@ -75,13 +75,8 @@ def build_store(provider: str | None = None) -> DocumentStore:
 
     chosen = (provider or configured_storage_provider()).strip().lower()
     if chosen == "memory":
-        if get_settings().environment.strip().lower() in {"production", "prod"}:
-            logger.error(
-                "store_backend=memory in production: data is per-instance and lost on restart. "
-                "Configure Firebase Admin credentials or Supabase."
-            )
-        else:
-            logger.warning("store_backend=memory (non-durable)")
+        # validate_runtime (above) already refuses memory in production.
+        logger.warning("store_backend=memory (non-durable)")
         return InMemoryStore()
     if chosen == "firestore":
         logger.info("store_backend=firestore database=%s", get_settings().firestore_database_id)

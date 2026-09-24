@@ -92,6 +92,22 @@ def configured_cors_origins() -> list[str]:
     return origins
 
 
+def _static_asset(path: Path, media: str):
+    """A zero-argument handler bound to one fixed file.
+
+    The previous loop captured the file with default arguments
+    (`def _serve(path=_path, media=_media)`). FastAPI exposes every handler
+    parameter as a query parameter, so `/robots.txt?path=/any/file` read any
+    file the process could open. Nothing about the response may come from the
+    request.
+    """
+
+    def serve() -> Response:
+        return FileResponse(str(path), media_type=media)
+
+    return serve
+
+
 def create_app(*, serve_frontend: bool = True) -> FastAPI:
     validate_runtime_configs()  # a broken bundled config is a bad build: fail loudly
     try:
@@ -121,7 +137,8 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
             allow_origins=origins,
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-            allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-Firebase-AppCheck"],
+            # Idempotency-Key: chat and voice routes accept it for safe retries.
+            allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-Firebase-AppCheck", "Idempotency-Key"],
             max_age=600,
         )
 
@@ -266,11 +283,7 @@ def _mount_frontend(app: FastAPI) -> None:
         _path = FRONTEND / _name
         if not _path.exists():
             continue
-
-        def _serve(path: Path = _path, media: str = _media) -> Response:
-            return FileResponse(str(path), media_type=media)
-
-        app.get(f"/{_name}", include_in_schema=False)(_serve)
+        app.get(f"/{_name}", include_in_schema=False)(_static_asset(_path, _media))
 
     @app.get("/")
     def index() -> Response:
