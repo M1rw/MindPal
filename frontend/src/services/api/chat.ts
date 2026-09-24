@@ -131,7 +131,7 @@ export const chatApi = {
   async streamChat(
     message: string,
     history: Array<{ role: string; content: string }>,
-    onChunk: (chunk: string, strategy?: string) => void,
+    onChunk: (chunk: string, strategy?: string, move?: string) => void,
     onComplete: () => void,
     onError: (err: Error) => void,
     options?: {
@@ -227,7 +227,8 @@ export const chatApi = {
               const record = data as Record<string, unknown>;
               const textChunk = String(record.text ?? record.content ?? record.token ?? '');
               const strategy = typeof record.strategy_used === 'string' ? record.strategy_used : undefined;
-              if (textChunk) onChunk(textChunk, strategy);
+              const move = typeof record.insight_move === 'string' && record.insight_move ? record.insight_move : undefined;
+              if (textChunk) onChunk(textChunk, strategy, move);
             } else if (typeof data === 'string') {
               onChunk(data);
             }

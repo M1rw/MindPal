@@ -19,7 +19,7 @@ interface ChatState {
   setMessages: (messages: ChatMessage[]) => void;
   updateMessage: (id: string, content: string, strategy?: string) => void;
   removeMessage: (id: string) => void;
-  updateLastMessage: (content: string, strategy?: string) => void;
+  updateLastMessage: (content: string, strategy?: string, move?: string) => void;
   setMessageMemoryReceipt: (id: string, receipt: MemoryReceipt | null) => void;
   setComposerDraft: (draft: string | null) => void;
   setEditingUserId: (id: string | null) => void;
@@ -61,12 +61,13 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => ({
       messages: state.messages.filter((m) => m.id !== id),
     })),
-  updateLastMessage: (content, strategy) =>
+  updateLastMessage: (content, strategy, move) =>
     set((state) => {
       if (state.messages.length === 0) return state;
       const last = { ...state.messages[state.messages.length - 1] };
       last.content = content;
       if (strategy) last.strategy_used = strategy;
+      if (move) last.insight_move = move;
       return {
         messages: [...state.messages.slice(0, -1), last],
         strategyUsed: strategy ?? state.strategyUsed,
