@@ -37,3 +37,28 @@ async def test_a_slow_token_check_does_not_hold_up_other_requests(monkeypatch) -
         await chat
     assert health.status_code == 200
     assert waited < SLOW_S / 2, f"health waited {waited:.2f}s behind the chat request"
+
+
+@pytest.mark.asyncio
+async def test_a_slow_recap_store_call_does_not_hold_up_other_requests(monkeypatch) -> None:
+    from backend.domain.voice.services.summarize import VoiceSummarizeService
+    from backend.http import voice as voice_http
+
+    def slow_lookup(self, *, user_id_hash, session_id):
+        time.sleep(SLOW_S)  # a stalled store read inside the recap
+        raise voice_http.AppError("not_found", "That live voice session is not available.")
+
+    monkeypatch.setattr(VoiceSummarizeService, "owned_record", slow_lookup)
+    app = create_app(serve_frontend=False)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        started = time.perf_counter()
+        recap = asyncio.create_task(client.post(
+            "/api/voice/summarize",
+            headers={"Authorization": "Bearer dev_recap"},
+            json={"session_id": "vs_1"},
+        ))
+        health = await asyncio.create_task(client.get("/api/health"))
+        waited = time.perf_counter() - started
+        await recap
+    assert health.status_code == 200
+    assert waited < SLOW_S / 2, f"health waited {waited:.2f}s behind the recap"
