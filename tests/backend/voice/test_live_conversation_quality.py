@@ -66,7 +66,8 @@ def test_persona_v2_is_playful_but_never_romantic_and_reads_the_room() -> None:
 
 def test_persona_v2_crisis_help_is_reachable_outside_the_us() -> None:
     prompt = wellness_live_instruction("Sulafat")
-    assert "findahelpline.com" in prompt and "local emergency number" in prompt
+    assert "a free confidential line in their country at findahelpline" in prompt
+    assert "local emergency number" in prompt
     assert "988" in prompt and "741741" in prompt and "stay on this voice call" in prompt
 
 
