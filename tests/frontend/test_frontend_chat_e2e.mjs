@@ -92,9 +92,31 @@ test('chat send and stream completion happy path', async () => {
   assert.equal(await page.getByText('I feel overwhelmed', { exact: true }).count(), 1);
   assert.equal(await page.getByRole('button', { name: 'Retry response' }).count(), 0);
 
-  await page.getByRole('button', { name: 'Open chat history' }).click();
-  await page.getByRole('dialog', { name: 'Chat history' }).waitFor({ state: 'visible' });
-  await page.getByRole('button', { name: 'Close history' }).click();
+  // Search (the command palette): opens from the header and from Ctrl/Cmd+K,
+  // finds a chat by what was said, marks the match, and closes on Esc.
+  await page.getByRole('button', { name: 'Search chats and actions' }).click();
+  const palette = page.getByRole('dialog', { name: 'Search chats and actions' });
+  await palette.waitFor({ state: 'visible' });
+  await palette.getByRole('combobox').fill('overwhelmed');
+  await palette.locator('mark.search-mark').first().waitFor({ state: 'visible' });
+  await page.keyboard.press('Escape');
+  await palette.waitFor({ state: 'hidden' });
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
+  await palette.waitFor({ state: 'visible' });
+  await page.keyboard.press('Escape');
+  await palette.waitFor({ state: 'hidden' });
+
+  // New chat asks through the app's confirm dialog, then clears the thread.
+  await page.getByRole('button', { name: 'New chat' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Start a new chat?' });
+  await confirm.waitFor({ state: 'visible' });
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  await confirm.waitFor({ state: 'hidden' });
+  assert.equal(await page.getByText('I feel overwhelmed', { exact: true }).count(), 1, 'cancel keeps the thread');
+  await page.getByRole('button', { name: 'New chat' }).click();
+  await confirm.getByRole('button', { name: 'New chat' }).click();
+  // The sent message bubble goes (the empty state has a suggestion chip with the same words).
+  await page.locator('.chat-user-bubble', { hasText: 'I feel overwhelmed' }).waitFor({ state: 'detached' });
 
   await page.getByRole('button', { name: 'Settings' }).click();
   const settingsDialog = page.getByRole('dialog', { name: 'Settings' });

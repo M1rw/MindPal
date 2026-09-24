@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     openrouter_json_model: str = Field(default='', validation_alias='OPENROUTER_JSON_MODEL')
     groq_model: str = Field(default='qwen/qwen3.8-27b', validation_alias='GROQ_MODEL')
     groq_json_model: str = Field(default='', validation_alias='GROQ_JSON_MODEL')
+    groq_stt_model: str = Field(default='', validation_alias='GROQ_STT_MODEL')
     # More OpenAI-compatible providers with free tiers. Inert until a key is set;
     # list them in MINDPAL_LLM_FALLBACK to use them (see backend/configs/llm.py).
     cerebras_api_key: SecretStr = Field(default=SecretStr(''), validation_alias='CEREBRAS_API_KEY')

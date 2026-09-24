@@ -335,8 +335,12 @@ test('barge-in tapers instead of cutting, and empties the cut turn', async () =>
     node.port.postMessage({ type: 'start' });
     // Two seconds of speech, faded a quarter second in. The render is 2s long so
     // the whole taper fits even when CI delivers the port message late.
-    ctx.suspend(0.25).then(() => {
+    ctx.suspend(0.25).then(async () => {
       node.port.postMessage({ type: 'fade', ms: 180, generation: 1 });
+      // Rendering is paused here, so waiting is free: resuming at once raced the
+      // port message, and on a loaded CI runner the fade landed after the whole
+      // render had finished ("taper 5ms, began at 1990ms").
+      await new Promise((resolve) => setTimeout(resolve, 150));
       ctx.resume();
     });
 

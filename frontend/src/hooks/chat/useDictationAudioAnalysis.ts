@@ -11,6 +11,8 @@ export function useDictationAudioAnalysis({ isDictatingRef }: UseDictationAudioA
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  // A stream handed in by the recorder is theirs to stop; only our own is ours.
+  const ownsStreamRef = useRef(false);
 
   const stopAudioAnalysis = useCallback(() => {
     if (animFrameRef.current) {
@@ -18,10 +20,10 @@ export function useDictationAudioAnalysis({ isDictatingRef }: UseDictationAudioA
       animFrameRef.current = null;
     }
 
-    if (mediaStreamRef.current) {
+    if (mediaStreamRef.current && ownsStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
     }
+    mediaStreamRef.current = null;
 
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       try {
@@ -36,12 +38,14 @@ export function useDictationAudioAnalysis({ isDictatingRef }: UseDictationAudioA
     setAudioVolume(0);
   }, []);
 
-  const startAudioAnalysis = useCallback(async () => {
+  /**
+   * Drive the level meter. Pass the recorder's stream (or the promise of it,
+   * so this still runs inside the tap) to share one microphone; with nothing
+   * passed the meter opens its own.
+   */
+  const startAudioAnalysis = useCallback(async (shared?: MediaStream | Promise<MediaStream>) => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) return;
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
 
       const webkitWindow = window as typeof window & {
         webkitAudioContext?: typeof AudioContext;
@@ -49,8 +53,23 @@ export function useDictationAudioAnalysis({ isDictatingRef }: UseDictationAudioA
       const AudioCtx = window.AudioContext || webkitWindow.webkitAudioContext;
       if (!AudioCtx) return;
 
+      // Created and resumed before the first await, while still inside the tap:
+      // iOS Safari keeps a context made after an await suspended, so the level
+      // meter never moved there.
       const audioCtx = new AudioCtx();
       audioContextRef.current = audioCtx;
+      void audioCtx.resume?.().catch(() => {});
+
+      let stream: MediaStream;
+      try {
+        ownsStreamRef.current = !shared;
+        stream = await (shared ?? navigator.mediaDevices.getUserMedia({ audio: true }));
+      } catch (error) {
+        void audioCtx.close().catch(() => {});
+        audioContextRef.current = null;
+        throw error;
+      }
+      mediaStreamRef.current = stream;
 
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;

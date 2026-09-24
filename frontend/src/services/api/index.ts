@@ -76,6 +76,7 @@ export const ApiClient = {
       changelog_enabled: Boolean(inner.changelog_enabled),
       clinical_guidance: inner.clinical_guidance,
       analytics_insights: inner.analytics_insights,
+      dictation_server: Boolean(inner.dictation_server),
     };
   },
 

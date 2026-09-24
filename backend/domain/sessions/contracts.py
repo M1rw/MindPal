@@ -112,6 +112,8 @@ class ChatSessionPayload(BaseModel):
     updatedAt: Optional[str] = Field(default=None, max_length=MAX_TIMESTAMP_CHARS)
     # The person renamed it: automatic titling must not overwrite that elsewhere.
     titleLocked: bool = False
+    # Pinned to the top of search on every device.
+    pinned: bool = False
     messages: List[Dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("messages")

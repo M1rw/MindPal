@@ -63,6 +63,8 @@ describe('settings follow the account', async () => {
   const settings = {
     theme: 'dark', soundEnabled: true, voiceModel: 'Sulafat', voiceLanguage: 'auto',
     personalization: { baseStyle: 'concise', warmth: 'direct', useHeadersLists: false, emojiSupport: true },
+    quickActions: ['new-chat', 'theme', 'memory'],
+    skipConfirm: { 'new-chat': true },
   };
 
   it('flattens to scalars the profile endpoint accepts, and round-trips', () => {
@@ -76,6 +78,16 @@ describe('settings follow the account', async () => {
       theme: 'neon', language: 'en', 'personalization.warmth': 'warm', 'personalization.baseStyle': 7,
     });
     assert.deepEqual(partial, { personalization: { warmth: 'warm' } });
+  });
+
+  it('sends quick actions and confirmations as scalars and rejects bad lists', () => {
+    const flat = toProfileSettings(settings);
+    assert.equal(flat.quickActions, 'new-chat,theme,memory');
+    assert.equal(flat['confirm.skip.new-chat'], true);
+    assert.deepEqual(fromProfileSettings({ quickActions: '' }), { quickActions: [] });
+    assert.equal(fromProfileSettings({ quickActions: 'a,a' }), null, 'duplicates');
+    assert.equal(fromProfileSettings({ quickActions: 'x,'.repeat(9) + 'y' }), null, 'too many');
+    assert.equal(fromProfileSettings({ 'confirm.skip.delete-everything': true }), null, 'unknown confirm key');
   });
 
   it('ignores an empty or missing profile map so device settings stand', () => {
