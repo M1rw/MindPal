@@ -505,16 +505,21 @@ describe('Frontend component contracts', () => {
     const app = await readSource(componentSources.appShell);
 
     assert.match(header, /aria-label="New chat"/);
-    assert.match(header, /aria-label="Open chat history"/);
+    assert.match(header, /aria-label="Search chats and actions"/);
+    assert.match(header, /aria-keyshortcuts="Control\+K Meta\+K"/);
     assert.match(header, /aria-label="Toggle theme"/);
     assert.match(header, /aria-label="View daily streak progress"/);
     assert.match(header, /aria-label="More actions"/);
     assert.match(header, /hidden sm:inline-flex/);
     assert.match(header, /sm:hidden/);
-    // New chat is confirmed in-page (a blocking window.confirm is gone for good).
+    // New chat goes through the shared action and the app's confirm dialog
+    // (a blocking window.confirm is gone for good).
     assert.doesNotMatch(header, /window\.confirm\(\s*['"`]/);
-    assert.match(header, /Start new conversation\?/);
-    assert.match(header, /setActiveSessionId\(null\)/);
+    assert.match(header, /startNewChat\(\)/);
+    const appActions = await readSource('frontend/src/utils/chat/appActions.ts');
+    assert.match(appActions, /confirmAction\(/);
+    assert.match(appActions, /Start a new chat\?/);
+    assert.match(appActions, /setActiveSessionId\(null\)/);
     assert.match(header, /<p className="select-none/);
     assert.doesNotMatch(header, /onClick=\{handleNewChat\}[\s\S]*MindPal/);
     assert.match(header, /focus-visible:ring-2/);

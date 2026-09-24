@@ -13,6 +13,13 @@ interface ChatHistoryGroupsProps {
   onSaveRename: (id: string) => void;
   onEditingTitleChange: (value: string) => void;
   onEditingIdChange: (value: string | null) => void;
+  /** Palette support: which row the keyboard is on, matched lines, search words. */
+  highlightedId?: string | null;
+  snippets?: Record<string, string>;
+  query?: string;
+  onHighlight?: (id: string) => void;
+  /** Palette index of each session id. */
+  paletteIndex?: Record<string, number>;
 }
 
 export const ChatHistoryGroups: React.FC<ChatHistoryGroupsProps> = ({
@@ -26,11 +33,16 @@ export const ChatHistoryGroups: React.FC<ChatHistoryGroupsProps> = ({
   onSaveRename,
   onEditingTitleChange,
   onEditingIdChange,
+  highlightedId = null,
+  snippets,
+  query = '',
+  onHighlight,
+  paletteIndex,
 }) => (
   <div className="py-2">
     {groups.map(({ label, items }) => (
       <div key={label} className="mb-1">
-        <div className="px-5 pt-3 pb-1.5 text-xs font-medium text-content-muted">
+        <div className="palette-section pt-3">
           {label}
         </div>
         <div className="history-session-list">
@@ -47,6 +59,11 @@ export const ChatHistoryGroups: React.FC<ChatHistoryGroupsProps> = ({
               onSaveRename={onSaveRename}
               onEditingTitleChange={onEditingTitleChange}
               onEditingIdChange={onEditingIdChange}
+              isHighlighted={highlightedId === session.id}
+              snippet={snippets?.[session.id]}
+              query={query}
+              onHighlight={onHighlight ? () => onHighlight(session.id) : undefined}
+              paletteIndex={paletteIndex?.[session.id]}
             />
           ))}
         </div>
