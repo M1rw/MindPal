@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Moon, Sun, Flame, User, Plus, History, MoreHorizontal, AlertTriangle } from 'lucide-react';
+import { Moon, Sun, Flame, User, Plus, Search, MoreHorizontal } from 'lucide-react';
 import {
   useAuthStore,
   useChatHistoryModalStore,
-  useChatHistoryStore,
-  useChatStore,
   useSettingsStore,
   useStreakStore,
 } from '../../store';
-import { STORAGE_KEYS } from '../../constants/storage';
+import { startNewChat } from '../../utils/chat/appActions';
+import { THEME_EVENT, isDarkTheme, toggleTheme } from '../../utils/ui/theme';
+import { shortcutLabel } from '../../utils/ui/shortcuts';
 import { POPOVER_EXIT_MS, useOverlayPresence } from '../../hooks/ui/useOverlayPresence';
 import { popoverPanelClass } from '../../utils/ui/overlay';
 import { EnvTag } from './EnvTag';
@@ -34,26 +34,18 @@ export const Header: React.FC<HeaderProps> = ({
   const { user } = useAuthStore();
   const { streak, setIsOpen: setStreakOpen } = useStreakStore();
   const { setIsOpen: setSettingsOpen } = useSettingsStore();
-  const { messages, isGenerating, stopGeneration, clearMessages } = useChatStore();
-  const setActiveSessionId = useChatHistoryStore((state) => state.setActiveSessionId);
   const { setIsOpen: setHistoryOpen } = useChatHistoryModalStore();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
   const { mounted: moreMounted, visible: moreVisible } = useOverlayPresence(moreOpen, POPOVER_EXIT_MS);
-  // Inline confirm state — replaces window.confirm() which is blocked in iOS
-  // WKWebView/PWA and always returns false, making New Chat silently do nothing.
-  const [confirmingNewChat, setConfirmingNewChat] = useState(false);
-  const confirmRef = useRef<HTMLDivElement>(null);
+  const [isDark, setIsDark] = useState<boolean>(isDarkTheme);
 
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof document !== 'undefined') {
-      return document.documentElement.classList.contains('dark');
-    }
-    return true;
-  });
-
+  // The palette and shortcuts can change the theme too; follow them.
   useEffect(() => {
-    setIsDark(document.documentElement.classList.contains('dark'));
+    const sync = () => setIsDark(isDarkTheme());
+    sync();
+    window.addEventListener(THEME_EVENT, sync);
+    return () => window.removeEventListener(THEME_EVENT, sync);
   }, []);
 
   useEffect(() => {
@@ -82,50 +74,15 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, [moreOpen]);
 
-  const toggleTheme = () => {
-    const nextDark = !isDark;
-    setIsDark(nextDark);
-    if (nextDark) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-      localStorage.setItem(STORAGE_KEYS.THEME, 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-      localStorage.setItem(STORAGE_KEYS.THEME, 'light');
-    }
-  };
-
   const handleProfileClick = () => {
     setSettingsOpen(true);
   };
 
-  // Close confirm banner on any outside tap/click.
-  useEffect(() => {
-    if (!confirmingNewChat) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!confirmRef.current?.contains(e.target as Node)) {
-        setConfirmingNewChat(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [confirmingNewChat]);
-
+  // Shared with the palette and Ctrl/Cmd+Shift+O: asks through the app's
+  // confirm dialog (window.confirm is blocked in iOS PWAs and always false).
   const handleNewChat = () => {
-    if (messages.length === 0) return;
-    // Show an inline confirmation instead of window.confirm (blocked in PWA/WKWebView).
-    setConfirmingNewChat(true);
+    void startNewChat();
   };
-
-  const handleNewChatConfirm = () => {
-    setConfirmingNewChat(false);
-    if (isGenerating) stopGeneration();
-    clearMessages();
-    setActiveSessionId(null);
-  };
-
-  const handleNewChatCancel = () => setConfirmingNewChat(false);
 
   const openHistory = () => {
     setMoreOpen(false);
@@ -150,40 +107,6 @@ export const Header: React.FC<HeaderProps> = ({
       id="header"
       className="sticky top-0 z-20 flex flex-none flex-col gap-0 bg-surface-canvas backdrop-blur-md transition-colors duration-200 ease-out"
     >
-      {/* Inline New-Chat confirmation banner — appears in place of the header row
-          instead of window.confirm() which is blocked in iOS PWA/WKWebView. */}
-      {confirmingNewChat && (
-        <div
-          ref={confirmRef}
-          role="alertdialog"
-          aria-label="Start new conversation?"
-          className="flex items-center justify-between gap-2 px-3 py-2.5 bg-surface-subtle border-b border-edge-subtle animate-fade-in"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <AlertTriangle className="h-4 w-4 text-content-secondary flex-shrink-0" aria-hidden="true" />
-            <span className="text-sm text-content-secondary truncate">
-              Start new chat? This thread stays in History.
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <button
-              type="button"
-              onClick={handleNewChatCancel}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-content-secondary hover:bg-surface-elevated transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleNewChatConfirm}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-content-primary text-content-inverse hover:opacity-90 transition-opacity"
-            >
-              Start new
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="flex items-center gap-2 px-3 pb-2.5 pt-safe-top sm:px-5">
         <div className="flex min-w-0 items-center gap-2.5">
           <p className="select-none text-xl font-medium tracking-tight text-content-primary">
@@ -211,10 +134,11 @@ export const Header: React.FC<HeaderProps> = ({
           type="button"
           onClick={openHistory}
           className={`${iconBtnClass} hidden sm:inline-flex`}
-          title="Chat history"
-          aria-label="Open chat history"
+          title={`Search chats and actions (${shortcutLabel('K')})`}
+          aria-label="Search chats and actions"
+          aria-keyshortcuts="Control+K Meta+K"
         >
-          <History className="h-4 w-4" />
+          <Search className="h-4 w-4" />
         </button>
 
         <button
@@ -275,9 +199,9 @@ export const Header: React.FC<HeaderProps> = ({
                 'absolute right-0 top-full z-50 mt-1.5 w-52 max-w-[calc(100vw-1.5rem)] rounded-xl border border-edge-subtle bg-surface-card p-1.5 shadow-modal'
               )}
             >
-              <button type="button" role="menuitem" onClick={openHistory} className={menuItemClass} aria-label="Open chat history">
-                <History className="h-4 w-4 text-content-secondary" />
-                <span>Chat history</span>
+              <button type="button" role="menuitem" onClick={openHistory} className={menuItemClass} aria-label="Search chats and actions">
+                <Search className="h-4 w-4 text-content-secondary" />
+                <span>Search</span>
               </button>
               <button type="button" role="menuitem" onClick={onToggleTheme} className={menuItemClass} aria-label="Toggle theme">
                 {isDark ? <Sun className="h-4 w-4 text-content-secondary" /> : <Moon className="h-4 w-4 text-content-secondary" />}

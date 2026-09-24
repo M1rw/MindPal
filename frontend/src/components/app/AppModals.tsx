@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Toast } from '../ui/Toast';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useFlagsStore, useVoiceStore } from '../../store';
 
 const LazyMemoryInspector = React.lazy(() =>
@@ -79,6 +80,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
           </Suspense>
         </ErrorBoundary>
       ) : null}
+      <ConfirmDialog />
       <Toast />
     </>
   );
