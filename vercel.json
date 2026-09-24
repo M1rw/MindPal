@@ -2,8 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "crons": [
-    { "path": "/api/internal/voice-retention", "schedule": "0 3 * * *" },
-    { "path": "/api/internal/memory-consolidation", "schedule": "30 3 * * *" }
+    {
+      "path": "/api/internal/voice-retention",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/internal/memory-consolidation",
+      "schedule": "30 3 * * *"
+    }
   ],
   "framework": "fastapi",
   "installCommand": "python -m pip install --disable-pip-version-check --no-input -r requirements.txt",
@@ -11,10 +17,6 @@
   "env": {
     "ENVIRONMENT": "production",
     "DEBUG": "false",
-    "ENABLE_DOCS": "false",
-    "ENABLE_HSTS": "true",
-    "APP_NAME": "MindPal",
-    "APP_VERSION": "5.0.0",
     "MINDPAL_CHAT_PROVIDER": "groq",
     "MINDPAL_JSON_PROVIDER": "groq",
     "MINDPAL_LLM_FALLBACK": "openrouter",
@@ -24,7 +26,6 @@
     "GEMINI_MODEL": "gemini-2.5-flash",
     "OPENROUTER_MODEL": "google/gemma-4-31b-it:free",
     "OPENROUTER_JSON_MODEL": "google/gemma-4-31b-it:free",
-    "LLM_PROVIDER_ORDER": "cloudflare,gemini,openrouter,groq",
     "FIREBASE_PROJECT_ID": "mindpal-official-0",
     "MINDPAL_STORAGE_PROVIDER": "supabase",
     "SUPABASE_URL": "https://ifezhzuwbdurxkpooblh.supabase.co",
@@ -37,15 +38,7 @@
     "FIREBASE_WEB_PROJECT_ID": "mindpal-official-0",
     "FIREBASE_WEB_GOOGLE_CLIENT_ID": "234733155455-j0cfkt4hgq4esqaauvro1jmgq81vgcq0.apps.googleusercontent.com",
     "FIREBASE_USE_APPLICATION_DEFAULT": "false",
-    "FIREBASE_USE_SAME_ORIGIN_AUTH_PROXY": "false",
-    "ALLOW_ANONYMOUS_SESSIONS": "true",
-    "SAFETY_ENABLED": "true",
-    "RAG_ENABLED": "true",
-    "CAMB_DEFAULT_VOICE_ID": "147320",
-    "CAMB_SPEECH_MODEL": "mars-8.1-flash-beta",
-    "CAMB_BASE_URL": "https://client.camb.ai/apis",
-    "TRUSTED_HOSTS": "localhost,127.0.0.1,mindpal-demo.vercel.app",
-    "CORS_ORIGINS": "https://mindpal-demo.vercel.app,http://localhost:3000,http://127.0.0.1:3000",
+    "MINDPAL_CORS_ORIGINS": "https://mindpal-demo.vercel.app",
     "PYTHONUNBUFFERED": "1"
   },
   "headers": [

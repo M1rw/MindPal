@@ -6,7 +6,10 @@ from typing import Any
 from backend.configs.runtime import voice_runtime_settings
 
 RAW_RETENTION_S = voice_runtime_settings().session.retention_seconds
-SAFETY_RETENTION_S = 90 * 24 * 60 * 60
+# Safety events are written by voice telemetry with the same configured
+# retention as raw session data. The export used to label them "90 day"
+# from a constant nothing wrote with, while they actually expired in 30.
+SAFETY_RETENTION_S = RAW_RETENTION_S
 SUMMARY_RETENTION_S = 365 * 24 * 60 * 60
 IDEMPOTENCY_RETENTION_S = 24 * 60 * 60
 
@@ -34,7 +37,7 @@ class VoicePrivacyService:
         return {
             "policy": {
                 "raw_transcripts": "not_exported",
-                "safety_events": "sanitized_90_day_retention",
+                "safety_events": f"sanitized_{SAFETY_RETENTION_S // 86_400}_day_retention",
                 "summaries": "exported_through_chat_history",
                 "audio": "not_recorded",
             },
@@ -43,15 +46,18 @@ class VoicePrivacyService:
         }
 
     def delete_account(self, user_id_hash: str) -> dict[str, int]:
+        # voice_minute_reservations is deliberately kept: it is today's usage
+        # counter (seconds and a UTC day, no content) and expires with the day.
+        # Deleting it let "delete my data" reset the daily live-voice limit.
         deleted = {collection: 0 for collection in (
             "voice_sessions", "voice_telemetry", "voice_event_idempotency",
-            "voice_active_sessions", "voice_minute_reservations", "voice_support_diagnostics",
+            "voice_active_sessions", "voice_support_diagnostics",
         )}
         for collection in ("voice_sessions", "voice_telemetry", "voice_event_idempotency", "voice_support_diagnostics"):
             for document_id, _record in self._owned(collection, user_id_hash):
                 if self.store.delete_document(collection, document_id):
                     deleted[collection] += 1
-        for collection in ("voice_active_sessions", "voice_minute_reservations"):
+        for collection in ("voice_active_sessions",):
             if user_id_hash and self.store.get_document(collection, user_id_hash) is not None:
                 if self.store.delete_document(collection, user_id_hash):
                     deleted[collection] += 1

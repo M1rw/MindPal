@@ -94,3 +94,39 @@ def test_revocation_off_skips_the_second_lookup(patched, monkeypatch) -> None:
     session = AuthVerifier().verify_authorization_header("Bearer real.looking.token")
     assert session.is_authenticated is True
     assert fake.calls == [False]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        auth.UserNotFoundError("No user record found for the provided user ID."),
+        auth.UserDisabledError("disabled", cause=None, http_response=None),
+        auth.RevokedIdTokenError("revoked"),
+        auth.InvalidIdTokenError("invalid"),
+        RuntimeError("unexpected programming error"),
+    ],
+    ids=["deleted-user", "disabled", "revoked", "invalid", "unrecognised"],
+)
+def test_a_definite_or_unknown_lookup_answer_never_authenticates(patched, monkeypatch, error) -> None:
+    """Audit MP-07: a user deleted in Firebase kept working until the token expired,
+    because "user not found" was treated like an outage."""
+    monkeypatch.setenv("FIREBASE_CHECK_REVOKED_TOKENS", "true")
+    patched(_FakeAuth(revoked_error=error))
+    with pytest.raises(AppError) as exc:
+        AuthVerifier().verify_authorization_header("Bearer real.looking.token")
+    assert exc.value.code == "unauthenticated"
+
+
+@pytest.mark.parametrize(
+    "error_factory",
+    [
+        lambda: __import__("firebase_admin").exceptions.UnavailableError("down", cause=None),
+        lambda: __import__("firebase_admin").exceptions.DeadlineExceededError("slow", cause=None),
+        lambda: TimeoutError("socket timed out"),
+    ],
+    ids=["unavailable", "deadline", "timeout"],
+)
+def test_only_outages_get_the_availability_grace(patched, monkeypatch, error_factory) -> None:
+    monkeypatch.setenv("FIREBASE_CHECK_REVOKED_TOKENS", "true")
+    patched(_FakeAuth(revoked_error=error_factory()))
+    assert AuthVerifier().verify_authorization_header("Bearer real.looking.token").is_authenticated

@@ -66,6 +66,21 @@ def guest_session() -> UserSession:
     )
 
 
+def _is_transient_lookup_failure(exc: Exception) -> bool:
+    """True only for "could not ask", never for "asked and was told no"."""
+    from firebase_admin import auth, exceptions
+
+    if isinstance(exc, (auth.CertificateFetchError,)):
+        return True
+    if isinstance(exc, (auth.UserNotFoundError, auth.RevokedIdTokenError, auth.UserDisabledError,
+                        auth.ExpiredIdTokenError, auth.InvalidIdTokenError)):
+        return False
+    if isinstance(exc, (exceptions.UnavailableError, exceptions.DeadlineExceededError,
+                        exceptions.InternalError, exceptions.UnknownError)):
+        return True
+    return isinstance(exc, (TimeoutError, ConnectionError))
+
+
 class AuthVerifier:
     """Authentication verifier for HTTP requests with cryptographic RS256 Firebase Admin validation.
 
@@ -167,13 +182,17 @@ class AuthVerifier:
 
         try:
             auth.verify_id_token(token, app=app, check_revoked=True)
-        except (auth.RevokedIdTokenError, auth.UserDisabledError, auth.ExpiredIdTokenError) as exc:
-            logger.warning("auth_token_revoked reason=%s", type(exc).__name__)
-            raise AppError("unauthenticated", _INVALID_CREDENTIAL_MESSAGE) from exc
         except Exception as exc:
-            # Signature and expiry already passed locally. An unreachable
-            # revocation lookup must not sign every user out (tokens expire
-            # within an hour regardless), so the token is accepted and logged.
+            if not _is_transient_lookup_failure(exc):
+                # A definite answer: revoked, disabled, expired, or the user no
+                # longer exists (deleted in Firebase while this token was still
+                # unexpired). Also any unrecognised failure: accepting it is
+                # how a deleted account used to keep working for up to an hour.
+                logger.warning("auth_token_rejected_by_lookup reason=%s", type(exc).__name__)
+                raise AppError("unauthenticated", _INVALID_CREDENTIAL_MESSAGE) from exc
+            # Signature and expiry already passed locally and the identity
+            # service could not be reached. Refusing would sign every user out
+            # during its outage (tokens expire within an hour regardless).
             logger.error(
                 "auth_revocation_check_unavailable error=%s — accepting a locally verified token",
                 type(exc).__name__,
