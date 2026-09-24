@@ -21,7 +21,7 @@ from backend.domain.adaptation.profile import (
     personalization_overrides,
 )
 from backend.domain.chat.history import normalize_history
-from backend.domain.chat.routing import GenerationPlan, plan_generation
+from backend.domain.chat.routing import GenerationPlan, plan_generation, reply_size_note
 from backend.domain.chat.strategy import DIRECTIVES, score_strategies
 from backend.domain.chat.trajectory import analyze as analyze_trajectory
 from backend.domain.dynamic.policy import current_load, policy
@@ -123,28 +123,28 @@ def personalization_note(personalization: Optional[Dict[str, Any]]) -> str:
 
     directives: list[str] = []
     if style == "concise":
-        directives.append("Keep replies concise, focused, and free of filler.")
+        directives.append("Keep replies brief: a few sentences at most.")
     elif style == "detailed":
-        directives.append("Provide structured depth, rich perspective, and thoughtful explanations.")
-    elif style == "balanced":
-        directives.append("Provide a balanced, natural response length.")
+        directives.append("They like depth: when the topic warrants it, give fuller, well-organized replies. Small talk still stays short.")
+    # "balanced" is the base prompt's default sizing; restating it only adds noise.
 
     if warmth == "neutral":
         directives.append("Use a grounded, even tone without extra cheer or sentimentality.")
     elif warmth in {"direct", "candid"}:
         directives.append("Be straightforward and plain-spoken; avoid hedging, sugarcoating, and filler.")
     elif warmth == "warm":
-        directives.append("Use compassionate warmth and an empathetic, gentle presence.")
+        directives.append("Be warm through attention and kindness, not through sympathy phrases.")
 
     if headers is False:
-        directives.append("Write in flowing narrative prose rather than lists or bullet points.")
+        directives.append("Write in flowing prose rather than lists or bullet points.")
     elif headers is True and style == "detailed":
-        directives.append("Use clear headers and bullet points where they organize complex thoughts.")
+        directives.append("Use short lists or headers when they genuinely organize a complex answer.")
 
     if emoji is False:
         directives.append("Do not use emojis.")
     elif emoji is True:
-        directives.append("Use emojis naturally and tastefully where they enhance emotional resonance.")
+        # On by default for everyone, so it must not read as an instruction to add them.
+        directives.append("An occasional emoji is fine in light or playful moments (one at most); none when they are struggling.")
 
     if not directives:
         return ""
@@ -195,8 +195,8 @@ def detect_cognitive_strategy(
     if model.lower() == "pro":
         strategy = "Thorough"
         directive = (
-            "Strategy: Thorough. Take more care with structure and nuance. "
-            "Prefer a complete, well-organized reply over a brief one. "
+            "Strategy: Thorough. Think it through with more care and nuance. When the topic calls for depth, "
+            "prefer a complete, well-organized reply over a brief one; a short or casual message still gets a short reply. "
             f"Do not diagnose or treat.{extras}"
         )
         return strategy, directive
@@ -410,6 +410,10 @@ class ChatOrchestrator:
             system_instruction += "\n" + _GROUNDING_HEADER + "\n" + "\n".join(
                 f"- {c.topic}: {c.content}" for c in grounding_chunks
             )
+        # Last, so it is the freshest instruction when the reply starts.
+        size_note = reply_size_note(message, effective_personalization)
+        if size_note:
+            system_instruction += f"\n{size_note}\n"
         return TurnContext(
             strategy=strategy,
             system_instruction=system_instruction,
