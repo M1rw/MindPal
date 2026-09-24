@@ -1,7 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { useFlagsStore, useVoiceStore } from '../../../store';
-import { SettingsHeader, SettingsRow, SettingsSelect, settingsPrimaryButtonClass } from '../SettingsPrimitives';
+import {
+  SettingsHeader,
+  SettingsRow,
+  SettingsSelect,
+  settingsControlButtonClass,
+  settingsPrimaryButtonClass,
+} from '../SettingsPrimitives';
 import type { SettingsTabContentProps } from './types';
 import { useIsSignedIn } from '../../../hooks/session/useAccountStatus.ts';
 import { personaPalette, rgb } from '../../../voice/face/personaColor.ts';
@@ -107,9 +113,9 @@ const VoicePreviewButton: React.FC<{ voice: string; language: 'en' | 'ar' }> = (
       type="button"
       onClick={toggle}
       aria-label={playing ? `Stop the ${voice} sample` : `Hear ${voice}`}
-      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-edge-default px-3 text-[13px] font-semibold text-content-primary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+      className={settingsControlButtonClass}
     >
-      {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+      {playing ? <Pause className="h-3.5 w-3.5 flex-shrink-0" /> : <Play className="h-3.5 w-3.5 flex-shrink-0" />}
       {playing ? 'Stop' : 'Preview'}
     </button>
   );
