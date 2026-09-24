@@ -206,6 +206,8 @@ export interface FeatureSnapshot {
   changelog_enabled: boolean;
   clinical_guidance?: boolean;
   analytics_insights?: boolean;
+  /** A server speech-to-text provider is configured (multilingual dictation). */
+  dictation_server?: boolean;
 }
 
 /** User identity / profile */

@@ -11,6 +11,7 @@ DEFAULT_OPENROUTER_CHAT_MODEL = "meta-llama/llama-3.3-70b-instruct"
 DEFAULT_OPENROUTER_JSON_MODEL = "meta-llama/llama-3.3-70b-instruct"
 DEFAULT_GROQ_CHAT_MODEL = "qwen/qwen3.8-27b"
 DEFAULT_GROQ_JSON_MODEL = "qwen/qwen3.8-27b"
+DEFAULT_GROQ_STT_MODEL = "whisper-large-v3-turbo"
 
 
 def openrouter_api_key() -> str:
@@ -45,3 +46,7 @@ def groq_chat_model() -> str:
 def groq_json_model() -> str:
     settings = get_settings()
     return settings.groq_json_model.strip() or settings.groq_model.strip() or DEFAULT_GROQ_JSON_MODEL
+
+
+def groq_stt_model() -> str:
+    return get_settings().groq_stt_model.strip() or DEFAULT_GROQ_STT_MODEL
