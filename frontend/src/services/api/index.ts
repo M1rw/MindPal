@@ -92,10 +92,10 @@ export const ApiClient = {
   },
 
   /** Thumbs up/down on a reply; the server learns which approaches help this person. */
-  async rateReply(rating: 'up' | 'down', strategy?: string): Promise<void> {
+  async rateReply(rating: 'up' | 'down', strategy?: string, move?: string): Promise<void> {
     await expectOk('/api/chat/feedback', {
       method: 'POST',
-      body: JSON.stringify(strategy ? { rating, strategy } : { rating }),
+      body: JSON.stringify({ rating, ...(strategy ? { strategy } : {}), ...(move ? { move } : {}) }),
     }, 'Reply feedback error');
   },
 
