@@ -167,6 +167,19 @@ async function withKeyboard(page, { keyboard, pan = 0 }) {
           innerHeight: window.innerHeight,
           shell: document.querySelector('.app-shell')?.getBoundingClientRect().height,
           stage: document.querySelector('.chat-stage')?.className,
+          rows: document.querySelector('.chat-stage') && getComputedStyle(document.querySelector('.chat-stage')).gridTemplateRows,
+          dock: [...(document.querySelector('.chat-composer-dock')?.children || [])].map(
+            (el) => `${String(el.className).split(' ')[0]}:${Math.round(el.getBoundingClientRect().top)}+${Math.round(el.getBoundingClientRect().height)}`,
+          ),
+          composerTop: Math.round(composer.top),
+          scrollY: window.scrollY,
+          stageScroll: document.querySelector('.chat-stage')?.scrollTop,
+          shellScroll: document.querySelector('.app-shell')?.scrollTop,
+          shellTop: Math.round(document.querySelector('.app-shell')?.getBoundingClientRect().top ?? NaN),
+          stageTop: Math.round(document.querySelector('.chat-stage')?.getBoundingClientRect().top ?? NaN),
+          dockBox: (() => { const r = document.querySelector('.chat-composer-dock')?.getBoundingClientRect(); return r && [Math.round(r.top), Math.round(r.height)]; })(),
+          dockPos: document.querySelector('.chat-composer-dock') && getComputedStyle(document.querySelector('.chat-composer-dock')).position,
+          docH: document.documentElement.scrollHeight,
         },
       };
     },
@@ -236,6 +249,13 @@ for (const profile of PROFILES) {
         await page.getByRole('button', { name: 'Send message' }).tap();
         await page.getByText('Stuck like one decision, or more of a fog?').first().waitFor({ state: 'visible' });
         await page.locator('.chat-stage--thread').waitFor({ state: 'attached' });
+        // The composer glides from the centred home position to the bottom
+        // (AppPanels FLIP, 420ms). Headless WebKit on a slow runner may not
+        // advance it, so finish it before measuring the keyboard layout.
+        await page.evaluate(async () => {
+          const dock = document.querySelector('.chat-composer-dock');
+          for (const animation of dock?.getAnimations() ?? []) animation.finish();
+        });
         await page.getByPlaceholder('Ask MindPal').focus();
 
         const keyboard = Math.round(page.viewportSize().height * 0.42);
