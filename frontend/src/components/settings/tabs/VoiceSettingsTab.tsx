@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Pause, Play } from 'lucide-react';
 import { useFlagsStore, useVoiceStore } from '../../../store';
 import { SettingsHeader, SettingsRow, SettingsSelect, settingsPrimaryButtonClass } from '../SettingsPrimitives';
 import type { SettingsTabContentProps } from './types';
@@ -15,7 +16,86 @@ const VOICE_OPTIONS: ReadonlyArray<{
   { value: 'Kore', label: 'Kore', description: 'Clear and direct.' },
   { value: 'Puck', label: 'Puck', description: 'Playful and animated.' },
   { value: 'Fenrir', label: 'Fenrir', description: 'Energetic and expressive.' },
+  { value: 'Achird', label: 'Achird', description: 'Friendly and easy to talk to.' },
+  { value: 'Umbriel', label: 'Umbriel', description: 'Easy-going and relaxed.' },
+  { value: 'Vindemiatrix', label: 'Vindemiatrix', description: 'Gentle and soft-spoken.' },
+  { value: 'Sadachbia', label: 'Sadachbia', description: 'Lively and bright.' },
+  { value: 'Laomedeia', label: 'Laomedeia', description: 'Upbeat and cheerful.' },
+  { value: 'Zephyr', label: 'Zephyr', description: 'Bright and clear.' },
 ];
+
+/** Which sample to play: the spoken-language setting, else the browser's language. */
+export function previewLanguage(voiceLanguage: string | undefined, navigatorLanguage: string | undefined): 'en' | 'ar' {
+  if (voiceLanguage === 'ar') return 'ar';
+  if (voiceLanguage && voiceLanguage !== 'auto') return 'en';
+  return (navigatorLanguage || '').toLowerCase().startsWith('ar') ? 'ar' : 'en';
+}
+
+/** Plays a short sample of a voice (scripts/ops/voice_previews.py). */
+const VoicePreviewButton: React.FC<{ voice: string; language: 'en' | 'ar' }> = ({ voice, language }) => {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [missing, setMissing] = useState(false);
+  useEffect(
+    () => () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    },
+    [],
+  );
+  useEffect(() => {
+    // A different voice or language: stop the old sample.
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setPlaying(false);
+    setMissing(false);
+  }, [voice, language]);
+  const toggle = () => {
+    if (playing) {
+      audioRef.current?.pause();
+      setPlaying(false);
+      return;
+    }
+    // Their language first, then the other sample; some voices may not have both yet.
+    const sources = [language, language === 'ar' ? 'en' : 'ar'].map((lang) => `/assets/voice-previews/${voice}-${lang}.mp3`);
+    const tryPlay = (index: number) => {
+      if (index >= sources.length) {
+        setPlaying(false);
+        setMissing(true);
+        return;
+      }
+      const audio = new Audio(sources[index]);
+      audioRef.current = audio;
+      // A missing file fires both onerror and a rejected play(): move on once.
+      let movedOn = false;
+      const next = () => {
+        if (movedOn || audioRef.current !== audio) return;
+        movedOn = true;
+        tryPlay(index + 1);
+      };
+      audio.onended = () => setPlaying(false);
+      audio.onerror = next;
+      void audio.play().catch(next);
+    };
+    setMissing(false);
+    setPlaying(true);
+    tryPlay(0);
+  };
+  if (missing) {
+    return <span className="text-[13px] text-content-muted">No sample yet</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={playing ? `Stop the ${voice} sample` : `Hear ${voice}`}
+      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-edge-default px-3 text-[13px] font-semibold text-content-primary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+    >
+      {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+      {playing ? 'Stop' : 'Preview'}
+    </button>
+  );
+};
 
 const LANGUAGE_OPTIONS: ReadonlyArray<{
   value: string;
@@ -43,13 +123,13 @@ export const VoiceSettingsTab: React.FC<Partial<SettingsTabContentProps>> = ({
     <div className="space-y-8">
       <SettingsHeader
         title="Voice"
-        description="Spoken input in chat uses your browser. A live duplex call is a signed-in preview: 30 minutes per day, not a crisis line."
+        description="Dictation understands any language, even two in one sentence. A live call is a signed-in preview: 30 minutes per day, not a crisis line."
       />
 
       <div>
         <SettingsRow
           label="Dictation"
-          description="The microphone on the composer transcribes into the text field. It is not a phone-style conversation."
+          description="The microphone on the composer turns what you say into text, in whatever languages you speak. It is not a phone-style conversation."
         >
           <span className="text-sm font-medium text-content-secondary">Available</span>
         </SettingsRow>
@@ -69,14 +149,20 @@ export const VoiceSettingsTab: React.FC<Partial<SettingsTabContentProps>> = ({
           <>
             <SettingsRow
               label="Companion voice"
-              description="Choose the voice timbre and tone MindPal uses during live calls."
+              description="Choose the voice MindPal uses during live calls. Preview plays a short sample."
             >
-              <SettingsSelect
-                ariaLabel="Companion voice"
-                value={selectedVoice}
-                options={VOICE_OPTIONS}
-                onChange={(voiceModel) => updateSettings({ voiceModel })}
-              />
+              <div className="flex items-center gap-2">
+                <VoicePreviewButton
+                  voice={selectedVoice}
+                  language={previewLanguage(selectedLang, typeof navigator !== 'undefined' ? navigator.language : undefined)}
+                />
+                <SettingsSelect
+                  ariaLabel="Companion voice"
+                  value={selectedVoice}
+                  options={VOICE_OPTIONS}
+                  onChange={(voiceModel) => updateSettings({ voiceModel })}
+                />
+              </div>
             </SettingsRow>
             <SettingsRow
               label="Spoken language"

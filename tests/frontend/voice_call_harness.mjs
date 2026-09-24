@@ -162,6 +162,9 @@ export class FakeTransport {
   sendPcm16() {
     this.pcmSent += 1;
   }
+  sendAudioStreamEnd() {
+    this.streamEnds = (this.streamEnds || 0) + 1;
+  }
   sendApplicationNote(text) {
     this.notes.push(text);
   }
@@ -298,6 +301,9 @@ function recorder() {
     spoken: null,
     /** The face's active expressions, as the renderer last saw them. */
     commands: [],
+    /** [stage, secondsLeft] for every idle escalation the overlay was told about. */
+    idle: [],
+    muted: [],
   };
   const callbacks = {
     onStatus: (status, detail) => ui.statuses.push(detail ? `${status}:${detail}` : status),
@@ -312,6 +318,8 @@ function recorder() {
     onTurn: (role, text) => ui.turns.push([role, text]),
     onThinking: (on) => ui.thinking.push(on),
     onFallback: (message) => ui.fallbacks.push(message),
+    onIdle: (stage, secondsLeft) => ui.idle.push([stage, secondsLeft]),
+    onMuted: (muted) => ui.muted.push(muted),
     onEnded: (receipt) => {
       ui.ended = receipt;
     },

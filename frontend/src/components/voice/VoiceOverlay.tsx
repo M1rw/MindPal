@@ -162,6 +162,8 @@ export const VoiceOverlay: React.FC = () => {
     }
   };
   const [showCaptions, setShowCaptions] = useState(true);
+  /** Seconds before the call ends for inactivity, while MindPal is asking if they're still there. */
+  const [idleLeft, setIdleLeft] = useState<number | null>(null);
   const [hasSession, setHasSession] = useState(false);
   const sessionRef = useRef<LiveVoiceSession | null>(null);
   const lastTraceRef = useRef<VoiceTraceReport | null>(null);
@@ -275,6 +277,7 @@ export const VoiceOverlay: React.FC = () => {
         setCrisisScript(script || LOCAL_CRISIS_SCRIPT, pauseBody);
       },
       onMuted: setIsMuted,
+      onIdle: (stage, secondsLeft) => setIdleLeft(stage === 'warn' ? secondsLeft : null),
       onFallback: (message) => {
         // The session already tore itself down; the controls must stop implying otherwise.
         sessionRef.current = null;
@@ -615,6 +618,25 @@ export const VoiceOverlay: React.FC = () => {
       </div>
 
       <div className="relative z-20 w-full max-w-md mx-auto px-6 flex flex-col items-center pb-safe pb-8">
+        {idleLeft !== null ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-3 flex items-center gap-3 rounded-2xl border border-edge-subtle bg-surface-card px-4 py-2 text-[13px] text-content-secondary shadow-sm"
+          >
+            <span>Still there? Ending in {idleLeft}s</span>
+            <button
+              type="button"
+              onClick={() => {
+                sessionRef.current?.stillHere();
+                setIdleLeft(null);
+              }}
+              className="h-9 rounded-xl bg-brand-primary px-3 text-[13px] font-semibold text-white hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2"
+            >
+              I&apos;m here
+            </button>
+          </div>
+        ) : null}
         <div className="flex items-center gap-3 p-1.5 rounded-2xl bg-surface-card border border-edge-subtle shadow-sm">
           <button
             type="button"

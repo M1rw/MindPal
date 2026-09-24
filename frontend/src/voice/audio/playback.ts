@@ -374,6 +374,12 @@ export class PlaybackQueue {
    */
   flushPrebuffer(): boolean {
     if (this.gated || this.fading) return false;
+    if (this.streamNode) {
+      // End of the model turn: play whatever is buffered, even under the target.
+      this.drainToStream();
+      this.streamNode.port.postMessage({ type: 'start' });
+      return true;
+    }
     if (!this.pending.length) return this.started;
     this.started = true;
     if (this.context && this.gain) this.drainPending(this.context, this.gain);
@@ -672,7 +678,11 @@ export class PlaybackQueue {
         [samples.buffer],
       );
     }
-    node.port.postMessage({ type: 'start' });
+    // No 'start' here. It used to follow every chunk, which told the worklet to
+    // play at once and skipped its adaptive prebuffer: audio arriving at about
+    // real-time pace ran dry between chunks (the playback_underrun spam) and
+    // raising the jitter target changed nothing. The worklet starts itself once
+    // the target is buffered; flushPrebuffer() starts a short tail at turn end.
   }
 
   private notifyIdle(): void {

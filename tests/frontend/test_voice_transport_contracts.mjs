@@ -216,3 +216,31 @@ describe('a session the server has never heard of', () => {
     assert.equal(client.unreachable, true, 'no cooldown brings back a session that was deleted');
   });
 });
+
+describe('renew survives a storage blip', () => {
+  const GRANT = { token: 'auth_tokens/real', ws_url: 'wss://x/live', expires_at: '2099-01-01T00:00:00Z' };
+  const respond = (status, body) =>
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  it('retries a 503 twice, then succeeds, instead of ending the call', async () => {
+    const statuses = [503, 503, 200];
+    let calls = 0;
+    globalThis.fetch = async () => {
+      const status = statuses[calls++];
+      return status === 200 ? respond(200, GRANT) : respond(503, { error: { code: 'unavailable', message: 'busy' } });
+    };
+    const grant = await new ControlPlaneClient('vs_1').renew();
+    assert.equal(grant.token, GRANT.token);
+    assert.equal(calls, 3);
+  });
+
+  it('does not retry a refusal that will not change (4xx)', async () => {
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      return respond(429, { error: { code: 'quota_exceeded', message: 'used up' } });
+    };
+    await assert.rejects(new ControlPlaneClient('vs_1').renew());
+    assert.equal(calls, 1);
+  });
+});
