@@ -27,6 +27,12 @@ export interface LiveSessionCallbacks {
   onInputCaption: (text: string) => void;
   /** What MindPal is saying right now. Replaced constantly. */
   onOutputCaption: (text: string) => void;
+  /**
+   * How many characters of MindPal's current reply have been heard, or null when
+   * nothing is playing. Applies to the live caption, or to the reply just moved
+   * into history while its audio finishes.
+   */
+  onOutputProgress?: (spokenChars: number | null) => void;
   /** A finished turn. History: only ever appended. */
   onTurn?: (role: 'user' | 'model', text: string) => void;
   /** True between the caller finishing and the first sound of the reply. */
