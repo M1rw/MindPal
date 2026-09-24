@@ -508,10 +508,11 @@ describe('the face matches what MindPal is saying', () => {
     call.transport.audio(2_000);
     call.transport.modelText('Haha, no way! ');
     call.transport.audio(1_000);
-    await call.advance(50);
+    // Checks are paced (SPEECH_CLASSIFY_GAP_MS) to the server's admission rate.
+    await call.advance(600);
     assert.deepEqual(said.slice(-2), ['Okay so here is the thing.', 'Haha, no way!']);
     assert.equal(call.ui.looks.length, looksBefore, 'not yet: its audio has not started');
-    await call.advance(2_300);
+    await call.advance(1_750);
     assert.deepEqual(call.ui.looks.slice(looksBefore), ['smile_eyes'], 'smiles as the laugh plays');
   });
 
@@ -521,7 +522,7 @@ describe('the face matches what MindPal is saying', () => {
     await call.ready();
     call.transport.modelText('本当に？それはすごいね。');
     call.transport.audio(1_000);
-    await call.advance(50);
+    await call.advance(600); // paced checks
     assert.deepEqual(said.slice(-2), ['本当に？', 'それはすごいね。']);
   });
 

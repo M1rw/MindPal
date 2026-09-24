@@ -42,7 +42,8 @@ from backend.domain.voice.runtime.transcript import (
     speech_delta as _speech_delta,
     window as _window,
 )
-from backend.domain.voice.runtime.usage import RECLAIM_REASONS, VoiceUsageLifecycle
+from backend.domain.voice.runtime.records import is_frozen, save_session_record
+from backend.domain.voice.runtime.usage import RECLAIM_REASONS, VoiceUsageLifecycle, charged_day
 from backend.domain.voice.services.token import (
     LEARNED_NOTE_KEY,
     MEMORY_NOTE_KEY,
@@ -52,6 +53,7 @@ from backend.domain.voice.services.token import (
     live_model_id,
     live_voice_id,
 )
+from backend.infra.store.shared import StoreUnavailable
 from backend.infra.store.store import get_store, store_is_durable
 from backend.infra.observability.metrics import VoiceMetric, voice_metrics
 
@@ -231,7 +233,10 @@ class VoiceSessionService:
             voice_metrics().record(
                 VoiceMetric(operation="mint", duration_ms=0, outcome="provider_failure", status_code=503)
             )
-            self._refund(user_id_hash, reservation["reserved_s"], reason="mint_failed")
+            self._refund(
+                user_id_hash, reservation["reserved_s"], reason="mint_failed",
+                settlement_id=session_id, day=reservation["day"],
+            )
             raise
 
         record = {
@@ -243,6 +248,8 @@ class VoiceSessionService:
             "created_at": started,
             "expires_at": started + VOICE_TELEMETRY_RETENTION_S,
             "reserved_s": reservation["reserved_s"],
+            # The usage day the hold was charged to; its refund goes back there only.
+            "charged_day": reservation["day"],
             "quota_remaining_s": reservation["remaining_s"],
             "setup_complete": False,
             "t_mint_ms": int((time.time() - started) * 1000),
@@ -260,12 +267,31 @@ class VoiceSessionService:
             "gemini_classify_skips": 0,
             "working_memory": {},
         }
-        self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
-        self.store.set_document(
-            VOICE_ACTIVE_COLLECTION,
-            user_id_hash,
-            {"user_id_hash": user_id_hash, "session_id": session_id, "created_at": started},
-        )
+        try:
+            self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+            self.store.set_document(
+                VOICE_ACTIVE_COLLECTION,
+                user_id_hash,
+                {"user_id_hash": user_id_hash, "session_id": session_id, "created_at": started},
+            )
+        except Exception as exc:
+            # The provider grant is unusable without its session row (events would
+            # 404), and the hold was already charged: give it back rather than
+            # strand the day's minutes. Keyed by session id, so it happens once.
+            logger.error("voice_mint_persist_failed session_id=%s error=%s", session_id, type(exc).__name__)
+            try:
+                self.store.delete_document(VOICE_SESSION_COLLECTION, session_id)
+            except Exception:
+                pass
+            self._clear_active(user_id_hash, session_id)
+            self._refund(
+                user_id_hash, reservation["reserved_s"], reason="mint_persist_failed",
+                settlement_id=session_id, day=reservation["day"],
+            )
+            raise AppError(
+                "unavailable",
+                "Live voice could not start. Your minutes were not used. Please try again in a moment.",
+            ) from exc
         logger.info(
             "voice_session_minted session_id=%s reserved_s=%s remaining_s=%s t_mint_ms=%s",
             session_id,
@@ -384,6 +410,15 @@ class VoiceSessionService:
         if not record or record.get("user_id_hash") != user_id_hash:
             raise AppError("not_found", "That live voice session is not available.")
 
+        # A settled call is final. `warm` used to set status back to "warm" after
+        # teardown, and the next teardown refunded the unspent hold again - as
+        # many times as a client cared to repeat the pair.
+        if record.get("status") == "torn_down":
+            if event == "voice.session.teardown":
+                return self.teardown(user_id_hash=user_id_hash, session_id=session_id, reason="client_hangup")
+            logger.info("voice_event_after_teardown session_id=%s event=%s", session_id, event[:40])
+            return {"ok": True, "action": "ended", "floor": record.get("floor"), "already_settled": True}
+
         # An escalate-pause is terminal. Ordinary floor traffic used to overwrite
         # it one event later, which quietly un-froze the session server-side.
         # stay_support is not terminal: the call keeps going.
@@ -400,7 +435,7 @@ class VoiceSessionService:
             record["status"] = "warm"
             record["setup_complete"] = True
             record["t_setup_ms"] = int(payload.get("t_setup_ms") or 0)
-            self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+            save_session_record(self.store, session_id, record)
             self._record_telemetry(
                 user_id_hash=user_id_hash,
                 session_id=session_id,
@@ -452,7 +487,7 @@ class VoiceSessionService:
             except Exception:
                 raise
             record["renewed_at"] = time.time()
-            self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+            save_session_record(self.store, session_id, record)
             self._record_telemetry(
                 user_id_hash=user_id_hash,
                 session_id=session_id,
@@ -505,7 +540,7 @@ class VoiceSessionService:
                     reason=record["floor_reason"] or "client_local_evidence",
                     source="client",
                 )
-            self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+            save_session_record(self.store, session_id, record)
             self._record_telemetry(
                 user_id_hash=user_id_hash,
                 session_id=session_id,
@@ -538,7 +573,7 @@ class VoiceSessionService:
             record["risk_reports"] = int(record.get("risk_reports") or 0) + 1
             if record["last_risk_band"] in {"support", "imminent"}:
                 record["risk_elevated_reports"] = int(record.get("risk_elevated_reports") or 0) + 1
-            self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+            save_session_record(self.store, session_id, record)
             logger.info(
                 "voice_risk_rating session_id=%s risk=%.1f band=%s kind=%s confirmations=%s",
                 session_id,
@@ -614,82 +649,137 @@ class VoiceSessionService:
         reason: str,
         used_s: int = 0,
     ) -> Dict[str, Any]:
-        record = self.store.get_document(VOICE_SESSION_COLLECTION, session_id)
-        if not record or record.get("user_id_hash") != user_id_hash:
-            raise AppError("not_found", "That live voice session is not available.")
-        if record.get("status") == "torn_down":
-            return {
-                "ok": True,
-                "action": "torn_down",
-                "refund_s": 0,
-                "already_settled": True,
-            }
+        """Settle a call exactly once.
 
-        reserved = int(record.get("reserved_s") or 0)
-        elapsed = self._elapsed_s(record)
-        # A reclaim has no caller telling us when the call ended, so wall clock
-        # is the wrong meter: a tab that crashed two minutes in would be billed
-        # for the whole reservation. Bill to the last moment the server saw the
-        # call alive instead.
-        billable = self._observed_elapsed_s(record) if reason in self.RECLAIM_REASONS else elapsed
+        The session flips to ``torn_down`` inside a store transaction that also
+        records the refund owed, so of two concurrent teardowns (hangup plus
+        unload beacon, reclaim plus retry) only one settles. The refund itself
+        is keyed by session id on the usage document and applied to the day it
+        was charged, so a retry after a crash between the two writes, or a
+        replay, can never refund twice or give back a previous day's seconds.
+        """
         # Client used_s is telemetry, not settlement. Server clock from mint.
         hint = max(0, int(used_s or 0))
+        claimed: Dict[str, Any] = {}
 
-        # A full refund is settled from the server's own record of the session,
-        # never from the word the client puts in `reason`. Sending
-        # reason="setup_timeout" at the end of a real 29-minute call used to
-        # hand back the entire day's voice allowance — an unlimited-minutes
-        # bypass available to anyone who could edit one request body.
-        setup_failed = self._is_genuine_setup_failure(record, reason, observed_s=self._observed_elapsed_s(record))
-        if reason in SETUP_FAILURE_REASONS and not setup_failed:
+        def settle(current: Optional[Dict[str, Any]], write: Any) -> Dict[str, Any]:
+            if not current or current.get("user_id_hash") != user_id_hash:
+                raise AppError("not_found", "That live voice session is not available.")
+            if current.get("status") == "torn_down":
+                return current
+            record = dict(current)
+            reserved = int(record.get("reserved_s") or 0)
+            elapsed = self._elapsed_s(record)
+            observed = self._observed_elapsed_s(record)
+            # A reclaim has no caller telling us when the call ended, so wall clock
+            # is the wrong meter: a tab that crashed two minutes in would be billed
+            # for the whole reservation. Bill to the last moment the server saw the
+            # call alive instead.
+            billable = observed if reason in self.RECLAIM_REASONS else elapsed
+            final_reason = reason
+            # A full refund is settled from the server's own record of the session,
+            # never from the word the client puts in `reason`. Sending
+            # reason="setup_timeout" at the end of a real 29-minute call used to
+            # hand back the entire day's voice allowance.
+            setup_failed = self._is_genuine_setup_failure(record, reason, observed_s=observed)
+            if reason in SETUP_FAILURE_REASONS and not setup_failed:
+                record["disputed_teardown_reason"] = reason[:80]
+                final_reason = "client_hangup"
+            used = 0 if setup_failed else min(billable, reserved)
+            refund_s = reserved if setup_failed else max(0, reserved - used)
+            record["status"] = "torn_down"
+            record["teardown_reason"] = final_reason[:80]
+            record["used_s"] = used
+            record["client_used_s"] = hint
+            record["ended_at"] = time.time()
+            record["settlement"] = {
+                "refund_s": refund_s,
+                "day": charged_day(record),
+                "applied": refund_s == 0,
+            }
+            write(record)
+            claimed.update(
+                reason=final_reason,
+                refund_s=refund_s,
+                setup_failed=setup_failed,
+                elapsed=elapsed,
+                disputed=final_reason != reason,
+            )
+            return record
+
+        record = self.store.transact(VOICE_SESSION_COLLECTION, session_id, settle)
+        refunded = self._apply_settlement(user_id_hash, session_id, record)
+
+        if not claimed:
+            # Someone else settled it (or this is a replay). Finish their refund
+            # if a crash left it pending; never start a second one.
+            return {"ok": True, "action": "torn_down", "refund_s": 0, "already_settled": True}
+
+        if claimed["disputed"]:
             logger.warning(
-                "voice_teardown_reason_disputed session_id=%s claimed=%s warmed=%s observed_s=%s",
+                "voice_teardown_reason_disputed session_id=%s claimed=%s warmed=%s",
                 session_id,
                 reason[:40],
                 bool(record.get("setup_complete")),
-                self._observed_elapsed_s(record),
             )
-            record["disputed_teardown_reason"] = reason[:80]
-            reason = "client_hangup"
-
-        used = 0 if setup_failed else min(billable, reserved)
-        refund_s = reserved if setup_failed else max(0, reserved - used)
-        if refund_s:
-            self._refund(user_id_hash, refund_s, reason=reason)
-
-        record["status"] = "torn_down"
-        record["teardown_reason"] = reason[:80]
-        record["used_s"] = 0 if setup_failed else used
-        record["client_used_s"] = hint
-        record["ended_at"] = time.time()
-        self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
         self._record_telemetry(
             user_id_hash=user_id_hash,
             session_id=session_id,
             event_name="voice.session.teardown",
             source="server",
-            reason=reason,
+            reason=claimed["reason"],
             outcome="ok",
-            duration_ms=int(max(0, elapsed) * 1000),
+            duration_ms=int(max(0, claimed["elapsed"]) * 1000),
             metadata={
-                "reason": reason,
-                "refund_s": refund_s,
+                "reason": claimed["reason"],
+                "refund_s": claimed["refund_s"],
                 "used_s": record["used_s"],
                 "client_used_s": hint,
-                "setup_failed": setup_failed,
+                "setup_failed": claimed["setup_failed"],
             },
         )
         self._clear_active(user_id_hash, session_id)
         logger.info(
-            "voice_session_teardown session_id=%s reason=%s refund_s=%s used_s=%s elapsed_s=%s client_used_s=%s",
+            "voice_session_teardown session_id=%s reason=%s refund_s=%s used_s=%s elapsed_s=%s client_used_s=%s refunded=%s",
             session_id,
-            reason[:80],
-            refund_s,
+            claimed["reason"][:80],
+            claimed["refund_s"],
             record["used_s"],
-            elapsed,
+            claimed["elapsed"],
             hint,
+            refunded,
         )
-        return {"ok": True, "action": "torn_down", "refund_s": refund_s, "used_s": record["used_s"]}
+        return {"ok": True, "action": "torn_down", "refund_s": claimed["refund_s"], "used_s": record["used_s"]}
+
+    def _apply_settlement(self, user_id_hash: str, session_id: str, record: Dict[str, Any]) -> bool:
+        """Apply a recorded refund once, then mark it applied. Safe to repeat."""
+        settlement = record.get("settlement") if isinstance(record, dict) else None
+        if not isinstance(settlement, dict) or settlement.get("applied"):
+            return False
+        refund_s = int(settlement.get("refund_s") or 0)
+        applied = self.usage_lifecycle.refund(
+            user_id_hash,
+            refund_s,
+            reason="settlement",
+            settlement_id=session_id,
+            charged_day=str(settlement.get("day") or ""),
+        )
+        if applied is None:
+            return False  # storage unavailable: stays pending for the next teardown/reclaim
+
+        def mark(current: Optional[Dict[str, Any]], write: Any) -> None:
+            if not current or not isinstance(current.get("settlement"), dict):
+                return None
+            updated = dict(current)
+            updated["settlement"] = {**current["settlement"], "applied": True}
+            write(updated)
+            return None
+
+        try:
+            self.store.transact(VOICE_SESSION_COLLECTION, session_id, mark)
+        except StoreUnavailable:
+            logger.warning("voice_settlement_mark_failed session_id=%s", session_id)
+        return bool(applied)
 
     @staticmethod
     def _is_genuine_setup_failure(record: Dict[str, Any], reason: str, *, observed_s: int) -> bool:
@@ -794,7 +884,7 @@ class VoiceSessionService:
             # Persist buffers / memory even when Gemini is skipped.
             if gate.reason in {"model_only", "no_user_speech"} and not allow_model_only:
                 record["safety_fingerprint"] = fingerprint
-            self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+            save_session_record(self.store, session_id, record)
             logger.info(
                 "voice_classify_skipped session_id=%s reason=%s skips=%s calls=%s",
                 session_id,
@@ -827,7 +917,7 @@ class VoiceSessionService:
                     "no_user_speech",
                 } and (self._ever_verified(record) or not self._has_user_speech(record)):
                     record["last_safety_at"] = time.time()
-                    self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+                    save_session_record(self.store, session_id, record)
                 if not self._safety_verified(record):
                     return {
                         "ok": True,
@@ -855,7 +945,7 @@ class VoiceSessionService:
                 record["safety_fingerprint"] = fingerprint
                 record["classified_input"] = inbound
                 record["safety_checks"] = int(record.get("safety_checks") or 0) + 1
-                self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+                save_session_record(self.store, session_id, record)
                 if record.get("speak_then_pause") and not self._is_frozen(record):
                     return self._speak_first_instruction(record)
                 return self._stay_instruction(record)
@@ -884,7 +974,7 @@ class VoiceSessionService:
                     status_code=503,
                 )
             )
-            self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+            save_session_record(self.store, session_id, record)
             return {
                 "ok": True,
                 "action": "continue",
@@ -921,14 +1011,14 @@ class VoiceSessionService:
         if already:
             record["stay_support_input"] = inbound
             record["stay_support_output"] = outbound
-        self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+        save_session_record(self.store, session_id, record)
         return self._ok(record)
 
     def _refresh_verified(self, session_id: str, record: Dict[str, Any], *, reason: str) -> Dict[str, Any]:
         record["last_safety_at"] = time.time()
         record["gemini_classify_skips"] = int(record.get("gemini_classify_skips") or 0) + 1
         record["last_classify_skip_reason"] = reason
-        self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+        save_session_record(self.store, session_id, record)
         if self._is_frozen(record):
             return self._escalate_instruction(record)
         if record.get("speak_then_pause"):
@@ -955,7 +1045,7 @@ class VoiceSessionService:
         if record.get("status") not in {"torn_down", "crisis_freeze"}:
             record["status"] = "stay_support"
         record["last_safety_at"] = time.time()
-        self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+        save_session_record(self.store, session_id, record)
         logger.info(
             "voice_safety_stay_support session_id=%s trigger_present=%s",
             session_id,
@@ -1003,7 +1093,7 @@ class VoiceSessionService:
         if record.get("status") not in {"torn_down", "crisis_freeze"}:
             record["status"] = "speak_then_pause"
         record["last_safety_at"] = time.time()
-        self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+        save_session_record(self.store, session_id, record)
         logger.info(
             "voice_safety_speak_then_pause session_id=%s source=%s danger_kind=%s",
             session_id,
@@ -1047,7 +1137,7 @@ class VoiceSessionService:
         record["crisis_at"] = time.time()
         record["last_safety_at"] = time.time()
         record["crisis_response"] = crisis_response or record.get("crisis_response") or CRISIS_RESPONSE
-        self.store.set_document(VOICE_SESSION_COLLECTION, session_id, record)
+        save_session_record(self.store, session_id, record)
         logger.info(
             "voice_safety_escalate_pause session_id=%s source=%s trigger_present=%s",
             session_id,
@@ -1241,7 +1331,7 @@ class VoiceSessionService:
 
     @staticmethod
     def _is_frozen(record: Dict[str, Any]) -> bool:
-        return record.get("status") == "crisis_freeze" or record.get("floor") == "crisis_freeze"
+        return is_frozen(record)
 
     def usage_snapshot(self, user_id_hash: str) -> Dict[str, Any]:
         policy = resolve_voice_policy(is_authenticated=True)
@@ -1284,8 +1374,8 @@ class VoiceSessionService:
     def _observed_elapsed_s(record: Dict[str, Any]) -> int:
         return VoiceUsageLifecycle.observed_elapsed_s(record)
 
-    def _refund(self, user_id_hash: str, seconds: int, *, reason: str) -> None:
-        self.usage_lifecycle.refund(user_id_hash, seconds, reason=reason)
+    def _refund(self, user_id_hash: str, seconds: int, *, reason: str, settlement_id: str = "", day: str = "") -> None:
+        self.usage_lifecycle.refund(user_id_hash, seconds, reason=reason, settlement_id=settlement_id, charged_day=day)
 
     @staticmethod
     def _normalize_usage(usage: Any, user_id_hash: str) -> Dict[str, Any]:

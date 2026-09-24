@@ -80,11 +80,12 @@ describe('the face stays on the voice to the end of a reply', () => {
     const looks = call.ui.lookTimes
       .filter(([at, look]) => at >= start && (look === 'smile_eyes' || look === 'concerned'))
       .map(([at, look]) => [at - start, look]);
-    // Sentence 1 (0-1s) is heard before any check can answer: dropped, not shown late.
-    // Sentence 2 (1-2s) answers at 1.2s, mid-sentence. 3 and 4 wait for their own audio.
+    // Checks start SPEECH_CLASSIFY_GAP_MS apart (0, 250, 500, 750ms) and take 1.2s.
+    // Sentence 1 (0-1s) is heard before its answer: dropped, not shown late.
+    // Sentence 2 (1-2s) answers at ~1.45s, mid-sentence. 3 and 4 wait for their own audio.
     const near = (ms, target) => Math.abs(ms - target) <= SPEECH_TICK_MS + 40;
     assert.equal(looks.length, 3, JSON.stringify(looks));
-    assert.ok(near(looks[0][0], 1_200) && looks[0][1] === 'concerned', JSON.stringify(looks));
+    assert.ok(near(looks[0][0], 1_450) && looks[0][1] === 'concerned', JSON.stringify(looks));
     assert.ok(near(looks[1][0], 2_000) && looks[1][1] === 'smile_eyes', JSON.stringify(looks));
     assert.ok(near(looks[2][0], 3_000) && looks[2][1] === 'concerned', JSON.stringify(looks));
   });
@@ -118,5 +119,62 @@ describe('the caption reads along with the voice', () => {
     assert.ok(call.ui.spoken >= caption.length * 0.8 && call.ui.spoken < caption.length, `${call.ui.spoken} of ${caption.length}`);
     await call.advance(1_500);
     assert.equal(call.ui.spoken, null, 'cleared once playback is idle');
+  });
+});
+
+describe('audit phase 2: voice client fixes', async () => {
+  const { liveCallPreferences } = await import('../../frontend/src/voice/control/controlPlane.ts');
+  const { useSettingsStore } = await import('../../frontend/src/store/index.ts');
+
+  it('MP-22: heard progress never moves backwards when audio outruns its text', () => {
+    const tl = new SpeechTimeline();
+    tl.text(20);
+    tl.audio(1_000, T0, 1_000);
+    const before = tl.spokenChars(T0 + 900);
+    assert.equal(before, 18);
+    tl.audio(1_000, T0, 2_000); // more audio, no new text yet
+    assert.ok(tl.spokenChars(T0 + 900) >= before);
+    tl.reset();
+    assert.equal(tl.spokenChars(T0 + 900), 0, 'a new turn starts from zero');
+  });
+
+  it('MP-20: the chosen voice, language and style go into the mint request', () => {
+    useSettingsStore.getState().updateSettings({
+      voiceModel: 'Puck',
+      voiceLanguage: 'ar',
+      personalization: { baseStyle: 'concise', warmth: 'direct' },
+    });
+    const prefs = liveCallPreferences();
+    assert.equal(prefs.voice_id, 'Puck');
+    assert.equal(prefs.voice_language, 'ar');
+    assert.deepEqual(prefs.personalization, { baseStyle: 'concise', warmth: 'direct' });
+    useSettingsStore.getState().updateSettings({ voiceLanguage: 'auto' });
+    assert.equal(liveCallPreferences().voice_language, undefined, 'auto is no preference');
+  });
+
+  it('MP-21: sentence checks are paced to the server admission and all get a verdict', async () => {
+    const ref = {};
+    let lastAdmitted = Number.NEGATIVE_INFINITY;
+    const verdicts = [];
+    // The server's rule: one speaking-face check per 150ms per account, else "throttled".
+    const classify = (text, _context, speaker = 'caller') => {
+      if (speaker !== 'mindpal') return Promise.resolve('none');
+      const now = ref.clock.now();
+      if (now - lastAdmitted < 150) return Promise.resolve('throttled');
+      lastAdmitted = now;
+      verdicts.push(text);
+      return Promise.resolve('smile');
+    };
+    const call = makeCall({ classify });
+    ref.clock = call.clock;
+    await call.ready();
+    for (const s of ['One here. ', 'Two here. ', 'Three here. ', 'Four here. ']) {
+      call.transport.modelText(s);
+      call.transport.audio(1_500);
+    }
+    call.transport.generationComplete();
+    await call.advance(2_000);
+    // (The harness's greeting is checked first.)
+    assert.deepEqual(verdicts.slice(-4), ['One here.', 'Two here.', 'Three here.', 'Four here.']);
   });
 });

@@ -78,6 +78,14 @@ const STATE_HOLD_MS = 20_000;
  * behind the voice until the end.
  */
 export const SPEECH_CLASSIFY_PARALLEL = 3;
+/**
+ * Minimum gap between starting two sentence checks. The server admits one
+ * speaking-face check per 0.15s per account (more under load) and answered the
+ * rest "none", so three sent at once came back as one look and two blanks.
+ */
+export const SPEECH_CLASSIFY_GAP_MS = 250;
+/** The server's explicit "not admitted, try later" answer. */
+export const THROTTLED = 'throttled';
 /** A look that would show for less than this of its sentence is dropped, not shown late. */
 const SPEECH_LOOK_STALE_MS = 250;
 
@@ -99,6 +107,8 @@ interface SpokenSentence {
   text: string;
   fromChar: number;
   toChar: number;
+  /** Already sent back once after a throttled answer. */
+  retried?: boolean;
 }
 
 export interface FaceFeedOptions {
@@ -141,6 +151,7 @@ export class FaceFeed {
   private readonly timeline = new SpeechTimeline();
   private sentences: SpokenSentence[] = [];
   private speechInFlight = 0;
+  private lastSpeechCheckAt = Number.NEGATIVE_INFINITY;
   /** Bumped when MindPal is cut off, so late answers for its old sentences are dropped. */
   private speechEpoch = 0;
   /** Expressions waiting for their sentence's audio to play. */
@@ -306,6 +317,8 @@ export class FaceFeed {
 
   /** Release expressions whose moment has come. Called every mic frame and on the call's clock. */
   tick(now: number): void {
+    // Paced checks wait for their slot on the call's clock.
+    if (this.sentences.length) this.pumpSpeech();
     if (!this.scheduled.length) return;
     const waiting: ScheduledLook[] = [];
     for (const item of this.scheduled) {
@@ -357,9 +370,11 @@ export class FaceFeed {
 
   private pumpSpeech(): void {
     const classify = this.classify;
-    while (classify && this.speechInFlight < SPEECH_CLASSIFY_PARALLEL && this.sentences.length) {
-      this.classifySentence(classify, this.sentences.shift() as SpokenSentence);
-    }
+    if (!classify || this.speechInFlight >= SPEECH_CLASSIFY_PARALLEL || !this.sentences.length) return;
+    const now = this.clock();
+    if (now - this.lastSpeechCheckAt < SPEECH_CLASSIFY_GAP_MS) return;
+    this.lastSpeechCheckAt = now;
+    this.classifySentence(classify, this.sentences.shift() as SpokenSentence);
   }
 
   private classifySentence(classify: ClassifyReaction, sentence: SpokenSentence): void {
@@ -368,6 +383,14 @@ export class FaceFeed {
     void classify(sentence.text, '', 'mindpal')
       .then((label) => {
         if (epoch !== this.speechEpoch) return;
+        if (label === THROTTLED) {
+          // Not a verdict. Ask once more if the sentence is still ahead of the voice.
+          const endsAt = this.timeline.timeAt(sentence.toChar);
+          if (!sentence.retried && endsAt - this.clock() > SPEECH_LOOK_STALE_MS) {
+            this.sentences.unshift({ ...sentence, retried: true });
+          }
+          return;
+        }
         const fresh = kindFor(label);
         // A neutral sentence keeps the reply's tone, softer, instead of dropping
         // the face to blank halfway through what MindPal is saying.

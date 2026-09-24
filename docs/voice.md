@@ -39,6 +39,22 @@ settles on server-observed time and refunds the rest. A crashed tab is reclaimed
 on the next mint rather than billed to the wall clock. Limits live in
 `configs/json/voice_runtime.json`.
 
+Settlement happens exactly once:
+
+- Teardown flips the session to `torn_down` in a store transaction that also
+  records the refund owed. Of two concurrent teardowns, only one settles.
+- The refund is keyed by session id on the usage document and only applies to
+  the day the hold was charged (`charged_day`). A replay or a retry after a
+  crash can't refund twice, and a refund after midnight can't reduce the new
+  day's count.
+- `torn_down` is final. Later events get `action: "ended"` and change nothing.
+  All session writes go through `backend/domain/voice/runtime/records.py`, which never reopens a
+  settled session, never lifts a crisis freeze, and never recreates a deleted
+  one.
+- If the session can't be saved after the token is minted, the hold is
+  refunded at once.
+- Deleting account data keeps the usage counters, so it isn't a quota refill.
+
 ## Session states
 
 `minted -> warm -> listening <-> speaking`, with `stay_support` layered on when
