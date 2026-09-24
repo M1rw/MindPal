@@ -175,11 +175,11 @@ export function reactionLook(
     case 'concern':
       return { expression: 'concerned', durationMs: 2_200, intensity: 0.7 };
     case 'laugh':
-      return { expression: 'amused', durationMs: 1_600, intensity: 0.9 };
+      return { expression: 'laugh', durationMs: 1_800, intensity: 0.95 };
     case 'tender':
       return { expression: 'soften', durationMs: 2_400, intensity: 0.75 };
     case 'excited':
-      return { expression: 'perk_up', durationMs: 1_400, intensity: 0.85 };
+      return { expression: 'excited', durationMs: 1_600, intensity: 0.9 };
     default:
       return null;
   }

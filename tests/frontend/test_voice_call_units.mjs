@@ -373,14 +373,32 @@ describe('thinking and reading looks', async () => {
 describe('the richer reaction vocabulary', async () => {
   const { kindFor, nodOffset, reactionLook } = await import('../../frontend/src/voice/face/listenerReaction.ts');
 
+  it('draws laughing arcs and sparkles as closed, finite shapes', async () => {
+    const { arcEyePoints, starEyePoints } = await import('../../frontend/src/voice/face/gaze.ts');
+    for (const pts of [arcEyePoints(32, 22), starEyePoints(36, 42)]) {
+      assert.ok(pts.length > 12);
+      assert.ok(pts.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)));
+    }
+    const arc = arcEyePoints(32, 22);
+    assert.ok(Math.min(...arc.map((p) => p.y)) <= -10, 'the arch rises to the top');
+    assert.ok(Math.max(...arc.map((p) => Math.abs(p.x))) <= 16.01, 'no wider than asked');
+  });
+
+  it('understands laugh, blush and sparkle requests', async () => {
+    const { userFaceRequest } = await import('../../frontend/src/voice/face/expressionCommand.ts');
+    assert.equal(userFaceRequest('can you laugh'), 'laugh');
+    assert.equal(userFaceRequest('aww are you blushing'), 'blush');
+    assert.equal(userFaceRequest('give me star eyes'), 'excited');
+  });
+
   it('maps every classifier label', () => {
     assert.deepEqual(
       ['smile', 'laugh', 'surprise', 'concern', 'tender', 'excited', 'curious', 'none', 'dance'].map(kindFor),
       ['smile', 'laugh', 'ah', 'concern', 'tender', 'excited', 'tilt', null, null],
     );
-    assert.equal(reactionLook({ kind: 'laugh', at: 0, strength: 1 }).expression, 'amused');
+    assert.equal(reactionLook({ kind: 'laugh', at: 0, strength: 1 }).expression, 'laugh');
     assert.equal(reactionLook({ kind: 'tender', at: 0, strength: 1 }).expression, 'soften');
-    assert.equal(reactionLook({ kind: 'excited', at: 0, strength: 1 }).expression, 'perk_up');
+    assert.equal(reactionLook({ kind: 'excited', at: 0, strength: 1 }).expression, 'excited');
   });
 
   it('a laugh bounces twice quickly; tenderness is one slow nod', () => {
