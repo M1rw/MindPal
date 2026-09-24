@@ -3535,19 +3535,14 @@ details > summary::-webkit-details-marker { display: none; }
 }
 
 .chat-composer-dock {
-  /* The shell already ends at the top of the keyboard (.app-shell), so the
-     dock sits at the shell's bottom. Lifting it by the keyboard height as well
-     put it a whole keyboard too high on iOS. */
-  position: sticky;
-  bottom: 0;
+  /* The shell already ends at the top of the keyboard (.app-shell) and the
+     dock is the stage's bottom grid row, so it needs no positioning trick.
+     It used to be sticky with bottom: keyboard height, which put it a whole
+     keyboard too high on iOS; WebKit also resolves sticky against its own
+     idea of the visible rect, which moved it again. Plain flow is exact. */
+  position: relative;
   z-index: 20;
   overflow: visible;
-}
-
-@media (min-width: 640px) {
-  .chat-composer-dock {
-    position: relative;
-  }
 }
 
 /* One capped radius always: 31px is slightly ≥ half of idle ~60px, so one-line
@@ -5083,7 +5078,7 @@ html.dark .chat-composer--thinking::after {
    ─────────────────────────────────────────────────────────────
    Header             20      #header (sticky)
    Chat jump button   10      .chat-jump-latest (position:absolute)
-   Composer dock      20      .chat-composer-dock (sticky)
+   Composer dock      20      .chat-composer-dock (in flow)
    Floating menus     60      .chat-mode-menu / .settings-select-menu
    Overlay backdrop   —       .overlay-backdrop (position:absolute)
    Overlay panel      10      .overlay-panel
