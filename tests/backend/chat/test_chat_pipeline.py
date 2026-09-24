@@ -71,7 +71,7 @@ def test_personalization_maps_frontend_warmth_keys():
         "useHeadersLists": False,
         "emojiSupport": False,
     })
-    assert "concise" in note.lower()
+    assert "brief" in note.lower()
     assert "plain-spoken" in note
     assert "emojis" in note.lower()
     _, directive = detect_cognitive_strategy("hello", personalization={"warmth": "neutral"})
@@ -158,7 +158,7 @@ async def test_history_and_personalization_reach_the_provider():
         {"role": "assistant", "content": "hi"},
     ]
     assert "plain-spoken" in call["system_instruction"]
-    assert "structured depth" in call["system_instruction"]
+    assert "They like depth" in call["system_instruction"]
     texts = "".join(str(c.get("text") or "") for c in chunks)
     assert "Hello there" in texts
     assert any(c.get("request_id") == "req_hist" for c in chunks)
@@ -438,7 +438,7 @@ def test_sse_includes_usage_and_history_on_live_route(monkeypatch):
     events = [json.loads(line[6:]) for line in res.text.splitlines() if line.startswith("data: ") and line != "data: [DONE]"]
     assert any("usage" in event for event in events)
     assert llm.calls[0]["history"][-1]["content"] == "hi"
-    assert "Keep replies concise" in llm.calls[0]["system_instruction"]
+    assert "Keep replies brief" in llm.calls[0]["system_instruction"]
 
 
 @pytest.mark.asyncio

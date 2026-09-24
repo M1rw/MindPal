@@ -163,7 +163,7 @@ def test_chat_learns_across_turns_and_uses_it_in_the_prompt() -> None:
     assert store.get_document(ADAPTIVE_COLLECTION, USER)["turns_observed"] == 2
     latest = gateway.system_instructions[-1]
     assert "Learned from this person's past conversations" in latest
-    assert "Keep replies concise" in latest  # learned length applied via personalization
+    assert "Keep replies brief" in latest  # learned length applied via personalization
 
 
 def test_crisis_turns_are_never_learned_from() -> None:

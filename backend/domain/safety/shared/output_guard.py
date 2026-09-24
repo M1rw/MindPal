@@ -42,8 +42,10 @@ class OutputGuardService:
                 yield token
 
 
+# Models usually write a curly apostrophe (I’m); the config is written with
+# straight ones, so every apostrophe in a pattern accepts either.
 _STOCK_SENTENCES = [
-    re.compile(r"^\s*(?:" + pattern + r")", re.IGNORECASE)
+    re.compile(r"^\s*(?:" + pattern.replace("'", "['’]") + r")", re.IGNORECASE)
     for pattern in _SAFETY_CONFIG["output_guard"].get("stock_sentences", [])
 ]
 _STOCK_MAX_CHARS = int(_SAFETY_CONFIG["output_guard"].get("stock_sentence_max_chars", 110))
@@ -52,6 +54,7 @@ _STOCK_MAX_CHARS = int(_SAFETY_CONFIG["output_guard"].get("stock_sentence_max_ch
 _STOCK_LEADS = frozenset(w.lower() for w in _SAFETY_CONFIG["output_guard"].get("stock_sentence_leads", []))
 # How much of a candidate sentence's start is held back to decide whether it is filler.
 _DECIDE_CHARS = 60
+_HAS_WORD = re.compile(r"\w")
 _SENTENCE_END = re.compile(r"[.!?؟…]+[\"')\]]*(?:\s+|$)|\n+")
 
 
@@ -76,6 +79,7 @@ class StockSentenceFilter:
         passing = False  # current sentence already cleared as not filler
         yielded = False
         last_dropped = ""
+        dropped_last = False  # the most recent sentence was filler
         async with aclosing(token_stream) as stream:
             async for token in stream:
                 if not token:
@@ -100,12 +104,14 @@ class StockSentenceFilter:
                         if is_stock_sentence(sentence):
                             self.dropped += 1
                             last_dropped = sentence
+                            dropped_last = True
                             continue
                         yield sentence
                         yielded = True
+                        dropped_last = False
                         continue
                     stripped = pending.lstrip()
-                    first_word = stripped.split(" ", 1)[0].lower() if " " in stripped else ""
+                    first_word = stripped.split(" ", 1)[0].lower().replace("’", "'") if " " in stripped else ""
                     candidate = any(p.search(pending) for p in _STOCK_SENTENCES)
                     not_a_lead = bool(first_word) and first_word not in _STOCK_LEADS
                     if not_a_lead or (len(pending) >= _DECIDE_CHARS and (not candidate or len(pending) > _STOCK_MAX_CHARS)):
@@ -115,8 +121,10 @@ class StockSentenceFilter:
                         passing = True
                     break
         if pending:
-            if is_stock_sentence(pending) and yielded:
-                self.dropped += 1
+            # A lone emoji after a dropped sign-off ("I'm listening. 🌿") goes with it.
+            orphan = dropped_last and not _HAS_WORD.search(pending)
+            if (is_stock_sentence(pending) or orphan) and yielded:
+                self.dropped += 0 if orphan else 1
             else:
                 yield pending
                 yielded = True

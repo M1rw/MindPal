@@ -8,6 +8,7 @@ off. The person's length preference caps the reply size.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -60,3 +61,31 @@ def plan_generation(
         depth="deep" if deep else "standard",
         reason=",".join(reasons) or "default",
     )
+
+
+_WORDS = re.compile(r"[\w\u0600-\u06FF']+")
+_ASKS_FOR_MORE = re.compile(
+    r"\b(options|steps|plan|explain|how (?:do|can|should) i|what should i|ideas|tips|pros and cons|compare)\b"
+    r"|خطوات|خيارات|اشرح|وش اسوي|ايش اسوي|شو اعمل",  # steps, options, explain, what do I do
+    re.IGNORECASE,
+)
+
+
+def reply_size_note(message: str, personalization: Optional[Dict[str, Any]] = None) -> str:
+    """A concrete size for this reply, from the message itself.
+
+    Small chat models follow "reply in one or two sentences" far more reliably
+    than "match the length of the message", so the gateway gets the number.
+    Nothing is added for long messages or explicit requests for depth.
+    """
+    style = str((personalization or {}).get("baseStyle") or "balanced").lower()
+    if style == "detailed" or _ASKS_FOR_MORE.search(message or ""):
+        return ""
+    count = len(_WORDS.findall(message or ""))
+    if count <= 4:
+        return "[This turn: their message is very short. Reply in one or two short sentences.]"
+    if count <= 15:
+        return "[This turn: a short message. Keep the reply to a few sentences, one paragraph.]"
+    if count <= 60 or style == "concise":
+        return "[This turn: keep the reply to one or two short paragraphs.]"
+    return ""
