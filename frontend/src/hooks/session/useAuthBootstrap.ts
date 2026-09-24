@@ -1,12 +1,5 @@
 import { useEffect } from 'react';
-import {
-  useAuthStore,
-  useSessionStore,
-  useChatHistoryStore,
-  useMemoryStore,
-  useStreakStore,
-  useUsageStore,
-} from '../../store/index';
+import { useAuthStore, useSessionStore, useChatHistoryStore, useStreakStore } from '../../store/index';
 import {
   onAuthStateChange,
   onIdTokenChange,
@@ -14,23 +7,9 @@ import {
   getAppCheckToken,
 } from '../../services/auth/index';
 import { ApiClient } from '../../services/api/index';
-import { pullAccountSettings, resetSettingsSync, subscribeSettingsSync } from '../../services/sync/settingsSync.ts';
-import { claim, setOwner, stillOwns } from '../../services/session/owner.ts';
-
-/**
- * Everything account-specific that is on screen belongs to the previous owner
- * the moment the account changes, so it goes before anything new is fetched.
- */
-function handOver(uid: string | null): void {
-  const previous = claim();
-  const next = setOwner(uid);
-  if (next === previous) return;
-  // A guest's per-network credits are not the account's, and vice versa.
-  useUsageStore.getState().clearQuota();
-  useMemoryStore.setState({ summary: null, isOpen: false, error: null });
-  useChatHistoryStore.getState().switchOwner(next.owner);
-  resetSettingsSync();
-}
+import { pullAccountSettings, subscribeSettingsSync } from '../../services/sync/settingsSync.ts';
+import { claim, stillOwns } from '../../services/session/owner.ts';
+import { handOver } from '../../services/session/handover.ts';
 
 export function useAuthBootstrap() {
   const { setUser, setIsLoading } = useAuthStore();
