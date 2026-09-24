@@ -116,13 +116,13 @@ class LibraryService:
         out["url"], out["thumb_url"], out["preview_urls"] = urls[0], urls[1], urls[2:]
         return out
 
-    def digests(self, user: str, file_ids: List[str]) -> List[Digest]:
-        """Digests for a chat turn; unknown or unfinished files are skipped."""
-        out: List[Digest] = []
-        for file_id in file_ids:
+    def digests(self, user: str, file_ids: List[str]) -> Dict[str, Digest]:
+        """Digests for a chat turn, by file id; unknown or unfinished files are left out."""
+        out: Dict[str, Digest] = {}
+        for file_id in dict.fromkeys(file_ids):
             doc = self.store.get_document(COLLECTION, _doc_id(user, file_id))
             if doc and doc.get("status") == "ready" and doc.get("digest"):
-                out.append(Digest.model_validate({**doc["digest"], "name": doc.get("name", "")}))
+                out[file_id] = Digest.model_validate({**doc["digest"], "name": doc.get("name", "")})
         return out
 
     def _require(self, user: str, file_id: str) -> Dict[str, Any]:

@@ -34,6 +34,8 @@ EMPTY_MESSAGE = "[They shared the attached file without writing a message.]"
 class TurnFiles:
     digests: List[Digest] = field(default_factory=list)
     images: List[VisionImage] = field(default_factory=list)
+    # Indexes (into digests) of files shared on earlier turns, not this one.
+    earlier: List[int] = field(default_factory=list)
 
     def __bool__(self) -> bool:
         return bool(self.digests or self.images)
@@ -55,7 +57,7 @@ class TurnFiles:
     def prompt_block(self, question: str) -> str:
         if not self.digests:
             return ""
-        return f"{FILES_HEADER}\n{render_file_context(self.digests, question)}"
+        return f"{FILES_HEADER}\n{render_file_context(self.digests, question, earlier=set(self.earlier))}"
 
 
 def resolve_turn_files(
@@ -64,17 +66,15 @@ def resolve_turn_files(
     """Library files by id (accounts), inline digests (anyone), and this turn's pictures."""
     files = TurnFiles()
     ids = [a.file_id for a in attachments if a.file_id and signed_in]
-    by_id = {}
-    if ids:
-        service = library or LibraryService()
-        for file_id, digest in zip(ids, service.digests(user_id_hash, ids)):
-            by_id[file_id] = digest
+    by_id = (library or LibraryService()).digests(user_id_hash, ids) if ids else {}
     for attachment in attachments:
         digest = by_id.get(attachment.file_id or "") or attachment.digest
         if digest is not None:
+            if attachment.earlier:
+                files.earlier.append(len(files.digests))
             files.digests.append(digest.model_copy(update={"name": attachment.name or digest.name}))
         mime = (attachment.mime or "").split(";", 1)[0].strip().lower()
-        if attachment.image and mime in IMAGE_TYPES:
+        if attachment.image and mime in IMAGE_TYPES and not attachment.earlier:
             try:
                 files.images.append(VisionImage(base64.b64decode(attachment.image, validate=True), mime))
             except (binascii.Error, ValueError):

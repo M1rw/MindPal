@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from backend.configs.runtime import api_limits_config
-from backend.domain.files.contracts import MAX_ATTACHMENTS, AttachmentRef
+from backend.domain.files.contracts import MAX_FILES_IN_CONTEXT, AttachmentRef
 
 _LIMITS = api_limits_config()["chat"]
 MAX_MESSAGE_CHARS = int(_LIMITS["max_message_chars"])
@@ -75,7 +75,7 @@ class ChatStreamPayload(BaseModel):
     telemetry: Optional[Dict[str, Any]] = None
     personalization: Optional[Dict[str, Any]] = None
     client_context: Optional[ClientContext] = None
-    attachments: List[AttachmentRef] = Field(default_factory=list, max_length=MAX_ATTACHMENTS)
+    attachments: List[AttachmentRef] = Field(default_factory=list, max_length=MAX_FILES_IN_CONTEXT)
 
     @field_validator("message")
     @classmethod
@@ -85,7 +85,7 @@ class ChatStreamPayload(BaseModel):
     @model_validator(mode="after")
     def message_or_files(self) -> "ChatStreamPayload":
         # A file on its own is a message too ("here, look at this").
-        if not self.message and not self.attachments:
+        if not self.message and not any(not a.earlier for a in self.attachments):
             raise ValueError("message must not be empty")
         return self
 

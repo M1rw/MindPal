@@ -303,8 +303,8 @@ def test_other_accounts_cannot_reach_a_file():
     with pytest.raises(AppError) as err:
         lib.get("usr_files_bob", started["file_id"])
     assert err.value.code == "not_found"
-    assert lib.digests("usr_files_bob", [started["file_id"]]) == []
-    assert [d.title for d in lib.digests(USER, [started["file_id"]])] == ["Beach"]
+    assert lib.digests("usr_files_bob", [started["file_id"]]) == {}
+    assert [d.title for d in lib.digests(USER, ["f_gone00000000", started["file_id"]]).values()] == ["Beach"]
 
 
 def test_account_deletion_removes_files_bytes_and_cached_readings():

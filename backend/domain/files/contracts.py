@@ -15,6 +15,8 @@ MAX_DIGEST_TEXT = int(LIMITS["max_digest_text_chars"])
 MAX_DIGEST_REQUEST_BYTES = int(LIMITS["max_digest_request_bytes"])
 MAX_IMAGES_PER_CALL = int(LIMITS["max_images_per_vision_call"])
 MAX_ATTACHMENTS = int(LIMITS["max_attachments_per_message"])
+# New files on this turn plus the ones shared earlier in the conversation.
+MAX_FILES_IN_CONTEXT = int(LIMITS["max_files_in_context"])
 # A picture sent along with its turn (downscaled in the browser): ~1 MB of base64.
 MAX_TURN_IMAGE_B64 = 1_400_000
 DIGEST_VERSION = 1
@@ -152,6 +154,8 @@ class AttachmentRef(BaseModel):
     name: str = Field(default="", max_length=200)
     image: str = Field(default="", max_length=MAX_TURN_IMAGE_B64)
     mime: str = Field(default="image/jpeg", max_length=40)
+    # Shared on an earlier turn of this conversation (kept in view for follow-ups).
+    earlier: bool = False
 
     @field_validator("file_id")
     @classmethod

@@ -93,7 +93,8 @@
     "max_attachments_per_message",
     "digest_cache_days",
     "guest",
-    "account"
+    "account",
+    "max_files_in_context"
    ],
    "properties": {
     "max_digest_request_bytes": {
@@ -205,6 +206,10 @@
        "minimum": 1
       }
      }
+    },
+    "max_files_in_context": {
+     "type": "integer",
+     "minimum": 1
     }
    }
   }
