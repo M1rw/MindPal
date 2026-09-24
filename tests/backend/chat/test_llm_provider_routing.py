@@ -411,8 +411,11 @@ def test_json_tries_at_most_two_rungs_to_protect_the_live_voice_budget(monkeypat
         raise OpenAICompatibleError("busy", 503)
 
     monkeypatch.setenv("MINDPAL_JSON_PROVIDER", "groq")
-    monkeypatch.setenv("MINDPAL_LLM_FALLBACK", "groq:openai/gpt-oss-20b,openrouter,groq:openai/gpt-oss-120b")
+    monkeypatch.setenv("OPENROUTER_JSON_MODEL", "google/gemma-4-31b-it:free")
+    monkeypatch.setenv("MINDPAL_LLM_FALLBACK", "groq:openai/gpt-oss-20b,openrouter,gemini")
     monkeypatch.setattr(oai, "complete_json", fake_complete)
     with pytest.raises(OpenAICompatibleError):
         LLMGateway().generate_json(prompt="User: hi")
-    assert calls == ["qwen/qwen3.8-27b", "openai/gpt-oss-20b"]
+    # Chat models named in the ladder are not classifier models: the Groq rung
+    # collapses into the primary, and the spare is OpenRouter's JSON model.
+    assert calls == ["qwen/qwen3.8-27b", "google/gemma-4-31b-it:free"]

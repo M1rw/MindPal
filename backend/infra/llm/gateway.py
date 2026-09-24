@@ -530,7 +530,16 @@ class LLMGateway:
     ) -> str:
         """Synchronous JSON completion. Fail closed — never invent a stub classifier label."""
         primary = structured_provider()
-        entries = _ordered(_ladder((primary, model or None))) or [(primary, model or None)]
+        # Spares use their provider's JSON model, never a chat model named in the
+        # ladder: the classifier only runs on models validated for it
+        # (scripts/eval/validate_voice_classifier.py), and a reasoning chat
+        # model spends a small token budget thinking and returns no JSON.
+        spares = [(provider, None) for provider, _ in fallback_ladder()]
+        candidates: list[LadderEntry] = []
+        for entry in [(primary, model or None), *spares]:
+            if entry not in candidates and _has_credentials(entry[0]):
+                candidates.append(entry)
+        entries = _ordered(candidates) or [(primary, model or None)]
         # Structured calls gate the live-voice microphone: two attempts at most,
         # so a bad minute cannot stall a call behind the whole ladder.
         entries = entries[:2]
