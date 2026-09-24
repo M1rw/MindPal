@@ -38,5 +38,31 @@
     "max_audio_bytes": 4000000,
     "per_hour_account": 60,
     "per_hour_guest": 20
+  },
+  "files": {
+    "max_digest_request_bytes": 4000000,
+    "max_images_per_vision_call": 6,
+    "max_page_text_chars": 6000,
+    "max_digest_text_chars": 200000,
+    "max_attachments_per_message": 4,
+    "digest_cache_days": 7,
+    "guest": {
+      "files_per_day": 5,
+      "vision_pages_per_day": 20,
+      "max_image_bytes": 10000000,
+      "max_pdf_bytes": 10000000,
+      "max_pdf_pages": 10,
+      "library_files": 10,
+      "library_days": 7
+    },
+    "account": {
+      "files_per_day": 30,
+      "vision_pages_per_day": 150,
+      "max_image_bytes": 20000000,
+      "max_pdf_bytes": 25000000,
+      "max_pdf_pages": 60,
+      "library_files": 100,
+      "library_bytes": 200000000
+    }
   }
 }
