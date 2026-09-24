@@ -221,9 +221,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
       await ApiClient.streamChat(
         trimmed,
         messages.slice(-30),
-        (chunk, strategy) => {
+        (chunk, strategy, move) => {
           currentContent += chunk;
-          updateLastMessage(currentContent, strategy);
+          updateLastMessage(currentContent, strategy, move);
         },
         () => {
           setIsGenerating(false);

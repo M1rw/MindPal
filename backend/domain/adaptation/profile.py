@@ -135,6 +135,8 @@ def empty_profile(user_id_hash: str = "") -> Dict[str, Any]:
         "turns_observed": 0,
         "preferences": {},
         "strategies": {},
+        # Insight moves (backend/domain/chat/insight.py) as Beta stats, like strategies.
+        "moves": {},
         "last_turn": {},
         "updated_at": 0.0,
     }
@@ -158,8 +160,15 @@ def _normalize_profile(raw: Any, user_id_hash: str) -> Dict[str, Any]:
             for name, stats in strategies.items()
             if isinstance(stats, dict) and name in STRATEGIES
         }
+    moves = raw.get("moves")
+    if isinstance(moves, dict):
+        profile["moves"] = {
+            str(name)[:24]: {"alpha": float(stats.get("alpha", 1.0)), "beta": float(stats.get("beta", 1.0))}
+            for name, stats in list(moves.items())[:32]
+            if isinstance(stats, dict)
+        }
     if isinstance(raw.get("last_turn"), dict):
-        profile["last_turn"] = {k: raw["last_turn"][k] for k in ("strategy", "at") if k in raw["last_turn"]}
+        profile["last_turn"] = {k: raw["last_turn"][k] for k in ("strategy", "move", "at") if k in raw["last_turn"]}
     profile["turns_observed"] = int(raw.get("turns_observed") or 0)
     profile["updated_at"] = float(raw.get("updated_at") or 0.0)
     return profile
@@ -169,6 +178,16 @@ def _reward(profile: Dict[str, Any], strategy: str, amount: float) -> None:
     if strategy not in STRATEGIES or amount == 0:
         return
     stats = profile["strategies"].setdefault(strategy, {"alpha": 1.0, "beta": 1.0})
+    if amount > 0:
+        stats["alpha"] = round(stats["alpha"] + amount, 4)
+    else:
+        stats["beta"] = round(stats["beta"] - amount, 4)
+
+
+def _reward_move(profile: Dict[str, Any], move: str, amount: float) -> None:
+    if not move or amount == 0:
+        return
+    stats = profile.setdefault("moves", {}).setdefault(move[:24], {"alpha": 1.0, "beta": 1.0})
     if amount > 0:
         stats["alpha"] = round(stats["alpha"] + amount, 4)
     else:
@@ -186,7 +205,7 @@ def learn_from_message(profile: Dict[str, Any], message: str, *, now: Optional[f
             if options[option] < 0.01:
                 del options[option]
     prior_decay = float(learning["strategy_prior_decay"])
-    for stats in updated["strategies"].values():
+    for stats in [*updated["strategies"].values(), *updated.get("moves", {}).values()]:
         stats["alpha"] = round(1.0 + (stats["alpha"] - 1.0) * prior_decay, 4)
         stats["beta"] = round(1.0 + (stats["beta"] - 1.0) * prior_decay, 4)
 
@@ -206,6 +225,10 @@ def learn_from_message(profile: Dict[str, Any], message: str, *, now: Optional[f
     previous = str(updated.get("last_turn", {}).get("strategy") or "")
     if signals.feedback and previous:
         _reward(updated, previous, signals.feedback * float(learning["strategy_feedback_weight"]))
+    # "That helps" / "not what I meant" also credits the insight the last reply tried.
+    previous_move = str(updated.get("last_turn", {}).get("move") or "")
+    if signals.feedback and previous_move:
+        _reward_move(updated, previous_move, signals.feedback * float(learning["strategy_feedback_weight"]))
 
     updated["turns_observed"] = int(updated["turns_observed"]) + 1
     updated["updated_at"] = float(now if now is not None else time.time())
@@ -333,7 +356,7 @@ class AdaptiveProfileService:
         profile = learn_from_message(base, message)
         return TurnAdaptation(profile, preference_note(profile), strategy_bias(profile), persist)
 
-    def commit_turn(self, user_id_hash: str, message: str, strategy: str) -> None:
+    def commit_turn(self, user_id_hash: str, message: str, strategy: str, move: str = "") -> None:
         """Persist the learning from this turn. Best effort: never fails the reply."""
         if not self.enabled() or not user_id_hash:
             return
@@ -341,7 +364,7 @@ class AdaptiveProfileService:
         def mutate(current: Any, write: Any) -> None:
             profile = learn_from_message(_normalize_profile(current, user_id_hash), message)
             profile["user_id_hash"] = user_id_hash
-            profile["last_turn"] = {"strategy": strategy, "at": time.time()}
+            profile["last_turn"] = {"strategy": strategy, "move": move, "at": time.time()}
             write(profile)
 
         try:
@@ -349,7 +372,7 @@ class AdaptiveProfileService:
         except Exception as exc:
             logger.warning("adaptive_profile_commit_skipped error=%s", type(exc).__name__)
 
-    def rate(self, user_id_hash: str, rating: str, strategy: str = "") -> Dict[str, Any]:
+    def rate(self, user_id_hash: str, rating: str, strategy: str = "", move: str = "") -> Dict[str, Any]:
         """Explicit thumbs up/down on a reply; rewards the strategy that produced it."""
         weight = float(_lexicon().learning["explicit_rating_weight"])
         try:
@@ -365,12 +388,17 @@ class AdaptiveProfileService:
             profile = _normalize_profile(current, user_id_hash)
             target = strategy if strategy in STRATEGIES else str(profile.get("last_turn", {}).get("strategy") or "")
             _reward(profile, target, amount)
+            from backend.domain.chat.insight import MOVES
+
+            if move in MOVES:
+                _reward_move(profile, move, amount)
             profile["updated_at"] = time.time()
             result["strategy"] = target
+            result["move"] = move if move in MOVES else None
             write(profile)
 
         self.store.transact(ADAPTIVE_COLLECTION, user_id_hash, mutate)
-        return {"ok": True, "strategy": result.get("strategy") or None, "rating": rating}
+        return {"ok": True, "strategy": result.get("strategy") or None, "move": result.get("move"), "rating": rating}
 
     def describe(self, user_id_hash: str) -> Dict[str, Any]:
         """Human-readable view of what has been learned, for transparency."""

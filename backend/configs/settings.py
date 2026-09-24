@@ -83,6 +83,8 @@ class Settings(BaseSettings):
     cron_secret: str = Field(default='', validation_alias='CRON_SECRET')
     adaptive_learning: str = Field(default='1', validation_alias='MINDPAL_ADAPTIVE_LEARNING')
     semantic_search: str = Field(default='1', validation_alias='MINDPAL_SEMANTIC_SEARCH')
+    # Per-turn insight planner (backend/domain/chat/insight.py). 0 disables it.
+    insight_planner: str = Field(default='1', validation_alias='MINDPAL_INSIGHT_PLANNER')
     voice_support_diagnostics_secret: str = Field(default='', validation_alias='MINDPAL_VOICE_SUPPORT_DIAGNOSTICS_SECRET')
     voice_safety_settings: str = Field(default='1', validation_alias='MINDPAL_VOICE_SAFETY_SETTINGS')
     voice_proactive_audio: str = Field(default='', validation_alias='MINDPAL_VOICE_PROACTIVE_AUDIO')

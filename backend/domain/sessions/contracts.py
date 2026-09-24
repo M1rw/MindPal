@@ -19,6 +19,7 @@ _ALLOWED_MESSAGE_ROLES = frozenset({"user", "assistant", "model", "system"})
 # (audit MP-12). Everything else is still dropped: this is a persisted contract,
 # not a place to store arbitrary client data.
 _MESSAGE_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+_INSIGHT_MOVE_RE = re.compile(r"^[a-z_]{1,24}$")
 _ALLOWED_MESSAGE_KINDS = frozenset({"voice_receipt"})
 _ALLOWED_MODELS = frozenset({"standard", "pro"})
 _MAX_STRATEGY_CHARS = 64
@@ -85,6 +86,9 @@ def clipped_messages(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         strategy = item.get("strategy_used")
         if isinstance(strategy, str) and strategy.strip():
             entry["strategy_used"] = strategy.strip()[:_MAX_STRATEGY_CHARS]
+        move = item.get("insight_move")
+        if isinstance(move, str) and _INSIGHT_MOVE_RE.match(move):
+            entry["insight_move"] = move
         model = item.get("model")
         if model in _ALLOWED_MODELS:
             entry["model"] = model

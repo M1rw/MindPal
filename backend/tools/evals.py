@@ -352,8 +352,10 @@ def run_judged(
         # One event loop for the whole run: provider clients are bound to the loop
         # that created them, so a loop per case fails with "Event loop is closed".
         out: List[Dict[str, Any]] = []
-        for case in cases or load_cases():
+        all_cases = cases or load_cases()
+        for index, case in enumerate(all_cases, 1):
             reply, crisis, error = await reply_for(case)
+            print(f"  replied {index}/{len(all_cases)} {case['id']}{' (no reply)' if not reply else ''}", flush=True)
             shape = score_reply(case["message"], reply, category=case.get("category", ""), crisis=crisis, detailed=detailed)
             scores = judge_reply(case, reply) if judge and reply else ({"error": error} if error else {})
             out.append(

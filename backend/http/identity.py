@@ -154,6 +154,8 @@ def delete_user_data(
 class ReplyFeedbackPayload(BaseModel):
     rating: str = Field(pattern="^(up|down)$")
     strategy: Optional[str] = Field(default=None, max_length=40)
+    # The insight move the reply tried (backend/domain/chat/insight.py).
+    move: Optional[str] = Field(default=None, pattern="^[a-z_]{1,24}$")
 
 
 @router.get("/api/user/adaptation", operation_id="identityGetAdaptation")
@@ -178,5 +180,5 @@ def rate_reply(
 ) -> Dict[str, Any]:
     """Thumbs up/down on a reply. Rewards or penalizes the approach that produced it."""
     return AdaptiveProfileService(identity_service.store).rate(
-        session.user_id_hash, payload.rating, payload.strategy or ""
+        session.user_id_hash, payload.rating, payload.strategy or "", payload.move or ""
     )
