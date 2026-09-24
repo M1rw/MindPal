@@ -129,8 +129,10 @@ def _model_for_provider(provider: str, model: Optional[str], default_model: str)
 JSON_THINKING_BUDGET = 0
 
 # A hung provider call is worse than a failed one on the live-voice path: upstream
-# PCM is gated while a classify request is in flight. Fail fast instead.
-JSON_TIMEOUT_MS = 6_000
+# PCM is gated while a classify request is in flight. Fail fast instead, but no
+# faster than Gemini accepts: it rejects any deadline under 10s with a 400, which
+# failed every Gemini JSON call (classifier included) before it was sent.
+JSON_TIMEOUT_MS = 10_000
 STREAM_TIMEOUT_MS = 60_000
 
 
