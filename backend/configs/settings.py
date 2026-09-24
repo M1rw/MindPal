@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     openrouter_json_model: str = Field(default='', validation_alias='OPENROUTER_JSON_MODEL')
     groq_model: str = Field(default='qwen/qwen3.8-27b', validation_alias='GROQ_MODEL')
     groq_json_model: str = Field(default='', validation_alias='GROQ_JSON_MODEL')
+    groq_stt_model: str = Field(default='', validation_alias='GROQ_STT_MODEL')
     gemini_api_key: SecretStr = Field(default=SecretStr(''), validation_alias='GEMINI_API_KEY')
     google_api_key: SecretStr = Field(default=SecretStr(''), validation_alias='GOOGLE_API_KEY')
     gemini_model: str = Field(default='gemini-2.5-flash', validation_alias='GEMINI_MODEL')
