@@ -426,7 +426,7 @@ describe('Frontend component contracts', () => {
     assert.match(historyStyle, /\.history-rename \{[^}]*height:\s*1\.25rem/);
     assert.match(historyStyle, /inset 0 -1px 0 var\(--brand-primary\)/);
     assert.match(historyStyle, /\.history-session-item \{[^}]*border:\s*1px solid transparent/);
-    assert.match(historyStyle, /\.history-session-list \{[^}]*gap:\s*0\.375rem/);
+    assert.match(historyStyle, /\.history-session-list \{[^}]*gap:\s*0\.125rem/);
     assert.match(historyStyle, /\.history-session-item__open \{[^}]*inset:\s*0/);
     assert.match(historyStyle, /\.history-session-item > \.history-session-item__actions \{[^}]*pointer-events:\s*auto/);
     assert.match(historyStyle, /\.history-session-item \.history-row-action,[\s\S]*?pointer-events:\s*auto/);

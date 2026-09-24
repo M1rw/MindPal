@@ -221,3 +221,25 @@ describe('MP-12 / MP-26: saved chats keep identity; sends are keyed', () => {
     assert.ok(keys[0] && keys[1] && keys[0] !== keys[1]);
   });
 });
+
+describe('pinned chats', () => {
+  it('stay pinned when the next message saves the session', () => {
+    useChatHistoryStore.getState().saveSession(session('p1', 'pin me'));
+    useChatHistoryStore.getState().togglePinned('p1');
+    // The message stream saves without knowing about pins.
+    useChatHistoryStore.getState().saveSession({ ...session('p1', 'pin me'), updatedAt: '2026-09-21T10:00:00.000Z' });
+    assert.equal(useChatHistoryStore.getState().sessions.find((s) => s.id === 'p1').pinned, true);
+  });
+
+  it('arrive from another device even when nothing else changed', async () => {
+    signIn('usr_pin');
+    useChatHistoryStore.setState({ sessions: [session('p2', 'same chat')] });
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ sessions: [{ ...session('p2', 'same chat'), pinned: true }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    await useChatHistoryStore.getState().loadCloudSessions();
+    assert.equal(useChatHistoryStore.getState().sessions.find((s) => s.id === 'p2').pinned, true);
+  });
+});

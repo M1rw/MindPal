@@ -114,6 +114,8 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => ({
         ...sanitized,
         title: titleLocked ? (existing?.title ?? sanitized.title) : sanitized.title,
         titleLocked,
+        // Callers save from the message stream, which knows nothing of pins.
+        pinned: sanitized.pinned ?? existing?.pinned ?? false,
         ...(existing?.cloudDetached ? { cloudDetached: true } : {}),
       };
       const filtered = state.sessions.filter((s) => s.id !== sanitized.id);
@@ -221,7 +223,9 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => ({
             merged.every(
               (s, i) =>
                 s.id === state.sessions[i].id &&
-                (s.updatedAt || s.createdAt) === (state.sessions[i].updatedAt || state.sessions[i].createdAt)
+                (s.updatedAt || s.createdAt) === (state.sessions[i].updatedAt || state.sessions[i].createdAt) &&
+                // Pinning leaves updatedAt alone, so compare it on its own.
+                Boolean(s.pinned) === Boolean(state.sessions[i].pinned)
             )
           ) {
             return { isLoadingCloud: false, guestSessionCount: guestRemaining.length };
