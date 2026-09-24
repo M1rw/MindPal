@@ -83,3 +83,12 @@ def test_persona_can_be_rolled_back(monkeypatch) -> None:
     finally:
         monkeypatch.delenv("MINDPAL_VOICE_PERSONA")
         settings_module.get_settings.cache_clear() if hasattr(settings_module.get_settings, "cache_clear") else None
+
+
+def test_persona_v2_shows_alive_vs_flat_and_bans_customer_service_phrases() -> None:
+    prompt = wellness_live_instruction("Sulafat")
+    # Examples steer the native-audio model; they must be marked as never-reuse,
+    # or every caller hears the same lines.
+    assert "never say these lines, invent your own every time" in prompt
+    for phrase in ("what's on your mind", "loud and clear", "I'm here if you need anything else", "how about you"):
+        assert phrase in prompt

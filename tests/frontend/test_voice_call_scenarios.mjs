@@ -232,32 +232,60 @@ describe('a reply is always given, and never twice', () => {
 });
 
 describe('mute', () => {
-  it('stops the microphone track and sends nothing', async () => {
+  it('stops the microphone track and never sends mic audio while muted', async () => {
     const call = makeCall();
     await call.ready();
     call.session.setMuted(true);
     assert.equal(call.mic.enabled, false);
+    for (let i = 0; i < 20; i += 1) {
+      call.mic.frame(0.3);
+      await call.advance(20);
+      assert.ok(call.transport.lastPcm.every((sample) => sample === 0), 'only silence goes out after a mute');
+    }
+    await call.advance(3_000);
     const before = call.transport.pcmSent;
     call.mic.frame(0.3);
-    assert.equal(call.transport.pcmSent, before);
+    assert.equal(call.transport.pcmSent, before, 'nothing at all once the stream has ended');
     call.session.setMuted(false);
     call.mic.frame(0.3);
     assert.equal(call.transport.pcmSent, before + 1);
+    assert.ok(call.transport.lastPcm.some((sample) => sample !== 0), 'mic audio again after unmuting');
   });
 });
 
 describe('mute ends the turn', () => {
-  it('tells Gemini the audio stream ended, so it answers what was said before the mute', async () => {
+  it('streams silence past the VAD window, then ends the stream, so Gemini answers what was said', async () => {
     const call = makeCall();
     await call.ready();
     await call.userSays('I think I finally figured out');
     call.session.setMuted(true);
-    assert.equal(call.transport.streamEnds, 1, 'audioStreamEnd sent on mute');
     assert.deepEqual(call.ui.muted, [true]);
+    const sentAtMute = call.transport.pcmSent;
+    for (let t = 0; t < 2_400; t += 20) {
+      call.mic.frame(0.2);
+      await call.advance(20);
+    }
+    const silentFrames = call.transport.pcmSent - sentAtMute;
+    assert.ok(silentFrames * 20 >= 1_500, `at least the VAD window of silence (${silentFrames * 20}ms)`);
+    assert.equal(call.transport.streamEnds, 1, 'audioStreamEnd after the silence');
+    assert.equal(call.transport.order.at(-1), 'end', 'the stream end comes after the silence');
     call.session.setMuted(true);
     assert.equal(call.transport.streamEnds, 1, 'not repeated while already muted');
     call.session.setMuted(false);
     assert.deepEqual(call.ui.muted, [true, false]);
+  });
+
+  it('unmuting during the silent tail cancels it (their voice goes out again, no stream end)', async () => {
+    const call = makeCall();
+    await call.ready();
+    call.session.setMuted(true);
+    call.mic.frame(0.2);
+    await call.advance(500);
+    call.session.setMuted(false);
+    await call.advance(3_000);
+    call.mic.frame(0.2);
+    assert.equal(call.transport.streamEnds || 0, 0);
+    assert.ok(call.transport.lastPcm.some((sample) => sample !== 0));
   });
 
   it('a long mute does not trigger stall reconnects (the transport only stalls while sending)', async () => {

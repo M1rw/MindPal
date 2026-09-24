@@ -159,11 +159,14 @@ export class FakeTransport {
   async close(code = 1000, reason = '') {
     this.closed = { code, reason };
   }
-  sendPcm16() {
+  sendPcm16(pcm) {
     this.pcmSent += 1;
+    this.lastPcm = pcm;
+    this.order = [...(this.order || []), 'pcm'].slice(-400);
   }
   sendAudioStreamEnd() {
     this.streamEnds = (this.streamEnds || 0) + 1;
+    this.order = [...(this.order || []), 'end'].slice(-400);
   }
   sendApplicationNote(text) {
     this.notes.push(text);
@@ -276,7 +279,8 @@ export class FakeMic {
   }
   /** One 20ms frame at the given loudness. */
   frame(rms = 0.05) {
-    this.onFrame(new Int16Array(320), rms);
+    // Non-zero samples when there is sound, so tests can tell mic audio from silence.
+    this.onFrame(new Int16Array(320).fill(Math.round(rms * 32767)), rms);
   }
 }
 
