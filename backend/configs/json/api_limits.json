@@ -33,5 +33,10 @@
   "voice": {
     "max_traces_per_session": 5,
     "max_trace_events": 2000
+  },
+  "dictation": {
+    "max_audio_bytes": 4000000,
+    "per_hour_account": 60,
+    "per_hour_guest": 20
   }
 }

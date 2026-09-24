@@ -831,6 +831,25 @@ paths:
         "401": { description: Sign in required }
         "403": { description: Live voice flag off }
 
+  /api/transcribe:
+    post:
+      operationId: dictationTranscribe
+      tags: [chat]
+      summary: Transcribe a composer voice note (raw audio body) in whatever languages were spoken
+      x-mindpal:
+        owner: chat
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: "The transcript and the detected language" }
+        "422": { description: "Empty, too large, or unsupported audio" }
+        "429": { description: Hourly dictation allowance used }
+        "503": { description: No transcription provider available }
+
   /api/voice/recall:
     post:
       operationId: voiceRecall

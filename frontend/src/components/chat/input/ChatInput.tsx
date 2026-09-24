@@ -266,6 +266,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
 
   const {
     isDictating,
+    isTranscribing,
     audioVolume,
     startDictation,
     cancelDictation,
@@ -347,8 +348,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="chat-composer__field custom-scrollbar bg-transparent resize-none outline-none pl-4 pr-2 py-2.5 text-md sm:text-base text-content-primary placeholder-content-muted leading-6 min-h-[44px]"
-                placeholder={isDictating ? 'Listening...' : 'Ask MindPal'}
+                placeholder={isTranscribing ? 'Transcribing…' : isDictating ? 'Listening...' : 'Ask MindPal'}
                 aria-label={isDictating ? 'Listening to your voice' : 'Ask MindPal'}
+                aria-busy={isTranscribing}
+                readOnly={isTranscribing}
               />
             </div>
           </div>
