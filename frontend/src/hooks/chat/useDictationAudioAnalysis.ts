@@ -40,17 +40,28 @@ export function useDictationAudioAnalysis({ isDictatingRef }: UseDictationAudioA
     try {
       if (!navigator.mediaDevices?.getUserMedia) return;
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-
       const webkitWindow = window as typeof window & {
         webkitAudioContext?: typeof AudioContext;
       };
       const AudioCtx = window.AudioContext || webkitWindow.webkitAudioContext;
       if (!AudioCtx) return;
 
+      // Created and resumed before the first await, while still inside the tap:
+      // iOS Safari keeps a context made after an await suspended, so the level
+      // meter never moved there.
       const audioCtx = new AudioCtx();
       audioContextRef.current = audioCtx;
+      void audioCtx.resume?.().catch(() => {});
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (error) {
+        void audioCtx.close().catch(() => {});
+        audioContextRef.current = null;
+        throw error;
+      }
+      mediaStreamRef.current = stream;
 
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;
