@@ -21,6 +21,7 @@ from backend.domain.adaptation.profile import (
     personalization_overrides,
 )
 from backend.domain.chat.history import normalize_history
+from backend.domain.chat.insight import InsightPlan, plan_insight
 from backend.domain.chat.routing import GenerationPlan, plan_generation, reply_size_note
 from backend.domain.chat.strategy import DIRECTIVES, score_strategies
 from backend.domain.chat.trajectory import analyze as analyze_trajectory
@@ -49,6 +50,13 @@ _PROVIDER_MESSAGE = _CHAT_BEHAVIOR["provider_message"]
 # that a call which already de-escalated is not re-frozen by old text.
 _SAFETY_HISTORY_TURNS = int(_CHAT_BEHAVIOR["safety_history_turns"])
 _GROUNDING_HEADER = _CHAT_BEHAVIOR["grounding_header"]
+_NO_INSIGHT = InsightPlan("", "", "")
+
+
+def _insight_planner_enabled() -> bool:
+    from backend.configs.settings import get_settings
+
+    return get_settings().insight_planner.strip().lower() not in {"0", "false", "off", "no"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +79,7 @@ class TurnContext:
     has_memory_summary: bool
     plan: GenerationPlan
     trajectory: str
+    insight_move: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -410,6 +419,18 @@ class ChatOrchestrator:
             system_instruction += "\n" + _GROUNDING_HEADER + "\n" + "\n".join(
                 f"- {c.topic}: {c.content}" for c in grounding_chunks
             )
+        insight = _NO_INSIGHT if not _insight_planner_enabled() else plan_insight(
+            message,
+            history=history or (),
+            recurring=trajectory.recurring,
+            direction=trajectory.direction,
+            memory_text=memory.text or "",
+            strategy=strategy,
+            learned=learned_profile,
+            last_move=str((learned_profile or {}).get("last_turn", {}).get("move") or ""),
+        )
+        if insight.note:
+            system_instruction += f"\n{insight.note}\n"
         # Last, so it is the freshest instruction when the reply starts.
         size_note = reply_size_note(message, effective_personalization)
         if size_note:
@@ -422,6 +443,7 @@ class ChatOrchestrator:
             has_memory_summary=memory.has_summary,
             plan=plan,
             trajectory=trajectory.direction,
+            insight_move=insight.move,
         )
 
     def _sse_error(self, code: str, message: str, *, request_id: Optional[str], strategy: str) -> Dict[str, Any]:
@@ -627,6 +649,7 @@ class ChatOrchestrator:
                         yield {
                             "text": token,
                             "strategy_used": strategy,
+                            "insight_move": context.insight_move,
                             "request_id": request_id,
                             "grounding_used": grounding_ids,
                         }
@@ -653,6 +676,7 @@ class ChatOrchestrator:
                     message=message,
                     reply="".join(reply_parts),
                     strategy=strategy,
+                    insight_move=context.insight_move,
                     learn=learn,
                     anonymous=anonymous,
                     turn_started=turn_started,
@@ -687,6 +711,7 @@ class ChatOrchestrator:
         anonymous: bool,
         turn_started: float,
         request_id: Optional[str],
+        insight_move: str = "",
     ) -> Optional[Dict[str, Any]]:
         """Everything a finished turn writes. Blocking I/O: called in a worker thread."""
         # The reply took seconds; if the account's data was deleted meanwhile,
@@ -696,7 +721,7 @@ class ChatOrchestrator:
             logger.info("chat_turn_writes_fenced request_id=%s reason=account_data_deleted", request_id or "-")
             return None
         if learn:
-            self.adaptation.commit_turn(user_id_hash, message, strategy)
+            self.adaptation.commit_turn(user_id_hash, message, strategy, insight_move)
         receipt = self._write_turn_memory(user_id_hash, message, request_id=request_id)
         if learn:
             # Collected for later AI consolidation; no model call happens here.

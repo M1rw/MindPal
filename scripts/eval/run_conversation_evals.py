@@ -71,7 +71,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.rejudge:
         from backend.tools.evals import rejudge
 
-        report = rejudge(json.loads(args.rejudge.read_text(encoding="utf-8")), provider=args.judge_provider, pace_seconds=args.pace)
+        report = rejudge(
+            json.loads(args.rejudge.read_text(encoding="utf-8")),
+            provider=args.judge_provider,
+            pace_seconds=args.pace,
+            on_progress=lambda partial: args.rejudge.write_text(json.dumps(partial, indent=2, ensure_ascii=False), encoding="utf-8"),
+        )
         args.rejudge.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"Re-judged -> {args.rejudge} ({report['judged']}/{report['cases']} judged)")
         for criterion, mean in report["means"].items():

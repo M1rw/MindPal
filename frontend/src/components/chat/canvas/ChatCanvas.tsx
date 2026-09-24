@@ -26,10 +26,10 @@ const JUMP_LOCK_MS = 1500;
  * Teach MindPal what helps. Signed-in only, and no message text leaves the
  * device: the server rewards or penalizes the strategy that produced the reply.
  */
-async function sendReplyFeedback(kind: FeedbackKind, strategy: string | undefined) {
+async function sendReplyFeedback(kind: FeedbackKind, strategy: string | undefined, move: string | undefined) {
   if (!useSessionStore.getState().isAuthenticated) return;
   try {
-    await ApiClient.rateReply(kind === 'thumbs_up' ? 'up' : 'down', strategy);
+    await ApiClient.rateReply(kind === 'thumbs_up' ? 'up' : 'down', strategy, move);
   } catch {
     // Feedback is best-effort; the local thumb state stays either way.
   }
@@ -247,8 +247,8 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
       [msgId]: prev[msgId] === kind ? null : kind,
     }));
     if (alreadySet) return; // un-toggling is local only
-    const strategy = messages.find((m) => m.id === msgId)?.strategy_used;
-    await sendReplyFeedback(kind, strategy);
+    const rated = messages.find((m) => m.id === msgId);
+    await sendReplyFeedback(kind, rated?.strategy_used, rated?.insight_move);
   }, [messages, thumbsState]);
 
   const handleRegenerate = useCallback(async (targetMsgId?: string) => {
@@ -363,9 +363,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
     await ApiClient.streamChat(
       trimmed,
       history,
-      (chunk, strategy) => {
+      (chunk, strategy, move) => {
         current += chunk;
-        useChatStore.getState().updateLastMessage(current, strategy);
+        useChatStore.getState().updateLastMessage(current, strategy, move);
       },
       () => {
         useChatStore.getState().setIsGenerating(false);

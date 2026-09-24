@@ -26,6 +26,8 @@ export interface ChatMessage {
   timestamp: string;
   created_at?: string;
   strategy_used?: string;
+  /** The insight move the reply tried (backend/domain/chat/insight.py); sent back with thumbs. */
+  insight_move?: string;
   model?: string;
   /** Quiet recap written after a live call. Not a clinical note. */
   kind?: 'voice_receipt';
