@@ -12,6 +12,8 @@ export interface ChatSession {
   titleLocked?: boolean;
   /** Kept on this device only: never synced (set after account data deletion). */
   cloudDetached?: boolean;
+  /** Shown in the Pinned group at the top of search. Synced with the account. */
+  pinned?: boolean;
   createdAt: string; // ISO string
   updatedAt: string;
   messages: ChatMessage[];
@@ -114,6 +116,10 @@ export interface UserUISettings {
   personalization: UserPersonalization;
   voiceModel: string;
   voiceLanguage: string;
+  /** Search palette quick actions, in the person's order (ids from ChatHistoryModal). */
+  quickActions: string[];
+  /** Confirmations the person chose "Don't ask again" for, by key (e.g. 'new-chat'). */
+  skipConfirm: Record<string, boolean>;
 }
 
 export interface VoiceTokenResponse {
@@ -200,6 +206,8 @@ export interface FeatureSnapshot {
   changelog_enabled: boolean;
   clinical_guidance?: boolean;
   analytics_insights?: boolean;
+  /** A server speech-to-text provider is configured (multilingual dictation). */
+  dictation_server?: boolean;
 }
 
 /** User identity / profile */
