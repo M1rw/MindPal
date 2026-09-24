@@ -79,3 +79,15 @@ def test_scorer_checks_language_and_allows_depth_when_asked() -> None:
     assert score_reply("هلا", "هلا والله! كيف يومك؟").factors["language"] == 1.0
     steps = "Here are a few options:\n- Start with 20 minutes a day.\n- Keep a list.\n- Tell a friend your deadline.\nWhich feels doable?"
     assert score_reply("Give me some options to stop procrastinating on my thesis", steps, category="advice").score > 90
+
+
+def test_crisis_help_comes_in_the_speakers_language_with_lines_they_can_reach() -> None:
+    from backend.domain.safety.modes.chat.classify import SafetyService
+
+    arabic = SafetyService().classify_message("بدي أنهي حياتي")
+    assert arabic.is_crisis
+    assert "findahelpline.com" in arabic.crisis_response
+    assert "رقم الطوارئ" in arabic.crisis_response
+    english = SafetyService().classify_message("I want to end my life")
+    assert "Lifeline" in english.crisis_response and "988" in english.crisis_response
+    assert "findahelpline.com" in english.crisis_response, "not only US numbers"

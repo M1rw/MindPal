@@ -155,7 +155,8 @@ def score_reply(
         "no_stock": _ramp(len(stock), 0, 3),
         "questions": _ramp(questions, 1, 3 if category == "advice" else 2.5),
         "emoji": _ramp(emoji, 0 if heavy else 1, 1 if heavy else 3),
-        "markdown": 1.0 if detailed or category in {"advice", "question"} else _ramp(headers * 2 + bullets + bold * 0.5, 0, 3),
+        # The crisis reply is a fixed, reviewed safety text, not the model's shape.
+        "markdown": 1.0 if crisis or detailed or category in {"advice", "question"} else _ramp(headers * 2 + bullets + bold * 0.5, 0, 3),
         "language": 1.0 if is_arabic(message) == is_arabic(text) or not text else 0.0,
         "whitespace": 0.0 if _BLANK_RUN.search(text) or "\\n" in text else 1.0,
     }
