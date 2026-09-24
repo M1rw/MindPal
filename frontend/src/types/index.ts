@@ -12,6 +12,8 @@ export interface ChatSession {
   titleLocked?: boolean;
   /** Kept on this device only: never synced (set after account data deletion). */
   cloudDetached?: boolean;
+  /** Shown in the Pinned group at the top of search. Synced with the account. */
+  pinned?: boolean;
   createdAt: string; // ISO string
   updatedAt: string;
   messages: ChatMessage[];

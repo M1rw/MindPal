@@ -20,6 +20,7 @@ interface ChatHistoryGroupsProps {
   onHighlight?: (id: string) => void;
   /** Palette index of each session id. */
   paletteIndex?: Record<string, number>;
+  onTogglePin?: (event: React.MouseEvent, id: string) => void;
 }
 
 export const ChatHistoryGroups: React.FC<ChatHistoryGroupsProps> = ({
@@ -38,6 +39,7 @@ export const ChatHistoryGroups: React.FC<ChatHistoryGroupsProps> = ({
   query = '',
   onHighlight,
   paletteIndex,
+  onTogglePin,
 }) => (
   <div className="py-2">
     {groups.map(({ label, items }) => (
@@ -64,6 +66,7 @@ export const ChatHistoryGroups: React.FC<ChatHistoryGroupsProps> = ({
               query={query}
               onHighlight={onHighlight ? () => onHighlight(session.id) : undefined}
               paletteIndex={paletteIndex?.[session.id]}
+              onTogglePin={onTogglePin}
             />
           ))}
         </div>

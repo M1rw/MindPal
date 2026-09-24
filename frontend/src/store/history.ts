@@ -78,6 +78,7 @@ interface ChatHistoryState {
   guestSessionCount: number;
   saveSession: (session: ChatSession) => void;
   renameSession: (id: string, title: string) => void;
+  togglePinned: (id: string) => void;
   deleteSession: (id: string) => void;
   clearHistory: () => void;
   setActiveSessionId: (id: string | null) => void;
@@ -143,6 +144,24 @@ export const useChatHistoryStore = create<ChatHistoryState>((set, get) => ({
     if (toSync) {
       const payload: ChatSession = toSync;
       syncFor(owner, (api) => api.saveChatSession(payload), 'Failed to sync renamed session to cloud:');
+    }
+  },
+  togglePinned: (id) => {
+    const owner = claim();
+    let toSync: ChatSession | null = null;
+    set((state) => {
+      const target = state.sessions.find((s) => s.id === id);
+      if (!target) return state;
+      // Pinning is not activity: the chat keeps its place in date order.
+      const updated = { ...target, pinned: !target.pinned };
+      const next = state.sessions.map((s) => (s.id === id ? updated : s));
+      saveSessions(state.owner, next);
+      if (!updated.cloudDetached) toSync = updated;
+      return { sessions: next };
+    });
+    if (toSync) {
+      const payload: ChatSession = toSync;
+      syncFor(owner, (api) => api.saveChatSession(payload), 'Failed to sync pinned session to cloud:');
     }
   },
   deleteSession: (id) => {

@@ -19,6 +19,7 @@ export function normalizeCloudSession(raw: unknown): ChatSession | null {
     id,
     title: typeof row.title === 'string' ? row.title : '',
     titleLocked: row.titleLocked === true,
+    pinned: row.pinned === true,
     createdAt,
     updatedAt: typeof row.updatedAt === 'string' ? row.updatedAt : createdAt,
     messages: messages
