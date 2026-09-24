@@ -249,6 +249,13 @@ for (const profile of PROFILES) {
         await page.getByRole('button', { name: 'Send message' }).tap();
         await page.getByText('Stuck like one decision, or more of a fog?').first().waitFor({ state: 'visible' });
         await page.locator('.chat-stage--thread').waitFor({ state: 'attached' });
+        // The composer glides from the centred home position to the bottom
+        // (AppPanels FLIP, 420ms). Headless WebKit on a slow runner may not
+        // advance it, so finish it before measuring the keyboard layout.
+        await page.evaluate(async () => {
+          const dock = document.querySelector('.chat-composer-dock');
+          for (const animation of dock?.getAnimations() ?? []) animation.finish();
+        });
         await page.getByPlaceholder('Ask MindPal').focus();
 
         const keyboard = Math.round(page.viewportSize().height * 0.42);
