@@ -4,8 +4,9 @@ import { useFlagsStore, useVoiceStore } from '../../../store';
 import { SettingsHeader, SettingsRow, SettingsSelect, settingsPrimaryButtonClass } from '../SettingsPrimitives';
 import type { SettingsTabContentProps } from './types';
 import { useIsSignedIn } from '../../../hooks/session/useAccountStatus.ts';
+import { personaPalette, rgb } from '../../../voice/face/personaColor.ts';
 
-const VOICE_OPTIONS: ReadonlyArray<{
+const VOICE_LIST: ReadonlyArray<{
   value: string;
   label: string;
   description: string;
@@ -23,6 +24,23 @@ const VOICE_OPTIONS: ReadonlyArray<{
   { value: 'Laomedeia', label: 'Laomedeia', description: 'Upbeat and cheerful.' },
   { value: 'Zephyr', label: 'Zephyr', description: 'Bright and clear.' },
 ];
+
+/** The voice's orb colours, as a small dot, so the list shows how each call will look. */
+export function voiceSwatchGradient(voice: string): string {
+  const [edge, middle, highlight] = personaPalette(voice).stops;
+  return `radial-gradient(circle at 35% 30%, ${rgb(highlight)} 0%, ${rgb(middle)} 50%, ${rgb(edge)} 100%)`;
+}
+
+const VOICE_OPTIONS = VOICE_LIST.map((voice) => ({
+  ...voice,
+  leading: (
+    <span
+      aria-hidden="true"
+      className="h-4 w-4 flex-shrink-0 rounded-full"
+      style={{ background: voiceSwatchGradient(voice.value) }}
+    />
+  ),
+}));
 
 /** Which sample to play: the spoken-language setting, else the browser's language. */
 export function previewLanguage(voiceLanguage: string | undefined, navigatorLanguage: string | undefined): 'en' | 'ar' {

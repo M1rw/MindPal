@@ -55,6 +55,8 @@ export const BARGE_IN_FENCE_MS = 450;
 const LOCAL_BARGE_IN_FRAMES = 2;
 /** Ignore very quiet room tone while MindPal is speaking. */
 const LOCAL_BARGE_IN_RMS = 0.055;
+/** Longer than the VAD's silenceDurationMs (1500), so a mute closes the caller's turn. */
+const MUTE_TAIL_MS = 2_000;
 /** Prevent a local cut and a delayed provider event from causing a second cut. */
 const LOCAL_BARGE_IN_COOLDOWN_MS = 350;
 /** A greeting normally starts ~3s after setup. Past this, ask for it once more. */
@@ -124,6 +126,8 @@ export class LiveVoiceSession {
   private resumptionHandle = '';
   private micRetried = false;
   private muted = false;
+  /** When the mute began, while its trailing silence is still being sent; 0 otherwise. */
+  private muteTailFrom = 0;
   private closed = false;
   private failing = false;
   private endedNotified = false;
@@ -177,9 +181,12 @@ export class LiveVoiceSession {
     this.mic?.setEnabled(!muted);
     if (muted === was) return;
     this.trace.add('mic', muted ? 'muted' : 'unmuted', {});
-    // Muting mid-sentence used to leave the turn open forever: Gemini waits for
-    // silence it never receives. Ending the stream makes it answer what was said.
-    if (muted) this.transport?.sendAudioStreamEnd?.();
+    // Muting mid-sentence used to leave the turn open: Gemini ends a turn when
+    // its VAD hears enough silence, and a muted mic sent nothing at all
+    // (audioStreamEnd alone did not close the turn on real calls). So a mute
+    // keeps streaming silence just past the VAD window, then ends the stream:
+    // to Gemini it is exactly as if they stopped talking, and it answers.
+    this.muteTailFrom = muted ? this.now() : 0;
     this.idle.noteMuted(muted, this.now());
     this.callbacks.onMuted?.(muted);
   }
@@ -416,6 +423,18 @@ export class LiveVoiceSession {
 
   // ---------------------------------------------------------------- audio in
 
+  /** Silence (never mic audio) for MUTE_TAIL_MS after a mute, then the end of the stream. */
+  private sendMuteTail(samples: number, now: number): void {
+    if (!this.muteTailFrom || !this.transport) return;
+    if (now - this.muteTailFrom < MUTE_TAIL_MS) {
+      this.transport.sendPcm16(new Int16Array(samples));
+      return;
+    }
+    this.muteTailFrom = 0;
+    this.transport.sendAudioStreamEnd?.();
+    this.trace.add('mic', 'mute_tail_sent', {});
+  }
+
   private onMicFrame(pcm: Int16Array, rms: number): void {
     const now = this.now();
     this.face.micFrame(pcm, rms, {
@@ -427,7 +446,11 @@ export class LiveVoiceSession {
       playbackEnergy: this.playback.lastEnvelope(),
       now,
     });
-    if (this.muted || !this.transport) return;
+    if (this.muted) {
+      this.sendMuteTail(pcm.length, now);
+      return;
+    }
+    if (!this.transport) return;
     this.resumeAudioIfNeeded('capture_frame');
     if (this.phase === 'speaking') {
       if (rms >= LOCAL_BARGE_IN_RMS) {

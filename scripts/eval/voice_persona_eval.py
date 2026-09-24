@@ -31,6 +31,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 SCENARIOS: List[Dict[str, Any]] = [
+    # From a real call that felt like customer service (2026-09-24).
+    {"id": "gym", "turns": ["Hi.", "Hey, how are you today?", "my day didn't end yet. I have gym after one hour", "to be honest I don't love working out in the evening, it just fits my schedule best"]},
     {"id": "joke", "turns": ["Hi.", "ok so my cat just knocked my entire coffee onto my laptop keyboard", "and then she sat on it like she was proud of herself"]},
     {"id": "bad-day", "turns": ["Hi.", "honestly today was rough. my boss yelled at me in front of everyone", "I just froze, I didn't say anything"]},
     {"id": "good-news", "turns": ["Hi.", "guess what, I finally passed my driving test!!"]},

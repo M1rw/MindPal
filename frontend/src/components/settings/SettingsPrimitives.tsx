@@ -67,6 +67,8 @@ export type SettingsSelectOption<T extends string = string> = {
   value: T;
   label: string;
   description?: string;
+  /** Small visual before the label (e.g. a voice's orb colours). */
+  leading?: React.ReactNode;
 };
 
 export function SettingsSelect<T extends string>({
@@ -99,6 +101,7 @@ export function SettingsSelect<T extends string>({
     bottom?: number;
     right: number;
     minWidth: number;
+    maxHeight: number;
   } | null>(null);
 
   useEffect(() => {
@@ -110,9 +113,12 @@ export function SettingsSelect<T extends string>({
     return () => window.clearTimeout(timeoutId);
   }, [open, selectedIndex]);
 
+  // Hover moves focus too; it must not scroll the list under the pointer.
+  const hoverFocusRef = useRef(false);
   useEffect(() => {
     if (!open) return;
-    optionRefs.current[activeIndex]?.focus();
+    optionRefs.current[activeIndex]?.focus({ preventScroll: hoverFocusRef.current });
+    hoverFocusRef.current = false;
   }, [activeIndex, open]);
 
   useEffect(() => {
@@ -148,12 +154,15 @@ export function SettingsSelect<T extends string>({
       const minWidth = Math.max(rect.width, 180);
       const right = Math.max(12, window.innerWidth - rect.right);
       const spaceBelow = window.innerHeight - rect.bottom;
-      const estimatedHeight = Math.min(options.length * 48 + 16, 280);
+      const estimatedHeight = Math.min(options.length * 60 + 16, 360);
+      // Long lists (12 voices) scroll inside the menu instead of running off the screen.
+      const MARGIN = 18;
       if (spaceBelow < estimatedHeight && rect.top > spaceBelow) {
         setMenuPos({
           bottom: window.innerHeight - rect.top + 6,
           right,
           minWidth,
+          maxHeight: Math.max(160, Math.min(420, rect.top - MARGIN)),
         });
         return;
       }
@@ -161,6 +170,7 @@ export function SettingsSelect<T extends string>({
         top: rect.bottom + 6,
         right,
         minWidth,
+        maxHeight: Math.max(160, Math.min(420, spaceBelow - MARGIN)),
       });
     };
     update();
@@ -219,13 +229,14 @@ export function SettingsSelect<T extends string>({
             id={listboxId}
             className={popoverPanelClass(
               visible,
-              'settings-select-menu bg-surface-card border border-edge-subtle rounded-xl shadow-modal p-1.5',
+              'settings-select-menu bg-surface-card border border-edge-subtle rounded-xl shadow-modal p-1.5 overflow-y-auto overscroll-contain',
             )}
             style={{
               top: menuPos.top,
               bottom: menuPos.bottom,
               right: menuPos.right,
               minWidth: menuPos.minWidth,
+              maxHeight: menuPos.maxHeight,
             }}
             role="listbox"
             aria-label={ariaLabel}
@@ -248,18 +259,24 @@ export function SettingsSelect<T extends string>({
                     optionRefs.current[index] = node;
                   }}
                   onClick={() => selectValue(option.value)}
-                  onMouseEnter={() => setActiveIndex(index)}
+                  onMouseEnter={() => {
+                    hoverFocusRef.current = true;
+                    setActiveIndex(index);
+                  }}
                   className={cn(
                     'w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary',
                     index > 0 && 'mt-0.5',
                     isSelected ? 'bg-surface-subtle' : 'hover:bg-surface-subtle/60',
                   )}
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex items-center gap-2.5">
+                    {option.leading}
+                    <div className="min-w-0">
                     <div className="text-sm font-medium text-content-primary">{option.label}</div>
                     {option.description ? (
                       <div className="text-xs text-content-secondary mt-0.5">{option.description}</div>
                     ) : null}
+                    </div>
                   </div>
                   {isSelected ? <Check className="w-4 h-4 text-content-secondary flex-shrink-0" /> : null}
                 </button>
@@ -293,7 +310,10 @@ export function SettingsSelect<T extends string>({
         aria-label={ariaLabel}
         className="settings-select-trigger flex items-center justify-between gap-1.5 min-w-[7.5rem] px-2.5 py-1.5 rounded-xl text-sm font-medium text-content-primary border border-edge-subtle bg-transparent hover:bg-surface-elevated transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-50 disabled:pointer-events-none"
       >
-        <span className="truncate">{selected?.label ?? 'Choose'}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          {selected?.leading}
+          <span className="truncate">{selected?.label ?? 'Choose'}</span>
+        </span>
         <ChevronDown
           className={cn(
             'w-3.5 h-3.5 text-content-muted transition-transform duration-150 ease-out flex-shrink-0',
