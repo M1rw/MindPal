@@ -4,7 +4,7 @@ This package is the single home for defaults, environment keys, and feature-leve
 policy values that used to be spread across the backend by module.
 """
 
-from .app import APP_ENV_KEYS, app_environment, is_production
+from .app import app_environment, is_production
 from .auth import FIREBASE_ENV_KEYS, firebase_public_bootstrap
 from .llm import (
     DEFAULT_GROQ_CHAT_MODEL,
@@ -25,7 +25,6 @@ from .settings import Settings, get_settings, reset_settings_cache
 from .voice import STAY_SUPPORT_NOTE, VOICE_CRISIS_SYSTEM, VOICE_SUMMARY_SYSTEM
 
 __all__ = [
-    "APP_ENV_KEYS",
     "FIREBASE_ENV_KEYS",
     "DEFAULT_STORAGE_PROVIDER",
     "app_environment",
