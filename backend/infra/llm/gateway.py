@@ -67,11 +67,20 @@ def json_model() -> str:
 # Live, and stops a text-quota exhaustion from taking the live-voice safety
 # classifier down with it.
 #
-# MINDPAL_LLM_PROVIDER      default for every text path: gemini | openrouter | groq
+# MINDPAL_LLM_PROVIDER      default for every text path: gemini or any provider
+#                           in backend/configs/llm.py COMPATIBLE_PROVIDERS
 # MINDPAL_CHAT_PROVIDER     override for chat streaming
 # MINDPAL_JSON_PROVIDER     override for the classifier / structured calls
-# MINDPAL_LLM_FALLBACK      provider to retry on once, when the primary rate-limits
-PROVIDERS = ("gemini", "openrouter", "groq")
+# MINDPAL_LLM_FALLBACK      the ladder: comma-separated "provider" or
+#                           "provider:model" entries tried in order when the one
+#                           before rate-limits or fails before its first token,
+#                           e.g. "groq:openai/gpt-oss-120b,openrouter,gemini".
+#                           Free tiers limit per key and (on Groq) per model, so a
+#                           second model on the same key is real extra capacity.
+from backend.configs.llm import COMPATIBLE_PROVIDERS, compatible_provider  # noqa: E402
+
+PROVIDERS = ("gemini", *COMPATIBLE_PROVIDERS)
+LadderEntry = tuple[str, Optional[str]]  # (provider, model; None = that provider's default)
 
 
 def _provider(var: str, default: str = "") -> str:
@@ -90,18 +99,67 @@ def structured_provider() -> str:
     return _provider("MINDPAL_JSON_PROVIDER") or _provider("MINDPAL_LLM_PROVIDER") or "gemini"
 
 
+def fallback_ladder() -> list[LadderEntry]:
+    """The configured spares, in order. Model ids keep their case (and colons)."""
+    entries: list[LadderEntry] = []
+    for raw in get_settings().llm_fallback.split(","):
+        name, _, model = raw.strip().partition(":")
+        name = name.strip().lower()
+        if not name:
+            continue
+        if name not in PROVIDERS:
+            logger.warning("llm_fallback_unknown entry=%s", raw.strip())
+            continue
+        entries.append((name, model.strip() or None))
+    return entries
+
+
 def fallback_provider() -> str:
-    """Tried once when the primary rate-limits. Empty disables the ladder."""
-    return _provider("MINDPAL_LLM_FALLBACK")
+    """The first spare's provider ("" when there is no ladder)."""
+    ladder = fallback_ladder()
+    return ladder[0][0] if ladder else ""
+
+
+def _has_credentials(provider: str) -> bool:
+    if provider == "gemini":
+        return bool(_api_key())
+    entry = compatible_provider(provider)
+    return bool(entry and entry.api_key())
 
 
 def _openai_compatible_config(provider: str) -> tuple[str, str]:
     """(base_url, api_key) for an OpenAI-shaped provider."""
-    from backend.infra.llm import openrouter as oai
+    entry = compatible_provider(provider) or COMPATIBLE_PROVIDERS["openrouter"]
+    return entry.base_url(), entry.api_key()
 
-    if provider == "groq":
-        return oai.groq_base_url(), oai.groq_api_key()
-    return oai.openrouter_base_url(), oai.openrouter_api_key()
+
+# A spare that just rate-limited is tried last for a short while instead of first:
+# under load every request otherwise pays a wasted round trip to a full bucket.
+_COOLDOWN_S = 20.0
+_COOLING: dict[LadderEntry, float] = {}
+
+
+def _cool(entry: LadderEntry) -> None:
+    _COOLING[entry] = time.monotonic() + _COOLDOWN_S
+
+
+def _reset_cooldowns() -> None:
+    _COOLING.clear()
+
+
+def _ordered(entries: list[LadderEntry]) -> list[LadderEntry]:
+    now = time.monotonic()
+    ready = [e for e in entries if _COOLING.get(e, 0.0) <= now]
+    return ready + [e for e in entries if e not in ready]
+
+
+def _ladder(primary: LadderEntry) -> list[LadderEntry]:
+    """Primary first, then the spares; each entry once, only providers with a key."""
+    out: list[LadderEntry] = []
+    for entry in [primary, *fallback_ladder()]:
+        if entry not in out and _has_credentials(entry[0]):
+            out.append(entry)
+    return out
 
 
 def _is_rate_limited(exc: BaseException) -> bool:
@@ -113,9 +171,28 @@ def _is_rate_limited(exc: BaseException) -> bool:
     return "429" in text or "resource_exhausted" in text or "rate limit" in text
 
 
+def _is_transient(exc: BaseException) -> bool:
+    """Worth trying the next rung: rate limits, 5xx, timeouts, a dropped connection, no reply.
+
+    A 4xx other than 429 is a bug to surface, not a reason to shop providers.
+    """
+    import httpx
+
+    from backend.infra.llm.openrouter import OpenAICompatibleError
+
+    if _is_rate_limited(exc):
+        return True
+    if isinstance(exc, OpenAICompatibleError):
+        return exc.status == 0 or exc.status >= 500
+    if isinstance(exc, (httpx.TransportError, TimeoutError, LLMGatewayError)):
+        return True
+    text = f"{type(exc).__name__} {exc}".lower()
+    return any(k in text for k in ("503", "502", "504", "500 ", "overloaded", "unavailable", "timeout", "deadline"))
+
+
 def _model_for_provider(provider: str, model: Optional[str], default_model: str) -> Optional[str]:
     """Use provider-native defaults instead of sending a Gemini id elsewhere."""
-    if provider in {"openrouter", "groq"} and (
+    if provider != "gemini" and (
         not model or model == default_model or model.startswith("gemini-")
     ):
         return None
@@ -275,26 +352,54 @@ class LLMGateway:
         history: Optional[Sequence[dict[str, str]]] = None,
         thinking_budget: Optional[int] = None,
     ) -> AsyncGenerator[str, None]:
-        provider = chat_provider()
-        if provider in {"openrouter", "groq"}:
-            _, key = _openai_compatible_config(provider)
-            if not key:
-                logger.info("llm_fallback_no_credentials provider=%s", provider)
-                yield _FALLBACK_STUB
-                return
+        primary = chat_provider()
+        primary_model = (model or self.default_model) if primary == "gemini" else _model_for_provider(primary, model, self.default_model)
+        ladder = _ladder((primary, primary_model))
+        if not ladder:
+            logger.info("llm_fallback_no_credentials provider=%s", primary)
+            yield _FALLBACK_STUB
+            return
+
+        last_error: Optional[BaseException] = None
+        ordered = _ordered(ladder)
+        for index, entry in enumerate(ordered):
+            provider, entry_model = entry
+            if index:
+                logger.warning(
+                    "llm_chat_fallback to=%s model=%s reason=%s",
+                    provider,
+                    entry_model or "default",
+                    "rate_limited" if last_error is not None and _is_rate_limited(last_error) else "failed",
+                )
             yielded = False
             try:
-                async for token in self._stream_openai_compatible(
-                    provider,
-                    prompt=prompt,
-                    system_instruction=system_instruction,
-                    model=_model_for_provider(provider, model, self.default_model),
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    history=history,
-                ):
+                if provider == "gemini":
+                    stream = self._stream_gemini(
+                        model=entry_model or self.default_model,
+                        prompt=prompt,
+                        system_instruction=system_instruction,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        history=history,
+                        thinking_budget=thinking_budget,
+                    )
+                else:
+                    stream = self._stream_openai_compatible(
+                        provider,
+                        prompt=prompt,
+                        system_instruction=system_instruction,
+                        model=entry_model,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        history=history,
+                        fallback=bool(index),
+                    )
+                async for token in stream:
                     yielded = True
                     yield token
+                if yielded:
+                    return
+                raise LLMGatewayError("unavailable", "MindPal didn't receive a reply. Please retry this message.")
             except Exception as exc:
                 logger.warning(
                     "llm_provider_failed provider=%s error_type=%s detail=%s",
@@ -309,44 +414,30 @@ class LLMGateway:
                         "unavailable",
                         "MindPal lost the connection partway through this response. Please retry.",
                     ) from exc
-                spare = fallback_provider()
-                if spare and spare != provider and _is_rate_limited(exc):
-                    logger.warning(
-                        "llm_chat_fallback primary=%s fallback=%s reason=rate_limited",
-                        provider,
-                        spare,
-                    )
-                    async for token in self._stream_openai_compatible(
-                        spare,
-                        prompt=prompt,
-                        system_instruction=system_instruction,
-                        model=None,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        history=history,
-                        fallback=True,
-                    ):
-                        yielded = True
-                        yield token
-                    if yielded:
-                        return
-                raise LLMGatewayError(
-                    "unavailable",
-                    "MindPal hit a connection issue while generating this response. Please retry this message.",
-                ) from exc
-            if not yielded:
-                raise LLMGatewayError(
-                    "unavailable",
-                    "MindPal didn't receive a reply. Please retry this message.",
-                )
-            return
+                if _is_rate_limited(exc):
+                    _cool(entry)
+                last_error = exc
+                if not _is_transient(exc):
+                    break
+        if isinstance(last_error, LLMGatewayError):
+            raise last_error
+        raise LLMGatewayError(
+            "unavailable",
+            "MindPal hit a connection issue while generating this response. Please retry this message.",
+        ) from last_error
 
-        api_key = _api_key()
-        if not api_key:
-            logger.info("llm_fallback_no_credentials")
-            yield _FALLBACK_STUB
-            return
-
+    async def _stream_gemini(
+        self,
+        *,
+        model: str,
+        prompt: str,
+        system_instruction: Optional[str],
+        temperature: float,
+        max_tokens: int,
+        history: Optional[Sequence[dict[str, str]]],
+        thinking_budget: Optional[int],
+    ) -> AsyncGenerator[str, None]:
+        """One Gemini stream. Provider errors propagate as-is so the ladder can read them."""
         started = time.perf_counter()
         yielded = False
         prompt_tokens = 0
@@ -354,7 +445,7 @@ class LLMGateway:
         try:
             from google.genai import types
 
-            client = _get_client(api_key, timeout_ms=STREAM_TIMEOUT_MS)
+            client = _get_client(_api_key(), timeout_ms=STREAM_TIMEOUT_MS)
             config = types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=temperature,
@@ -362,7 +453,7 @@ class LLMGateway:
                 **_thinking_kwargs(thinking_budget),
             )
             stream = await client.aio.models.generate_content_stream(
-                model=model or self.default_model,
+                model=model,
                 contents=self._build_contents(prompt, history),
                 config=config,
             )
@@ -374,28 +465,14 @@ class LLMGateway:
                 if text:
                     yielded = True
                     yield text
-            if not yielded:
-                raise LLMGatewayError(
-                    "unavailable",
-                    "MindPal didn't receive a reply. Please retry this message.",
-                )
-            provider_metrics().record(
-                ProviderMetric("gemini", "stream", elapsed_ms(started), True, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
-            )
-        except LLMGatewayError:
-            provider_metrics().record(
-                ProviderMetric("gemini", "stream", elapsed_ms(started), False)
-            )
-            raise
         except Exception as exc:
             provider_metrics().record(
                 ProviderMetric("gemini", "stream", elapsed_ms(started), False, rate_limited=_is_rate_limited(exc))
             )
-            logger.warning("llm_provider_failed error_type=%s detail=%s", type(exc).__name__, str(exc)[:180])
-            raise LLMGatewayError(
-                "unavailable",
-                "MindPal hit a connection issue while generating this response. Please retry this message.",
-            ) from exc
+            raise
+        provider_metrics().record(
+            ProviderMetric("gemini", "stream", elapsed_ms(started), yielded, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+        )
 
     async def _stream_openai_compatible(
         self,
@@ -429,9 +506,12 @@ class LLMGateway:
             ):
                 yielded = True
                 yield token
-        except Exception:
+        except Exception as exc:
             provider_metrics().record(
-                ProviderMetric(provider, "stream", elapsed_ms(started), False, fallback=fallback, retries=1 if fallback else 0)
+                ProviderMetric(
+                    provider, "stream", elapsed_ms(started), False,
+                    fallback=fallback, retries=1 if fallback else 0, rate_limited=_is_rate_limited(exc),
+                )
             )
             raise
         provider_metrics().record(
@@ -450,47 +530,45 @@ class LLMGateway:
     ) -> str:
         """Synchronous JSON completion. Fail closed — never invent a stub classifier label."""
         primary = structured_provider()
-        started = time.perf_counter()
-        try:
-            result = self._generate_json_via(
-                primary,
-                prompt=prompt,
-                system_instruction=system_instruction,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                thinking_budget=thinking_budget,
-            )
-            provider_metrics().record(ProviderMetric(primary, "structured", elapsed_ms(started), True))
-            return result
-        except Exception as exc:
-            provider_metrics().record(
-                ProviderMetric(primary, "structured", elapsed_ms(started), False, rate_limited=_is_rate_limited(exc))
-            )
-            spare = fallback_provider()
-            if not spare or spare == primary or not _is_rate_limited(exc):
-                raise
-            # A rate-limited primary is exactly the case this ladder exists for:
-            # an unclassified live call is worse than a slightly weaker label.
-            logger.warning(
-                "llm_json_fallback primary=%s fallback=%s reason=rate_limited", primary, spare
-            )
-            fallback_started = time.perf_counter()
+        entries = _ordered(_ladder((primary, model or None))) or [(primary, model or None)]
+        # Structured calls gate the live-voice microphone: two attempts at most,
+        # so a bad minute cannot stall a call behind the whole ladder.
+        entries = entries[:2]
+        last_error: Optional[BaseException] = None
+        for index, entry in enumerate(entries):
+            provider, entry_model = entry
+            if index:
+                logger.warning("llm_json_fallback to=%s model=%s", provider, entry_model or "default")
+            started = time.perf_counter()
             try:
                 result = self._generate_json_via(
-                    spare,
+                    provider,
                     prompt=prompt,
                     system_instruction=system_instruction,
-                    model="",
+                    model=entry_model or "",
                     temperature=temperature,
                     max_tokens=max_tokens,
                     thinking_budget=thinking_budget,
                 )
-            except Exception:
-                provider_metrics().record(ProviderMetric(spare, "structured", elapsed_ms(fallback_started), False, fallback=True, retries=1))
-                raise
-            provider_metrics().record(ProviderMetric(spare, "structured", elapsed_ms(fallback_started), True, fallback=True, retries=1))
+            except Exception as exc:
+                provider_metrics().record(
+                    ProviderMetric(
+                        provider, "structured", elapsed_ms(started), False,
+                        rate_limited=_is_rate_limited(exc), fallback=bool(index), retries=index,
+                    )
+                )
+                if _is_rate_limited(exc):
+                    _cool(entry)
+                last_error = exc
+                if not _is_transient(exc):
+                    raise
+                continue
+            provider_metrics().record(
+                ProviderMetric(provider, "structured", elapsed_ms(started), True, fallback=bool(index), retries=index)
+            )
             return result
+        assert last_error is not None
+        raise last_error
 
     def generate_structured(
         self,
@@ -534,7 +612,7 @@ class LLMGateway:
         max_tokens: int,
         thinking_budget: Optional[int],
     ) -> str:
-        if provider in {"openrouter", "groq"}:
+        if provider != "gemini":
             from backend.infra.llm import openrouter as oai
 
             base_url, api_key = _openai_compatible_config(provider)
