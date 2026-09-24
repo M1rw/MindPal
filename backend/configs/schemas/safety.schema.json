@@ -3,12 +3,13 @@
   "title": "MindPal safety configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["output_guard", "safety_normalization", "crisis_patterns", "benign_patterns", "crisis_response"],
+  "required": ["output_guard", "safety_normalization", "crisis_patterns", "benign_patterns", "crisis_response", "crisis_response_ar"],
   "properties": {
     "output_guard": {"type": "object"},
     "safety_normalization": {"type": "object"},
     "crisis_patterns": {"type": "array", "items": {"type": "string"}},
     "benign_patterns": {"type": "array", "items": {"type": "string"}},
-    "crisis_response": {"type": "string"}
+    "crisis_response": {"type": "string"},
+    "crisis_response_ar": {"type": "string"}
   }
 }

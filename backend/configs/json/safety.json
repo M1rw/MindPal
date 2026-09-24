@@ -90,5 +90,6 @@
     "\\bsuicide\\s*prevention\\b",
     "خط\\s*(?:الدعم|المساعده|الطوارئ)"
   ],
-  "crisis_response": "If you are feeling overwhelmed or having thoughts of self-harm, please know that help is available.\n\nYou can connect with compassionate, trained professionals immediately:\n\n• **National Suicide and Crisis Lifeline (US):** Call or text 988\n• **Crisis Text Line:** Text HOME to 741741\n• **International Emergency Services:** Please contact your local emergency response service or nearest crisis line.\n\nI am here to listen and support you, but please reach out to these crisis resources right now for immediate help."
+  "crisis_response": "If you are feeling overwhelmed or having thoughts of self-harm, please know that help is available.\n\nYou can connect with compassionate, trained professionals immediately:\n\n• **National Suicide and Crisis Lifeline (US):** Call or text 988\n• **Crisis Text Line:** Text HOME to 741741\n• **Outside the US:** call your local emergency number, or find a free, confidential line in your country at findahelpline.com\n\nI am here to listen and support you, but please reach out to these crisis resources right now for immediate help.",
+  "crisis_response_ar": "إذا كنت تفكر في إيذاء نفسك أو إنهاء حياتك، فأنت تستحق مساعدة فورية الآن.\n\n• **اتصل برقم الطوارئ في بلدك** أو توجّه إلى أقرب قسم طوارئ.\n• **خط دعم مجاني وسري في بلدك:** تجده على findahelpline.com\n• **في الولايات المتحدة:** اتصل أو أرسل رسالة إلى 988\n\nأنا هنا وأسمعك، لكن من فضلك تواصل مع إحدى هذه الجهات الآن."
 }
