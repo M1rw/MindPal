@@ -298,10 +298,12 @@ class ChatOrchestrator:
         mode = preflight.quota_mode if preflight else self._quota_mode(user_id_hash=user_id_hash, anonymous=bool(peer))
         refund_peer = preflight.quota_peer if preflight else peer
         idempotency_key = preflight.idempotency_key if preflight else ""
+        # The reservation knows which credit windows it charged; the refund goes back there.
+        reservation = preflight.reservation if preflight else None
         if mode == "network":
-            self.quota_service.refund_anonymous(refund_peer, cost, idempotency_key=idempotency_key)
+            self.quota_service.refund_anonymous(refund_peer, cost, idempotency_key=idempotency_key, reservation=reservation)
             return
-        self.quota_service.refund_quota(user_id_hash, cost, idempotency_key=idempotency_key)
+        self.quota_service.refund_quota(user_id_hash, cost, idempotency_key=idempotency_key, reservation=reservation)
 
     def preflight_turn(
         self,

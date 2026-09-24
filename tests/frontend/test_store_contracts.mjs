@@ -408,7 +408,10 @@ describe('Chat Session Grouping Contract', () => {
 
   it('categorizes sessions into accurate temporal buckets', () => {
     const nowIso = new Date().toISOString();
-    const yesterdayIso = new Date(Date.now() - 90_000_000).toISOString();
+    // Noon yesterday, local time. "25 hours ago" was the day before yesterday
+    // whenever the suite ran between midnight and 1am.
+    const today = new Date();
+    const yesterdayIso = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 12).toISOString();
     const olderIso = new Date(Date.now() - 40 * 86_400_000).toISOString();
 
     const sampleSessions = [

@@ -756,7 +756,8 @@ def test_teardown_without_session_id_clears_active() -> None:
     )
     assert result["action"] == "torn_down"
     assert result["session_id"] == grant["session_id"]
-    assert store.get_document("voice_active_sessions", "usr_signed") is None
+    # Cleared in place (conditionally, so a newer call's pointer is never removed).
+    assert not (store.get_document("voice_active_sessions", "usr_signed") or {}).get("session_id")
     again = service.handle_event(
         user_id_hash="usr_signed",
         payload={"event": "voice.session.teardown", "reason": "client_hangup"},

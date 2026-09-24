@@ -34,6 +34,12 @@ export class SpeechTimeline {
   private pieces: AudioPiece[] = [];
   private audioMs = 0;
   private chars = 0;
+  /**
+   * Highest progress reported this turn. The proportional estimate can move
+   * backwards when audio outruns its transcript (more audio, same text), which
+   * dimmed words that were already shown as spoken.
+   */
+  private shownChars = 0;
 
   /** A chunk of `ms` audio was just queued; the queue now holds `queuedMs`. */
   audio(ms: number, now: number, queuedMs: number): void {
@@ -58,15 +64,17 @@ export class SpeechTimeline {
     return this.wallAt((i / this.chars) * this.audioMs);
   }
 
-  /** How many characters have been heard by `now`. */
+  /** How many characters have been heard by `now`. Never decreases within a turn. */
   spokenChars(now: number): number {
-    if (!this.audioMs || !this.chars) return 0;
+    if (!this.audioMs || !this.chars) return this.shownChars;
     let heard = 0;
     for (const piece of this.pieces) {
       if (now <= piece.start) break;
       heard += Math.min(now, piece.end) - piece.start;
     }
-    return Math.min(this.chars, Math.floor((heard / this.audioMs) * this.chars));
+    const estimate = Math.min(this.chars, Math.floor((heard / this.audioMs) * this.chars));
+    this.shownChars = Math.max(this.shownChars, estimate);
+    return this.shownChars;
   }
 
   /** Wall clock the last queued audio finishes. */
@@ -86,6 +94,7 @@ export class SpeechTimeline {
     this.pieces = [];
     this.audioMs = 0;
     this.chars = 0;
+    this.shownChars = 0;
   }
 
   private wallAt(offset: number): number {
