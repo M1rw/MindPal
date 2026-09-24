@@ -54,6 +54,34 @@ keep the call open with support-mode instructions; MindPal names immediate help
 out loud. Two independent signals feed it: the server classifier on the
 transcript, and the Live model's own risk rating.
 
+## Keeping the face and caption on the voice
+
+Gemini Live streams MindPal's audio and its transcript separately, and either can
+arrive first. `voice/call/speechTimeline.ts` joins them:
+
+```mermaid
+flowchart LR
+  A[audio chunk queued] -->|plays at now + queue| TL[SpeechTimeline]
+  T[transcript delta] -->|characters| TL
+  TL -->|char i at i/C of the audio| Face[FaceFeed: sentence looks]
+  TL -->|characters heard now| Cap[Transcript: heard vs not yet heard]
+```
+
+- Each audio chunk is placed on the wall clock where it will play. A gap where
+  the queue ran dry stays a gap.
+- Character *i* of *C* known characters sits at *i/C* of the known audio. The
+  mapping corrects itself as either side catches up and is exact when the
+  reply ends.
+- The face classifies MindPal's sentences for tone with up to three checks in
+  flight. It places each look when its sentence is due, using the timeline as
+  it stands then. A look whose sentence has already been heard is dropped, not
+  shown late. When playback ends, anything still pending is discarded.
+- The caption shows words already heard at full strength and the rest faintly.
+  That is the "speaking" indicator. It keeps tracking a reply after it moves
+  into history, because generation finishes seconds before the audio does.
+- An 80 ms speech clock (`SPEECH_TICK_MS`) drives both, so muting the mic,
+  which stops mic frames, does not slow them down.
+
 ## Components
 
 | Area | Backend | Frontend |
@@ -61,7 +89,7 @@ transcript, and the Live model's own risk rating.
 | Session, quota, lease | `domain/voice/services/session.py`, `domain/voice/runtime/usage.py` | `voice/call/callController.ts`, `callMachine.ts` |
 | Token and live prompt | `domain/voice/services/token.py`, `providers/gemini/` | `voice/control/geminiLive.ts` |
 | Safety | `domain/safety/modes/voice/classify.py` | `voice/safety/` |
-| Face and reactions | `domain/voice/services/reaction.py` (load-aware) | `voice/face/` |
+| Face and reactions | `domain/voice/services/reaction.py` (load-aware) | `voice/face/`, `voice/call/faceFeed.ts`, `voice/call/speechTimeline.ts` |
 | Recall during calls | `domain/voice/services/recall.py` | tool calls in `voice/call/` |
 | Privacy, retention, analytics | `domain/voice/privacy.py`, `telemetry.py`, `analytics.py` | `voice/diagnostics/` (redacted traces) |
 

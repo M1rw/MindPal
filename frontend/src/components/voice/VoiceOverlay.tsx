@@ -268,6 +268,7 @@ export const VoiceOverlay: React.FC = () => {
       onFloor: setFloor,
       onInputCaption: setTranscript,
       onOutputCaption: setAiTranscript,
+      onOutputProgress: (chars) => useVoiceStore.getState().setAiSpokenChars(chars),
       onTurn: addTurn,
       onThinking: setThinking,
       onCrisis: (script, pauseBody) => {
@@ -360,11 +361,27 @@ export const VoiceOverlay: React.FC = () => {
     uiStatus === 'holding' ||
     uiStatus === 'stay_support';
   const caption = liveVoiceCaption({ uiStatus, transcript, aiTranscript, crisisScript });
+  // Before a call starts, "consent" covers several situations; name the real one.
+  const statusLabel =
+    uiStatus === 'consent'
+      ? account === 'signed-in'
+        ? 'Starting'
+        : account === 'loading'
+          ? 'Checking account'
+          : account === 'unavailable'
+            ? 'Unavailable'
+            : 'Sign in needed'
+      : STATUS_LABEL[uiStatus];
   const statusDot =
     uiStatus === 'listening' || uiStatus === 'stay_support'
       ? 'bg-feedback-success animate-pulse'
       : uiStatus === 'speaking'
-        ? 'bg-brand-primary animate-bounce'
+        // A steady glow, not a bouncing dot: the orb and the caption already move.
+        ? 'bg-brand-primary ring-4 ring-brand-primary/20'
+        : uiStatus === 'consent' && account !== 'signed-in'
+          ? account === 'unavailable'
+            ? 'bg-feedback-danger'
+            : 'bg-content-muted'
         : uiStatus === 'holding'
           ? 'bg-brand-primary/70'
           : uiStatus === 'unavailable' || uiStatus === 'error' || uiStatus === 'crisis_freeze'
@@ -412,7 +429,7 @@ export const VoiceOverlay: React.FC = () => {
           className="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-surface-sunken text-content-secondary flex items-center gap-2"
         >
           <span className={`w-2 h-2 rounded-full ${statusDot}`} aria-hidden="true" />
-          <span>{STATUS_LABEL[uiStatus]}</span>
+          <span>{statusLabel}</span>
         </div>
       </div>
 

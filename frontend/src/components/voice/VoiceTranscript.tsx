@@ -11,8 +11,24 @@
  * newer reply - one wall of text with no indication of who said what or when.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { VoiceTurn } from '../../store/voice.ts';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useVoiceStore, type VoiceTurn } from '../../store/voice.ts';
+import { wordBoundary } from '../../voice/call/speechTimeline.ts';
+
+/** How far the scrollback fades into the edge it is cut off at. */
+const EDGE_FADE_PX = 28;
+
+/**
+ * Fade only the edges that hide something: the top once earlier turns have
+ * scrolled away, the bottom while newer ones sit below the fold. A permanent
+ * fade would dim the first line of a short transcript for no reason.
+ */
+function edgeMask(top: boolean, bottom: boolean): string | undefined {
+  if (!top && !bottom) return undefined;
+  const start = top ? `transparent 0, #000 ${EDGE_FADE_PX}px` : '#000 0';
+  const end = bottom ? `#000 calc(100% - ${EDGE_FADE_PX}px), transparent 100%` : '#000 100%';
+  return `linear-gradient(to bottom, ${start}, ${end})`;
+}
 
 interface VoiceTranscriptProps {
   turns: VoiceTurn[];
@@ -36,6 +52,18 @@ export function VoiceTranscript({ turns, live, liveRole, thinking = false, isMod
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pinnedToEnd = useRef(true);
   const [copied, setCopied] = useState(false);
+  const [fade, setFade] = useState({ top: false, bottom: false });
+  // Subscribed here, not in the overlay: it changes ~12 times a second while
+  // MindPal talks, and only this panel needs to re-render for it.
+  const spokenChars = useVoiceStore((state) => state.aiSpokenChars);
+
+  const syncFade = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const top = el.scrollTop > 2;
+    const bottom = el.scrollHeight - el.scrollTop - el.clientHeight > 2;
+    setFade((prev) => (prev.top === top && prev.bottom === bottom ? prev : { top, bottom }));
+  }, []);
 
   // Scrolling up is a deliberate act: the caller is reading something earlier.
   // Yanking them back to the bottom on the next word would make that impossible.
@@ -43,15 +71,17 @@ export function VoiceTranscript({ turns, live, liveRole, thinking = false, isMod
     const el = scrollRef.current;
     if (!el) return;
     pinnedToEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+    syncFade();
   };
 
   const showThinking = thinking && !live.trim();
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (!el || !pinnedToEnd.current) return;
-    el.scrollTop = el.scrollHeight;
-  }, [turns, live, showThinking]);
+    if (!el) return;
+    if (pinnedToEnd.current) el.scrollTop = el.scrollHeight;
+    syncFade();
+  }, [turns, live, showThinking, syncFade]);
 
   useEffect(() => {
     // A new call resets the reading position along with the content.
@@ -77,6 +107,8 @@ export function VoiceTranscript({ turns, live, liveRole, thinking = false, isMod
   };
 
   const empty = turns.length === 0 && !live.trim() && !showThinking;
+  const liveIsModel = Boolean(live.trim()) && liveRole === 'model';
+  const mask = edgeMask(fade.top, fade.bottom);
 
   return (
     <div className="w-full max-w-lg flex flex-col">
@@ -96,7 +128,8 @@ export function VoiceTranscript({ turns, live, liveRole, thinking = false, isMod
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="w-full max-h-48 overflow-y-auto px-2 py-2 flex flex-col gap-2"
+        className="w-full max-h-48 overflow-y-auto overscroll-contain px-2 py-2 flex flex-col gap-2 text-start"
+        style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
         aria-live="polite"
         aria-atomic="false"
         aria-label="Call transcript"
@@ -108,18 +141,28 @@ export function VoiceTranscript({ turns, live, liveRole, thinking = false, isMod
         ) : null}
 
         {turns.map((turn, idx) => {
-          const isSpeaking = isModelSpeaking && turn.role === 'model' && idx === turns.length - 1;
+          // The reply is committed to history when generation ends, which is
+          // usually seconds before its audio does: keep tracking it until then.
+          const playing =
+            isModelSpeaking && !liveIsModel && turn.role === 'model' && idx === turns.length - 1;
           return (
             <Bubble
               key={turn.id}
               role={turn.role}
               text={turn.text}
-              speaking={isSpeaking}
+              spokenChars={playing ? spokenChars : null}
             />
           );
         })}
 
-        {live.trim() ? <Bubble role={liveRole} text={live} live speaking={isModelSpeaking && liveRole === 'model'} /> : null}
+        {live.trim() ? (
+          <Bubble
+            role={liveRole}
+            text={live}
+            live
+            spokenChars={liveIsModel && isModelSpeaking ? spokenChars : null}
+          />
+        ) : null}
 
         {showThinking ? <ThinkingBubble /> : null}
       </div>
@@ -127,18 +170,27 @@ export function VoiceTranscript({ turns, live, liveRole, thinking = false, isMod
   );
 }
 
+/**
+ * One turn. While MindPal is speaking it, the words already heard are shown at
+ * full strength and the rest faintly, so the caption reads along with the voice
+ * instead of racing ahead of it. That split is the "speaking" indicator: no
+ * outline, no equalizer bars.
+ */
 function Bubble({
   role,
   text,
   live = false,
-  speaking = false,
+  spokenChars = null,
 }: {
   role: 'user' | 'model';
   text: string;
   live?: boolean;
-  speaking?: boolean;
+  /** Characters heard so far, or null when this turn is not playing. */
+  spokenChars?: number | null;
 }) {
   const mine = role === 'user';
+  const tracking = !mine && spokenChars !== null;
+  const cut = tracking ? wordBoundary(text, spokenChars) : text.length;
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
       <div
@@ -146,25 +198,27 @@ function Bubble({
         // English one does not. The two are mixed constantly in a real call.
         dir="auto"
         className={[
-          'max-w-[85%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words transition-all duration-200',
+          'max-w-[85%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words text-start',
+          'transition-colors duration-300 ease-out',
           mine
             ? 'bg-brand-primary/10 text-content-primary rounded-br-md'
-            : speaking
-              ? 'bg-surface-elevated text-content-primary rounded-bl-md ring-1 ring-brand-primary/40 shadow-sm'
+            : tracking
+              ? 'bg-surface-elevated text-content-primary rounded-bl-md'
               : 'bg-surface-sunken text-content-secondary rounded-bl-md',
-          live ? 'opacity-85' : '',
+          live && !tracking ? 'opacity-85' : '',
         ]
           .filter(Boolean)
           .join(' ')}
+        aria-label={tracking ? 'MindPal is speaking' : undefined}
       >
-        <span>{text}</span>
-        {speaking ? (
-          <span className="inline-flex items-center gap-0.5 ml-2 align-middle" aria-label="Speaking">
-            <span className="w-1 h-2 bg-brand-primary rounded-full animate-pulse" />
-            <span className="w-1 h-3.5 bg-brand-primary rounded-full animate-pulse [animation-delay:150ms]" />
-            <span className="w-1 h-2 bg-brand-primary rounded-full animate-pulse [animation-delay:300ms]" />
-          </span>
-        ) : null}
+        {tracking ? (
+          <>
+            <span>{text.slice(0, cut)}</span>
+            <span className="text-content-muted opacity-60">{text.slice(cut)}</span>
+          </>
+        ) : (
+          <span>{text}</span>
+        )}
       </div>
     </div>
   );

@@ -292,6 +292,10 @@ function recorder() {
     reactions: [],
     reactionTimes: [],
     looks: [],
+    /** [time, expression] for every look shown, to check it against the audio. */
+    lookTimes: [],
+    /** Spoken-character progress of MindPal's reply, as the transcript last saw it. */
+    spoken: null,
     /** The face's active expressions, as the renderer last saw them. */
     commands: [],
   };
@@ -321,7 +325,14 @@ function recorder() {
     onCommands: (list) => {
       ui.commands = list;
     },
-    onExpression: (command) => command && ui.looks.push(command.expression),
+    onExpression: (command) => {
+      if (!command) return;
+      ui.looks.push(command.expression);
+      ui.lookTimes.push([command.startedAt, command.expression]);
+    },
+    onOutputProgress: (chars) => {
+      ui.spoken = chars;
+    },
   };
   return { ui, callbacks };
 }
