@@ -145,9 +145,30 @@ async function withKeyboard(page, { keyboard, pan = 0 }) {
       const fake = { height, width: window.innerWidth, offsetTop: pan, offsetLeft: 0, scale: 1, addEventListener() {}, removeEventListener() {} };
       Object.defineProperty(window, 'visualViewport', { value: fake, configurable: true });
       window.dispatchEvent(new Event('resize'));
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      // Poll until the layout stops moving (slow CI runners take longer than a desktop).
+      let last = null;
+      for (let i = 0; i < 40; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const bottom = Math.round(document.querySelector('.chat-composer').getBoundingClientRect().bottom);
+        if (bottom === last) break;
+        last = bottom;
+      }
       const composer = document.querySelector('.chat-composer').getBoundingClientRect();
-      return { top: composer.top, bottom: composer.bottom, visibleTop: pan, visibleBottom: pan + height };
+      const css = getComputedStyle(document.documentElement);
+      return {
+        top: composer.top,
+        bottom: composer.bottom,
+        visibleTop: pan,
+        visibleBottom: pan + height,
+        debug: {
+          appHeight: css.getPropertyValue('--app-height'),
+          vvTop: css.getPropertyValue('--vv-top'),
+          vvHeight: window.visualViewport?.height,
+          innerHeight: window.innerHeight,
+          shell: document.querySelector('.app-shell')?.getBoundingClientRect().height,
+          stage: document.querySelector('.chat-stage')?.className,
+        },
+      };
     },
     { keyboard, pan },
   );
@@ -214,13 +235,15 @@ for (const profile of PROFILES) {
         await page.getByPlaceholder('Ask MindPal').fill('hi');
         await page.getByRole('button', { name: 'Send message' }).tap();
         await page.getByText('Stuck like one decision, or more of a fog?').first().waitFor({ state: 'visible' });
+        await page.locator('.chat-stage--thread').waitFor({ state: 'attached' });
         await page.getByPlaceholder('Ask MindPal').focus();
 
         const keyboard = Math.round(page.viewportSize().height * 0.42);
         for (const pan of [0, 90]) {
           const g = await withKeyboard(page, { keyboard, pan });
-          assert.ok(g.bottom <= g.visibleBottom + 1, `pan ${pan}: composer hidden behind the keyboard (${g.bottom} > ${g.visibleBottom})`);
-          assert.ok(g.bottom >= g.visibleBottom - 80, `pan ${pan}: composer floats ${Math.round(g.visibleBottom - g.bottom)}px above the keyboard`);
+          const why = JSON.stringify(g.debug);
+          assert.ok(g.bottom <= g.visibleBottom + 1, `pan ${pan}: composer hidden behind the keyboard (${g.bottom} > ${g.visibleBottom}) ${why}`);
+          assert.ok(g.bottom >= g.visibleBottom - 80, `pan ${pan}: composer floats ${Math.round(g.visibleBottom - g.bottom)}px above the keyboard ${why}`);
           assert.ok(g.top >= g.visibleTop, `pan ${pan}: composer pushed above the visible area`);
         }
       } finally {
