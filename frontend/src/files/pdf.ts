@@ -36,7 +36,12 @@ const tasks = new WeakMap<PDFDocumentProxy, { destroy: () => Promise<void> }>();
 
 export async function openPdf(file: Blob): Promise<PDFDocumentProxy> {
   const pdfjs = await loadPdfjs();
-  const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+  const task = pdfjs.getDocument({
+    data: new Uint8Array(await file.arrayBuffer()),
+    // A PDF is someone else's file: no XFA forms (pdf.js 6 generates no code
+    // from fonts or functions and runs no document scripts).
+    enableXfa: false,
+  });
   try {
     const doc = await task.promise;
     tasks.set(doc, task);

@@ -44,9 +44,7 @@ async def digest_image(
 ) -> Dict[str, Any]:
     """The downscaled image is the raw request body; the hash is the original file's."""
     session = await run_in_threadpool(verify_auth_header, authorization)
-    if int(request.headers.get("content-length") or 0) > MAX_DIGEST_REQUEST_BYTES:
-        raise AppError("payload_invalid", "That image is too large to read. Try a smaller one.")
-    data = await request.body()
+    data = await _read_capped(request, MAX_DIGEST_REQUEST_BYTES)
     digest = await run_in_threadpool(
         digests.digest_image,
         data,
@@ -142,6 +140,21 @@ def library_rename(file_id: str, payload: LibraryPatchRequest, session: UserSess
 @router.delete("/api/library/{file_id}", operation_id="libraryDelete")
 def library_delete(file_id: str, session: UserSession = Depends(_guard)) -> Dict[str, Any]:
     return {"deleted": library.delete(session.user_id_hash, file_id)}
+
+
+async def _read_capped(request: Request, limit: int) -> bytes:
+    """The body, refused as soon as it passes `limit`: a chunked request has no
+    Content-Length for the size guard to check, so the reading is capped too."""
+    if int(request.headers.get("content-length") or 0) > limit:
+        raise AppError("payload_invalid", "That image is too large to read. Try a smaller one.")
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > limit:
+            raise AppError("payload_invalid", "That image is too large to read. Try a smaller one.")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _header_name(raw: str) -> str:

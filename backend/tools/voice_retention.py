@@ -24,6 +24,12 @@ def run_voice_retention(*, store: Any | None = None) -> dict[str, int]:
     # Files (v5.0.5): cached page readings (7 days) and daily file allowances.
     removed["file_digests"] = _purge_expired(target, "file_digests")
     removed["file_allowance"] = _purge_expired(target, "file_allowance")
+    try:
+        from backend.domain.files.library import LibraryService
+
+        removed["library_pending"] = LibraryService(target).sweep_pending(budget_s=SWEEP_TIME_BUDGET_S)
+    except Exception:  # storage down: the next sweep gets them
+        removed["library_pending"] = 0
     return removed
 
 

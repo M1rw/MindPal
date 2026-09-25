@@ -31,6 +31,7 @@ from backend.core.errors import AppError
 from backend.domain.files.contracts import (
     IMAGE_TYPES,
     LIMITS,
+    MAX_DIGEST_REQUEST_BYTES,
     MAX_IMAGES_PER_CALL,
     Digest,
     DigestPageIn,
@@ -111,22 +112,30 @@ class DigestService:
 
     # -- cache -------------------------------------------------------------
 
-    def _cached(self, subject: str, file_hash: str, part: str) -> Optional[Dict[str, Any]]:
+    # Readings are cached by the bytes actually read (never a hash the client
+    # names, which could point one file's reading at another), and only for
+    # accounts: a guest's files are not kept on the server in any form.
+    def _cached(self, owner: str, content: bytes) -> Optional[Dict[str, Any]]:
+        if not owner:
+            return None
         try:
-            doc = self.store.get_document(_CACHE, _cache_key(subject, file_hash, part))
+            doc = self.store.get_document(_CACHE, _cache_key(owner, hashlib.sha256(content).hexdigest(), "read"))
         except StoreUnavailable:
             return None
         if not doc or float(doc.get("expires_at", 0)) < time.time():
             return None
         return doc.get("value")
 
-    def _remember(self, subject: str, file_hash: str, part: str, value: Dict[str, Any], owner: str) -> None:
+    def _remember(self, owner: str, content: bytes, value: Dict[str, Any], file_hash: str) -> None:
+        if not owner:
+            return
         try:
             self.store.set_document(
                 _CACHE,
-                _cache_key(subject, file_hash, part),
-                # `user_id_hash` lets account deletion find an account's cache rows.
-                {"value": value, "expires_at": time.time() + _CACHE_SECONDS, "user_id_hash": owner},
+                _cache_key(owner, hashlib.sha256(content).hexdigest(), "read"),
+                # user_id_hash: account deletion finds the rows; file_hash: deleting
+                # a library file finds its readings.
+                {"value": value, "expires_at": time.time() + _CACHE_SECONDS, "user_id_hash": owner, "file_hash": file_hash},
             )
         except StoreUnavailable:
             pass
@@ -142,8 +151,10 @@ class DigestService:
             raise AppError("payload_invalid", "That image format isn't supported. Try JPEG, PNG or WebP.")
         if not data:
             raise AppError("payload_invalid", "No image was received.")
+        if len(data) > MAX_DIGEST_REQUEST_BYTES:
+            raise AppError("payload_invalid", "That image is too large to read. Try a smaller one.")
         content_hash = valid_hash(file_hash) if file_hash else hashlib.sha256(data).hexdigest()
-        hit = self._cached(subject, content_hash, "image")
+        hit = self._cached(owner, data)
         if hit:
             return Digest.model_validate({**hit, "name": name or hit.get("name", "")})
         if not vision_available():
@@ -169,7 +180,7 @@ class DigestService:
             pages=[PageDigest(n=1, kind=kind, text=text, description=description)],  # type: ignore[arg-type]
         )
         logger.info("file_digest kind=image content=%s provider=%s ms=%s", kind, reading.provider, reading.ms)
-        self._remember(subject, content_hash, "image", digest.model_dump(), owner)
+        self._remember(owner, data, digest.model_dump(), content_hash)
         return digest
 
     # -- pdf pages -----------------------------------------------------------
@@ -190,9 +201,9 @@ class DigestService:
                 text = clean_text_layer(page.text)
                 out[page.n] = PageDigest(n=page.n, kind="text" if text else "empty", text=text)
                 continue
-            hit = self._cached(subject, request.hash, f"p{page.n}")
+            hit = self._cached(owner, _page_bytes(page))
             if hit:
-                out[page.n] = PageDigest.model_validate(hit)
+                out[page.n] = PageDigest.model_validate({**hit, "n": page.n})
             else:
                 vision.append(page)
         # Text-layer pages are free, but a new file still counts toward the day's files.
@@ -200,9 +211,10 @@ class DigestService:
         if vision:
             if not vision_available():
                 raise AppError("unavailable", "Reading scanned pages isn't available right now.")
+            sent = {page.n: page for page in vision}
             for page in self._read_pages(vision):
                 out[page.n] = page
-                self._remember(subject, request.hash, f"p{page.n}", page.model_dump(), owner)
+                self._remember(owner, _page_bytes(sent[page.n]), page.model_dump(), request.hash)
         pages = [out[n] for n in sorted(out)]
         return {"pages": [p.model_dump() for p in pages], "vision_pages": len(vision)}
 
@@ -253,6 +265,11 @@ class DigestService:
             return run(batches[0])
         with ThreadPoolExecutor(max_workers=_PARALLEL_CALLS) as pool:
             return [page for batch in pool.map(run, batches) for page in batch]
+
+
+def _page_bytes(page: DigestPageIn) -> bytes:
+    """What a page's cache entry is keyed on: the rendered image the model reads."""
+    return page.image.encode("ascii", "ignore")
 
 
 def _summary(description: str, text: str) -> str:
