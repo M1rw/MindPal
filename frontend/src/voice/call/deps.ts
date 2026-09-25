@@ -21,7 +21,7 @@ import type { SafetyControl } from './safetyBridge.ts';
 import { browserPage, realClock, type Clock, type PageHooks } from './lifecycle.ts';
 
 /** Lookups the live model can ask for; the backend runs them. */
-export const RECALL_TOOLS = ['search_memory', 'search_past_chats'] as const;
+export const RECALL_TOOLS = ['search_memory', 'search_past_chats', 'search_library'] as const;
 export type RecallTool = (typeof RECALL_TOOLS)[number];
 
 export function isRecallTool(name: string): name is RecallTool {

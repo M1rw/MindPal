@@ -20,7 +20,7 @@ from backend.domain.dynamic.policy import current_load
 from backend.domain.identity.identity import verify_auth_header
 from backend.domain.quota.quota import peer_network_id
 from backend.core.request_context import request_id as current_request_id
-from backend.domain.files.turn import EMPTY_MESSAGE, TurnFiles, resolve_turn_files
+from backend.domain.files.turn import EMPTY_MESSAGE, TurnFiles, library_turn_files, resolve_turn_files
 
 router = APIRouter()
 orchestrator = ChatOrchestrator()
@@ -59,6 +59,9 @@ async def chat_stream(
                 signed_in=session.has_account_storage,
             )
         )
+    elif session.has_account_storage and payload.message:
+        # "What did my lease say about pets?": their library file, found for them.
+        files = await run_in_threadpool(library_turn_files, payload.message, user_id_hash=session.user_id_hash)
     message = payload.message or EMPTY_MESSAGE
     client_context = payload.client_context.model_dump(exclude_none=True) if payload.client_context else None
     preflight = await run_in_threadpool(

@@ -200,6 +200,8 @@ def _wellness_live_instruction_v1(
         "before. Use them whenever earlier context would help, like a friend who remembers, "
         "and a short 'let me think back' while they run is natural. Only say you remember "
         "what a lookup actually returned; never invent past conversations. "
+        "search_library reads the files they keep in their MindPal library (PDFs, photos, notes); use it when they "
+        "ask about one of their files, and say which file your answer came from. "
         "You have a visible animated face on the user's screen — expressive eyes on a gradient orb, no hands or body. "
         "You are not just voice-based; the caller is looking at your eyes right in front of them. "
         "Your eyes can shape into glowing hearts ('heart'), wink, roll, widen, smile, and squint. "
@@ -364,7 +366,8 @@ def _wellness_live_instruction_v2(
         # Memory tools
         "You can remember: search_memory and search_past_chats look up what they told you before. Use them whenever "
         "earlier context would help, and a short 'let me think back' while they run is natural. Only say you remember "
-        "what a lookup actually returned; never invent past conversations. "
+        "what a lookup actually returned; never invent past conversations. search_library reads the files they keep "
+        "in their MindPal library (PDFs, photos, notes); use it when they ask about one, and name the file. "
         # Face (compact)
         "Your face: the caller sees your animated eyes on a glowing orb (no hands or body). Call set_expression as you "
         "feel things: 'laugh' whenever you laugh, 'excited' for great news, 'blush' when they compliment you, "
@@ -476,6 +479,7 @@ def live_risk_tool_camel() -> Dict[str, Any]:
 
 RECALL_MEMORY_DESCRIPTION = _VOICE_TOOLS["recall_memory_description"]
 RECALL_CHATS_DESCRIPTION = _VOICE_TOOLS["recall_chats_description"]
+RECALL_LIBRARY_DESCRIPTION = _VOICE_TOOLS["recall_library_description"]
 
 
 def _recall_tool(name: str, description: str) -> Dict[str, Any]:
@@ -496,6 +500,7 @@ def live_recall_tools() -> list[Dict[str, Any]]:
     return [
         _recall_tool("search_memory", RECALL_MEMORY_DESCRIPTION),
         _recall_tool("search_past_chats", RECALL_CHATS_DESCRIPTION),
+        _recall_tool("search_library", RECALL_LIBRARY_DESCRIPTION),
     ]
 
 

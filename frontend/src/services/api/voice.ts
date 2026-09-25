@@ -55,7 +55,7 @@ export const voiceApi = {
   /** A memory or past-chat lookup the live model asked for, for the caller's own call. */
   async recall(
     sessionId: string,
-    tool: 'search_memory' | 'search_past_chats',
+    tool: 'search_memory' | 'search_past_chats' | 'search_library',
     query: string,
   ): Promise<{ result: string; found: boolean }> {
     return fetchJson<{ result: string; found: boolean }>(
