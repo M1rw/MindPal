@@ -38,6 +38,19 @@ export interface ChatMessage {
   memoryReceipt?: MemoryReceipt | null;
   /** Files sent with this message: identity and shape only (frontend/src/files/types.ts). */
   attachments?: MessageAttachment[];
+  /** An interactive tool MindPal put under this reply (backend/domain/chat/cards.py). */
+  card?: ChatCard;
+}
+
+export type ChatCardKind = 'breathing' | 'grounding' | 'thought_record' | 'mood_check';
+
+export interface ChatCard {
+  kind: ChatCardKind;
+  id: string;
+  /** Breathing pace: box (4-4-4-4) or 4-7-8. */
+  pattern?: 'box' | '478';
+  /** Finished (its result was sent); shown as done, not offered again. */
+  done?: boolean;
 }
 
 /** Facts persisted from a turn — short display text only */

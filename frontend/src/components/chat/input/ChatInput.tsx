@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, KeyboardEvent, forwardRef, useImperativeHandle } from 'react';
 import { useChatStore, useFlagsStore, useSessionStore, useSettingsStore, useStreakStore, useToastStore, useVoiceStore } from '../../../store';
 import { ApiClient } from '../../../services/api/index';
+import { recentCardKinds } from '../../../services/api/chat.ts';
 import { captureMemoryReceipt } from '../../../utils/memory/guestMemory';
 import { useChatInputDictation } from '../../../hooks/chat/useChatInputDictation';
 import { useOverlayPresence } from '../../../hooks/ui/useOverlayPresence';
@@ -267,6 +268,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
             const kept = captureMemoryReceipt(receipt, useSessionStore.getState().isAuthenticated);
             if (kept) useChatStore.getState().setMessageMemoryReceipt(assistantMsgId, kept);
           },
+          // An interactive tool under this reply (breathing, grounding, ...).
+          onCard: (card) => useChatStore.getState().setMessageCard(assistantMsgId, card),
+          recentCards: recentCardKinds(messages),
         }
       );
     } catch {
