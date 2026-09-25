@@ -78,7 +78,8 @@ const idle = {
   isCapturing: false,
   uiStatus: 'connecting' as LiveUiStatus,
   statusDetail: '',
-  voiceId: 'Sulafat',
+  /** The voice the live call is using (from the grant); '' until a call connects. */
+  voiceId: '',
   floor: 'idle' as const,
   transcript: '',
   aiTranscript: '',

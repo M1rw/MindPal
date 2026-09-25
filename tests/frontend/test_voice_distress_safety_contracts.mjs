@@ -90,7 +90,7 @@ describe('Flat affect never reads as drowsy', () => {
 });
 
 describe('Distress expression allowlist', () => {
-  const suppressed = ['roll_eyes', 'side_eye', 'look_away', 'squint', 'blink_slow', 'amused', 'sleepy', 'tired', 'wink'];
+  const suppressed = ['roll_eyes', 'side_eye', 'look_away', 'squint', 'blink_slow', 'amused', 'laugh', 'excited', 'blush', 'sleepy', 'tired', 'wink'];
 
   for (const expression of suppressed) {
     it(`suppresses ${expression} while distress is held`, () => {

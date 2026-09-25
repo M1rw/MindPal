@@ -1,7 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pause, Play } from 'lucide-react';
+import { Loader2, Pause, Play } from 'lucide-react';
 import { useFlagsStore, useVoiceStore } from '../../../store';
-import { SettingsHeader, SettingsRow, SettingsSelect, settingsPrimaryButtonClass } from '../SettingsPrimitives';
+import {
+  SettingsHeader,
+  SettingsRow,
+  SettingsSelect,
+  settingsControlButtonClass,
+  settingsPrimaryButtonClass,
+} from '../SettingsPrimitives';
 import type { SettingsTabContentProps } from './types';
 import { useIsSignedIn } from '../../../hooks/session/useAccountStatus.ts';
 import { personaPalette, rgb } from '../../../voice/face/personaColor.ts';
@@ -49,11 +55,17 @@ export function previewLanguage(voiceLanguage: string | undefined, navigatorLang
   return (navigatorLanguage || '').toLowerCase().startsWith('ar') ? 'ar' : 'en';
 }
 
+function previewSources(voice: string, language: 'en' | 'ar'): string[] {
+  // Their language first, then the other sample.
+  return [language, language === 'ar' ? 'en' : 'ar'].map((lang) => `/assets/voice-previews/${voice}-${lang}.mp3`);
+}
+
+type PreviewState = 'idle' | 'loading' | 'playing' | 'missing';
+
 /** Plays a short sample of a voice (scripts/ops/voice_previews.py). */
 const VoicePreviewButton: React.FC<{ voice: string; language: 'en' | 'ar' }> = ({ voice, language }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [missing, setMissing] = useState(false);
+  const [state, setState] = useState<PreviewState>('idle');
   useEffect(
     () => () => {
       audioRef.current?.pause();
@@ -62,24 +74,29 @@ const VoicePreviewButton: React.FC<{ voice: string; language: 'en' | 'ar' }> = (
     [],
   );
   useEffect(() => {
-    // A different voice or language: stop the old sample.
+    // A different voice or language: stop the old sample, and fetch the new one
+    // in the background so pressing Preview plays at once.
     audioRef.current?.pause();
     audioRef.current = null;
-    setPlaying(false);
-    setMissing(false);
+    setState('idle');
+    const warm = new Audio();
+    warm.preload = 'auto';
+    warm.src = previewSources(voice, language)[0];
+    return () => {
+      warm.removeAttribute('src');
+    };
   }, [voice, language]);
   const toggle = () => {
-    if (playing) {
+    if (state === 'playing' || state === 'loading') {
       audioRef.current?.pause();
-      setPlaying(false);
+      audioRef.current = null;
+      setState('idle');
       return;
     }
-    // Their language first, then the other sample; some voices may not have both yet.
-    const sources = [language, language === 'ar' ? 'en' : 'ar'].map((lang) => `/assets/voice-previews/${voice}-${lang}.mp3`);
+    const sources = previewSources(voice, language);
     const tryPlay = (index: number) => {
       if (index >= sources.length) {
-        setPlaying(false);
-        setMissing(true);
+        setState('missing');
         return;
       }
       const audio = new Audio(sources[index]);
@@ -91,26 +108,39 @@ const VoicePreviewButton: React.FC<{ voice: string; language: 'en' | 'ar' }> = (
         movedOn = true;
         tryPlay(index + 1);
       };
-      audio.onended = () => setPlaying(false);
+      // Loading until sound actually starts.
+      audio.onplaying = () => {
+        if (audioRef.current === audio) setState('playing');
+      };
+      audio.onended = () => {
+        if (audioRef.current === audio) setState('idle');
+      };
       audio.onerror = next;
       void audio.play().catch(next);
     };
-    setMissing(false);
-    setPlaying(true);
+    setState('loading');
     tryPlay(0);
   };
-  if (missing) {
+  if (state === 'missing') {
     return <span className="text-[13px] text-content-muted">No sample yet</span>;
   }
+  const busy = state === 'loading';
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label={playing ? `Stop the ${voice} sample` : `Hear ${voice}`}
-      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-edge-default px-3 text-[13px] font-semibold text-content-primary hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+      aria-busy={busy}
+      aria-label={state === 'playing' ? `Stop the ${voice} sample` : busy ? `Loading the ${voice} sample` : `Hear ${voice}`}
+      className={settingsControlButtonClass}
     >
-      {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-      {playing ? 'Stop' : 'Preview'}
+      {busy ? (
+        <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
+      ) : state === 'playing' ? (
+        <Pause className="h-3.5 w-3.5 flex-shrink-0" />
+      ) : (
+        <Play className="h-3.5 w-3.5 flex-shrink-0" />
+      )}
+      {state === 'playing' ? 'Stop' : 'Preview'}
     </button>
   );
 };

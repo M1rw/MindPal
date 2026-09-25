@@ -117,6 +117,47 @@ export function heartEyePoints(w: number, h: number, steps = 46): Array<{ x: num
   return pts;
 }
 
+/**
+ * A closed, happy eye: a thick arch (the ^ of ^_^), w wide and h tall, the
+ * band about half the height. Centred like the capsule so gaze and blink
+ * treat it the same.
+ */
+export function arcEyePoints(w: number, h: number, steps = 18): Array<{ x: number; y: number }> {
+  const pts: Array<{ x: number; y: number }> = [];
+  const rx = w / 2;
+  const thick = Math.max(2, h * 0.48);
+  // Outer edge, left to right over the top.
+  for (let i = 0; i <= steps; i += 1) {
+    const t = Math.PI - (i / steps) * Math.PI;
+    pts.push({ x: rx * Math.cos(t), y: h / 2 - h * Math.sin(t) });
+  }
+  // Inner edge back, right to left; ends rounded by the shorter inner radius.
+  const irx = Math.max(1, rx - thick);
+  const ih = Math.max(1, h - thick);
+  for (let i = 0; i <= steps; i += 1) {
+    const t = (i / steps) * Math.PI;
+    pts.push({ x: irx * Math.cos(t), y: h / 2 - ih * Math.sin(t) });
+  }
+  return pts;
+}
+
+/** A four-point sparkle (astroid): concave sides, sharp tips, w wide and h tall. */
+export function starEyePoints(w: number, h: number, steps = 48): Array<{ x: number; y: number }> {
+  const pts: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < steps; i += 1) {
+    const t = (i / steps) * Math.PI * 2;
+    // Cube keeps it spiky; the plain-circle blend fattens the body so it reads at a glance.
+    const c = Math.cos(t);
+    const sn = Math.sin(t);
+    const k = 0.86;
+    pts.push({
+      x: (w / 2) * (k * c ** 3 + (1 - k) * c),
+      y: (h / 2) * (k * sn ** 3 + (1 - k) * sn),
+    });
+  }
+  return pts;
+}
+
 export function capsuleEyePoints(w: number, h: number, corner: number): Array<{ x: number; y: number }> {
   const r = Math.max(0.1, Math.min(corner, w / 2, h / 2));
   const pts: Array<{ x: number; y: number }> = [];

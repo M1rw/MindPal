@@ -6,6 +6,7 @@ import {
   useChatStore,
   useFlagsStore,
   useSessionStore,
+  useSettingsStore,
   useToastStore,
   useVoiceStore,
 } from '../../store';
@@ -87,7 +88,11 @@ export const VoiceOverlay: React.FC = () => {
   const aiTranscript = useVoiceStore((state) => state.aiTranscript);
   const crisisScript = useVoiceStore((state) => state.crisisScript);
   const crisisPauseBody = useVoiceStore((state) => state.crisisPauseBody);
-  const voiceId = useVoiceStore((state) => state.voiceId);
+  const grantedVoiceId = useVoiceStore((state) => state.voiceId);
+  const chosenVoiceId = useSettingsStore((state) => state.settings.voiceModel);
+  // The orb wears the chosen voice's colours from the first frame; the grant
+  // (the voice the server actually used) takes over once the call connects.
+  const voiceId = grantedVoiceId || chosenVoiceId || 'Sulafat';
   const floor = useVoiceStore((state) => state.floor);
   const expression = useVoiceStore((state) => state.expression);
   const commands = useVoiceStore((state) => state.commands);

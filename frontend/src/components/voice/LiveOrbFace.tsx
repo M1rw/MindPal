@@ -8,7 +8,9 @@ import {
   HTML_PULSE_STIFFNESS,
   SpringValue,
   capsuleEyePoints,
+  arcEyePoints,
   heartEyePoints,
+  starEyePoints,
   htmlGazeTarget,
 } from '../../voice/face/gaze.ts';
 import { lerpStop, personaPalette, personaPaletteForAffect, rgb } from '../../voice/face/personaColor.ts';
@@ -360,10 +362,27 @@ export const LiveOrbFace: React.FC<LiveOrbFaceProps> = ({ voiceId, getGesture, r
       // A look can carry its own silhouette. Everything else about the eye -
       // blink scale, rotation, gaze offset - is unchanged, so a shaped eye still
       // blinks and tracks like a normal one.
-      const eyePoints = (w: number, h: number) =>
-        face.shape === 'heart' ? heartEyePoints(w, h) : capsuleEyePoints(w, h, layout.corner);
-      drawPolyEye(ctx, layout.left.x, layout.left.y, eyePoints(layout.left.w, layout.left.h), leftBlink, leftAngle);
-      drawPolyEye(ctx, layout.right.x, layout.right.y, eyePoints(layout.right.w, layout.right.h), rightBlink, rightAngle);
+      const eyePoints = (w: number, h: number) => {
+        if (face.shape === 'heart') return heartEyePoints(w, h);
+        if (face.shape === 'arc') return arcEyePoints(w, h);
+        if (face.shape === 'star') return starEyePoints(w, h);
+        return capsuleEyePoints(w, h, layout.corner);
+      };
+      // Joy moves: a laugh bobs the eyes, sparkles twinkle. Timed off the wall
+      // clock so it keeps its rhythm whatever the frame rate.
+      const joy = reducedMotion ? 0 : face.commandWeight;
+      const clockS = Date.now() / 1000;
+      const bob = face.commandName === 'laugh' ? Math.abs(Math.sin(clockS * Math.PI * 4.2)) * -3.2 * joy * scale : 0;
+      const twinkle = face.commandName === 'excited' ? 1 + 0.09 * Math.sin(clockS * Math.PI * 3) * joy : 1;
+      // Arcs are closed eyes: they do not blink shut again.
+      const arcOpen = face.shape === 'arc';
+      const lb = arcOpen ? 1 : leftBlink;
+      const rb = arcOpen ? 1 : rightBlink;
+      if (face.commandName === 'blush' && face.commandWeight > 0.2) {
+        drawCheeks(ctx, layout, radius, scale, Math.min(1, face.commandWeight));
+      }
+      drawPolyEye(ctx, layout.left.x, layout.left.y + bob, eyePoints(layout.left.w * twinkle, layout.left.h * twinkle), lb, leftAngle);
+      drawPolyEye(ctx, layout.right.x, layout.right.y + bob, eyePoints(layout.right.w * twinkle, layout.right.h * twinkle), rb, rightAngle);
 
       const jump = Math.max(
         Math.abs(nodSpring.current - (Number(canvas.dataset.nod) || 0)),
@@ -427,6 +446,30 @@ function liveFace(gesture: GestureState) {
     crisis: gesture.crisis,
     now: Date.now(),
   });
+}
+
+/** Soft pink cheeks under the eyes, for a blush. */
+function drawCheeks(
+  ctx: CanvasRenderingContext2D,
+  layout: { left: { x: number; y: number; w: number }; right: { x: number; y: number; w: number } },
+  radius: number,
+  scale: number,
+  alpha: number,
+): void {
+  const r = Math.max(8, radius * 0.2);
+  for (const eye of [layout.left, layout.right]) {
+    const x = eye.x + (eye === layout.left ? -eye.w * 0.6 : eye.w * 0.6);
+    const y = eye.y + 30 * scale;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, r);
+    glow.addColorStop(0, `rgba(255, 110, 150, ${0.75 * alpha})`);
+    glow.addColorStop(1, 'rgba(255, 120, 160, 0)');
+    ctx.save();
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * 1.35, r * 0.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 function drawPolyEye(
