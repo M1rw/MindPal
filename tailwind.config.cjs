@@ -20,6 +20,10 @@ const alphaVars = (group) =>
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // hover: styles only where a real pointer hovers. On a phone a tap sets
+  // :hover and leaves it on, so tapped buttons stayed scaled up, lifted or
+  // tinted until the next tap somewhere else.
+  future: { hoverOnlyWhenSupported: true },
   content: [
     './frontend/index.html',
     './frontend/src/**/*.{ts,tsx,js,jsx}',

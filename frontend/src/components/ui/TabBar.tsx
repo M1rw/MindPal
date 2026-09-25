@@ -58,7 +58,7 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange, showPres
     <div
       role="tablist"
       aria-label="MindPal modes"
-      className="flex flex-shrink-0 items-center gap-0.5 rounded-full bg-surface-sunken p-0.5"
+      className="mode-tabs flex flex-shrink-0 items-center gap-0.5 rounded-full bg-surface-sunken p-0.5"
     >
       {tabs.map((tab, index) => {
         const isActive = activeTab === tab.id;

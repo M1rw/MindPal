@@ -592,6 +592,13 @@ button,
     min-width: 44px;
     min-height: 44px;
   }
+  /* The mode tabs sit in a pill with 2px padding: 40px tabs make it exactly
+     the 44px of the other header buttons, so the header does not grow by 4px
+     (and push the whole app down) when the tabs appear after the flags load. */
+  .mode-tabs .header-compact-btn {
+    height: 40px;
+    min-height: 40px;
+  }
 }
 
 /* Fix 23: #header.pt-safe-top was previously applied to give the header its
@@ -1214,16 +1221,23 @@ details > summary::-webkit-details-marker { display: none; }
 .settings-tab-btn.hidden {
   display: none !important;
 }
-
-.settings-tab-btn:hover,
 .settings-tab-btn.active {
   background: #e7e9ed;
   color: #111827;
   box-shadow: none;
 }
+@media (hover: hover) and (pointer: fine) {
+  .settings-tab-btn:hover {
+    background: #e7e9ed;
+    color: #111827;
+    box-shadow: none;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
 
-.settings-tab-btn:hover {
-  transform: translateX(1px);
+  .settings-tab-btn:hover {
+    transform: translateX(1px);
+  }
 }
 
 .settings-tab-btn:focus-visible {
@@ -1234,12 +1248,17 @@ details > summary::-webkit-details-marker { display: none; }
 .dark .settings-tab-btn {
   color: #cbd5e1;
 }
-
-.dark .settings-tab-btn:hover,
 .dark .settings-tab-btn.active {
   background: #2f2f2f;
   color: #ffffff;
   box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .dark .settings-tab-btn:hover {
+    background: #2f2f2f;
+    color: #ffffff;
+    box-shadow: none;
+  }
 }
 
 .dark .settings-tab-btn:focus-visible {
@@ -1403,12 +1422,17 @@ details > summary::-webkit-details-marker { display: none; }
 .settings-choice-wide {
   min-width: 190px;
 }
-
-.settings-choice-trigger:hover,
 .settings-choice.open .settings-choice-trigger {
   border-color: rgba(15, 23, 42, 0.24);
   background: #f8fafc;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+@media (hover: hover) and (pointer: fine) {
+  .settings-choice-trigger:hover {
+    border-color: rgba(15, 23, 42, 0.24);
+    background: #f8fafc;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  }
 }
 
 .settings-choice-trigger:focus-visible {
@@ -1483,12 +1507,17 @@ details > summary::-webkit-details-marker { display: none; }
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: none;
 }
-
-.dark .settings-choice-trigger:hover,
 .dark .settings-choice.open .settings-choice-trigger {
   border-color: rgba(255, 255, 255, 0.24);
   background: #2a2f36;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dark .settings-choice-trigger:hover {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: #2a2f36;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
 }
 
 .dark .settings-choice-trigger:focus-visible {
@@ -2287,13 +2316,19 @@ details > summary::-webkit-details-marker { display: none; }
   text-decoration: none;
   transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
-
-.content-box .mp-source-link:hover,
 .content-box .mp-source-link:focus-visible {
   border-color: rgba(66, 133, 244, 0.58);
   background: rgba(66, 133, 244, 0.14);
   outline: none;
   transform: translateY(-1px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .content-box .mp-source-link:hover {
+    border-color: rgba(66, 133, 244, 0.58);
+    background: rgba(66, 133, 244, 0.14);
+    outline: none;
+    transform: translateY(-1px);
+  }
 }
 
 .content-box .mp-source-link__icon {
@@ -3496,8 +3531,10 @@ details > summary::-webkit-details-marker { display: none; }
 }
 .dark .voice-consent-panel__primary { background: #f4f4f5; color: #18181b; }
 .voice-consent-panel__secondary { color: #71717a; }
-.voice-consent-panel__primary:hover,
-.voice-consent-panel__secondary:hover { transform: translateY(-1px); }
+@media (hover: hover) and (pointer: fine) {
+  .voice-consent-panel__primary:hover,
+  .voice-consent-panel__secondary:hover { transform: translateY(-1px); }
+}
 .voice-consent-panel__secondary:hover { background: rgba(0, 0, 0, 0.05); }
 .dark .voice-consent-panel__secondary:hover { background: rgba(255, 255, 255, 0.08); }
 .voice-safe-diagnostics {
@@ -3872,50 +3909,91 @@ html.dark .chat-composer--thinking::after {
   padding-bottom: min(2.5vh, 1.25rem);
 }
 
+/* Jump to latest. It lives in the chat canvas, which already ends where the
+   composer begins (the dock is the next grid row, not an overlay), so a plain
+   offset is exact. It used to add the composer's height too, which floated it
+   a whole composer too high on phones and made it jump whenever the composer
+   grew. Desktop: a labelled pill. Phones: a round arrow, like ChatGPT's. */
 .chat-jump-latest {
   position: absolute;
   left: 50%;
-  /* Fix 11: sit above the composer dock; --composer-dock-h is set by ResizeObserver
-     in AppPanels.tsx so this stays correct even when the composer grows. */
-  bottom: calc(var(--composer-dock-h, 4.5rem) + 0.75rem);
+  bottom: 0.75rem;
   z-index: 10;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  transform: translateX(-50%);
-  padding: 0.375rem 0.875rem;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 2.25rem;
+  padding: 0 0.875rem 0 1rem;
   border: 1px solid var(--border-subtle);
   border-radius: 9999px;
-  background: var(--surface-card);
+  background: var(--surface-elevated, var(--surface-card));
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 500;
-  line-height: 1.25;
-  opacity: 1;
-  transition: bottom 80ms linear, opacity 80ms linear;
+  line-height: 1;
+  transform: translateX(-50%);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  animation: chatJumpIn 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  transition:
+    opacity 160ms ease-out,
+    transform 160ms ease-out,
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
-
-@media (min-width: 640px) {
-  /* Desktop: jump button is within its own scroll container, use simple offset */
-  .chat-jump-latest {
-    bottom: 0.75rem;
-    transition: opacity 80ms linear;
-  }
+@keyframes chatJumpIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
+  to { opacity: 1; transform: translateX(-50%); }
 }
-
 .chat-jump-latest.is-leaving {
   opacity: 0;
+  transform: translateX(-50%) translateY(6px) scale(0.92);
   pointer-events: none;
 }
-
-.chat-jump-latest:hover {
-  background: var(--surface-elevated, var(--surface-subtle));
-  color: var(--text-primary);
+.chat-jump-latest__icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  flex: none;
 }
-
+/* A reply is still arriving below: the arrow gently nods toward it. */
+.chat-jump-latest.is-streaming .chat-jump-latest__icon {
+  animation: chatJumpNod 1.2s ease-in-out infinite;
+}
+@keyframes chatJumpNod {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+.chat-jump-latest:active:not(.is-leaving) {
+  transform: translateX(-50%) scale(0.94);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chat-jump-latest:hover {
+    background: var(--surface-elevated, var(--surface-subtle));
+    color: var(--text-primary);
+  }
+}
 .chat-jump-latest:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--border-focus);
+}
+@media (max-width: 639px) {
+  .chat-jump-latest {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    color: var(--text-primary);
+  }
+  .chat-jump-latest__label {
+    display: none;
+  }
+  .chat-jump-latest__icon {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
 }
 
 .chat-thread-enter {
@@ -4464,7 +4542,6 @@ html.dark .chat-composer--thinking::after {
   .chat-composer__expand,
   .chat-composer__dictate,
   .chat-composer__dictate-inner,
-  .chat-jump-latest,
   .chat-turn,
   .chat-user-shell--morph,
   .chat-user-bubble--morph {
@@ -5110,3 +5187,23 @@ html.dark .chat-composer--thinking::after {
    Toast region      300      .toast-region (position:fixed)
    Voice overlay     200      (set inline by VoiceOverlay.tsx)
    ══════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-jump-latest,
+  .chat-jump-latest.is-streaming .chat-jump-latest__icon {
+    animation: none;
+    transition: opacity 120ms linear;
+  }
+  .chat-jump-latest.is-leaving,
+  .chat-jump-latest:active:not(.is-leaving) {
+    transform: translateX(-50%);
+  }
+}
+
+/* Touch screens have no hover to reveal a chat's rename/delete buttons (an iPad
+   is wider than sm, where they hide until hover): keep them shown. */
+@media (hover: none) {
+  .history-session-item__actions.history-session-item__actions--touch {
+    opacity: 1;
+  }
+}
