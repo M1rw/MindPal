@@ -1,5 +1,5 @@
 import { useSettingsStore, useUsageStore } from '../../store/index.ts';
-import type { MemoryReceipt, MemoryReceiptItem, UserPersonalization, UsageQuota } from '../../types/index.ts';
+import type { ChatCard, ChatCardKind, ChatMessage, MemoryReceipt, MemoryReceiptItem, UserPersonalization, UsageQuota } from '../../types/index.ts';
 import { TimeoutError, fetchWithAuth, newOperationKey, parseErrorMessage } from './http.ts';
 import type { AttachmentPayload } from '../../files/turnPayload.ts';
 
@@ -128,6 +128,27 @@ export function parseMemoryReceipt(raw: unknown): MemoryReceipt | null {
   return { saved, count: Math.max(count, saved.length) };
 }
 
+const CARD_KINDS: readonly ChatCardKind[] = ['breathing', 'grounding', 'thought_record', 'mood_check'];
+
+function parseCard(raw: unknown): ChatCard | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const record = raw as Record<string, unknown>;
+  const kind = record.kind as ChatCardKind;
+  if (!CARD_KINDS.includes(kind) || typeof record.id !== 'string') return null;
+  const card: ChatCard = { kind, id: record.id };
+  if (record.pattern === 'box' || record.pattern === '478') card.pattern = record.pattern;
+  return card;
+}
+
+/** What the server needs to keep cards occasional: the card kind of each recent reply, newest first. */
+export function recentCardKinds(messages: Array<Pick<ChatMessage, 'role' | 'card'>>): string[] {
+  return messages
+    .filter((message) => message.role === 'assistant')
+    .slice(-8)
+    .reverse()
+    .map((message) => message.card?.kind ?? '');
+}
+
 export const chatApi = {
   async streamChat(
     message: string,
@@ -145,6 +166,10 @@ export const chatApi = {
       idempotencyKey?: string;
       /** Files for this turn and earlier ones (frontend/src/files/turnPayload.ts). */
       attachments?: AttachmentPayload[];
+      /** An interactive card for this reply (backend/domain/chat/cards.py). */
+      onCard?: (card: ChatCard) => void;
+      /** Card kind ('' for none) of each recent reply, newest first: keeps cards occasional. */
+      recentCards?: string[];
     },
   ): Promise<void> {
     let reader: StreamReader | null = null;
@@ -170,6 +195,7 @@ export const chatApi = {
           personalization: activePersonalization,
           client_context: clientContext,
           ...(options?.attachments?.length ? { attachments: options.attachments } : {}),
+          ...(options?.recentCards?.length ? { recent_cards: options.recentCards.slice(0, 8) } : {}),
         }),
       });
 
@@ -218,6 +244,10 @@ export const chatApi = {
             if (typeof data === 'object' && data !== null) {
               if (data.usage && typeof data.usage === 'object') {
                 syncUsage(data.usage);
+              }
+              if (data.card) {
+                const card = parseCard(data.card);
+                if (card) options?.onCard?.(card);
               }
               if (data.memory) {
                 const receipt = parseMemoryReceipt(data.memory);
