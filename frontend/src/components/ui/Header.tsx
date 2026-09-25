@@ -166,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
           title="Days you showed up"
           aria-label="View daily streak progress"
         >
-          <span id="streak-counter" className="text-xs font-medium tabular-nums">
+          <span id="streak-counter" className="streak-count tabular-nums">
             {streak.count}
           </span>
           <Flame
