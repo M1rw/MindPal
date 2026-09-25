@@ -142,17 +142,24 @@ export function functionResponseMessage(calls: LiveFunctionCall[], applied: bool
   };
 }
 
+/** 0..1 with zero slope at both ends. */
+function smoothstep(x: number): number {
+  const t = Math.min(1, Math.max(0, x));
+  return t * t * (3 - 2 * t);
+}
+
 export function commandEnvelope(command: ActiveExpression, now: number): number {
   const t = now - command.startedAt;
   if (t < 0) return 0;
   const duration = Math.max(120, command.durationMs);
-  const attack = Math.min(70, duration * 0.18);
-  const release = Math.min(280, duration * 0.28);
+  // Eased in and out: a 70ms straight ramp read as the look popping on.
+  const attack = Math.min(200, duration * 0.22);
+  const release = Math.min(320, duration * 0.3);
   const holdEnd = Math.max(attack, duration - release);
   let weight = 0;
-  if (t < attack) weight = t / Math.max(1, attack);
+  if (t < attack) weight = smoothstep(t / Math.max(1, attack));
   else if (t < holdEnd) weight = 1;
-  else if (t < duration) weight = 1 - (t - holdEnd) / Math.max(1, duration - holdEnd);
+  else if (t < duration) weight = 1 - smoothstep((t - holdEnd) / Math.max(1, duration - holdEnd));
   if (command.supersededAt && now >= command.supersededAt) {
     const fade = Math.max(80, command.crossfadeMs ?? 180);
     weight *= 1 - Math.min(1, (now - command.supersededAt) / fade);
