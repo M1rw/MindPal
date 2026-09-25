@@ -587,6 +587,35 @@ for (const profile of PROFILES) {
       }
     });
 
+    test('header: the Chat/Presence tabs fit beside the name and buttons, and switch by tap', async () => {
+      const { context, page, problems } = await openApp(profile);
+      try {
+        const tabs = page.getByRole('tablist', { name: 'MindPal modes' });
+        await tabs.waitFor();
+        await page.waitForTimeout(400);
+        const fit = async () => page.evaluate(() => {
+          const [logo, group, nav] = document.querySelector('#header > div').children;
+          const b = (el) => el.getBoundingClientRect();
+          const buttons = [...group.querySelectorAll('[role="tab"]')];
+          return {
+            logoClipped: logo.scrollWidth > b(logo).width + 1,
+            overlap: b(logo).right > b(group).left + 1 || b(group).right > b(nav).left + 1,
+            spill: buttons.filter((tab) => tab.scrollWidth > b(tab).width + 1).map((tab) => tab.id),
+          };
+        });
+        assert.deepEqual(await fit(), { logoClipped: false, overlap: false, spill: [] });
+        await tabs.getByRole('tab', { name: 'Presence' }).tap();
+        await page.locator('#tab-presence[aria-selected="true"]').waitFor();
+        await page.waitForTimeout(400);
+        assert.deepEqual(await fit(), { logoClipped: false, overlap: false, spill: [] }, 'still fits with Presence selected');
+        await tabs.getByRole('tab', { name: 'Chat' }).tap();
+        await page.locator('#tab-chat[aria-selected="true"]').waitFor();
+        assert.deepEqual(problems, []);
+      } finally {
+        await context.close();
+      }
+    });
+
     test('an installed app (home-screen / standalone) is detected', async () => {
       const browser = await browserFor(profile.engine);
       const context = await browser.newContext({ ...profile.device });
