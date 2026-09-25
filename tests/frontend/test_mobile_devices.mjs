@@ -653,7 +653,7 @@ for (const profile of PROFILES) {
         await page.locator('p.mp-p', { hasText: 'Thank you for sharing it.' }).waitFor();
         assert.match(sent.message, /The thought: I always mess things up/);
         assert.deepEqual(sent.recent_cards?.slice(0, 1), ['thought_record'], 'the server hears a card was just shown');
-        await page.locator('.chat-card--done').waitFor();
+        await page.locator('.chat-card.is-collapsed').waitFor();
         assert.deepEqual(problems, []);
       } finally {
         await context.close();

@@ -37,6 +37,7 @@ export const App: React.FC = () => {
           activeTab={resolvedActiveTab}
           onTabChange={setActiveTab}
           showPresenceTab={showPresenceTab}
+          onReflect={(text) => chatInputRef.current?.sendMessage(text)}
         />
 
         <AppPanels

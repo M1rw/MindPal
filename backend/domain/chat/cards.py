@@ -43,6 +43,21 @@ _ASK = {
     "mood_check": re.compile(r"\b(?:mood check|check in on my mood)\b", re.IGNORECASE),
 }
 
+# What a finished card sends back as their next message (ChatCards.tsx). It
+# mentions the exercise it reports on ("I did the breathing exercise"), which
+# read as a fresh ask and brought the same card straight back.
+_RESULT = re.compile(
+    r"^\s*(?:I did the (?:breathing exercise|5-4-3-2-1 grounding)|Thought record\b|Mood check-in:)"
+    r"|^\s*(?:سويت تمرين|تسجيل المزاج|سجل الأفكار)",
+    re.IGNORECASE,
+)
+# Asking again for the card that was just shown needs real asking words.
+_AGAIN = re.compile(
+    r"\b(?:again|another|one more|once more|can we|could we|let'?s|can you|could you|do it|start)\b"
+    r"|مرة (?:ثانية|ثانيه|ثاني)|ممكن|خلنا|نعيد|(?:ا|أ)بي",
+    re.IGNORECASE,
+)
+
 _CUE = {
     "breathing": re.compile(
         r"\b(?:panic\w*|can'?t breathe|hyperventilat\w*|heart (?:is )?(?:racing|pounding)|shaking|anxiety attack)\b"
@@ -101,8 +116,13 @@ def choose_card(
     if crisis or strategy == "Safety Shield":
         return None
     text = message or ""
+    if _RESULT.search(text):
+        return None
+    just_shown = next(iter(recent_cards), "")
     for kind, pattern in _ASK.items():
         if pattern.search(text):
+            if kind == just_shown and not _AGAIN.search(text):
+                return None
             return _make(kind, text)
     if _recent(recent_cards, _GAP_TURNS):
         return None
