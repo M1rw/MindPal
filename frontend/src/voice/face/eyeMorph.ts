@@ -85,6 +85,8 @@ export class EyeMorph {
 
   /** Ease each shape's weight toward the target shape. `snap` (reduced motion) jumps. */
   update(target: MorphShape, dtMs: number, snap = false): void {
+    // An outline this module doesn't know falls back to the plain eye, never to no eye.
+    if (!SHAPES.includes(target)) target = 'capsule';
     const k = snap ? 1 : 1 - Math.exp(-Math.max(0, dtMs) / MORPH_TAU_MS);
     for (const shape of SHAPES) {
       const goal = shape === target ? 1 : 0;
@@ -103,7 +105,7 @@ export class EyeMorph {
   points(w: number, h: number, corner: number): Point[] {
     const sum = SHAPES.reduce((acc, s) => acc + this.weights[s], 0) || 1;
     const active = SHAPES.filter((s) => this.weights[s] > 0);
-    if (active.length === 1) return outlineFor(active[0], w, h, corner);
+    if (active.length <= 1) return outlineFor(active[0] ?? 'capsule', w, h, corner);
     const out = Array.from({ length: MORPH_POINTS }, () => ({ x: 0, y: 0 }));
     for (const shape of active) {
       const share = this.weights[shape] / sum;
