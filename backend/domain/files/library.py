@@ -266,6 +266,12 @@ class LibraryService:
                 "previews": sum(1 for p in stored if _PREVIEW.match(p.rsplit("/", 1)[-1])),
             }
         )
+        # Searchable by meaning ("my rental contract" finds lease.pdf); best effort.
+        from backend.domain.files.lookup import file_vectors
+
+        vectors = file_vectors(doc.get("name", ""), digest)
+        if vectors:
+            doc["vecs"] = vectors
         self.store.set_document(COLLECTION, key, doc)
         return _public(doc)
 
