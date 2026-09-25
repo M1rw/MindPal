@@ -34,17 +34,42 @@ export const DEFAULT_IDLE: IdleConfig = {
 
 const LABEL = '[[MindPal]] Application note, not their words. Do not read this note aloud.';
 
-export function idleNote(stage: Exclude<IdleStage, 'active'>, muted: boolean): string {
+/**
+ * Ways to check in. The note used to quote "still with me?" as its example, so
+ * the model said exactly that every time. Now each check-in gets a different
+ * angle, and the model is told to make the words its own.
+ */
+export const CHECK_IN_ANGLES = [
+  'pick the thread back up: mention the last thing you two were talking about and gently ask if they are still there',
+  'make a light, warm remark about the quiet, as a friend would, and see if they are around',
+  'ask, lightly, whether something pulled them away',
+  'give them room: say there is no rush and you are here whenever they want to carry on',
+  'wonder aloud, playfully, whether they are still thinking about what you last talked about',
+] as const;
+
+const WARN_ANGLES = [
+  'say you will let them go in a bit if they have stepped away, and that saying anything keeps the call going',
+  'say you will hang up soon so they are not left with an open line, unless they say something',
+  'say you will wrap up shortly if they are busy, and that they can pick this back up anytime by speaking',
+] as const;
+
+const FRESH = 'Say it in your own fresh words (no stock phrase, and not a line you have already used on this call).';
+
+function pick<T>(items: readonly T[], random: () => number): T {
+  return items[Math.min(items.length - 1, Math.floor(random() * items.length))];
+}
+
+export function idleNote(stage: Exclude<IdleStage, 'active'>, muted: boolean, random: () => number = Math.random): string {
   const quiet = muted
     ? 'The caller has been quiet for a while and their mic is muted, so they may just be listening.'
     : 'The caller has been quiet for a little while.';
   if (stage === 'check_in') {
-    return `${LABEL} ${quiet} Check in once, lightly and naturally, in their language, the way a friend on the phone would ("still with me?"). One short line, then wait.`;
+    return `${LABEL} ${quiet} Check in once, lightly and naturally, in their language: ${pick(CHECK_IN_ANGLES, random)}. ${FRESH} One short line, then wait.`;
   }
   if (stage === 'warn') {
-    return `${LABEL} ${quiet} They still haven't answered. In one short, warm line in their language, say you'll let them go in a bit if they've stepped away, and that they can just say something to keep talking.`;
+    return `${LABEL} ${quiet} They still haven't answered. In one short, warm line in their language, ${pick(WARN_ANGLES, random)}. ${FRESH}`;
   }
-  return `${LABEL} ${quiet} They seem to have stepped away. Say a short, warm goodbye in their language and that they can call back anytime. The call ends after this line.`;
+  return `${LABEL} ${quiet} They seem to have stepped away. Say a short, warm goodbye in their language, tied to what you talked about if it fits, and that they can call back anytime. ${FRESH} The call ends after this line.`;
 }
 
 const NEXT: Record<Exclude<IdleStage, 'end'>, Exclude<IdleStage, 'active'>> = {
