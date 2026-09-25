@@ -70,7 +70,7 @@ async def test_the_files_block_reaches_the_model_with_page_markers():
     assert "[p. 2]\nDeposit: 1200, refundable." in system
     assert "[This turn:" not in system, "a file turn sizes itself"
     assert call["max_tokens"] >= 1600
-    assert "images" not in call, "no pictures, no vision switch"
+    assert "images" not in call and call["long_context"] is True, "documents: long-context models, no pictures"
     assert "refundable [p. 2]" in "".join(c.get("text", "") for c in chunks)
 
 

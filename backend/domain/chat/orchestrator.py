@@ -641,7 +641,9 @@ class ChatOrchestrator:
                 # A document answer needs room even when the question is short.
                 max_tokens=max(context.plan.max_tokens, FILE_TOKENS_FLOOR) if files else context.plan.max_tokens,
                 thinking_budget=context.plan.thinking_budget,
-                # A picture sent with this turn: the reply looks at it (vision models).
+                # Documents need the long-context models; a picture sent with this
+                # turn goes along so the reply can look at it.
+                **({"long_context": True} if files else {}),
                 **({"images": files.images} if files and files.images else {}),
             )
             logger.info(

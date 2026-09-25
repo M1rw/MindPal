@@ -13,6 +13,9 @@ import { cn } from '../../../utils/ui/cn';
 import { ChatMemoryReceipt } from './ChatMemoryReceipt';
 import { ChatVoiceReceipt } from './ChatVoiceReceipt';
 import { ChatUserMessageEdit } from './ChatUserMessageEdit';
+import { MessageAttachments } from '../../files/MessageAttachments';
+import type { MessageAttachment } from '../../../files/types.ts';
+import { useLibraryStore } from '../../../store/library.ts';
 
 interface ChatCanvasMessageProps {
   msg: ChatMessage;
@@ -24,6 +27,8 @@ interface ChatCanvasMessageProps {
   speakingId: string | null;
   thumbed: 'thumbs_up' | 'thumbs_down' | null;
   htmlContent: string;
+  /** The PDF that "[p. N]" chips in this reply open. */
+  citeFile?: MessageAttachment;
   animateEnter?: boolean;
   canEdit?: boolean;
   isEditing?: boolean;
@@ -77,6 +82,7 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
   speakingId,
   thumbed,
   htmlContent,
+  citeFile,
   animateEnter = false,
   canEdit = false,
   isEditing = false,
@@ -210,6 +216,8 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
       <div className={cn('flex flex-col', isUser ? cn('chat-user-shell w-fit max-w-[min(78%,36rem)] items-end', isEditing && 'chat-user-shell--editing w-full') : 'min-w-0 w-full items-start')} ref={isUser ? shellRef : undefined}>
         {isUser ? (
           <>
+            {msg.attachments?.length ? <MessageAttachments attachments={msg.attachments} animate={animateEnter} /> : null}
+            {msg.content || isEditing ? (
             <div
               ref={bubbleRef}
               dir="auto"
@@ -236,6 +244,7 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
                 msg.content
               )}
             </div>
+            ) : null}
             {msg.content ? (
               <div
                 className={cn(
@@ -286,6 +295,15 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
                 dir="auto"
                 className={cn('chat-prose text-content-primary', isStreamingThis && 'chat-streaming')}
                 dangerouslySetInnerHTML={{ __html: htmlContent }}
+                onClick={
+                  citeFile
+                    ? (event) => {
+                        const chip = (event.target as Element).closest('.page-cite');
+                        const page = Number(chip?.getAttribute('data-page'));
+                        if (chip && page) useLibraryStore.getState().openViewer({ attachment: citeFile, page });
+                      }
+                    : undefined
+                }
               />
             )}
 

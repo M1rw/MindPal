@@ -16,15 +16,21 @@ export function withoutSessionMemoryReceipts(session: ChatSession): ChatSession 
   };
 }
 
-export function sessionMessagesFingerprint(
-  messages: Array<Pick<ChatMessage, 'id' | 'role' | 'content'>>
-): string {
-  return messages.map((message) => `${message.id}\0${message.role}\0${message.content}`).join('\n');
+type Fingerprinted = Pick<ChatMessage, 'id' | 'role' | 'content'> & Pick<Partial<ChatMessage>, 'attachments'>;
+
+export function sessionMessagesFingerprint(messages: Fingerprinted[]): string {
+  // Files count: a file reaching the library after its message was sent must be saved too.
+  return messages
+    .map((message) => {
+      const files = (message.attachments ?? []).map((a) => `${a.id}:${a.fileId ?? ''}`).join(',');
+      return `${message.id}\0${message.role}\0${message.content}\0${files}`;
+    })
+    .join('\n');
 }
 
 export function shouldBumpSessionTimestamp(
-  existingMessages: Array<Pick<ChatMessage, 'id' | 'role' | 'content'>> | undefined,
-  nextMessages: Array<Pick<ChatMessage, 'id' | 'role' | 'content'>>
+  existingMessages: Fingerprinted[] | undefined,
+  nextMessages: Fingerprinted[]
 ): boolean {
   if (!existingMessages) return true;
   return sessionMessagesFingerprint(existingMessages) !== sessionMessagesFingerprint(nextMessages);

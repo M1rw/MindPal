@@ -21,6 +21,8 @@ interface ChatState {
   removeMessage: (id: string) => void;
   updateLastMessage: (content: string, strategy?: string, move?: string) => void;
   setMessageMemoryReceipt: (id: string, receipt: MemoryReceipt | null) => void;
+  /** A file reached the library after its message was sent: record its id there too. */
+  setAttachmentFileId: (attachmentId: string, fileId: string) => void;
   setComposerDraft: (draft: string | null) => void;
   setEditingUserId: (id: string | null) => void;
   setIsGenerating: (generating: boolean) => void;
@@ -83,6 +85,14 @@ export const useChatStore = create<ChatState>((set) => ({
         }
         return { ...message, memoryReceipt: receipt };
       }),
+    })),
+  setAttachmentFileId: (attachmentId, fileId) =>
+    set((state) => ({
+      messages: state.messages.map((message) =>
+        message.attachments?.some((a) => a.id === attachmentId)
+          ? { ...message, attachments: message.attachments.map((a) => (a.id === attachmentId ? { ...a, fileId } : a)) }
+          : message,
+      ),
     })),
   setComposerDraft: (composerDraft) => set({ composerDraft }),
   setEditingUserId: (editingUserId) => set({ editingUserId }),
