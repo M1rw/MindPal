@@ -77,7 +77,7 @@ export const ChatCanvasEmptyState: React.FC<ChatCanvasEmptyStateProps> = ({
               <button
                 key={text}
                 type="button"
-                className="mood-btn mood-chip px-4 py-2.5 rounded-2xl bg-surface-subtle hover:bg-surface-elevated text-sm font-medium text-content-primary flex items-center gap-2 border border-edge-subtle hover:border-edge-default transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:outline-none select-none"
+                className="mood-btn mood-chip px-4 py-2.5 rounded-2xl bg-surface-subtle hover:bg-surface-elevated text-sm font-medium text-content-primary flex items-center gap-2 border border-edge-subtle hover:border-edge-default focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:outline-none select-none"
                 aria-label={`Start with: ${label}`}
                 onClick={() => onSelectMood?.(text)}
               >
