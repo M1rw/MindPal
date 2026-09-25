@@ -583,7 +583,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  padding: 0 1.5rem 0.75rem;
+  /* Clear of the header's divider above, same space below. */
+  padding: 0.875rem 1.5rem 0.75rem;
 }
 /* Search, filters and "Add files" share one height, radius and surface. */
 .library-search {
