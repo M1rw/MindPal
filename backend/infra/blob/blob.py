@@ -48,6 +48,7 @@ class BlobStore(Protocol):
 
     def signed_upload_url(self, path: str, content_type: str) -> str: ...
     def signed_download_url(self, path: str, seconds: int = SIGNED_DOWNLOAD_SECONDS) -> str: ...
+    def signed_download_urls(self, paths: List[str], seconds: int = SIGNED_DOWNLOAD_SECONDS) -> List[str]: ...
     def stat(self, path: str) -> Optional[BlobObject]: ...
     def list_prefix(self, prefix: str) -> List[BlobObject]: ...
     def delete_paths(self, paths: List[str]) -> int: ...
@@ -86,6 +87,10 @@ class MemoryBlobStore:
 
     def signed_download_url(self, path: str, seconds: int = SIGNED_DOWNLOAD_SECONDS) -> str:
         return f"memory://download/{quote(_clean_path(path))}?expires={int(time.time()) + seconds}"
+
+    def signed_download_urls(self, paths: List[str], seconds: int = SIGNED_DOWNLOAD_SECONDS) -> List[str]:
+        """One link per path, in order; "" for a path with nothing stored."""
+        return [self.signed_download_url(p, seconds) if self.stat(p) else "" for p in paths]
 
     def read(self, path: str) -> Optional[bytes]:
         item = self._objects.get(_clean_path(path))
@@ -161,6 +166,21 @@ class SupabaseBlobStore:
             raise BlobUnavailable(f"sign download {response.status_code}")
         relative = response.json().get("signedURL") or response.json().get("signedUrl") or ""
         return f"{self._url}/storage/v1{relative}"
+
+    def signed_download_urls(self, paths: List[str], seconds: int = SIGNED_DOWNLOAD_SECONDS) -> List[str]:
+        """Many links in one request (a library page of thumbnails); "" where nothing is stored."""
+        if not paths:
+            return []
+        clean = [_clean_path(p) for p in paths]
+        response = self._call("POST", f"/object/sign/{self._bucket}", json={"expiresIn": seconds, "paths": clean})
+        if response.status_code != 200:
+            raise BlobUnavailable(f"sign downloads {response.status_code}")
+        by_path = {}
+        for item in response.json() or []:
+            relative = item.get("signedURL") or item.get("signedUrl")
+            if item.get("path") and relative and not item.get("error"):
+                by_path[item["path"]] = f"{self._url}/storage/v1{relative}"
+        return [by_path.get(p, "") for p in clean]
 
     def _list(self, folder: str) -> List[dict]:
         response = self._call(

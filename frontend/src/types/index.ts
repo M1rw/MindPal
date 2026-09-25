@@ -89,6 +89,8 @@ export interface ChangelogEntry {
   version: string;
   released_at?: string;
   major?: boolean;
+  /** Shown once on arrival like a major release, without the "Major release" label. */
+  announce?: boolean;
   title: string;
   summary: string;
   highlights: string[];

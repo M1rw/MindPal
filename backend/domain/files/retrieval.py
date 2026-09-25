@@ -119,7 +119,8 @@ def render_file_context(
     for index, digest in enumerate(digests, start=1):
         paged = digest.kind == "pdf"
         chosen = select_pages(digest, question, share)
-        label = digest.name or digest.title or f"file {index}"
+        # A file name is the person's text inside our markup: no quotes or brackets.
+        label = re.sub(r'["<>]', "", digest.name or digest.title or f"file {index}")[:120]
         size = f"{digest.total_pages} pages" if paged else f"image ({digest.content})"
         when = ' shared="earlier in this chat"' if (index - 1) in earlier else ""
         header = f'<file index="{index}" name="{label}" kind="{digest.kind}" size="{size}"{when}>'

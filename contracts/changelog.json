@@ -1,7 +1,24 @@
 {
   "product": "mindpal",
-  "current_version": "5.0.0",
+  "current_version": "5.0.5",
   "entries": [
+    {
+      "version": "5.0.5",
+      "released_at": "2026-09-25",
+      "major": false,
+      "announce": true,
+      "title": "Share photos and PDFs — MindPal reads them with you",
+      "summary": "Attach images and PDFs, or take a photo, and talk about them with MindPal. Text pages are read right on your device in a moment; scans, screenshots, charts and handwriting are read by a vision model, in their own language. Your files are kept in a personal library: signed-in accounts keep up to 100 files (200 MB), guests keep 10 on this device for 7 days.",
+      "highlights": [
+        "Attach and take photos — Tap + to upload images or PDFs, snap a photo with the in-app camera, drop files onto the composer, or paste a screenshot.",
+        "Reads the way you would — Plain PDF pages are read on your device at once; photos, scans, charts and Arabic or English handwriting are read by a vision model, page by page.",
+        "Answers with page numbers — Replies point to the page they come from; tap “p. 7” to open the PDF right there.",
+        "Pages you can flip through — PDFs show as a small stack of pages; open one to scroll it, zoom a photo, or ask about the page you are on.",
+        "Your library — Every file you share is kept, searchable by name and by what is inside it. Rename, delete, or bring one back into any chat.",
+        "Fair limits — Guests: 5 files a day, PDFs up to 10 pages. Signed in: 30 files a day, PDFs up to 60 pages, and a synced library.",
+        "Private by design — Files are content, never instructions to MindPal. Account files are deleted with your data, and nothing is written to memory from them."
+      ]
+    },
     {
       "version": "5.0.0",
       "released_at": "2026-09-19",

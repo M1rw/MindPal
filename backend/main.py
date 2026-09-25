@@ -121,7 +121,7 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
     # Metrics are aggregated per instance-minute by the platform pulse
     # (backend/infra/observability/pulse.py); one document per LLM call or voice
     # request is no longer written.
-    app = FastAPI(title="MindPal", version="5.0.0", docs_url=None, redoc_url=None)
+    app = FastAPI(title="MindPal", version="5.0.5", docs_url=None, redoc_url=None)
 
     allowed_hosts = csv_env(ALLOWED_HOSTS_ENV)
     if allowed_hosts:

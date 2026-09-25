@@ -16,7 +16,7 @@ CHANGELOG_PATH = Path(__file__).resolve().parents[3] / "contracts" / "changelog.
 
 def current_version() -> str:
     changelog = ReleaseService().get_changelog()
-    return changelog.get("current_version", "5.0.0")
+    return changelog.get("current_version", "5.0.5")
 
 
 class ReleaseService:
@@ -28,7 +28,7 @@ class ReleaseService:
     def get_changelog(self, user_id_hash: Optional[str] = None) -> Dict[str, Any]:
         data = {
             "product": "mindpal",
-            "current_version": "5.0.0",
+            "current_version": "5.0.5",
             "entries": [],
             "dismissed_versions": []
         }

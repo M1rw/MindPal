@@ -1,0 +1,26 @@
+{
+  "receipt": {
+    "kind": "text",
+    "text": "CORNER CAFE\nLatte 4.50\nCroissant 3.20\nTOTAL 7.70"
+  },
+  "arabic-note": {
+    "kind": "text",
+    "text": "تذكير: موعد الطبيب يوم الأربعاء الساعة العاشرة صباحا. لا تنس إحضار التقارير."
+  },
+  "chart": {
+    "kind": "mixed",
+    "text": "Sleep hours this week Mon Tue Wed Thu Fri 6 7 5 8 7"
+  },
+  "photo": {
+    "kind": "visual",
+    "text": ""
+  },
+  "mixed-en-ar": {
+    "kind": "text",
+    "text": "Meeting notes / ملاحظات الاجتماع\nBudget approved: 12,000\nالمراجعة القادمة: الأحد"
+  },
+  "handwriting-like": {
+    "kind": "text",
+    "text": "call mom at 6, buy milk, finish essay"
+  }
+}

@@ -30,6 +30,7 @@ DEFAULT_VISION_LADDER = (
 )
 TIMEOUT_S = 45.0
 _COOLDOWN_S = 30.0
+RETRY_WAIT_S = 4.0
 _COOLING: Dict[Tuple[str, str], float] = {}
 
 
@@ -126,6 +127,11 @@ def _via_compatible(provider: str, model: str, images: Sequence[VisionImage], in
     return str((choices[0].get("message") or {}).get("content") or "")
 
 
+def _rate_limited(text: str) -> bool:
+    # Not a bare "rate": that is also in "generate".
+    return any(marker in text for marker in ("429", "resource_exhausted", "rate limit", "rate_limit", "ratelimit"))
+
+
 def read_images(
     images: Sequence[VisionImage],
     instruction: str,
@@ -138,19 +144,28 @@ def read_images(
         raise ValueError("no images")
     entries = _ordered(ladder if ladder is not None else vision_ladder())
     errors: List[str] = []
-    for provider, model in entries:
-        started = time.monotonic()
-        try:
-            if provider == "gemini":
-                raw = _via_gemini(model, images, instruction, max_tokens)
-            else:
-                raw = _via_compatible(provider, model, images, instruction, max_tokens)
-            data = extract_json_object(raw)
-            return VisionReading(data=data, provider=provider, model=model, ms=int((time.monotonic() - started) * 1000))
-        except Exception as exc:  # any failure: next rung
-            text = f"{type(exc).__name__} {exc}".lower()
-            if "429" in text or "resource_exhausted" in text or "rate" in text:
-                _COOLING[(provider, model)] = time.monotonic() + _COOLDOWN_S
-            errors.append(f"{provider}:{model}: {type(exc).__name__}")
-            logger.warning("vision_rung_failed provider=%s model=%s detail=%s", provider, model, str(exc)[:200])
+    for round_ in range(2):
+        limited = 0
+        for provider, model in entries:
+            started = time.monotonic()
+            try:
+                if provider == "gemini":
+                    raw = _via_gemini(model, images, instruction, max_tokens)
+                else:
+                    raw = _via_compatible(provider, model, images, instruction, max_tokens)
+                data = extract_json_object(raw)
+                return VisionReading(data=data, provider=provider, model=model, ms=int((time.monotonic() - started) * 1000))
+            except Exception as exc:  # any failure: next rung
+                text = f"{type(exc).__name__} {exc}".lower()
+                if _rate_limited(text):
+                    limited += 1
+                    _COOLING[(provider, model)] = time.monotonic() + _COOLDOWN_S
+                errors.append(f"{provider}:{model}: {type(exc).__name__}")
+                logger.warning("vision_rung_failed provider=%s model=%s detail=%s", provider, model, str(exc)[:200])
+        # Every rung busy at once: per-minute token caps refill within seconds,
+        # so one short wait usually beats telling someone to try again.
+        if round_ == 0 and entries and limited == len(entries):
+            time.sleep(RETRY_WAIT_S)
+            continue
+        break
     raise VisionUnavailable("; ".join(errors) or "no vision provider configured")
