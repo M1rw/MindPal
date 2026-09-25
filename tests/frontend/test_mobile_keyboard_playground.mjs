@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
+import { serveStatic } from './static_server.mjs';
 
 const port = 4186;
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -9,10 +9,7 @@ let server;
 let browser;
 
 test.before(async () => {
-  server = spawn('python', ['-m', 'http.server', String(port), '--directory', 'tests/fixtures'], {
-    cwd: process.cwd(),
-    stdio: ['ignore', 'ignore', 'pipe'],
-  });
+  server = await serveStatic('tests/fixtures', port);
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
     try {
@@ -27,7 +24,7 @@ test.before(async () => {
 
 test.after(async () => {
   await browser?.close();
-  server?.kill();
+  await server?.close();
 });
 
 test('iOS keyboard simulation pins the composer to the keyboard top', async () => {

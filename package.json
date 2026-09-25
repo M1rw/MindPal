@@ -9,7 +9,7 @@
     "prebuild": "python scripts/build/apply_brand.py && node scripts/build/verify_lockfile_registry.mjs",
     "build": "npm run build:css && npm run build:app && npm run build:pdf",
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
-    "build:app": "esbuild frontend/src/main.tsx --bundle --format=esm --platform=browser --target=es2022 --minify --loader:.tsx=tsx --loader:.ts=ts --outfile=frontend/dist/app.bundle.js",
+    "build:app": "node -e \"require('fs').rmSync('frontend/dist/chunks',{recursive:true,force:true})\" && esbuild frontend/src/main.tsx --bundle --splitting --format=esm --platform=browser --target=es2022 --minify --loader:.tsx=tsx --loader:.ts=ts --outdir=frontend/dist --entry-names=app.bundle --chunk-names=chunks/[name]-[hash]",
     "build:vercel": "npm run build",
     "test": "node --test tests/frontend/test_*.mjs",
     "verify:build": "python scripts/build/verify_frontend_build.py",

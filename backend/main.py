@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import re
@@ -214,9 +215,12 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
         response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
-        response.headers["Permissions-Policy"] = "geolocation=(self), camera=(), payment=(), usb=()"
+        response.headers["Permissions-Policy"] = "geolocation=(self), camera=(self), microphone=(self), payment=(), usb=()"
         if is_production():
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        path = request.url.path
+        if response.status_code == 200 and path.startswith(STATIC_PREFIXES):
+            response.headers["Cache-Control"] = static_cache_control(path)
         return response
 
     wire_http(app)
@@ -270,6 +274,44 @@ def _script_safe_json(payload: dict[str, Any]) -> str:
     return encoded.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
+STATIC_PREFIXES = ("/dist/", "/css/", "/assets/")
+
+
+def static_cache_control(path: str) -> str:
+    """How long browsers and Vercel's CDN may keep a static file.
+
+    Every request used to reach the Python function (an ocean away from most
+    visitors) because nothing let the CDN keep a copy. Code-split chunks are
+    named by their content, so they never change: cache them for good. The
+    entry bundle, CSS and images keep their names across releases: browsers
+    check them each time (a quick 304), while the CDN, whose cache starts
+    empty on every deployment, answers from its copy.
+    """
+    if path.startswith("/dist/chunks/"):
+        return "public, max-age=31536000, immutable"
+    return "public, max-age=0, s-maxage=31536000, must-revalidate"
+
+
+_STATIC_IMPORT = re.compile(r"""(?:^|[;}])import\s*(?:[^'"]*?from\s*)?["']\./(chunks/[\w.-]+\.js)["']""")
+
+
+@functools.lru_cache(maxsize=1)
+def startup_preloads() -> str:
+    """<link rel="modulepreload"> for the chunks the entry bundle imports at startup.
+
+    Without these the browser finds them only after downloading and parsing the
+    entry: a second round trip before the app can start. Read once per process
+    (the build does not change under a running deployment).
+    """
+    entry = FRONTEND / "dist" / "app.bundle.js"
+    try:
+        source = entry.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    chunks = list(dict.fromkeys(_STATIC_IMPORT.findall(source)))
+    return "".join(f'    <link rel="modulepreload" href="./dist/{chunk}">\n' for chunk in chunks)
+
+
 def _mount_frontend(app: FastAPI) -> None:
     for prefix, folder in (
         ("/css", FRONTEND / "css"),
@@ -321,6 +363,9 @@ def _mount_frontend(app: FastAPI) -> None:
         else:
             rendered = raw_html.replace("</head>", f"    {bootstrap_block}\n</head>", 1)
 
+        preloads = startup_preloads()
+        if preloads:
+            rendered = rendered.replace("</head>", f"{preloads}</head>", 1)
         return HTMLResponse(content=rendered, headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
