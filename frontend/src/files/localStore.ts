@@ -7,7 +7,9 @@
  *           guest limits (count and days).
  *
  * Everything fails soft: with no IndexedDB (private windows, tests) files still
- * work for the chat they are sent in, they are just not kept.
+ * work for the chat they are sent in, they are just not kept. Bytes are stored
+ * as ArrayBuffers, not Blobs: WebKit refuses Blobs in IndexedDB in private and
+ * ephemeral contexts, and every engine stores an ArrayBuffer.
  */
 import type { Digest, FileKind } from './types.ts';
 
@@ -37,6 +39,43 @@ export interface LocalLibraryRecord {
   thumb: Blob;
   previews: Blob[];
   createdAt: number;
+}
+
+/** A Blob as IndexedDB can always hold it. */
+interface StoredBytes {
+  bytes: ArrayBuffer;
+  type: string;
+}
+
+async function toStored(blob: Blob): Promise<StoredBytes> {
+  return { bytes: await blob.arrayBuffer(), type: blob.type };
+}
+
+function fromStored(value: StoredBytes | Blob | undefined): Blob {
+  if (!value) return new Blob();
+  if (value instanceof Blob) return value; // written before bytes were stored as buffers
+  return new Blob([value.bytes], { type: value.type });
+}
+
+interface StoredThumb {
+  id: string;
+  thumb: StoredBytes;
+  previews: StoredBytes[];
+  savedAt: number;
+}
+
+type StoredLibraryRecord = Omit<LocalLibraryRecord, 'original' | 'thumb' | 'previews'> & {
+  original: StoredBytes;
+  thumb: StoredBytes;
+  previews: StoredBytes[];
+};
+
+function readThumb(stored: StoredThumb): ThumbRecord {
+  return { id: stored.id, savedAt: stored.savedAt, thumb: fromStored(stored.thumb), previews: stored.previews.map(fromStored) };
+}
+
+function readRecord(stored: StoredLibraryRecord): LocalLibraryRecord {
+  return { ...stored, original: fromStored(stored.original), thumb: fromStored(stored.thumb), previews: stored.previews.map(fromStored) };
 }
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
@@ -81,16 +120,23 @@ function run<T>(store: string, mode: IDBTransactionMode, act: (s: IDBObjectStore
 // --- thumbnails -----------------------------------------------------------------
 
 export async function saveThumbs(id: string, thumb: Blob, previews: Blob[] = []): Promise<void> {
-  await run(THUMBS, 'readwrite', (s) => s.put({ id, thumb, previews, savedAt: Date.now() } satisfies ThumbRecord));
+  const stored: StoredThumb = {
+    id,
+    thumb: await toStored(thumb),
+    previews: await Promise.all(previews.map(toStored)),
+    savedAt: Date.now(),
+  };
+  await run(THUMBS, 'readwrite', (s) => s.put(stored));
   void pruneThumbs();
 }
 
-export function loadThumbs(id: string): Promise<ThumbRecord | null> {
-  return run<ThumbRecord>(THUMBS, 'readonly', (s) => s.get(id) as IDBRequest<ThumbRecord>);
+export async function loadThumbs(id: string): Promise<ThumbRecord | null> {
+  const stored = await run<StoredThumb>(THUMBS, 'readonly', (s) => s.get(id) as IDBRequest<StoredThumb>);
+  return stored ? readThumb(stored) : null;
 }
 
 async function pruneThumbs(): Promise<void> {
-  const all = await run<ThumbRecord[]>(THUMBS, 'readonly', (s) => s.getAll() as IDBRequest<ThumbRecord[]>);
+  const all = await run<StoredThumb[]>(THUMBS, 'readonly', (s) => s.getAll() as IDBRequest<StoredThumb[]>);
   if (!all || all.length <= MAX_THUMBS) return;
   const oldest = all.sort((a, b) => a.savedAt - b.savedAt).slice(0, all.length - MAX_THUMBS);
   for (const record of oldest) await run(THUMBS, 'readwrite', (s) => s.delete(record.id));
@@ -103,7 +149,9 @@ export async function clearThumbs(): Promise<void> {
 // --- a guest's library -------------------------------------------------------------
 
 export async function listLocalLibrary(maxFiles: number, maxDays: number): Promise<LocalLibraryRecord[]> {
-  const all = (await run<LocalLibraryRecord[]>(LIBRARY, 'readonly', (s) => s.getAll() as IDBRequest<LocalLibraryRecord[]>)) ?? [];
+  const all = ((await run<StoredLibraryRecord[]>(LIBRARY, 'readonly', (s) => s.getAll() as IDBRequest<StoredLibraryRecord[]>)) ?? []).map(
+    readRecord,
+  );
   const cutoff = Date.now() - maxDays * 86_400_000;
   const sorted = all.sort((a, b) => b.createdAt - a.createdAt);
   const keep = sorted.filter((r) => r.createdAt >= cutoff).slice(0, maxFiles);
@@ -112,12 +160,19 @@ export async function listLocalLibrary(maxFiles: number, maxDays: number): Promi
   return keep;
 }
 
-export function getLocalFile(id: string): Promise<LocalLibraryRecord | null> {
-  return run<LocalLibraryRecord>(LIBRARY, 'readonly', (s) => s.get(id) as IDBRequest<LocalLibraryRecord>);
+export async function getLocalFile(id: string): Promise<LocalLibraryRecord | null> {
+  const stored = await run<StoredLibraryRecord>(LIBRARY, 'readonly', (s) => s.get(id) as IDBRequest<StoredLibraryRecord>);
+  return stored ? readRecord(stored) : null;
 }
 
 export async function putLocalFile(record: LocalLibraryRecord): Promise<boolean> {
-  return (await run(LIBRARY, 'readwrite', (s) => s.put(record))) !== null;
+  const stored: StoredLibraryRecord = {
+    ...record,
+    original: await toStored(record.original),
+    thumb: await toStored(record.thumb),
+    previews: await Promise.all(record.previews.map(toStored)),
+  };
+  return (await run(LIBRARY, 'readwrite', (s) => s.put(stored))) !== null;
 }
 
 export async function deleteLocalFile(id: string): Promise<void> {
