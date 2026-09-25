@@ -5430,6 +5430,8 @@ html.dark .chat-composer--thinking::after {
 
 /* Interactive cards under a reply (components/chat/cards/ChatCards.tsx). */
 .chat-card {
+  position: relative;
+  box-sizing: border-box;
   margin-top: 0.75rem;
   max-width: 26rem;
   border: 1px solid var(--border-subtle);
@@ -5437,6 +5439,53 @@ html.dark .chat-composer--thinking::after {
   background: var(--surface-subtle);
   overflow: hidden;
   animation: chatCardIn 320ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  /* Height follows its content between stages; width and corners fold it into
+     the done pill. One easing for all, so it reads as a single movement. */
+  transition:
+    height 380ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 420ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 420ms cubic-bezier(0.32, 0.72, 0, 1),
+    background-color 300ms ease-out,
+    border-color 300ms ease-out,
+    margin 300ms ease-out;
+}
+.chat-card__inner {
+  transition: opacity 180ms ease-out, filter 220ms ease-out;
+}
+.chat-card.is-done .chat-card__inner {
+  opacity: 0;
+  filter: blur(4px);
+  pointer-events: none;
+}
+.chat-card__pill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.75rem;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease-out 180ms;
+}
+[dir="rtl"] > .chat-card__pill { inset: 0 0 0 auto; }
+.chat-card.is-done .chat-card__pill { opacity: 1; }
+.chat-card.is-collapsed {
+  margin-top: 0.625rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+/* A new stage (running, "how do you feel?") rises in instead of popping. */
+.chat-card__stage {
+  animation: chatStageIn 300ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes chatStageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes chatCardIn {
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
@@ -5607,75 +5656,123 @@ html.dark .chat-composer--thinking::after {
   .chat-card__chip:hover { border-color: var(--border-default); }
 }
 
-.chat-card--done {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  max-width: none;
-  margin-top: 0.625rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  animation: none;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .chat-card,
-  .chat-card__step { animation: none; }
+  .chat-card__step,
+  .chat-card__stage { animation: none; }
+  .chat-card,
+  .chat-card__inner,
+  .chat-card__pill { transition: none; }
   .chat-card__orb { transition-duration: 0s !important; }
 }
 
-/* "Your week" on the home screen (components/chat/canvas/WeekCard.tsx). */
-.week-card {
-  margin: 1.25rem auto 0;
-  max-width: 26rem;
-  padding: 0.875rem 1rem 1rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 1.125rem;
-  background: var(--surface-subtle);
-  text-align: start;
-  animation: weekCardIn 360ms cubic-bezier(0.2, 0.9, 0.3, 1) 320ms both;
+/* "Your week": a small notification pill above the greeting that opens a
+   tooltip (components/chat/canvas/WeekCard.tsx). */
+.week-pill-wrap {
+  position: relative;
+  /* Above the mood chips (their transforms make layers of their own), so the
+     open tooltip is never drawn underneath them. */
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+  animation: weekPillIn 420ms cubic-bezier(0.2, 0.9, 0.3, 1) 380ms both;
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
 }
-@keyframes weekCardIn {
-  from { opacity: 0; transform: translateY(8px); }
+.week-pill-wrap.is-leaving { opacity: 0; transform: translateY(-4px) scale(0.96); }
+@keyframes weekPillIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.94); }
   to { opacity: 1; transform: none; }
 }
-.week-card__head { display: flex; align-items: center; justify-content: space-between; }
-.week-card__title {
+.week-pill {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
+  height: 2rem;
+  padding: 0 0.875rem 0 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 28%, var(--border-subtle));
+  border-radius: 9999px;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 9%, var(--surface-canvas));
+  transition: background-color 160ms ease-out, transform 140ms ease-out, box-shadow 160ms ease-out;
 }
-.week-card__close {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  margin: -0.375rem -0.5rem -0.375rem 0;
-  border-radius: 9999px;
-  color: var(--text-muted);
-}
+.week-pill:active { transform: scale(0.96); }
+.week-pill.is-open { box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 18%, transparent); }
 @media (hover: hover) and (pointer: fine) {
-  .week-card__close:hover { background: var(--surface-elevated); color: var(--text-primary); }
-  .week-card__action:hover { filter: brightness(1.08); }
+  .week-pill:hover { background: color-mix(in srgb, var(--brand-primary) 14%, var(--surface-canvas)); }
+  .week-tip__primary:hover { filter: brightness(1.08); }
+  .week-tip__quiet:hover { color: var(--text-primary); }
 }
-.week-card__text { margin: 0.375rem 0 0.75rem; font-size: 0.9375rem; line-height: 1.45; color: var(--text-primary); }
-.week-card__action {
-  min-height: 2.25rem;
-  padding: 0 1rem;
+/* The unread dot: a soft glow that breathes until it is opened. */
+.week-pill__dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 9999px;
-  font-size: 0.875rem;
+  background: var(--brand-primary);
+  box-shadow: 0 0 0 2px var(--surface-canvas);
+  animation: weekDot 2.4s ease-in-out infinite;
+}
+.week-pill.is-open .week-pill__dot { animation: none; opacity: 0; transition: opacity 160ms ease-out; }
+@keyframes weekDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.75); opacity: 0.6; }
+}
+.week-tip {
+  position: absolute;
+  top: calc(100% + 0.625rem);
+  left: 50%;
+  z-index: 30;
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  background: var(--surface-elevated, var(--surface-card));
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.45);
+  text-align: start;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -6px) scale(0.97);
+  transform-origin: 50% 0;
+  transition: opacity 180ms ease-out, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+/* The tooltip's pointer toward the pill. */
+.week-tip::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+.week-tip.is-open { opacity: 1; pointer-events: auto; transform: translate(-50%, 0) scale(1); }
+.week-tip__text { margin: 0 0 0.75rem; font-size: 0.875rem; line-height: 1.45; color: var(--text-primary); }
+.week-tip__actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.week-tip__primary {
+  min-height: 2.125rem;
+  padding: 0 0.875rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #fff;
   background: var(--brand-primary);
   transition: transform 140ms ease-out, filter 150ms ease-out;
 }
-.week-card__action:active { transform: scale(0.96); }
+.week-tip__primary:active { transform: scale(0.96); }
+.week-tip__quiet { font-size: 0.8125rem; color: var(--text-secondary); transition: color 150ms ease-out; }
 @media (prefers-reduced-motion: reduce) {
-  .week-card { animation: none; }
+  .week-pill-wrap,
+  .week-pill__dot { animation: none; }
+  .week-tip,
+  .week-pill-wrap { transition: opacity 120ms linear; }
 }
