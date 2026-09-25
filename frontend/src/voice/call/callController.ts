@@ -55,6 +55,24 @@ export const BARGE_IN_FENCE_MS = 450;
 const LOCAL_BARGE_IN_FRAMES = 2;
 /** Ignore very quiet room tone while MindPal is speaking. */
 const LOCAL_BARGE_IN_RMS = 0.055;
+/**
+ * The caller's voice, from the mic itself, for the "are you still there?" clock.
+ * Gemini's transcript of the caller often lands only when they finish, so the
+ * clock used to see a caller mid-sentence as quiet: the 15s check-in fired while
+ * they talked, forced a reply to half a question, and MindPal then answered the
+ * rest as well ("talked two times"). 10 frames of 20ms = 200ms of sound, only
+ * while MindPal's own audio isn't playing (so its echo never counts).
+ */
+export const IDLE_VOICE_RMS = 0.03;
+const IDLE_VOICE_FRAMES = 10;
+/** After the caller's voice stops, the clock stays paused this long (a breath between phrases). */
+export const IDLE_VOICE_HOLD_MS = 2_500;
+/**
+ * Gemini often answers before the caller's own transcript arrives. Caller words
+ * that land this soon after such a reply starts are the question it is
+ * answering, so they are shown before the reply, not after it.
+ */
+export const LATE_CALLER_WORDS_MS = 4_000;
 /** Longer than the VAD's silenceDurationMs (1500), so a mute closes the caller's turn. */
 const MUTE_TAIL_MS = 2_000;
 /** Prevent a local cut and a delayed provider event from causing a second cut. */
@@ -147,6 +165,12 @@ export class LiveVoiceSession {
   private replyRequestedAt = 0;
   private pendingNotes: string[] = [];
   private readonly idle = new IdleWatch();
+  private voiceFrames = 0;
+  private lastVoiceAt = 0;
+  /** A reply began with none of the caller's words on screen yet; when it began. */
+  private replyAheadOfCallerAt = 0;
+  /** Caller words arrived early in that reply: they belong before it. */
+  private lateCallerWords = false;
   /** Set when the idle goodbye was asked for; the call ends once it has been said. */
   private idleEndingAt = 0;
   private threadNote = '';
@@ -447,9 +471,11 @@ export class LiveVoiceSession {
       now,
     });
     if (this.muted) {
+      this.voiceFrames = 0;
       this.sendMuteTail(pcm.length, now);
       return;
     }
+    this.noteVoice(rms, now);
     if (!this.transport) return;
     this.resumeAudioIfNeeded('capture_frame');
     if (this.phase === 'speaking') {
@@ -590,6 +616,11 @@ export class LiveVoiceSession {
     this.face.modelAudio(audioMs, now, queuedMs);
     if (this.captionCommitted) this.resetCaptionTimeline();
     this.captionTimeline.audio(audioMs, now, queuedMs);
+    // The first audio of a reply that started while no caller words were on screen.
+    if (this.phase === 'listening' && !this.transcript.modelWasHeard) {
+      this.replyAheadOfCallerAt = now;
+      this.lateCallerWords = false;
+    }
     this.modelStreaming = true;
     this.openerHeard = true;
     this.transcript.noteModelAudio();
@@ -626,6 +657,7 @@ export class LiveVoiceSession {
       return;
     }
     const now = this.now();
+    if (this.replyAheadOfCallerAt && now - this.replyAheadOfCallerAt <= LATE_CALLER_WORDS_MS) this.lateCallerWords = true;
     this.lastUserWordsAt = now;
     this.noteCallerActivity(now);
     this.trace.add('caption', 'user', { text: caption, delta: raw });
@@ -657,7 +689,7 @@ export class LiveVoiceSession {
     // The greeting came back empty: without a retry the caller sits in silence.
     if (!heard && !this.openerHeard) this.retryOpener('empty_opener');
     this.face.modelTurnEnded(now, this.playback.queuedMs());
-    this.commitModelTurn();
+    this.commitModelTurn(true);
     this.playback.flushPrebuffer();
     this.endModelStream();
   }
@@ -729,7 +761,14 @@ export class LiveVoiceSession {
     });
   }
 
-  private commitModelTurn(): void {
+  /**
+   * `lateQuestionFirst`: a reply that finished normally. Its late-transcribed
+   * question goes first. Not on a barge-in: those words came after the reply.
+   */
+  private commitModelTurn(lateQuestionFirst = false): void {
+    if (lateQuestionFirst && this.lateCallerWords && this.transcript.currentUser) this.apply('commitUser');
+    this.replyAheadOfCallerAt = 0;
+    this.lateCallerWords = false;
     const said = this.transcript.takeModelTurn();
     if (said) this.callbacks.onTurn?.('model', said);
     this.callbacks.onOutputCaption('');
@@ -870,6 +909,19 @@ export class LiveVoiceSession {
     this.noteCallerActivity(this.now());
   }
 
+  /** Sustained sound at the mic while MindPal is quiet: the caller is talking. */
+  private noteVoice(rms: number, now: number): void {
+    const echoFree = this.phase !== 'speaking' && !this.playback.isPlaying();
+    if (!echoFree || rms < IDLE_VOICE_RMS) {
+      this.voiceFrames = 0;
+      return;
+    }
+    this.voiceFrames += 1;
+    if (this.voiceFrames < IDLE_VOICE_FRAMES) return;
+    this.lastVoiceAt = now;
+    this.noteCallerActivity(now);
+  }
+
   private noteCallerActivity(now: number): void {
     const wasIdle = this.idle.current !== 'active';
     this.idle.activity(now);
@@ -888,6 +940,10 @@ export class LiveVoiceSession {
       this.modelStreaming ||
       this.playback.isPlaying() ||
       this.replacing ||
+      // The caller is mid-sentence: words not yet final, or voice at the mic
+      // that the transcript hasn't caught up with.
+      Boolean(this.transcript.currentUser) ||
+      (this.lastVoiceAt > 0 && now - this.lastVoiceAt < IDLE_VOICE_HOLD_MS) ||
       // Never time out someone MindPal is staying with through a crisis.
       this.isStayingForSupport;
     if (this.idleEndingAt) {
