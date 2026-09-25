@@ -530,3 +530,13 @@ async def test_a_file_turn_streams_on_the_file_key_and_a_chat_turn_on_the_main_k
     [t async for t in gateway.generate_stream(prompt="hi", long_context=True)]
     [t async for t in gateway.generate_stream(prompt="hi")]
     assert used == ["files-groq", None], "None: the chat path keeps its own key"
+
+
+def test_gemini_3_gets_a_thinking_level_not_a_budget():
+    from backend.infra.llm.thinking import thinking_kwargs
+
+    assert thinking_kwargs("gemini-2.5-flash", 0)["thinking_config"].thinking_budget == 0
+    three = thinking_kwargs("gemini-3.5-flash-lite", 0)["thinking_config"]
+    assert three.thinking_budget is None and str(three.thinking_level).lower().endswith("minimal")
+    assert str(thinking_kwargs("gemini-3.8-flash", 512)["thinking_config"].thinking_level).lower().endswith("low")
+    assert thinking_kwargs("gemini-3.8-flash", None) == {}
