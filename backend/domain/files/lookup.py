@@ -17,11 +17,14 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import Any, Dict, List, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from backend.domain.files.contracts import Digest
-from backend.domain.files.library import COLLECTION, LibraryService
 from backend.domain.files.retrieval import page_block, select_pages
+from backend.infra.llm.embeddings import compact, cosine, get_embedder
+
+if TYPE_CHECKING:
+    from backend.domain.files.library import LibraryService
 
 _WORD = re.compile(r"[^\W_]{2,}", re.UNICODE)
 _ARTICLE = re.compile("^(?:وال|بال|كال|فال|لل|ال)")
@@ -85,6 +88,35 @@ class LibraryHit:
     digest: Digest
 
 
+# Pages embedded per file (the rest still match by words).
+MAX_PAGE_VECTORS = 60
+
+
+def file_vectors(name: str, digest: Digest) -> Optional[Dict[str, Any]]:
+    """Embeddings of a file's head (name, title, summary) and its pages, or None."""
+    embedder = get_embedder()
+    if embedder is None:
+        return None
+    head = f"{name}. {digest.title}. {digest.summary}".strip(". ")
+    pages = [f"{p.text[:1500]} {p.description}".strip() for p in digest.pages[:MAX_PAGE_VECTORS]]
+    texts = [head] + [page or head for page in pages]
+    vectors = embedder.embed(texts, task="RETRIEVAL_DOCUMENT")
+    if not vectors or len(vectors) != len(texts):
+        return None
+    return {"head": compact(vectors[0]), "pages": [compact(v) for v in vectors[1:]]}
+
+
+def _semantic(query_vec: Optional[List[float]], doc: Dict[str, Any]) -> float:
+    vecs = doc.get("vecs") if query_vec else None
+    if not isinstance(vecs, dict):
+        return 0.0
+    candidates = [vecs.get("head")] + list(vecs.get("pages") or [])
+    from backend.domain.memory.vectors import meaning_score
+
+    best = max((cosine(query_vec, v) for v in candidates if isinstance(v, list) and v), default=0.0)
+    return meaning_score(best)
+
+
 def _score(wanted: Set[str], doc: Dict[str, Any]) -> float:
     digest = doc.get("digest") or {}
     head = _tokens(f"{doc.get('name', '')} {digest.get('title', '')} {digest.get('summary', '')}")
@@ -98,8 +130,10 @@ def _score(wanted: Set[str], doc: Dict[str, Any]) -> float:
     return max(in_head, in_body * 0.85) + 0.15 * min(in_head, in_body)
 
 
-def search(library: LibraryService, user: str, query: str, *, max_files: int = MAX_FILES) -> List[LibraryHit]:
-    """The person's library files that best match `query`, best first."""
+def search(library: "LibraryService", user: str, query: str, *, max_files: int = MAX_FILES) -> List[LibraryHit]:
+    """The person's library files that best match `query` by words or meaning, best first."""
+    from backend.domain.files.library import COLLECTION
+
     wanted = _tokens(query)
     if not user or not wanted:
         return []
@@ -108,7 +142,15 @@ def search(library: LibraryService, user: str, query: str, *, max_files: int = M
         for _id, doc in library.store.iter_documents(COLLECTION, prefix=f"{user}:")
         if doc.get("status") == "ready" and doc.get("digest")
     ]
-    ranked = sorted(((_score(wanted, doc), doc) for doc in docs), key=lambda pair: -pair[0])
+    query_vec = None
+    if any(isinstance(doc.get("vecs"), dict) for doc in docs):
+        embedder = get_embedder()
+        vectors = embedder.embed([query], task="RETRIEVAL_QUERY") if embedder else None
+        query_vec = vectors[0] if vectors else None
+    ranked = sorted(
+        ((max(_score(wanted, doc), _semantic(query_vec, doc) * 0.9), doc) for doc in docs),
+        key=lambda pair: -pair[0],
+    )
     hits: List[LibraryHit] = []
     for value, doc in ranked[:max_files]:
         if value < MIN_SCORE:
@@ -121,7 +163,7 @@ def search(library: LibraryService, user: str, query: str, *, max_files: int = M
     return hits
 
 
-def voice_result(library: LibraryService, user: str, query: str) -> tuple[str, bool]:
+def voice_result(library: "LibraryService", user: str, query: str) -> tuple[str, bool]:
     """Plain text the live model can speak from, and whether anything was found."""
     hits = search(library, user, query)
     if not hits:
@@ -140,7 +182,7 @@ def voice_result(library: LibraryService, user: str, query: str) -> tuple[str, b
     return f"{note}\n\n" + "\n\n".join(blocks), True
 
 
-def chat_digests(library: LibraryService, user: str, message: str) -> List[Digest]:
+def chat_digests(library: "LibraryService", user: str, message: str) -> List[Digest]:
     """Library files a chat message points at, to add to the turn. Empty unless it clearly refers to one."""
     if not points_at_files(message):
         return []

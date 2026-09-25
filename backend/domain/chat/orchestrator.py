@@ -32,6 +32,7 @@ from backend.domain.identity.fence import deleted_since
 from backend.domain.memory.extract import can_persist_user_memory, extract_atoms_from_turn
 from backend.domain.memory.consolidation import MemoryConsolidationService
 from backend.domain.memory.graph import MemoryGraphService, format_memory_receipt
+from backend.domain.memory.vectors import refresh_quietly
 from backend.domain.quota.quota import QuotaDecision, QuotaService, cost_for_model, is_user_quota_subject
 from backend.domain.safety.modes.chat.classify import SafetyCheckResult, SafetyService
 from backend.domain.safety.shared.output_guard import OutputGuardService, StockSentenceFilter
@@ -789,7 +790,10 @@ class ChatOrchestrator:
                     receipt["count"],
                 )
                 return receipt if receipt["saved"] else None
-            _graph, saved = self.memory_service.merge_atoms(user_id_hash, atoms)
+            graph, saved = self.memory_service.merge_atoms(user_id_hash, atoms)
+            if saved:
+                # New facts become searchable by meaning (after the reply, never before it).
+                refresh_quietly(self.store, user_id_hash, graph.atoms)
             receipt = format_memory_receipt(saved)
             logger.info(
                 "chat_turn_memory_write request_id=%s atoms=%s",
