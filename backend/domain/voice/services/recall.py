@@ -1,6 +1,6 @@
 # backend/domain/voice/recall.py — Memory and past-chat lookups for the live voice model
 
-"""What MindPal can look up mid-call: the caller's memory graph and their saved chats.
+"""What MindPal can look up mid-call: the caller's memory graph, their saved chats and their library.
 
 The Live model calls `search_memory` / `search_past_chats` as tools. The browser
 holds the Gemini socket, so it relays the call here; this checks the call belongs
@@ -29,7 +29,7 @@ from backend.domain.memory.extract import can_persist_user_memory
 from backend.domain.memory.graph import MemoryGraphService
 from backend.infra.store.store import get_store
 
-TOOLS = ("search_memory", "search_past_chats")
+TOOLS = ("search_memory", "search_past_chats", "search_library")
 VOICE_SESSION_COLLECTION = "voice_sessions"
 CLOSED_STATUSES = {"torn_down", "crisis_freeze"}
 
@@ -118,6 +118,8 @@ class VoiceRecallService:
         text = _clip(query, MAX_QUERY_CHARS)
         if tool == "search_memory":
             return self._search_memory(user_id_hash, text)
+        if tool == "search_library":
+            return self._search_library(user_id_hash, text)
         return self._search_chats(user_id_hash, text)
 
     # ------------------------------------------------------------ searches
@@ -138,6 +140,13 @@ class VoiceRecallService:
         if not lines:
             return RecallResult(NOTHING_FOUND, False)
         return RecallResult(_clip("\n".join(lines), MEMORY_RESULT_CHARS), True)
+
+    def _search_library(self, user_id_hash: str, query: str) -> RecallResult:
+        from backend.domain.files.library import LibraryService
+        from backend.domain.files.lookup import voice_result
+
+        text, found = voice_result(LibraryService(store=self.store), user_id_hash, query)
+        return RecallResult(text, True) if found else RecallResult(NOTHING_FOUND, False)
 
     def _digest_hits(self, user_id_hash: str, query: str, wanted: Set[str]) -> List[tuple[float, str]]:
         """Earlier conversations, compacted into digests, ranked by meaning when possible."""
