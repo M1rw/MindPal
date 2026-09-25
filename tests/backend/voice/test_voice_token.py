@@ -174,7 +174,7 @@ def test_mint_uses_provider_token_not_vt_stub(monkeypatch: pytest.MonkeyPatch) -
     assert "outputAudioTranscription" in setup
     tools = setup["tools"]
     names = [row["name"] for row in tools[0]["functionDeclarations"]]
-    assert names == ["set_expression", "set_mood", "report_risk", "search_memory", "search_past_chats"]
+    assert names == ["set_expression", "set_mood", "report_risk", "search_memory", "search_past_chats", "search_library"]
     assert "wink" in tools[0]["functionDeclarations"][0]["parameters"]["properties"]["expression"]["enum"]
     assert "heart" in tools[0]["functionDeclarations"][0]["parameters"]["properties"]["expression"]["enum"]
     assert tools[0]["functionDeclarations"][0]["behavior"] == "NON_BLOCKING"
@@ -302,7 +302,7 @@ def test_sdk_mint_uses_v1alpha_and_live_connect_constraints(monkeypatch: pytest.
     assert 1200 <= snake_vad["silence_duration_ms"] <= 2000
     tools = constraints["config"]["tools"]
     names = [row["name"] for row in tools[0]["function_declarations"]]
-    assert names == ["set_expression", "set_mood", "report_risk", "search_memory", "search_past_chats"]
+    assert names == ["set_expression", "set_mood", "report_risk", "search_memory", "search_past_chats", "search_library"]
     assert "wink" in tools[0]["function_declarations"][0]["parameters"]["properties"]["expression"]["enum"]
     assert tools[0]["function_declarations"][1]["behavior"] == "NON_BLOCKING"
     assert constraints["config"]["session_resumption"] == {}
