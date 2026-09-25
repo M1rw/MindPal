@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { useChatStore, useAuthStore, useMemoryStore, useSessionStore, useChatHistoryStore } from '../../../store';
 import { renderMarkdown } from '../../../utils/ui/markdown';
+import { citationTargets, withPageCitations } from '../../../files/citations.ts';
+import { turnAttachments } from '../../../files/turnPayload.ts';
 import { captureMemoryReceipt } from '../../../utils/memory/guestMemory';
 import { useGreeting } from '../../../hooks/chat/useGreeting';
 import { useOverlayPresence } from '../../../hooks/ui/useOverlayPresence';
@@ -286,6 +288,12 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
 
     const controller = new AbortController();
     useChatStore.getState().setAbortController(controller);
+    // The files that message was sent with, and earlier ones, read again from their digests.
+    const attachments = await turnAttachments({
+      resent: userMsg.attachments,
+      history,
+      signedIn: useSessionStore.getState().isAuthenticated,
+    });
 
     await ApiClient.streamChat(
       userMsg.content,
@@ -309,6 +317,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
       {
         model: activeModel,
         signal: controller.signal,
+        attachments,
         onMemory: (receipt) => {
           const kept = captureMemoryReceipt(receipt, useSessionStore.getState().isAuthenticated);
           if (kept) setMessageMemoryReceipt(target.id, kept);
@@ -331,11 +340,12 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
 
   const handleSaveEdit = useCallback(async (msgId: string, content: string) => {
     const trimmed = content.trim();
-    if (!trimmed) return;
-
     const state = useChatStore.getState();
     const idx = state.messages.findIndex((message) => message.id === msgId);
     if (idx === -1 || state.messages[idx].role !== 'user') return;
+    const sentFiles = state.messages[idx].attachments;
+    // A message with files may lose its words; one with neither is not a message.
+    if (!trimmed && !sentFiles?.length) return;
     if (state.isGenerating) state.stopGeneration();
 
     const history = state.messages.slice(Math.max(0, idx - 30), idx);
@@ -359,6 +369,11 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
     state.setAbortController(controller);
     let current = '';
     const { ApiClient } = await import('../../../services/api');
+    const attachments = await turnAttachments({
+      resent: sentFiles,
+      history,
+      signedIn: useSessionStore.getState().isAuthenticated,
+    });
 
     await ApiClient.streamChat(
       trimmed,
@@ -384,6 +399,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
       {
         model: useChatStore.getState().activeModel,
         signal: controller.signal,
+        attachments,
         onMemory: (receipt) => {
           const kept = captureMemoryReceipt(receipt, useSessionStore.getState().isAuthenticated);
           if (kept) useChatStore.getState().setMessageMemoryReceipt(assistantMsgId, kept);
@@ -391,6 +407,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
       }
     );
   }, []);
+
+  // What a "[p. N]" in each reply points at: the newest PDF shared by then.
+  const citeTargets = citationTargets(messages);
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col">
@@ -425,7 +444,8 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
                 const isUser = msg.role === 'user';
                 const isLast = idx === messages.length - 1;
                 const isStreamingThis = !isUser && ((isGenerating && isLast && !regeneratingId) || regeneratingId === msg.id);
-                const htmlContent = renderMarkdown(msg.content);
+                const citeFile = isUser ? undefined : citeTargets[idx];
+                const htmlContent = citeFile ? withPageCitations(renderMarkdown(msg.content)) : renderMarkdown(msg.content);
                 const thumbed = thumbsState[msg.id] ?? null;
                 const editingIdx = editingUserId
                   ? messages.findIndex((message) => message.id === editingUserId)
@@ -444,6 +464,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
                     speakingId={speakingId}
                     thumbed={thumbed}
                     htmlContent={htmlContent}
+                    citeFile={citeFile}
                     animateEnter={enteringIds.has(msg.id)}
                     canEdit={isUser}
                     isEditing={isEditing}

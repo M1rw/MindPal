@@ -57,6 +57,35 @@ def validated_session_id(value: str) -> str:
     return session_id
 
 
+_ATTACHMENT_KINDS = frozenset({"image", "pdf"})
+_ATTACHMENT_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,80}$")
+_MAX_ATTACHMENTS = 4
+
+
+def clipped_attachments(raw: Any) -> List[Dict[str, Any]]:
+    """What a synced message keeps about its files: identity and shape, never links or bytes."""
+    if not isinstance(raw, list):
+        return []
+    out: List[Dict[str, Any]] = []
+    for item in raw[:_MAX_ATTACHMENTS]:
+        if not isinstance(item, dict) or item.get("kind") not in _ATTACHMENT_KINDS:
+            continue
+        entry: Dict[str, Any] = {"kind": item["kind"], "name": str(item.get("name") or "")[:200]}
+        for key in ("id", "fileId"):
+            value = item.get(key)
+            if isinstance(value, str) and _ATTACHMENT_ID_RE.match(value):
+                entry[key] = value
+        for key, limit in (("pages", 2000), ("size", 100_000_000)):
+            value = item.get(key)
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= limit:
+                entry[key] = value
+        mime = item.get("mime")
+        if isinstance(mime, str) and len(mime) <= 80:
+            entry["mime"] = mime
+        out.append(entry)
+    return out
+
+
 def clipped_messages(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     messages: List[Dict[str, Any]] = []
     for item in raw[-MAX_MESSAGES_PER_SESSION:]:
@@ -66,9 +95,12 @@ def clipped_messages(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if role not in _ALLOWED_MESSAGE_ROLES:
             continue
         content = str(item.get("content") or item.get("text") or "")[:MAX_MESSAGE_CHARS]
-        if not content.strip():
+        attachments = clipped_attachments(item.get("attachments"))
+        if not content.strip() and not attachments:
             continue
         entry: Dict[str, Any] = {"role": role, "content": content}
+        if attachments:
+            entry["attachments"] = attachments
         message_id = item.get("id")
         # Stable ids are what edit, regenerate and dedupe key on; without them a
         # reloaded chat got new identities and the wrong message could be edited.

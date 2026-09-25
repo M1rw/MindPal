@@ -71,6 +71,19 @@ class Settings(BaseSettings):
     chat_provider: str = Field(default='', validation_alias='MINDPAL_CHAT_PROVIDER')
     json_provider: str = Field(default='', validation_alias='MINDPAL_JSON_PROVIDER')
     llm_fallback: str = Field(default='', validation_alias='MINDPAL_LLM_FALLBACK')
+    # Vision models for reading images and PDF pages, tried in order ("provider:model", comma separated).
+    vision_fallback: str = Field(default='', validation_alias='MINDPAL_VISION_FALLBACK')
+    # Models that answer turns carrying files or pictures (long context, images, good writing).
+    files_chat_fallback: str = Field(default='', validation_alias='MINDPAL_FILES_CHAT_FALLBACK')
+    # Files and the library (v5.0.5). 0/off hides them.
+    files: str = Field(default='', validation_alias='MINDPAL_FILES')
+    # Keys for files only (reading images and pages, answering about files). When
+    # any is set, files use only these, so file traffic cannot spend the quota
+    # chat and voice run on. Use keys from separate projects/accounts: limits
+    # are per Google Cloud project, Groq organization and OpenRouter account.
+    files_gemini_api_key: SecretStr = Field(default=SecretStr(''), validation_alias='FILES_GEMINI_API_KEY')
+    files_groq_api_key: SecretStr = Field(default=SecretStr(''), validation_alias='FILES_GROQ_API_KEY')
+    files_openrouter_api_key: SecretStr = Field(default=SecretStr(''), validation_alias='FILES_OPENROUTER_API_KEY')
 
     voice_live: str = Field(default='', validation_alias='MINDPAL_VOICE_LIVE')
     voice_live_allowlist: str = Field(default='', validation_alias='MINDPAL_VOICE_LIVE_ALLOWLIST')

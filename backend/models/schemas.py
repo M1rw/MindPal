@@ -27,7 +27,7 @@ class HealthResponse(BaseModel):
 
     status: HealthState = HealthState.OK
     project_name: str = "MindPal"
-    version: str = "5.0.0"
+    version: str = "5.0.5"
     environment: str = "development"
     uptime_seconds: float | None = None
     dependencies: list[DependencyHealth] = Field(default_factory=list)

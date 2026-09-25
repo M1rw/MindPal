@@ -23,10 +23,12 @@ export function useChatSessionPersistence() {
       }
 
       const firstUser = messages.find((message) => message.role === 'user');
+      // A chat that starts with only a file is named after it.
+      const fileTitle = (files?: Array<{ name: string }>) => (files?.[0]?.name ?? '').replace(/\.[a-z0-9]{2,5}$/i, '');
       const title = existingSession?.titleLocked
         ? existingSession.title
         : firstUser
-          ? deriveSessionTitle(firstUser.content)
+          ? deriveSessionTitle(firstUser.content || fileTitle(firstUser.attachments))
           : existingSession?.title || 'New chat';
 
       const createdAt = existingSession?.createdAt || messages[0]?.timestamp || new Date().toISOString();

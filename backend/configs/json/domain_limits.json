@@ -36,12 +36,14 @@
       "cloud_chat_sessions",
       "voice",
       "adaptive_profile",
-      "memory_digests"
+      "memory_digests",
+      "library_files"
     ],
     "export_not_included": [
       "Chat history stored only in this browser",
       "Guest memory facts stored only on this device",
-      "Sign-in tokens"
+      "Sign-in tokens",
+      "Library file contents (download them from the library); guest files stored only on this device"
     ],
     "account_side_collections": [
       "user_presence",

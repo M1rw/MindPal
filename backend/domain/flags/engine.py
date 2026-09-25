@@ -89,11 +89,24 @@ class FeatureLifecycleEngine:
         )
 
     @classmethod
+    def _files_definition(cls) -> FeatureDefinition:
+        """Files, camera and the library (v5.0.5). On unless MINDPAL_FILES is an explicit off value."""
+        enabled = get_settings().files.strip().lower() not in _VOICE_LIVE_OFF
+        return FeatureDefinition(
+            key="chat.files",
+            stage=FeatureStage.GA if enabled else FeatureStage.DARK_LAUNCH,
+            rollout_percentage=100 if enabled else 0,
+            owner="chat-team",
+            description="Attach images and PDFs, take photos, and keep a library. Off with MINDPAL_FILES=0.",
+        )
+
+    @classmethod
     def _default_capabilities(cls) -> List[FeatureDefinition]:
         """Canonical MindPal domain capabilities adhering to domain taxonomy."""
         return [
             cls._voice_realtime_definition(),
             cls._presence_definition(),
+            cls._files_definition(),
             FeatureDefinition(
                 key="memory.graph_sync",
                 stage=FeatureStage.GA,
@@ -242,6 +255,7 @@ class FeatureLifecycleEngine:
             "voice_enabled": self._enabled(evaluations, "voice.realtime"),
             "presence_enabled": self._enabled(evaluations, "voice.presence"),
             "memory_enabled": self._enabled(evaluations, "memory.graph_sync"),
+            "files_enabled": self._enabled(evaluations, "chat.files"),
             "pro_model_enabled": self._enabled(evaluations, "intelligence.pro_models"),
             "changelog_enabled": self._enabled(evaluations, "release.changelog"),
             "clinical_guidance": self._enabled(evaluations, "clinical.guidance"),

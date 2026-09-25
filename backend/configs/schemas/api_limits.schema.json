@@ -1,85 +1,217 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "MindPal API limits configuration",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "chat",
-    "identity",
-    "memory",
-    "sessions",
-    "release",
-    "request",
-    "voice",
-    "dictation"
-  ],
-  "properties": {
-    "chat": {
-      "type": "object"
-    },
-    "identity": {
-      "type": "object"
-    },
-    "memory": {
-      "type": "object"
-    },
-    "sessions": {
-      "type": "object"
-    },
-    "release": {
-      "type": "object"
-    },
-    "request": {
-      "type": "object",
-      "required": [
-        "max_body_bytes"
-      ],
-      "properties": {
-        "max_body_bytes": {
-          "type": "integer",
-          "minimum": 65536
-        }
-      }
-    },
-    "voice": {
-      "type": "object",
-      "required": [
-        "max_traces_per_session",
-        "max_trace_events"
-      ],
-      "properties": {
-        "max_traces_per_session": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "max_trace_events": {
-          "type": "integer",
-          "minimum": 1
-        }
-      }
-    },
-    "dictation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "max_audio_bytes",
-        "per_hour_account",
-        "per_hour_guest"
-      ],
-      "properties": {
-        "max_audio_bytes": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "per_hour_account": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "per_hour_guest": {
-          "type": "integer",
-          "minimum": 1
-        }
-      }
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "MindPal API limits configuration",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "chat",
+  "identity",
+  "memory",
+  "sessions",
+  "release",
+  "request",
+  "voice",
+  "dictation",
+  "files"
+ ],
+ "properties": {
+  "chat": {
+   "type": "object"
+  },
+  "identity": {
+   "type": "object"
+  },
+  "memory": {
+   "type": "object"
+  },
+  "sessions": {
+   "type": "object"
+  },
+  "release": {
+   "type": "object"
+  },
+  "request": {
+   "type": "object",
+   "required": [
+    "max_body_bytes"
+   ],
+   "properties": {
+    "max_body_bytes": {
+     "type": "integer",
+     "minimum": 65536
     }
+   }
+  },
+  "voice": {
+   "type": "object",
+   "required": [
+    "max_traces_per_session",
+    "max_trace_events"
+   ],
+   "properties": {
+    "max_traces_per_session": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "max_trace_events": {
+     "type": "integer",
+     "minimum": 1
+    }
+   }
+  },
+  "dictation": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "max_audio_bytes",
+    "per_hour_account",
+    "per_hour_guest"
+   ],
+   "properties": {
+    "max_audio_bytes": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "per_hour_account": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "per_hour_guest": {
+     "type": "integer",
+     "minimum": 1
+    }
+   }
+  },
+  "files": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "max_digest_request_bytes",
+    "max_images_per_vision_call",
+    "max_page_text_chars",
+    "max_digest_text_chars",
+    "max_attachments_per_message",
+    "digest_cache_days",
+    "guest",
+    "account",
+    "max_files_in_context"
+   ],
+   "properties": {
+    "max_digest_request_bytes": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "max_images_per_vision_call": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "max_page_text_chars": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "max_digest_text_chars": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "max_attachments_per_message": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "digest_cache_days": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "guest": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "files_per_day",
+      "vision_pages_per_day",
+      "max_image_bytes",
+      "max_pdf_bytes",
+      "max_pdf_pages",
+      "library_files",
+      "library_days"
+     ],
+     "properties": {
+      "files_per_day": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "vision_pages_per_day": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "max_image_bytes": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "max_pdf_bytes": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "max_pdf_pages": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "library_files": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "library_days": {
+       "type": "integer",
+       "minimum": 1
+      }
+     }
+    },
+    "account": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "files_per_day",
+      "vision_pages_per_day",
+      "max_image_bytes",
+      "max_pdf_bytes",
+      "max_pdf_pages",
+      "library_files",
+      "library_bytes"
+     ],
+     "properties": {
+      "files_per_day": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "vision_pages_per_day": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "max_image_bytes": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "max_pdf_bytes": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "max_pdf_pages": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "library_files": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "library_bytes": {
+       "type": "integer",
+       "minimum": 1
+      }
+     }
+    },
+    "max_files_in_context": {
+     "type": "integer",
+     "minimum": 1
+    }
+   }
   }
+ }
 }

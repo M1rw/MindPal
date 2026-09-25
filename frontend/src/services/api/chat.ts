@@ -1,6 +1,7 @@
 import { useSettingsStore, useUsageStore } from '../../store/index.ts';
 import type { MemoryReceipt, MemoryReceiptItem, UserPersonalization, UsageQuota } from '../../types/index.ts';
 import { TimeoutError, fetchWithAuth, newOperationKey, parseErrorMessage } from './http.ts';
+import type { AttachmentPayload } from '../../files/turnPayload.ts';
 
 export const MAX_CHAT_HISTORY_TURNS = 30;
 /**
@@ -142,6 +143,8 @@ export const chatApi = {
       onMemory?: (receipt: MemoryReceipt) => void;
       /** Reuse only when resending the very same turn; new turns get a fresh key. */
       idempotencyKey?: string;
+      /** Files for this turn and earlier ones (frontend/src/files/turnPayload.ts). */
+      attachments?: AttachmentPayload[];
     },
   ): Promise<void> {
     let reader: StreamReader | null = null;
@@ -153,6 +156,8 @@ export const chatApi = {
         method: 'POST',
         signal: options?.signal,
         headers: { 'Idempotency-Key': options?.idempotencyKey || newOperationKey() },
+        // Pictures ride with the request: give a slow phone time to send them.
+        ...(options?.attachments?.length ? { timeoutMs: 45_000 } : {}),
         body: JSON.stringify({
           message,
           history: history.slice(-MAX_CHAT_HISTORY_TURNS).map((turn) => ({
@@ -164,6 +169,7 @@ export const chatApi = {
           telemetry: options?.telemetry,
           personalization: activePersonalization,
           client_context: clientContext,
+          ...(options?.attachments?.length ? { attachments: options.attachments } : {}),
         }),
       });
 

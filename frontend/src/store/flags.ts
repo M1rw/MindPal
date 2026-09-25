@@ -15,6 +15,7 @@ export const DEFAULT_FLAGS: FeatureSnapshot = {
   presence_enabled: false,
   pro_model_enabled: true,
   memory_enabled: true,
+  files_enabled: true,
   changelog_enabled: true,
 };
 

@@ -27,6 +27,7 @@ from backend.domain.chat.strategy import DIRECTIVES, score_strategies
 from backend.domain.chat.trajectory import analyze as analyze_trajectory
 from backend.domain.dynamic.policy import current_load, policy
 from backend.domain.grounding.grounding import GroundingService
+from backend.domain.files.turn import FILE_TOKENS_FLOOR, TurnFiles
 from backend.domain.identity.fence import deleted_since
 from backend.domain.memory.extract import can_persist_user_memory, extract_atoms_from_turn
 from backend.domain.memory.consolidation import MemoryConsolidationService
@@ -324,11 +325,17 @@ class ChatOrchestrator:
         anonymous: bool = False,
         peer: str = "",
         idempotency_key: str = "",
+        files_text: str = "",
     ) -> ChatPreflight:
-        """Safety first. Quota is reserved only when the turn will call the provider."""
+        """Safety first. Quota is reserved only when the turn will call the provider.
+
+        `files_text` is what attached files say: a photographed note about
+        self-harm must reach the crisis path like a typed one.
+        """
         quota_mode = self._quota_mode(user_id_hash=user_id_hash, anonymous=anonymous)
         quota_peer = peer if quota_mode == "network" else ""
-        safety = self._classify_turn(message, history)
+        checked = f"{message}\n\n{files_text}".strip() if files_text else message
+        safety = self._classify_turn(checked, history)
         if safety.is_crisis and safety.crisis_response:
             return ChatPreflight(
                 safety=safety,
@@ -378,6 +385,7 @@ class ChatOrchestrator:
         client_context: Optional[Dict[str, Any]],
         adaptation: Optional[TurnAdaptation] = None,
         history: Optional[Sequence[Any]] = None,
+        files: Optional[TurnFiles] = None,
     ) -> "TurnContext":
         learned_profile = adaptation.profile if adaptation else {}
         trajectory = analyze_trajectory(history, message)
@@ -431,8 +439,12 @@ class ChatOrchestrator:
         )
         if insight.note:
             system_instruction += f"\n{insight.note}\n"
-        # Last, so it is the freshest instruction when the reply starts.
-        size_note = reply_size_note(message, effective_personalization)
+        files_block = files.prompt_block(message) if files else ""
+        if files_block:
+            system_instruction += f"\n{files_block}\n"
+        # Last, so it is the freshest instruction when the reply starts. A file
+        # turn sizes itself (a quick look vs "summarise this"), in the files block.
+        size_note = "" if files else reply_size_note(message, effective_personalization)
         if size_note:
             system_instruction += f"\n{size_note}\n"
         return TurnContext(
@@ -523,6 +535,7 @@ class ChatOrchestrator:
         consume_quota: bool = True,
         anonymous: bool = False,
         peer: str = "",
+        files: Optional[TurnFiles] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """Executes a streaming chat turn yielding tokens, strategy, and structured errors."""
         turn_started = time.time()
@@ -536,7 +549,9 @@ class ChatOrchestrator:
         active_preflight = preflight
 
         try:
-            safety = preflight.safety if preflight else await asyncio.to_thread(self._classify_turn, message, history)
+            files_text = files.safety_text() if files else ""
+            checked = f"{message}\n\n{files_text}".strip() if files_text else message
+            safety = preflight.safety if preflight else await asyncio.to_thread(self._classify_turn, checked, history)
             logger.info(
                 "chat_turn_start request_id=%s model=%s safety=%s crisis=%s",
                 request_id or "-",
@@ -569,6 +584,7 @@ class ChatOrchestrator:
                     model=model,
                     anonymous=anonymous,
                     peer=peer,
+                    files_text=files_text,
                 )
                 if local.error:
                     yield self._sse_error(local.error.code, local.error.message, request_id=request_id, strategy="Quota")
@@ -600,6 +616,7 @@ class ChatOrchestrator:
                 client_context=client_context,
                 adaptation=adaptation,
                 history=history,
+                files=files,
             )
             strategy, system_instruction, grounding_ids = context.strategy, context.system_instruction, context.grounding_ids
             memory_atoms, has_memory_summary = context.memory_atoms, context.has_memory_summary
@@ -621,8 +638,13 @@ class ChatOrchestrator:
                     model,
                     getattr(self.llm_gateway, "default_model", "gemini-2.5-flash") or "gemini-2.5-flash",
                 ),
-                max_tokens=context.plan.max_tokens,
+                # A document answer needs room even when the question is short.
+                max_tokens=max(context.plan.max_tokens, FILE_TOKENS_FLOOR) if files else context.plan.max_tokens,
                 thinking_budget=context.plan.thinking_budget,
+                # Documents need the long-context models; a picture sent with this
+                # turn goes along so the reply can look at it.
+                **({"long_context": True} if files else {}),
+                **({"images": files.images} if files and files.images else {}),
             )
             logger.info(
                 "chat_turn_plan request_id=%s depth=%s reason=%s thinking=%s max_tokens=%s trajectory=%s",

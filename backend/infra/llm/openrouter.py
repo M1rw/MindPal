@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+import base64
+
 import json
 import logging
 import threading
@@ -181,8 +183,9 @@ def build_messages(
     prompt: str,
     system_instruction: Optional[str],
     history: Optional[Sequence[Dict[str, str]]],
-) -> List[Dict[str, str]]:
-    messages: List[Dict[str, str]] = []
+    images: Optional[Sequence[Any]] = None,
+) -> List[Dict[str, Any]]:
+    messages: List[Dict[str, Any]] = []
     if system_instruction:
         messages.append({"role": "system", "content": system_instruction})
     for turn in history or ():
@@ -190,7 +193,15 @@ def build_messages(
         text = str(turn.get("content") or "").strip()
         if text:
             messages.append({"role": role, "content": text})
-    messages.append({"role": "user", "content": prompt})
+    if images:
+        # The OpenAI content-array form: the words, then each image as a data URL.
+        content: List[Dict[str, Any]] = [{"type": "text", "text": prompt}]
+        for image in images:
+            encoded = base64.b64encode(image.data).decode("ascii")
+            content.append({"type": "image_url", "image_url": {"url": f"data:{image.mime_type};base64,{encoded}"}})
+        messages.append({"role": "user", "content": content})
+    else:
+        messages.append({"role": "user", "content": prompt})
     return messages
 
 
@@ -322,6 +333,7 @@ async def stream_text(
     base_url: str = "",
     api_key: str = "",
     timeout_s: float = STREAM_TIMEOUT_S,
+    images: Optional[Sequence[Any]] = None,
 ) -> AsyncGenerator[str, None]:
     """Server-sent-events chat stream, yielding text deltas."""
     key = api_key or openrouter_api_key()
@@ -330,7 +342,7 @@ async def stream_text(
     client = _async_client(base_url or openrouter_base_url(), key, timeout_s)
     payload: Dict[str, Any] = {
         "model": model or openrouter_chat_model(),
-        "messages": build_messages(prompt, system_instruction, history),
+        "messages": build_messages(prompt, system_instruction, history, images),
         "temperature": temperature,
         "max_tokens": max_tokens,
         "stream": True,

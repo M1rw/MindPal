@@ -9,6 +9,8 @@ from typing import Any, AsyncGenerator, Optional, Sequence
 
 from pydantic import BaseModel, ValidationError
 from backend.configs.llm import DEFAULT_GEMINI_CHAT_MODEL, DEFAULT_GEMINI_JSON_MODEL
+from backend.configs.llm import files_api_key
+from backend.infra.llm.thinking import thinking_kwargs
 from backend.configs.settings import get_settings
 from backend.infra.observability.metrics import ProviderMetric, elapsed_ms, provider_metrics
 logger = logging.getLogger("mindpal.llm")
@@ -249,24 +251,6 @@ def reset_llm_clients() -> None:
         _CLIENTS.clear()
 
 
-def _thinking_kwargs(budget: Optional[int]) -> dict[str, Any]:
-    """Build the thinking config, tolerating SDKs/models that do not expose it.
-
-    A model without a thinking knob must not turn into a hard failure on the
-    live-voice safety path, so an unsupported SDK degrades to provider default
-    rather than raising.
-    """
-    if budget is None:
-        return {}
-    try:
-        from google.genai import types
-
-        return {"thinking_config": types.ThinkingConfig(thinking_budget=int(budget))}
-    except Exception:  # pragma: no cover - SDK without ThinkingConfig
-        logger.info("llm_thinking_config_unsupported budget=%s", budget)
-        return {}
-
-
 def _finish_reason(response: Any) -> str:
     try:
         return str(response.candidates[0].finish_reason)
@@ -298,7 +282,9 @@ class LLMGateway:
         # it, so the model was effectively hardcoded.
         self.default_model = default_model or default_chat_model()
 
-    def _build_contents(self, prompt: str, history: Sequence[dict[str, str]] | None) -> list[Any]:
+    def _build_contents(
+        self, prompt: str, history: Sequence[dict[str, str]] | None, images: Sequence[Any] | None = None
+    ) -> list[Any]:
         from google.genai import types
 
         contents: list[Any] = []
@@ -308,7 +294,9 @@ class LLMGateway:
             if not text:
                 continue
             contents.append(types.Content(role=role, parts=[types.Part(text=text)]))
-        contents.append(types.Content(role="user", parts=[types.Part(text=prompt)]))
+        # Images for this turn ride with the latest message, before its words.
+        parts = [types.Part.from_bytes(data=image.data, mime_type=image.mime_type) for image in images or ()]
+        contents.append(types.Content(role="user", parts=[*parts, types.Part(text=prompt)]))
         return contents
 
     async def generate(
@@ -321,6 +309,8 @@ class LLMGateway:
         max_tokens: int = 1024,
         history: Optional[Sequence[dict[str, str]]] = None,
         thinking_budget: Optional[int] = None,
+        images: Optional[Sequence[Any]] = None,
+        long_context: bool = False,
     ) -> str:
         parts: list[str] = []
         async for token in self.generate_stream(
@@ -331,6 +321,8 @@ class LLMGateway:
             max_tokens=max_tokens,
             history=history,
             thinking_budget=thinking_budget,
+            images=images,
+            long_context=long_context,
         ):
             parts.append(token)
         text = "".join(parts).strip()
@@ -351,10 +343,21 @@ class LLMGateway:
         max_tokens: int = 1024,
         history: Optional[Sequence[dict[str, str]]] = None,
         thinking_budget: Optional[int] = None,
+        images: Optional[Sequence[Any]] = None,
+        long_context: bool = False,
     ) -> AsyncGenerator[str, None]:
-        primary = chat_provider()
-        primary_model = (model or self.default_model) if primary == "gemini" else _model_for_provider(primary, model, self.default_model)
-        ladder = _ladder((primary, primary_model))
+        """`images` (VisionImage) or `long_context` (a turn carrying documents) use the
+        files answer models (MINDPAL_FILES_CHAT_FALLBACK): they see images, have room
+        for pages of text (the small fast chat models cap tokens per minute), and
+        write better in every language."""
+        if images or long_context:
+            from backend.infra.llm.vision import answer_ladder
+
+            ladder = answer_ladder()
+        else:
+            primary = chat_provider()
+            primary_model = (model or self.default_model) if primary == "gemini" else _model_for_provider(primary, model, self.default_model)
+            ladder = _ladder((primary, primary_model))
         if not ladder:
             logger.info("llm_fallback_no_credentials provider=%s", primary)
             yield _FALLBACK_STUB
@@ -373,6 +376,8 @@ class LLMGateway:
                 )
             yielded = False
             try:
+                # A turn about files runs on the file keys (its own quota).
+                key = files_api_key(provider) if (images or long_context) else None
                 if provider == "gemini":
                     stream = self._stream_gemini(
                         model=entry_model or self.default_model,
@@ -382,6 +387,8 @@ class LLMGateway:
                         max_tokens=max_tokens,
                         history=history,
                         thinking_budget=thinking_budget,
+                        images=images,
+                        api_key=key,
                     )
                 else:
                     stream = self._stream_openai_compatible(
@@ -393,6 +400,8 @@ class LLMGateway:
                         max_tokens=max_tokens,
                         history=history,
                         fallback=bool(index),
+                        images=images,
+                        api_key=key,
                     )
                 async for token in stream:
                     yielded = True
@@ -417,7 +426,7 @@ class LLMGateway:
                 if _is_rate_limited(exc):
                     _cool(entry)
                 last_error = exc
-                if not _is_transient(exc):
+                if not (images or long_context) and not _is_transient(exc):
                     break
         if isinstance(last_error, LLMGatewayError):
             raise last_error
@@ -436,6 +445,8 @@ class LLMGateway:
         max_tokens: int,
         history: Optional[Sequence[dict[str, str]]],
         thinking_budget: Optional[int],
+        images: Optional[Sequence[Any]] = None,
+        api_key: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """One Gemini stream. Provider errors propagate as-is so the ladder can read them."""
         started = time.perf_counter()
@@ -445,16 +456,16 @@ class LLMGateway:
         try:
             from google.genai import types
 
-            client = _get_client(_api_key(), timeout_ms=STREAM_TIMEOUT_MS)
+            client = _get_client(api_key or _api_key(), timeout_ms=STREAM_TIMEOUT_MS)
             config = types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=temperature,
                 max_output_tokens=max_tokens,
-                **_thinking_kwargs(thinking_budget),
+                **thinking_kwargs(model, thinking_budget),
             )
             stream = await client.aio.models.generate_content_stream(
                 model=model,
-                contents=self._build_contents(prompt, history),
+                contents=self._build_contents(prompt, history, images),
                 config=config,
             )
             async for chunk in stream:
@@ -485,10 +496,13 @@ class LLMGateway:
         max_tokens: int,
         history: Optional[Sequence[dict[str, str]]],
         fallback: bool = False,
+        images: Optional[Sequence[Any]] = None,
+        api_key: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         from backend.infra.llm import openrouter as oai
 
         base_url, key = _openai_compatible_config(provider)
+        key = api_key or key
         if not key:
             raise LLMGatewayError("unavailable", f"{provider} is not configured.")
         started = time.perf_counter()
@@ -503,6 +517,7 @@ class LLMGateway:
                 history=history,
                 base_url=base_url,
                 api_key=key,
+                images=images,
             ):
                 yielded = True
                 yield token
@@ -668,8 +683,8 @@ class LLMGateway:
                 temperature=temperature,
                 max_output_tokens=max_tokens,
                 response_mime_type="application/json",
-                **_thinking_kwargs(
-                    JSON_THINKING_BUDGET if thinking_budget is None else thinking_budget
+                **thinking_kwargs(
+                    model or json_model(), JSON_THINKING_BUDGET if thinking_budget is None else thinking_budget
                 ),
             )
             response = client.models.generate_content(

@@ -7,12 +7,13 @@
     "brand": "python scripts/build/apply_brand.py",
     "brand:check": "python scripts/build/apply_brand.py --check",
     "prebuild": "python scripts/build/apply_brand.py && node scripts/build/verify_lockfile_registry.mjs",
-    "build": "npm run build:css && npm run build:app",
+    "build": "npm run build:css && npm run build:app && npm run build:pdf",
     "build:css": "tailwindcss -c tailwind.config.cjs -i frontend/css/tailwind.input.css -o frontend/css/tailwind.generated.css --minify",
     "build:app": "esbuild frontend/src/main.tsx --bundle --format=esm --platform=browser --target=es2022 --minify --loader:.tsx=tsx --loader:.ts=ts --outfile=frontend/dist/app.bundle.js",
     "build:vercel": "npm run build",
     "test": "node --test tests/frontend/test_*.mjs",
-    "verify:build": "python scripts/build/verify_frontend_build.py"
+    "verify:build": "python scripts/build/verify_frontend_build.py",
+    "build:pdf": "esbuild frontend/src/files/pdfjs-entry.ts --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/pdf.bundle.js && esbuild node_modules/pdfjs-dist/build/pdf.worker.min.mjs --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=frontend/dist/pdf.worker.js"
   },
   "dependencies": {
     "@types/react": "^19.3.0",
@@ -23,6 +24,7 @@
     "firebase": "11.6.1",
     "lucide": "0.468.0",
     "lucide-react": "^1.45.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwind-merge": "^3.6.0",

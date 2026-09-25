@@ -15,6 +15,7 @@ from backend.domain.identity.fence import mark_deleted
 from backend.domain.identity.inventory import INVENTORY
 from backend.domain.memory.graph import MemoryGraphService
 from backend.domain.voice.privacy import VoicePrivacyService
+from backend.domain.files.library import LibraryService
 from backend.infra.auth.verifier import AuthVerifier, UserSession
 from backend.infra.store.store import get_store
 
@@ -92,6 +93,7 @@ class IdentityService:
                 doc for _id, doc in self.store.iter_documents("session_telemetry", prefix=f"{user_id_hash}:")
             ],
             "greetings": [doc for _id, doc in self.store.iter_documents("greeting_cache", prefix=f"{user_id_hash}:")],
+            "library_files": LibraryService(self.store).export(user_id_hash),
         }
 
     def delete_account(self, user_id_hash: str) -> Dict[str, Any]:
@@ -120,6 +122,11 @@ class IdentityService:
         # limits, so "delete my data" doubled as a free quota refill.
         for collection in _ACCOUNT_SIDE_COLLECTIONS:
             self.store.delete_document(collection, user_id_hash)
+
+        # Library bytes live outside the document store: delete them, and the
+        # cached readings, before the documents that point at them.
+        if LibraryService(self.store).delete_account(user_id_hash):
+            deleted.append("library_files")
 
         for collection in _PREFIX_OWNED_COLLECTIONS:
             for doc_id, _doc in list(self.store.iter_documents(collection, prefix=f"{user_id_hash}:")):

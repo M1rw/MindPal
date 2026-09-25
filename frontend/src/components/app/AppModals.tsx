@@ -22,6 +22,15 @@ const LazyChangelogModal = React.lazy(() =>
 const LazyChatHistoryModal = React.lazy(() =>
   import('../chat/history/ChatHistoryModal').then((module) => ({ default: module.ChatHistoryModal }))
 );
+const LazyLibraryModal = React.lazy(() =>
+  import('../library/LibraryModal').then((module) => ({ default: module.LibraryModal }))
+);
+const LazyFileViewer = React.lazy(() =>
+  import('../files/FileViewer').then((module) => ({ default: module.FileViewer }))
+);
+const LazyCameraSheet = React.lazy(() =>
+  import('../camera/CameraSheet').then((module) => ({ default: module.CameraSheet }))
+);
 const LazyVoiceOverlay = React.lazy(() =>
   import('../voice/VoiceOverlay').then((module) => ({ default: module.VoiceOverlay }))
 );
@@ -38,6 +47,7 @@ export const AppModals: React.FC<AppModalsProps> = ({
   onCloseMemory,
 }) => {
   const liveEnabled = useFlagsStore((state) => state.flags.voice_enabled);
+  const filesEnabled = useFlagsStore((state) => state.flags.files_enabled ?? true);
   const voiceActive = useVoiceStore((state) => state.isActive);
   const showLiveVoice = Boolean(liveEnabled && voiceActive);
 
@@ -73,6 +83,15 @@ export const AppModals: React.FC<AppModalsProps> = ({
           <LazyChatHistoryModal />
         </Suspense>
       </ErrorBoundary>
+      {filesEnabled ? (
+        <ErrorBoundary variant="modal">
+          <Suspense fallback={null}>
+            <LazyLibraryModal />
+            <LazyFileViewer />
+            <LazyCameraSheet />
+          </Suspense>
+        </ErrorBoundary>
+      ) : null}
       {showLiveVoice ? (
         <ErrorBoundary variant="modal">
           <Suspense fallback={null}>

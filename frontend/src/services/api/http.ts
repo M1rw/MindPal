@@ -166,7 +166,9 @@ async function openRequest(
   const { idToken, appCheckToken } = useSessionStore.getState();
   const headers = new Headers(options.headers ?? {});
 
-  if (options.body !== undefined && options.body !== null && !headers.has('Content-Type')) {
+  // JSON by default, but only for a string body: a Blob or FormData carries its
+  // own type (and FormData its multipart boundary), which a forced header breaks.
+  if (typeof options.body === 'string' && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 

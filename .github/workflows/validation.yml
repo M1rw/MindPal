@@ -114,7 +114,7 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit -p tsconfig.json
       - name: Build CSS and bundle (the end-to-end tests load the built app)
-        run: npm run build:css && npm run build:app
+        run: npm run build:css && npm run build:app && npm run build:pdf
       - name: Frontend security and build audit
         run: python3 scripts/ci/audit_frontend.py
       - name: Frontend and voice contract tests

@@ -26,7 +26,7 @@ def test_live_health_and_changelog():
     assert health.json()["status"] == "ok"
     changelog = client.get("/api/release/changelog")
     assert changelog.status_code == 200
-    assert changelog.json()["current_version"] == "5.0.0"
+    assert changelog.json()["current_version"] == "5.0.5"
 
 
 def test_bootstrap_injection_in_index():
