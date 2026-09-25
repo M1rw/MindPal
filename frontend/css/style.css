@@ -5789,13 +5789,17 @@ html.dark .chat-composer--thinking::after {
   .week-anchor { transition: opacity 120ms linear; }
 }
 
-/* The streak number beside its flame. A digit's ink sits high in its line box
-   and the flame is bottom-heavy, so centred boxes still looked uneven. Sized
-   and nudged until their visual centres (ink centroids) match: measured within
-   0.03px in light and dark. */
+/* The streak number beside its flame. Centring their boxes left the digit high
+   and by how much depended on the font (a fixed nudge fixed one font and broke
+   another). Trimming the number's box to its cap height makes the box the digit
+   itself in any font; the flame, whose weight sits low, is lifted a hair so the
+   two look level. */
 .streak-count {
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1;
-  transform: translateY(0.75px);
+  text-box: trim-both cap alphabetic;
+}
+#streak-btn svg {
+  transform: translateY(-0.75px);
 }
