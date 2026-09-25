@@ -20,18 +20,21 @@ import httpx
 
 from backend.configs.llm import compatible_provider, files_api_key
 from backend.configs.settings import get_settings
+from backend.infra.llm.thinking import thinking_kwargs
 from backend.models.provider_outputs import extract_json_object
 
 logger = logging.getLogger("mindpal.vision")
 
+# Gemini 3.x: the 2.5 models are closed to new projects (a separate files key
+# comes from a new project), and every key can use 3.x.
 DEFAULT_VISION_LADDER = (
-    "gemini:gemini-2.5-flash-lite,groq:qwen/qwen3.8-27b,"
-    "openrouter:google/gemma-4-31b-it:free,gemini:gemini-2.5-flash"
+    "gemini:gemini-3.5-flash-lite,groq:qwen/qwen3.8-27b,"
+    "gemini:gemini-3.8-flash,openrouter:google/gemma-4-31b-it:free"
 )
 # Answering about files (writing a reply, not reading a page): the stronger
 # writer first. Qwen's Arabic, for one, slipped into typos and repeated words.
 DEFAULT_ANSWER_LADDER = (
-    "gemini:gemini-2.5-flash,gemini:gemini-2.5-flash-lite,groq:qwen/qwen3.8-27b,"
+    "gemini:gemini-3.8-flash,gemini:gemini-3.5-flash-lite,groq:qwen/qwen3.8-27b,"
     "openrouter:google/gemma-4-31b-it:free"
 )
 TIMEOUT_S = 45.0
@@ -106,8 +109,9 @@ def _via_gemini(model: str, images: Sequence[VisionImage], instruction: str, max
             temperature=0.1,
             max_output_tokens=max_tokens,
             response_mime_type="application/json",
-            thinking_config=types.ThinkingConfig(thinking_budget=0),
             http_options=types.HttpOptions(timeout=int(TIMEOUT_S * 1000)),
+            # Reading needs no reasoning: none on 2.5, the least on 3.x.
+            **thinking_kwargs(model, 0),
         ),
     )
     return result.text or ""
@@ -172,6 +176,9 @@ def read_images(
                 if _rate_limited(text):
                     limited += 1
                     _COOLING[(provider, model)] = time.monotonic() + _COOLDOWN_S
+                elif "404" in text or "not_found" in text:
+                    # A model this key cannot use: skip it for an hour, not every call.
+                    _COOLING[(provider, model)] = time.monotonic() + 3600
                 errors.append(f"{provider}:{model}: {type(exc).__name__}")
                 logger.warning("vision_rung_failed provider=%s model=%s detail=%s", provider, model, str(exc)[:200])
         # Every rung busy at once: per-minute token caps refill within seconds,

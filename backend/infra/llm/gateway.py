@@ -10,6 +10,7 @@ from typing import Any, AsyncGenerator, Optional, Sequence
 from pydantic import BaseModel, ValidationError
 from backend.configs.llm import DEFAULT_GEMINI_CHAT_MODEL, DEFAULT_GEMINI_JSON_MODEL
 from backend.configs.llm import files_api_key
+from backend.infra.llm.thinking import thinking_kwargs
 from backend.configs.settings import get_settings
 from backend.infra.observability.metrics import ProviderMetric, elapsed_ms, provider_metrics
 logger = logging.getLogger("mindpal.llm")
@@ -250,24 +251,6 @@ def reset_llm_clients() -> None:
         _CLIENTS.clear()
 
 
-def _thinking_kwargs(budget: Optional[int]) -> dict[str, Any]:
-    """Build the thinking config, tolerating SDKs/models that do not expose it.
-
-    A model without a thinking knob must not turn into a hard failure on the
-    live-voice safety path, so an unsupported SDK degrades to provider default
-    rather than raising.
-    """
-    if budget is None:
-        return {}
-    try:
-        from google.genai import types
-
-        return {"thinking_config": types.ThinkingConfig(thinking_budget=int(budget))}
-    except Exception:  # pragma: no cover - SDK without ThinkingConfig
-        logger.info("llm_thinking_config_unsupported budget=%s", budget)
-        return {}
-
-
 def _finish_reason(response: Any) -> str:
     try:
         return str(response.candidates[0].finish_reason)
@@ -478,7 +461,7 @@ class LLMGateway:
                 system_instruction=system_instruction,
                 temperature=temperature,
                 max_output_tokens=max_tokens,
-                **_thinking_kwargs(thinking_budget),
+                **thinking_kwargs(model, thinking_budget),
             )
             stream = await client.aio.models.generate_content_stream(
                 model=model,
@@ -700,8 +683,8 @@ class LLMGateway:
                 temperature=temperature,
                 max_output_tokens=max_tokens,
                 response_mime_type="application/json",
-                **_thinking_kwargs(
-                    JSON_THINKING_BUDGET if thinking_budget is None else thinking_budget
+                **thinking_kwargs(
+                    model or json_model(), JSON_THINKING_BUDGET if thinking_budget is None else thinking_budget
                 ),
             )
             response = client.models.generate_content(
