@@ -7,7 +7,13 @@
 import { SLEEPY_ALERTNESS, type AffectLevels } from './affect.ts';
 import { isAcousticDistress } from './distress.ts';
 import { hasConcernLexicon, type EyeTalkShape } from './eyeTalk.ts';
-import { EXPRESSION_CHANNELS, EXPRESSION_POSES, type FaceChannel, type FaceExpression } from './expressionCatalog.ts';
+import {
+  EXPRESSION_CHANNELS,
+  EXPRESSION_POSES,
+  type EyeShape,
+  type FaceChannel,
+  type FaceExpression,
+} from './expressionCatalog.ts';
 import {
   allowExpressionUnderDistress,
   commandEnvelope,
@@ -46,7 +52,7 @@ export interface FaceBlendResult {
   expression: FaceExpression | 'speech';
   mood: ProsodyState | 'idle';
   /** Eye silhouette the active look asks for. Capsule unless stated. */
-  shape: 'capsule' | 'heart';
+  shape: EyeShape;
   commandName: FaceExpression | '';
   commandWeight: number;
   distress: boolean;

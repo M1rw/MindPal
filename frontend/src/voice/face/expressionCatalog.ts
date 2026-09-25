@@ -23,6 +23,10 @@ export const FACE_EXPRESSIONS = [
   'tired',
   'neutral',
   'heart',
+  // Joy with its own silhouettes: laughing arcs, sparkle eyes, a blush.
+  'laugh',
+  'excited',
+  'blush',
   // States, shown by the call rather than asked for: working out a reply, and
   // looking something up in memory or past chats.
   'thinking',
@@ -49,9 +53,12 @@ export const DISTRESS_SAFE_EXPRESSIONS = new Set<FaceExpression>([
   'reading',
 ]);
 
+/** Eye silhouettes: capsule (default), heart, closed happy arc (^ ^), four-point sparkle. */
+export type EyeShape = 'capsule' | 'heart' | 'arc' | 'star';
+
 export interface ExpressionPose {
   /** Eye outline generator. Capsule unless a look needs its own silhouette. */
-  shape?: 'capsule' | 'heart';
+  shape?: EyeShape;
   width: number;
   height: number;
   spacing: number;
@@ -106,6 +113,12 @@ export const EXPRESSION_POSES: Record<FaceExpression, ExpressionPose> = {
     // for on purpose, so it holds long enough to be seen and enjoyed.
     durationMs: 4200,
   },
+  // Eyes squeezed into happy arcs (^ ^); the orb bobs while it lasts.
+  laugh: { ...BASE, shape: 'arc', width: 34, height: 32, spacing: 80, offsetY: -36, radius: 10, blinkIntervalScale: 4, durationMs: 1800 },
+  // Four-point sparkles that twinkle: big news, delight.
+  excited: { ...BASE, shape: 'star', width: 34, height: 52, spacing: 82, offsetY: -40, blinkIntervalScale: 3, durationMs: 1600 },
+  // Shy happy arcs and pink cheeks: a compliment, a sweet moment.
+  blush: { ...BASE, shape: 'arc', width: 32, height: 26, spacing: 78, offsetY: -34, radius: 8, gazeOverrideX: -4, gazeOverrideY: 4, durationMs: 2400 },
   wink: { ...BASE, leftLid: 0.04, leftHeightMult: 0.2, rightHeightMult: 1.05, durationMs: 480 },
   blink_slow: { ...BASE, leftLid: 0.08, rightLid: 0.08, height: 28, durationMs: 900 },
   widen: { ...BASE, width: 26, height: 74, spacing: 80, offsetY: -44, leftHeightMult: 1.15, rightHeightMult: 1.15, durationMs: 900 },
@@ -181,6 +194,9 @@ export type FaceChannel = 'gaze' | 'lids' | 'shape' | 'nod' | 'lean' | 'blink';
 export const EXPRESSION_CHANNELS: Record<FaceExpression, readonly FaceChannel[]> = {
   // Shape only: a heart must not also drag the lids or gaze around.
   heart: ['shape'],
+  laugh: ['shape', 'blink', 'nod'],
+  excited: ['shape', 'blink'],
+  blush: ['shape', 'gaze'],
   wink: ['lids'],
   blink_slow: ['lids', 'blink'],
   widen: ['shape'],

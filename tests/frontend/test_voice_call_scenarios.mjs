@@ -618,10 +618,25 @@ describe('the face matches what MindPal is saying', () => {
     call.transport.audio(1_000);
     // Checks are paced (SPEECH_CLASSIFY_GAP_MS) to the server's admission rate.
     await call.advance(600);
-    assert.deepEqual(said.slice(-2), ['Okay so here is the thing.', 'Haha, no way!']);
+    // Its own laugh needs no tone check: only the first sentence is asked about.
+    assert.deepEqual(said.slice(-1), ['Okay so here is the thing.']);
+    assert.ok(!said.includes('Haha, no way!'));
     assert.equal(call.ui.looks.length, looksBefore, 'not yet: its audio has not started');
     await call.advance(1_750);
-    assert.deepEqual(call.ui.looks.slice(looksBefore), ['smile_eyes'], 'smiles as the laugh plays');
+    assert.deepEqual(call.ui.looks.slice(looksBefore), ['laugh'], 'laughs as the laugh plays');
+  });
+
+  it('laughs with its own laughter in any language, without asking the classifier', async () => {
+    const { said, classify } = toneClassifier({});
+    const call = makeCall({ classify });
+    await call.ready();
+    const looksBefore = call.ui.looks.length;
+    const checksBefore = said.length;
+    call.transport.modelText('ههههه والله حلوة! ');
+    call.transport.audio(1_500);
+    await call.advance(300);
+    assert.deepEqual(said.slice(checksBefore), [], 'no tone check for a laugh');
+    assert.deepEqual(call.ui.looks.slice(looksBefore), ['laugh']);
   });
 
   it('splits sentences in scripts without spaces', async () => {
@@ -772,7 +787,7 @@ describe('the speaking face lasts the whole reply', () => {
     await call.advance(50);
     await call.advance(11_000);
     const looks = call.ui.looks.slice(before);
-    assert.deepEqual(looks, ['amused', 'amused', 'amused'], 'no blank face mid-reply');
+    assert.deepEqual(looks, ['laugh', 'laugh', 'laugh'], 'no blank face mid-reply');
     assert.ok(call.ui.reactions.includes('laugh'), 'the laugh bounces the head once');
     assert.equal(call.ui.reactions.filter((k) => k === 'laugh').length, 1, 'carried tone does not bounce again');
   });

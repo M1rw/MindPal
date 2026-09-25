@@ -63,6 +63,10 @@ export function settingsNavItemClass(active: boolean): string {
   );
 }
 
+/** The look of a select trigger; buttons beside a select (e.g. Preview) use it to match. */
+export const settingsControlButtonClass =
+  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm font-medium text-content-primary border border-edge-subtle bg-transparent hover:bg-surface-elevated transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-50 disabled:pointer-events-none';
+
 export type SettingsSelectOption<T extends string = string> = {
   value: T;
   label: string;
@@ -308,7 +312,7 @@ export function SettingsSelect<T extends string>({
         aria-expanded={open}
         aria-controls={listboxId}
         aria-label={ariaLabel}
-        className="settings-select-trigger flex items-center justify-between gap-1.5 min-w-[7.5rem] px-2.5 py-1.5 rounded-xl text-sm font-medium text-content-primary border border-edge-subtle bg-transparent hover:bg-surface-elevated transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:opacity-50 disabled:pointer-events-none"
+        className={cn('settings-select-trigger justify-between min-w-[7.5rem]', settingsControlButtonClass)}
       >
         <span className="flex min-w-0 items-center gap-2">
           {selected?.leading}

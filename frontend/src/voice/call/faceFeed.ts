@@ -66,6 +66,13 @@ export type ClassifyReaction = (text: string, context: string, speaker?: 'caller
  */
 const SENTENCE_END = /(?:[.!?…؟]+["'”’)\]]*\s+)|(?:[。！？]+)/gu;
 
+/**
+ * MindPal's own laughter in its transcript (haha, hehe, lol, jaja, kkk, ههه,
+ * خخخ). Unambiguous in any language, so the face laughs with it at once
+ * instead of waiting on a tone check.
+ */
+export const OWN_LAUGHTER = /(?:^|[^\p{L}])(?:ha(?:ha)+h?|he(?:he)+|lol|lmao|ja(?:ja)+|k{3,})(?![\p{L}])|ه{3,}|خ{3,}/iu;
+
 /** A tone look lasts its sentence, but a few looks read oddly held that long. */
 const SPEECH_LOOK_MAX_MS: Partial<Record<ReactionKind, number>> = { ah: 1_800, laugh: 3_000, excited: 2_500 };
 const SPEECH_LOOK_MIN_MS = 1_200;
@@ -377,7 +384,33 @@ export class FaceFeed {
     this.classifySentence(classify, this.sentences.shift() as SpokenSentence);
   }
 
+  /** Places a tone look on MindPal's audio timeline for one sentence. */
+  private scheduleTone(kind: ReactionKind, sentence: SpokenSentence, fresh: boolean): void {
+    const look = reactionLook({ kind, at: 0, strength: 1 });
+    if (!look) return;
+    this.scheduled.push({
+      command: {
+        expression: look.expression,
+        intensity: fresh ? look.intensity : look.intensity * 0.8,
+        source: 'speech',
+      },
+      fromChar: sentence.fromChar,
+      toChar: sentence.toChar,
+      capMs: SPEECH_LOOK_MAX_MS[kind] ?? SPEECH_LOOK_CEILING_MS,
+      // Head motion only for a fresh tone: a carried one would bounce every sentence.
+      reaction: fresh ? { kind, strength: 0.7 } : null,
+    });
+    this.tick(this.clock());
+  }
+
   private classifySentence(classify: ClassifyReaction, sentence: SpokenSentence): void {
+    if (OWN_LAUGHTER.test(sentence.text)) {
+      // It is laughing: no need to ask what the sentence means.
+      this.speechTone = 'laugh';
+      this.scheduleTone('laugh', sentence, true);
+      this.pumpSpeech();
+      return;
+    }
     const epoch = this.speechEpoch;
     this.speechInFlight += 1;
     void classify(sentence.text, '', 'mindpal')
@@ -397,21 +430,7 @@ export class FaceFeed {
         const kind = fresh ?? this.speechTone;
         if (!kind) return;
         this.speechTone = kind;
-        const look = reactionLook({ kind, at: 0, strength: 1 });
-        if (!look) return;
-        this.scheduled.push({
-          command: {
-            expression: look.expression,
-            intensity: fresh ? look.intensity : look.intensity * 0.8,
-            source: 'speech',
-          },
-          fromChar: sentence.fromChar,
-          toChar: sentence.toChar,
-          capMs: SPEECH_LOOK_MAX_MS[kind] ?? SPEECH_LOOK_CEILING_MS,
-          // Head motion only for a fresh tone: a carried one would bounce every sentence.
-          reaction: fresh ? { kind, strength: 0.7 } : null,
-        });
-        this.tick(this.clock());
+        this.scheduleTone(kind, sentence, Boolean(fresh));
       })
       .catch(() => {
         /* the face just stays on its speaking motion */
