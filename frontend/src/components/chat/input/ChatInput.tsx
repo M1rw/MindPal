@@ -234,7 +234,12 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
 
     try {
       // This turn's files, and earlier ones still in view for follow-up questions.
-      const attachments = await turnAttachments({ fresh: sentFiles, history: messages, signedIn: isAuthenticated });
+      const attachments = await turnAttachments({
+        fresh: sentFiles,
+        history: messages,
+        signedIn: isAuthenticated,
+        message: trimmed,
+      });
       await ApiClient.streamChat(
         trimmed,
         messages.slice(-30),

@@ -156,6 +156,9 @@ class AttachmentRef(BaseModel):
     mime: str = Field(default="image/jpeg", max_length=40)
     # Shared on an earlier turn of this conversation (kept in view for follow-ups).
     earlier: bool = False
+    # Not attached: MindPal found it in their on-device library because the
+    # message pointed at a file (guests; accounts are looked up on the server).
+    library: bool = False
 
     @field_validator("file_id")
     @classmethod

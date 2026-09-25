@@ -96,3 +96,24 @@ def test_a_broken_library_never_breaks_the_turn():
             raise RuntimeError("store down")
 
     assert not library_turn_files("check my lease please", user_id_hash=USER, library=Broken())
+
+
+def test_arabic_matches_across_the_article_and_prefixes():
+    store = InMemoryStore()
+    _file(store, USER, "f_ar", "عقد.pdf", "عقد الإيجار", "اتفاقية الإيجار", ["يسمح بقطة واحدة مع رسوم شهرية"])
+    _file(store, USER, "f_bio", "biology.pdf", "Cell biology", "Mitosis", ["Mitosis has four phases."])
+    library = LibraryService(store=store)
+    assert [d.name for d in chat_digests(library, USER, "شو مكتوب في العقد عن رسوم القطة؟")] == ["عقد.pdf"]
+
+
+def test_a_library_pick_from_a_guest_gets_the_library_header():
+    from backend.domain.files.contracts import AttachmentRef, Digest
+    from backend.domain.files.turn import resolve_turn_files
+
+    digest = Digest.model_validate({"version": 1, "kind": "pdf", "content": "text", "name": "lease.pdf", "title": "Lease",
+                                    "summary": "", "language": "en", "total_pages": 1,
+                                    "pages": [{"n": 1, "kind": "text", "text": "Pets: one cat.", "description": ""}]})
+    picked = resolve_turn_files([AttachmentRef(digest=digest, name="lease.pdf", library=True)], user_id_hash="", signed_in=False)
+    attached = resolve_turn_files([AttachmentRef(digest=digest, name="lease.pdf")], user_id_hash="", signed_in=False)
+    assert picked.from_library and LIBRARY_HEADER in picked.prompt_block("my lease?")
+    assert not attached.from_library

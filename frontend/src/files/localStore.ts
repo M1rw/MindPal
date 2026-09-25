@@ -174,6 +174,12 @@ export async function listLocalLibrary(maxFiles: number, maxDays: number): Promi
   return keep;
 }
 
+/** Every file in the guest library, newest first. Read-only: never prunes (listLocalLibrary does). */
+export async function readLocalLibrary(): Promise<LocalLibraryRecord[]> {
+  const all = (await allRows()).filter((row): row is StoredLibraryRecord => !isAlias(row)).map(readRecord);
+  return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+
 export async function getLocalFile(id: string): Promise<LocalLibraryRecord | null> {
   let row = await run<StoredLibraryRow>(LIBRARY, 'readonly', (s) => s.get(id) as IDBRequest<StoredLibraryRow>);
   if (row && isAlias(row)) {
