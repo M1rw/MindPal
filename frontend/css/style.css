@@ -5626,3 +5626,56 @@ html.dark .chat-composer--thinking::after {
   .chat-card__step { animation: none; }
   .chat-card__orb { transition-duration: 0s !important; }
 }
+
+/* "Your week" on the home screen (components/chat/canvas/WeekCard.tsx). */
+.week-card {
+  margin: 1.25rem auto 0;
+  max-width: 26rem;
+  padding: 0.875rem 1rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 1.125rem;
+  background: var(--surface-subtle);
+  text-align: start;
+  animation: weekCardIn 360ms cubic-bezier(0.2, 0.9, 0.3, 1) 320ms both;
+}
+@keyframes weekCardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.week-card__head { display: flex; align-items: center; justify-content: space-between; }
+.week-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--brand-primary);
+}
+.week-card__close {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin: -0.375rem -0.5rem -0.375rem 0;
+  border-radius: 9999px;
+  color: var(--text-muted);
+}
+@media (hover: hover) and (pointer: fine) {
+  .week-card__close:hover { background: var(--surface-elevated); color: var(--text-primary); }
+  .week-card__action:hover { filter: brightness(1.08); }
+}
+.week-card__text { margin: 0.375rem 0 0.75rem; font-size: 0.9375rem; line-height: 1.45; color: var(--text-primary); }
+.week-card__action {
+  min-height: 2.25rem;
+  padding: 0 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--brand-primary);
+  transition: transform 140ms ease-out, filter 150ms ease-out;
+}
+.week-card__action:active { transform: scale(0.96); }
+@media (prefers-reduced-motion: reduce) {
+  .week-card { animation: none; }
+}

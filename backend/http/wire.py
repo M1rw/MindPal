@@ -17,6 +17,7 @@ from backend.http.flags import router as flags_router
 from backend.http.health import router as health_router
 from backend.http.identity import router as identity_router
 from backend.http.memory import router as memory_router
+from backend.http.notifications import router as notifications_router
 from backend.http.placeholders import register_preview_placeholders
 from backend.http.release import router as release_router
 from backend.http.sessions import router as sessions_router
@@ -36,6 +37,7 @@ _ROUTERS = (
     chat_router,
     dictation_router,
     files_router,
+    notifications_router,
     usage_router,
     sessions_router,
     identity_router,

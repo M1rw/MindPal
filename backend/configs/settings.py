@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     groq_model: str = Field(default='qwen/qwen3.8-27b', validation_alias='GROQ_MODEL')
     groq_json_model: str = Field(default='', validation_alias='GROQ_JSON_MODEL')
     groq_stt_model: str = Field(default='', validation_alias='GROQ_STT_MODEL')
+    # Opt-in check-in notifications (Web Push). The private VAPID key (base64url
+    # P-256); the public key browsers subscribe with is derived from it. Unset = off.
+    vapid_private_key: SecretStr = Field(default=SecretStr(''), validation_alias='VAPID_PRIVATE_KEY')
+    vapid_subject: str = Field(default='https://mindpal-demo.vercel.app', validation_alias='VAPID_SUBJECT')
     # Gemini models for voice notes that mix languages, tried in order (comma separated).
     dictation_gemini_models: str = Field(default='', validation_alias='MINDPAL_DICTATION_GEMINI_MODELS')
     # More OpenAI-compatible providers with free tiers. Inert until a key is set;

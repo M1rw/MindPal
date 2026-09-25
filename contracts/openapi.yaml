@@ -30,6 +30,23 @@ paths:
         "200": { description: Consolidation report }
         "401": { description: Scheduler credential required }
 
+  /api/internal/daily:
+    get:
+      operationId: opsDailyTasks
+      tags: [internal]
+      summary: Daily scheduler run (voice retention sweep, then due check-in notifications)
+      x-mindpal:
+        owner: platform
+        status: preview
+        audience: system
+        ai-access: hidden
+        client: scheduler
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: Retention and notification report }
+        "401": { description: Scheduler credential required }
+
   /api/internal/platform-pulse:
     get:
       operationId: opsPlatformPulse
@@ -920,6 +937,58 @@ paths:
         side-effects: false
       responses:
         "200": { description: "Usage and limits" }
+
+  /api/notifications:
+    get:
+      operationId: notificationsStatus
+      tags: [notifications]
+      summary: "Whether check-in notifications can be turned on, the key to subscribe with, and the caller's device count"
+      x-mindpal:
+        owner: notifications
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: false
+      responses:
+        "200": { description: "Availability, public key and devices" }
+        "401": { description: "Sign in required" }
+
+  /api/notifications/subscribe:
+    post:
+      operationId: notificationsSubscribe
+      tags: [notifications]
+      summary: "Turn on check-in notifications for this device (a push endpoint from a known push service)"
+      x-mindpal:
+        owner: notifications
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: "Status after subscribing" }
+        "401": { description: "Sign in required" }
+        "422": { description: "Not a usable push endpoint" }
+
+  /api/notifications/unsubscribe:
+    post:
+      operationId: notificationsUnsubscribe
+      tags: [notifications]
+      summary: "Turn off check-in notifications for this device"
+      x-mindpal:
+        owner: notifications
+        status: preview
+        audience: user
+        ai-access: hidden
+        client: web
+        sunset: null
+        side-effects: true
+      responses:
+        "200": { description: "Status after unsubscribing" }
+        "401": { description: "Sign in required" }
 
   /api/library:
     get:
