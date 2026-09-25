@@ -482,7 +482,8 @@ describe('Expression engine and prosody', () => {
       commands: after,
       userTranscript: '',
       crisis: false,
-      now: now + 160,
+      // Once the newest look has eased in (attack up to 200ms, smoothstepped).
+      now: now + 300,
     });
     assert.equal(composed.talkActive, true);
     assert.equal(composed.commandName, 'sleepy');
