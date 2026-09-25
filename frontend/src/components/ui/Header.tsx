@@ -108,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
       id="header"
       className="sticky top-0 z-20 flex flex-none flex-col gap-0 bg-surface-canvas backdrop-blur-md transition-colors duration-200 ease-out"
     >
-      <div className="flex items-center gap-2 px-3 pb-2.5 pt-safe-top sm:px-5">
+      <div className="header-row flex items-center gap-2 px-3 pb-2.5 pt-safe-top sm:px-5">
         <div className="flex min-w-0 items-center gap-2.5">
           <p className="select-none text-xl font-medium tracking-tight text-content-primary">
             MindPal

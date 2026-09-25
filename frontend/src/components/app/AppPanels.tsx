@@ -89,26 +89,21 @@ export const AppPanels: React.FC<AppPanelsProps> = ({
     </div>
   );
 
-  if (!showPresence) {
-    return (
-      <main id="chat-main" role="main" className="flex-1 flex flex-col overflow-hidden relative">
-        {chatShell}
-      </main>
-    );
-  }
-
+  // One tree whether or not the Presence tab exists. The flags arrive ~0.7s
+  // after load; switching to a different wrapper then re-created the whole
+  // chat (the composer lost what was typed and its focus, and the greeting
+  // animation played again). Now the chat panel stays and Presence is added.
+  const chatVisible = !showPresence || activeTab === 'chat';
   return (
     <main id="chat-main" role="main" className="flex-1 flex overflow-hidden relative">
       <div
         id="tabpanel-chat"
-        role="tabpanel"
-        aria-labelledby="tab-chat"
-        aria-hidden={activeTab !== 'chat'}
+        role={showPresence ? 'tabpanel' : undefined}
+        aria-labelledby={showPresence ? 'tab-chat' : undefined}
+        aria-hidden={showPresence ? !chatVisible : undefined}
         className={[
           'absolute inset-0 flex flex-col transition-opacity duration-200 ease-out',
-          activeTab === 'chat'
-            ? 'opacity-100 pointer-events-auto'
-            : 'opacity-0 pointer-events-none',
+          chatVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
         ].join(' ')}
       >
         {chatShell}

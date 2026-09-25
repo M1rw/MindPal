@@ -596,8 +596,17 @@ export const ChatHistoryModal: React.FC = () => {
                   onClick={() => setShowMore((open) => !open)}
                   className={cn('palette-more mx-2', current === moreIndex && 'is-highlighted')}
                 >
-                  {showMore ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                  {showMore ? 'Show fewer' : `More actions (${otherActions.length})`}
+                  {showMore ? (
+                    <ChevronUp className="palette-more__chevron h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="palette-more__chevron h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  {showMore ? 'Show fewer' : 'More actions'}
+                  {showMore ? null : (
+                    <span className="palette-more__count" aria-label={`${otherActions.length} more`}>
+                      {otherActions.length}
+                    </span>
+                  )}
                 </button>
               ) : null}
             </div>
