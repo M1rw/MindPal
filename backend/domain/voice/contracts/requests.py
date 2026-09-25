@@ -21,7 +21,7 @@ class VoiceReactionRequest(BaseModel):
 
 class VoiceRecallRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=64)
-    tool: Literal["search_memory", "search_past_chats"]
+    tool: Literal["search_memory", "search_past_chats", "search_library"]
     query: str = Field(default="", max_length=2000)
 
 

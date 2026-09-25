@@ -3,11 +3,12 @@
   "title": "MindPal voice tools configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["risk_tool_description", "recall_memory_description", "recall_chats_description", "face_tool_description", "mood_tool_description"],
+  "required": ["risk_tool_description", "recall_memory_description", "recall_chats_description", "recall_library_description", "face_tool_description", "mood_tool_description"],
   "properties": {
     "risk_tool_description": {"type": "string"},
     "recall_memory_description": {"type": "string"},
     "recall_chats_description": {"type": "string"},
+    "recall_library_description": {"type": "string"},
     "face_tool_description": {"type": "string"},
     "mood_tool_description": {"type": "string"}
   }
