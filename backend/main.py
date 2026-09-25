@@ -221,6 +221,9 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
         path = request.url.path
         if response.status_code == 200 and path.startswith(STATIC_PREFIXES):
             response.headers["Cache-Control"] = static_cache_control(path)
+        elif path == "/sw.js":
+            # A new service worker must reach browsers on the next check.
+            response.headers["Cache-Control"] = "no-cache"
         return response
 
     wire_http(app)
@@ -334,6 +337,8 @@ def _mount_frontend(app: FastAPI) -> None:
         ("sitemap.xml", "application/xml"),
         ("privacy.html", "text/html"),
         ("terms.html", "text/html"),
+        # Check-in notifications (served from the root so its scope is the whole app).
+        ("sw.js", "text/javascript"),
     ):
         _path = FRONTEND / _name
         if not _path.exists():

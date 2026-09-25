@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Query
+from backend.domain.followups import askable_threads, local_today
 from backend.core.errors import AppError
 from backend.domain.dynamic.policy import current_load
 from backend.domain.greeting.engine import GreetingEngine
@@ -181,6 +182,7 @@ def get_greeting(
         tz_offset_minutes=tz_offset,
         memory_summary=graph.summary,
         memory_atoms=[{"category": a.category, "value": a.value} for a in graph.atoms],
-        open_threads=graph.open_threads,
+        # Not "how did the exam go?" before the exam: dated threads wait for their day.
+        open_threads=askable_threads(graph, local_today(tz_offset)),
         system_load_ok=current_load().level in {"calm", "busy"},
     )

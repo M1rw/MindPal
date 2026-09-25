@@ -89,6 +89,8 @@ class MemoryGraph:
     narrative: str = ""
     narrative_at: float = 0.0
     open_threads: List[str] = field(default_factory=list)
+    # Open thread -> "YYYY-MM-DD": not asked before that day (backend/domain/followups.py).
+    thread_after: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,6 +261,11 @@ class MemoryGraphService:
             narrative=str(payload.get("narrative") or ""),
             narrative_at=_as_float(payload.get("narrative_at")),
             open_threads=[str(t) for t in threads][:3] if isinstance(threads, list) else [],
+            thread_after={
+                str(k): str(v) for k, v in (payload.get("thread_after") or {}).items() if isinstance(v, str)
+            }
+            if isinstance(payload.get("thread_after"), dict)
+            else {},
         )
 
     def save_memory_graph(self, graph: MemoryGraph) -> None:
@@ -274,6 +281,7 @@ class MemoryGraphService:
             "narrative": graph.narrative,
             "narrative_at": graph.narrative_at,
             "open_threads": list(graph.open_threads[:3]),
+            "thread_after": {q: d for q, d in graph.thread_after.items() if q in graph.open_threads[:3]},
             "atoms": [
                 {
                     "id": a.id,
