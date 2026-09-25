@@ -1,4 +1,3 @@
-import { WeekCard } from './WeekCard';
 import React from 'react';
 import { Waves, Wind, Anchor, type LucideIcon } from 'lucide-react';
 import { SkeletonGreeting, SkeletonMoodChips } from '../../ui/Skeleton';
@@ -56,7 +55,6 @@ export const ChatCanvasEmptyState: React.FC<ChatCanvasEmptyStateProps> = ({
         </>
       ) : (
         <>
-          <WeekCard onReflect={onSelectMood} />
           <div className="chat-empty__greeting">
             {/* Fix 9: text-3xl on mobile → text-4xl sm → text-5xl so short-screen
                 phones (iPhone SE, Galaxy A) can show the greeting + subtitle + mood chips

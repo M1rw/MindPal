@@ -5404,11 +5404,37 @@ html.dark .chat-composer--thinking::after {
   #header #env-tag {
     display: none;
   }
+  /* Room for the week icon beside +, more and the avatar: 40px icons,
+     tighter gaps, and narrower Chat/Presence tabs. */
+  #header nav {
+    gap: 2px;
+  }
+  #header nav .header-compact-btn {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+  .mode-tabs__tab,
+  .mode-tabs::before {
+    width: 2.25rem;
+  }
+  .mode-tabs--at-1::before {
+    transform: translateX(calc(2.25rem + 2px));
+  }
 }
 /* The first iPhone SE and other 320px screens. */
 @media (max-width: 339px) {
   #header > div {
     gap: 0.25rem;
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
+  #header nav .header-compact-btn {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
   }
   #header > div > div:first-child > p {
     font-size: 1.125rem;
@@ -5667,87 +5693,60 @@ html.dark .chat-composer--thinking::after {
   .chat-card__orb { transition-duration: 0s !important; }
 }
 
-/* "Your week": a small notification pill above the greeting that opens a
-   tooltip (components/chat/canvas/WeekCard.tsx). */
-.week-pill-wrap {
-  position: relative;
-  /* Above the mood chips (their transforms make layers of their own), so the
-     open tooltip is never drawn underneath them. */
-  z-index: 40;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 1rem;
-  animation: weekPillIn 420ms cubic-bezier(0.2, 0.9, 0.3, 1) 380ms both;
-  transition: opacity 200ms ease-out, transform 200ms ease-out;
-}
-.week-pill-wrap.is-leaving { opacity: 0; transform: translateY(-4px) scale(0.96); }
-@keyframes weekPillIn {
-  from { opacity: 0; transform: translateY(-6px) scale(0.94); }
-  to { opacity: 1; transform: none; }
-}
-.week-pill {
+/* "Your week": an icon in the header with an unread dot; its tooltip opens
+   under it by itself the first time each week (components/chat/canvas/WeekCard.tsx). */
+.week-anchor {
   position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  height: 2rem;
-  padding: 0 0.875rem 0 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--brand-primary) 28%, var(--border-subtle));
-  border-radius: 9999px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--brand-primary);
-  background: color-mix(in srgb, var(--brand-primary) 9%, var(--surface-canvas));
-  transition: background-color 160ms ease-out, transform 140ms ease-out, box-shadow 160ms ease-out;
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+  animation: weekIconIn 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
-.week-pill:active { transform: scale(0.96); }
-.week-pill.is-open { box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-primary) 18%, transparent); }
-@media (hover: hover) and (pointer: fine) {
-  .week-pill:hover { background: color-mix(in srgb, var(--brand-primary) 14%, var(--surface-canvas)); }
-  .week-tip__primary:hover { filter: brightness(1.08); }
-  .week-tip__quiet:hover { color: var(--text-primary); }
+.week-anchor.is-leaving { opacity: 0; transform: scale(0.8); }
+@keyframes weekIconIn {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
 }
-/* The unread dot: a soft glow that breathes until it is opened. */
-.week-pill__dot {
+.week-btn { position: relative; color: var(--brand-primary); }
+.week-btn.is-open { background: color-mix(in srgb, var(--brand-primary) 14%, transparent); }
+/* Unread: a small dot that breathes until the week is opened. */
+.week-btn__dot {
   position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 0.5rem;
-  height: 0.5rem;
+  top: 7px;
+  right: 7px;
+  width: 0.4375rem;
+  height: 0.4375rem;
   border-radius: 9999px;
   background: var(--brand-primary);
   box-shadow: 0 0 0 2px var(--surface-canvas);
   animation: weekDot 2.4s ease-in-out infinite;
 }
-.week-pill.is-open .week-pill__dot { animation: none; opacity: 0; transition: opacity 160ms ease-out; }
 @keyframes weekDot {
   0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(0.75); opacity: 0.6; }
+  50% { transform: scale(0.7); opacity: 0.55; }
 }
+/* Fixed to the viewport and placed from the icon's position, so it is never
+   clipped by the header and never runs off a narrow screen. */
 .week-tip {
-  position: absolute;
-  top: calc(100% + 0.625rem);
-  left: 50%;
-  z-index: 30;
+  position: fixed;
+  z-index: 60;
   width: min(20rem, calc(100vw - 2rem));
   padding: 0.875rem 1rem;
   border: 1px solid var(--border-subtle);
   border-radius: 1rem;
   background: var(--surface-elevated, var(--surface-card));
-  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 14px 36px -12px rgba(0, 0, 0, 0.5);
   text-align: start;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -6px) scale(0.97);
-  transform-origin: 50% 0;
-  transition: opacity 180ms ease-out, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  transform: translateY(-6px) scale(0.97);
+  transform-origin: var(--arrow-x, 50%) 0;
+  transition: opacity 180ms ease-out, transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1);
 }
-/* The tooltip's pointer toward the pill. */
 .week-tip::before {
   content: '';
   position: absolute;
   top: -6px;
-  left: 50%;
+  left: var(--arrow-x, 50%);
   width: 10px;
   height: 10px;
   border-top: 1px solid var(--border-subtle);
@@ -5755,7 +5754,16 @@ html.dark .chat-composer--thinking::after {
   background: inherit;
   transform: translateX(-50%) rotate(45deg);
 }
-.week-tip.is-open { opacity: 1; pointer-events: auto; transform: translate(-50%, 0) scale(1); }
+.week-tip.is-open { opacity: 1; pointer-events: auto; transform: none; }
+.week-tip__title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0 0 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--brand-primary);
+}
 .week-tip__text { margin: 0 0 0.75rem; font-size: 0.875rem; line-height: 1.45; color: var(--text-primary); }
 .week-tip__actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 .week-tip__primary {
@@ -5770,9 +5778,14 @@ html.dark .chat-composer--thinking::after {
 }
 .week-tip__primary:active { transform: scale(0.96); }
 .week-tip__quiet { font-size: 0.8125rem; color: var(--text-secondary); transition: color 150ms ease-out; }
-@media (prefers-reduced-motion: reduce) {
-  .week-pill-wrap,
-  .week-pill__dot { animation: none; }
-  .week-tip,
-  .week-pill-wrap { transition: opacity 120ms linear; }
+@media (hover: hover) and (pointer: fine) {
+  .week-tip__primary:hover { filter: brightness(1.08); }
+  .week-tip__quiet:hover { color: var(--text-primary); }
 }
+@media (prefers-reduced-motion: reduce) {
+  .week-anchor,
+  .week-btn__dot { animation: none; }
+  .week-tip,
+  .week-anchor { transition: opacity 120ms linear; }
+}
+
