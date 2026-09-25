@@ -7,7 +7,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { makeCall } from './voice_call_harness.mjs';
-import { BARGE_IN_FENCE_MS, OPENER_SILENT_MS, USER_PAUSE_MS } from '../../frontend/src/voice/call/callController.ts';
+import { BARGE_IN_FENCE_MS, IDLE_VOICE_HOLD_MS, OPENER_SILENT_MS, USER_PAUSE_MS } from '../../frontend/src/voice/call/callController.ts';
+import { CHECK_IN_ANGLES, idleNote } from '../../frontend/src/voice/call/idle.ts';
 import { EMPTY_GENERATION_GRACE_MS, REPLY_NUDGE_NOTE, SILENT_GENERATION_MS } from '../../frontend/src/voice/call/replyGuard.ts';
 
 describe('greeting', () => {
@@ -310,7 +311,7 @@ describe('are you still there?', () => {
     assert.deepEqual(call.ui.idle.at(-1)[0], 'check_in');
 
     await call.advance(25_500);
-    assert.match(call.transport.clientContent.at(-1), /let them go in a bit/);
+    assert.match(call.transport.clientContent.at(-1), /still haven't answered/);
     const [stage, left] = call.ui.idle.at(-1);
     assert.equal(stage, 'warn');
     assert.ok(left > 0 && left <= 20, `countdown shown (${left}s)`);
@@ -344,6 +345,45 @@ describe('are you still there?', () => {
     assert.match(call.transport.clientContent.at(-1), /mic is muted, so they may just be listening/);
   });
 
+  it('never checks in while the caller is talking and their words have not arrived yet', async () => {
+    // The double reply: Gemini's transcript of the caller lands late, so the 15s
+    // check-in fired mid-sentence and forced an answer to half a question.
+    const call = makeCall();
+    await call.ready();
+    const before = call.transport.clientContent.length;
+    await call.advance(10_000);
+    await call.voice(9_000, 0); // talking from 10s to 19s, no transcript yet
+    assert.equal(call.transport.clientContent.length, before, 'no check-in over their voice');
+    await call.advance(IDLE_VOICE_HOLD_MS - 200);
+    assert.equal(call.transport.clientContent.length, before, 'nor in the breath after it');
+  });
+
+  it("does not count MindPal's own voice (echo at the mic) as the caller", async () => {
+    const call = makeCall();
+    await call.ready();
+    call.transport.modelText('A long thought.');
+    call.transport.audio(5_000);
+    for (let t = 0; t < 1_000; t += 20) {
+      call.mic.frame(0.2);
+      await call.advance(20);
+    }
+    call.transport.generationComplete();
+    call.transport.turnComplete();
+    await call.advance(6_000);
+    const before = call.transport.clientContent.length;
+    await call.advance(15_500);
+    assert.ok(call.transport.clientContent.length > before, 'the quiet after its own reply still counts');
+  });
+
+  it('checks in with a different angle, never a canned "still with me?"', () => {
+    const notes = CHECK_IN_ANGLES.map((_, i) => idleNote('check_in', false, () => i / CHECK_IN_ANGLES.length));
+    assert.equal(new Set(notes).size, CHECK_IN_ANGLES.length);
+    for (const note of notes) {
+      assert.doesNotMatch(note, /still with me/i);
+      assert.match(note, /fresh words/);
+    }
+  });
+
   it('never times out while the model is talking', async () => {
     const call = makeCall();
     await call.ready();
@@ -351,6 +391,37 @@ describe('are you still there?', () => {
     const before = call.transport.clientContent.length;
     await call.advance(29_000);
     assert.equal(call.transport.clientContent.length, before);
+  });
+});
+
+describe("turn order when the caller's transcript is late", () => {
+  it('shows the question before the answer when Gemini replies before the words arrive', async () => {
+    const call = makeCall();
+    await call.ready();
+    await call.voice(1_500, 400); // they ask; no words on screen yet
+    call.transport.modelText('Aim for a full sleep cycle.');
+    call.transport.audio(300);
+    call.transport.userText(' When should I wake up?'); // their words land now
+    call.transport.audio(700);
+    call.transport.generationComplete();
+    call.transport.turnComplete();
+    await call.advance(1_500);
+    const last = call.ui.turns.slice(-2);
+    assert.deepEqual(last.map(([role]) => role), ['user', 'model']);
+    assert.match(last[0][1], /When should I wake up/);
+  });
+
+  it('keeps a barge-in after the reply it cut off', async () => {
+    const call = makeCall();
+    await call.ready();
+    await call.voice(1_000, 400);
+    call.transport.modelText('Here is a long answer about');
+    call.transport.audio(800);
+    call.transport.userText(' wait');
+    call.transport.interrupted();
+    await call.advance(2_000);
+    const roles = call.ui.turns.slice(-2).map(([role]) => role);
+    assert.deepEqual(roles, ['model', 'user']);
   });
 });
 
