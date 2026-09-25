@@ -122,6 +122,13 @@ class MemoryEditor:
         return atoms
 
     def _forget_removed(self, user_id_hash: str, removed: List[str], graph: MemoryGraph) -> MemoryGraph:
+        # A deleted or rewritten fact leaves the meaning index now, not at the next refresh.
+        from backend.domain.memory.vectors import MemoryVectors
+
+        try:
+            MemoryVectors(self.memory.store).sync(user_id_hash, graph.atoms)
+        except Exception:  # the index is derived; memory edits never fail because of it
+            pass
         if not removed:
             return graph
         self.consolidation.forget_facts(user_id_hash, removed)

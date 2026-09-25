@@ -106,6 +106,8 @@ class IdentityService:
             deleted.append("profile")
         if self.store.delete_document("memory_graphs", user_id_hash):
             deleted.append("memory")
+        # The meaning index of that memory goes with it.
+        self.store.delete_document("memory_vectors", user_id_hash)
 
         sessions_removed = False
         if self.store.delete_document("chat_sessions", user_id_hash):

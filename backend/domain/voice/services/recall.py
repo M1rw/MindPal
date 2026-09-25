@@ -125,10 +125,15 @@ class VoiceRecallService:
     # ------------------------------------------------------------ searches
 
     def _search_memory(self, user_id_hash: str, query: str) -> RecallResult:
+        from backend.domain.memory.vectors import MemoryVectors, best_first
+
         graph = self.memory.get_memory_graph(user_id_hash)
         wanted = tokens(query)
-        ranked = sorted(graph.atoms, key=lambda atom: score(wanted, f"{atom.category} {atom.value}"), reverse=True)
-        relevant = [atom for atom in ranked if score(wanted, f"{atom.category} {atom.value}") > 0]
+        lexical = {atom.id: score(wanted, f"{atom.category} {atom.value}") for atom in graph.atoms}
+        # By meaning too: "stressed about work" finds "my manager yelled at me".
+        semantic = MemoryVectors(self.store).scores(user_id_hash, query, lexical.keys())
+        ranked = best_first(list(graph.atoms), lexical, semantic)
+        relevant = [atom for atom in ranked if max(lexical.get(atom.id, 0.0), semantic.get(atom.id, 0.0)) > 0]
         # With at most 16 atoms, the most relevant come first and the rest still help.
         chosen = relevant or ranked
         lines: List[str] = []
