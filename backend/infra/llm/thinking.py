@@ -22,7 +22,10 @@ def thinking_kwargs(model: str, budget: Optional[int]) -> Dict[str, Any]:
         return {}
     try:
         if (model or "").startswith("gemini-3"):
-            level = "minimal" if int(budget) <= 0 else ("low" if int(budget) <= 2048 else "high")
+            # "minimal" (no thinking) exists only on the Flash-Lite models; the
+            # others refuse it with a 400, so their floor is "low".
+            floor = "minimal" if "flash-lite" in model else "low"
+            level = floor if int(budget) <= 0 else ("low" if int(budget) <= 2048 else "high")
             return {"thinking_config": types.ThinkingConfig(thinking_level=level)}
         return {"thinking_config": types.ThinkingConfig(thinking_budget=int(budget))}
     except Exception:  # pragma: no cover - SDK without these fields

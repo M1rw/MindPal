@@ -10,7 +10,7 @@ import { ApiClient } from '../../../services/api';
 import { cn } from '../../../utils/ui/cn';
 import { LiveAnnouncer } from './LiveAnnouncer';
 import { ChatCanvasEmptyState } from './ChatCanvasEmptyState';
-import { ChevronDown } from 'lucide-react';
+import { ArrowDown } from 'lucide-react';
 import { ChatCanvasMessage } from './ChatCanvasMessage';
 
 interface ChatCanvasProps {
@@ -20,8 +20,11 @@ interface ChatCanvasProps {
 type FeedbackKind = 'thumbs_up' | 'thumbs_down';
 
 const NEAR_BOTTOM_PX = 96;
-/** Keep in sync with `.chat-jump-latest` opacity duration in style.css. */
-const JUMP_EXIT_MS = 80;
+/** Scrolled this far up before the button appears; the gap to NEAR_BOTTOM_PX
+ *  keeps it from blinking on and off while a reply streams in at the edge. */
+const SHOW_JUMP_PX = 220;
+/** Keep in sync with the `.chat-jump-latest.is-leaving` transition in style.css. */
+const JUMP_EXIT_MS = 160;
 const JUMP_LOCK_MS = 1500;
 
 /**
@@ -37,8 +40,12 @@ async function sendReplyFeedback(kind: FeedbackKind, strategy: string | undefine
   }
 }
 
+function distanceFromBottom(el: HTMLElement): number {
+  return el.scrollHeight - el.scrollTop - el.clientHeight;
+}
+
 function isNearBottom(el: HTMLElement): boolean {
-  return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+  return distanceFromBottom(el) < NEAR_BOTTOM_PX;
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
@@ -86,9 +93,11 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
   }, []);
 
   const syncJumpVisibility = useCallback((el: HTMLElement) => {
-    const near = isNearBottom(el);
+    const distance = distanceFromBottom(el);
+    const near = distance < NEAR_BOTTOM_PX;
     stickToBottomRef.current = near;
-    setShowJumpToLatest(!near && messages.length > 0);
+    if (near || messages.length === 0) setShowJumpToLatest(false);
+    else if (distance > SHOW_JUMP_PX) setShowJumpToLatest(true);
   }, [messages.length]);
 
   const handleScroll = useCallback(() => {
@@ -498,10 +507,10 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
           onMouseDown={(event) => event.preventDefault()}
           onClick={jumpToLatest}
           aria-label="Jump to latest"
-          className={cn('chat-jump-latest', !jumpVisible && 'is-leaving')}
+          className={cn('chat-jump-latest', !jumpVisible && 'is-leaving', isGenerating && 'is-streaming')}
         >
-          Jump to latest
-          <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="chat-jump-latest__label">Jump to latest</span>
+          <ArrowDown className="chat-jump-latest__icon" aria-hidden="true" />
         </button>
       ) : null}
     </div>

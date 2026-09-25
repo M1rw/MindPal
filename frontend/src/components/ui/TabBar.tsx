@@ -58,7 +58,7 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange, showPres
     <div
       role="tablist"
       aria-label="MindPal modes"
-      className="flex flex-shrink-0 items-center gap-0.5 rounded-full bg-surface-sunken p-0.5"
+      className={`mode-tabs mode-tabs--at-${Math.max(0, tabs.findIndex((tab) => tab.id === activeTab))}`}
     >
       {tabs.map((tab, index) => {
         const isActive = activeTab === tab.id;
@@ -73,19 +73,14 @@ export const TabBar: React.FC<TabBarProps> = ({ activeTab, onTabChange, showPres
             role="tab"
             aria-selected={isActive}
             aria-controls={`tabpanel-${tab.id}`}
+            aria-label={tab.label}
             tabIndex={isActive ? 0 : -1}
             onClick={() => onTabChange(tab.id)}
             onKeyDown={(event) => handleTabKeyDown(event, index)}
-            className={[
-              'header-compact-btn relative flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium sm:gap-1.5 sm:px-3 sm:text-sm',
-              'transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary',
-              isActive
-                ? 'bg-surface-card text-content-primary shadow-card'
-                : 'text-content-secondary hover:text-content-primary',
-            ].join(' ')}
+            className={isActive ? 'mode-tabs__tab is-active' : 'mode-tabs__tab'}
           >
             {tab.icon}
-            <span>{tab.label}</span>
+            <span className="mode-tabs__label">{tab.label}</span>
           </button>
         );
       })}

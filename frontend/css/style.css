@@ -279,8 +279,9 @@ button,
   box-shadow: inset 0 0 0 2px var(--border-focus);
 }
 
-/* Actions get a tinted tile that lights up in the brand colour, so they read
-   as commands and never blend in with the plain chat rows below. */
+/* Actions get a quiet tile so they read as commands, not chats. On hover only
+   the glyph takes the brand colour: tinting the tile too put two bright
+   shapes on top of each other, which was harsh on dark backgrounds. */
 .palette-row__icon {
   display: inline-flex;
   height: 1.75rem;
@@ -294,20 +295,32 @@ button,
   transition: background-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
 }
 
-.palette-row--action:hover .palette-row__icon,
 .palette-row--action.is-highlighted .palette-row__icon {
-  background: color-mix(in srgb, var(--brand-primary) 16%, transparent);
+  background: var(--surface-elevated, var(--surface-sunken));
   color: var(--brand-primary);
 }
 
-.palette-row__enter {
+/* The Enter arrow takes no room until its row is highlighted, then slides in
+   and nudges the shortcut over; the shortcut glides back when it leaves. The
+   negative margin cancels the row's gap while the arrow is folded away. */
+.palette-row .palette-row__enter {
+  width: 0;
+  margin-left: -0.75rem;
   color: var(--brand-primary);
   opacity: 0;
-  transition: opacity 120ms ease-out;
+  transform: translateX(-4px);
+  transition:
+    width 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin-left 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 140ms ease-out,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .palette-row.is-highlighted .palette-row__enter {
+  width: 0.875rem;
+  margin-left: 0;
   opacity: 1;
+  transform: none;
 }
 
 .palette-tool {
@@ -364,24 +377,52 @@ button,
   font-weight: 600;
 }
 
+/* "More actions" is a disclosure, not another command, so it doesn't borrow
+   the rows' boxed highlight: the text brightens, the chevron drops toward the
+   hidden list (or lifts back when open), and the count pill takes the accent. */
 .palette-more {
   display: flex;
   width: calc(100% - 1rem);
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid transparent;
   border-radius: 0.75rem;
   padding: 0.4375rem 0.75rem;
   font-size: 0.8125rem;
-  color: var(--text-secondary);
-  transition: background-color 120ms ease-out, color 120ms ease-out;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 150ms ease-out;
 }
-
-.palette-more:hover,
+.palette-more__chevron {
+  flex: none;
+  transition: transform 220ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.palette-more__count {
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.125rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.375rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  transition: color 150ms ease-out, background-color 150ms ease-out;
+}
 .palette-more.is-highlighted {
-  background: var(--surface-subtle);
-  border-color: var(--border-default);
   color: var(--text-primary);
+}
+.palette-more.is-highlighted .palette-more__chevron {
+  transform: translateY(2px);
+}
+.palette-more[aria-expanded="true"].is-highlighted .palette-more__chevron {
+  transform: translateY(-2px);
+}
+.palette-more.is-highlighted .palette-more__count {
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
 }
 
 .palette-kbd {
@@ -1214,16 +1255,23 @@ details > summary::-webkit-details-marker { display: none; }
 .settings-tab-btn.hidden {
   display: none !important;
 }
-
-.settings-tab-btn:hover,
 .settings-tab-btn.active {
   background: #e7e9ed;
   color: #111827;
   box-shadow: none;
 }
+@media (hover: hover) and (pointer: fine) {
+  .settings-tab-btn:hover {
+    background: #e7e9ed;
+    color: #111827;
+    box-shadow: none;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
 
-.settings-tab-btn:hover {
-  transform: translateX(1px);
+  .settings-tab-btn:hover {
+    transform: translateX(1px);
+  }
 }
 
 .settings-tab-btn:focus-visible {
@@ -1234,12 +1282,17 @@ details > summary::-webkit-details-marker { display: none; }
 .dark .settings-tab-btn {
   color: #cbd5e1;
 }
-
-.dark .settings-tab-btn:hover,
 .dark .settings-tab-btn.active {
   background: #2f2f2f;
   color: #ffffff;
   box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .dark .settings-tab-btn:hover {
+    background: #2f2f2f;
+    color: #ffffff;
+    box-shadow: none;
+  }
 }
 
 .dark .settings-tab-btn:focus-visible {
@@ -1403,12 +1456,17 @@ details > summary::-webkit-details-marker { display: none; }
 .settings-choice-wide {
   min-width: 190px;
 }
-
-.settings-choice-trigger:hover,
 .settings-choice.open .settings-choice-trigger {
   border-color: rgba(15, 23, 42, 0.24);
   background: #f8fafc;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+@media (hover: hover) and (pointer: fine) {
+  .settings-choice-trigger:hover {
+    border-color: rgba(15, 23, 42, 0.24);
+    background: #f8fafc;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  }
 }
 
 .settings-choice-trigger:focus-visible {
@@ -1483,12 +1541,17 @@ details > summary::-webkit-details-marker { display: none; }
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: none;
 }
-
-.dark .settings-choice-trigger:hover,
 .dark .settings-choice.open .settings-choice-trigger {
   border-color: rgba(255, 255, 255, 0.24);
   background: #2a2f36;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dark .settings-choice-trigger:hover {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: #2a2f36;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
 }
 
 .dark .settings-choice-trigger:focus-visible {
@@ -2287,13 +2350,19 @@ details > summary::-webkit-details-marker { display: none; }
   text-decoration: none;
   transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
-
-.content-box .mp-source-link:hover,
 .content-box .mp-source-link:focus-visible {
   border-color: rgba(66, 133, 244, 0.58);
   background: rgba(66, 133, 244, 0.14);
   outline: none;
   transform: translateY(-1px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .content-box .mp-source-link:hover {
+    border-color: rgba(66, 133, 244, 0.58);
+    background: rgba(66, 133, 244, 0.14);
+    outline: none;
+    transform: translateY(-1px);
+  }
 }
 
 .content-box .mp-source-link__icon {
@@ -3496,8 +3565,10 @@ details > summary::-webkit-details-marker { display: none; }
 }
 .dark .voice-consent-panel__primary { background: #f4f4f5; color: #18181b; }
 .voice-consent-panel__secondary { color: #71717a; }
-.voice-consent-panel__primary:hover,
-.voice-consent-panel__secondary:hover { transform: translateY(-1px); }
+@media (hover: hover) and (pointer: fine) {
+  .voice-consent-panel__primary:hover,
+  .voice-consent-panel__secondary:hover { transform: translateY(-1px); }
+}
 .voice-consent-panel__secondary:hover { background: rgba(0, 0, 0, 0.05); }
 .dark .voice-consent-panel__secondary:hover { background: rgba(255, 255, 255, 0.08); }
 .voice-safe-diagnostics {
@@ -3872,50 +3943,91 @@ html.dark .chat-composer--thinking::after {
   padding-bottom: min(2.5vh, 1.25rem);
 }
 
+/* Jump to latest. It lives in the chat canvas, which already ends where the
+   composer begins (the dock is the next grid row, not an overlay), so a plain
+   offset is exact. It used to add the composer's height too, which floated it
+   a whole composer too high on phones and made it jump whenever the composer
+   grew. Desktop: a labelled pill. Phones: a round arrow, like ChatGPT's. */
 .chat-jump-latest {
   position: absolute;
   left: 50%;
-  /* Fix 11: sit above the composer dock; --composer-dock-h is set by ResizeObserver
-     in AppPanels.tsx so this stays correct even when the composer grows. */
-  bottom: calc(var(--composer-dock-h, 4.5rem) + 0.75rem);
+  bottom: 0.75rem;
   z-index: 10;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  transform: translateX(-50%);
-  padding: 0.375rem 0.875rem;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 2.25rem;
+  padding: 0 0.875rem 0 1rem;
   border: 1px solid var(--border-subtle);
   border-radius: 9999px;
-  background: var(--surface-card);
+  background: var(--surface-elevated, var(--surface-card));
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 500;
-  line-height: 1.25;
-  opacity: 1;
-  transition: bottom 80ms linear, opacity 80ms linear;
+  line-height: 1;
+  transform: translateX(-50%);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  animation: chatJumpIn 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  transition:
+    opacity 160ms ease-out,
+    transform 160ms ease-out,
+    background-color 150ms ease-out,
+    color 150ms ease-out;
 }
-
-@media (min-width: 640px) {
-  /* Desktop: jump button is within its own scroll container, use simple offset */
-  .chat-jump-latest {
-    bottom: 0.75rem;
-    transition: opacity 80ms linear;
-  }
+@keyframes chatJumpIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
+  to { opacity: 1; transform: translateX(-50%); }
 }
-
 .chat-jump-latest.is-leaving {
   opacity: 0;
+  transform: translateX(-50%) translateY(6px) scale(0.92);
   pointer-events: none;
 }
-
-.chat-jump-latest:hover {
-  background: var(--surface-elevated, var(--surface-subtle));
-  color: var(--text-primary);
+.chat-jump-latest__icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  flex: none;
 }
-
+/* A reply is still arriving below: the arrow gently nods toward it. */
+.chat-jump-latest.is-streaming .chat-jump-latest__icon {
+  animation: chatJumpNod 1.2s ease-in-out infinite;
+}
+@keyframes chatJumpNod {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+.chat-jump-latest:active:not(.is-leaving) {
+  transform: translateX(-50%) scale(0.94);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chat-jump-latest:hover {
+    background: var(--surface-elevated, var(--surface-subtle));
+    color: var(--text-primary);
+  }
+}
 .chat-jump-latest:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--border-focus);
+}
+@media (max-width: 639px) {
+  .chat-jump-latest {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    color: var(--text-primary);
+  }
+  .chat-jump-latest__label {
+    display: none;
+  }
+  .chat-jump-latest__icon {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
 }
 
 .chat-thread-enter {
@@ -4464,7 +4576,6 @@ html.dark .chat-composer--thinking::after {
   .chat-composer__expand,
   .chat-composer__dictate,
   .chat-composer__dictate-inner,
-  .chat-jump-latest,
   .chat-turn,
   .chat-user-shell--morph,
   .chat-user-bubble--morph {
@@ -5110,3 +5221,169 @@ html.dark .chat-composer--thinking::after {
    Toast region      300      .toast-region (position:fixed)
    Voice overlay     200      (set inline by VoiceOverlay.tsx)
    ══════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-jump-latest,
+  .chat-jump-latest.is-streaming .chat-jump-latest__icon {
+    animation: none;
+    transition: opacity 120ms linear;
+  }
+  .chat-jump-latest.is-leaving,
+  .chat-jump-latest:active:not(.is-leaving) {
+    transform: translateX(-50%);
+  }
+}
+
+/* Touch screens have no hover to reveal a chat's rename/delete buttons (an iPad
+   is wider than sm, where they hide until hover): keep them shown. */
+@media (hover: none) {
+  .history-session-item__actions.history-session-item__actions--touch {
+    opacity: 1;
+  }
+}
+
+/* The header: name on the left, actions on the right, and the Chat/Presence
+   tabs in the true middle of the screen (not the middle of the leftover gap).
+   The side columns never go below their content, so a narrow phone keeps
+   everything visible and only the centring gives way. */
+#header .header-row {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+}
+#header .header-row > :first-child {
+  justify-self: start;
+}
+#header .header-row > .mode-tabs {
+  grid-column: 2;
+}
+#header .header-row > nav {
+  grid-column: 3;
+  justify-self: end;
+}
+
+/* Chat / Presence. Big screens: labelled tabs, the selected one a raised pill.
+   Phones: two icons with a highlight that slides between them; the words do
+   not fit beside the name and header buttons on a 390px iPhone. The group is
+   44px tall on phones, like the other header buttons, so the header keeps its
+   height when the tabs appear. */
+.mode-tabs {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 2.25rem;
+  padding: 2px;
+  border-radius: 9999px;
+  background: var(--surface-sunken);
+}
+.mode-tabs__tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 100%;
+  padding: 0 0.75rem;
+  border-radius: 9999px;
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background-color 220ms ease-out, color 220ms ease-out, box-shadow 220ms ease-out, transform 120ms ease-out;
+}
+/* A fixed square box: a flex item SVG can otherwise be stretched by the
+   button's width or height rules. */
+.mode-tabs__tab svg {
+  display: block;
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  aspect-ratio: 1;
+}
+.mode-tabs__tab.is-active {
+  color: var(--text-primary);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card, 0 1px 2px rgba(0, 0, 0, 0.12));
+}
+.mode-tabs__tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--border-focus, var(--brand-primary));
+}
+.mode-tabs__tab:active {
+  transform: scale(0.94);
+}
+@media (hover: hover) and (pointer: fine) {
+  .mode-tabs__tab:not(.is-active):hover {
+    color: var(--text-primary);
+  }
+}
+@media (max-width: 639px) {
+  .mode-tabs {
+    height: 2.75rem;
+  }
+  .mode-tabs__tab {
+    width: 2.5rem;
+    padding: 0;
+  }
+  .mode-tabs__tab svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+  .mode-tabs__label {
+    display: none;
+  }
+  /* The highlight is one element that slides, not two that swap. */
+  .mode-tabs__tab.is-active {
+    background: transparent;
+    box-shadow: none;
+  }
+  .mode-tabs::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 2.5rem;
+    height: calc(100% - 4px);
+    border-radius: 9999px;
+    background: var(--surface-card);
+    box-shadow: var(--shadow-card, 0 1px 2px rgba(0, 0, 0, 0.12));
+    transition: transform 320ms cubic-bezier(0.3, 1.3, 0.5, 1);
+  }
+  .mode-tabs--at-1::before {
+    transform: translateX(calc(2.5rem + 2px));
+  }
+}
+/* Standard iPhones (390-393px) and narrower: the "this device" mark gives
+   its room to the tabs (sign-in state is also in Settings). */
+@media (max-width: 399px) {
+  #header #env-tag {
+    display: none;
+  }
+}
+/* The first iPhone SE and other 320px screens. */
+@media (max-width: 339px) {
+  #header > div {
+    gap: 0.25rem;
+  }
+  #header > div > div:first-child > p {
+    font-size: 1.125rem;
+  }
+  .mode-tabs__tab,
+  .mode-tabs::before {
+    width: 2.25rem;
+  }
+  .mode-tabs--at-1::before {
+    transform: translateX(calc(2.25rem + 2px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mode-tabs__tab,
+  .mode-tabs::before {
+    transition: none;
+  }
+}

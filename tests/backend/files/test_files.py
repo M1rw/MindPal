@@ -539,4 +539,6 @@ def test_gemini_3_gets_a_thinking_level_not_a_budget():
     three = thinking_kwargs("gemini-3.5-flash-lite", 0)["thinking_config"]
     assert three.thinking_budget is None and str(three.thinking_level).lower().endswith("minimal")
     assert str(thinking_kwargs("gemini-3.8-flash", 512)["thinking_config"].thinking_level).lower().endswith("low")
+    # Only Flash-Lite accepts "minimal"; 3.8 Flash answers it with a 400 (measured), so it floors at "low".
+    assert str(thinking_kwargs("gemini-3.8-flash", 0)["thinking_config"].thinking_level).lower().endswith("low")
     assert thinking_kwargs("gemini-3.8-flash", None) == {}
