@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import asyncio
 import time
 from typing import Any, AsyncGenerator, Optional, Sequence
 
@@ -214,6 +215,36 @@ JSON_THINKING_BUDGET = 0
 JSON_TIMEOUT_MS = 10_000
 STREAM_TIMEOUT_MS = 60_000
 
+# A provider that hasn't sent a word by now is stuck (a full queue, a stalled
+# connection), not thinking: the whole 60s stream timeout used to be spent
+# waiting on it before the next rung was tried. Only while another rung
+# remains, and never once text has started (that would answer twice). Turns
+# with documents or pictures read far more before they speak, so they wait longer.
+FIRST_TOKEN_TIMEOUT_S = 10.0
+FILES_FIRST_TOKEN_TIMEOUT_S = 25.0
+
+
+class FirstTokenTimeout(TimeoutError):
+    """A rung sent nothing within the first-token window."""
+
+
+async def _first_token_within(stream: AsyncGenerator[str, None], timeout_s: float) -> AsyncGenerator[str, None]:
+    """`stream`, but its first token must arrive within `timeout_s` seconds."""
+    iterator = stream.__aiter__()
+    try:
+        first = await asyncio.wait_for(iterator.__anext__(), timeout_s)
+    except StopAsyncIteration:
+        return
+    except asyncio.TimeoutError as exc:
+        try:
+            await iterator.aclose()
+        except Exception:  # already finished by the cancellation
+            pass
+        raise FirstTokenTimeout(f"no first token within {timeout_s:.0f}s") from exc
+    yield first
+    async for token in iterator:
+        yield token
+
 
 _CLIENT_LOCK = threading.Lock()
 _CLIENTS: dict[tuple[str, int], Any] = {}
@@ -403,7 +434,19 @@ class LLMGateway:
                         images=images,
                         api_key=key,
                     )
+                if index < len(ordered) - 1:
+                    window = FILES_FIRST_TOKEN_TIMEOUT_S if (images or long_context) else FIRST_TOKEN_TIMEOUT_S
+                    stream = _first_token_within(stream, window)
+                started = time.monotonic()
                 async for token in stream:
+                    if not yielded:
+                        logger.info(
+                            "llm_first_token provider=%s model=%s ms=%d rung=%d",
+                            provider,
+                            entry_model or "default",
+                            int((time.monotonic() - started) * 1000),
+                            index,
+                        )
                     yielded = True
                     yield token
                 if yielded:
@@ -423,7 +466,7 @@ class LLMGateway:
                         "unavailable",
                         "MindPal lost the connection partway through this response. Please retry.",
                     ) from exc
-                if _is_rate_limited(exc):
+                if _is_rate_limited(exc) or isinstance(exc, FirstTokenTimeout):
                     _cool(entry)
                 last_error = exc
                 if not (images or long_context) and not _is_transient(exc):

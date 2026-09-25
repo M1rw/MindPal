@@ -419,3 +419,55 @@ def test_json_tries_at_most_two_rungs_to_protect_the_live_voice_budget(monkeypat
     # Chat models named in the ladder are not classifier models: the Groq rung
     # collapses into the primary, and the spare is OpenRouter's JSON model.
     assert calls == ["qwen/qwen3.8-27b", "google/gemma-4-31b-it:free"]
+
+
+def test_a_provider_that_never_starts_is_left_for_the_next_rung(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A stuck provider used to hold the reply for the whole 60s stream timeout.
+    seen: List[str] = []
+
+    async def fake_stream(**kwargs: Any):
+        seen.append(kwargs["base_url"])
+        if "openrouter" in kwargs["base_url"]:
+            await asyncio.sleep(5)  # never speaks within the window
+        yield "ok"
+
+    monkeypatch.setenv("MINDPAL_CHAT_PROVIDER", "openrouter")
+    monkeypatch.setenv("MINDPAL_LLM_FALLBACK", "groq")
+    monkeypatch.setattr(oai, "stream_text", fake_stream)
+    monkeypatch.setattr(gateway_mod, "FIRST_TOKEN_TIMEOUT_S", 0.05)
+
+    assert _drain(LLMGateway().generate_stream(prompt="hi")) == ["ok"]
+    assert len(seen) == 2
+    assert gateway_mod._COOLING, "the stuck rung is tried last for a while"
+
+
+def test_a_slow_start_on_the_last_rung_is_waited_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_stream(**kwargs: Any):
+        await asyncio.sleep(0.1)
+        yield "late but fine"
+
+    monkeypatch.setenv("MINDPAL_CHAT_PROVIDER", "openrouter")
+    monkeypatch.setenv("MINDPAL_LLM_FALLBACK", "")
+    monkeypatch.setattr(oai, "stream_text", fake_stream)
+    monkeypatch.setattr(gateway_mod, "FIRST_TOKEN_TIMEOUT_S", 0.01)
+    monkeypatch.setattr(gateway_mod, "fallback_ladder", lambda: [])
+
+    assert _drain(LLMGateway().generate_stream(prompt="hi")) == ["late but fine"]
+
+
+def test_a_pause_after_the_first_token_never_switches_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: List[str] = []
+
+    async def fake_stream(**kwargs: Any):
+        seen.append(kwargs["base_url"])
+        yield "first"
+        await asyncio.sleep(0.1)  # longer than the window, but the reply has started
+        yield " second"
+
+    monkeypatch.setenv("MINDPAL_CHAT_PROVIDER", "openrouter")
+    monkeypatch.setenv("MINDPAL_LLM_FALLBACK", "groq")
+    monkeypatch.setattr(oai, "stream_text", fake_stream)
+    monkeypatch.setattr(gateway_mod, "FIRST_TOKEN_TIMEOUT_S", 0.02)
+
+    assert _drain(LLMGateway().generate_stream(prompt="hi")) == ["first", " second"]
+    assert len(seen) == 1
