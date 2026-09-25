@@ -139,7 +139,7 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             # Idempotency-Key: chat and voice routes accept it for safe retries.
-            allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-Firebase-AppCheck", "Idempotency-Key"],
+            allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-Firebase-AppCheck", "Idempotency-Key", "X-Dictation-Languages"],
             max_age=600,
         )
 

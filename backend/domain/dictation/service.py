@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 from backend.configs.runtime import api_limits_config
 from backend.core.errors import AppError
@@ -62,7 +62,15 @@ class DictationService:
             # The limit fails closed with the store, like chat credits.
             raise AppError("unavailable", "Dictation is briefly unavailable. Please try again.")
 
-    def transcribe(self, audio: bytes, content_type: str, *, subject: str, signed_in: bool) -> DictationResult:
+    def transcribe(
+        self,
+        audio: bytes,
+        content_type: str,
+        *,
+        subject: str,
+        signed_in: bool,
+        languages: Sequence[str] = (),
+    ) -> DictationResult:
         if not audio:
             raise AppError("payload_invalid", "No audio was received.")
         if len(audio) > MAX_AUDIO_BYTES:
@@ -75,7 +83,7 @@ class DictationService:
         if not self._take_allowance(subject, per_hour):
             raise AppError("rate_limited", "You've dictated a lot this hour. Typing still works, and dictation is back soon.")
         try:
-            transcript = transcribe_audio(audio, content_type)
+            transcript = transcribe_audio(audio, content_type, languages)
         except TranscriptionUnavailable:
             raise AppError("unavailable", "Dictation couldn't transcribe that. Please try again.")
         return DictationResult(text=transcript.text, language=transcript.language)

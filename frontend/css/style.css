@@ -279,8 +279,9 @@ button,
   box-shadow: inset 0 0 0 2px var(--border-focus);
 }
 
-/* Actions get a tinted tile that lights up in the brand colour, so they read
-   as commands and never blend in with the plain chat rows below. */
+/* Actions get a quiet tile so they read as commands, not chats. On hover only
+   the glyph takes the brand colour: tinting the tile too put two bright
+   shapes on top of each other, which was harsh on dark backgrounds. */
 .palette-row__icon {
   display: inline-flex;
   height: 1.75rem;
@@ -294,20 +295,32 @@ button,
   transition: background-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
 }
 
-.palette-row--action:hover .palette-row__icon,
 .palette-row--action.is-highlighted .palette-row__icon {
-  background: color-mix(in srgb, var(--brand-primary) 16%, transparent);
+  background: var(--surface-elevated, var(--surface-sunken));
   color: var(--brand-primary);
 }
 
-.palette-row__enter {
+/* The Enter arrow takes no room until its row is highlighted, then slides in
+   and nudges the shortcut over; the shortcut glides back when it leaves. The
+   negative margin cancels the row's gap while the arrow is folded away. */
+.palette-row .palette-row__enter {
+  width: 0;
+  margin-left: -0.75rem;
   color: var(--brand-primary);
   opacity: 0;
-  transition: opacity 120ms ease-out;
+  transform: translateX(-4px);
+  transition:
+    width 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin-left 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 140ms ease-out,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .palette-row.is-highlighted .palette-row__enter {
+  width: 0.875rem;
+  margin-left: 0;
   opacity: 1;
+  transform: none;
 }
 
 .palette-tool {
@@ -364,24 +377,52 @@ button,
   font-weight: 600;
 }
 
+/* "More actions" is a disclosure, not another command, so it doesn't borrow
+   the rows' boxed highlight: the text brightens, the chevron drops toward the
+   hidden list (or lifts back when open), and the count pill takes the accent. */
 .palette-more {
   display: flex;
   width: calc(100% - 1rem);
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid transparent;
   border-radius: 0.75rem;
   padding: 0.4375rem 0.75rem;
   font-size: 0.8125rem;
-  color: var(--text-secondary);
-  transition: background-color 120ms ease-out, color 120ms ease-out;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 150ms ease-out;
 }
-
-.palette-more:hover,
+.palette-more__chevron {
+  flex: none;
+  transition: transform 220ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.palette-more__count {
+  display: inline-flex;
+  min-width: 1.25rem;
+  height: 1.125rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.375rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  transition: color 150ms ease-out, background-color 150ms ease-out;
+}
 .palette-more.is-highlighted {
-  background: var(--surface-subtle);
-  border-color: var(--border-default);
   color: var(--text-primary);
+}
+.palette-more.is-highlighted .palette-more__chevron {
+  transform: translateY(2px);
+}
+.palette-more[aria-expanded="true"].is-highlighted .palette-more__chevron {
+  transform: translateY(-2px);
+}
+.palette-more.is-highlighted .palette-more__count {
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
 }
 
 .palette-kbd {
@@ -5201,6 +5242,25 @@ html.dark .chat-composer--thinking::after {
   }
 }
 
+/* The header: name on the left, actions on the right, and the Chat/Presence
+   tabs in the true middle of the screen (not the middle of the leftover gap).
+   The side columns never go below their content, so a narrow phone keeps
+   everything visible and only the centring gives way. */
+#header .header-row {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+}
+#header .header-row > :first-child {
+  justify-self: start;
+}
+#header .header-row > .mode-tabs {
+  grid-column: 2;
+}
+#header .header-row > nav {
+  grid-column: 3;
+  justify-self: end;
+}
+
 /* Chat / Presence. Big screens: labelled tabs, the selected one a raised pill.
    Phones: two icons with a highlight that slides between them; the words do
    not fit beside the name and header buttons on a 390px iPhone. The group is
@@ -5236,8 +5296,14 @@ html.dark .chat-composer--thinking::after {
   touch-action: manipulation;
   transition: background-color 220ms ease-out, color 220ms ease-out, box-shadow 220ms ease-out, transform 120ms ease-out;
 }
+/* A fixed square box: a flex item SVG can otherwise be stretched by the
+   button's width or height rules. */
 .mode-tabs__tab svg {
+  display: block;
   flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  aspect-ratio: 1;
 }
 .mode-tabs__tab.is-active {
   color: var(--text-primary);
@@ -5265,8 +5331,8 @@ html.dark .chat-composer--thinking::after {
     padding: 0;
   }
   .mode-tabs__tab svg {
-    width: 1.0625rem;
-    height: 1.0625rem;
+    width: 1.125rem;
+    height: 1.125rem;
   }
   .mode-tabs__label {
     display: none;
