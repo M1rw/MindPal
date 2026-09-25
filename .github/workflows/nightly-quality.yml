@@ -1,0 +1,63 @@
+name: Nightly Reply Smoke Check
+
+# Six real conversations (English and Arabic) through the chat pipeline every
+# night, scored by the deterministic shape check, so a broken provider, prompt
+# or model shows up as an issue before users notice. Runs only on its own
+# EVAL_GROQ_API_KEY secret: production keys and their free-tier quotas are
+# never used, and without the secret the job skips itself.
+on:
+  schedule:
+    - cron: "15 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: test
+      MINDPAL_STORAGE_PROVIDER: memory
+      MINDPAL_PRESSURE_OVERRIDE: calm
+      MINDPAL_CHAT_PROVIDER: groq
+      MINDPAL_LLM_FALLBACK: ""
+      GROQ_API_KEY: ${{ secrets.EVAL_GROQ_API_KEY }}
+    steps:
+      - name: Skip without an eval key
+        id: gate
+        run: |
+          if [ -z "$GROQ_API_KEY" ]; then
+            echo "EVAL_GROQ_API_KEY is not set: skipping (production keys are never used here)." >> "$GITHUB_STEP_SUMMARY"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          python-version: '3.12'
+      - if: steps.gate.outputs.run == 'true'
+        run: python -m pip install --requirement requirements-dev.lock
+      - name: Six real replies
+        if: steps.gate.outputs.run == 'true'
+        run: python scripts/eval/run_conversation_evals.py --judge --no-judge-model --only en-vent-01,en-advice-01,en-distortion-01,en-smalltalk-01,ar-vent-01,ar-advice-01
+      - name: Check
+        if: steps.gate.outputs.run == 'true'
+        run: python scripts/eval/check_smoke.py "$(ls -t artifacts/evals/*.json | head -1)" --min-shape 85
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.gate.outputs.run == 'true'
+        with:
+          name: nightly-smoke
+          path: artifacts/evals/
+      - name: Open an issue on failure
+        if: failure() && steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "Nightly reply smoke check failed ($(date -u +%Y-%m-%d))" \
+            --body "The nightly smoke check failed. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
