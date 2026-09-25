@@ -76,3 +76,25 @@ async def test_no_card_when_the_client_just_showed_one():
         user_id_hash="usr_cards2", message="I'm still panicking", consume_quota=False, recent_cards=["breathing"],
     )]
     assert not any(c.get("card") for c in chunks)
+
+
+def test_a_finished_card_never_brings_itself_back():
+    # The result message names its exercise ("I did the breathing exercise"),
+    # which read as a fresh ask and showed the same card again.
+    for result in (
+        "I did the breathing exercise. I feel calmer.",
+        "I did the 5-4-3-2-1 grounding. 5 things you can see: my desk.",
+        "Thought record\nThe thought: I always mess up",
+        "Mood check-in: 2/5 (low), feeling tense.",
+        "سويت تمرين التنفس. أحس إني أهدى شوي.",
+        "تسجيل المزاج: 2/5 (تعبان).",
+    ):
+        assert kind(result, recent_cards=["breathing"]) is None, result
+        assert kind(result) is None, result
+
+
+def test_asking_again_right_after_needs_real_asking():
+    assert kind("breathing exercise", recent_cards=["breathing"]) is None
+    assert kind("can we do the breathing exercise again?", recent_cards=["breathing"]) == "breathing"
+    assert kind("ممكن تمرين تنفس مرة ثانية", recent_cards=["breathing"]) == "breathing"
+    assert kind("can we do a grounding exercise?", recent_cards=["breathing"]) == "grounding", "a different card is fine"

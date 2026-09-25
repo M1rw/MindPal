@@ -5,7 +5,7 @@
  * reaches the reply, memory and the wellness timeline like anything they say.
  * Arabic when the reply is in Arabic. Every card can be closed.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Check, Pause, Play, Wind, X } from 'lucide-react';
 import type { ChatCard } from '../../../types/index';
 import { cn } from '../../../utils/ui/cn';
@@ -110,32 +110,86 @@ interface CardProps {
   onDone: () => void;
 }
 
+/**
+ * One element from first view to the finished pill: it measures its content
+ * and animates its height between stages (start, running, "how do you feel?"),
+ * and when the card is done it shrinks, width, height and corners, into the
+ * small check pill while the content fades out. Nothing is swapped at once.
+ */
 export const ChatCardView: React.FC<CardProps> = (props) => {
   const { card, lang, onDone } = props;
   const t = T[lang];
-  if (card.done) {
-    return (
-      <div className="chat-card chat-card--done" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+  const shellRef = useRef<HTMLElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLSpanElement>(null);
+  const [innerHeight, setInnerHeight] = useState<number | null>(null);
+  const [fullWidth, setFullWidth] = useState<number | null>(null);
+  const [pillWidth, setPillWidth] = useState(0);
+  const done = Boolean(card.done);
+  // Collapsing takes two frames: pin the current width, then set the pill's,
+  // so the browser has two lengths to animate between (it can't from "auto").
+  const [collapsed, setCollapsed] = useState(done);
+
+  useLayoutEffect(() => {
+    const inner = innerRef.current;
+    const shell = shellRef.current;
+    if (!inner || !shell || typeof ResizeObserver === 'undefined') return undefined;
+    const measure = () => {
+      setInnerHeight(inner.getBoundingClientRect().height);
+      if (!shell.classList.contains('is-done')) setFullWidth(shell.getBoundingClientRect().width);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(inner);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!done || collapsed) return undefined;
+    const frame = window.requestAnimationFrame(() => setCollapsed(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [done, collapsed]);
+
+  useLayoutEffect(() => {
+    if (pillRef.current) setPillWidth(pillRef.current.getBoundingClientRect().width);
+  }, [lang, card.kind]);
+
+  const style: React.CSSProperties = collapsed
+    ? { height: PILL_HEIGHT, width: pillWidth || undefined }
+    : done
+      ? { height: innerHeight ?? undefined, width: fullWidth ?? undefined }
+      : { height: innerHeight ?? undefined };
+
+  return (
+    <section
+      ref={shellRef}
+      className={cn('chat-card', done && 'is-done', collapsed && 'is-collapsed')}
+      style={style}
+      aria-label={t[card.kind]}
+      dir={lang === 'ar' ? 'rtl' : 'ltr'}
+    >
+      <span ref={pillRef} className="chat-card__pill" aria-hidden={!done}>
         <Check className="h-3.5 w-3.5" aria-hidden="true" />
         <span>{t[card.kind]}</span>
+      </span>
+      <div ref={innerRef} className="chat-card__inner" aria-hidden={done} inert={done ? true : undefined}>
+        <header className="chat-card__head">
+          <span className="chat-card__title">{t[card.kind]}</span>
+          <button type="button" className="chat-card__close" onClick={onDone} aria-label={t.close}>
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </header>
+        {card.kind === 'breathing' ? <Breathing {...props} /> : null}
+        {card.kind === 'grounding' ? <Grounding {...props} /> : null}
+        {card.kind === 'thought_record' ? <ThoughtRecord {...props} /> : null}
+        {card.kind === 'mood_check' ? <MoodCheck {...props} /> : null}
       </div>
-    );
-  }
-  return (
-    <section className="chat-card" aria-label={t[card.kind]} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      <header className="chat-card__head">
-        <span className="chat-card__title">{t[card.kind]}</span>
-        <button type="button" className="chat-card__close" onClick={onDone} aria-label={t.close}>
-          <X className="h-4 w-4" aria-hidden="true" />
-        </button>
-      </header>
-      {card.kind === 'breathing' ? <Breathing {...props} /> : null}
-      {card.kind === 'grounding' ? <Grounding {...props} /> : null}
-      {card.kind === 'thought_record' ? <ThoughtRecord {...props} /> : null}
-      {card.kind === 'mood_check' ? <MoodCheck {...props} /> : null}
     </section>
   );
 };
+
+const PILL_HEIGHT = 30;
 
 // ---------------------------------------------------------------- breathing
 
@@ -188,7 +242,7 @@ const Breathing: React.FC<CardProps> = ({ card, lang, onSubmit, onDone }) => {
 
   if (finished) {
     return (
-      <div className="chat-card__body chat-card__center">
+      <div className="chat-card__body chat-card__center chat-card__stage" key="feel">
         <p className="chat-card__prompt">{t.feel}</p>
         <div className="chat-card__row">
           {[t.calmer, t.same].map((feel) => (
