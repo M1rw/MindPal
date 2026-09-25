@@ -60,6 +60,11 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
   const lastUserIdRef = useRef<string | null>(null);
   const knownMessageIdsRef = useRef<Set<string>>(new Set());
   const [enteringIds, setEnteringIds] = useState<Set<string>>(() => new Set());
+  // The thread's identity. It follows the chat being shown, but a new chat
+  // receiving its id (a moment after its first reply) is the same thread:
+  // keying on the id alone re-created the whole thread then, wiping anything
+  // in progress in it (a half-filled card, a text selection, scroll).
+  const threadKeyRef = useRef<{ key: string; firstId: string }>({ key: 'draft', firstId: '' });
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -445,7 +450,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
           />
         ) : (
           <div
-            key={activeSessionId || 'draft'}
+            key={threadKey(threadKeyRef.current, activeSessionId, messages[0]?.id ?? '')}
             className="chat-thread-enter w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 mx-auto"
           >
             <div className="space-y-8">
@@ -491,6 +496,10 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
                       useMemoryStore.getState().setIsOpen(true, 'atoms', ids);
                     }}
                     onDismissMemory={(id) => setMessageMemoryReceipt(id, null)}
+                    onCardSubmit={onSelectMood}
+                    onCardDone={(id) => {
+                      if (msg.card) useChatStore.getState().setMessageCard(id, { ...msg.card, done: true });
+                    }}
                   />
                 );
               })}
@@ -516,3 +525,11 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
     </div>
   );
 };
+
+/** Same first message, same thread: a draft that just got its id keeps its key. */
+function threadKey(state: { key: string; firstId: string }, sessionId: string | null | undefined, firstId: string): string {
+  const next = sessionId || 'draft';
+  if (next !== state.key && !(firstId && firstId === state.firstId)) state.key = next;
+  state.firstId = firstId;
+  return state.key;
+}
