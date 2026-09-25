@@ -46,6 +46,13 @@ describe('a look morphs in instead of spawning', () => {
     assert.ok(morph.weight('capsule') > 0.97, 'and melts back');
   });
 
+  it('an unknown shape falls back to the plain eye, never an empty one', () => {
+    const morph = new EyeMorph();
+    for (let t = 0; t < 600; t += 16) morph.update('squiggle', 16);
+    assert.equal(morph.weight('capsule'), 1);
+    assert.ok(morph.points(30, 40, 12).some((p) => p.x !== 0 || p.y !== 0));
+  });
+
   it('snaps under reduced motion', () => {
     const morph = new EyeMorph();
     morph.update('arc', 16, true);
