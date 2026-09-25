@@ -405,6 +405,11 @@ class MemoryConsolidationService:
         )
         # Keep the job while work remains (including a failed AI call, retried by the scheduler).
         self._finish_job(user_id_hash, keep=remaining.any, generation=generation)
+        # Facts saved before search by meaning existed get their vectors here,
+        # a few batches per run, for the people who are actually using MindPal.
+        from backend.domain.memory.vectors import refresh_quietly
+
+        refresh_quietly(self.store, user_id_hash, self.memory.get_memory_graph(user_id_hash).atoms)
         logger.info(
             "memory_consolidation user_present=1 level=%s compacted=%s summarized=%s ai_calls=%s reasons=%s",
             load.level, report.compacted, report.summarized, report.ai_calls, ",".join(work.reasons),

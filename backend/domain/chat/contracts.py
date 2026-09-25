@@ -76,6 +76,9 @@ class ChatStreamPayload(BaseModel):
     personalization: Optional[Dict[str, Any]] = None
     client_context: Optional[ClientContext] = None
     attachments: List[AttachmentRef] = Field(default_factory=list, max_length=MAX_FILES_IN_CONTEXT)
+    # The interactive card kind ("" for none) of each recent assistant reply,
+    # newest first, so MindPal keeps cards occasional (backend/domain/chat/cards.py).
+    recent_cards: List[str] = Field(default_factory=list, max_length=8)
 
     @field_validator("message")
     @classmethod
@@ -88,6 +91,13 @@ class ChatStreamPayload(BaseModel):
         if not self.message and not any(not a.earlier for a in self.attachments):
             raise ValueError("message must not be empty")
         return self
+
+    @field_validator("recent_cards")
+    @classmethod
+    def known_cards(cls, value: List[str]) -> List[str]:
+        from backend.domain.chat.cards import KINDS
+
+        return [kind if kind in KINDS else "" for kind in value]
 
     @field_validator("model")
     @classmethod

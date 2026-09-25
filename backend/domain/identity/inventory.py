@@ -39,6 +39,8 @@ INVENTORY: Tuple[OwnedCollection, ...] = (
     OwnedCollection("chat_sessions", "prefix", "yes", "yes", "until deleted"),
     OwnedCollection("session_telemetry", "prefix", "yes", "yes", "until deleted"),
     OwnedCollection("adaptive_profiles", "id", "yes", "yes", "until deleted"),
+    # Embeddings of the memory facts, for search by meaning (memory/vectors.py).
+    OwnedCollection("memory_vectors", "id", "no:derived search index, rebuilt from memory_graphs", "yes", "until deleted"),
     OwnedCollection("greeting_cache", "prefix", "yes", "yes", "2 days"),
     OwnedCollection("user_presence", "id", "no:last-visit timestamp only", "yes", "until deleted"),
     OwnedCollection("changelog_dismissals", "id", "no:release versions only", "yes", "until deleted"),

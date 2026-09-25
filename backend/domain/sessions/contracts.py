@@ -58,6 +58,7 @@ def validated_session_id(value: str) -> str:
 
 
 _ATTACHMENT_KINDS = frozenset({"image", "pdf"})
+_CARD_KINDS = frozenset({"breathing", "grounding", "thought_record", "mood_check"})
 _ATTACHMENT_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,80}$")
 _MAX_ATTACHMENTS = 4
 
@@ -115,6 +116,18 @@ def clipped_messages(raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             seconds = item.get("voice_used_s")
             if isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and 0 <= seconds <= _MAX_VOICE_SECONDS:
                 entry["voice_used_s"] = int(seconds)
+        card = item.get("card")
+        if isinstance(card, dict) and card.get("kind") in _CARD_KINDS:
+            # The tool shown under a reply, and whether it was finished.
+            kept: Dict[str, Any] = {"kind": card["kind"]}
+            card_id = card.get("id")
+            if isinstance(card_id, str) and _ATTACHMENT_ID_RE.match(card_id):
+                kept["id"] = card_id
+            if card.get("pattern") in ("box", "478"):
+                kept["pattern"] = card["pattern"]
+            if card.get("done") is True:
+                kept["done"] = True
+            entry["card"] = kept
         strategy = item.get("strategy_used")
         if isinstance(strategy, str) and strategy.strip():
             entry["strategy_used"] = strategy.strip()[:_MAX_STRATEGY_CHARS]
