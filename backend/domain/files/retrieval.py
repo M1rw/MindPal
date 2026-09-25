@@ -98,8 +98,13 @@ def select_pages(digest: Digest, question: str, budget_chars: int) -> List[PageD
     return sorted(chosen, key=lambda p: p.n)
 
 
+# About 3.5k tokens of document: fits a fast fallback model's per-minute token
+# cap (8k on Groq's free tier) alongside the prompt and the reply.
+FILES_BUDGET_CHARS = 14000
+
+
 def render_file_context(
-    digests: Sequence[Digest], question: str, budget_chars: int = 24000, *, earlier: Set[int] | None = None
+    digests: Sequence[Digest], question: str, budget_chars: int = FILES_BUDGET_CHARS, *, earlier: Set[int] | None = None
 ) -> str:
     """The files block for the system prompt: each file, then its chosen pages.
 

@@ -326,6 +326,7 @@ class LLMGateway:
         history: Optional[Sequence[dict[str, str]]] = None,
         thinking_budget: Optional[int] = None,
         images: Optional[Sequence[Any]] = None,
+        long_context: bool = False,
     ) -> str:
         parts: list[str] = []
         async for token in self.generate_stream(
@@ -337,6 +338,7 @@ class LLMGateway:
             history=history,
             thinking_budget=thinking_budget,
             images=images,
+            long_context=long_context,
         ):
             parts.append(token)
         text = "".join(parts).strip()
@@ -358,9 +360,12 @@ class LLMGateway:
         history: Optional[Sequence[dict[str, str]]] = None,
         thinking_budget: Optional[int] = None,
         images: Optional[Sequence[Any]] = None,
+        long_context: bool = False,
     ) -> AsyncGenerator[str, None]:
-        """`images` (VisionImage) switch the turn to the vision-capable models, in their order."""
-        if images:
+        """`images` (VisionImage) or `long_context` (a turn carrying documents) use the
+        vision-capable models, in their order: they are also the ones with room for
+        pages of text (the small fast chat models cap tokens per minute)."""
+        if images or long_context:
             from backend.infra.llm.vision import vision_ladder
 
             ladder = vision_ladder()
@@ -432,7 +437,7 @@ class LLMGateway:
                 if _is_rate_limited(exc):
                     _cool(entry)
                 last_error = exc
-                if not images and not _is_transient(exc):
+                if not (images or long_context) and not _is_transient(exc):
                     break
         if isinstance(last_error, LLMGatewayError):
             raise last_error

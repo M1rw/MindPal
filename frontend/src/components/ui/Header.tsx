@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Moon, Sun, Flame, User, Plus, Search, MoreHorizontal } from 'lucide-react';
+import { Moon, Sun, Flame, User, Plus, Search, MoreHorizontal, FolderOpen } from 'lucide-react';
+import { useLibraryStore } from '../../store/library.ts';
 import {
   useAuthStore,
   useChatHistoryModalStore,
@@ -202,6 +203,19 @@ export const Header: React.FC<HeaderProps> = ({
               <button type="button" role="menuitem" onClick={openHistory} className={menuItemClass} aria-label="Search chats and actions">
                 <Search className="h-4 w-4 text-content-secondary" />
                 <span>Search</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMoreOpen(false);
+                  useLibraryStore.getState().open();
+                }}
+                className={menuItemClass}
+                aria-label="Open your library"
+              >
+                <FolderOpen className="h-4 w-4 text-content-secondary" />
+                <span>Library</span>
               </button>
               <button type="button" role="menuitem" onClick={onToggleTheme} className={menuItemClass} aria-label="Toggle theme">
                 {isDark ? <Sun className="h-4 w-4 text-content-secondary" /> : <Moon className="h-4 w-4 text-content-secondary" />}

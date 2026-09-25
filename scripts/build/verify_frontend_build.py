@@ -14,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_OUTPUTS = {
     "frontend/css/tailwind.generated.css": 10_000,
     "frontend/dist/app.bundle.js": 100_000,
+    # pdf.js, loaded only when a PDF is attached or opened (v5.0.5 files).
+    "frontend/dist/pdf.bundle.js": 100_000,
+    "frontend/dist/pdf.worker.js": 100_000,
 }
 
 

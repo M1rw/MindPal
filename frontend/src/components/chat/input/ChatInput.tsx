@@ -11,6 +11,10 @@ import { ChatInputDictationMode } from './ChatInputDictationMode';
 import { ComposerNotice } from './ComposerNotice';
 import { stopHaptic, triggerHaptic } from '../../../utils/ui/haptics';
 import { useIsSignedIn } from '../../../hooks/session/useAccountStatus.ts';
+import { ComposerAttach } from './ComposerAttach';
+import { ComposerFiles } from './ComposerFiles';
+import { useComposerFilesStore } from '../../../store/composerFiles.ts';
+import { toMessageAttachment, turnAttachments } from '../../../files/turnPayload.ts';
 
 /** Keep in sync with `composerThinkOut` duration in style.css. */
 const COMPOSER_THINK_EXIT_MS = 450;
@@ -42,6 +46,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
   const [fieldGrown, setFieldGrown] = useState(false);
   const [fieldOverflowing, setFieldOverflowing] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [dropping, setDropping] = useState(false);
+  const fileItems = useComposerFilesStore((state) => state.items);
+  const filesEnabled = useFlagsStore((state) => state.flags.files_enabled ?? true);
   const expandedRef = useRef(false);
   expandedRef.current = expanded;
 
@@ -180,9 +187,16 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
 
   async function send(textToSend: string) {
     const trimmed = textToSend.trim();
-    if (!trimmed || isGenerating || isSendingRef.current) return;
+    const composerFiles = useComposerFilesStore.getState();
+    if (composerFiles.items.some((item) => item.status === 'reading')) {
+      composerFiles.setNotice('Still reading your file. Send once it is ready.');
+      return;
+    }
+    const hasFiles = composerFiles.items.some((item) => item.status === 'ready');
+    if ((!trimmed && !hasFiles) || isGenerating || isSendingRef.current) return;
 
     isSendingRef.current = true;
+    const sentFiles = hasFiles ? composerFiles.take() : [];
     props.onBeforeSend?.();
 
     recordActivity();
@@ -193,6 +207,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
       role: 'user' as const,
       content: trimmed,
       timestamp: new Date().toISOString(),
+      ...(sentFiles.length ? { attachments: sentFiles.map(toMessageAttachment) } : {}),
     };
 
     addMessage(userMsg);
@@ -218,6 +233,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
     let currentContent = '';
 
     try {
+      // This turn's files, and earlier ones still in view for follow-up questions.
+      const attachments = await turnAttachments({ fresh: sentFiles, history: messages, signedIn: isAuthenticated });
       await ApiClient.streamChat(
         trimmed,
         messages.slice(-30),
@@ -240,6 +257,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
         {
           model: activeModel,
           signal: controller.signal,
+          attachments,
           onMemory: (receipt) => {
             const kept = captureMemoryReceipt(receipt, useSessionStore.getState().isAuthenticated);
             if (kept) useChatStore.getState().setMessageMemoryReceipt(assistantMsgId, kept);
@@ -308,6 +326,15 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
   };
 
   const hasText = input.trim().length > 0;
+  const filesReading = fileItems.some((item) => item.status === 'reading');
+  const hasFiles = fileItems.some((item) => item.status === 'ready');
+
+  const takeFiles = (list: FileList | null | undefined) => {
+    const files = Array.from(list ?? []);
+    if (!files.length || !filesEnabled) return false;
+    useComposerFilesStore.getState().add(files);
+    return true;
+  };
   const isPro = activeModel === 'pro';
   const showExpand = fieldOverflowing && !isDictating && !isEditingThread;
 
@@ -322,13 +349,34 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
           isEditingThread && 'chat-composer--editing',
           thinkingMounted && 'chat-composer--thinking',
           thinkingMounted && !thinkingVisible && 'chat-composer--thinking-out',
+          dropping && 'chat-composer--drop',
         )}
         aria-disabled={isEditingThread || undefined}
         inert={isEditingThread || undefined}
         data-think-cycle={thinkCycle % 2 === 0 ? 'a' : 'b'}
+        onDragOver={(event) => {
+          if (!filesEnabled || !event.dataTransfer.types.includes('Files')) return;
+          event.preventDefault();
+          if (!dropping) setDropping(true);
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropping(false);
+        }}
+        onDrop={(event) => {
+          if (!event.dataTransfer.files.length) return;
+          event.preventDefault();
+          setDropping(false);
+          takeFiles(event.dataTransfer.files);
+        }}
         style={{ '--composer-think-from': thinkFrom } as React.CSSProperties}
       >
+        {filesEnabled ? <ComposerFiles /> : null}
         <div className={cn('chat-composer__row', fieldGrown && 'chat-composer__row--grown')}>
+          {filesEnabled ? (
+            <div className="chat-composer__attach" aria-hidden={isDictating} inert={isDictating}>
+              <ComposerAttach disabled={isEditingThread} />
+            </div>
+          ) : null}
           <div className="chat-composer__body">
             <div className="chat-composer__field-wrap">
               <textarea
@@ -347,6 +395,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={(e) => {
+                  // A pasted screenshot or file becomes an attachment; pasted text stays text.
+                  if (e.clipboardData.files.length && takeFiles(e.clipboardData.files)) e.preventDefault();
+                }}
                 className="chat-composer__field custom-scrollbar bg-transparent resize-none outline-none pl-4 pr-2 py-2.5 text-md sm:text-base text-content-primary placeholder-content-muted leading-6 min-h-[44px]"
                 placeholder={isTranscribing ? 'Transcribing…' : isDictating ? 'Listening...' : 'Ask MindPal'}
                 aria-label={isDictating ? 'Listening to your voice' : 'Ask MindPal'}
@@ -380,7 +432,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>((props, ref
               </button>
             ) : null}
             <ChatInputActions
-              hasText={hasText}
+              hasText={hasText || hasFiles}
+              filesReading={filesReading}
               isGenerating={isGenerating}
               isPro={isPro}
               selectorOpen={selectorOpen}

@@ -73,6 +73,8 @@ export const ApiClient = {
       presence_enabled: inner.presence_enabled,
       pro_model_enabled: Boolean(inner.pro_model_enabled),
       memory_enabled: Boolean(inner.memory_enabled),
+      // Missing on an older server: on, like the default.
+      files_enabled: inner.files_enabled ?? true,
       changelog_enabled: Boolean(inner.changelog_enabled),
       clinical_guidance: inner.clinical_guidance,
       analytics_insights: inner.analytics_insights,

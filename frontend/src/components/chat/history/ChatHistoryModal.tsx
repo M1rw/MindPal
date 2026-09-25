@@ -18,6 +18,7 @@ import {
   ArrowUp,
   AudioLines,
   Brain,
+  FolderOpen,
   ChevronDown,
   ChevronUp,
   CornerDownLeft,
@@ -66,6 +67,7 @@ import { isDarkTheme, toggleTheme } from '../../../utils/ui/theme';
 import { matchesAll, searchChats, searchTerms } from '../../../utils/ui/search';
 import { shortcutLabel } from '../../../utils/ui/shortcuts';
 import { cn } from '../../../utils/ui/cn';
+import { useLibraryStore } from '../../../store/library.ts';
 
 export function groupSessions(sessions: ChatSession[]): { label: string; items: ChatSession[] }[] {
   const now = new Date();
@@ -194,6 +196,13 @@ export const ChatHistoryModal: React.FC = () => {
         keywords: 'remember facts summary what mindpal knows',
         icon: Brain,
         run: () => useMemoryStore.getState().setIsOpen(true),
+      },
+      {
+        id: 'library',
+        label: 'Open library',
+        keywords: 'files photos images pdf documents uploads attachments',
+        icon: FolderOpen,
+        run: () => useLibraryStore.getState().open(),
       },
       {
         id: 'settings',
