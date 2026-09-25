@@ -96,6 +96,7 @@ async def chat_stream(
                     anonymous=anonymous,
                     peer=peer,
                     files=files or None,
+                    recent_cards=payload.recent_cards,
                 )
             ) as events:
                 async for chunk in events:
