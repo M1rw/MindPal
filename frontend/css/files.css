@@ -331,7 +331,7 @@
   background: color-mix(in srgb, var(--brand-primary) 18%, transparent);
 }
 
-/* Camera */
+/* Camera: a framed viewfinder between a top tool row and the shutter deck. */
 .camera-sheet {
   position: fixed;
   inset: 0;
@@ -340,36 +340,205 @@
   flex-direction: column;
   color: #fff;
   background: #000;
-  animation: cameraIn 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  animation: cameraIn 280ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 @keyframes cameraIn {
-  from { opacity: 0; transform: translateY(4%); }
+  from { opacity: 0; transform: scale(1.04); }
   to { opacity: 1; transform: none; }
 }
-.camera-sheet__stage {
+.camera-sheet__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 0.625rem) 1rem 0.625rem;
+}
+.camera-sheet__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.camera-sheet__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  transition: background-color 160ms ease-out, color 160ms ease-out, transform 160ms ease-out;
+}
+.camera-sheet__icon:active {
+  transform: scale(0.92);
+}
+.camera-sheet__icon.is-on {
+  color: #111;
+  background: #ffd24a;
+}
+.camera-sheet__icon:disabled {
+  opacity: 0.35;
+}
+.camera-sheet__icon--large {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+.camera-sheet__badge {
+  position: absolute;
+  right: -0.25rem;
+  bottom: -0.125rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1rem;
+  color: #111;
+  background: #fff;
+}
+.camera-sheet__done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #000;
+  background: #fff;
+  animation: cameraPop 260ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+@keyframes cameraPop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The viewfinder keeps the photo's own shape, so the shot is exactly what was framed. */
+.camera-sheet__middle {
   position: relative;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 0 0.5rem;
 }
-.camera-sheet__video,
-.camera-sheet__shot {
+.camera-sheet__frame {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: #111;
+  isolation: isolate;
+  /* Safari clips transformed video to the rounded frame only with this. */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  transition: box-shadow 240ms ease-out;
+}
+@media (orientation: portrait) {
+  .camera-sheet__frame {
+    width: min(100%, calc((100dvh - 13.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * 0.75));
+  }
+}
+@media (orientation: landscape) {
+  .camera-sheet__frame {
+    width: auto;
+    height: 100%;
+  }
+}
+.camera-sheet__frame.is-document {
+  box-shadow: 0 0 0 2px rgba(255, 210, 74, 0.7);
+}
+.camera-sheet__video {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transform-origin: center;
+  transition: opacity 320ms ease-out, transform 120ms linear;
 }
-.camera-sheet__shot {
+.camera-sheet__video.is-live {
+  opacity: 1;
+}
+/* The last frame, blurred, held while the other camera starts: no black flash. */
+.camera-sheet__freeze {
   position: absolute;
   inset: 0;
-  object-fit: contain;
-  background: #000;
-  animation: fileFadeIn 160ms ease-out both;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  filter: blur(18px) saturate(1.2);
+  transform: scale(1.12);
+  pointer-events: none;
+  transition: opacity 360ms ease-out;
 }
-.camera-sheet__video--mirror {
-  transform: scaleX(-1);
+.camera-sheet__freeze.is-mirrored {
+  transform: scale(1.12) scaleX(-1);
 }
-.camera-sheet__video.is-hidden {
-  visibility: hidden;
+.camera-sheet__freeze.is-on {
+  opacity: 1;
+  transition: none;
+  animation: cameraTurn 520ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes cameraTurn {
+  0% { filter: blur(0) saturate(1); }
+  40% { filter: blur(22px) saturate(1.3) brightness(0.8); }
+  100% { filter: blur(18px) saturate(1.2); }
+}
+.camera-sheet__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, transparent calc(33.33% - 0.5px), rgba(255, 255, 255, 0.35) calc(33.33% - 0.5px), rgba(255, 255, 255, 0.35) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), rgba(255, 255, 255, 0.35) calc(66.66% - 0.5px), rgba(255, 255, 255, 0.35) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(33.33% - 0.5px), rgba(255, 255, 255, 0.35) calc(33.33% - 0.5px), rgba(255, 255, 255, 0.35) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), rgba(255, 255, 255, 0.35) calc(66.66% - 0.5px), rgba(255, 255, 255, 0.35) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px));
+  animation: fileFadeIn 200ms ease-out both;
+}
+/* Document mode: four corner brackets that breathe, a hint to fill the frame. */
+.camera-sheet__guide {
+  position: absolute;
+  inset: 7%;
+  pointer-events: none;
+  animation: cameraGuide 2.4s ease-in-out infinite;
+}
+.camera-sheet__guide span {
+  position: absolute;
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid #ffd24a;
+}
+.camera-sheet__guide span:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 0.75rem; }
+.camera-sheet__guide span:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 0.75rem; }
+.camera-sheet__guide span:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 0.75rem; }
+.camera-sheet__guide span:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 0.75rem; }
+@keyframes cameraGuide {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(0.97); opacity: 0.6; }
+}
+.camera-sheet__hint {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  margin: 0;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-align: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 .camera-sheet__status {
   position: absolute;
@@ -384,77 +553,218 @@
   font-size: 0.9375rem;
   color: rgba(255, 255, 255, 0.85);
 }
-.camera-sheet__flash {
+.camera-sheet__status p {
+  margin: 0;
+  max-width: 18rem;
+}
+.camera-sheet__countdown {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 6rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  animation: cameraCount 1s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+@keyframes cameraCount {
+  0% { opacity: 0; transform: scale(1.6); }
+  25% { opacity: 1; transform: scale(1); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+.camera-sheet__zoom {
+  position: absolute;
+  left: 50%;
+  bottom: 0.875rem;
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transform: translateX(-50%);
+}
+.camera-sheet__zoom-stop {
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background-color 160ms ease-out, color 160ms ease-out, transform 160ms ease-out;
+}
+.camera-sheet__zoom-stop.is-on {
+  color: #ffd24a;
+  background: rgba(0, 0, 0, 0.55);
+  transform: scale(1.08);
+}
+.camera-sheet__shutter-flash {
   position: absolute;
   inset: 0;
   background: #fff;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 180ms ease-out;
+  transition: opacity 220ms ease-out;
 }
-.camera-sheet__flash.is-on {
-  opacity: 0.85;
+.camera-sheet__shutter-flash.is-on {
+  opacity: 0.8;
   transition: none;
 }
-.camera-sheet__close {
+/* The front "flash": the whole screen turns white for a moment. */
+.camera-sheet__screen-flash {
   position: absolute;
-  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
-  left: 0.75rem;
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 999px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(8px);
+  inset: 0;
+  z-index: 3;
+  background: #fff8ec;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
 }
-.camera-sheet__bar {
+.camera-sheet--screen-flash .camera-sheet__screen-flash {
+  opacity: 1;
+  transition: opacity 80ms ease-in;
+}
+
+.camera-sheet__bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 1.5rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+}
+.camera-sheet__modes {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.camera-sheet__mode {
+  padding: 0.375rem 0.875rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 180ms ease-out, background-color 180ms ease-out;
+}
+.camera-sheet__mode.is-on {
+  color: #ffd24a;
+  background: rgba(255, 255, 255, 0.12);
+}
+.camera-sheet__controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1.25rem 2rem calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
-  background: #000;
-}
-.camera-sheet__spacer {
-  width: 2.75rem;
+  width: 100%;
+  max-width: 22rem;
 }
 .camera-sheet__shutter {
   display: grid;
   place-items: center;
-  width: 4.5rem;
-  height: 4.5rem;
+  width: 4.75rem;
+  height: 4.75rem;
   border-radius: 999px;
   border: 4px solid #fff;
   background: transparent;
-  transition: transform 120ms ease-out;
+  transition: transform 140ms ease-out, opacity 160ms ease-out;
 }
 .camera-sheet__shutter span {
-  width: 3.4rem;
-  height: 3.4rem;
+  width: 3.6rem;
+  height: 3.6rem;
   border-radius: 999px;
   background: #fff;
-  transition: transform 120ms ease-out;
+  transition: transform 140ms cubic-bezier(0.3, 1.4, 0.5, 1), background-color 180ms ease-out, border-radius 180ms ease-out;
+}
+.camera-sheet__shutter.is-document span {
+  border-radius: 0.875rem;
+  background: #ffd24a;
+  transform: scale(0.82);
 }
 .camera-sheet__shutter:active span {
-  transform: scale(0.88);
+  transform: scale(0.86);
 }
 .camera-sheet__shutter:disabled {
   opacity: 0.4;
 }
-.camera-sheet__flip {
-  display: grid;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 999px;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
-  transition: transform 300ms ease-out;
+.camera-sheet__flip svg {
+  transition: transform 520ms cubic-bezier(0.4, 0, 0.2, 1);
 }
-.camera-sheet__flip:active {
-  transform: rotate(180deg);
+.camera-sheet__flip.is-turning svg {
+  transform: rotate(-180deg);
+}
+.camera-sheet__tray {
+  position: relative;
+  width: 3.25rem;
+  height: 3.25rem;
+  padding: 0;
+  border-radius: 0.75rem;
+  border: 2px solid #fff;
+  overflow: visible;
+  background: #222;
+  animation: cameraPop 260ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.camera-sheet__tray img {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.625rem;
+  object-fit: cover;
+}
+.camera-sheet__count {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  color: #111;
+  background: #ffd24a;
+}
+/* The photo just taken shrinks from the viewfinder into the tray. */
+.camera-sheet__flying {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  width: 60vmin;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 1rem;
+  pointer-events: none;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  animation: cameraFly 500ms cubic-bezier(0.5, 0, 0.3, 1) both;
+}
+@keyframes cameraFly {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  to { transform: translate(calc(-50% + var(--fly-x)), calc(-50% + var(--fly-y))) scale(0.09); opacity: 0.6; }
+}
+.camera-sheet__notice {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 4rem);
+  left: 50%;
+  z-index: 4;
+  padding: 0.375rem 0.875rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: fileFadeIn 180ms ease-out both;
 }
 .camera-sheet__pill {
   display: inline-flex;
@@ -467,9 +777,61 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.16);
 }
-.camera-sheet__pill--primary {
-  color: #000;
-  background: #fff;
+
+/* Review: every photo taken, one large, the rest in a strip. */
+.camera-sheet__review {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 0.625rem) 1rem calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  background: #000;
+  animation: fileFadeIn 180ms ease-out both;
+}
+.camera-sheet__review-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.camera-sheet__review-image {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+  border-radius: 1rem;
+}
+.camera-sheet__review-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.25rem;
+}
+.camera-sheet__review-thumb {
+  flex: none;
+  width: 3.25rem;
+  height: 3.25rem;
+  padding: 0;
+  border-radius: 0.625rem;
+  border: 2px solid transparent;
+  overflow: hidden;
+  opacity: 0.6;
+  transition: opacity 160ms ease-out, border-color 160ms ease-out;
+}
+.camera-sheet__review-thumb.is-on {
+  border-color: #ffd24a;
+  opacity: 1;
+}
+.camera-sheet__review-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.camera-sheet__delete {
+  flex: none;
+  margin-left: auto;
 }
 
 /* Viewer */
@@ -841,6 +1203,12 @@
   .msg-files--enter > *,
   .msg-file-pdf__page,
   .camera-sheet,
+  .camera-sheet__done,
+  .camera-sheet__tray,
+  .camera-sheet__guide,
+  .camera-sheet__countdown,
+  .camera-sheet__flying,
+  .camera-sheet__freeze.is-on,
   .file-viewer__page,
   .file-viewer__image,
   .library-card,
