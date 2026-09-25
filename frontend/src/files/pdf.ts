@@ -22,7 +22,10 @@ let modulePromise: Promise<PdfModule> | null = null;
 
 export function loadPdfjs(): Promise<PdfModule> {
   if (!modulePromise) {
-    const url = new URL('./pdf.bundle.js', import.meta.url).href;
+    // Relative to the page, not to this module: code splitting moves this code
+    // into dist/chunks/, where a module-relative './pdf.bundle.js' does not exist.
+    const base = typeof document !== 'undefined' ? document.baseURI : import.meta.url;
+    const url = new URL('./dist/pdf.bundle.js', base).href;
     modulePromise = (import(/* @vite-ignore */ url) as Promise<PdfModule>).catch((error) => {
       modulePromise = null;
       throw error;

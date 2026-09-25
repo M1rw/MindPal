@@ -11,7 +11,7 @@
 
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { serveStatic } from './static_server.mjs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 
@@ -24,7 +24,7 @@ let browser;
 
 before(async () => {
   if (!live) {
-    server = spawn('python', ['-m', 'http.server', String(port), '--directory', 'frontend'], { stdio: 'ignore' });
+    server = await serveStatic('frontend', port);
     const deadline = Date.now() + 5_000;
     while (Date.now() < deadline) {
       try {
@@ -47,7 +47,7 @@ before(async () => {
 
 after(async () => {
   await browser?.close();
-  server?.kill();
+  await server?.close();
 });
 
 test('a spoken voice note (Arabic + English) is recorded, transcribed and lands in the composer', async () => {
