@@ -14,12 +14,16 @@ SWEEP_TIME_BUDGET_S = 5.0
 def run_voice_retention(*, store: Any | None = None) -> dict[str, int]:
     """Run from a deployment scheduler; safe to retry and safe on serverless.
 
-    Also the daily sweep for other expiring personal data (greetings).
+    Also the daily sweep for other expiring personal data (greetings, cached
+    file readings, daily file allowances).
     """
     target = store or get_store()
     removed = VoicePrivacyService(target).purge_expired()
     removed["greeting_cache"] = purge_expired_greetings(target)
     removed["account_deletions"] = _purge_expired(target, "account_deletions")
+    # Files (v5.0.5): cached page readings (7 days) and daily file allowances.
+    removed["file_digests"] = _purge_expired(target, "file_digests")
+    removed["file_allowance"] = _purge_expired(target, "file_allowance")
     return removed
 
 

@@ -38,7 +38,7 @@ function PdfCard({ attachment }: { attachment: MessageAttachment }) {
       type="button"
       className="msg-file-pdf"
       onClick={() => open(attachment)}
-      aria-label={`Open ${attachment.name}${count ? `, ${count} pages` : ''}`}
+      aria-label={`Open ${attachment.name}${count ? `, ${count} page${count === 1 ? '' : 's'}` : ''}`}
       title={attachment.name}
     >
       <span className={cn('msg-file-pdf__stack', pages.length > 1 && 'msg-file-pdf__stack--fan')} aria-hidden="true">

@@ -136,13 +136,11 @@ class LibraryService:
         return doc
 
     def _sign(self, paths: List[str]) -> List[str]:
-        out = []
-        for path in paths:
-            try:
-                out.append(self.blobs.signed_download_url(path))
-            except (BlobUnavailable, ValueError):
-                out.append("")
-        return out
+        """Links for many files in one round trip; "" where there is nothing to show."""
+        try:
+            return self.blobs.signed_download_urls(paths)
+        except (BlobUnavailable, ValueError):
+            return ["" for _ in paths]
 
     # -- writes --------------------------------------------------------------
 

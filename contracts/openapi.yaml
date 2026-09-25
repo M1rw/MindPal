@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MindPal API
-  version: 5.0.0
+  version: 5.0.5
   description: >
     Source of truth for HTTP. FastAPI may only expose operations listed here.
     Brain (Obsidian workspace HTTP) is retired; memory graph is the durable store.

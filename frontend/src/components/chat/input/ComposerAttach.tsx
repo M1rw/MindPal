@@ -32,9 +32,10 @@ export const ComposerAttach: React.FC<ComposerAttachProps> = ({ disabled = false
     const update = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      // Above the button, and above the keyboard on phones.
-      const viewportH = window.visualViewport?.height ?? window.innerHeight;
-      setMenuPos({ bottom: viewportH - rect.top + 8, left: Math.max(12, rect.left) });
+      // Right above the button. `bottom` counts from the layout viewport, which
+      // keeps its height when the iOS keyboard opens, so it is measured from
+      // innerHeight: the menu then follows the button wherever the keyboard put it.
+      setMenuPos({ bottom: window.innerHeight - rect.top + 8, left: Math.max(12, rect.left) });
     };
     update();
     window.addEventListener('resize', update);

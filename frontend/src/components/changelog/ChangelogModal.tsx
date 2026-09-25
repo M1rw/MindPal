@@ -13,7 +13,7 @@ export const ChangelogModal: React.FC = () => {
   const accountId = useAuthStore((state) => state.user?.uid ?? null);
   const isAuthenticated = useIsSignedIn();
 
-  const currentVersion = changelog?.current_version || '5.0.0';
+  const currentVersion = changelog?.current_version || '5.0.5';
   const entry = changelog?.entries?.find((e) => e.version === currentVersion) ?? changelog?.entries?.[0];
 
   const handleDismiss = async () => {

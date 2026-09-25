@@ -277,14 +277,3 @@ def assemble_pdf_digest(name: str, total_pages: int, pages: List[Dict[str, Any]]
         pages=parsed,
     )
 
-
-def purge_expired_digests(store: Any = None, now: Optional[float] = None) -> int:
-    """Drop cached readings past their time (run from the retention sweep)."""
-    store = store or get_store()
-    moment = time.time() if now is None else now
-    removed = 0
-    for doc_id, doc in list(store.iter_documents(_CACHE)):
-        if float(doc.get("expires_at", 0)) < moment and store.delete_document(_CACHE, doc_id):
-            removed += 1
-    return removed
-

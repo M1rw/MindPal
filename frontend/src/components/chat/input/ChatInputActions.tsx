@@ -166,12 +166,12 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
       const el = buttonRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      // Fix 7: use visualViewport.height (shrinks when keyboard opens) instead of
-      // window.innerHeight (which stays constant on iOS/Android), so the menu
-      // always appears above the virtual keyboard rather than behind it.
-      const viewportH = window.visualViewport?.height ?? window.innerHeight;
+      // Right above the button. A fixed element's `bottom` counts from the layout
+      // viewport, which keeps its height when the iOS keyboard opens; measured
+      // from visualViewport.height the menu landed a keyboard's height too low,
+      // behind the keyboard. From innerHeight it follows the button.
       setMenuPos({
-        bottom: viewportH - rect.top + 8,
+        bottom: window.innerHeight - rect.top + 8,
         right: Math.max(12, window.innerWidth - rect.right),
       });
     };
