@@ -173,10 +173,11 @@ export function blendFaceLayers(input: FaceBlendInput): FaceBlendResult {
     blinkIntervalScale,
     expression,
     mood,
-    // Only once the look is actually established, so the silhouette does not
-    // pop in on the first frame of a crossfade.
+    // The target silhouette. The renderer morphs toward it (eyeMorph.ts), so it
+    // can switch as soon as the look is on its way in, and the outline changes
+    // together with the rest of the expression instead of halfway through it.
     shape:
-      commandName && commandWeight > 0.5
+      commandName && commandWeight > 0.2
         ? EXPRESSION_POSES[commandName].shape ?? 'capsule'
         : 'capsule',
     commandName,
