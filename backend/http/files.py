@@ -20,7 +20,6 @@ from backend.domain.files.digest import DigestService, assemble_pdf_digest
 from backend.domain.files.library import LibraryService
 from backend.domain.identity.identity import UserSession, account_guard, verify_auth_header
 from backend.domain.quota.quota import peer_network_id
-from backend.infra.blob import BlobUnavailable
 
 router = APIRouter()
 digests = DigestService()
@@ -117,22 +116,22 @@ _guard = account_guard("keep files in your library")
 
 @router.get("/api/library", operation_id="libraryList")
 def library_list(q: str = Query("", max_length=120), session: UserSession = Depends(_guard)) -> Dict[str, Any]:
-    return _blob_call(library.list, session.user_id_hash, q)
+    return library.list(session.user_id_hash, q)
 
 
 @router.post("/api/library/upload", operation_id="libraryStartUpload")
 def library_start_upload(payload: LibraryUploadRequest, session: UserSession = Depends(_guard)) -> Dict[str, Any]:
-    return _blob_call(library.start_upload, session.user_id_hash, payload)
+    return library.start_upload(session.user_id_hash, payload)
 
 
 @router.post("/api/library/{file_id}/complete", operation_id="libraryCompleteUpload")
 def library_complete(file_id: str, payload: LibraryCompleteRequest, session: UserSession = Depends(_guard)) -> Dict[str, Any]:
-    return _blob_call(library.complete, session.user_id_hash, file_id, payload.digest)
+    return library.complete(session.user_id_hash, file_id, payload.digest)
 
 
 @router.get("/api/library/{file_id}", operation_id="libraryGet")
 def library_get(file_id: str, session: UserSession = Depends(_guard)) -> Dict[str, Any]:
-    return _blob_call(library.get, session.user_id_hash, file_id)
+    return library.get(session.user_id_hash, file_id)
 
 
 @router.patch("/api/library/{file_id}", operation_id="libraryRename")
@@ -142,14 +141,7 @@ def library_rename(file_id: str, payload: LibraryPatchRequest, session: UserSess
 
 @router.delete("/api/library/{file_id}", operation_id="libraryDelete")
 def library_delete(file_id: str, session: UserSession = Depends(_guard)) -> Dict[str, Any]:
-    return {"deleted": _blob_call(library.delete, session.user_id_hash, file_id)}
-
-
-def _blob_call(fn: Any, *args: Any) -> Any:
-    try:
-        return fn(*args)
-    except BlobUnavailable:
-        raise AppError("unavailable", "File storage is briefly unavailable. Please try again.")
+    return {"deleted": library.delete(session.user_id_hash, file_id)}
 
 
 def _header_name(raw: str) -> str:

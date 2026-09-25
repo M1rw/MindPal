@@ -12,6 +12,7 @@ Guests have no library here; theirs stays on their device.
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
 import secrets
@@ -65,6 +66,19 @@ def _public(doc: Dict[str, Any], *, with_digest: bool = False) -> Dict[str, Any]
     return out
 
 
+def _storage_errors(method: Any) -> Any:
+    """Object storage down is a brief outage to the person, not a crash."""
+
+    @functools.wraps(method)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return method(*args, **kwargs)
+        except BlobUnavailable:
+            raise AppError("unavailable", "File storage is briefly unavailable. Please try again.")
+
+    return wrapper
+
+
 class LibraryService:
     def __init__(self, store: Any = None, blobs: Optional[BlobStore] = None) -> None:
         self._store = store
@@ -96,6 +110,7 @@ class LibraryService:
             "bytes_limit": int(limits["library_bytes"]),
         }
 
+    @_storage_errors
     def list(self, user: str, query: str = "") -> Dict[str, Any]:
         docs = sorted(self._ready(user), key=lambda d: -float(d.get("created_at", 0)))
         needle = query.strip().lower()
@@ -107,6 +122,7 @@ class LibraryService:
             item["thumb_url"] = url
         return {"files": files, "usage": self.usage(user)}
 
+    @_storage_errors
     def get(self, user: str, file_id: str) -> Dict[str, Any]:
         doc = self._require(user, file_id)
         out = _public(doc, with_digest=True)
@@ -144,6 +160,7 @@ class LibraryService:
 
     # -- writes --------------------------------------------------------------
 
+    @_storage_errors
     def start_upload(self, user: str, request: LibraryUploadRequest) -> Dict[str, Any]:
         mime = request.mime.split(";", 1)[0].strip().lower()
         if mime not in IMAGE_TYPES and mime != PDF_TYPE:
@@ -183,6 +200,7 @@ class LibraryService:
         )
         return {"file_id": file_id, "existing": False, "uploads": uploads}
 
+    @_storage_errors
     def complete(self, user: str, file_id: str, digest: Digest) -> Dict[str, Any]:
         try:
             clean = valid_file_id(file_id)
@@ -224,6 +242,7 @@ class LibraryService:
         self.store.set_document(COLLECTION, _doc_id(user, doc["id"]), doc)
         return _public(doc)
 
+    @_storage_errors
     def delete(self, user: str, file_id: str) -> bool:
         doc = self._require(user, file_id)
         try:
