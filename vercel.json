@@ -3,8 +3,8 @@
   "version": 2,
   "crons": [
     {
-      "path": "/api/internal/voice-retention",
-      "schedule": "0 3 * * *"
+      "path": "/api/internal/daily",
+      "schedule": "0 15 * * *"
     },
     {
       "path": "/api/internal/memory-consolidation",

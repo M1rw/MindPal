@@ -1,3 +1,4 @@
+import { WeekCard } from './WeekCard';
 import React from 'react';
 import { Waves, Wind, Anchor, type LucideIcon } from 'lucide-react';
 import { SkeletonGreeting, SkeletonMoodChips } from '../../ui/Skeleton';
@@ -86,6 +87,7 @@ export const ChatCanvasEmptyState: React.FC<ChatCanvasEmptyStateProps> = ({
               </button>
             ))}
           </div>
+          <WeekCard onReflect={onSelectMood} />
         </>
       )}
     </div>
