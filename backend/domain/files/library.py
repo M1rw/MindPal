@@ -36,6 +36,9 @@ logger = logging.getLogger("mindpal.library")
 COLLECTION = "library_files"
 DIGEST_CACHE = "file_digests"
 _PENDING_SECONDS = 3600
+# Uploads started but not finished, at once: enough for a message's files, not
+# a way to park unlimited bytes in storage.
+MAX_PENDING = 4
 _PREVIEW = re.compile(r"^p\d+\.webp$")
 _EXT = {
     "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
@@ -80,9 +83,18 @@ def _storage_errors(method: Any) -> Any:
 
 
 class LibraryService:
-    def __init__(self, store: Any = None, blobs: Optional[BlobStore] = None) -> None:
+    def __init__(self, store: Any = None, blobs: Optional[BlobStore] = None, allowance: Any = None) -> None:
         self._store = store
         self._blobs = blobs
+        self._allowance = allowance
+
+    @property
+    def allowance(self) -> Any:
+        from backend.domain.files.limits import FileAllowance
+
+        if self._allowance is None:
+            self._allowance = FileAllowance(self._store)
+        return self._allowance
 
     @property
     def store(self) -> Any:
@@ -173,6 +185,9 @@ class LibraryService:
         if is_pdf and request.pages > int(limits["max_pdf_pages"]):
             raise AppError("payload_invalid", f"PDFs can be up to {limits['max_pdf_pages']} pages.")
         self._drop_stale_pending(user)
+        pending = [d for d in self._docs(user) if d.get("status") == "pending"]
+        if len(pending) >= MAX_PENDING:
+            raise AppError("rate_limited", "A few files are still uploading. Try again in a moment.")
         # The same file again: hand back the one already there.
         for doc in self._ready(user):
             if doc.get("hash") == request.hash:
@@ -180,8 +195,12 @@ class LibraryService:
         usage = self.usage(user)
         if usage["files"] >= usage["files_limit"]:
             raise AppError("rate_limited", f"Your library is full ({usage['files_limit']} files). Delete some to add more.")
-        if usage["bytes"] + request.size > usage["bytes_limit"]:
+        reserved = sum(int(d.get("size", 0)) for d in pending)
+        if usage["bytes"] + reserved + request.size > usage["bytes_limit"]:
             raise AppError("rate_limited", "Your library is out of space. Delete some files to add more.")
+        # New files count toward the day's files, like attaching one does (the
+        # same content once a day).
+        self.allowance.take(user, signed_in=True, file_hash=request.hash, vision_pages=0)
         file_id = f"f_{secrets.token_hex(8)}"
         ext = _EXT.get(mime, "bin")
         base = f"{user}/{file_id}"
@@ -212,10 +231,24 @@ class LibraryService:
             raise AppError("not_found", "That upload isn't known.")
         if doc.get("status") == "ready":
             return _public(doc)
-        stored = {obj.path: obj.size for obj in self.blobs.list_prefix(f"{user}/{clean}/")}
-        original = stored.get(f"{user}/{clean}/original.{doc.get('ext', 'bin')}")
-        if original is None:
+        objects = {obj.path: obj for obj in self.blobs.list_prefix(f"{user}/{clean}/")}
+        stored = {path: obj.size for path, obj in objects.items()}
+        original_obj = objects.get(f"{user}/{clean}/original.{doc.get('ext', 'bin')}")
+        if original_obj is None:
             raise AppError("payload_invalid", "The file didn't finish uploading. Please try again.")
+        original = original_obj.size
+        # What was stored must be what was declared: the original of its type,
+        # pictures as images. Anything else (a page, a script) is removed.
+        declared = str(doc.get("mime", ""))
+        wrong = (original_obj.content_type and original_obj.content_type.split(";")[0] != declared) or any(
+            obj.content_type and not obj.content_type.startswith("image/")
+            for path, obj in objects.items()
+            if not path.endswith(f"/original.{doc.get('ext', 'bin')}")
+        )
+        if wrong:
+            self.blobs.delete_paths(list(stored))
+            self.store.delete_document(COLLECTION, key)
+            raise AppError("payload_invalid", "That upload wasn't the file it said it was.")
         limits = tier(True)
         max_bytes = int(limits["max_pdf_bytes" if doc.get("kind") == "pdf" else "max_image_bytes"])
         total = sum(stored.values())
@@ -250,6 +283,10 @@ class LibraryService:
             self.blobs.delete_paths([o.path for o in objects])
         except BlobUnavailable:
             raise AppError("unavailable", "Couldn't delete that file right now. Please try again.")
+        # Its cached readings go with it.
+        for cache_id, cached in list(self.store.query_documents(DIGEST_CACHE, "user_id_hash", user)):
+            if cached.get("file_hash") == doc.get("hash"):
+                self.store.delete_document(DIGEST_CACHE, cache_id)
         return self.store.delete_document(COLLECTION, _doc_id(user, doc["id"]))
 
     def _drop_stale_pending(self, user: str) -> None:
@@ -262,6 +299,26 @@ class LibraryService:
                 except BlobUnavailable:
                     continue
                 self.store.delete_document(COLLECTION, _doc_id(user, doc["id"]))
+
+    def sweep_pending(self, *, now: Optional[float] = None, budget_s: float = 5.0) -> int:
+        """Daily: uploads started and never finished, everyone's, with their bytes."""
+        cutoff = (time.time() if now is None else now) - _PENDING_SECONDS
+        deadline = time.monotonic() + budget_s
+        removed = 0
+        for doc_id, doc in list(self.store.iter_documents(COLLECTION)):
+            if time.monotonic() >= deadline:
+                break
+            if doc.get("status") != "pending" or float(doc.get("created_at", 0)) >= cutoff:
+                continue
+            user = str(doc.get("user_id_hash") or doc_id.split(":", 1)[0])
+            try:
+                objects = self.blobs.list_prefix(f"{user}/{doc.get('id')}/")
+                self.blobs.delete_paths([o.path for o in objects])
+            except (BlobUnavailable, ValueError):
+                continue
+            if self.store.delete_document(COLLECTION, doc_id):
+                removed += 1
+        return removed
 
     # -- account lifecycle ---------------------------------------------------
 

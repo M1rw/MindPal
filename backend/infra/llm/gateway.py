@@ -9,6 +9,7 @@ from typing import Any, AsyncGenerator, Optional, Sequence
 
 from pydantic import BaseModel, ValidationError
 from backend.configs.llm import DEFAULT_GEMINI_CHAT_MODEL, DEFAULT_GEMINI_JSON_MODEL
+from backend.configs.llm import files_api_key
 from backend.configs.settings import get_settings
 from backend.infra.observability.metrics import ProviderMetric, elapsed_ms, provider_metrics
 logger = logging.getLogger("mindpal.llm")
@@ -392,6 +393,8 @@ class LLMGateway:
                 )
             yielded = False
             try:
+                # A turn about files runs on the file keys (its own quota).
+                key = files_api_key(provider) if (images or long_context) else None
                 if provider == "gemini":
                     stream = self._stream_gemini(
                         model=entry_model or self.default_model,
@@ -402,6 +405,7 @@ class LLMGateway:
                         history=history,
                         thinking_budget=thinking_budget,
                         images=images,
+                        api_key=key,
                     )
                 else:
                     stream = self._stream_openai_compatible(
@@ -414,6 +418,7 @@ class LLMGateway:
                         history=history,
                         fallback=bool(index),
                         images=images,
+                        api_key=key,
                     )
                 async for token in stream:
                     yielded = True
@@ -458,6 +463,7 @@ class LLMGateway:
         history: Optional[Sequence[dict[str, str]]],
         thinking_budget: Optional[int],
         images: Optional[Sequence[Any]] = None,
+        api_key: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """One Gemini stream. Provider errors propagate as-is so the ladder can read them."""
         started = time.perf_counter()
@@ -467,7 +473,7 @@ class LLMGateway:
         try:
             from google.genai import types
 
-            client = _get_client(_api_key(), timeout_ms=STREAM_TIMEOUT_MS)
+            client = _get_client(api_key or _api_key(), timeout_ms=STREAM_TIMEOUT_MS)
             config = types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=temperature,
@@ -508,10 +514,12 @@ class LLMGateway:
         history: Optional[Sequence[dict[str, str]]],
         fallback: bool = False,
         images: Optional[Sequence[Any]] = None,
+        api_key: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         from backend.infra.llm import openrouter as oai
 
         base_url, key = _openai_compatible_config(provider)
+        key = api_key or key
         if not key:
             raise LLMGatewayError("unavailable", f"{provider} is not configured.")
         started = time.perf_counter()

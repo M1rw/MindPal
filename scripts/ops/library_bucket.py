@@ -6,7 +6,8 @@
 Uses SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, like the document store. The
 round trip signs an upload, uploads a few bytes the way a browser does, checks
 the stored size, signs a download, reads it back, and deletes it again, all
-under a "_selftest/" prefix no account can have.
+under a "_selftest/" prefix no account can have. It also checks a web page
+is refused (the bucket takes images and PDFs only).
 """
 
 from __future__ import annotations
@@ -39,13 +40,25 @@ def main() -> int:
     limits = api_limits_config()["files"]["account"]
     if not args.check:
         largest = max(int(limits["max_pdf_bytes"]), int(limits["max_image_bytes"]))
-        created = store.ensure_bucket(file_size_limit=largest)
-        print(f"bucket {BUCKET}: {'created' if created else 'already there'} (private, files up to {largest // 1_000_000} MB)")
+        from backend.domain.files.contracts import IMAGE_TYPES, PDF_TYPE
 
-    path = f"_selftest/{int(time.time())}/probe.txt"
-    body = b"mindpal library self-test"
-    upload = store.signed_upload_url(path, "text/plain")
-    put = httpx.put(upload, content=body, headers={"Content-Type": "text/plain", "x-upsert": "true"}, timeout=20)
+        created = store.ensure_bucket(file_size_limit=largest, allowed_mime_types=[*IMAGE_TYPES, PDF_TYPE])
+        print(
+            f"bucket {BUCKET}: {'created' if created else 'rules updated'} "
+            f"(private, images and PDFs only, files up to {largest // 1_000_000} MB)"
+        )
+
+    path = f"_selftest/{int(time.time())}/probe.png"
+    body = b"\x89PNG mindpal library self-test"
+    refused = httpx.put(
+        store.signed_upload_url(f"_selftest/{int(time.time())}/page.html", "text/html"),
+        content=b"<script>alert(1)</script>",
+        headers={"Content-Type": "text/html", "x-upsert": "true"},
+        timeout=20,
+    )
+    print(f"a web page is refused: {refused.status_code >= 400}")
+    upload = store.signed_upload_url(path, "image/png")
+    put = httpx.put(upload, content=body, headers={"Content-Type": "image/png", "x-upsert": "true"}, timeout=20)
     print(f"upload via signed link: {put.status_code}")
     stat = store.stat(path)
     print(f"stored size: {stat.size if stat else None} (sent {len(body)})")
@@ -56,7 +69,10 @@ def main() -> int:
     print(f"public read refused: {unsigned.status_code >= 400}")
     removed = store.delete_paths([o.path for o in store.list_prefix(path.rsplit('/', 1)[0] + '/')])
     print(f"deleted: {removed}, left: {len(store.list_prefix(path.rsplit('/', 1)[0] + '/'))}")
-    ok = put.status_code == 200 and stat and stat.size == len(body) and got.content == body and unsigned.status_code >= 400
+    ok = (
+        put.status_code == 200 and stat and stat.size == len(body) and got.content == body
+        and unsigned.status_code >= 400 and refused.status_code >= 400
+    )
     print("OK" if ok else "FAILED")
     return 0 if ok else 1
 

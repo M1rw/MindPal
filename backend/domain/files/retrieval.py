@@ -37,13 +37,21 @@ def named_pages(question: str) -> Set[int]:
     return pages
 
 
+_MARKUP = re.compile(r"<\s*/?\s*file\b", re.IGNORECASE)
+
+
+def _content(text: str) -> str:
+    """Document text inside our <file> markup: it may not open or close a file tag."""
+    return _MARKUP.sub(lambda m: m.group(0).replace("<", "\u2039"), text)
+
+
 def page_block(page: PageDigest, *, paged: bool) -> str:
     head = f"[p. {page.n}]" if paged else ""
     parts = [head] if head else []
     if page.text:
-        parts.append(page.text)
+        parts.append(_content(page.text))
     if page.description:
-        parts.append(f"(What it shows: {page.description})")
+        parts.append(f"(What it shows: {_content(page.description)})")
     return "\n".join(parts)
 
 

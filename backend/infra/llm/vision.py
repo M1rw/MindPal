@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import httpx
 
-from backend.configs.llm import compatible_provider
+from backend.configs.llm import compatible_provider, files_api_key
 from backend.configs.settings import get_settings
 from backend.models.provider_outputs import extract_json_object
 
@@ -83,10 +83,7 @@ def vision_available() -> bool:
 
 
 def _has_key(provider: str) -> bool:
-    if provider == "gemini":
-        return bool(get_settings().resolved_gemini_api_key())
-    entry = compatible_provider(provider)
-    return bool(entry and entry.api_key())
+    return bool(files_api_key(provider))
 
 
 def _ordered(entries: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
@@ -99,7 +96,7 @@ def _via_gemini(model: str, images: Sequence[VisionImage], instruction: str, max
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=get_settings().resolved_gemini_api_key())
+    client = genai.Client(api_key=files_api_key("gemini"))
     parts: List[Any] = [types.Part.from_bytes(data=image.data, mime_type=image.mime_type) for image in images]
     parts.append(instruction)
     result = client.models.generate_content(
@@ -126,7 +123,7 @@ def _via_compatible(provider: str, model: str, images: Sequence[VisionImage], in
         content.append({"type": "image_url", "image_url": {"url": f"data:{image.mime_type};base64,{encoded}"}})
     response = httpx.post(
         entry.base_url().rstrip("/") + "/chat/completions",
-        headers={"Authorization": f"Bearer {entry.api_key()}"},
+        headers={"Authorization": f"Bearer {files_api_key(provider)}"},
         json={
             "model": model,
             "messages": [{"role": "user", "content": content}],

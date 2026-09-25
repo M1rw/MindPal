@@ -138,16 +138,24 @@ class SupabaseBlobStore:
             raise BlobUnavailable(f"storage {method} {response.status_code}")
         return response
 
-    def ensure_bucket(self, *, file_size_limit: int) -> bool:
-        """Create the private bucket if missing. True when it was created."""
-        response = self._call(
-            "POST",
-            "/bucket",
-            json={"id": self._bucket, "name": self._bucket, "public": False, "file_size_limit": file_size_limit},
-        )
+    def ensure_bucket(self, *, file_size_limit: int, allowed_mime_types: List[str]) -> bool:
+        """Create the private bucket if missing, or bring its rules up to date.
+
+        True when it was created. Only the listed types can be stored at all, so
+        a signed link cannot be used to park a web page or a script there.
+        """
+        settings = {
+            "public": False,
+            "file_size_limit": file_size_limit,
+            "allowed_mime_types": allowed_mime_types,
+        }
+        response = self._call("POST", "/bucket", json={"id": self._bucket, "name": self._bucket, **settings})
         if response.status_code in (200, 201):
             return True
         if response.status_code in (400, 409) and "exist" in response.text.lower():
+            update = self._call("PUT", f"/bucket/{self._bucket}", json=settings)
+            if update.status_code != 200:
+                raise BlobUnavailable(f"bucket update {update.status_code}: {update.text[:200]}")
             return False
         raise BlobUnavailable(f"bucket create {response.status_code}: {response.text[:200]}")
 
