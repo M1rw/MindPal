@@ -28,6 +28,12 @@ DEFAULT_VISION_LADDER = (
     "gemini:gemini-2.5-flash-lite,groq:qwen/qwen3.8-27b,"
     "openrouter:google/gemma-4-31b-it:free,gemini:gemini-2.5-flash"
 )
+# Answering about files (writing a reply, not reading a page): the stronger
+# writer first. Qwen's Arabic, for one, slipped into typos and repeated words.
+DEFAULT_ANSWER_LADDER = (
+    "gemini:gemini-2.5-flash,gemini:gemini-2.5-flash-lite,groq:qwen/qwen3.8-27b,"
+    "openrouter:google/gemma-4-31b-it:free"
+)
 TIMEOUT_S = 45.0
 _COOLDOWN_S = 30.0
 RETRY_WAIT_S = 4.0
@@ -53,7 +59,16 @@ class VisionReading:
 
 
 def vision_ladder() -> List[Tuple[str, str]]:
-    raw = (get_settings().vision_fallback or "").strip() or DEFAULT_VISION_LADDER
+    """Models that read pages: cheap and fast first."""
+    return _parse_ladder((get_settings().vision_fallback or "").strip() or DEFAULT_VISION_LADDER)
+
+
+def answer_ladder() -> List[Tuple[str, str]]:
+    """Models that answer about files and pictures: long context, images, good writing."""
+    return _parse_ladder((get_settings().files_chat_fallback or "").strip() or DEFAULT_ANSWER_LADDER)
+
+
+def _parse_ladder(raw: str) -> List[Tuple[str, str]]:
     out: List[Tuple[str, str]] = []
     for item in raw.split(","):
         provider, _, model = item.strip().partition(":")

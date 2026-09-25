@@ -70,6 +70,18 @@ type StoredLibraryRecord = Omit<LocalLibraryRecord, 'original' | 'thumb' | 'prev
   previews: StoredBytes[];
 };
 
+/** The same file attached again: its id points at the copy already kept. */
+interface StoredAlias {
+  id: string;
+  aliasOf: string;
+}
+
+type StoredLibraryRow = StoredLibraryRecord | StoredAlias;
+
+function isAlias(row: StoredLibraryRow): row is StoredAlias {
+  return 'aliasOf' in row;
+}
+
 function readThumb(stored: StoredThumb): ThumbRecord {
   return { id: stored.id, savedAt: stored.savedAt, thumb: fromStored(stored.thumb), previews: stored.previews.map(fromStored) };
 }
@@ -148,10 +160,12 @@ export async function clearThumbs(): Promise<void> {
 
 // --- a guest's library -------------------------------------------------------------
 
+async function allRows(): Promise<StoredLibraryRow[]> {
+  return (await run<StoredLibraryRow[]>(LIBRARY, 'readonly', (s) => s.getAll() as IDBRequest<StoredLibraryRow[]>)) ?? [];
+}
+
 export async function listLocalLibrary(maxFiles: number, maxDays: number): Promise<LocalLibraryRecord[]> {
-  const all = ((await run<StoredLibraryRecord[]>(LIBRARY, 'readonly', (s) => s.getAll() as IDBRequest<StoredLibraryRecord[]>)) ?? []).map(
-    readRecord,
-  );
+  const all = (await allRows()).filter((row): row is StoredLibraryRecord => !isAlias(row)).map(readRecord);
   const cutoff = Date.now() - maxDays * 86_400_000;
   const sorted = all.sort((a, b) => b.createdAt - a.createdAt);
   const keep = sorted.filter((r) => r.createdAt >= cutoff).slice(0, maxFiles);
@@ -161,11 +175,29 @@ export async function listLocalLibrary(maxFiles: number, maxDays: number): Promi
 }
 
 export async function getLocalFile(id: string): Promise<LocalLibraryRecord | null> {
-  const stored = await run<StoredLibraryRecord>(LIBRARY, 'readonly', (s) => s.get(id) as IDBRequest<StoredLibraryRecord>);
-  return stored ? readRecord(stored) : null;
+  let row = await run<StoredLibraryRow>(LIBRARY, 'readonly', (s) => s.get(id) as IDBRequest<StoredLibraryRow>);
+  if (row && isAlias(row)) {
+    const target = row.aliasOf;
+    row = await run<StoredLibraryRow>(LIBRARY, 'readonly', (s) => s.get(target) as IDBRequest<StoredLibraryRow>);
+  }
+  return row && !isAlias(row) ? readRecord(row) : null;
 }
 
+/**
+ * Keep a file, once: the same content attached again becomes an alias of the
+ * copy already kept, so the library lists it once and every message still
+ * finds its file.
+ */
 export async function putLocalFile(record: LocalLibraryRecord): Promise<boolean> {
+  const existing = (await allRows()).find((row) => !isAlias(row) && row.hash === record.hash && row.id !== record.id);
+  if (existing) {
+    const alias: StoredAlias = { id: record.id, aliasOf: existing.id };
+    return (await run(LIBRARY, 'readwrite', (s) => s.put(alias))) !== null;
+  }
+  return storeRecord(record);
+}
+
+async function storeRecord(record: LocalLibraryRecord): Promise<boolean> {
   const stored: StoredLibraryRecord = {
     ...record,
     original: await toStored(record.original),
@@ -181,5 +213,5 @@ export async function deleteLocalFile(id: string): Promise<void> {
 
 export async function renameLocalFile(id: string, name: string): Promise<void> {
   const record = await getLocalFile(id);
-  if (record) await putLocalFile({ ...record, name });
+  if (record) await storeRecord({ ...record, name });
 }
