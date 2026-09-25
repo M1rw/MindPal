@@ -152,9 +152,11 @@
   opacity: 0.92;
   transition: transform 150ms ease-out, opacity 150ms ease-out;
 }
-.composer-file__remove:hover {
-  transform: scale(1.1);
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .composer-file__remove:hover {
+    transform: scale(1.1);
+    opacity: 1;
+  }
 }
 @media (pointer: coarse) {
   /* A bigger target without a bigger badge. */
@@ -215,8 +217,10 @@
   max-height: 20rem;
   object-fit: contain;
 }
-.msg-file-image:hover {
-  transform: scale(1.015);
+@media (hover: hover) and (pointer: fine) {
+  .msg-file-image:hover {
+    transform: scale(1.015);
+  }
 }
 .msg-file-image.is-loading {
   width: 10rem;
@@ -242,9 +246,11 @@
   text-align: start;
   transition: border-color 180ms ease-out, box-shadow 180ms ease-out;
 }
-.msg-file-pdf:hover {
-  border-color: var(--border-default);
-  box-shadow: var(--shadow-card);
+@media (hover: hover) and (pointer: fine) {
+  .msg-file-pdf:hover {
+    border-color: var(--border-default);
+    box-shadow: var(--shadow-card);
+  }
 }
 .msg-file-pdf__stack {
   position: relative;
@@ -288,9 +294,13 @@
 .msg-file-pdf__stack--fan .msg-file-pdf__page {
   transform: rotate(calc(var(--i, 0) * -4deg)) translateX(calc(var(--i, 0) * -1px));
 }
-.msg-file-pdf:hover .msg-file-pdf__stack--fan .msg-file-pdf__page,
 .msg-file-pdf:focus-visible .msg-file-pdf__stack--fan .msg-file-pdf__page {
   transform: rotate(calc(var(--i, 0) * -7deg)) translateX(calc(var(--i, 0) * -2px));
+}
+@media (hover: hover) and (pointer: fine) {
+  .msg-file-pdf:hover .msg-file-pdf__stack--fan .msg-file-pdf__page {
+    transform: rotate(calc(var(--i, 0) * -7deg)) translateX(calc(var(--i, 0) * -2px));
+  }
 }
 .msg-file-pdf__meta {
   display: flex;
@@ -993,8 +1003,10 @@
   box-shadow: var(--shadow-modal);
   transition: transform 150ms ease-out;
 }
-.file-viewer__ask:hover {
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .file-viewer__ask:hover {
+    transform: translateY(-1px);
+  }
 }
 
 /* Library */
@@ -1119,10 +1131,12 @@
   animation-delay: calc(min(var(--i, 0), 12) * 35ms);
   transition: border-color 180ms ease-out, box-shadow 180ms ease-out, transform 180ms ease-out;
 }
-.library-card:hover {
-  border-color: var(--border-default);
-  box-shadow: var(--shadow-card);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .library-card:hover {
+    border-color: var(--border-default);
+    box-shadow: var(--shadow-card);
+    transform: translateY(-1px);
+  }
 }
 .library-card--skeleton {
   aspect-ratio: 4 / 5;
@@ -1144,8 +1158,10 @@
   object-fit: cover;
   transition: transform 300ms ease-out;
 }
-.library-card:hover .library-card__preview img {
-  transform: scale(1.04);
+@media (hover: hover) and (pointer: fine) {
+  .library-card:hover .library-card__preview img {
+    transform: scale(1.04);
+  }
 }
 .library-card__badge {
   position: absolute;
@@ -1205,10 +1221,15 @@
   transform: translateY(-4px);
   transition: opacity 150ms ease-out, transform 150ms ease-out;
 }
-.library-card:hover .library-card__actions,
 .library-card:focus-within .library-card__actions {
   opacity: 1;
   transform: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .library-card:hover .library-card__actions {
+    opacity: 1;
+    transform: none;
+  }
 }
 @media (pointer: coarse) {
   .library-card__actions {
