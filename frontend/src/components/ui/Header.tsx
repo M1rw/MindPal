@@ -1,3 +1,4 @@
+import { WeekButton } from '../chat/canvas/WeekCard';
 import React, { useEffect, useRef, useState } from 'react';
 import { Moon, Sun, Flame, User, Plus, Search, MoreHorizontal, FolderOpen } from 'lucide-react';
 import { useLibraryStore } from '../../store/library.ts';
@@ -25,12 +26,15 @@ interface HeaderProps {
   activeTab?: AppTab;
   onTabChange?: (tab: AppTab) => void;
   showPresenceTab?: boolean;
+  /** "Reflect on my week" from the week tooltip: sent as a message. */
+  onReflect?: (text: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab = 'chat',
   onTabChange,
   showPresenceTab = false,
+  onReflect,
 }) => {
   const { user } = useAuthStore();
   const { streak, setIsOpen: setStreakOpen } = useStreakStore();
@@ -121,6 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
         ) : null}
 
         <nav aria-label="MindPal actions" className="ml-auto flex items-center gap-1 text-content-secondary">
+        <WeekButton className={iconBtnClass} onReflect={onReflect} />
         <button
           type="button"
           onClick={handleNewChat}
