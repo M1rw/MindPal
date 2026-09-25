@@ -5,7 +5,14 @@ import { useDictationAudioAnalysis } from './useDictationAudioAnalysis';
 import { useFlagsStore } from '../../store/flags.ts';
 import { useSettingsStore } from '../../store/settings.ts';
 import { dictationApi } from '../../services/api/dictation.ts';
-import { MAX_RECORDING_MS, browserDictationLang, recordingMimeType } from '../../utils/chat/dictation.ts';
+import {
+  MAX_RECORDING_MS,
+  browserDictationLang,
+  dictationLanguageHints,
+  recordingMimeType,
+  rememberSpoken,
+  safeLocalStorage,
+} from '../../utils/chat/dictation.ts';
 
 /**
  * Composer dictation, two engines:
@@ -109,7 +116,14 @@ export const useChatInputDictation = ({ input, setInput, pushToast, onSend }: Us
 
     setIsTranscribing(true);
     try {
-      const { text } = await dictationApi.transcribe(audio);
+      const storage = safeLocalStorage();
+      const hints = dictationLanguageHints(
+        useSettingsStore.getState().settings.voiceLanguage,
+        typeof navigator !== 'undefined' ? navigator.languages : undefined,
+        storage,
+      );
+      const { text, language } = await dictationApi.transcribe(audio, hints);
+      if (text) rememberSpoken(text, language, storage);
       const next = text ? joinText(latestComposerRef.current, text) : latestComposerRef.current;
       latestComposerRef.current = next;
       setInput(next);
