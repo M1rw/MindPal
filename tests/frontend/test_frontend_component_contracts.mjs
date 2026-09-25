@@ -672,3 +672,18 @@ describe('Frontend component contracts', () => {
   });
 
 });
+
+describe('interactive cards: what the server hears', () => {
+  it('lists the card kind of each recent reply, newest first', async () => {
+    const { recentCardKinds } = await import('../../frontend/src/services/api/chat.ts');
+    const messages = [
+      { role: 'user' },
+      { role: 'assistant', card: { kind: 'breathing', id: 'a' } },
+      { role: 'user' },
+      { role: 'assistant' },
+      { role: 'user' },
+      { role: 'assistant', card: { kind: 'mood_check', id: 'b' } },
+    ];
+    assert.deepEqual(recentCardKinds(messages), ['mood_check', '', 'breathing']);
+  });
+});

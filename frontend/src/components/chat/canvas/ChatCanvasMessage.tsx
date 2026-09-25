@@ -14,6 +14,7 @@ import { ChatMemoryReceipt } from './ChatMemoryReceipt';
 import { ChatVoiceReceipt } from './ChatVoiceReceipt';
 import { ChatUserMessageEdit } from './ChatUserMessageEdit';
 import { MessageAttachments } from '../../files/MessageAttachments';
+import { ChatCardView, cardLanguage } from '../cards/ChatCards';
 import type { MessageAttachment } from '../../../files/types.ts';
 import { useLibraryStore } from '../../../store/library.ts';
 
@@ -43,6 +44,10 @@ interface ChatCanvasMessageProps {
   onRegenerate: (msgId: string) => void;
   onReviewMemory?: () => void;
   onDismissMemory?: (msgId: string) => void;
+  /** An interactive card's result, sent as their next message. */
+  onCardSubmit?: (text: string) => void;
+  /** The card under this reply was finished or closed. */
+  onCardDone?: (msgId: string) => void;
 }
 
 const actionBtnClass = (active?: boolean, activeClass?: string) =>
@@ -97,6 +102,8 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
   onRegenerate,
   onReviewMemory,
   onDismissMemory,
+  onCardSubmit,
+  onCardDone,
 }) => {
   const isRetryableError = msg.content.includes('Please retry this message.');
   const copied = copiedId === msg.id;
@@ -306,6 +313,15 @@ export const ChatCanvasMessage: React.FC<ChatCanvasMessageProps> = ({
                 }
               />
             )}
+
+            {msg.card && msg.content ? (
+              <ChatCardView
+                card={msg.card}
+                lang={cardLanguage(msg.content)}
+                onSubmit={(text) => onCardSubmit?.(text)}
+                onDone={() => onCardDone?.(msg.id)}
+              />
+            ) : null}
 
             {!isStreamingThis && msg.content && (
               <div
