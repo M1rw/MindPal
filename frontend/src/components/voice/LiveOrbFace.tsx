@@ -7,12 +7,9 @@ import {
   HTML_PULSE_DAMPING,
   HTML_PULSE_STIFFNESS,
   SpringValue,
-  capsuleEyePoints,
-  arcEyePoints,
-  heartEyePoints,
-  starEyePoints,
   htmlGazeTarget,
 } from '../../voice/face/gaze.ts';
+import { EyeMorph, type MorphShape } from '../../voice/face/eyeMorph.ts';
 import { lerpStop, personaPalette, personaPaletteForAffect, rgb } from '../../voice/face/personaColor.ts';
 import { blendFaceLayers } from '../../voice/face/faceBlend.ts';
 import type { GestureState } from '../../voice/face/gesture.ts';
@@ -66,6 +63,7 @@ export const LiveOrbFace: React.FC<LiveOrbFaceProps> = ({ voiceId, getGesture, r
     let blinkRaf = 0;
     let time = 0;
     let lastTs = 0;
+    const morph = new EyeMorph();
     let meshRotation = 0;
     let blinkValue = 1;
     let blinkValueRight = 1;
@@ -174,6 +172,7 @@ export const LiveOrbFace: React.FC<LiveOrbFaceProps> = ({ voiceId, getGesture, r
       gestureRef.current = getGestureRef.current();
       const g = gestureRef.current;
       const face = liveFace(g);
+      morph.update(face.shape as MorphShape, dtMs, reducedMotion);
       const heldCue = cueLock.hold(face.eyes.cue, ts, 180);
       const target = personaPaletteForAffect(personaPalette(voiceRef.current), g.affect).stops;
       const ease = reducedMotion ? 1 : 1 - Math.exp((-dtMs / 16.67) * 0.12);
@@ -359,26 +358,23 @@ export const LiveOrbFace: React.FC<LiveOrbFaceProps> = ({ voiceId, getGesture, r
         : Math.max(0.02, Math.min(1, blinkValueRight * rightLidSpring.current));
       const leftAngle = eyeSprings.angle.current + eyeSprings.leftAngleAdd.current;
       const rightAngle = -eyeSprings.angle.current + eyeSprings.rightAngleAdd.current;
-      // A look can carry its own silhouette. Everything else about the eye -
-      // blink scale, rotation, gaze offset - is unchanged, so a shaped eye still
-      // blinks and tracks like a normal one.
-      const eyePoints = (w: number, h: number) => {
-        if (face.shape === 'heart') return heartEyePoints(w, h);
-        if (face.shape === 'arc') return arcEyePoints(w, h);
-        if (face.shape === 'star') return starEyePoints(w, h);
-        return capsuleEyePoints(w, h, layout.corner);
-      };
+      // A look can carry its own silhouette, and the eye morphs into it (and
+      // back) instead of swapping outlines. Blink scale, rotation and gaze are
+      // unchanged, so a shaped eye still blinks and tracks like a normal one.
+      const eyePoints = (w: number, h: number) => morph.points(w, h, layout.corner);
       // Joy moves: a laugh bobs the eyes, sparkles twinkle. Timed off the wall
       // clock so it keeps its rhythm whatever the frame rate.
       const joy = reducedMotion ? 0 : face.commandWeight;
       const clockS = Date.now() / 1000;
       const bob = face.commandName === 'laugh' ? Math.abs(Math.sin(clockS * Math.PI * 4.2)) * -3.2 * joy * scale : 0;
       const twinkle = face.commandName === 'excited' ? 1 + 0.09 * Math.sin(clockS * Math.PI * 3) * joy : 1;
-      // Arcs are closed eyes: they do not blink shut again.
-      const arcOpen = face.shape === 'arc';
-      const lb = arcOpen ? 1 : leftBlink;
-      const rb = arcOpen ? 1 : rightBlink;
-      if (face.commandName === 'blush' && face.commandWeight > 0.2) {
+      // Arcs are closed eyes: they do not blink shut again. Faded by how much of
+      // the arc is showing, so the blink hands over as the eye morphs.
+      const arcShown = morph.weight('arc');
+      const lb = leftBlink + (1 - leftBlink) * arcShown;
+      const rb = rightBlink + (1 - rightBlink) * arcShown;
+      // Cheeks glow in and out with the blush itself (no threshold pop).
+      if (face.commandName === 'blush' && face.commandWeight > 0.01) {
         drawCheeks(ctx, layout, radius, scale, Math.min(1, face.commandWeight));
       }
       drawPolyEye(ctx, layout.left.x, layout.left.y + bob, eyePoints(layout.left.w * twinkle, layout.left.h * twinkle), lb, leftAngle);
