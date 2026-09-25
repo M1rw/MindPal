@@ -240,24 +240,82 @@ describe('camera (Chromium, fake camera)', () => {
     return { browser, page };
   }
 
-  test('take a photo in the app: viewfinder, shutter, review, use; it lands in the composer', async () => {
+  async function openCamera(page) {
+    await page.getByRole('button', { name: 'Add files or a photo' }).tap();
+    await page.getByRole('menuitem', { name: /Take photo/ }).tap();
+    const sheet = page.getByRole('dialog', { name: 'Camera' });
+    await sheet.waitFor();
+    await page.waitForFunction(() => {
+      const video = document.querySelector('.camera-sheet__video');
+      return video && video.videoWidth > 0 && !document.querySelector('.camera-sheet__shutter')?.disabled;
+    });
+    return sheet;
+  }
+
+  test('take photos in the app: a 3:4 frame, a tray, Document mode; they land in the composer', async () => {
     const { browser, page } = await cameraApp(['camera']);
     try {
-      await page.getByRole('button', { name: 'Add files or a photo' }).tap();
-      await page.getByRole('menuitem', { name: /Take photo/ }).tap();
-      const sheet = page.getByRole('dialog', { name: 'Camera' });
-      await sheet.waitFor();
-      await page.waitForFunction(() => {
-        const video = document.querySelector('.camera-sheet__video');
-        return video && video.videoWidth > 0 && !document.querySelector('.camera-sheet__shutter')?.disabled;
-      });
+      const sheet = await openCamera(page);
       await assertNoSideways(page, 'camera');
+      const frame = await page.locator('.camera-sheet__frame').boundingBox();
+      assert.ok(Math.abs(frame.width / frame.height - 3 / 4) < 0.02, `a 3:4 viewfinder on a phone, got ${frame.width}x${frame.height}`);
+      const bottom = await page.locator('.camera-sheet__shutter').boundingBox();
+      assert.ok(bottom.y + bottom.height <= pixel.device.viewport.height, 'the shutter is on screen');
+
       await page.getByRole('button', { name: 'Take photo' }).tap();
-      await page.getByRole('img', { name: 'The photo you took' }).waitFor();
-      await page.getByRole('button', { name: 'Use photo' }).tap();
+      await page.getByRole('button', { name: 'Review 1 photo' }).waitFor();
+      await page.getByRole('radio', { name: 'Document' }).tap();
+      await page.getByRole('button', { name: 'Take photo' }).tap();
+      await page.getByRole('button', { name: 'Review 2 photos' }).waitFor();
+
+      // Review: delete one, keep the other.
+      await page.getByRole('button', { name: 'Review 2 photos' }).tap();
+      await page.getByRole('img', { name: 'Selected photo' }).waitFor();
+      const size = await page.getByRole('img', { name: 'Selected photo' }).evaluate((img) => [img.naturalWidth, img.naturalHeight]);
+      assert.ok(Math.abs(size[0] / size[1] - 3 / 4) < 0.01, `the photo is what was framed, got ${size}`);
+      await page.getByRole('button', { name: 'Delete this photo' }).tap();
+      await page.getByRole('button', { name: 'Keep shooting' }).tap();
+      await page.getByRole('button', { name: 'Take photo' }).tap();
+      await page.getByRole('button', { name: 'Add 2 photos' }).first().tap();
       await sheet.waitFor({ state: 'detached' });
-      await page.locator('.composer-file--image').waitFor();
+      await page.locator('.composer-file--image').nth(1).waitFor();
+      assert.equal(await page.locator('.composer-file--image').count(), 2);
       assert.equal(await page.evaluate(() => document.querySelector('.camera-sheet__video')), null, 'camera released');
+    } finally {
+      await browser.close();
+    }
+  });
+
+  test('switching camera lets go of the first before asking for the second (iOS allows one)', async () => {
+    const { browser, page } = await cameraApp(['camera']);
+    try {
+      await page.evaluate(() => {
+        const media = navigator.mediaDevices;
+        const real = media.getUserMedia.bind(media);
+        const live = [];
+        window.__overlap = 0;
+        window.__requests = [];
+        media.getUserMedia = async (constraints) => {
+          if (live.some((track) => track.readyState === 'live')) window.__overlap += 1;
+          window.__requests.push(constraints.video.facingMode.ideal);
+          const stream = await real(constraints);
+          live.push(...stream.getTracks());
+          return stream;
+        };
+        media.enumerateDevices = async () => [
+          { kind: 'videoinput', deviceId: 'back', label: 'Back', groupId: 'a' },
+          { kind: 'videoinput', deviceId: 'front', label: 'Front', groupId: 'b' },
+        ];
+      });
+      await openCamera(page);
+      const flip = page.getByRole('button', { name: 'Switch camera' });
+      await flip.tap();
+      await page.locator('.camera-sheet--front').waitFor();
+      await page.waitForFunction(() => document.querySelector('.camera-sheet__video.is-live'));
+      await flip.tap();
+      await page.waitForFunction(() => window.__requests.length === 3 && document.querySelector('.camera-sheet__video.is-live'));
+      assert.deepEqual(await page.evaluate(() => window.__requests), ['environment', 'user', 'environment']);
+      assert.equal(await page.evaluate(() => window.__overlap), 0, 'never two cameras at once');
     } finally {
       await browser.close();
     }
