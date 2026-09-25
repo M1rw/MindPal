@@ -9,7 +9,7 @@ import logging
 import time
 from contextlib import aclosing
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence
+from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence, Tuple
 
 from backend.configs.prompts import CHAT_SYSTEM_BASE
 from backend.configs.runtime import behavior_config
@@ -386,7 +386,10 @@ class ChatOrchestrator:
         adaptation: Optional[TurnAdaptation] = None,
         history: Optional[Sequence[Any]] = None,
         files: Optional[TurnFiles] = None,
+        prefetched: Optional[Tuple[Any, List[Any]]] = None,
     ) -> "TurnContext":
+        """`prefetched`: (memory prompt, grounding chunks) already read in parallel
+        with the adaptation step; computed here when not given."""
         learned_profile = adaptation.profile if adaptation else {}
         trajectory = analyze_trajectory(history, message)
         bias: Dict[str, float] = dict(adaptation.bias) if adaptation else {}
@@ -408,10 +411,13 @@ class ChatOrchestrator:
             personalization=effective_personalization,
             load=current_load(),
         )
-        memory = self.memory_service.prompt_for_user(user_id_hash)
-        grounding_chunks = self.grounding_service.retrieve_context(
-            message, semantic=bool(current_load().policy("retrieval")["semantic"])
-        )
+        if prefetched is not None:
+            memory, grounding_chunks = prefetched
+        else:
+            memory = self.memory_service.prompt_for_user(user_id_hash)
+            grounding_chunks = self.grounding_service.retrieve_context(
+                message, semantic=bool(current_load().policy("retrieval")["semantic"])
+            )
         system_instruction = CHAT_SYSTEM_BASE + f"{strategy_directive}\n"
         if adaptation and adaptation.note:
             system_instruction += f"{adaptation.note}\n"
@@ -605,7 +611,18 @@ class ChatOrchestrator:
             if history_scale < 1.0 and len(turns) > 8:
                 turns = turns[-max(8, int(len(turns) * history_scale)) :]
             learn = is_user_quota_subject(user_id_hash) and not anonymous
-            adaptation = await asyncio.to_thread(self._prepare_adaptation, user_id_hash, message, persist=learn)
+            # Independent reads run together: the grounding query embedding is a
+            # network round trip, and it used to wait behind the adaptation and
+            # memory reads before the model could even be asked.
+            adaptation, memory_prompt, grounding_chunks = await asyncio.gather(
+                asyncio.to_thread(self._prepare_adaptation, user_id_hash, message, persist=learn),
+                asyncio.to_thread(self.memory_service.prompt_for_user, user_id_hash),
+                asyncio.to_thread(
+                    self.grounding_service.retrieve_context,
+                    message,
+                    semantic=bool(current_load().policy("retrieval")["semantic"]),
+                ),
+            )
             context = await asyncio.to_thread(
                 self._assemble_system_instruction,
                 user_id_hash=user_id_hash,
@@ -617,6 +634,7 @@ class ChatOrchestrator:
                 adaptation=adaptation,
                 history=history,
                 files=files,
+                prefetched=(memory_prompt, grounding_chunks),
             )
             strategy, system_instruction, grounding_ids = context.strategy, context.system_instruction, context.grounding_ids
             memory_atoms, has_memory_summary = context.memory_atoms, context.has_memory_summary
