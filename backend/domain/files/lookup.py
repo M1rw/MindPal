@@ -24,10 +24,32 @@ from backend.domain.files.library import COLLECTION, LibraryService
 from backend.domain.files.retrieval import page_block, select_pages
 
 _WORD = re.compile(r"[^\W_]{2,}", re.UNICODE)
+_ARTICLE = re.compile("^(?:وال|بال|كال|فال|لل|ال)")
+_ONE_LETTER = re.compile("^[بوفل]")
+
+
+def normalize_arabic(word: str) -> str:
+    """Arabic words match across forms: alef variants, taa marbuta, alef maqsura,
+    and the article or a one-letter prefix ("القطة", "بقطة" and "قطة" are one cat).
+    Mirrors frontend/src/files/libraryPick.ts."""
+    if not any(0x0600 <= ord(ch) <= 0x06FF for ch in word):
+        return word
+    out = word.translate(str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ة": "ه", "ى": "ي"}))
+    if _ARTICLE.match(out) and len(_ARTICLE.sub("", out, count=1)) >= 3:
+        return _ARTICLE.sub("", out, count=1)
+    if _ONE_LETTER.match(out) and len(out) >= 5:
+        return out[1:]
+    return out
+
+
 _STOP = frozenset(
-    "the and for with that this what from about have does into your their there which when where would could "
-    "should please tell show explain summary summarize summarise my me is it of to in on a an do did can say says "
-    "file files document documents pdf image photo picture library uploaded upload".split()
+    normalize_arabic(word)
+    for word in (
+        "the and for with that this what from about have does into your their there which when where would could "
+        "should please tell show explain summary summarize summarise my me is it of to in on a an do did can say says "
+        "file files document documents pdf image photo picture library uploaded upload "
+        "في عن من على الى إلى شو ايش وش مكتوب قال قالت اللي الي هل ما كيف وين متى هذا هذه ذلك تلك انا أنا عندي ملف ملفي الملف المستند"
+    ).split()
 )
 # A message that points at something they keep: English and Arabic, the two
 # languages MindPal is used in most. Deliberately specific: "the document" or
@@ -48,7 +70,8 @@ CHAT_BUDGET_CHARS = 9000
 
 def _tokens(text: str) -> Set[str]:
     normalized = unicodedata.normalize("NFKC", text or "").casefold()
-    return {w for w in _WORD.findall(normalized) if w not in _STOP}
+    words = (normalize_arabic(w) for w in _WORD.findall(normalized))
+    return {w for w in words if len(w) >= 2 and w not in _STOP}
 
 
 def points_at_files(message: str) -> bool:

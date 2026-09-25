@@ -74,7 +74,7 @@ def resolve_turn_files(
     attachments: Sequence[AttachmentRef], *, user_id_hash: str, signed_in: bool, library: LibraryService | None = None
 ) -> TurnFiles:
     """Library files by id (accounts), inline digests (anyone), and this turn's pictures."""
-    files = TurnFiles()
+    files = TurnFiles(from_library=bool(attachments) and all(a.library for a in attachments))
     ids = [a.file_id for a in attachments if a.file_id and signed_in]
     by_id = (library or LibraryService()).digests(user_id_hash, ids) if ids else {}
     for attachment in attachments:
