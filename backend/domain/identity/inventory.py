@@ -42,6 +42,8 @@ INVENTORY: Tuple[OwnedCollection, ...] = (
     OwnedCollection("greeting_cache", "prefix", "yes", "yes", "2 days"),
     OwnedCollection("user_presence", "id", "no:last-visit timestamp only", "yes", "until deleted"),
     OwnedCollection("changelog_dismissals", "id", "no:release versions only", "yes", "until deleted"),
+    # Check-in notification devices: a push endpoint, time zone and language.
+    OwnedCollection("push_subscriptions", "prefix", "no:device push addresses only", "yes", "until turned off or expired"),
     # Library files (v5.0.5): metadata and digests here; the bytes are in object
     # storage under "<user id hash>/" and are deleted with the account.
     OwnedCollection("library_files", "prefix", "yes", "yes", "until deleted"),

@@ -5,6 +5,7 @@ import { setConfirmSkipped } from '../../../store/confirm.ts';
 import { resetQuickActions, useQuickActions, DEFAULT_QUICK_ACTIONS } from '../../../store/palette.ts';
 import { SettingsHeader, SettingsRow, SettingsSelect, settingsGhostButtonClass } from '../SettingsPrimitives';
 import type { SettingsTabContentProps } from './types';
+import { CheckInSetting } from '../CheckInSetting';
 
 const THEME_OPTIONS = [
   { value: 'system' as const, label: 'System', description: 'Follow your device.' },
@@ -57,6 +58,7 @@ export const GeneralSettingsTab: React.FC<SettingsTabContentProps> = ({ settings
           Reset
         </button>
       </SettingsRow>
+      <CheckInSetting />
       <SettingsRow label="Vibration" description="Short vibrations while MindPal replies, on phones that support it." last>
         <SettingsSelect
           ariaLabel="Vibration"

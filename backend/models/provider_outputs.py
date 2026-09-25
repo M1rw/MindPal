@@ -113,6 +113,9 @@ class ProviderUsage(BaseModel):
     total_tokens: int = Field(default=0, ge=0)
 
 
+_ISO_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
 def _clean_items(value: Any, *, limit: int, chars: int) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -159,6 +162,28 @@ class MemorySummaryOutput(ProviderOutput):
 
     summary: str = Field(min_length=1, max_length=2000)
     open_threads: list[str] = Field(default_factory=list)
+    # question -> "YYYY-MM-DD": ask only once that day has come (the exam on Friday).
+    thread_after: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _dated_threads(cls, data: Any) -> Any:
+        """Threads may come as plain questions or as {"question", "after"} objects."""
+        if not isinstance(data, dict) or not isinstance(data.get("open_threads"), list):
+            return data
+        questions: list[Any] = []
+        after: dict[str, str] = {}
+        for item in data["open_threads"]:
+            if isinstance(item, dict):
+                question = " ".join(str(item.get("question") or "").split())[:120]
+                day = str(item.get("after") or "").strip()
+                if question:
+                    questions.append(question)
+                    if _ISO_DAY.match(day):
+                        after[question] = day
+            else:
+                questions.append(item)
+        return {**data, "open_threads": questions, "thread_after": after}
 
     @field_validator("open_threads", mode="before")
     @classmethod

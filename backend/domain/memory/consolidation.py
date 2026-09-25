@@ -87,8 +87,11 @@ SUMMARY_SYSTEM = (
     "Open threads are things worth gently following up next time, each written as one short, warm "
     "question to the person, in the language they use (for example: How did the Friday exam go?). "
     "Never make a thread about self-harm or crisis. "
+    "When a thread is about something that happens on a known day (an exam, an interview, a trip, a "
+    "doctor's visit), give the date to ask after, the day after it happens, as YYYY-MM-DD, using today's "
+    "date given with the material; otherwise leave after as null. "
     'Return JSON only: {"summary": "<= {words} words", '
-    '"open_threads": ["<= 3 follow-up questions"]}'
+    '"open_threads": [{"question": "<= 3 follow-up questions", "after": "YYYY-MM-DD or null"}]}'
 )
 
 
@@ -508,6 +511,7 @@ class MemoryConsolidationService:
         if not facts and not digests:
             return False
         prompt = (
+            f"Today: {time.strftime('%Y-%m-%d (%A)', time.gmtime(self._clock()))}\n\n"
             f"Previous summary:\n{graph.narrative or '(none yet)'}\n\n"
             f"Saved facts (most important first):\n{chr(10).join(facts) or '(none)'}\n\n"
             f"Recent conversation digests (oldest first):\n{chr(10).join(digests) or '(none)'}"
@@ -533,6 +537,7 @@ class MemoryConsolidationService:
         graph.narrative = narrative
         graph.narrative_at = self._clock()
         graph.open_threads = [thread for thread in output.open_threads if not crisis_evidence(thread)][:3]
+        graph.thread_after = {q: d for q, d in output.thread_after.items() if q in graph.open_threads}
         self.memory.save_memory_graph(graph)
 
         def mutate(current: Any, write: Any) -> None:

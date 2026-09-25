@@ -106,6 +106,9 @@ class IdentityService:
             deleted.append("profile")
         if self.store.delete_document("memory_graphs", user_id_hash):
             deleted.append("memory")
+        # Check-in notifications stop with the account.
+        for doc_id, _doc in list(self.store.iter_documents("push_subscriptions", prefix=f"{user_id_hash}:")):
+            self.store.delete_document("push_subscriptions", doc_id)
 
         sessions_removed = False
         if self.store.delete_document("chat_sessions", user_id_hash):

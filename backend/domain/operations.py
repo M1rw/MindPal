@@ -20,3 +20,10 @@ def platform_status() -> dict[str, Any]:
     """Current load level, its drivers, and the merged platform pulse."""
     platform_pulse().flush()
     return current_load().as_dict()
+
+
+def run_voice_retention_sweep() -> int:
+    """The voice retention sweep, for the daily scheduler endpoint."""
+    from backend.tools.voice_retention import run_voice_retention
+
+    return run_voice_retention()

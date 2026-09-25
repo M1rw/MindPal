@@ -32,6 +32,21 @@ def run_memory_consolidation(
     return run_scheduled_consolidation(consolidation)
 
 
+@router.get("/api/internal/daily", operation_id="opsDailyTasks")
+def run_daily_tasks(
+    x_cron_secret: Optional[str] = Header(None, alias="X-Cron-Secret"),
+    authorization: Optional[str] = Header(None),
+) -> dict[str, Any]:
+    """Once a day, in daytime for most of MindPal's people: the voice retention
+    sweep, then any due check-in notifications. One cron for both keeps within
+    the scheduler's job limit."""
+    _require_scheduler(x_cron_secret, authorization)
+    from backend.domain.operations import run_voice_retention_sweep
+    from backend.http.notifications import service as notifications
+
+    return {"ok": True, "retention_removed": run_voice_retention_sweep(), "notifications": notifications.run_daily()}
+
+
 @router.get("/api/internal/platform-pulse", operation_id="opsPlatformPulse")
 def get_platform_pulse(x_support_secret: Optional[str] = Header(None, alias="X-Voice-Support-Secret")) -> dict[str, Any]:
     """Current load level, its drivers, and the aggregated pulse. Support only."""
