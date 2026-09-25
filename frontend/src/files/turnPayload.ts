@@ -3,7 +3,8 @@
  * in the conversation, so "and on page 3?" still has the PDF in view.
  */
 import type { ChatMessage } from '../types/index.ts';
-import { getLocalFile } from './localStore.ts';
+import { getLocalFile, readLocalLibrary } from './localStore.ts';
+import { pickFromLibrary, pointsAtFiles } from './libraryPick.ts';
 import { sessionDigest } from './session.ts';
 import type { Digest, MessageAttachment, PendingAttachment } from './types.ts';
 
@@ -19,6 +20,8 @@ export interface AttachmentPayload {
   image?: string;
   mime?: string;
   earlier?: boolean;
+  /** Found in their on-device library because the message pointed at it; not attached. */
+  library?: boolean;
 }
 
 async function digestFor(attachment: MessageAttachment): Promise<Digest | undefined> {
@@ -43,15 +46,18 @@ export function toMessageAttachment(item: PendingAttachment): MessageAttachment 
 /**
  * `fresh`: files just added (their picture goes along); `resent`: the files of
  * a message being regenerated or edited (read again from their digests);
- * `history`: the conversation before this turn.
+ * `history`: the conversation before this turn. `message`: what they wrote;
+ * a guest who points at one of their files ("my lease") gets it found in
+ * their on-device library when nothing was attached.
  */
 export async function turnAttachments(options: {
   fresh?: PendingAttachment[];
   resent?: MessageAttachment[];
   history: ChatMessage[];
   signedIn: boolean;
+  message?: string;
 }): Promise<AttachmentPayload[]> {
-  const { fresh = [], resent = [], history, signedIn } = options;
+  const { fresh = [], resent = [], history, signedIn, message = '' } = options;
   const out: AttachmentPayload[] = [];
   const seen = new Set<string>();
   for (const item of fresh) {
@@ -80,5 +86,19 @@ export async function turnAttachments(options: {
       if (ref) out.push(ref);
     }
   }
+  if (!out.length && !signedIn && pointsAtFiles(message)) {
+    // Nothing attached or in view, and they mean one of their files: find it.
+    const picked = await pickLocal(message);
+    if (picked) return [picked];
+  }
   return out.slice(0, MAX_FILES_IN_CONTEXT);
+}
+
+async function pickLocal(message: string): Promise<AttachmentPayload | null> {
+  try {
+    const file = pickFromLibrary(message, await readLocalLibrary());
+    return file ? { digest: file.digest, name: file.name, library: true } : null;
+  } catch {
+    return null; // no library on this device (private mode, blocked storage): send as is
+  }
 }
