@@ -472,7 +472,11 @@ export const CameraSheet: React.FC = () => {
             </div>
           ) : null}
           {mode === 'document' && phase === 'live' && !notice ? <p className="camera-sheet__hint">Fill the frame with the page</p> : null}
-          {phase === 'starting' ? <div className="camera-sheet__status">Starting the camera…</div> : null}
+          {/* Always mounted, so it fades out as the picture fades in rather than vanishing. */}
+          <div className={cn('camera-sheet__starting', phase !== 'starting' && 'is-gone')} aria-hidden={phase !== 'starting'}>
+            <span className="camera-sheet__starting-ring" />
+            <span className="camera-sheet__starting-text">Starting the camera…</span>
+          </div>
           {phase === 'error' ? (
             <div className="camera-sheet__status camera-sheet__status--error" role="alert">
               <Camera className="h-8 w-8 opacity-80" aria-hidden="true" />
