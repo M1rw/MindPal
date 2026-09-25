@@ -1,6 +1,6 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { serveStatic } from './static_server.mjs';
 import { chromium } from 'playwright';
 
 const port = 4173;
@@ -23,17 +23,14 @@ const waitForServer = async () => {
 };
 
 before(async () => {
-  server = spawn('python', ['-m', 'http.server', String(port), '--directory', 'frontend'], {
-    cwd: process.cwd(),
-    stdio: ['ignore', 'ignore', 'pipe'],
-  });
+  server = await serveStatic('frontend', port);
   await waitForServer();
   browser = await chromium.launch({ headless: true });
 });
 
 after(async () => {
   await browser?.close();
-  server?.kill();
+  await server?.close();
 });
 
 test('chat send and stream completion happy path', async () => {

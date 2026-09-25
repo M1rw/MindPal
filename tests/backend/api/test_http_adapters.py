@@ -334,6 +334,19 @@ def test_security_headers(app_client):
     assert res.headers["x-frame-options"] == "DENY"
     assert res.headers["x-xss-protection"] == "1; mode=block"
     assert res.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    # The in-app camera and dictation need these for our own origin: "camera=()" once
+    # turned the camera off in every Chromium browser (Safari ignores the header).
+    policy = res.headers["permissions-policy"]
+    assert "camera=(self)" in policy and "microphone=(self)" in policy
+
+
+def test_vercel_headers_let_the_app_use_its_camera_and_mic():
+    import json
+    from pathlib import Path
+
+    config = json.loads((Path(__file__).resolve().parents[3] / "vercel.json").read_text(encoding="utf-8"))
+    policies = [h["value"] for block in config.get("headers", []) for h in block["headers"] if h["key"] == "Permissions-Policy"]
+    assert policies and all("camera=(self)" in p and "microphone=(self)" in p for p in policies)
 
 
 @pytest.mark.asyncio
@@ -366,3 +379,28 @@ def test_voice_recall_refuses_a_call_that_is_not_yours(app_client):
         json={"session_id": "vs_not_mine", "tool": "search_memory", "query": "exam"},
     )
     assert res.status_code in {403, 404}
+
+
+def test_static_files_are_cacheable_by_the_cdn():
+    from backend.main import static_cache_control
+
+    assert static_cache_control("/dist/chunks/chunk-AB12CD34.js") == "public, max-age=31536000, immutable"
+    for path in ("/dist/app.bundle.js", "/css/style.css", "/assets/logo.png"):
+        policy = static_cache_control(path)
+        assert "s-maxage=" in policy and "max-age=0" in policy, "the CDN keeps it; browsers still revalidate"
+
+
+def test_startup_chunks_are_preloaded(tmp_path, monkeypatch):
+    from backend import main
+
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "app.bundle.js").write_text('import{a as b}from"./chunks/chunk-AAA.js";import"./chunks/chunk-BBB.js";const x=()=>import("./chunks/Lazy-CCC.js");', encoding="utf-8")
+    monkeypatch.setattr(main, "FRONTEND", tmp_path)
+    main.startup_preloads.cache_clear()
+    try:
+        links = main.startup_preloads()
+    finally:
+        main.startup_preloads.cache_clear()
+    assert "chunks/chunk-AAA.js" in links and "chunks/chunk-BBB.js" in links
+    assert "Lazy-CCC" not in links, "lazy chunks stay lazy"

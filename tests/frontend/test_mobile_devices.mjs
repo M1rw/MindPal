@@ -10,7 +10,7 @@
 
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { serveStatic } from './static_server.mjs';
 import { chromium, devices, webkit } from 'playwright';
 
 const port = 4174;
@@ -57,16 +57,13 @@ async function waitForServer() {
 }
 
 before(async () => {
-  server = spawn('python', ['-m', 'http.server', String(port), '--directory', 'frontend'], {
-    cwd: process.cwd(),
-    stdio: ['ignore', 'ignore', 'pipe'],
-  });
+  server = await serveStatic('frontend', port);
   await waitForServer();
 });
 
 after(async () => {
   for (const browser of browsers.values()) await browser.close();
-  server?.kill();
+  await server?.close();
 });
 
 async function browserFor(engine) {
