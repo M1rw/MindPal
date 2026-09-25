@@ -47,6 +47,56 @@ function persistDevice(streak: StreakData, totalReflections: number) {
   }
 }
 
+/**
+ * The last account streak seen in this browser. On a reload the device streak
+ * (guest activity here) showed first and the account's replaced it a second
+ * later, so the number visibly jumped (2 then 3). The account's own last value
+ * shows at once instead, and the live one only confirms it. Cleared on sign-out.
+ */
+const ACCOUNT_KEY = 'mindpal_streak_account';
+
+interface AccountSnapshot {
+  uid: string;
+  streak: StreakData;
+  totalReflections: number;
+}
+
+function persistAccount(uid: string | null, streak: StreakData, totalReflections: number): void {
+  if (!uid) return;
+  try {
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ uid, streak, totalReflections }));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function loadAccountSnapshot(): AccountSnapshot | null {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ACCOUNT_KEY) || 'null') as AccountSnapshot | null;
+    if (!parsed || typeof parsed.uid !== 'string' || !parsed.streak) return null;
+    const lastActiveDate = typeof parsed.streak.lastActiveDate === 'string' ? parsed.streak.lastActiveDate : null;
+    return {
+      uid: parsed.uid,
+      streak: {
+        count: Math.max(0, Math.floor(Number(parsed.streak.count) || 0)),
+        lastActiveDate,
+        weeklyDays: weekDaysFor(parsed.streak.weeklyDays, lastActiveDate),
+      },
+      totalReflections: Math.max(0, Math.floor(Number(parsed.totalReflections) || 0)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearAccountSnapshot(): void {
+  try {
+    localStorage.removeItem(ACCOUNT_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 function loadDeviceStreak(): { streak: StreakData; totalReflections: number } {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.STREAK);
@@ -130,12 +180,15 @@ function mergeInsights(
   };
 }
 
-const initial = loadDeviceStreak();
+// This browser's last signed-in account most likely still is: start from its
+// streak, not the guest one, so nothing changes when sign-in completes.
+const cachedAccount = loadAccountSnapshot();
+const initial = cachedAccount ?? loadDeviceStreak();
 
 export const useStreakStore = create<StreakState>((set, get) => ({
   streak: initial.streak,
   totalReflections: initial.totalReflections,
-  source: 'device',
+  source: cachedAccount ? 'account' : 'device',
   isOpen: false,
   setStreak: (streak) => {
     set({ streak });
@@ -152,8 +205,11 @@ export const useStreakStore = create<StreakState>((set, get) => ({
   recordActivity: () => {
     set((state) => {
       const next = applyActivity(state);
-      if (!useSessionStore.getState().isAuthenticated) {
+      const session = useSessionStore.getState();
+      if (!session.isAuthenticated) {
         persistDevice(next.streak, next.totalReflections);
+      } else {
+        persistAccount(session.userId, next.streak, next.totalReflections);
       }
       return next;
     });
@@ -163,15 +219,25 @@ export const useStreakStore = create<StreakState>((set, get) => ({
     try {
       const { ApiClient } = await import('../services/api/index.ts');
       const data = await ApiClient.getUserInsights();
-      set((state) => ({
-        ...mergeInsights(state, data),
-        source: 'account',
-      }));
+      set((state) => {
+        // Another account's cached streak is not a base to merge into.
+        const cached = loadAccountSnapshot();
+        const uid = useSessionStore.getState().userId;
+        // Only this account's own streak is a base to merge into: never the
+        // guest streak of this browser, nor another account's cached one.
+        const own = state.source === 'account' && cached?.uid === uid;
+        const base = own ? state : { streak: defaultStreak, totalReflections: 0 };
+        const next = mergeInsights(base, data);
+        persistAccount(uid, next.streak, next.totalReflections);
+        return { ...next, source: 'account' };
+      });
     } catch {
       // Keep the last honest snapshot; do not invent a dashboard.
     }
   },
   restoreDeviceStreak: () => {
+    // Signed out: this browser no longer shows the account's streak.
+    clearAccountSnapshot();
     const device = loadDeviceStreak();
     set({ ...device, source: 'device' });
   },
