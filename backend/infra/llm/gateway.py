@@ -363,12 +363,13 @@ class LLMGateway:
         long_context: bool = False,
     ) -> AsyncGenerator[str, None]:
         """`images` (VisionImage) or `long_context` (a turn carrying documents) use the
-        vision-capable models, in their order: they are also the ones with room for
-        pages of text (the small fast chat models cap tokens per minute)."""
+        files answer models (MINDPAL_FILES_CHAT_FALLBACK): they see images, have room
+        for pages of text (the small fast chat models cap tokens per minute), and
+        write better in every language."""
         if images or long_context:
-            from backend.infra.llm.vision import vision_ladder
+            from backend.infra.llm.vision import answer_ladder
 
-            ladder = vision_ladder()
+            ladder = answer_ladder()
         else:
             primary = chat_provider()
             primary_model = (model or self.default_model) if primary == "gemini" else _model_for_provider(primary, model, self.default_model)

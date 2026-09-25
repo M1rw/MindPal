@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     llm_fallback: str = Field(default='', validation_alias='MINDPAL_LLM_FALLBACK')
     # Vision models for reading images and PDF pages, tried in order ("provider:model", comma separated).
     vision_fallback: str = Field(default='', validation_alias='MINDPAL_VISION_FALLBACK')
+    # Models that answer turns carrying files or pictures (long context, images, good writing).
+    files_chat_fallback: str = Field(default='', validation_alias='MINDPAL_FILES_CHAT_FALLBACK')
     # Files and the library (v5.0.5). 0/off hides them.
     files: str = Field(default='', validation_alias='MINDPAL_FILES')
 
