@@ -22,12 +22,12 @@ export function useChangelogBootstrap() {
 
         if (requestId !== changelogRequestId) return;
 
-        const currentVer = data.current_version || '5.0.0';
+        const currentVer = data.current_version || '5.0.5';
         const lastSeen = authUser || isAuthenticated
           ? null
           : localStorage.getItem(STORAGE_KEYS.LAST_SEEN_CHANGELOG);
         const dismissedForAccount = data.dismissed_versions?.includes(currentVer) ?? false;
-        const hasMajor = data.entries?.some((entry) => entry.version === currentVer && entry.major);
+        const hasMajor = data.entries?.some((entry) => entry.version === currentVer && (entry.major || entry.announce));
 
         if (hasMajor && !dismissedForAccount && lastSeen !== currentVer) {
           useChangelogStore.getState().setChangelog(data);

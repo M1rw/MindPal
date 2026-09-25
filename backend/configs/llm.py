@@ -25,6 +25,37 @@ def groq_api_key() -> str:
     return get_settings().groq_api_key.get_secret_value().strip()
 
 
+def files_keys_dedicated() -> bool:
+    """Files have keys of their own (then they use nothing else)."""
+    settings = get_settings()
+    return any(
+        key.get_secret_value().strip()
+        for key in (settings.files_gemini_api_key, settings.files_groq_api_key, settings.files_openrouter_api_key)
+    )
+
+
+def files_api_key(provider: str) -> str:
+    """The key file work uses for a provider.
+
+    With dedicated file keys configured, only those: a provider without one is
+    not used for files at all (""), so a burst of uploads can never exhaust
+    the quota chat and voice depend on. Without any, the shared keys.
+    """
+    settings = get_settings()
+    dedicated = {
+        "gemini": settings.files_gemini_api_key,
+        "groq": settings.files_groq_api_key,
+        "openrouter": settings.files_openrouter_api_key,
+    }
+    if files_keys_dedicated():
+        secret = dedicated.get(provider)
+        return secret.get_secret_value().strip() if secret is not None else ""
+    if provider == "gemini":
+        return settings.resolved_gemini_api_key()
+    entry = compatible_provider(provider)
+    return entry.api_key() if entry else ""
+
+
 def openrouter_base_url() -> str:
     return get_settings().openrouter_base_url.strip() or OPENROUTER_BASE_URL
 

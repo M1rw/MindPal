@@ -1,3 +1,4 @@
+import type { MessageAttachment } from '../files/types.ts';
 /**
  * MindPal Core TypeScript Type Definitions
  * Derived from contracts/openapi.yaml
@@ -35,6 +36,8 @@ export interface ChatMessage {
   voice_used_s?: number;
   /** Live-turn save notice. Not stored in session history. */
   memoryReceipt?: MemoryReceipt | null;
+  /** Files sent with this message: identity and shape only (frontend/src/files/types.ts). */
+  attachments?: MessageAttachment[];
 }
 
 /** Facts persisted from a turn — short display text only */
@@ -86,6 +89,8 @@ export interface ChangelogEntry {
   version: string;
   released_at?: string;
   major?: boolean;
+  /** Shown once on arrival like a major release, without the "Major release" label. */
+  announce?: boolean;
   title: string;
   summary: string;
   highlights: string[];
@@ -205,6 +210,8 @@ export interface FeatureSnapshot {
   presence_enabled?: boolean;
   pro_model_enabled: boolean;
   memory_enabled: boolean;
+  /** Attach images and PDFs, the camera, and the library (v5.0.5). */
+  files_enabled?: boolean;
   changelog_enabled: boolean;
   clinical_guidance?: boolean;
   analytics_insights?: boolean;

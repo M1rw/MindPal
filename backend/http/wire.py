@@ -11,6 +11,7 @@ from starlette.requests import Request
 from backend.core.errors import AppError
 from backend.http.chat import router as chat_router
 from backend.http.dictation import router as dictation_router
+from backend.http.files import router as files_router
 from backend.http.errors import app_error_handler, error_payload, status_for_code
 from backend.http.flags import router as flags_router
 from backend.http.health import router as health_router
@@ -34,6 +35,7 @@ _ROUTERS = (
     release_router,
     chat_router,
     dictation_router,
+    files_router,
     usage_router,
     sessions_router,
     identity_router,

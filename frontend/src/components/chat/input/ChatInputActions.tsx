@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowUp, Check, ChevronDown, Mic, Square } from 'lucide-react';
+import { ArrowUp, Check, ChevronDown, Loader2, Mic, Square } from 'lucide-react';
 import { POPOVER_EXIT_MS, useOverlayPresence } from '../../../hooks/ui/useOverlayPresence';
 import { floatingMenuClass } from '../../../utils/ui/overlay';
 
@@ -50,6 +50,8 @@ const REPLY_TIERS: ReadonlyArray<{
 
 interface ChatInputActionsProps {
   hasText: boolean;
+  /** A file in the composer is still being read: sending waits. */
+  filesReading?: boolean;
   isGenerating: boolean;
   isPro: boolean;
   selectorOpen: boolean;
@@ -67,6 +69,7 @@ interface ChatInputActionsProps {
 
 export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   hasText,
+  filesReading = false,
   isGenerating,
   isPro,
   selectorOpen,
@@ -163,12 +166,12 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
       const el = buttonRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      // Fix 7: use visualViewport.height (shrinks when keyboard opens) instead of
-      // window.innerHeight (which stays constant on iOS/Android), so the menu
-      // always appears above the virtual keyboard rather than behind it.
-      const viewportH = window.visualViewport?.height ?? window.innerHeight;
+      // Right above the button. A fixed element's `bottom` counts from the layout
+      // viewport, which keeps its height when the iOS keyboard opens; measured
+      // from visualViewport.height the menu landed a keyboard's height too low,
+      // behind the keyboard. From innerHeight it follows the button.
       setMenuPos({
-        bottom: viewportH - rect.top + 8,
+        bottom: window.innerHeight - rect.top + 8,
         right: Math.max(12, window.innerWidth - rect.right),
       });
     };
@@ -290,6 +293,7 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 
       <PrimaryComposerAction
         hasText={hasText}
+        filesReading={filesReading}
         isGenerating={isGenerating}
         liveVoiceEnabled={liveVoiceEnabled}
         onStartLiveVoice={onStartLiveVoice}
@@ -302,6 +306,7 @@ export const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 
 function PrimaryComposerAction({
   hasText,
+  filesReading,
   isGenerating,
   liveVoiceEnabled,
   onStartLiveVoice,
@@ -309,19 +314,28 @@ function PrimaryComposerAction({
   onSend,
 }: {
   hasText: boolean;
+  filesReading: boolean;
   isGenerating: boolean;
   liveVoiceEnabled: boolean;
   onStartLiveVoice?: () => void;
   onStop: () => void;
   onSend: () => void;
 }) {
-  const mode: 'stop' | 'send' | 'live' = isGenerating ? 'stop' : hasText ? 'send' : 'live';
+  const mode: 'stop' | 'send' | 'reading' | 'live' = isGenerating
+    ? 'stop'
+    : filesReading
+      ? 'reading'
+      : hasText
+        ? 'send'
+        : 'live';
   const liveAvailable = Boolean(liveVoiceEnabled && onStartLiveVoice);
-  const disabled = mode === 'live' && !liveAvailable;
+  const disabled = (mode === 'live' && !liveAvailable) || mode === 'reading';
   const label =
     mode === 'stop'
       ? 'Stop generating'
-      : mode === 'send'
+      : mode === 'reading'
+        ? 'Reading your file'
+        : mode === 'send'
         ? 'Send message'
         : liveAvailable
           ? 'Start live voice'
@@ -352,6 +366,8 @@ function PrimaryComposerAction({
     >
       {mode === 'stop' ? (
         <Square className="w-3.5 h-3.5 fill-current" />
+      ) : mode === 'reading' ? (
+        <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" />
       ) : mode === 'send' ? (
         <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
       ) : (

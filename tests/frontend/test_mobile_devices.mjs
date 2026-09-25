@@ -16,6 +16,24 @@ import { chromium, devices, webkit } from 'playwright';
 const port = 4174;
 const baseUrl = `http://127.0.0.1:${port}`;
 
+/** A 1x1 PNG and a one-page PDF with a real text layer (enough to exercise both pipelines). */
+const PNG_1PX = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
+const TINY_PDF = Buffer.from(
+  `%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj
+4 0 obj<</Length 180>>stream
+BT /F1 12 Tf 20 150 Td (The tenant pays a security deposit of 1450 dollars, refundable within thirty days after moving out.) Tj 0 -20 Td (Pets: one cat is allowed for a small monthly fee.) Tj ET
+endstream endobj
+5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
+trailer<</Root 1 0 R>>
+%%EOF`,
+);
+
 const PROFILES = [
   { name: 'iPhone 15 (WebKit)', engine: webkit, device: devices['iPhone 15'] },
   { name: 'iPhone SE (WebKit)', engine: webkit, device: devices['iPhone SE'] },
@@ -65,6 +83,25 @@ async function mockApi(page) {
     }
     if (path === '/api/greeting') return json({ greeting: 'Good morning', tone: 'warm', period: 'morning', cached: false });
     if (path === '/api/release/changelog') return json({ product: 'MindPal', current_version: '5.0.0', entries: [] });
+    // Files (v5.0.5): a guest's limits, and readings that echo what was sent.
+    if (path === '/api/files/allowance') {
+      return json({
+        files_used: 0, files_limit: 5, vision_pages_used: 0, vision_pages_limit: 20, max_image_bytes: 10_000_000,
+        max_pdf_bytes: 10_000_000, max_pdf_pages: 10, library_files: 10, library_bytes: 0, library_days: 7,
+        max_attachments: 4, signed_in: false,
+      });
+    }
+    if (path === '/api/files/digest/image') {
+      return json({ digest: { version: 1, kind: 'image', content: 'visual', name: 'photo.jpg', title: 'A test photo', summary: 'A test photo', language: '', total_pages: 1, pages: [{ n: 1, kind: 'visual', text: '', description: 'A test photo' }] } });
+    }
+    if (path === '/api/files/digest/pages') {
+      const body = JSON.parse(route.request().postData() || '{}');
+      return json({ pages: body.pages.map((p) => ({ n: p.n, kind: 'text', text: p.text || 'scanned', description: '' })) });
+    }
+    if (path === '/api/files/digest/assemble') {
+      const body = JSON.parse(route.request().postData() || '{}');
+      return json({ digest: { version: 1, kind: 'pdf', content: 'text', name: body.name, title: body.name, summary: '', language: '', total_pages: body.total_pages, pages: body.pages } });
+    }
     if (path === '/api/chat/stream') {
       return route.fulfill({
         status: 200,
@@ -187,6 +224,65 @@ async function withKeyboard(page, { keyboard, pan = 0 }) {
   );
 }
 
+describe('camera (Chromium, fake camera)', () => {
+  const pixel = PROFILES.find((p) => p.name.startsWith('Pixel'));
+
+  async function cameraApp(permissions) {
+    const browser = await chromium.launch({
+      headless: true,
+      args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+    });
+    const context = await browser.newContext({ ...pixel.device, permissions });
+    const page = await context.newPage();
+    await mockApi(page);
+    await page.goto(`${baseUrl}/index.html`);
+    await page.getByPlaceholder('Ask MindPal').waitFor({ state: 'visible' });
+    return { browser, page };
+  }
+
+  test('take a photo in the app: viewfinder, shutter, review, use; it lands in the composer', async () => {
+    const { browser, page } = await cameraApp(['camera']);
+    try {
+      await page.getByRole('button', { name: 'Add files or a photo' }).tap();
+      await page.getByRole('menuitem', { name: /Take photo/ }).tap();
+      const sheet = page.getByRole('dialog', { name: 'Camera' });
+      await sheet.waitFor();
+      await page.waitForFunction(() => {
+        const video = document.querySelector('.camera-sheet__video');
+        return video && video.videoWidth > 0 && !document.querySelector('.camera-sheet__shutter')?.disabled;
+      });
+      await assertNoSideways(page, 'camera');
+      await page.getByRole('button', { name: 'Take photo' }).tap();
+      await page.getByRole('img', { name: 'The photo you took' }).waitFor();
+      await page.getByRole('button', { name: 'Use photo' }).tap();
+      await sheet.waitFor({ state: 'detached' });
+      await page.locator('.composer-file--image').waitFor();
+      assert.equal(await page.evaluate(() => document.querySelector('.camera-sheet__video')), null, 'camera released');
+    } finally {
+      await browser.close();
+    }
+  });
+
+  test('camera access refused: a clear message and the phone camera app instead', async () => {
+    const { browser, page } = await cameraApp([]);
+    try {
+      await page.evaluate(() => {
+        // What a refused permission looks like to the page.
+        navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+      });
+      await page.getByRole('button', { name: 'Add files or a photo' }).tap();
+      await page.getByRole('menuitem', { name: /Take photo/ }).tap();
+      await page.getByRole('alert').getByText('Camera access is off', { exact: false }).waitFor();
+      await page.getByRole('button', { name: 'Use the camera app' }).waitFor();
+      assert.equal(await page.getByRole('button', { name: 'Take photo' }).isDisabled(), true);
+      await page.getByRole('button', { name: 'Close camera' }).tap();
+      await page.getByRole('dialog', { name: 'Camera' }).waitFor({ state: 'detached' });
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
 for (const profile of PROFILES) {
   describe(profile.name, () => {
     test('home, chat, search, settings and confirm fit the screen and work by touch', async () => {
@@ -290,6 +386,72 @@ for (const profile of PROFILES) {
           // Balanced: at most a small optical lift, never the old "pinned to the top".
           assert.ok(g.above >= g.below * 0.6 - 8, `group pushed up: ${Math.round(g.above)}px above vs ${Math.round(g.below)}px below for "${text}"`);
         }
+      } finally {
+        await context.close();
+      }
+    });
+
+    test('files: attach a photo and a PDF, send, open the viewer and the library, all on screen', async () => {
+      const { context, page, problems } = await openApp(profile);
+      try {
+        // The "+" opens its menu above the composer, even with the keyboard up.
+        await withKeyboard(page, { keyboard: 300 });
+        await page.getByRole('button', { name: 'Add files or a photo' }).tap();
+        const menu = page.getByRole('menu', { name: 'Add to your message' });
+        await menu.waitFor({ state: 'visible' });
+        const menuBox = await menu.boundingBox();
+        const visibleBottom = await page.evaluate(() => window.visualViewport.height);
+        assert.ok(menuBox.y + menuBox.height <= visibleBottom + 1, 'the attach menu sits above the keyboard');
+        await assertTapTargets(page, '.composer-attach-menu', 'attach menu');
+        await page.keyboard.press('Escape');
+
+        // A photo and a 3-page PDF, as the file picker would hand them over.
+        await page.setInputFiles('[data-testid="composer-file-input"]', [
+          { name: 'photo.png', mimeType: 'image/png', buffer: PNG_1PX },
+          { name: 'notes.pdf', mimeType: 'application/pdf', buffer: TINY_PDF },
+        ]);
+        await page.locator('.composer-file--pdf').getByText(/1 page/).waitFor({ timeout: 15_000 });
+        await page.locator('.composer-file--image').waitFor();
+        await page.waitForFunction(() => !document.querySelector('.composer-file__veil'));
+        await assertNoSideways(page, 'composer with files');
+        await assertTapTargets(page, '.composer-files', 'file chips', 20);
+
+        // A file alone is a message.
+        await page.getByRole('button', { name: 'Send message' }).tap();
+        await page.locator('.msg-file-pdf').waitFor();
+        await page.getByText('Stuck like one decision, or more of a fog?').first().waitFor();
+        await assertNoSideways(page, 'thread with files');
+
+        // The PDF opens in the viewer, drawn by pdf.js. The thread settles first
+        // (thumbnails load and it keeps to the bottom), then the card is tapped
+        // near its corner: on a small phone "Jump to latest" can sit over its centre.
+        await page.waitForFunction(() => [...document.querySelectorAll('.msg-files img')].every((img) => img.complete));
+        // The thread re-mounts once the chat gets its id: retry if the card was swapped out mid-tap.
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          await page.waitForTimeout(400);
+          try {
+            await page.locator('.msg-file-pdf').tap({ position: { x: 16, y: 16 }, timeout: 3_000 });
+            if (await page.locator('.file-viewer').count()) break;
+          } catch {
+            /* swapped out: try again */
+          }
+        }
+        await page.locator('.file-viewer__page canvas.is-drawn').first().waitFor({ timeout: 15_000 });
+        assert.match(await page.locator('.file-viewer__bar').innerText(), /Page 1 of 1/);
+        await assertNoSideways(page, 'viewer');
+        await page.getByRole('button', { name: 'Close viewer' }).tap();
+
+        // The guest library shows both files, kept on this device.
+        await page.evaluate(() => {
+          document.querySelector('[aria-label="More actions"]')?.click();
+        });
+        const libraryItem = page.getByRole('menuitem', { name: 'Open your library' });
+        if (await libraryItem.count()) await libraryItem.tap();
+        else await page.evaluate(() => window.dispatchEvent(new Event('mindpal:open-library')));
+        await page.getByText('Kept on this device for 7 days.', { exact: false }).waitFor();
+        await page.locator('.library-card').nth(1).waitFor();
+        await assertNoSideways(page, 'library');
+        assert.deepEqual(problems, []);
       } finally {
         await context.close();
       }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import json
 import logging
 import uuid
@@ -19,6 +20,7 @@ from backend.domain.dynamic.policy import current_load
 from backend.domain.identity.identity import verify_auth_header
 from backend.domain.quota.quota import peer_network_id
 from backend.core.request_context import request_id as current_request_id
+from backend.domain.files.turn import EMPTY_MESSAGE, TurnFiles, resolve_turn_files
 
 router = APIRouter()
 orchestrator = ChatOrchestrator()
@@ -47,16 +49,28 @@ async def chat_stream(
     request_id = current_request_id() or f"req_{uuid.uuid4().hex[:12]}"
     model = payload.model or "standard"
     history = [{"role": turn.role, "content": turn.body()} for turn in payload.history]
+    files = TurnFiles()
+    if payload.attachments:
+        files = await run_in_threadpool(
+            functools.partial(
+                resolve_turn_files,
+                payload.attachments,
+                user_id_hash=session.user_id_hash,
+                signed_in=session.has_account_storage,
+            )
+        )
+    message = payload.message or EMPTY_MESSAGE
     client_context = payload.client_context.model_dump(exclude_none=True) if payload.client_context else None
     preflight = await run_in_threadpool(
         orchestrator.preflight_turn,
         user_id_hash=session.user_id_hash,
-        message=payload.message,
+        message=message,
         history=history,
         model=model,
         anonymous=anonymous,
         peer=peer,
         idempotency_key=(idempotency_key or "").strip()[:128],
+        files_text=files.safety_text(),
     )
     if preflight.error:
         raise preflight.error
@@ -66,7 +80,7 @@ async def chat_stream(
             async with aclosing(
                 orchestrator.execute_turn_stream(
                     user_id_hash=session.user_id_hash,
-                    message=payload.message,
+                    message=message,
                     history=history,
                     session_id=payload.session_id,
                     model=model,
@@ -78,6 +92,7 @@ async def chat_stream(
                     consume_quota=False,
                     anonymous=anonymous,
                     peer=peer,
+                    files=files or None,
                 )
             ) as events:
                 async for chunk in events:

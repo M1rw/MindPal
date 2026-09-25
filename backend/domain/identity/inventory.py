@@ -42,6 +42,10 @@ INVENTORY: Tuple[OwnedCollection, ...] = (
     OwnedCollection("greeting_cache", "prefix", "yes", "yes", "2 days"),
     OwnedCollection("user_presence", "id", "no:last-visit timestamp only", "yes", "until deleted"),
     OwnedCollection("changelog_dismissals", "id", "no:release versions only", "yes", "until deleted"),
+    # Library files (v5.0.5): metadata and digests here; the bytes are in object
+    # storage under "<user id hash>/" and are deleted with the account.
+    OwnedCollection("library_files", "prefix", "yes", "yes", "until deleted"),
+    OwnedCollection("file_digests", "field", "no:cached readings of files, also in library_files", "yes", "7 days"),
     OwnedCollection("voice_sessions", "field", "yes", "yes", "configured voice retention"),
     OwnedCollection("voice_telemetry", "field", "yes", "yes", "configured voice retention"),
     OwnedCollection("voice_support_diagnostics", "field", "yes", "yes", "configured voice retention"),
