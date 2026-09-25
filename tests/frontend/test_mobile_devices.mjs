@@ -624,6 +624,42 @@ for (const profile of PROFILES) {
       }
     });
 
+    test('an interactive card: typing survives the chat getting its id, and finishing sends the result', async () => {
+      const { context, page, problems } = await openApp(profile);
+      try {
+        let turn = 0;
+        let sent = null;
+        await page.route('**/api/chat/stream', (route) => {
+          turn += 1;
+          if (turn > 1) sent = JSON.parse(route.request().postData() || '{}');
+          const events = turn === 1
+            ? [{ card: { kind: 'thought_record', id: 'card_t1' } }, { text: 'Let us look at that thought.' }]
+            : [{ text: 'Thank you for sharing it.' }];
+          return route.fulfill({
+            status: 200,
+            contentType: 'text/event-stream',
+            body: events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('') + 'data: [DONE]\n\n',
+          });
+        });
+        await page.getByPlaceholder('Ask MindPal').fill('I always mess everything up');
+        await page.getByRole('button', { name: 'Send message' }).tap();
+        const card = page.getByRole('region', { name: 'Thought record' });
+        await card.waitFor();
+        await card.locator('textarea').first().fill('I always mess things up');
+        await page.waitForTimeout(1500); // the new chat gets its id meanwhile
+        assert.equal(await card.locator('textarea').first().inputValue(), 'I always mess things up', 'typing survives');
+        await assertNoSideways(page, 'card');
+        await card.getByRole('button', { name: 'Share with MindPal' }).click();
+        await page.locator('p.mp-p', { hasText: 'Thank you for sharing it.' }).waitFor();
+        assert.match(sent.message, /The thought: I always mess things up/);
+        assert.deepEqual(sent.recent_cards?.slice(0, 1), ['thought_record'], 'the server hears a card was just shown');
+        await page.locator('.chat-card--done').waitFor();
+        assert.deepEqual(problems, []);
+      } finally {
+        await context.close();
+      }
+    });
+
     test('an installed app (home-screen / standalone) is detected', async () => {
       const browser = await browserFor(profile.engine);
       const context = await browser.newContext({ ...profile.device });
