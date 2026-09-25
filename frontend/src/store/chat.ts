@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import type { ChatMessage, MemoryReceipt } from '../types/index';
+import type { ChatCard, ChatMessage, MemoryReceipt } from '../types/index';
 import { withoutMemoryReceipts } from '../utils/chat/sessionHistory.ts';
 
 interface ChatState {
@@ -21,6 +21,8 @@ interface ChatState {
   removeMessage: (id: string) => void;
   updateLastMessage: (content: string, strategy?: string, move?: string) => void;
   setMessageMemoryReceipt: (id: string, receipt: MemoryReceipt | null) => void;
+  /** The interactive card under a reply, or its update (done). */
+  setMessageCard: (id: string, card: ChatCard) => void;
   /** A file reached the library after its message was sent: record its id there too. */
   setAttachmentFileId: (attachmentId: string, fileId: string) => void;
   setComposerDraft: (draft: string | null) => void;
@@ -75,6 +77,10 @@ export const useChatStore = create<ChatState>((set) => ({
         strategyUsed: strategy ?? state.strategyUsed,
       };
     }),
+  setMessageCard: (id, card) =>
+    set((state) => ({
+      messages: state.messages.map((message) => (message.id === id ? { ...message, card } : message)),
+    })),
   setMessageMemoryReceipt: (id, receipt) =>
     set((state) => ({
       messages: state.messages.map((message) => {

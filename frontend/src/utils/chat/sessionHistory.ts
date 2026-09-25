@@ -16,14 +16,16 @@ export function withoutSessionMemoryReceipts(session: ChatSession): ChatSession 
   };
 }
 
-type Fingerprinted = Pick<ChatMessage, 'id' | 'role' | 'content'> & Pick<Partial<ChatMessage>, 'attachments'>;
+type Fingerprinted = Pick<ChatMessage, 'id' | 'role' | 'content'> & Pick<Partial<ChatMessage>, 'attachments' | 'card'>;
 
 export function sessionMessagesFingerprint(messages: Fingerprinted[]): string {
   // Files count: a file reaching the library after its message was sent must be saved too.
   return messages
     .map((message) => {
       const files = (message.attachments ?? []).map((a) => `${a.id}:${a.fileId ?? ''}`).join(',');
-      return `${message.id}\0${message.role}\0${message.content}\0${files}`;
+      // A card being finished is a change worth saving too.
+      const card = message.card ? `${message.card.kind}:${message.card.done ? 1 : 0}` : '';
+      return `${message.id}\0${message.role}\0${message.content}\0${files}\0${card}`;
     })
     .join('\n');
 }
