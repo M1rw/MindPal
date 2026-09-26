@@ -62,7 +62,8 @@ export const ChatCanvasEmptyState: React.FC<ChatCanvasEmptyStateProps> = ({
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight mb-2 sm:mb-3">
               <span
                 id="greeting-text"
-                className="bg-clip-text text-transparent bg-brand-gradient"
+                key={greeting}
+                className="greeting-swap bg-clip-text text-transparent bg-brand-gradient"
               >
                 {greeting}
               </span>

@@ -5803,3 +5803,17 @@ html.dark .chat-composer--thinking::after {
 #streak-btn svg {
   transform: translateY(-0.75px);
 }
+
+/* The greeting shows at once (cached or time-of-day) and, if a personal one
+   arrives and differs, the new words fade in rather than snapping. */
+.greeting-swap {
+  display: inline-block;
+  animation: greetingSwap 320ms ease-out both;
+}
+@keyframes greetingSwap {
+  from { opacity: 0; filter: blur(3px); }
+  to { opacity: 1; filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .greeting-swap { animation: none; }
+}
