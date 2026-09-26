@@ -72,9 +72,12 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({ onSelectMood }) => {
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const { greeting, isLoading: greetingLoading } = useGreeting(
-    user ? { uid: user.uid, displayName: user.displayName } : null
+    user ? { uid: user.uid, displayName: user.displayName } : null,
+    authLoading
   );
-  const emptyLoading = authLoading || greetingLoading;
+  // The greeting and mood chips render at once; they no longer wait for
+  // sign-in to finish (see useGreeting).
+  const emptyLoading = greetingLoading;
   const { mounted: jumpMounted, visible: jumpVisible } = useOverlayPresence(
     showJumpToLatest,
     JUMP_EXIT_MS

@@ -26,6 +26,16 @@ export function useChangelogBootstrap() {
         const lastSeen = authUser || isAuthenticated
           ? null
           : localStorage.getItem(STORAGE_KEYS.LAST_SEEN_CHANGELOG);
+        // A first visit has nothing to be "new" against: note the version
+        // quietly so only returning guests see the next announcement.
+        if (!authUser && !isAuthenticated && lastSeen === null) {
+          try {
+            localStorage.setItem(STORAGE_KEYS.LAST_SEEN_CHANGELOG, currentVer);
+          } catch {
+            // Private mode: nothing to remember it by, so nothing to show.
+          }
+          return;
+        }
         const dismissedForAccount = data.dismissed_versions?.includes(currentVer) ?? false;
         const hasMajor = data.entries?.some((entry) => entry.version === currentVer && (entry.major || entry.announce));
 
