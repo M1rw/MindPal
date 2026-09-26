@@ -118,7 +118,9 @@ def test_document_bootstrap_injected_synchronously_in_get_root() -> None:
     assert response.status_code == 200
     assert '<script id="__MINDPAL_BOOTSTRAP__" type="application/json">' in response.text
     assert "window.MINDPAL_CONFIG" in response.text
-    assert "no-cache" in response.headers.get("cache-control", "")
+    cache = response.headers.get("cache-control", "")
+    assert "max-age=0" in cache and "must-revalidate" in cache, "browsers check every visit"
+    assert "s-maxage" in cache, "the CDN keeps it until the next deploy"
 
     # Security boundary: server service account secrets must never appear in HTML
     assert "FIREBASE_CREDENTIALS_JSON" not in response.text

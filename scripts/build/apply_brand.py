@@ -30,6 +30,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 BRAND_FILE = ROOT / "brand.json"
 INDEX_HTML = ROOT / "frontend" / "index.html"
+# Swaps the non-blocking font stylesheet in once it has loaded.
+FONT_ONLOAD = "this.media='all'"
 WEBMANIFEST = ROOT / "frontend" / "site.webmanifest"
 BRAND_CSS = ROOT / "frontend" / "css" / "brand-tokens.css"
 
@@ -90,7 +92,12 @@ def _build_html_brand_block(b: dict) -> str:
         I + "<!-- Google Fonts -->",
         I + '<link rel="preconnect" href="https://fonts.googleapis.com">',
         I + '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-        I + '<link href="' + furl + '" rel="stylesheet">',
+        # Not render-blocking: the page paints at once in the system font and
+        # switches to the brand font when it arrives (a blocking stylesheet from
+        # another origin held the first paint back about a second on phones).
+        I + '<link rel="preload" as="style" href="' + furl + '">',
+        I + '<link rel="stylesheet" href="' + furl + '" media="print" onload="' + FONT_ONLOAD + '">',
+        I + '<noscript><link rel="stylesheet" href="' + furl + '"></noscript>',
         "",
         I + "<!-- SEO core -->",
         I + "<title>" + title + "</title>",

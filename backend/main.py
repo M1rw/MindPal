@@ -371,7 +371,11 @@ def _mount_frontend(app: FastAPI) -> None:
         preloads = startup_preloads()
         if preloads:
             rendered = rendered.replace("</head>", f"{preloads}</head>", 1)
-        return HTMLResponse(content=rendered, headers={"Cache-Control": "no-cache, must-revalidate"})
+        # The page is the same for everyone until the next deployment (the
+        # bootstrap is public config, the preloads come from the build), so the
+        # CDN answers it like the bundle: no wait on this function for the first
+        # byte. Browsers still check each visit, and a deploy empties the cache.
+        return HTMLResponse(content=rendered, headers={"Cache-Control": static_cache_control("/")})
 
 
 app = create_app()
