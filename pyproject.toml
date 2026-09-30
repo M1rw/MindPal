@@ -14,7 +14,8 @@ dependencies = [
   "jsonschema>=4.23,<5",
   "firebase-admin>=7.4,<8",
   "email-validator>=2.2,<3",
-  "google-genai>=1.56,<2"
+  "google-genai>=1.56,<2",
+  "sentry-sdk>=2.71,<3"
 ]
 
 [project.optional-dependencies]
