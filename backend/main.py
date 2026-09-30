@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -15,6 +16,7 @@ from backend.configs.app import csv_env, is_production
 from backend.configs.auth import firebase_public_bootstrap
 from backend.configs.runtime import api_limits_config, validate_runtime_configs
 from backend.configs.settings import get_settings
+from backend.infra.observability.sentry import init_sentry, tag_request
 from backend.infra.store.store import storage_health
 from backend.infra.observability.metrics import (
     VoiceMetric,
@@ -111,6 +113,7 @@ def _static_asset(path: Path, media: str):
 
 
 def create_app(*, serve_frontend: bool = True) -> FastAPI:
+    init_sentry()  # first, so startup failures are reported too
     validate_runtime_configs()  # a broken bundled config is a bad build: fail loudly
     try:
         get_settings().validate_runtime()
@@ -125,6 +128,13 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
     app = FastAPI(title="MindPal", version="5.0.5", docs_url=None, redoc_url=None)
 
     allowed_hosts = csv_env(ALLOWED_HOSTS_ENV)
+    if allowed_hosts:
+        # Preview and branch URLs change per deployment; Vercel reports the
+        # current ones, so they are allowed without listing them by hand.
+        for name in ("VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"):
+            host = os.environ.get(name, "").strip()
+            if host and host not in allowed_hosts:
+                allowed_hosts.append(host)
     if allowed_hosts:
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
     elif is_production():
@@ -160,6 +170,7 @@ def create_app(*, serve_frontend: bool = True) -> FastAPI:
         candidate = request.headers.get("x-request-id", "").strip()
         request_id = candidate if _REQUEST_ID_PATTERN.fullmatch(candidate) else f"req_{uuid.uuid4().hex[:16]}"
         set_request_id(request_id)
+        tag_request(request_id)
         started = time.perf_counter()
         try:
             response = await call_next(request)

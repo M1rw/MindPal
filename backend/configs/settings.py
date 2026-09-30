@@ -27,6 +27,11 @@ class Settings(BaseSettings):
 
     environment: str = Field(default='production', validation_alias='ENVIRONMENT')
     vercel: str = Field(default='', validation_alias='VERCEL')
+    # Error reporting. Unset DSN = Sentry off.
+    sentry_dsn: SecretStr = Field(default=SecretStr(''), validation_alias='SENTRY_DSN')
+    sentry_environment: str = Field(default='', validation_alias='SENTRY_ENVIRONMENT')
+    sentry_release: str = Field(default='', validation_alias='SENTRY_RELEASE')
+    sentry_traces_sample_rate: str = Field(default='0', validation_alias='SENTRY_TRACES_SAMPLE_RATE')
     public_api_base_url: str = Field(default='/api', validation_alias='PUBLIC_API_BASE_URL')
     allowed_hosts: str = Field(default='', validation_alias='MINDPAL_ALLOWED_HOSTS')
     cors_origins: str = Field(default='', validation_alias='MINDPAL_CORS_ORIGINS')
