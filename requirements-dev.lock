@@ -263,7 +263,7 @@ pygments==2.20.0
     # via
     #   pytest
     #   rich
-pyjwt==2.13.0
+pyjwt==2.15.0
     # via
     #   -c requirements.lock
     #   firebase-admin
@@ -358,7 +358,7 @@ tzdata==2026.3
     # via
     #   -c requirements.lock
     #   mindpal (pyproject.toml)
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   -c requirements.lock
     #   requests
