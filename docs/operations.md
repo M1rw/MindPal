@@ -29,6 +29,7 @@ variable. The ones operators must set:
 | `CRON_SECRET` | Scheduler credential (Vercel Cron sends it as a bearer token) |
 | `MINDPAL_VOICE_SUPPORT_DIAGNOSTICS_SECRET` | Support-only diagnostics and platform pulse |
 | `MINDPAL_ALLOWED_HOSTS`, `MINDPAL_CORS_ORIGINS` | Host and origin allowlists |
+| `SENTRY_DSN` | Error reporting; unset = off. Optional: `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE` (defaults to the git commit), `SENTRY_TRACES_SAMPLE_RATE` (default `0`). Bodies, headers, cookies and user identity are never sent. Events carry a `request_id` tag matching the Vercel log line. |
 | `MINDPAL_ADAPTIVE_LEARNING` | `0` turns per-person learning off |
 | `MINDPAL_SEMANTIC_SEARCH` | `0` turns embedding search off (keywords only) |
 | `MINDPAL_PRESSURE_OVERRIDE` | Pin the load level during an incident |

@@ -1,0 +1,23 @@
+name: uptime
+
+# External check of the production deployment. A failed run emails the repo
+# watchers, so storage going degraded (ready -> 503) does not go unnoticed.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Live and ready
+        run: |
+          set -euo pipefail
+          base="https://mindpal-demo.vercel.app"
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 --max-time 30 "$base/api/health" > /dev/null
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 --max-time 30 "$base/api/health/ready"

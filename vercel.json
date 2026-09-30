@@ -43,6 +43,7 @@
     "FIREBASE_WEB_PROJECT_ID": "mindpal-official-0",
     "FIREBASE_WEB_GOOGLE_CLIENT_ID": "234733155455-j0cfkt4hgq4esqaauvro1jmgq81vgcq0.apps.googleusercontent.com",
     "FIREBASE_USE_APPLICATION_DEFAULT": "false",
+    "MINDPAL_ALLOWED_HOSTS": "mindpal-demo.vercel.app,onceo.vercel.app,mindpal-demo-miljtes-projects.vercel.app,mindpal-demo-git-main-miljtes-projects.vercel.app",
     "MINDPAL_CORS_ORIGINS": "https://mindpal-demo.vercel.app",
     "PYTHONUNBUFFERED": "1"
   },
