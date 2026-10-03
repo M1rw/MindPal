@@ -109,6 +109,9 @@ class Settings(BaseSettings):
     semantic_search: str = Field(default='1', validation_alias='MINDPAL_SEMANTIC_SEARCH')
     # Per-turn insight planner (backend/domain/chat/insight.py). 0 disables it.
     insight_planner: str = Field(default='1', validation_alias='MINDPAL_INSIGHT_PLANNER')
+    dialect_note: str = Field(default='1', validation_alias='MINDPAL_DIALECT_NOTE')
+    # "provider:model" tried first for Arabic messages (e.g. groq:openai/gpt-oss-120b); empty = no routing.
+    arabic_chat: str = Field(default='', validation_alias='MINDPAL_ARABIC_CHAT')
     voice_support_diagnostics_secret: str = Field(default='', validation_alias='MINDPAL_VOICE_SUPPORT_DIAGNOSTICS_SECRET')
     voice_safety_settings: str = Field(default='1', validation_alias='MINDPAL_VOICE_SAFETY_SETTINGS')
     voice_proactive_audio: str = Field(default='', validation_alias='MINDPAL_VOICE_PROACTIVE_AUDIO')

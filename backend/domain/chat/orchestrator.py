@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Dict, List, Optional, Sequence, Tuple
 
 from backend.configs.prompts import CHAT_SYSTEM_BASE
+from backend.domain.chat.dialect import check_dialect, dialect_note, is_arabic_text, user_dialect
 from backend.configs.runtime import behavior_config
 from backend.core.errors import AppError
 from backend.domain.adaptation.profile import (
@@ -60,6 +61,20 @@ def _insight_planner_enabled() -> bool:
     from backend.configs.settings import get_settings
 
     return get_settings().insight_planner.strip().lower() not in {"0", "false", "off", "no"}
+
+
+def _dialect_note_enabled() -> bool:
+    from backend.configs.settings import get_settings
+
+    return get_settings().dialect_note.strip().lower() not in {"0", "false", "off", "no"}
+
+
+def _arabic_route(message: str) -> str:
+    """The model to try first for an Arabic message (MINDPAL_ARABIC_CHAT), "" for no routing."""
+    from backend.configs.settings import get_settings
+
+    preferred = get_settings().arabic_chat.strip()
+    return preferred if preferred and is_arabic_text(message) else ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,12 +232,22 @@ def detect_cognitive_strategy(
     return decision.strategy, f"{DIRECTIVES[decision.directive_key]}{extras}"
 
 
-def _record_reply_quality(stock_dropped: int) -> None:
+def _record_reply_quality(stock_dropped: int, *, message: str = "", reply: str = "", insight_move: str = "", history: Sequence[Any] = ()) -> None:
+    """Counts only, never text: how often replies land, leak a dialect, or get challenged."""
     try:
         from backend.infra.observability.pulse import platform_pulse
 
-        platform_pulse().record_quality("replies")
-        platform_pulse().record_quality("stock_sentences_dropped", stock_dropped)
+        pulse = platform_pulse()
+        pulse.record_quality("replies")
+        pulse.record_quality("stock_sentences_dropped", stock_dropped)
+        if insight_move == "own_it":
+            pulse.record_quality("reply_challenged")  # the person quoted an earlier reply back: it was probably wrong
+        if is_arabic_text(message):
+            pulse.record_quality("ar_replies")
+            if user_dialect(message, history) == "egyptian":
+                pulse.record_quality("eg_replies")
+                if not check_dialect(reply).clean:
+                    pulse.record_quality("eg_dialect_leak")
     except Exception:
         logger.debug("reply_quality_record_skipped", exc_info=True)
 
@@ -447,6 +472,9 @@ class ChatOrchestrator:
         )
         if insight.note:
             system_instruction += f"\n{insight.note}\n"
+        dialect = dialect_note(message, history or ()) if _dialect_note_enabled() else ""
+        if dialect:
+            system_instruction += f"\n{dialect}\n"
         files_block = files.prompt_block(message) if files else ""
         if files_block:
             system_instruction += f"\n{files_block}\n"
@@ -665,6 +693,7 @@ class ChatOrchestrator:
                 "yes" if has_memory_summary else "no",
             )
 
+            arabic_route = "" if files else _arabic_route(message)
             raw_stream = self.llm_gateway.generate_stream(
                 prompt=message,
                 system_instruction=system_instruction,
@@ -680,6 +709,7 @@ class ChatOrchestrator:
                 # turn goes along so the reply can look at it.
                 **({"long_context": True} if files else {}),
                 **({"images": files.images} if files and files.images else {}),
+                **({"prefer": arabic_route} if arabic_route else {}),
             )
             logger.info(
                 "chat_turn_plan request_id=%s depth=%s reason=%s thinking=%s max_tokens=%s trajectory=%s",
@@ -728,7 +758,13 @@ class ChatOrchestrator:
                 return
 
             completed = True
-            _record_reply_quality(stock_filter.dropped)
+            _record_reply_quality(
+                stock_filter.dropped,
+                message=message,
+                reply="".join(reply_parts),
+                insight_move=context.insight_move,
+                history=history or (),
+            )
             receipt = await asyncio.to_thread(
                 functools.partial(
                     self._persist_turn,

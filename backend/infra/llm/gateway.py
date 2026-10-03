@@ -165,6 +165,19 @@ def _ladder(primary: LadderEntry) -> list[LadderEntry]:
     return out
 
 
+def _prefer(ladder: list[LadderEntry], prefer: Optional[str]) -> list[LadderEntry]:
+    """Try `prefer` ("provider" or "provider:model") first; the rest of the ladder stays as the spares.
+
+    An unknown provider or one without a key is ignored, so a bad setting cannot take chat down.
+    """
+    name, _, model = (prefer or "").strip().partition(":")
+    name = name.strip().lower()
+    if not name or name not in PROVIDERS or not _has_credentials(name):
+        return ladder
+    entry: LadderEntry = (name, model.strip() or None)
+    return [entry, *[e for e in ladder if e != entry]]
+
+
 def _is_rate_limited(exc: BaseException) -> bool:
     from backend.infra.llm.openrouter import OpenAICompatibleError
 
@@ -376,11 +389,13 @@ class LLMGateway:
         thinking_budget: Optional[int] = None,
         images: Optional[Sequence[Any]] = None,
         long_context: bool = False,
+        prefer: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """`images` (VisionImage) or `long_context` (a turn carrying documents) use the
         files answer models (MINDPAL_FILES_CHAT_FALLBACK): they see images, have room
         for pages of text (the small fast chat models cap tokens per minute), and
-        write better in every language."""
+        write better in every language. `prefer` ("provider:model") goes first for a
+        plain chat turn; the usual ladder stays behind it as the spares."""
         if images or long_context:
             from backend.infra.llm.vision import answer_ladder
 
@@ -388,7 +403,7 @@ class LLMGateway:
         else:
             primary = chat_provider()
             primary_model = (model or self.default_model) if primary == "gemini" else _model_for_provider(primary, model, self.default_model)
-            ladder = _ladder((primary, primary_model))
+            ladder = _prefer(_ladder((primary, primary_model)), prefer)
         if not ladder:
             logger.info("llm_fallback_no_credentials provider=%s", primary)
             yield _FALLBACK_STUB
