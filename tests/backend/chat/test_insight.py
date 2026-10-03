@@ -156,3 +156,21 @@ def test_saved_messages_keep_a_valid_move_only() -> None:
     )
     moves = [m.get("insight_move") for m in payload.messages]
     assert moves == ["savor", None]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "انت الي بتقول شهرين كافي",
+        "لا مش كفايه انت بتقول كفايه بناء علي ايه",
+        "you said that earlier, why?",
+        "based on what?",
+    ],
+)
+def test_quoting_the_companion_back_triggers_own_it(message: str) -> None:
+    history = [{"role": "user", "content": "we met two months ago"}, {"role": "assistant", "content": "Two months is plenty."}]
+    assert plan_insight(message, history=history).move == "own_it"
+
+
+def test_own_it_needs_something_to_own() -> None:
+    assert plan_insight("you said it first, I'm just a stranger", history=[]).move != "own_it"

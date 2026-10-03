@@ -89,6 +89,12 @@ _PEOPLE = _rx(
     r"\b(my (mom|mum|mother|dad|father|sister|brother|wife|husband|partner|girlfriend|boyfriend|friend|boss|manager|son|daughter|kids?|family|teacher|colleague|coworker|roommate))\b"
     r"|امي|ابوي|ابي|اختي|اخوي|زوجي|زوجتي|صديقي|صديقتي|مديري|مديرتي|ولدي|بنتي|اهلي|خطيبي|خطيبتي|صاحبي|صاحبتي|استاذي"
 )
+# They are quoting the companion back at itself ("you said X", "based on what?").
+_CHALLENGE = _rx(
+    r"\byou (said|told me|claimed|just said)\b|\bbased on what\b|\bwhy did you say\b|\bwhere did you get\b|\bwhat makes you say\b"
+    r"|انت (الي|اللي|ال[يى]) (بتقول|قلت|قولت|بتقولو)|انت (قلت|قولت|بتقول)|بناء عل[يى] ا[يى]ه|عل[يى] ا[يى] اساس|ل[يى]ه (قلت|قولت)"
+    r"|على ماذا بنيت"
+)
 _WORD = re.compile(r"[a-zء-ي']{3,}")
 
 # ── Moves ───────────────────────────────────────────────────────────────────────
@@ -106,6 +112,7 @@ MOVES: Dict[str, str] = {
     "micro_step": "They want a way forward. Offer ONE concrete step small enough to do today, tied to their exact situation, not a list.",
     "savor": "Good news ({hook}). Celebrate it specifically, then help them notice what they did to make it happen.",
     "new_angle": "They've been circling the same feeling for a while and questions aren't moving it. Don't ask another; offer a perspective they haven't heard yet.",
+    "own_it": "They are quoting you back ({hook}). Find what you actually said in the conversation. If it was unfounded or wrong, say so in one short, plain line (no excuses, no reframing it as if you meant something else), then give something real in its place. Do not repeat a question you already asked.",
     "stay": "They are hurting right now. No technique and no fixing: name what they feel precisely, in their words, and stay with it.",
 }
 QUESTION_MOVES = frozenset({"sharpen"})  # moves that end in a question by design
@@ -208,6 +215,10 @@ def plan_insight(
     scores: Dict[str, float] = {m: 0.0 for m in MOVES}
     hooks: Dict[str, str] = {}
 
+    challenge = _CHALLENGE.search(text)
+    if challenge and last_reply:
+        scores["own_it"] += 4.0
+        hooks["own_it"] = _quote(challenge)
     if fact_q and not help_q:
         scores["answer"] += 3.0
     if help_q:
