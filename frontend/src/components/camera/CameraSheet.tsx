@@ -10,6 +10,7 @@ import {
   applyAdvanced,
   cameraErrorMessage,
   openStream,
+  resetZoom,
   stopStream,
   takePendingStream,
   type CameraAbilities,
@@ -130,11 +131,15 @@ export const CameraSheet: React.FC = () => {
       streamRef.current = stream;
       const video = videoRef.current;
       if (!video) return;
+      // Start from a true 1×: the camera may have kept the zoom it last had.
+      const ability = abilitiesOf(stream);
+      await resetZoom(stream, ability);
+      if (mine !== generation.current) return;
       video.srcObject = stream;
       await video.play().catch(() => {});
       await firstFrame(video);
       if (mine !== generation.current) return;
-      setAbilities(abilitiesOf(stream));
+      setAbilities(ability);
       setZoom(1);
       setPhase('live');
       const devices = await navigator.mediaDevices.enumerateDevices().catch(() => [] as MediaDeviceInfo[]);

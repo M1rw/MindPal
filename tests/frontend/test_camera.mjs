@@ -75,3 +75,35 @@ describe('zoom gestures', () => {
     assert.equal(clampZoom(9, 3), 3);
   });
 });
+
+describe('opening the camera', () => {
+  const streamWith = (zoom, applied) => ({
+    getVideoTracks: () => [
+      {
+        getCapabilities: () => ({ zoom }),
+        applyConstraints: async (constraints) => applied.push(constraints),
+      },
+    ],
+  });
+
+  it('puts a camera that kept its last zoom back to 1x (its minimum)', async () => {
+    const { resetZoom } = await import('../../frontend/src/components/camera/cameraTrack.ts');
+    const applied = [];
+    assert.equal(await resetZoom(streamWith({ min: 1, max: 8 }, applied)), true);
+    assert.deepEqual(applied, [{ advanced: [{ zoom: 1 }] }]);
+  });
+
+  it('uses the minimum of a camera whose range starts below 1', async () => {
+    const { resetZoom } = await import('../../frontend/src/components/camera/cameraTrack.ts');
+    const applied = [];
+    await resetZoom(streamWith({ min: 0.5, max: 4 }, applied));
+    assert.deepEqual(applied, [{ advanced: [{ zoom: 0.5 }] }]);
+  });
+
+  it('leaves a camera without zoom alone', async () => {
+    const { resetZoom } = await import('../../frontend/src/components/camera/cameraTrack.ts');
+    const applied = [];
+    assert.equal(await resetZoom(streamWith(undefined, applied)), false);
+    assert.equal(applied.length, 0);
+  });
+});

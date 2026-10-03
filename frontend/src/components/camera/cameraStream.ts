@@ -54,34 +54,7 @@ export function stopStream(stream: MediaStream | null | undefined): void {
   stream?.getTracks().forEach((track) => track.stop());
 }
 
-/** What the live camera can do beyond a picture: a torch, optical zoom. */
-export interface CameraAbilities {
-  torch: boolean;
-  zoom: { min: number; max: number } | null;
-}
-
-type TrackCapabilities = MediaTrackCapabilities & { torch?: boolean; zoom?: { min: number; max: number } };
-
-export function abilitiesOf(stream: MediaStream | null): CameraAbilities {
-  const track = stream?.getVideoTracks()[0];
-  const caps = (track?.getCapabilities?.() ?? {}) as TrackCapabilities;
-  return {
-    torch: Boolean(caps.torch),
-    zoom: caps.zoom && caps.zoom.max > caps.zoom.min ? { min: caps.zoom.min, max: caps.zoom.max } : null,
-  };
-}
-
-/** Constraints that only some cameras accept; a refusal is not an error worth showing. */
-export async function applyAdvanced(stream: MediaStream | null, constraint: Record<string, unknown>): Promise<boolean> {
-  const track = stream?.getVideoTracks()[0];
-  if (!track) return false;
-  try {
-    await track.applyConstraints({ advanced: [constraint as MediaTrackConstraintSet] });
-    return true;
-  } catch {
-    return false;
-  }
-}
+export { abilitiesOf, applyAdvanced, resetZoom, type CameraAbilities } from './cameraTrack.ts';
 
 /** A sentence for the person, from a getUserMedia failure. */
 export function cameraErrorMessage(error: unknown): string {
